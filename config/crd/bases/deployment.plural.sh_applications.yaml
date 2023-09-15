@@ -36,8 +36,67 @@ spec:
           metadata:
             type: object
           spec:
+            properties:
+              namespace:
+                description: Namespace to sync into.
+                type: string
+              pluralId:
+                description: PluralId is an ID of deployment from Plural.
+                type: string
+              ref:
+                description: Ref to fetch from the repository.
+                type: string
+              repoUrl:
+                description: RepoUrl is a URL of repository to sync.
+                type: string
+              subfolder:
+                description: Subfolder from the repository to work with.
+                type: string
+            required:
+            - namespace
+            - pluralId
+            - ref
+            - repoUrl
+            - subfolder
             type: object
           status:
+            properties:
+              ref:
+                description: Ref shows current ref its synced to.
+                type: string
+              resources:
+                items:
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    status:
+                      description: ApplicationResourceStatus represents current status
+                        of application resource.
+                      enum:
+                      - Pending
+                      - Failed
+                      - Succeeded
+                      type: string
+                    synced:
+                      type: boolean
+                  required:
+                  - apiVersion
+                  - kind
+                  - name
+                  - namespace
+                  - status
+                  - synced
+                  type: object
+                type: array
+            required:
+            - ref
+            - resources
             type: object
         required:
         - metadata
