@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: applications.deployment.plural.sh
+  name: applications.platform.plural.sh
 spec:
-  group: deployment.plural.sh
+  group: platform.plural.sh
   names:
     kind: Application
     listKind: ApplicationList

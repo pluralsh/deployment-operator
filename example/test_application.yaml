@@ -1,0 +1,10 @@
+apiVersion: platform.plural.sh/v1alpha1
+kind: Application
+metadata:
+  name: test
+spec:
+  pluralId: ""
+  repoUrl: https://github.com/pluralsh/deployment-operator
+  ref: 957bde0e71dad665e53f7fcbff43fc2f0e10b0a9
+  subfolder: example/test_application
+  namespace: test

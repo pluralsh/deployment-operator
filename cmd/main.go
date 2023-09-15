@@ -4,7 +4,9 @@ import (
 	"flag"
 	"os"
 
+	"github.com/pluralsh/deployment-operator/apis/platform/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -17,7 +19,9 @@ var (
 	setupLog = log.Logger
 )
 
-func init() {}
+func init() {
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+}
 
 func main() {
 	var enableLeaderElection bool
@@ -43,7 +47,7 @@ func main() {
 		Scheme:                 scheme,
 		Namespace:              namespace,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "deployment.plural.sh",
+		LeaderElectionID:       "platform.plural.sh",
 		MetricsBindAddress:     metricsAddr,
 		HealthProbeBindAddress: probeAddr,
 	})
