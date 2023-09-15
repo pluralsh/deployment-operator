@@ -25,12 +25,8 @@ func init() {
 
 func main() {
 	var enableLeaderElection bool
-	var metricsAddr string
 	var probeAddr string
-	var namespace string
 	var kubeconfig string
-	flag.StringVar(&namespace, "namespace", "default", "The namespace operator runs in")
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
@@ -45,10 +41,8 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		Namespace:              namespace,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "platform.plural.sh",
-		MetricsBindAddress:     metricsAddr,
 		HealthProbeBindAddress: probeAddr,
 	})
 	if err != nil {
@@ -59,7 +53,6 @@ func main() {
 	if err = (&controller.Reconciler{
 		Client:     mgr.GetClient(),
 		Log:        setupLog.Named("deployment-operator"),
-		Namespace:  namespace,
 		Scheme:     scheme,
 		Kubeconfig: kubeconfig,
 	}).SetupWithManager(mgr); err != nil {
