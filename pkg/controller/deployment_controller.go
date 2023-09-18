@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 
-	"github.com/pluralsh/deployment-operator/apis/platform/v1alpha1"
+	"github.com/pluralsh/deployment-api/apis/platform/v1alpha1"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +25,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Application{}).
+		For(&v1alpha1.Deployment{}).
 		Complete(r)
 }
