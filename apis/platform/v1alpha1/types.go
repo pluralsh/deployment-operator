@@ -25,10 +25,7 @@ type ApplicationSpec struct {
 	PluralId string `json:"pluralId"`
 
 	// RepoUrl is a URL of repository to sync.
-	RepoUrl string `json:"repoUrl"`
-
-	// Ref to fetch from the repository.
-	Ref string `json:"ref"`
+	RevisionId string `json:"repoUrl"`
 
 	// Subfolder from the repository to work with.
 	Subfolder string `json:"subfolder"`
