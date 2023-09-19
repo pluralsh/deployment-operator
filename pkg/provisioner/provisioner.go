@@ -9,6 +9,7 @@ import (
 	deploymentspec "github.com/pluralsh/deployment-api/spec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
 )
 
@@ -22,7 +23,7 @@ func NewDefaultProvisionerClient(ctx context.Context, address string, debug bool
 	backoffConfiguration.MaxDelay = maxGrpcBackoff
 
 	dialOpts := []grpc.DialOption{
-		grpc.WithInsecure(), // strictly restricting to local Unix domain socket
+		grpc.WithTransportCredentials(insecure.NewCredentials()), // strictly restricting to local Unix domain socket
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff:           backoffConfiguration,
 			MinConnectTimeout: grpcDialTimeout,
@@ -30,14 +31,14 @@ func NewDefaultProvisionerClient(ctx context.Context, address string, debug bool
 		grpc.WithBlock(), // block until connection succeeds
 	}
 
-	interceptors := []grpc.UnaryClientInterceptor{}
+	var interceptors []grpc.UnaryClientInterceptor
 	if debug {
 		interceptors = append(interceptors, apiLogger)
 	}
 	return NewProvisionerClient(ctx, address, dialOpts, interceptors)
 }
 
-// NewCOSIProvisionerClient creates a new GRPCClient that only supports unix domain sockets
+// NewProvisionerClient creates a new GRPCClient that only supports unix domain sockets
 func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.DialOption, interceptors []grpc.UnaryClientInterceptor) (*ProvisionerClient, error) {
 	addr, err := url.Parse(address)
 	if err != nil {
