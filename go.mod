@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/deployment-api v0.0.0-20230918104547-483e42197d7d
+	github.com/pluralsh/deployment-api v0.0.0-20230919104027-00542f1f7425
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.26.0
 	google.golang.org/grpc v1.58.1
@@ -40,7 +40,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/pluralsh/controller-reconcile-helper v0.0.4 // indirect
+	github.com/pluralsh/controller-reconcile-helper v0.1.0 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
