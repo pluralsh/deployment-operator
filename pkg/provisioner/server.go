@@ -2,17 +2,18 @@ package provisioner
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/url"
 
 	"github.com/pkg/errors"
+	deploymentspec "github.com/pluralsh/deployment-api/spec"
 	"google.golang.org/grpc"
 
-	deploymentspec "github.com/pluralsh/deployment-api/spec"
-	"k8s.io/klog/v2"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-type ProvisionerServer struct {
+type Server struct {
 	address           string
 	identityServer    deploymentspec.IdentityServer
 	provisionerServer deploymentspec.ProvisionerServer
@@ -20,22 +21,22 @@ type ProvisionerServer struct {
 	listenOpts []grpc.ServerOption
 }
 
-func (s *ProvisionerServer) Run(ctx context.Context) error {
+func (s *Server) Run(ctx context.Context) error {
 	addr, err := url.Parse(s.address)
 	if err != nil {
 		return err
 	}
 
 	if addr.Scheme != "unix" {
-		err := errors.New("Address must be a unix domain socket")
-		klog.ErrorS(err, "Unsupported scheme", "expected", "unix", "found", addr.Scheme)
+		msg := fmt.Sprintf("Unsupported scheme: Address must be a unix domain socket")
+		log.Logger.Errorw(msg, "expected", "unix", "found", addr.Scheme)
 		return errors.Wrap(err, "Invalid argument")
 	}
 
 	listenConfig := net.ListenConfig{}
 	listener, err := listenConfig.Listen(ctx, "unix", addr.Path)
 	if err != nil {
-		klog.ErrorS(err, "Failed to start server")
+		log.Logger.Error(err, "Failed to start server")
 		return errors.Wrap(err, "Failed to start server")
 	}
 
@@ -43,7 +44,7 @@ func (s *ProvisionerServer) Run(ctx context.Context) error {
 
 	if s.provisionerServer == nil || s.identityServer == nil {
 		err := errors.New("ProvisionerServer and identity server cannot be nil")
-		klog.ErrorS(err, "Invalid args")
+		log.Logger.Error(err, "Invalid args")
 		return errors.Wrap(err, "Invalid args")
 	}
 
