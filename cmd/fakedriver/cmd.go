@@ -12,10 +12,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const provisionerName = "fake.deployment.plural.sh"
+const provisionerName = "fake.platform.plural.sh"
 
 var (
-	driverAddress = "unix:///var/lib/deployment/deployment.sock"
+	driverAddress = "unix:///tmp/deployment.sock"
 )
 
 var cmd = &cobra.Command{

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"strings"
 	"time"
-
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	"github.com/pluralsh/controller-reconcile-helper/pkg/conditions"
@@ -20,7 +20,6 @@ import (
 	"google.golang.org/grpc/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -74,9 +73,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	deploymentReady := false
-	var deploymentID string
-
 	if deployment.Spec.ExistingDeploymentID == "" {
 		req := &deploymentspec.DriverCreateDeploymentRequest{
 			Parameters: deployment.Spec.Parameters,
@@ -101,29 +97,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		if rsp.DeploymentId != "" {
-			deploymentID = rsp.DeploymentId
-			deploymentReady = true
+			deployment.Spec.ExistingDeploymentID = rsp.DeploymentId
+
 		} else {
 			log.Error(err, "DriverCreateDeployment returned an empty deploymentID")
 			err = errors.New("DriverCreateDeployment returned an empty deploymentID")
 			return ctrl.Result{}, err
 		}
-		conditions.MarkTrue(deployment, platform.DeploymentReadyCondition)
-	} else {
-		deploymentReady = true
-		deploymentID = deployment.Spec.ExistingDeploymentID
-	}
-
-	deployment.Status.Ready = deploymentReady
-	deployment.Status.DeploymentID = deploymentID
-	if err := r.Status().Update(ctx, deployment); err != nil {
-		log.Error(err, "Can't update deployment")
-		return ctrl.Result{}, err
-	}
-
-	if err := kubernetes.TryAddFinalizer(ctx, r.Client, deployment, DeploymentFinalizer); err != nil {
-		log.Error(err, "Can't update finalizer")
-		return ctrl.Result{}, err
+		if err := kubernetes.TryAddFinalizer(ctx, r.Client, deployment, DeploymentFinalizer); err != nil {
+			log.Error(err, "Can't update finalizer")
+			return ctrl.Result{}, err
+		}
 	}
 
 	if err := patchDeployment(ctx, patchHelper, deployment); err != nil {
@@ -132,6 +116,28 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		log.Error(err, "failed to patch Deployment")
 		return ctrl.Result{}, err
+	}
+
+	if !deployment.Status.Ready {
+		req := &deploymentspec.DriverGetDeploymentStatusRequest{
+			DeploymentId: deployment.Spec.ExistingDeploymentID,
+		}
+		rsp, err := r.ProvisionerClient.DriverGetDeploymentStatus(ctx, req)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if rsp.DeploymentStatus.GetReady() {
+			deployment.Status.Ready = true
+			conditions.MarkTrue(deployment, platform.DeploymentReadyCondition)
+			if err := r.Status().Update(ctx, deployment); err != nil {
+				log.Error(err, "Can't update deployment")
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{
+			RequeueAfter: 10 * time.Second,
+		}, nil
 	}
 
 	return ctrl.Result{}, nil

@@ -27,6 +27,18 @@ type ProvisionerServer struct {
 	deployment  map[string]string
 }
 
+func (ps *ProvisionerServer) DriverGetDeploymentStatus(ctx context.Context, request *deploymentspec.DriverGetDeploymentStatusRequest) (*deploymentspec.DriverGetDeploymentStatusResponse, error) {
+	return &deploymentspec.DriverGetDeploymentStatusResponse{
+		DeploymentId: request.DeploymentId,
+		DeploymentStatus: &deploymentspec.DeploymentStatusEnum{
+			Type: &deploymentspec.DeploymentStatusEnum_Ready{
+				Ready: true,
+			},
+		},
+		Message: "",
+	}, nil
+}
+
 func (ps *ProvisionerServer) DriverCreateDeployment(_ context.Context, req *deploymentspec.DriverCreateDeploymentRequest) (*deploymentspec.DriverCreateDeploymentResponse, error) {
 	deploymentName := req.GetName()
 	klog.V(3).InfoS("Create Deployment", "name", deploymentName)
@@ -50,23 +62,6 @@ func (ps *ProvisionerServer) DriverDeleteDeployment(_ context.Context, req *depl
 		}
 	}
 	return &deploymentspec.DriverDeleteDeploymentResponse{}, status.Error(codes.NotFound, "Deployment not found")
-}
-
-// DriverGrantDeploymentAccess call grants access to an account. The account_name in the request shall be used as a unique identifier to create credentials.
-// The account_id returned in the response will be used as the unique identifier for deleting this access when calling DriverRevokeDeploymentAccess.
-func (ps *ProvisionerServer) DriverGrantDeploymentAccess(context.Context, *deploymentspec.DriverGrantDeploymentAccessRequest) (*deploymentspec.DriverGrantDeploymentAccessResponse, error) {
-	resp := &deploymentspec.DriverGrantDeploymentAccessResponse{
-		AccountId:   "abc",
-		Credentials: map[string]*deploymentspec.CredentialDetails{},
-	}
-	resp.Credentials["cred"] = &deploymentspec.CredentialDetails{Secrets: map[string]string{"a": "b"}}
-
-	return resp, nil
-}
-
-// DriverRevokeDeploymentAccess call revokes all access to a particular deployment from a principal.
-func (ps *ProvisionerServer) DriverRevokeDeploymentAccess(context.Context, *deploymentspec.DriverRevokeDeploymentAccessRequest) (*deploymentspec.DriverRevokeDeploymentAccessResponse, error) {
-	return &deploymentspec.DriverRevokeDeploymentAccessResponse{}, nil
 }
 
 type IdentityServer struct {
