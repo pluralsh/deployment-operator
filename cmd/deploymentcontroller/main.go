@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	deploymentspec "github.com/pluralsh/deployment-api/spec"
 	"github.com/pluralsh/deployment-operator/pkg/deployment"
 	"github.com/pluralsh/deployment-operator/pkg/provisioner"
 	"os"
@@ -26,10 +27,15 @@ func init() {
 
 func main() {
 	var enableLeaderElection bool
+	var debug bool
+	var driverAddress string
 
+	flag.BoolVar(&debug, "debug", true,
+		"Enable debug")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&driverAddress, "driver-addr", "unix:///var/lib/deployment/deployment.sock", "path to unix domain socket where driver is listening")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -49,16 +55,20 @@ func main() {
 	}
 
 	ctxInfo := context.Background()
-	provisionerClient, err := provisioner.NewDefaultProvisionerClient(ctxInfo, "unix:///tmp/deployment.sock", true)
+	provisionerClient, err := provisioner.NewDefaultProvisionerClient(ctxInfo, driverAddress, debug)
 	if err != nil {
 		setupLog.Error(err, "unable to create provisioner client")
 		os.Exit(1)
 	}
-
+	info, err := provisionerClient.DriverGetInfo(ctxInfo, &deploymentspec.DriverGetInfoRequest{})
+	if err != nil {
+		setupLog.Error(err, "unable to get driver info")
+		os.Exit(1)
+	}
 	if err = (&deployment.Reconciler{
 		Client:            mgr.GetClient(),
 		Log:               ctrl.Log.WithName("controllers").WithName("Deployment"),
-		DriverName:        "fake.platform.plural.sh",
+		DriverName:        info.Name,
 		ProvisionerClient: provisionerClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Deployment")
