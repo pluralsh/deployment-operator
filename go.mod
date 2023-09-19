@@ -1,10 +1,10 @@
 module github.com/pluralsh/deployment-operator
 
-go 1.19
+go 1.20
 
 require (
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/deployment-api v0.0.0-20230918104021-0cc736175b5f
+	github.com/pluralsh/deployment-api v0.0.0-20230918104547-483e42197d7d
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.26.0
 	google.golang.org/grpc v1.58.1
