@@ -4,30 +4,27 @@ import (
 	"flag"
 	"os"
 
-	"github.com/pluralsh/deployment-api/apis/platform/v1alpha1"
-
-	"github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/log"
+	platform "github.com/pluralsh/deployment-api/apis/platform/v1alpha1"
+	deploymentrequestpackage "github.com/pluralsh/deployment-operator/pkg/deploymentrequest"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	//+kubebuilder:scaffold:imports
 )
 
 var (
 	scheme   = runtime.NewScheme()
-	setupLog = log.Logger
+	setupLog = ctrl.Log.WithName("setup")
 )
 
 func init() {
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(platform.AddToScheme(scheme))
 }
 
 func main() {
 	var enableLeaderElection bool
-	var probeAddr string
-	var kubeconfig string
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -40,23 +37,20 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "platform.plural.sh",
-		HealthProbeBindAddress: probeAddr,
+		Scheme:           scheme,
+		LeaderElection:   enableLeaderElection,
+		LeaderElectionID: "1237ec41.plural.sh",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
 
-	if err = (&controller.Reconciler{
-		Client:     mgr.GetClient(),
-		Log:        setupLog.Named("deployment-operator"),
-		Scheme:     scheme,
-		Kubeconfig: kubeconfig,
+	if err = (&deploymentrequestpackage.Reconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentRequest"),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "deployment")
+		setupLog.Error(err, "unable to create controller", "controller", "DeploymentRequest")
 		os.Exit(1)
 	}
 
