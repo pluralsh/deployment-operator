@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -26,12 +27,10 @@ import (
 )
 
 const (
-	DeploymentAccessFinalizer  = "pluralsh.deployment-operator/deploymentaccess-deployment-protection"
-	DeploymentFinalizer        = "pluralsh.deployment-operator/deployment-protection"
-	DeploymentRequestFinalizer = "pluralsh.deployment-operator/deploymentrequest-protection"
+	DeploymentFinalizer = "pluralsh.deployment-operator/deployment-protection"
 )
 
-// Reconciler reconciles a DeploymentRequest object
+// Reconciler reconciles a Deployment object
 type Reconciler struct {
 	client.Client
 	Log logr.Logger
@@ -58,29 +57,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if !deployment.GetDeletionTimestamp().IsZero() {
-		if controllerutil.ContainsFinalizer(deployment, DeploymentAccessFinalizer) {
-			deploymentReqNs := deployment.Spec.DeploymentRequest.Namespace
-			deploymentReqName := deployment.Spec.DeploymentRequest.Name
-
-			var deploymentAccessList platform.DeploymentAccessList
-			if err := r.List(ctx, &deploymentAccessList, client.InNamespace(deploymentReqNs)); err != nil {
-				log.Error(err, "Failed to get DeploymentAccessList")
-				return ctrl.Result{}, err
-			}
-			for _, deploymentAccess := range deploymentAccessList.Items {
-				if strings.EqualFold(deploymentAccess.Spec.DeploymentRequestName, deploymentReqName) {
-					if err := r.Delete(ctx, &platform.DeploymentAccess{
-						ObjectMeta: metav1.ObjectMeta{Name: deploymentAccess.Name, Namespace: deploymentReqNs},
-					}); err != nil {
-						log.Error(err, "Failed to delete DeploymentAccess")
-						return ctrl.Result{}, err
-					}
-				}
-			}
-			if err := kubernetes.TryRemoveFinalizer(ctx, r.Client, deployment, DeploymentAccessFinalizer); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
 		if controllerutil.ContainsFinalizer(deployment, DeploymentFinalizer) {
 			if err := r.deleteDeploymentOp(ctx, deployment); err != nil {
 				log.Error(err, "Failed to delete Deployment")
@@ -133,31 +109,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 		conditions.MarkTrue(deployment, platform.DeploymentReadyCondition)
-
-		// Now we update the DeploymentReady status of DeploymentRequest
-		if deployment.Spec.DeploymentRequest != nil {
-			ref := deployment.Spec.DeploymentRequest
-
-			deploymentReq := &platform.DeploymentRequest{}
-			if err := r.Get(ctx, client.ObjectKey{
-				Namespace: ref.Namespace,
-				Name:      ref.Name,
-			}, deploymentReq); err != nil {
-				log.Error(err, "Failed to get deployment request")
-				return ctrl.Result{}, err
-			}
-
-			deploymentReq.Status.Ready = true
-			deploymentReq.Status.DeploymentName = deployment.Name
-			if err := r.Status().Update(ctx, deploymentReq); err != nil {
-				if strings.Contains(err.Error(), genericregistry.OptimisticLockErrorMsg) {
-					return reconcile.Result{RequeueAfter: time.Second * 1}, nil
-				}
-				log.Error(err, "Failed to update DeploymentRequest status")
-				return ctrl.Result{}, err
-			}
-			log.Info("Successfully updated status of DeploymentRequest")
-		}
 	} else {
 		deploymentReady = true
 		deploymentID = deployment.Spec.ExistingDeploymentID
@@ -202,21 +153,7 @@ func (r *Reconciler) deleteDeploymentOp(ctx context.Context, deployment *platfor
 		}
 	}
 
-	kubernetes.TryRemoveFinalizer(ctx, r.Client, deployment, DeploymentFinalizer)
-
-	if deployment.Spec.DeploymentRequest != nil {
-		ref := deployment.Spec.DeploymentRequest
-		deploymentRequest := &platform.DeploymentRequest{}
-		if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, deploymentRequest); err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
-			}
-			return nil
-		}
-		return kubernetes.TryRemoveFinalizer(ctx, r.Client, deploymentRequest, DeploymentRequestFinalizer)
-	}
-
-	return nil
+	return kubernetes.TryRemoveFinalizer(ctx, r.Client, deployment, DeploymentFinalizer)
 }
 
 func patchDeployment(ctx context.Context, patchHelper *patch.Helper, deployment *platform.Deployment) error {
@@ -247,4 +184,22 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&platform.Deployment{}).
 		Complete(r)
+}
+
+func genDeployment(class platform.DeploymentClass) *platform.Deployment {
+	name := fmt.Sprintf("%s-%s", class.Name, "todo")
+	return &platform.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: platform.DeploymentSpec{
+			DriverName:          class.DriverName,
+			DeploymentClassName: class.Name,
+			Parameters:          class.Parameters,
+			DeletionPolicy:      class.DeletionPolicy,
+		},
+		Status: platform.DeploymentStatus{
+			Ready:        false,
+			DeploymentID: "",
+			Conditions:   []crhelperTypes.Condition{},
+		},
+	}
 }
