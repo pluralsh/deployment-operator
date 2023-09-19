@@ -10,7 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
-	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 const (
@@ -47,7 +48,7 @@ func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.D
 
 	if addr.Scheme != "unix" {
 		err := errors.New("Address must be a unix domain socket")
-		klog.ErrorS(err, "Unsupported scheme", "expected", "unix", "found", addr.Scheme)
+		log.Logger.Errorw(err.Error(), "Unsupported scheme", "expected", "unix", "found", addr.Scheme)
 		return nil, errors.Wrap(err, "Invalid argument")
 	}
 
@@ -60,7 +61,7 @@ func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.D
 
 	conn, err := grpc.DialContext(ctx, address, dialOpts...)
 	if err != nil {
-		klog.ErrorS(err, "Connection failed", "address", address)
+		log.Logger.Errorw(err.Error(), "Connection failed", "address", address)
 		return nil, err
 	}
 	return &ProvisionerClient{
@@ -85,12 +86,12 @@ func NewProvisionerServer(address string,
 
 	if identityServer == nil {
 		err := errors.New("Identity server cannot be nil")
-		klog.ErrorS(err, "Invalid argument")
+		log.Logger.Errorw(err.Error(), "Invalid argument")
 		return nil, err
 	}
 	if provisionerServer == nil {
 		err := errors.New("Provisioner server cannot be nil")
-		klog.ErrorS(err, "Invalid argument")
+		log.Logger.Errorw(err.Error(), "Invalid argument")
 		return nil, err
 	}
 

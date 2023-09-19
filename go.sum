@@ -83,6 +83,8 @@ github.com/pluralsh/controller-reconcile-helper v0.0.4 h1:1o+7qYSyoeqKFjx+WgQTxD
 github.com/pluralsh/controller-reconcile-helper v0.0.4/go.mod h1:AfY0gtteD6veBjmB6jiRx/aR4yevEf6K0M13/pGan/s=
 github.com/pluralsh/deployment-api v0.0.0-20230918104021-0cc736175b5f h1:uMsQZ+T1NoXtGBB7vAt6TNruMJhue3N6+3kg2fsJXlM=
 github.com/pluralsh/deployment-api v0.0.0-20230918104021-0cc736175b5f/go.mod h1:mtTPhFyajJ31BfFQ7mscZ8lp2bYVpQ3otFJsZWW2/Hw=
+github.com/pluralsh/deployment-api v0.0.0-20230918104547-483e42197d7d h1:KtO3z+/RXzkB2aY+6LXlQzUw6frAa991M1dFIUn6Vhs=
+github.com/pluralsh/deployment-api v0.0.0-20230918104547-483e42197d7d/go.mod h1:mtTPhFyajJ31BfFQ7mscZ8lp2bYVpQ3otFJsZWW2/Hw=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_golang v1.16.0 h1:yk/hx9hDbrGHovbci4BY+pRMfSuuat626eFsHb7tmT8=
