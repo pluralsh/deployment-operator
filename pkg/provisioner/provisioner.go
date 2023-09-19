@@ -2,6 +2,7 @@ package provisioner
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"time"
 
@@ -19,7 +20,7 @@ const (
 	grpcDialTimeout = 30 * time.Second
 )
 
-func NewDefaultProvisionerClient(ctx context.Context, address string, debug bool) (*ProvisionerClient, error) {
+func NewDefaultProvisionerClient(ctx context.Context, address string, debug bool) (*Client, error) {
 	backoffConfiguration := backoff.DefaultConfig
 	backoffConfiguration.MaxDelay = maxGrpcBackoff
 
@@ -40,15 +41,15 @@ func NewDefaultProvisionerClient(ctx context.Context, address string, debug bool
 }
 
 // NewProvisionerClient creates a new GRPCClient that only supports unix domain sockets
-func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.DialOption, interceptors []grpc.UnaryClientInterceptor) (*ProvisionerClient, error) {
+func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.DialOption, interceptors []grpc.UnaryClientInterceptor) (*Client, error) {
 	addr, err := url.Parse(address)
 	if err != nil {
 		return nil, err
 	}
 
 	if addr.Scheme != "unix" {
-		err := errors.New("Address must be a unix domain socket")
-		log.Logger.Errorw(err.Error(), "Unsupported scheme", "expected", "unix", "found", addr.Scheme)
+		msg := fmt.Sprintf("Unsupported scheme: Address must be a unix domain socket")
+		log.Logger.Errorw(msg, "expected", "unix", "found", addr.Scheme)
 		return nil, errors.Wrap(err, "Invalid argument")
 	}
 
@@ -61,10 +62,11 @@ func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.D
 
 	conn, err := grpc.DialContext(ctx, address, dialOpts...)
 	if err != nil {
-		log.Logger.Errorw(err.Error(), "Connection failed", "address", address)
+		msg := fmt.Sprintf("Connection failed: %s", err)
+		log.Logger.Errorw(msg, "address", address)
 		return nil, err
 	}
-	return &ProvisionerClient{
+	return &Client{
 		address:           address,
 		conn:              conn,
 		identityClient:    deploymentspec.NewIdentityClient(conn),
@@ -74,7 +76,7 @@ func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.D
 
 func NewDefaultProvisionerServer(address string,
 	identityServer deploymentspec.IdentityServer,
-	provisionerServer deploymentspec.ProvisionerServer) (*ProvisionerServer, error) {
+	provisionerServer deploymentspec.ProvisionerServer) (*Server, error) {
 
 	return NewProvisionerServer(address, identityServer, provisionerServer, []grpc.ServerOption{})
 }
@@ -82,20 +84,20 @@ func NewDefaultProvisionerServer(address string,
 func NewProvisionerServer(address string,
 	identityServer deploymentspec.IdentityServer,
 	provisionerServer deploymentspec.ProvisionerServer,
-	listenOpts []grpc.ServerOption) (*ProvisionerServer, error) {
+	listenOpts []grpc.ServerOption) (*Server, error) {
 
 	if identityServer == nil {
 		err := errors.New("Identity server cannot be nil")
-		log.Logger.Errorw(err.Error(), "Invalid argument")
+		log.Logger.Error(err, "Invalid argument")
 		return nil, err
 	}
 	if provisionerServer == nil {
 		err := errors.New("Provisioner server cannot be nil")
-		log.Logger.Errorw(err.Error(), "Invalid argument")
+		log.Logger.Error(err, "Invalid argument")
 		return nil, err
 	}
 
-	return &ProvisionerServer{
+	return &Server{
 		address:           address,
 		identityServer:    identityServer,
 		provisionerServer: provisionerServer,

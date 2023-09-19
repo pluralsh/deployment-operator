@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
 	ctrlruntimelzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -121,7 +120,7 @@ func New(debug bool, format Format) *zap.Logger {
 	}
 
 	encCfg := zap.NewProductionEncoderConfig()
-	// Having a dateformat makes it more easy to look at logs outside of something like Kibana
+	// Having a dateformat makes it easier to look at logs outside of something like Kibana
 	encCfg.TimeKey = "time"
 	encCfg.EncodeTime = zapcore.ISO8601TimeEncoder
 
