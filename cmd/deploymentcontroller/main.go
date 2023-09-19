@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"github.com/pluralsh/deployment-operator/pkg/deployment"
+	"github.com/pluralsh/deployment-operator/pkg/provisioner"
 	"os"
 
 	platform "github.com/pluralsh/deployment-api/apis/platform/v1alpha1"
-	deploymentrequestpackage "github.com/pluralsh/deployment-operator/pkg/deploymentrequest"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -46,11 +48,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&deploymentrequestpackage.Reconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentRequest"),
+	ctxInfo := context.Background()
+	provisionerClient, err := provisioner.NewDefaultProvisionerClient(ctxInfo, "unix:///tmp/deployment.sock", true)
+	if err != nil {
+		setupLog.Error(err, "unable to create provisioner client")
+		os.Exit(1)
+	}
+
+	if err = (&deployment.Reconciler{
+		Client:            mgr.GetClient(),
+		Log:               ctrl.Log.WithName("controllers").WithName("Deployment"),
+		DriverName:        "fake.platform.plural.sh",
+		ProvisionerClient: provisionerClient,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeploymentRequest")
+		setupLog.Error(err, "unable to create controller", "controller", "Deployment")
 		os.Exit(1)
 	}
 
