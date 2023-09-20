@@ -5,12 +5,12 @@ import (
 	"flag"
 	"strings"
 
-	"github.com/pluralsh/deployment-operator/fake/pkg/provider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/common/log"
+	"github.com/pluralsh/deployment-operator/fake/pkg/provider"
 	"github.com/pluralsh/deployment-operator/provisioner"
 )
 
@@ -36,11 +36,11 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	flag.Set("alsologtostderr", "true")
-	kflags := flag.NewFlagSet("klog", flag.ExitOnError)
-	klog.InitFlags(kflags)
+	zapFlags := flag.NewFlagSet("zap", flag.ExitOnError)
+	log.DefaultOptions.AddFlags(zapFlags)
 
 	persistentFlags := cmd.PersistentFlags()
-	persistentFlags.AddGoFlagSet(kflags)
+	persistentFlags.AddGoFlagSet(zapFlags)
 
 	stringFlag := persistentFlags.StringVarP
 
