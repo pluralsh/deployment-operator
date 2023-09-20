@@ -3,12 +3,13 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	platform "github.com/pluralsh/deployment-api/apis/platform/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
-	"reflect"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 

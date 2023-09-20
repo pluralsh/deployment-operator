@@ -1,4 +1,4 @@
-FROM golang:1.19.13-alpine3.17 as builder
+FROM golang:1.18.8-alpine3.15 as builder
 
 ARG TARGETARCH
 
@@ -12,16 +12,16 @@ RUN go mod download
 
 # Copy the go source
 COPY /cmd/main.go main.go
-COPY /modules/operator/pkg pkg/
-COPY /apis apis/
+COPY /cmd/cmd.go cmd.go
+COPY /pkg pkg/
 
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-operator main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o database-elastic-driver main.go cmd.go
 
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 
-COPY --from=builder /workspace/deployment-operator .
+COPY --from=builder /workspace/database-elastic-driver .
 USER 65532:65532
-ENTRYPOINT ["/deployment-operator"]
+ENTRYPOINT ["/database-elastic-driver"]

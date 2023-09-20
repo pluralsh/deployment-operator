@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	deploymentspec "github.com/pluralsh/deployment-api/spec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment/common/log"
+	proto "github.com/pluralsh/deployment/provisioner/proto"
 )
 
 const (
@@ -69,21 +69,21 @@ func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.D
 	return &Client{
 		address:           address,
 		conn:              conn,
-		identityClient:    deploymentspec.NewIdentityClient(conn),
-		provisionerClient: deploymentspec.NewProvisionerClient(conn),
+		identityClient:    proto.NewIdentityClient(conn),
+		provisionerClient: proto.NewProvisionerClient(conn),
 	}, nil
 }
 
 func NewDefaultProvisionerServer(address string,
-	identityServer deploymentspec.IdentityServer,
-	provisionerServer deploymentspec.ProvisionerServer) (*Server, error) {
+	identityServer proto.IdentityServer,
+	provisionerServer proto.ProvisionerServer) (*Server, error) {
 
 	return NewProvisionerServer(address, identityServer, provisionerServer, []grpc.ServerOption{})
 }
 
 func NewProvisionerServer(address string,
-	identityServer deploymentspec.IdentityServer,
-	provisionerServer deploymentspec.ProvisionerServer,
+	identityServer proto.IdentityServer,
+	provisionerServer proto.ProvisionerServer,
 	listenOpts []grpc.ServerOption) (*Server, error) {
 
 	if identityServer == nil {
