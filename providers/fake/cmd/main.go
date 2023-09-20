@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"k8s.io/klog/v2"
+	"github.com/pluralsh/deployment-operator/common/log"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 
 	go func() {
 		sig := <-sigs
-		klog.InfoS("Signal received", "type", sig)
+		log.Logger.Infow("Signal received", "type", sig)
 		cancel()
 
 		<-time.After(30 * time.Second)
@@ -27,6 +27,6 @@ func main() {
 	}()
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		klog.ErrorS(err, "Exiting on error")
+		log.Logger.Errorf("exiting on error: %s", err)
 	}
 }

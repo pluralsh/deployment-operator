@@ -13,12 +13,16 @@ import (
 )
 
 func init() {
-	Logger = NewDefault().Sugar()
+	DefaultOptions = NewDefaultOptions()
+	Logger = NewFromOptions(DefaultOptions).Sugar()
 }
 
-var Logger *zap.SugaredLogger
+var (
+	Logger *zap.SugaredLogger
+	DefaultOptions Options
+)
 
-// Options exports a options struct to be used by cmd's.
+// Options exports options struct to be used by cmd's.
 type Options struct {
 	// Enable debug logs
 	Debug bool

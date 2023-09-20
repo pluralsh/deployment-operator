@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
+	"github.com/pluralsh/deployment-operator/common/log"
 	"github.com/pluralsh/deployment-operator/providers/argocd/pkg/provider"
 	"github.com/pluralsh/deployment-operator/provisioner"
 )
@@ -35,11 +36,11 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	flag.Set("alsologtostderr", "true")
-	kflags := flag.NewFlagSet("klog", flag.ExitOnError)
-	//klog.InitFlags(kflags)
+	zapFlags := flag.NewFlagSet("zap", flag.ExitOnError)
+	log.DefaultOptions.AddFlags(zapFlags)
 
 	persistentFlags := cmd.PersistentFlags()
-	persistentFlags.AddGoFlagSet(kflags)
+	persistentFlags.AddGoFlagSet(zapFlags)
 
 	stringFlag := persistentFlags.StringVarP
 
@@ -63,9 +64,9 @@ func run(ctx context.Context, args []string) error {
 		identityServer,
 		deploymentProvisioner)
 	if err != nil {
-		//klog.Errorf("Failed to create provisioner server %v", err)
+		log.Logger.Errorf("Failed to create provisioner server %v", err)
 		return err
 	}
-	//klog.Info("Starting Elastic provisioner")
+	log.Logger.Info("Starting Elastic provisioner")
 	return server.Run(ctx)
 }

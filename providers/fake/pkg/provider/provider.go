@@ -2,15 +2,14 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/util/rand"
-
-	deploymentspec "github.com/pluralsh/deployment-operator/provisioner/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/klog/v2"
+	"k8s.io/apimachinery/pkg/util/rand"
+
+	"github.com/pluralsh/deployment-operator/common/log"
+	deploymentspec "github.com/pluralsh/deployment-operator/provisioner/proto"
 )
 
 func NewProvider(provider string) (*IdentityServer, *Server) {
@@ -41,7 +40,7 @@ func (ps *Server) ProviderGetDeploymentStatus(ctx context.Context, request *depl
 
 func (ps *Server) ProviderCreateDeployment(_ context.Context, req *deploymentspec.ProviderCreateDeploymentRequest) (*deploymentspec.ProviderCreateDeploymentResponse, error) {
 	deploymentName := req.GetName()
-	klog.V(3).InfoS("Create Deployment", "name", deploymentName)
+	log.Logger.Infow("Create Deployment", "name", deploymentName)
 
 	if ps.deployment[deploymentName] != "" {
 		return &deploymentspec.ProviderCreateDeploymentResponse{}, status.Error(codes.AlreadyExists, "Deployment already exists")
@@ -70,7 +69,7 @@ type IdentityServer struct {
 
 func (id *IdentityServer) ProviderGetInfo(context.Context, *deploymentspec.ProviderGetInfoRequest) (*deploymentspec.ProviderGetInfoResponse, error) {
 	if id.provider == "" {
-		klog.ErrorS(errors.New("provider name cannot be empty"), "Invalid argument")
+		log.Logger.Error("provider name cannot be empty", "Invalid argument")
 		return nil, status.Error(codes.InvalidArgument, "ProviderName is empty")
 	}
 
