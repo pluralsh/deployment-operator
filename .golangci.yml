@@ -1,0 +1,26 @@
+run:
+  modules-download-mode: readonly
+
+linters:
+  disable-all: true
+  enable:
+    # default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+    # additional linters
+    - errorlint
+    - errname
+    - gocyclo
+    - goimports
+    - misspell
+    - gofmt
+    - importas
+    - goconst
+    - gocritic
+    - misspell
