@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"strings"
 	"time"
+
+	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	"github.com/pluralsh/controller-reconcile-helper/pkg/conditions"
@@ -69,10 +70,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	if deployment.Status.Ready {
-		return ctrl.Result{}, nil
-	}
-
 	if deployment.Spec.ExistingDeploymentID == "" {
 		req := &deploymentspec.DriverCreateDeploymentRequest{
 			Parameters: deployment.Spec.Parameters,
@@ -97,25 +94,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		if rsp.DeploymentId != "" {
-			deployment.Spec.ExistingDeploymentID = rsp.DeploymentId
-
+			if err := kubernetes.UpdateDeployment(ctx, r.Client, deployment, func(d *platform.Deployment) {
+				d.Spec.ExistingDeploymentID = rsp.DeploymentId
+			}); err != nil {
+				return ctrl.Result{}, err
+			}
 		} else {
 			log.Error(err, "DriverCreateDeployment returned an empty deploymentID")
 			err = errors.New("DriverCreateDeployment returned an empty deploymentID")
 			return ctrl.Result{}, err
 		}
+
 		if err := kubernetes.TryAddFinalizer(ctx, r.Client, deployment, DeploymentFinalizer); err != nil {
 			log.Error(err, "Can't update finalizer")
 			return ctrl.Result{}, err
 		}
-	}
-
-	if err := patchDeployment(ctx, patchHelper, deployment); err != nil {
-		if strings.Contains(err.Error(), genericregistry.OptimisticLockErrorMsg) {
-			return reconcile.Result{RequeueAfter: time.Second * 1}, nil
-		}
-		log.Error(err, "failed to patch Deployment")
-		return ctrl.Result{}, err
 	}
 
 	if !deployment.Status.Ready {
@@ -126,18 +119,28 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if rsp.DeploymentStatus.GetReady() {
-			deployment.Status.Ready = true
-			conditions.MarkTrue(deployment, platform.DeploymentReadyCondition)
-			if err := r.Status().Update(ctx, deployment); err != nil {
-				log.Error(err, "Can't update deployment")
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, nil
+		if !rsp.DeploymentStatus.GetReady() {
+			return ctrl.Result{
+				RequeueAfter: 10 * time.Second,
+			}, nil
 		}
-		return ctrl.Result{
-			RequeueAfter: 10 * time.Second,
-		}, nil
+		if err := kubernetes.UpdateDeploymentStatus(ctx, r.Client, deployment, func(d *platform.Deployment) {
+			d.Status.Ready = true
+			d.Status.DeploymentID = deployment.Spec.ExistingDeploymentID
+			d.Status.Ref = deployment.Spec.Ref
+			d.Status.Resources = []platform.DeploymentResource{}
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	conditions.MarkTrue(deployment, platform.DeploymentReadyCondition)
+	if err := patchDeployment(ctx, patchHelper, deployment); err != nil {
+		if strings.Contains(err.Error(), genericregistry.OptimisticLockErrorMsg) {
+			return reconcile.Result{RequeueAfter: time.Second * 1}, nil
+		}
+		log.Error(err, "failed to patch Deployment")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
