@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/go-logr/logr v1.2.4
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
-	google.golang.org/grpc v1.54.0
+	google.golang.org/grpc v1.54.1
 	k8s.io/apimachinery v0.28.2
 	k8s.io/apiserver v0.28.1
 	k8s.io/client-go v0.28.1
