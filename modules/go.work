@@ -1,9 +1,0 @@
-go 1.21
-
-use (
-	./api
-	./argocd-driver
-	./common
-	./operator
-	./provisioner
-)

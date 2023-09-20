@@ -1,0 +1,185 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.3
+  creationTimestamp: null
+  name: deployments.platform.plural.sh
+spec:
+  group: platform.plural.sh
+  names:
+    kind: Deployment
+    listKind: DeploymentList
+    plural: deployments
+    singular: deployment
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - description: Deployment ready status
+      jsonPath: .status.ready
+      name: Ready
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Deployment is a definition of Deployment resource.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              deletionPolicy:
+                default: Retain
+                description: 'DeletionPolicy is used to specify how to handle deletion.
+                  There are 2 possible values: - Retain: Indicates that the Deployment
+                  should not be deleted (default) - Delete: Indicates that the Deployment
+                  should be deleted'
+                type: string
+              deploymentClassName:
+                description: Name of the DeploymentClass
+                type: string
+              driverName:
+                description: DriverName is the name of driver associated with this
+                  deployment operator
+                type: string
+              existingDeploymentID:
+                description: ExistingDeploymentID is the unique id of the deployment.
+                  This field will be empty when the Deployment is dynamically provisioned
+                  by operator.
+                type: string
+              namespace:
+                description: Namespace to sync into.
+                type: string
+              parameters:
+                additionalProperties:
+                  type: string
+                type: object
+              pluralId:
+                description: PluralId is an ID of deployment from Plural.
+                type: string
+              ref:
+                description: Ref shows desired ref.
+                type: string
+              repoUrl:
+                description: RepoUrl is a URL of repository to sync.
+                type: string
+              subfolder:
+                description: Subfolder from the repository to work with.
+                type: string
+            required:
+            - deploymentClassName
+            - driverName
+            - namespace
+            - pluralId
+            - ref
+            - repoUrl
+            - subfolder
+            type: object
+          status:
+            properties:
+              conditions:
+                description: Conditions defines current state.
+                items:
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
+                      type: string
+                    severity:
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              deploymentID:
+                description: DeploymentID is the unique id of the deployment.
+                type: string
+              ready:
+                description: Ready is a boolean condition to reflect the successful
+                  creation of a deployment.
+                type: boolean
+              ref:
+                description: Ref shows current ref its synced to.
+                type: string
+              resources:
+                items:
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    status:
+                      description: DeploymentResourceStatus represents current status
+                        of application resource.
+                      enum:
+                      - Pending
+                      - Failed
+                      - Succeeded
+                      type: string
+                    synced:
+                      type: boolean
+                  required:
+                  - apiVersion
+                  - kind
+                  - name
+                  - namespace
+                  - status
+                  - synced
+                  type: object
+                type: array
+            required:
+            - ref
+            - resources
+            type: object
+        required:
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
