@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/pluralsh/deployment-operator/argocd-driver/pkg/driver"
+	"github.com/pluralsh/deployment-operator/argocddriver/pkg/driver"
 	"github.com/pluralsh/deployment-operator/provisioner"
 )
 

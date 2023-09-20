@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/pluralsh/deployment-operator/argocd-driver/pkg/argocd"
+	"github.com/pluralsh/deployment-operator/argocddriver/pkg/argocd"
 	proto "github.com/pluralsh/deployment-operator/provisioner/proto"
 )
 
