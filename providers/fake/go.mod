@@ -3,13 +3,13 @@ module github.com/pluralsh/deployment-operator/fake
 go 1.21
 
 require (
+	github.com/pluralsh/deployment-operator/common v0.0.0-00010101000000-000000000000
 	github.com/pluralsh/deployment-operator/provisioner v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	google.golang.org/grpc v1.58.1
 	k8s.io/apimachinery v0.28.2
-	k8s.io/klog/v2 v2.100.1
 )
 
 require (
@@ -28,7 +28,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pluralsh/deployment-operator/common v0.0.0-00010101000000-000000000000 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -44,6 +43,7 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2 // indirect
 	sigs.k8s.io/controller-runtime v0.16.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect

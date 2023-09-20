@@ -6,6 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/pluralsh/deployment-operator/common/log"
 )
 
 func main() {
@@ -16,8 +18,8 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		_ = <-sigs
-		//klog.InfoS("Signal received", "type", sig)
+		sig := <-sigs
+		log.Logger.Infow("Signal received", "type", sig)
 		cancel()
 
 		<-time.After(30 * time.Second)
@@ -25,6 +27,6 @@ func main() {
 	}()
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		//klog.ErrorS(err, "Exiting on error")
+		log.Logger.Errorf("exiting on error: %s", err)
 	}
 }
