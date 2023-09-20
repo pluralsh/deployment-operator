@@ -1,62 +1,48 @@
-# Image URL to use all building/pushing image targets
-IMG ?= deployment-operator:latest
-CRD_OPTIONS ?= "crd"
+MODULES_DIRECTORY := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+API_DIRECTORY = $(MODULES_DIRECTORY)/api
+COMMON_DIRECTORY = $(MODULES_DIRECTORY)/common
+OPERATOR_DIRECTORY = $(MODULES_DIRECTORY)/operator
+PROVIDER_DIRECTORY = $(MODULES_DIRECTORY)/providers
+ARGOCD_PROVIDER_DIRECTORY = $(PROVIDER_DIRECTORY)/argocd
+FAKE_PROVIDER_DIRECTORY = $(PROVIDER_DIRECTORY)/fake
+PROVISIONER_DIRECTORY = $(MODULES_DIRECTORY)/provisioner
+MODULES := $(API_DIRECTORY) $(COMMON_DIRECTORY) $(OPERATOR_DIRECTORY) $(ARGOCD_PROVIDER_DIRECTORY) $(FAKE_PROVIDER_DIRECTORY) $(PROVISIONER_DIRECTORY)
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+MAKEFLAGS += -j2
 
-OPENAPI_PATH=$(GOPATH)/src/k8s.io/kube-openapi
+.PHONY: --run $(MODULES)
+--run: $(MODULES)
+
+$(MODULES):
+	@$(MAKE) --directory=$@ $(TARGET)
 
 ##@ General
 
-# The help target prints out all targets with their descriptions organized
-# beneath their categories. The categories are represented by '##@' and the
-# target descriptions by '##'. The awk commands is responsible for reading the
-# entire set of makefiles included in this invocation, looking for lines of the
-# file as xyz: ## something, and then pretty-format the target and help. Then,
-# if there's a line with ##@ something, that gets pretty-printed as a category.
-# More info on the usage of ANSI control characters for terminal formatting:
-# https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
-# More info on the awk command:
-# http://linuxcommand.org/lc3_adv_awk.php
-
-help:
+.PHONY: help
+help: ## show help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-all: build ## TODO
+##@ Build
 
-fmt: ## Formats the code
-	go fmt ./...
+# TODO: build target is not defined for all modules at the moment.
+.PHONY: build
+build: ## build all modules
+	@$(MAKE) --no-print-directory -C $(MODULES_DIRECTORY) TARGET=build
 
-vet: ## Examines code to find potential errors and suspicious constructs
-	go vet ./...
+##@ Code quality
 
-lint: ## Lints the code
+.PHONY: check
+check: fmt vet lint ## run all code quality checks
+
+.PHONY: fmt
+fmt: ## format code
+	@$(MAKE) --no-print-directory -C $(MODULES_DIRECTORY) TARGET=fmt
+
+.PHONY: vet
+vet: ## examine code to find potential errors and suspicious constructs
+	@$(MAKE) --no-print-directory -C $(MODULES_DIRECTORY) TARGET=vet
+
+# TODO: It doesn't seem to work when running with make. Should we remove vet since it already includes it?
+.PHONY: lint
+lint: ## lint code
 	docker run -t --rm -v $$(pwd):/app -v ~/.cache/golangci-lint/v1.54.2:/root/.cache -w /app golangci/golangci-lint:v1.54.2 golangci-lint run -v --fix
-
-docker-build: ## TODO
-	docker build --no-cache -t ${IMG} .
-
-docker-push: ## TODO
-	docker push ${IMG}
-
-build: fmt vet ## TODO
-	go build -o bin/deployment-controller cmd/main.go
-
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef

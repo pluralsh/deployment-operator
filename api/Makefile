@@ -31,7 +31,7 @@ build: manifests generate ## generate manifests and code
 fmt: ## format code
 	go fmt ./...
 
-vet: ## examine code and report suspicious constructs
+vet: ## examine code to find potential errors and suspicious constructs
 	go vet ./...
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
