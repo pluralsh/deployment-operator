@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment/common/log"
 )
 
 func apiLogger(ctx context.Context, api string,

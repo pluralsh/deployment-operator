@@ -7,23 +7,23 @@ import (
 	"strings"
 	"time"
 
-	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	"github.com/go-logr/logr"
 	"github.com/pluralsh/controller-reconcile-helper/pkg/conditions"
 	"github.com/pluralsh/controller-reconcile-helper/pkg/patch"
 	crhelperTypes "github.com/pluralsh/controller-reconcile-helper/pkg/types"
-	platform "github.com/pluralsh/deployment-api/apis/platform/v1alpha1"
-	deploymentspec "github.com/pluralsh/deployment-api/spec"
-	"github.com/pluralsh/deployment-operator/pkg/kubernetes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	platform "github.com/pluralsh/deployment/api/apis/platform/v1alpha1"
+	"github.com/pluralsh/deployment/operator/pkg/kubernetes"
+	proto "github.com/pluralsh/deployment/provisioner/proto"
 )
 
 const (
@@ -36,7 +36,7 @@ type Reconciler struct {
 	Log logr.Logger
 
 	DriverName        string
-	ProvisionerClient deploymentspec.ProvisionerClient
+	ProvisionerClient proto.ProvisionerClient
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -71,7 +71,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if deployment.Spec.ExistingDeploymentID == "" {
-		req := &deploymentspec.DriverCreateDeploymentRequest{
+		req := &proto.DriverCreateDeploymentRequest{
 			Parameters: deployment.Spec.Parameters,
 			Name:       deployment.ObjectMeta.Name,
 		}
@@ -112,7 +112,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if !deployment.Status.Ready {
-		req := &deploymentspec.DriverGetDeploymentStatusRequest{
+		req := &proto.DriverGetDeploymentStatusRequest{
 			DeploymentId: deployment.Spec.ExistingDeploymentID,
 		}
 		rsp, err := r.ProvisionerClient.DriverGetDeploymentStatus(ctx, req)
@@ -152,7 +152,7 @@ func (r *Reconciler) deleteDeploymentOp(ctx context.Context, deployment *platfor
 	}
 
 	if deployment.Spec.DeletionPolicy == platform.DeletionPolicyDelete {
-		req := &deploymentspec.DriverDeleteDeploymentRequest{
+		req := &proto.DriverDeleteDeploymentRequest{
 			DeploymentId: deployment.Status.DeploymentID,
 		}
 		if _, err := r.ProvisionerClient.DriverDeleteDeployment(ctx, req); err != nil {

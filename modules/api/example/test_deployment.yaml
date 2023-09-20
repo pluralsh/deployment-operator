@@ -1,0 +1,12 @@
+apiVersion: platform.plural.sh/v1alpha1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  pluralId: ""
+  repoUrl: https://github.com/pluralsh/deployment-api
+  ref: 957bde0e71dad665e53f7fcbff43fc2f0e10b0a9
+  subfolder: example/test_deployment
+  namespace: test
+  driverName: fake.platform.plural.sh
+  deploymentClassName: fake

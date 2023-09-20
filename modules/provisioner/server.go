@@ -7,16 +7,16 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
-	deploymentspec "github.com/pluralsh/deployment-api/spec"
 	"google.golang.org/grpc"
 
-	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment/common/log"
+	proto "github.com/pluralsh/deployment/provisioner/proto"
 )
 
 type Server struct {
 	address           string
-	identityServer    deploymentspec.IdentityServer
-	provisionerServer deploymentspec.ProvisionerServer
+	identityServer    proto.IdentityServer
+	provisionerServer proto.ProvisionerServer
 
 	listenOpts []grpc.ServerOption
 }
@@ -48,8 +48,8 @@ func (s *Server) Run(ctx context.Context) error {
 		return errors.Wrap(err, "Invalid args")
 	}
 
-	deploymentspec.RegisterIdentityServer(server, s.identityServer)
-	deploymentspec.RegisterProvisionerServer(server, s.provisionerServer)
+	proto.RegisterIdentityServer(server, s.identityServer)
+	proto.RegisterProvisionerServer(server, s.provisionerServer)
 
 	errChan := make(chan error)
 	go func() {
