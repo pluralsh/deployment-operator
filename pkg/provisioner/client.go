@@ -19,6 +19,10 @@ type Client struct {
 	provisionerClient deploymentspec.ProvisionerClient
 }
 
+func (c *Client) DriverGetDeploymentStatus(ctx context.Context, in *deploymentspec.DriverGetDeploymentStatusRequest, opts ...grpc.CallOption) (*deploymentspec.DriverGetDeploymentStatusResponse, error) {
+	return c.provisionerClient.DriverGetDeploymentStatus(ctx, in, opts...)
+}
+
 func (c *Client) DriverGetInfo(ctx context.Context,
 	in *deploymentspec.DriverGetInfoRequest,
 	opts ...grpc.CallOption) (*deploymentspec.DriverGetInfoResponse, error) {
@@ -38,18 +42,4 @@ func (c *Client) DriverDeleteDeployment(ctx context.Context,
 	opts ...grpc.CallOption) (*deploymentspec.DriverDeleteDeploymentResponse, error) {
 
 	return c.provisionerClient.DriverDeleteDeployment(ctx, in, opts...)
-}
-
-func (c *Client) DriverGrantDeploymentAccess(ctx context.Context,
-	in *deploymentspec.DriverGrantDeploymentAccessRequest,
-	opts ...grpc.CallOption) (*deploymentspec.DriverGrantDeploymentAccessResponse, error) {
-
-	return c.provisionerClient.DriverGrantDeploymentAccess(ctx, in, opts...)
-}
-
-func (c *Client) DriverRevokeDeploymentAccess(ctx context.Context,
-	in *deploymentspec.DriverRevokeDeploymentAccessRequest,
-	opts ...grpc.CallOption) (*deploymentspec.DriverRevokeDeploymentAccessResponse, error) {
-
-	return c.provisionerClient.DriverRevokeDeploymentAccess(ctx, in, opts...)
 }
