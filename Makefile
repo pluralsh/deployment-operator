@@ -11,8 +11,6 @@ endif
 
 OPENAPI_PATH=$(GOPATH)/src/k8s.io/kube-openapi
 
-all: build
-
 ##@ General
 
 # The help target prints out all targets with their descriptions organized
@@ -29,19 +27,24 @@ all: build
 help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-fmt:
+all: build ## TODO
+
+fmt: ## Formats the code
 	go fmt ./...
 
-vet:
+vet: ## Examines code to find potential errors and suspicious constructs
 	go vet ./...
 
-docker-build:
+lint: ## Lints the code
+	docker run -t --rm -v $$(pwd):/app -v ~/.cache/golangci-lint/v1.54.2:/root/.cache -w /app golangci/golangci-lint:v1.54.2 golangci-lint run -v --fix
+
+docker-build: ## TODO
 	docker build --no-cache -t ${IMG} .
 
-docker-push:
+docker-push: ## TODO
 	docker push ${IMG}
 
-build: fmt vet
+build: fmt vet ## TODO
 	go build -o bin/deployment-controller cmd/main.go
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
