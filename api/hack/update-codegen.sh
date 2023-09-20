@@ -23,5 +23,5 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-
 bash "${CODEGEN_PKG}"/generate-groups.sh "client,lister,informer" \
   ${MODULE}/${OUTPUT_PKG} ${MODULE}/${APIS_PKG} \
   ${GROUP_VERSION} \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt \
+  --go-header-file "${SCRIPT_ROOT}"/../boilerplate.go.txt \
   --output-base "${SCRIPT_ROOT}"
