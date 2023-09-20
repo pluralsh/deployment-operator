@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/spf13/pflag v1.0.5
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 	sigs.k8s.io/controller-runtime v0.16.2
 )
 
@@ -18,8 +18,8 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/net v0.13.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/net v0.15.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
