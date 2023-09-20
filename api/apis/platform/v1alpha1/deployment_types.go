@@ -37,14 +37,11 @@ type DeploymentSpec struct {
 	// PluralId is an ID of deployment from Plural.
 	PluralId string `json:"pluralId"`
 
-	// RepoUrl is a URL of repository to sync.
-	RepoUrl string `json:"repoUrl"`
+	// RevisionId is ID of revision to sync.
+	RevisionId string `json:"revisionId"`
 
 	// Subfolder from the repository to work with.
 	Subfolder string `json:"subfolder"`
-
-	// Ref shows desired ref.
-	Ref string `json:"ref"`
 
 	// Namespace to sync into.
 	Namespace string `json:"namespace"`

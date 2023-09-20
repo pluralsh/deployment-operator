@@ -68,11 +68,8 @@ spec:
                 description: ProviderName is the name of provider associated with
                   this deployment operator
                 type: string
-              ref:
-                description: Ref shows desired ref.
-                type: string
-              repoUrl:
-                description: RepoUrl is a URL of repository to sync.
+              revisionId:
+                description: RevisionId is ID of revision to sync.
                 type: string
               subfolder:
                 description: Subfolder from the repository to work with.
@@ -82,8 +79,7 @@ spec:
             - namespace
             - pluralId
             - providerName
-            - ref
-            - repoUrl
+            - revisionId
             - subfolder
             type: object
           status:
