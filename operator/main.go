@@ -29,14 +29,14 @@ func init() {
 func main() {
 	var enableLeaderElection bool
 	var debug bool
-	var driverAddress string
+	var providerAddress string
 
 	flag.BoolVar(&debug, "debug", true,
 		"Enable debug")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&driverAddress, "driver-addr", "unix:///var/lib/deployment/deployment.sock", "path to unix domain socket where driver is listening")
+	flag.StringVar(&providerAddress, "provider-addr", "unix:///var/lib/deployment/deployment.sock", "path to unix domain socket where provider is listening")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -56,20 +56,20 @@ func main() {
 	}
 
 	ctxInfo := context.Background()
-	provisionerClient, err := provisioner.NewDefaultProvisionerClient(ctxInfo, driverAddress, debug)
+	provisionerClient, err := provisioner.NewDefaultProvisionerClient(ctxInfo, providerAddress, debug)
 	if err != nil {
 		setupLog.Error(err, "unable to create provisioner client")
 		os.Exit(1)
 	}
-	info, err := provisionerClient.DriverGetInfo(ctxInfo, &proto.DriverGetInfoRequest{})
+	info, err := provisionerClient.ProviderGetInfo(ctxInfo, &proto.ProviderGetInfoRequest{})
 	if err != nil {
-		setupLog.Error(err, "unable to get driver info")
+		setupLog.Error(err, "unable to get provider info")
 		os.Exit(1)
 	}
 	if err = (&deployment.Reconciler{
 		Client:            mgr.GetClient(),
 		Log:               ctrl.Log.WithName("controllers").WithName("Deployment"),
-		DriverName:        info.Name,
+		ProviderName:      info.Name,
 		ProvisionerClient: provisionerClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Deployment")

@@ -53,8 +53,8 @@ extend google.protobuf.ServiceOptions {
 
 service Identity {
     // This call is meant to retrieve the unique provisioner Identity.
-    // This identity will have to be set in DeploymentClaim.DriverName field in order to invoke this specific provisioner.
-    rpc DriverGetInfo (DriverGetInfoRequest) returns (DriverGetInfoResponse) {}
+    // This identity will have to be set in DeploymentClaim.ProviderName field in order to invoke this specific provisioner.
+    rpc ProviderGetInfo (ProviderGetInfoRequest) returns (ProviderGetInfoResponse) {}
 }
 
 service Provisioner {
@@ -62,12 +62,12 @@ service Provisioner {
     // This call is idempotent
     //    1. If a deployment that matches both name and parameters already exists, then OK (success) must be returned.
     //    2. If a deployment by same name, but different parameters is provided, then the appropriate error code ALREADY_EXISTS must be returned.
-    rpc DriverCreateDeployment (DriverCreateDeploymentRequest) returns (DriverCreateDeploymentResponse) {}
+    rpc ProviderCreateDeployment (ProviderCreateDeploymentRequest) returns (ProviderCreateDeploymentResponse) {}
     // This call is made to delete the deployment in the backend.
     // If the deployment has already been deleted, then no error should be returned.
-    rpc DriverDeleteDeployment (DriverDeleteDeploymentRequest) returns (DriverDeleteDeploymentResponse) {}
+    rpc ProviderDeleteDeployment (ProviderDeleteDeploymentRequest) returns (ProviderDeleteDeploymentResponse) {}
 
-    rpc DriverGetDeploymentStatus (DriverGetDeploymentStatusRequest) returns (DriverGetDeploymentStatusResponse) {}
+    rpc ProviderGetDeploymentStatus (ProviderGetDeploymentStatusRequest) returns (ProviderGetDeploymentStatusResponse) {}
 }
 
 // S3SignatureVersion is the version of the signing algorithm for all s3 requests
@@ -112,11 +112,11 @@ message CredentialDetails {
     map<string, string> secrets = 1;
 }
 
-message DriverGetInfoRequest {
+message ProviderGetInfoRequest {
     // Intentionally left blank
 }
 
-message DriverGetInfoResponse {
+message ProviderGetInfoResponse {
     // This field is REQUIRED
     // The name MUST follow domain name notation format
     // (https://tools.ietf.org/html/rfc1035#section-2.3.1). It SHOULD
@@ -128,7 +128,7 @@ message DriverGetInfoResponse {
     string name = 1;
 }
 
-message DriverCreateDeploymentRequest {
+message ProviderCreateDeploymentRequest {
     // This field is REQUIRED
     // name specifies the name of the deployment that should be created.
     string name = 1;
@@ -139,27 +139,27 @@ message DriverCreateDeploymentRequest {
     map<string,string> parameters = 2;
 }
 
-message DriverCreateDeploymentResponse {
+message ProviderCreateDeploymentResponse {
     // deployment_id returned here is expected to be the globally unique 
     // identifier for the deployment in the object storage provider.
     string deployment_id = 1;
 }
 
-message DriverDeleteDeploymentRequest {
+message ProviderDeleteDeploymentRequest {
     // This field is REQUIRED
     // deployment_id is a globally unique identifier for the deployment
     // in the object storage provider 
     string deployment_id = 1;
 }
 
-message DriverGetDeploymentStatusRequest {
+message ProviderGetDeploymentStatusRequest {
     // This field is REQUIRED
     // deployment_id is a globally unique identifier for the deployment
     // in the object storage provider
     string deployment_id = 1;
 }
 
-message DriverGetDeploymentStatusResponse {
+message ProviderGetDeploymentStatusResponse {
     // deployment_id returned here is expected to be the globally unique
     // identifier for the deployment in the object storage provider.
     string deployment_id = 1;
@@ -168,6 +168,6 @@ message DriverGetDeploymentStatusResponse {
     string message = 3;
 }
 
-message DriverDeleteDeploymentResponse {
+message ProviderDeleteDeploymentResponse {
     // Intentionally left blank
 }

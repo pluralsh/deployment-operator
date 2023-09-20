@@ -5,6 +5,7 @@ import (
 	"flag"
 	"strings"
 
+	"github.com/pluralsh/deployment-operator/fake/pkg/provider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -13,15 +14,15 @@ import (
 	"github.com/pluralsh/deployment-operator/provisioner"
 )
 
-const provisionerName = "fake.platform.plural.sh"
+const providerName = "fake.platform.plural.sh"
 
 var (
-	driverAddress = "unix:///tmp/deployment.sock"
+	providerAddress = "unix:///tmp/deployment.sock"
 )
 
 var cmd = &cobra.Command{
-	Use:           "fake-deployment-driver",
-	Short:         "K8s deployment driver for Fake deployment",
+	Use:           "fake-deployment-provider",
+	Short:         "K8s deployment provider for Fake deployment",
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,11 +44,11 @@ func init() {
 
 	stringFlag := persistentFlags.StringVarP
 
-	stringFlag(&driverAddress,
-		"driver-addr",
+	stringFlag(&providerAddress,
+		"provider-addr",
 		"d",
-		driverAddress,
-		"path to unix domain socket where driver should listen")
+		providerAddress,
+		"path to unix domain socket where provider should listen")
 	viper.BindPFlags(cmd.PersistentFlags())
 	cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 		if viper.IsSet(f.Name) && viper.GetString(f.Name) != "" {
@@ -57,8 +58,8 @@ func init() {
 }
 
 func run(ctx context.Context, args []string) error {
-	identityServer, bucketProvisioner := NewDriver(provisionerName)
-	server, err := provisioner.NewDefaultProvisionerServer(driverAddress,
+	identityServer, bucketProvisioner := provider.NewProvider(providerName)
+	server, err := provisioner.NewDefaultProvisionerServer(providerAddress,
 		identityServer,
 		bucketProvisioner)
 	if err != nil {
