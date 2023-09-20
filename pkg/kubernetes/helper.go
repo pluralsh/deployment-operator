@@ -3,11 +3,12 @@ package kubernetes
 import (
 	"context"
 	"fmt"
-
+	platform "github.com/pluralsh/deployment-api/apis/platform/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
+	"reflect"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -99,4 +100,48 @@ func TryAddFinalizer(ctx context.Context, client ctrlruntimeclient.Client, obj c
 	}
 
 	return nil
+}
+
+type DeploymentPatchFunc func(deployment *platform.Deployment)
+
+// UpdateDeployment will attempt to patch the deployment.
+func UpdateDeployment(ctx context.Context, client ctrlruntimeclient.Client, deployment *platform.Deployment, patch DeploymentPatchFunc) error {
+	key := ctrlruntimeclient.ObjectKeyFromObject(deployment)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// fetch the current state of the cluster
+		if err := client.Get(ctx, key, deployment); err != nil {
+			return err
+		}
+
+		// modify it
+		original := deployment.DeepCopy()
+		patch(deployment)
+
+		// update the status
+		return client.Patch(ctx, deployment, ctrlruntimeclient.MergeFrom(original))
+	})
+}
+
+func UpdateDeploymentStatus(ctx context.Context, client ctrlruntimeclient.Client, deployment *platform.Deployment, patch DeploymentPatchFunc) error {
+	key := ctrlruntimeclient.ObjectKeyFromObject(deployment)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// fetch the current state of the cluster
+		if err := client.Get(ctx, key, deployment); err != nil {
+			return err
+		}
+
+		// modify it
+		original := deployment.DeepCopy()
+		patch(deployment)
+
+		// save some work
+		if reflect.DeepEqual(original.Status, deployment.Status) {
+			return nil
+		}
+
+		// update the status
+		return client.Status().Patch(ctx, deployment, ctrlruntimeclient.MergeFrom(original))
+	})
 }
