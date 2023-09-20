@@ -1,6 +1,6 @@
 module github.com/pluralsh/deployment/api
 
-go 1.21.0
+go 1.21
 
 require (
 	github.com/pluralsh/controller-reconcile-helper v0.1.0

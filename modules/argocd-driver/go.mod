@@ -1,6 +1,6 @@
 module github.com/pluralsh/deployment/argocd-driver
 
-go 1.21.0
+go 1.21
 
 require (
 	github.com/argoproj/argo-cd/v2 v2.8.4
