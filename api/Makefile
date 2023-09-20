@@ -34,7 +34,7 @@ manifests: controller-gen
 
 generate: controller-gen
 	go generate ./pkg/...
-	$(CONTROLLER_GEN) object:headerFile="../../hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 
 fmt:
 	go fmt ./...

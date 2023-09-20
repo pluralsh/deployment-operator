@@ -1,4 +1,4 @@
-module github.com/pluralsh/deployment-operator/argocddriver
+module github.com/pluralsh/deployment-operator/providers/argocd
 
 go 1.21
 
@@ -166,8 +166,8 @@ require (
 
 // Local workspace modules
 replace (
-	github.com/pluralsh/deployment-operator/common => ./../common
-	github.com/pluralsh/deployment-operator/provisioner => ./../provisioner
+	github.com/pluralsh/deployment-operator/common => ./../../common
+	github.com/pluralsh/deployment-operator/provisioner => ./../../provisioner
 )
 
 // ArgoCD replace to fix build

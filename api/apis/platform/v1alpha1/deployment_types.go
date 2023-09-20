@@ -49,8 +49,8 @@ type DeploymentSpec struct {
 	// Namespace to sync into.
 	Namespace string `json:"namespace"`
 
-	// DriverName is the name of driver associated with this deployment operator
-	DriverName string `json:"driverName"`
+	// ProviderName is the name of provider associated with this deployment operator
+	ProviderName string `json:"providerName"`
 
 	// Name of the DeploymentClass
 	DeploymentClassName string `json:"deploymentClassName"`

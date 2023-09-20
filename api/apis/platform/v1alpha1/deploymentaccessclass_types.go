@@ -32,14 +32,14 @@ type DeploymentAccessClass struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// DriverName is the name of driver associated with
+	// ProviderName is the name of provider associated with
 	// this DeploymentAccess
-	DriverName string `json:"driverName"`
+	ProviderName string `json:"providerName"`
 
 	// AuthenticationType denotes the style of authentication
 	AuthenticationType AuthenticationType `json:"authenticationType"`
 
-	// Parameters is an opaque map for passing in configuration to a driver
+	// Parameters is an opaque map for passing in configuration to a provider
 	// for granting access to the deployment
 	// +optional
 	Parameters map[string]string `json:"parameters,omitempty"`

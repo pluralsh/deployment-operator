@@ -20,27 +20,27 @@ type Client struct {
 	provisionerClient proto.ProvisionerClient
 }
 
-func (c *Client) DriverGetDeploymentStatus(ctx context.Context, in *proto.DriverGetDeploymentStatusRequest, opts ...grpc.CallOption) (*proto.DriverGetDeploymentStatusResponse, error) {
-	return c.provisionerClient.DriverGetDeploymentStatus(ctx, in, opts...)
+func (c *Client) ProviderGetDeploymentStatus(ctx context.Context, in *proto.ProviderGetDeploymentStatusRequest, opts ...grpc.CallOption) (*proto.ProviderGetDeploymentStatusResponse, error) {
+	return c.provisionerClient.ProviderGetDeploymentStatus(ctx, in, opts...)
 }
 
-func (c *Client) DriverGetInfo(ctx context.Context,
-	in *proto.DriverGetInfoRequest,
-	opts ...grpc.CallOption) (*proto.DriverGetInfoResponse, error) {
+func (c *Client) ProviderGetInfo(ctx context.Context,
+	in *proto.ProviderGetInfoRequest,
+	opts ...grpc.CallOption) (*proto.ProviderGetInfoResponse, error) {
 
-	return c.identityClient.DriverGetInfo(ctx, in, opts...)
+	return c.identityClient.ProviderGetInfo(ctx, in, opts...)
 }
 
-func (c *Client) DriverCreateDeployment(ctx context.Context,
-	in *proto.DriverCreateDeploymentRequest,
-	opts ...grpc.CallOption) (*proto.DriverCreateDeploymentResponse, error) {
+func (c *Client) ProviderCreateDeployment(ctx context.Context,
+	in *proto.ProviderCreateDeploymentRequest,
+	opts ...grpc.CallOption) (*proto.ProviderCreateDeploymentResponse, error) {
 
-	return c.provisionerClient.DriverCreateDeployment(ctx, in, opts...)
+	return c.provisionerClient.ProviderCreateDeployment(ctx, in, opts...)
 }
 
-func (c *Client) DriverDeleteDeployment(ctx context.Context,
-	in *proto.DriverDeleteDeploymentRequest,
-	opts ...grpc.CallOption) (*proto.DriverDeleteDeploymentResponse, error) {
+func (c *Client) ProviderDeleteDeployment(ctx context.Context,
+	in *proto.ProviderDeleteDeploymentRequest,
+	opts ...grpc.CallOption) (*proto.ProviderDeleteDeploymentResponse, error) {
 
-	return c.provisionerClient.DriverDeleteDeployment(ctx, in, opts...)
+	return c.provisionerClient.ProviderDeleteDeployment(ctx, in, opts...)
 }

@@ -35,7 +35,7 @@ type Reconciler struct {
 	client.Client
 	Log logr.Logger
 
-	DriverName        string
+	ProviderName      string
 	ProvisionerClient proto.ProvisionerClient
 }
 
@@ -66,16 +66,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	if !strings.EqualFold(deployment.Spec.DriverName, r.DriverName) {
+	if !strings.EqualFold(deployment.Spec.ProviderName, r.ProviderName) {
 		return ctrl.Result{}, nil
 	}
 
 	if deployment.Spec.ExistingDeploymentID == "" {
-		req := &proto.DriverCreateDeploymentRequest{
+		req := &proto.ProviderCreateDeploymentRequest{
 			Parameters: deployment.Spec.Parameters,
 			Name:       deployment.ObjectMeta.Name,
 		}
-		rsp, err := r.ProvisionerClient.DriverCreateDeployment(ctx, req)
+		rsp, err := r.ProvisionerClient.ProviderCreateDeployment(ctx, req)
 		if err != nil {
 			if status.Code(err) != codes.AlreadyExists {
 				conditions.MarkFalse(deployment, platform.DeploymentReadyCondition, platform.FailedToCreateDeploymentReason, crhelperTypes.ConditionSeverityError, err.Error())
@@ -83,13 +83,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 					log.Error(err, "failed to patch Deployment")
 					return ctrl.Result{}, err
 				}
-				log.Error(err, "Driver failed to create deployment")
+				log.Error(err, "Provider failed to create deployment")
 				return ctrl.Result{}, err
 			}
 		}
 		if rsp == nil {
-			err = errors.New("DriverCreateDeployment returned a nil response")
-			log.Error(err, "Internal Error from driver")
+			err = errors.New("ProviderCreateDeployment returned a nil response")
+			log.Error(err, "Internal Error from provider")
 			return ctrl.Result{}, err
 		}
 
@@ -100,8 +100,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				return ctrl.Result{}, err
 			}
 		} else {
-			log.Error(err, "DriverCreateDeployment returned an empty deploymentID")
-			err = errors.New("DriverCreateDeployment returned an empty deploymentID")
+			log.Error(err, "ProviderCreateDeployment returned an empty deploymentID")
+			err = errors.New("ProviderCreateDeployment returned an empty deploymentID")
 			return ctrl.Result{}, err
 		}
 
@@ -112,10 +112,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if !deployment.Status.Ready {
-		req := &proto.DriverGetDeploymentStatusRequest{
+		req := &proto.ProviderGetDeploymentStatusRequest{
 			DeploymentId: deployment.Spec.ExistingDeploymentID,
 		}
-		rsp, err := r.ProvisionerClient.DriverGetDeploymentStatus(ctx, req)
+		rsp, err := r.ProvisionerClient.ProviderGetDeploymentStatus(ctx, req)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -147,15 +147,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 func (r *Reconciler) deleteDeploymentOp(ctx context.Context, deployment *platform.Deployment) error {
-	if !strings.EqualFold(deployment.Spec.DriverName, r.DriverName) {
+	if !strings.EqualFold(deployment.Spec.ProviderName, r.ProviderName) {
 		return nil
 	}
 
 	if deployment.Spec.DeletionPolicy == platform.DeletionPolicyDelete {
-		req := &proto.DriverDeleteDeploymentRequest{
+		req := &proto.ProviderDeleteDeploymentRequest{
 			DeploymentId: deployment.Status.DeploymentID,
 		}
-		if _, err := r.ProvisionerClient.DriverDeleteDeployment(ctx, req); err != nil {
+		if _, err := r.ProvisionerClient.ProviderDeleteDeployment(ctx, req); err != nil {
 			if status.Code(err) != codes.NotFound {
 				return err
 			}
@@ -200,7 +200,7 @@ func genDeployment(class platform.DeploymentClass) *platform.Deployment {
 	return &platform.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: platform.DeploymentSpec{
-			DriverName:          class.DriverName,
+			ProviderName:        class.ProviderName,
 			DeploymentClassName: class.Name,
 			Parameters:          class.Parameters,
 			DeletionPolicy:      class.DeletionPolicy,

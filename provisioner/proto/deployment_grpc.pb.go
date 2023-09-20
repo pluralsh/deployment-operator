@@ -7,11 +7,10 @@
 package deployment
 
 import (
-	"context"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	context "context"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -24,8 +23,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type IdentityClient interface {
 	// This call is meant to retrieve the unique provisioner Identity.
-	// This identity will have to be set in DeploymentClaim.DriverName field in order to invoke this specific provisioner.
-	DriverGetInfo(ctx context.Context, in *DriverGetInfoRequest, opts ...grpc.CallOption) (*DriverGetInfoResponse, error)
+	// This identity will have to be set in DeploymentClaim.ProviderName field in order to invoke this specific provisioner.
+	ProviderGetInfo(ctx context.Context, in *ProviderGetInfoRequest, opts ...grpc.CallOption) (*ProviderGetInfoResponse, error)
 }
 
 type identityClient struct {
@@ -36,9 +35,9 @@ func NewIdentityClient(cc grpc.ClientConnInterface) IdentityClient {
 	return &identityClient{cc}
 }
 
-func (c *identityClient) DriverGetInfo(ctx context.Context, in *DriverGetInfoRequest, opts ...grpc.CallOption) (*DriverGetInfoResponse, error) {
-	out := new(DriverGetInfoResponse)
-	err := c.cc.Invoke(ctx, "/deployment.v1alpha1.Identity/DriverGetInfo", in, out, opts...)
+func (c *identityClient) ProviderGetInfo(ctx context.Context, in *ProviderGetInfoRequest, opts ...grpc.CallOption) (*ProviderGetInfoResponse, error) {
+	out := new(ProviderGetInfoResponse)
+	err := c.cc.Invoke(ctx, "/deployment.v1alpha1.Identity/ProviderGetInfo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -50,16 +49,16 @@ func (c *identityClient) DriverGetInfo(ctx context.Context, in *DriverGetInfoReq
 // for forward compatibility
 type IdentityServer interface {
 	// This call is meant to retrieve the unique provisioner Identity.
-	// This identity will have to be set in DeploymentClaim.DriverName field in order to invoke this specific provisioner.
-	DriverGetInfo(context.Context, *DriverGetInfoRequest) (*DriverGetInfoResponse, error)
+	// This identity will have to be set in DeploymentClaim.ProviderName field in order to invoke this specific provisioner.
+	ProviderGetInfo(context.Context, *ProviderGetInfoRequest) (*ProviderGetInfoResponse, error)
 }
 
 // UnimplementedIdentityServer should be embedded to have forward compatible implementations.
 type UnimplementedIdentityServer struct {
 }
 
-func (UnimplementedIdentityServer) DriverGetInfo(context.Context, *DriverGetInfoRequest) (*DriverGetInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DriverGetInfo not implemented")
+func (UnimplementedIdentityServer) ProviderGetInfo(context.Context, *ProviderGetInfoRequest) (*ProviderGetInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProviderGetInfo not implemented")
 }
 
 // UnsafeIdentityServer may be embedded to opt out of forward compatibility for this service.
@@ -73,20 +72,20 @@ func RegisterIdentityServer(s grpc.ServiceRegistrar, srv IdentityServer) {
 	s.RegisterService(&Identity_ServiceDesc, srv)
 }
 
-func _Identity_DriverGetInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DriverGetInfoRequest)
+func _Identity_ProviderGetInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProviderGetInfoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IdentityServer).DriverGetInfo(ctx, in)
+		return srv.(IdentityServer).ProviderGetInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/deployment.v1alpha1.Identity/DriverGetInfo",
+		FullMethod: "/deployment.v1alpha1.Identity/ProviderGetInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IdentityServer).DriverGetInfo(ctx, req.(*DriverGetInfoRequest))
+		return srv.(IdentityServer).ProviderGetInfo(ctx, req.(*ProviderGetInfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -99,8 +98,8 @@ var Identity_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*IdentityServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "DriverGetInfo",
-			Handler:    _Identity_DriverGetInfo_Handler,
+			MethodName: "ProviderGetInfo",
+			Handler:    _Identity_ProviderGetInfo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -115,11 +114,11 @@ type ProvisionerClient interface {
 	// This call is idempotent
 	//  1. If a deployment that matches both name and parameters already exists, then OK (success) must be returned.
 	//  2. If a deployment by same name, but different parameters is provided, then the appropriate error code ALREADY_EXISTS must be returned.
-	DriverCreateDeployment(ctx context.Context, in *DriverCreateDeploymentRequest, opts ...grpc.CallOption) (*DriverCreateDeploymentResponse, error)
+	ProviderCreateDeployment(ctx context.Context, in *ProviderCreateDeploymentRequest, opts ...grpc.CallOption) (*ProviderCreateDeploymentResponse, error)
 	// This call is made to delete the deployment in the backend.
 	// If the deployment has already been deleted, then no error should be returned.
-	DriverDeleteDeployment(ctx context.Context, in *DriverDeleteDeploymentRequest, opts ...grpc.CallOption) (*DriverDeleteDeploymentResponse, error)
-	DriverGetDeploymentStatus(ctx context.Context, in *DriverGetDeploymentStatusRequest, opts ...grpc.CallOption) (*DriverGetDeploymentStatusResponse, error)
+	ProviderDeleteDeployment(ctx context.Context, in *ProviderDeleteDeploymentRequest, opts ...grpc.CallOption) (*ProviderDeleteDeploymentResponse, error)
+	ProviderGetDeploymentStatus(ctx context.Context, in *ProviderGetDeploymentStatusRequest, opts ...grpc.CallOption) (*ProviderGetDeploymentStatusResponse, error)
 }
 
 type provisionerClient struct {
@@ -130,27 +129,27 @@ func NewProvisionerClient(cc grpc.ClientConnInterface) ProvisionerClient {
 	return &provisionerClient{cc}
 }
 
-func (c *provisionerClient) DriverCreateDeployment(ctx context.Context, in *DriverCreateDeploymentRequest, opts ...grpc.CallOption) (*DriverCreateDeploymentResponse, error) {
-	out := new(DriverCreateDeploymentResponse)
-	err := c.cc.Invoke(ctx, "/deployment.v1alpha1.Provisioner/DriverCreateDeployment", in, out, opts...)
+func (c *provisionerClient) ProviderCreateDeployment(ctx context.Context, in *ProviderCreateDeploymentRequest, opts ...grpc.CallOption) (*ProviderCreateDeploymentResponse, error) {
+	out := new(ProviderCreateDeploymentResponse)
+	err := c.cc.Invoke(ctx, "/deployment.v1alpha1.Provisioner/ProviderCreateDeployment", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *provisionerClient) DriverDeleteDeployment(ctx context.Context, in *DriverDeleteDeploymentRequest, opts ...grpc.CallOption) (*DriverDeleteDeploymentResponse, error) {
-	out := new(DriverDeleteDeploymentResponse)
-	err := c.cc.Invoke(ctx, "/deployment.v1alpha1.Provisioner/DriverDeleteDeployment", in, out, opts...)
+func (c *provisionerClient) ProviderDeleteDeployment(ctx context.Context, in *ProviderDeleteDeploymentRequest, opts ...grpc.CallOption) (*ProviderDeleteDeploymentResponse, error) {
+	out := new(ProviderDeleteDeploymentResponse)
+	err := c.cc.Invoke(ctx, "/deployment.v1alpha1.Provisioner/ProviderDeleteDeployment", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *provisionerClient) DriverGetDeploymentStatus(ctx context.Context, in *DriverGetDeploymentStatusRequest, opts ...grpc.CallOption) (*DriverGetDeploymentStatusResponse, error) {
-	out := new(DriverGetDeploymentStatusResponse)
-	err := c.cc.Invoke(ctx, "/deployment.v1alpha1.Provisioner/DriverGetDeploymentStatus", in, out, opts...)
+func (c *provisionerClient) ProviderGetDeploymentStatus(ctx context.Context, in *ProviderGetDeploymentStatusRequest, opts ...grpc.CallOption) (*ProviderGetDeploymentStatusResponse, error) {
+	out := new(ProviderGetDeploymentStatusResponse)
+	err := c.cc.Invoke(ctx, "/deployment.v1alpha1.Provisioner/ProviderGetDeploymentStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -165,25 +164,25 @@ type ProvisionerServer interface {
 	// This call is idempotent
 	//  1. If a deployment that matches both name and parameters already exists, then OK (success) must be returned.
 	//  2. If a deployment by same name, but different parameters is provided, then the appropriate error code ALREADY_EXISTS must be returned.
-	DriverCreateDeployment(context.Context, *DriverCreateDeploymentRequest) (*DriverCreateDeploymentResponse, error)
+	ProviderCreateDeployment(context.Context, *ProviderCreateDeploymentRequest) (*ProviderCreateDeploymentResponse, error)
 	// This call is made to delete the deployment in the backend.
 	// If the deployment has already been deleted, then no error should be returned.
-	DriverDeleteDeployment(context.Context, *DriverDeleteDeploymentRequest) (*DriverDeleteDeploymentResponse, error)
-	DriverGetDeploymentStatus(context.Context, *DriverGetDeploymentStatusRequest) (*DriverGetDeploymentStatusResponse, error)
+	ProviderDeleteDeployment(context.Context, *ProviderDeleteDeploymentRequest) (*ProviderDeleteDeploymentResponse, error)
+	ProviderGetDeploymentStatus(context.Context, *ProviderGetDeploymentStatusRequest) (*ProviderGetDeploymentStatusResponse, error)
 }
 
 // UnimplementedProvisionerServer should be embedded to have forward compatible implementations.
 type UnimplementedProvisionerServer struct {
 }
 
-func (UnimplementedProvisionerServer) DriverCreateDeployment(context.Context, *DriverCreateDeploymentRequest) (*DriverCreateDeploymentResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DriverCreateDeployment not implemented")
+func (UnimplementedProvisionerServer) ProviderCreateDeployment(context.Context, *ProviderCreateDeploymentRequest) (*ProviderCreateDeploymentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProviderCreateDeployment not implemented")
 }
-func (UnimplementedProvisionerServer) DriverDeleteDeployment(context.Context, *DriverDeleteDeploymentRequest) (*DriverDeleteDeploymentResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DriverDeleteDeployment not implemented")
+func (UnimplementedProvisionerServer) ProviderDeleteDeployment(context.Context, *ProviderDeleteDeploymentRequest) (*ProviderDeleteDeploymentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProviderDeleteDeployment not implemented")
 }
-func (UnimplementedProvisionerServer) DriverGetDeploymentStatus(context.Context, *DriverGetDeploymentStatusRequest) (*DriverGetDeploymentStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DriverGetDeploymentStatus not implemented")
+func (UnimplementedProvisionerServer) ProviderGetDeploymentStatus(context.Context, *ProviderGetDeploymentStatusRequest) (*ProviderGetDeploymentStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProviderGetDeploymentStatus not implemented")
 }
 
 // UnsafeProvisionerServer may be embedded to opt out of forward compatibility for this service.
@@ -197,56 +196,56 @@ func RegisterProvisionerServer(s grpc.ServiceRegistrar, srv ProvisionerServer) {
 	s.RegisterService(&Provisioner_ServiceDesc, srv)
 }
 
-func _Provisioner_DriverCreateDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DriverCreateDeploymentRequest)
+func _Provisioner_ProviderCreateDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProviderCreateDeploymentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProvisionerServer).DriverCreateDeployment(ctx, in)
+		return srv.(ProvisionerServer).ProviderCreateDeployment(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/deployment.v1alpha1.Provisioner/DriverCreateDeployment",
+		FullMethod: "/deployment.v1alpha1.Provisioner/ProviderCreateDeployment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProvisionerServer).DriverCreateDeployment(ctx, req.(*DriverCreateDeploymentRequest))
+		return srv.(ProvisionerServer).ProviderCreateDeployment(ctx, req.(*ProviderCreateDeploymentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Provisioner_DriverDeleteDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DriverDeleteDeploymentRequest)
+func _Provisioner_ProviderDeleteDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProviderDeleteDeploymentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProvisionerServer).DriverDeleteDeployment(ctx, in)
+		return srv.(ProvisionerServer).ProviderDeleteDeployment(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/deployment.v1alpha1.Provisioner/DriverDeleteDeployment",
+		FullMethod: "/deployment.v1alpha1.Provisioner/ProviderDeleteDeployment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProvisionerServer).DriverDeleteDeployment(ctx, req.(*DriverDeleteDeploymentRequest))
+		return srv.(ProvisionerServer).ProviderDeleteDeployment(ctx, req.(*ProviderDeleteDeploymentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Provisioner_DriverGetDeploymentStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DriverGetDeploymentStatusRequest)
+func _Provisioner_ProviderGetDeploymentStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProviderGetDeploymentStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProvisionerServer).DriverGetDeploymentStatus(ctx, in)
+		return srv.(ProvisionerServer).ProviderGetDeploymentStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/deployment.v1alpha1.Provisioner/DriverGetDeploymentStatus",
+		FullMethod: "/deployment.v1alpha1.Provisioner/ProviderGetDeploymentStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProvisionerServer).DriverGetDeploymentStatus(ctx, req.(*DriverGetDeploymentStatusRequest))
+		return srv.(ProvisionerServer).ProviderGetDeploymentStatus(ctx, req.(*ProviderGetDeploymentStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -259,16 +258,16 @@ var Provisioner_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ProvisionerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "DriverCreateDeployment",
-			Handler:    _Provisioner_DriverCreateDeployment_Handler,
+			MethodName: "ProviderCreateDeployment",
+			Handler:    _Provisioner_ProviderCreateDeployment_Handler,
 		},
 		{
-			MethodName: "DriverDeleteDeployment",
-			Handler:    _Provisioner_DriverDeleteDeployment_Handler,
+			MethodName: "ProviderDeleteDeployment",
+			Handler:    _Provisioner_ProviderDeleteDeployment_Handler,
 		},
 		{
-			MethodName: "DriverGetDeploymentStatus",
-			Handler:    _Provisioner_DriverGetDeploymentStatus_Handler,
+			MethodName: "ProviderGetDeploymentStatus",
+			Handler:    _Provisioner_ProviderGetDeploymentStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

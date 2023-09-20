@@ -15,13 +15,12 @@ COPY /cmd/main.go main.go
 COPY /cmd/cmd.go cmd.go
 COPY /pkg pkg/
 
-
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o database-elastic-driver main.go cmd.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-argocd-provider main.go cmd.go
 
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 
-COPY --from=builder /workspace/database-elastic-driver .
+COPY --from=builder /workspace/deployment-argocd-provider .
 USER 65532:65532
-ENTRYPOINT ["/database-elastic-driver"]
+ENTRYPOINT ["/deployment-argocd-provider"]

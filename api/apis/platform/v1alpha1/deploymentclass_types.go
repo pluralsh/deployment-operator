@@ -37,10 +37,10 @@ type DeploymentClass struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// DriverName is the name of driver associated with this deployment
-	DriverName string `json:"driverName"`
+	// ProviderName is the name of provider associated with this deployment
+	ProviderName string `json:"providerName"`
 
-	// Parameters is an opaque map for passing in configuration to a driver
+	// Parameters is an opaque map for passing in configuration to a provider
 	// for creating the deployment
 	// +optional
 	Parameters map[string]string `json:"parameters,omitempty"`

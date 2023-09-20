@@ -1,4 +1,4 @@
-module github.com/pluralsh/deployment-operator/fakedriver
+module github.com/pluralsh/deployment-operator/fake
 
 go 1.21
 
@@ -52,6 +52,6 @@ require (
 
 // Local workspace modules
 replace (
-	github.com/pluralsh/deployment-operator/common => ./../common
-	github.com/pluralsh/deployment-operator/provisioner => ./../provisioner
+	github.com/pluralsh/deployment-operator/common => ./../../common
+	github.com/pluralsh/deployment-operator/provisioner => ./../../provisioner
 )

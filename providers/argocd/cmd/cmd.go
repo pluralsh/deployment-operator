@@ -9,19 +9,19 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/pluralsh/deployment-operator/argocddriver/pkg/driver"
+	"github.com/pluralsh/deployment-operator/providers/argocd/pkg/provider"
 	"github.com/pluralsh/deployment-operator/provisioner"
 )
 
-const provisionerName = "argocd.platform.plural.sh"
+const providerName = "argocd.platform.plural.sh"
 
 var (
-	driverAddress = "unix:///var/lib/database/database.sock"
+	providerAddress = "unix:///var/lib/database/database.sock"
 )
 
 var cmd = &cobra.Command{
-	Use:           "argocd-deployment-driver",
-	Short:         "K8s deployment driver for ArgoCD",
+	Use:           "argocd-deployment-provider",
+	Short:         "K8s deployment provider for ArgoCD",
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,11 +43,11 @@ func init() {
 
 	stringFlag := persistentFlags.StringVarP
 
-	stringFlag(&driverAddress,
-		"driver-addr",
+	stringFlag(&providerAddress,
+		"provider-addr",
 		"d",
-		driverAddress,
-		"path to unix domain socket where driver should listen")
+		providerAddress,
+		"path to unix domain socket where provider should listen")
 
 	viper.BindPFlags(cmd.PersistentFlags())
 	cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
@@ -58,9 +58,8 @@ func init() {
 }
 
 func run(ctx context.Context, args []string) error {
-
-	identityServer, deploymentProvisioner := driver.NewDriver(provisionerName)
-	server, err := provisioner.NewDefaultProvisionerServer(driverAddress,
+	identityServer, deploymentProvisioner := provider.NewProvider(providerName)
+	server, err := provisioner.NewDefaultProvisionerServer(providerAddress,
 		identityServer,
 		deploymentProvisioner)
 	if err != nil {

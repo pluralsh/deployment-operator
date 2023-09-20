@@ -2,9 +2,9 @@ go 1.21
 
 use (
 	./api
-	./argocddriver
+	./providers/argocd
 	./common
 	./operator
 	./provisioner
-	./fakedriver
+	./providers/fake
 )

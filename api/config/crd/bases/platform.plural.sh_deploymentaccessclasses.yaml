@@ -27,9 +27,6 @@ spec:
           authenticationType:
             description: AuthenticationType denotes the style of authentication
             type: string
-          driverName:
-            description: DriverName is the name of driver associated with this DeploymentAccess
-            type: string
           kind:
             description: 'Kind is a string value representing the REST resource this
               object represents. Servers may infer this from the endpoint the client
@@ -41,11 +38,15 @@ spec:
             additionalProperties:
               type: string
             description: Parameters is an opaque map for passing in configuration
-              to a driver for granting access to the deployment
+              to a provider for granting access to the deployment
             type: object
+          providerName:
+            description: ProviderName is the name of provider associated with this
+              DeploymentAccess
+            type: string
         required:
         - authenticationType
-        - driverName
+        - providerName
         type: object
     served: true
     storage: true

@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= database-elastic-driver:latest
+IMG ?= deployment-argocd-provider:latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -23,14 +23,14 @@ all: build
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
 
-help: ## Display this help.
+help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
-fmt: ## Run go fmt against code.
+fmt:
 	go fmt ./...
 
-vet: ## Run go vet against code.
+vet:
 	go vet ./...
 
 test:
@@ -38,12 +38,12 @@ test:
 
 ##@ Build
 
-build: fmt vet ## Build driver.
-	go build -o bin/database-postgres-driver cmd/main.go cmd/cmd.go
+build: fmt vet
+	go build -o bin/deployment-argocd-provider cmd/main.go cmd/cmd.go
 
-docker-build: ## Build docker image with the driver.
+docker-build:
 	docker build -t ${IMG} .
 
-docker-push: ## Push docker image with the driver.
+docker-push:
 	docker push ${IMG}
 

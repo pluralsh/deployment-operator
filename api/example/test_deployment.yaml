@@ -8,5 +8,5 @@ spec:
   ref: 957bde0e71dad665e53f7fcbff43fc2f0e10b0a9
   subfolder: example/test_deployment
   namespace: test
-  driverName: fake.platform.plural.sh
+  providerName: fake.platform.plural.sh
   deploymentClassName: fake
