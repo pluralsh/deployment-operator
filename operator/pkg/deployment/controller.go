@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -193,22 +191,4 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&platform.Deployment{}).
 		Complete(r)
-}
-
-func genDeployment(class platform.DeploymentClass) *platform.Deployment {
-	name := fmt.Sprintf("%s-%s", class.Name, "todo")
-	return &platform.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: platform.DeploymentSpec{
-			ProviderName:        class.ProviderName,
-			DeploymentClassName: class.Name,
-			Parameters:          class.Parameters,
-			DeletionPolicy:      class.DeletionPolicy,
-		},
-		Status: platform.DeploymentStatus{
-			Ready:        false,
-			DeploymentID: "",
-			Conditions:   []crhelperTypes.Condition{},
-		},
-	}
 }

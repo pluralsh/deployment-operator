@@ -143,7 +143,7 @@ func New(debug bool, format Format) *zap.Logger {
 		zap.ErrorOutput(sink),
 	}
 
-	//coreLog := zapcore.NewCore(&ctrlruntimelzap.KubeAwareEncoder{Encoder: enc}, sink, lvl)
+	// coreLog := zapcore.NewCore(&ctrlruntimelzap.KubeAwareEncoder{Encoder: enc}, sink, lvl)
 	coreLog := zapcore.NewCore(enc, sink, lvl)
 	return zap.New(coreLog, opts...)
 }

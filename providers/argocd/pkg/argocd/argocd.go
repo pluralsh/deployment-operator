@@ -35,14 +35,14 @@ func (c *Argocd) DeleteApplication(ctx context.Context, namespace, name, project
 	defer closer.Close()
 
 	flagTrue := true
-	appClient.Delete(ctx, &applicationpkg.ApplicationDeleteRequest{
+	_, err = appClient.Delete(ctx, &applicationpkg.ApplicationDeleteRequest{
 		Name:              &name,
 		Cascade:           &flagTrue,
 		PropagationPolicy: nil,
 		AppNamespace:      &namespace,
 		Project:           &project,
 	})
-	return nil
+	return err
 }
 
 func (c *Argocd) GetApplicationStatus(ctx context.Context, namespace, name, project string) (*v1alpha1.ApplicationStatus, error) {
