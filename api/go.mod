@@ -18,6 +18,7 @@ require (
 	github.com/stretchr/testify v1.8.4 // indirect
 	golang.org/x/net v0.15.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/tools v0.10.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/api v0.28.1 // indirect
