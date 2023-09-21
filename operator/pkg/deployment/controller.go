@@ -70,8 +70,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if deployment.Spec.ExistingDeploymentID == "" {
 		req := &proto.ProviderCreateDeploymentRequest{
+			Name:      deployment.ObjectMeta.Name,
+			Namespace: deployment.Spec.Namespace,
+			Git: &proto.GitRef{
+				Ref:    deployment.Spec.Git.Ref,
+				Folder: deployment.Spec.Git.Folder,
+			},
+			Revision: &proto.Revision{
+				Version: deployment.Spec.Revision.Version,
+			},
 			Parameters: deployment.Spec.Parameters,
-			Name:       deployment.ObjectMeta.Name,
 		}
 		rsp, err := r.ProvisionerClient.ProviderCreateDeployment(ctx, req)
 		if err != nil {
@@ -111,7 +119,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if !deployment.Status.Ready {
 		req := &proto.ProviderGetDeploymentStatusRequest{
-			DeploymentId: deployment.Spec.ExistingDeploymentID,
+			Name:       deployment.Name,
+			Namespace:  deployment.Spec.Namespace,
+			Parameters: map[string]string{},
 		}
 		rsp, err := r.ProvisionerClient.ProviderGetDeploymentStatus(ctx, req)
 		if err != nil {

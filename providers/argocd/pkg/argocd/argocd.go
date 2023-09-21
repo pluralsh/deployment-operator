@@ -45,16 +45,15 @@ func (c *Argocd) DeleteApplication(ctx context.Context, namespace, name, project
 	return err
 }
 
-func (c *Argocd) GetApplicationStatus(ctx context.Context, namespace, name, project string) (*v1alpha1.ApplicationStatus, error) {
+func (c *Argocd) GetApplicationStatus(ctx context.Context, name, project string) (*v1alpha1.ApplicationStatus, error) {
 	closer, appClient, err := c.NewApplicationClient()
 	if err != nil {
 		return nil, err
 	}
 	defer closer.Close()
 	app, err := appClient.Get(ctx, &applicationpkg.ApplicationQuery{
-		Name:         &name,
-		Project:      []string{project},
-		AppNamespace: &namespace,
+		Name:    &name,
+		Project: []string{project},
 	})
 	if err != nil {
 		return nil, err
