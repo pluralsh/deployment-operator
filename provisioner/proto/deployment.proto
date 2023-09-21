@@ -128,15 +128,27 @@ message ProviderGetInfoResponse {
     string name = 1;
 }
 
+message GitRef {
+    string ref = 1;
+    string folder = 2;
+}
+
+message Revision {
+    string version = 1;
+    GitRef git = 2;
+}
+
 message ProviderCreateDeploymentRequest {
     // This field is REQUIRED
     // name specifies the name of the deployment that should be created.
     string name = 1;
-
+    string namespace = 2;
+    GitRef git = 3;
+    Revision revision = 4;
     // This field is OPTIONAL
     // The caller should treat the values in parameters as opaque. 
     // The receiver is responsible for parsing and validating the values.
-    map<string,string> parameters = 2;
+    map<string,string> parameters = 5;
 }
 
 message ProviderCreateDeploymentResponse {
