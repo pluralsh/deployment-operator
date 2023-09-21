@@ -18,7 +18,7 @@ func init() {
 }
 
 var (
-	Logger *zap.SugaredLogger
+	Logger         *zap.SugaredLogger
 	DefaultOptions Options
 )
 
