@@ -59,7 +59,11 @@ func init() {
 }
 
 func run(ctx context.Context, args []string) error {
-	identityServer, deploymentProvisioner := provider.NewProvider(providerName)
+	identityServer, deploymentProvisioner, err := provider.NewProvider(providerName)
+	if err != nil {
+		log.Logger.Errorf("Failed to create provider %v", err)
+		return err
+	}
 	server, err := provisioner.NewDefaultProvisionerServer(providerAddress,
 		identityServer,
 		deploymentProvisioner)
@@ -67,6 +71,6 @@ func run(ctx context.Context, args []string) error {
 		log.Logger.Errorf("Failed to create provisioner server %v", err)
 		return err
 	}
-	log.Logger.Info("Starting Elastic provisioner")
+	log.Logger.Info("Starting ArgoCD provisioner")
 	return server.Run(ctx)
 }

@@ -10,12 +10,17 @@ import (
 	proto "github.com/pluralsh/deployment-operator/provisioner/proto"
 )
 
-func NewProvider(provisioner string) (*IdentityServer, *Server) {
+func NewProvider(provisioner string) (*IdentityServer, *Server, error) {
+	argocdProvider, err := argocd.NewArgocd()
+	if err != nil {
+		return nil, nil, err
+	}
 	return &IdentityServer{
 			provisioner: provisioner,
 		}, &Server{
 			provisioner: provisioner,
-		}
+			argocd:      argocdProvider,
+		}, nil
 }
 
 type Server struct {
