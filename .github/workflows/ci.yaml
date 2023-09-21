@@ -18,7 +18,8 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version-file: operator/go.mod
-      - run: make build
+          check-latest: true
+      - run: PATH=$PATH:$GOPATH/bin make build
   test:
     name: Unit test
     runs-on: ubuntu-latest
@@ -27,7 +28,8 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version-file: operator/go.mod
-      - run: make test
+          check-latest: true
+      - run: PATH=$PATH:$GOPATH/bin make test
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -36,7 +38,5 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version-file: operator/go.mod
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.50.1
+          check-latest: true
+      - run: PATH=$PATH:$GOPATH/bin make lint
