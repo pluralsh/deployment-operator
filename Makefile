@@ -22,14 +22,9 @@ help: ## show help
 
 ##@ Build
 
-# TODO: Fix.
 .PHONY: build
 build: ## build all modules
 	@$(MAKE) --no-print-directory -C $(MODULE_DIRECTORIES) build
-
-.PHONY: build-api
-build-api: ## build api module
-	@$(MAKE) -C $(API_DIRECTORY) build
 
 ##@ Tests and checks
 
@@ -39,8 +34,8 @@ test: $(PRE) ## test workspace modules
 
 .PHONY: lint
 lint: $(PRE) ## lint workspace code
-	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} golangci-lint run {}/...
+	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} golangci-lint run --timeout=10m {}/...
 
 .PHONY: fix
 fix: $(PRE) ## fix workspace code
-	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} golangci-lint run --fix {}/...
+	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} golangci-lint run --timeout=10m --fix {}/...
