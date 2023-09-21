@@ -1,25 +1,17 @@
 ROOT_DIRECTORY := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-API_DIRECTORY = $(ROOT_DIRECTORY)/api
-COMMON_DIRECTORY = $(ROOT_DIRECTORY)/common
-OPERATOR_DIRECTORY = $(ROOT_DIRECTORY)/operator
-PROVIDER_DIRECTORY = $(ROOT_DIRECTORY)/providers
-ARGOCD_PROVIDER_DIRECTORY = $(PROVIDER_DIRECTORY)/argocd
-FAKE_PROVIDER_DIRECTORY = $(PROVIDER_DIRECTORY)/fake
-PROVISIONER_DIRECTORY = $(ROOT_DIRECTORY)/provisioner
-TOOLS_DIRECTORY = $(ROOT_DIRECTORY)/tools
-MODULES := $(API_DIRECTORY) $(COMMON_DIRECTORY) $(OPERATOR_DIRECTORY) $(ARGOCD_PROVIDER_DIRECTORY) $(FAKE_PROVIDER_DIRECTORY) $(PROVISIONER_DIRECTORY)
 
-# List of targets that should be executed before other targets
+include $(ROOT_DIRECTORY)/config.mk
+
 PRE = --ensure-tools
 
 .PHONY: --ensure-tools
 --ensure-tools:
 	@$(MAKE) --no-print-directory -C $(TOOLS_DIRECTORY) ensure
 
-.PHONY: --run $(MODULES)
---run: $(MODULES)
+.PHONY: --run $(MODULE_DIRECTORIES)
+--run: $(MODULE_DIRECTORIES)
 
-$(MODULES):
+$(MODULE_DIRECTORIES):
 	@$(MAKE) --directory=$@ $(TARGET)
 
 ##@ General
@@ -30,9 +22,10 @@ help: ## show help
 
 ##@ Build
 
+# TODO: Fix.
 .PHONY: build
 build: ## build all modules
-	@$(MAKE) --no-print-directory -C $(ROOT_DIRECTORY) TARGET=build
+	@$(MAKE) --no-print-directory -C $(MODULE_DIRECTORIES) build
 
 .PHONY: build-api
 build-api: ## build api module
