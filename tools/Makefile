@@ -1,5 +1,6 @@
 JQ_BINARY := $(shell which jq)
 GOLANGCI_LINT_BINARY := $(shell which golangci-lint)
+CONTROLLER_GEN_BINARY := $(shell which controller-gen)
 
 ##@ General
 
@@ -10,7 +11,7 @@ help: ## show help
 ##@ Tools
 
 .PHONY: ensure
-ensure: ensure-jq ensure-golangci-lint ## ensure all tools availability
+ensure: ensure-jq ensure-golangci-lint ensure-controller-gen ## ensure all tools availability
 
 .PHONY: ensure-jq
 ensure-jq: ## ensure jq availability
@@ -28,4 +29,13 @@ ifndef GOLANGCI_LINT_BINARY
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint
 else
 	@echo "golangci-lint is already installed"
+endif
+
+.PHONY: ensure-controller-gen
+ensure-controller-gen: ## ensure controller-gen availability
+ifndef CONTROLLER_GEN_BINARY
+	@echo "installing controller-gen..."
+	@go install sigs.k8s.io/controller-tools/cmd/controller-gen
+else
+	@echo "controller-gen is already installed"
 endif

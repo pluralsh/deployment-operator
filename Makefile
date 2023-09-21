@@ -1,15 +1,13 @@
 ROOT_DIRECTORY := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-API_DIRECTORY = $(MODULES_DIRECTORY)/api
-COMMON_DIRECTORY = $(MODULES_DIRECTORY)/common
-OPERATOR_DIRECTORY = $(MODULES_DIRECTORY)/operator
-PROVIDER_DIRECTORY = $(MODULES_DIRECTORY)/providers
+API_DIRECTORY = $(ROOT_DIRECTORY)/api
+COMMON_DIRECTORY = $(ROOT_DIRECTORY)/common
+OPERATOR_DIRECTORY = $(ROOT_DIRECTORY)/operator
+PROVIDER_DIRECTORY = $(ROOT_DIRECTORY)/providers
 ARGOCD_PROVIDER_DIRECTORY = $(PROVIDER_DIRECTORY)/argocd
 FAKE_PROVIDER_DIRECTORY = $(PROVIDER_DIRECTORY)/fake
-PROVISIONER_DIRECTORY = $(MODULES_DIRECTORY)/provisioner
-TOOLS_DIRECTORY = $(MODULES_DIRECTORY)/tools
+PROVISIONER_DIRECTORY = $(ROOT_DIRECTORY)/provisioner
+TOOLS_DIRECTORY = $(ROOT_DIRECTORY)/tools
 MODULES := $(API_DIRECTORY) $(COMMON_DIRECTORY) $(OPERATOR_DIRECTORY) $(ARGOCD_PROVIDER_DIRECTORY) $(FAKE_PROVIDER_DIRECTORY) $(PROVISIONER_DIRECTORY)
-
-MAKEFLAGS += -j2
 
 # List of targets that should be executed before other targets
 PRE = --ensure-tools
@@ -33,23 +31,23 @@ help: ## show help
 ##@ Build
 
 .PHONY: build
-build: build-api ## build all modules
+build: ## build all modules
+	@$(MAKE) --no-print-directory -C $(ROOT_DIRECTORY) TARGET=build
 
 .PHONY: build-api
-build-api: ## build API module
+build-api: ## build api module
 	@$(MAKE) -C $(API_DIRECTORY) build
 
 ##@ Tests and checks
 
-# TODO: test target is not defined for all modules at the moment.
 .PHONY: test
-test: ## test all modules
-	@$(MAKE) --no-print-directory -C $(MODULES_DIRECTORY) TARGET=test
+test: $(PRE) ## test workspace modules
+	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} go test {}/...
 
 .PHONY: lint
-lint: $(PRE) ## lint all code
+lint: $(PRE) ## lint workspace code
 	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} golangci-lint run {}/...
 
 .PHONY: fix
-fix: $(PRE) ## fix all code
+fix: $(PRE) ## fix workspace code
 	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} golangci-lint run --fix {}/...
