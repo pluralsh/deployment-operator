@@ -2,9 +2,9 @@ go 1.21
 
 use (
 	./api
-	./providers/argocd
 	./common
 	./operator
-	./provisioner
+	./providers/argocd
 	./providers/fake
+	./provisioner
 )
