@@ -35,7 +35,7 @@ build-api: ## build api module
 
 .PHONY: test
 test: $(PRE) ## test workspace modules
-	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} go test {}/...
+	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} go test {}/... -v
 
 .PHONY: lint
 lint: $(PRE) ## lint workspace code
