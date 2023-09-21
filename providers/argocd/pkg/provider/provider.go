@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	synccommon "github.com/argoproj/gitops-engine/pkg/sync/common"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/pluralsh/deployment-operator/providers/argocd/pkg/argocd"
@@ -30,21 +32,31 @@ type Server struct {
 }
 
 func (ps *Server) ProviderGetDeploymentStatus(ctx context.Context, request *proto.ProviderGetDeploymentStatusRequest) (*proto.ProviderGetDeploymentStatusResponse, error) {
+
+	appStatus, err := ps.argocd.GetApplicationStatus(ctx, request.Name, "default")
+	if err != nil {
+		return nil, status.Error(codes.Internal, fmt.Sprintf("Failed to get application status %v", err))
+	}
+
 	return &proto.ProviderGetDeploymentStatusResponse{
-		DeploymentId: request.DeploymentId,
+		Name:      request.Name,
+		Namespace: request.Namespace,
 		DeploymentStatus: &proto.DeploymentStatusEnum{
 			Type: &proto.DeploymentStatusEnum_Ready{
-				Ready: true,
+				Ready: appStatus.OperationState.Phase == synccommon.OperationSucceeded,
 			},
 		},
-		Message: "",
+		Message: appStatus.OperationState.Message,
 	}, nil
 }
 
 func (ps *Server) ProviderCreateDeployment(ctx context.Context, req *proto.ProviderCreateDeploymentRequest) (*proto.ProviderCreateDeploymentResponse, error) {
 	deploymentName := req.GetName()
 	dbID := deploymentName
-
+	targetRevision := "HEAD"
+	if req.Revision.Version != "" {
+		targetRevision = req.Revision.Version
+	}
 	application := &v1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
@@ -54,12 +66,14 @@ func (ps *Server) ProviderCreateDeployment(ctx context.Context, req *proto.Provi
 			Source: &v1alpha1.ApplicationSource{
 				RepoURL:        req.Git.Ref,
 				Path:           req.Git.Folder,
-				TargetRevision: req.Revision.Version,
+				TargetRevision: targetRevision,
+				Helm: &v1alpha1.ApplicationSourceHelm{
+					ValueFiles: []string{"values.yaml"},
+				},
 			},
 			Destination: v1alpha1.ApplicationDestination{
 				Server:    "https://kubernetes.default.svc",
 				Namespace: req.Namespace,
-				Name:      req.Name,
 			},
 			Project: "default",
 			SyncPolicy: &v1alpha1.SyncPolicy{
@@ -73,7 +87,7 @@ func (ps *Server) ProviderCreateDeployment(ctx context.Context, req *proto.Provi
 	}
 
 	if _, err := ps.argocd.CreateApplication(ctx, application); err != nil {
-		return nil, status.Error(codes.Internal, "Failed to create application")
+		return nil, status.Error(codes.Internal, fmt.Sprintf("Failed to create application %v", err))
 	}
 
 	return &proto.ProviderCreateDeploymentResponse{

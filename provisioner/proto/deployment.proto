@@ -165,19 +165,19 @@ message ProviderDeleteDeploymentRequest {
 }
 
 message ProviderGetDeploymentStatusRequest {
-    // This field is REQUIRED
-    // deployment_id is a globally unique identifier for the deployment
-    // in the object storage provider
-    string deployment_id = 1;
+
+    string name = 1;
+    string namespace = 2;
+    map<string,string> parameters = 3;
 }
 
 message ProviderGetDeploymentStatusResponse {
     // deployment_id returned here is expected to be the globally unique
     // identifier for the deployment in the object storage provider.
-    string deployment_id = 1;
-
-    DeploymentStatusEnum deployment_status = 2;
-    string message = 3;
+    string name = 1;
+    string namespace = 2;
+    DeploymentStatusEnum deployment_status = 3;
+    string message = 4;
 }
 
 message ProviderDeleteDeploymentResponse {

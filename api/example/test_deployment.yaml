@@ -1,15 +1,15 @@
 apiVersion: platform.plural.sh/v1alpha1
 kind: Deployment
 metadata:
-  name: test
+  name: test-argocd
 spec:
   pluralId: ""
   revision:
-    version: ""
+    version: "HEAD"
     ref: ""
   git:
     ref: https://github.com/argoproj/argocd-example-apps
-    folder: blue-green
+    folder: helm-guestbook
   namespace: test
   providerName: argocd.platform.plural.sh
   deploymentClassName: argocd
