@@ -7,4 +7,5 @@ use (
 	./providers/argocd
 	./providers/fake
 	./provisioner
+	./tools
 )

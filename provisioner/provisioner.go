@@ -48,7 +48,7 @@ func NewProvisionerClient(ctx context.Context, address string, dialOpts []grpc.D
 	}
 
 	if addr.Scheme != "unix" {
-		msg := fmt.Sprintf("Unsupported scheme: Address must be a unix domain socket")
+		msg := "Unsupported scheme: Address must be a unix domain socket"
 		log.Logger.Errorw(msg, "expected", "unix", "found", addr.Scheme)
 		return nil, errors.Wrap(err, "Invalid argument")
 	}

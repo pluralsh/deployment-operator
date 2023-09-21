@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-
 	"github.com/pluralsh/deployment-operator/providers/argocd/pkg/argocd"
 	proto "github.com/pluralsh/deployment-operator/provisioner/proto"
 	"google.golang.org/grpc/codes"
