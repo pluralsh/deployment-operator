@@ -54,6 +54,19 @@ spec:
                   This field will be empty when the Deployment is dynamically provisioned
                   by operator.
                 type: string
+              git:
+                description: Git ia a spec of the current revision
+                properties:
+                  folder:
+                    description: Folder from the repository to work with.
+                    type: string
+                  ref:
+                    description: Ref is the URL to the repository (Git or Helm) that
+                      contains the application manifests
+                    type: string
+                required:
+                - ref
+                type: object
               namespace:
                 description: Namespace to sync into.
                 type: string
@@ -68,19 +81,29 @@ spec:
                 description: ProviderName is the name of provider associated with
                   this deployment operator
                 type: string
-              revisionId:
-                description: RevisionId is ID of revision to sync.
-                type: string
-              subfolder:
-                description: Subfolder from the repository to work with.
-                type: string
+              revision:
+                description: Revision is revision to sync.
+                properties:
+                  folder:
+                    description: Folder from the repository to work with.
+                    type: string
+                  ref:
+                    description: Ref is the URL to the repository (Git or Helm) that
+                      contains the application manifests
+                    type: string
+                  version:
+                    type: string
+                required:
+                - ref
+                - version
+                type: object
             required:
             - deploymentClassName
+            - git
             - namespace
             - pluralId
             - providerName
-            - revisionId
-            - subfolder
+            - revision
             type: object
           status:
             properties:

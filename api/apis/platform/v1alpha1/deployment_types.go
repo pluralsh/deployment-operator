@@ -33,15 +33,29 @@ const (
 	FailedToCreateDeploymentReason = "FailedToCreateDeployment"
 )
 
+type Revision struct {
+	// Git ia a spec of the prior revision
+	Git     GitRef `json:",inline"`
+	Version string `json:"version"`
+}
+
+type GitRef struct {
+	// Ref is the URL to the repository (Git or Helm) that contains the application manifests
+	Ref string `json:"ref"`
+	// Folder from the repository to work with.
+	Folder string `json:"folder,omitempty"`
+}
+
 type DeploymentSpec struct {
+
 	// PluralId is an ID of deployment from Plural.
 	PluralId string `json:"pluralId"`
 
-	// RevisionId is ID of revision to sync.
-	RevisionId string `json:"revisionId"`
+	// Revision is revision to sync.
+	Revision Revision `json:"revision"`
 
-	// Subfolder from the repository to work with.
-	Subfolder string `json:"subfolder"`
+	// Git ia a spec of the current revision
+	Git GitRef `json:"git"`
 
 	// Namespace to sync into.
 	Namespace string `json:"namespace"`
