@@ -127,7 +127,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err := kubernetes.UpdateDeploymentStatus(ctx, r.Client, deployment, func(d *platform.Deployment) {
 			d.Status.Ready = true
 			d.Status.DeploymentID = deployment.Spec.ExistingDeploymentID
-			d.Status.Ref = deployment.Spec.Ref
+			d.Status.Ref = deployment.Spec.Git.Ref
 			d.Status.Resources = []platform.DeploymentResource{}
 		}); err != nil {
 			return ctrl.Result{}, err
