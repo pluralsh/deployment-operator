@@ -3,7 +3,6 @@ module github.com/pluralsh/deployment-operator/provisioner
 go 1.21
 
 require (
-	github.com/golang/protobuf v1.5.3
 	github.com/pkg/errors v0.9.1
 	github.com/pluralsh/deployment-operator/common v0.0.0-00010101000000-000000000000
 	google.golang.org/grpc v1.58.1
@@ -11,6 +10,7 @@ require (
 )
 
 require (
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
