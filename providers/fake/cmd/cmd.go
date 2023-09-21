@@ -35,7 +35,7 @@ func init() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
-	flag.Set("alsologtostderr", "true")
+	_ = flag.Set("alsologtostderr", "true")
 	zapFlags := flag.NewFlagSet("zap", flag.ExitOnError)
 	log.DefaultOptions.AddFlags(zapFlags)
 
@@ -49,10 +49,10 @@ func init() {
 		"d",
 		providerAddress,
 		"path to unix domain socket where provider should listen")
-	viper.BindPFlags(cmd.PersistentFlags())
+	_ = viper.BindPFlags(cmd.PersistentFlags())
 	cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
 		if viper.IsSet(f.Name) && viper.GetString(f.Name) != "" {
-			cmd.PersistentFlags().Set(f.Name, viper.GetString(f.Name))
+			_ = cmd.PersistentFlags().Set(f.Name, viper.GetString(f.Name))
 		}
 	})
 }

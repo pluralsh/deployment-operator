@@ -4,9 +4,12 @@ metadata:
   name: test
 spec:
   pluralId: ""
-  repoUrl: https://github.com/pluralsh/deployment-api
-  ref: 957bde0e71dad665e53f7fcbff43fc2f0e10b0a9
-  subfolder: example/test_deployment
+  revision:
+    version: ""
+    ref: ""
+  git:
+    ref: https://github.com/argoproj/argocd-example-apps
+    folder: blue-green
   namespace: test
-  providerName: fake.platform.plural.sh
-  deploymentClassName: fake
+  providerName: argocd.platform.plural.sh
+  deploymentClassName: argocd
