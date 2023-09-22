@@ -171,12 +171,6 @@ spec:
                     namespace:
                       type: string
                     status:
-                      description: DeploymentResourceStatus represents current status
-                        of application resource.
-                      enum:
-                      - Pending
-                      - Failed
-                      - Succeeded
                       type: string
                     synced:
                       type: boolean
@@ -186,7 +180,6 @@ spec:
                   - name
                   - namespace
                   - status
-                  - synced
                   type: object
                 type: array
             required:
