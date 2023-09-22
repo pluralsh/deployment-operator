@@ -3,25 +3,20 @@ package deployment
 import (
 	"context"
 	"errors"
-	"strings"
-	"time"
-
 	"github.com/go-logr/logr"
 	"github.com/pluralsh/controller-reconcile-helper/pkg/conditions"
 	"github.com/pluralsh/controller-reconcile-helper/pkg/patch"
 	crhelperTypes "github.com/pluralsh/controller-reconcile-helper/pkg/types"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	genericregistry "k8s.io/apiserver/pkg/registry/generic/registry"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	platform "github.com/pluralsh/deployment-operator/api/apis/platform/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/kubernetes"
 	proto "github.com/pluralsh/deployment-operator/provisioner/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 )
 
 const (
@@ -115,40 +110,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			log.Error(err, "Can't update finalizer")
 			return ctrl.Result{}, err
 		}
-	}
-
-	if !deployment.Status.Ready {
-		req := &proto.ProviderGetDeploymentStatusRequest{
-			Name:       deployment.Name,
-			Namespace:  deployment.Spec.Namespace,
-			Parameters: map[string]string{},
-		}
-		rsp, err := r.ProvisionerClient.ProviderGetDeploymentStatus(ctx, req)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if !rsp.DeploymentStatus.GetReady() {
-			return ctrl.Result{
-				RequeueAfter: 10 * time.Second,
-			}, nil
-		}
-		if err := kubernetes.UpdateDeploymentStatus(ctx, r.Client, deployment, func(d *platform.Deployment) {
-			d.Status.Ready = true
-			d.Status.DeploymentID = deployment.Spec.ExistingDeploymentID
-			d.Status.Ref = deployment.Spec.Git.Ref
-			d.Status.Resources = []platform.DeploymentResource{}
-		}); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	conditions.MarkTrue(deployment, platform.DeploymentReadyCondition)
-	if err := patchDeployment(ctx, patchHelper, deployment); err != nil {
-		if strings.Contains(err.Error(), genericregistry.OptimisticLockErrorMsg) {
-			return reconcile.Result{RequeueAfter: time.Second * 1}, nil
-		}
-		log.Error(err, "failed to patch Deployment")
-		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
