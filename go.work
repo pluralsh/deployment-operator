@@ -4,6 +4,7 @@ use (
 	./api
 	./common
 	./operator
+	./poller
 	./providers/argocd
 	./providers/fake
 	./provisioner
