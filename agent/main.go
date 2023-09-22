@@ -65,7 +65,8 @@ func newCmd(log logr.Logger) *cobra.Command {
 				cache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (info interface{}, cacheManifest bool) {
 					// store gc mark of every resource
 					svcId := un.GetAnnotations()[deploysync.SyncAnnotation]
-					info = deploysync.NewResource(svcId)
+					sha := un.GetAnnotations()[deploysync.SyncShaAnnotation]
+					info = deploysync.NewResource(svcId, sha)
 					// cache resources that have the current annotation
 					cacheManifest = svcId != ""
 					return
