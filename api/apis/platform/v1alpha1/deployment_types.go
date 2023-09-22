@@ -102,17 +102,13 @@ type DeploymentStatus struct {
 }
 
 type DeploymentResource struct {
-	APIVersion string                   `json:"apiVersion"`
-	Kind       string                   `json:"kind"`
-	Name       string                   `json:"name"`
-	Namespace  string                   `json:"namespace"`
-	Synced     bool                     `json:"synced"`
-	Status     DeploymentResourceStatus `json:"status"`
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Name       string `json:"name"`
+	Namespace  string `json:"namespace"`
+	Synced     bool   `json:"synced,omitempty"`
+	Status     string `json:"status"`
 }
-
-// DeploymentResourceStatus represents current status of application resource.
-// +kubebuilder:validation:Enum=Pending;Failed;Succeeded
-type DeploymentResourceStatus string
 
 // GetConditions returns the list of conditions for a WireGuardServer API object.
 func (d *Deployment) GetConditions() crhelperTypes.Conditions {
