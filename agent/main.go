@@ -19,14 +19,6 @@ import (
 	deploysync "github.com/pluralsh/deployment-operator/agent/pkg/sync"
 
 	"net/http"
-	_ "net/http/pprof"
-)
-
-const (
-	annotationGCMark = "gitops-agent.argoproj.io/gc-mark"
-	envProfile       = "GITOPS_ENGINE_PROFILE"
-	envProfileHost   = "GITOPS_ENGINE_PROFILE_HOST"
-	envProfilePort   = "GITOPS_ENGINE_PROFILE_PORT"
 )
 
 func main() {
@@ -39,22 +31,13 @@ func newCmd(log logr.Logger) *cobra.Command {
 	var (
 		clientConfig    clientcmd.ClientConfig
 		refreshInterval string
-		paths           []string
 		resyncSeconds   int
 		port            int
-		prune           bool
-		namespace       string
-		namespaced      bool
 		consoleUrl      string
 	)
 	cmd := cobra.Command{
-		Use: "gitops REPO_PATH",
+		Use: "deployment-agent",
 		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) < 1 {
-				cmd.HelpFunc()(cmd, args)
-				os.Exit(1)
-			}
-
 			http.HandleFunc("/v1/health", func(w http.ResponseWriter, request *http.Request) {
 				log.Info("health check")
 				w.WriteHeader(http.StatusOK)
@@ -65,13 +48,14 @@ func newCmd(log logr.Logger) *cobra.Command {
 				checkError(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil), log)
 			}()
 
+			refresh, err := time.ParseDuration(refreshInterval)
+			checkError(err, log)
+
 			config, err := clientConfig.ClientConfig()
 			checkError(err, log)
 			consoleClient := client.New(consoleUrl, os.Getenv("CONSOLE_TOKEN"))
-			svcCache, err := client.NewCache(consoleClient, refreshInterval)
-			checkError(err, log)
-			manifestCache, err := manifests.NewCache(refreshInterval)
-			checkError(err, log)
+			svcCache := client.NewCache(consoleClient, refresh)
+			manifestCache := manifests.NewCache(refresh)
 
 			svcChan := make(chan string)
 
@@ -99,9 +83,6 @@ func newCmd(log logr.Logger) *cobra.Command {
 			engine.RegisterHandlers()
 			go engine.ControlLoop()
 
-			refresh, err := time.ParseDuration(refreshInterval)
-			checkError(err, log)
-
 			for {
 				svcs, err := consoleClient.GetServices()
 				if err != nil {
@@ -120,21 +101,14 @@ func newCmd(log logr.Logger) *cobra.Command {
 				}
 
 				time.Sleep(refresh)
-				continue
 			}
 		},
 	}
 	clientConfig = addKubectlFlagsToCmd(&cmd)
-	cmd.Flags().StringArrayVar(&paths, "path", []string{"."}, "Directory path with-in repository")
 	cmd.Flags().IntVar(&resyncSeconds, "resync-seconds", 300, "Resync duration in seconds.")
 	cmd.Flags().IntVar(&port, "port", 9001, "Port number.")
 	cmd.Flags().StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
 	cmd.Flags().StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
-	cmd.Flags().BoolVar(&prune, "prune", true, "Enables resource pruning.")
-	cmd.Flags().BoolVar(&namespaced, "namespaced", false, "Switches agent into namespaced mode.")
-	cmd.Flags().StringVar(&namespace, "default-namespace", "",
-		"The namespace that should be used if resource namespace is not specified. "+
-			"By default resources are installed into the same namespace where gitops-agent is installed.")
 	return &cmd
 }
 

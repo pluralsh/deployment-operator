@@ -18,17 +18,12 @@ type ServiceCache struct {
 	expiry time.Duration
 }
 
-func NewCache(client *Client, dur string) (*ServiceCache, error) {
-	expiry, err := time.ParseDuration(dur)
-	if err != nil {
-		return nil, err
-	}
-
+func NewCache(client *Client, expiry time.Duration) *ServiceCache {
 	return &ServiceCache{
 		client: client,
 		cache:  cmap.New[*cacheLine](),
 		expiry: expiry,
-	}, nil
+	}
 }
 
 func (c *ServiceCache) Get(id string) (*console.ServiceDeploymentExtended, error) {

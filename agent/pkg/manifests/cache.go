@@ -21,16 +21,11 @@ type ManifestCache struct {
 	expiry time.Duration
 }
 
-func NewCache(dur string) (*ManifestCache, error) {
-	expiry, err := time.ParseDuration(dur)
-	if err != nil {
-		return nil, err
-	}
-
+func NewCache(expiry time.Duration) *ManifestCache {
 	return &ManifestCache{
 		cache:  cmap.New[*cacheLine](),
 		expiry: expiry,
-	}, nil
+	}
 }
 
 func (c *ManifestCache) Fetch(svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
