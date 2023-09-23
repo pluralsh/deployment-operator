@@ -9,7 +9,7 @@ help:
 ##@ Build
 
 build:
-	go build -o bin/deployment-agent main.go
+	go build -o bin/deployment-agent cmd/main.go
 
 docker-build:
 	docker build -t ${IMG} .
