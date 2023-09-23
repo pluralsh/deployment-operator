@@ -36,7 +36,8 @@ require (
 	github.com/argoproj/gitops-engine v0.7.1-0.20230906152414-b0fffe419a0f
 	github.com/go-logr/logr v1.2.4
 	github.com/orcaman/concurrent-map/v2 v2.0.1
-	github.com/pluralsh/console-client-go v0.0.3
+	github.com/osteele/liquid v1.3.1
+	github.com/pluralsh/console-client-go v0.0.4
 	github.com/pluralsh/polly v0.1.2
 	github.com/samber/lo v1.33.0
 	github.com/spf13/cobra v1.7.0
@@ -94,6 +95,7 @@ require (
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/osteele/tuesday v1.0.3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
