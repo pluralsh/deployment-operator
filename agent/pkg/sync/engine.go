@@ -11,6 +11,7 @@ import (
 type Engine struct {
 	client        *client.Client
 	svcChan       chan string
+	deathChan     chan interface{}
 	svcCache      *client.ServiceCache
 	manifestCache *manifests.ManifestCache
 	engine        engine.GitOpsEngine
@@ -26,6 +27,10 @@ func New(engine engine.GitOpsEngine, cache cache.ClusterCache, client *client.Cl
 		svcCache:      svcCache,
 		manifestCache: manCache,
 	}
+}
+
+func (engine *Engine) AddHealthCheck(health chan interface{}) {
+	engine.deathChan = health
 }
 
 func (engine *Engine) RegisterHandlers() {
