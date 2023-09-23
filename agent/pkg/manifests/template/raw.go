@@ -14,12 +14,21 @@ import (
 )
 
 var (
-	liquidEngine = liquid.NewEngine()
+	liquidEngine   = liquid.NewEngine()
+	sprigFunctions = map[string]string{
+		"toJson":        "to_json",
+		"fromJson":      "from_json",
+		"b64enc":        "b64enc",
+		"b64dec":        "b64dec",
+		"semverCompare": "semver_compare",
+		"sha256sum":     "sha26sum",
+	}
 )
 
 func init() {
-	for name, fn := range sprig.TxtFuncMap() {
-		liquidEngine.RegisterFilter(name, fn)
+	fncs := sprig.TxtFuncMap()
+	for key, name := range sprigFunctions {
+		liquidEngine.RegisterFilter(name, fncs[key])
 	}
 }
 

@@ -25,9 +25,14 @@ func (engine *Engine) ControlLoop() {
 		}()
 	}
 
+	engine.RegisterHandlers()
+
 	log := klogr.New()
 	for {
+		log.Info("Polling for new service updates")
+
 		id := <-engine.svcChan
+		engine.syncing = id
 		svc, err := engine.svcCache.Get(id)
 		if err != nil {
 			fmt.Printf("failed to fetch service from cache: %s, ignoring for now", err)
@@ -72,6 +77,7 @@ func (engine *Engine) ControlLoop() {
 		if err := engine.updateStatus(svc.ID, results, errorAttributes("sync", err)); err != nil {
 			log.Error(err, "Failed to update service status, ignoring for now")
 		}
+		engine.syncing = ""
 
 		time.Sleep(time.Duration(syncDelay))
 	}

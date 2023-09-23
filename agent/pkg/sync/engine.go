@@ -15,7 +15,9 @@ type Engine struct {
 	svcCache      *client.ServiceCache
 	manifestCache *manifests.ManifestCache
 	engine        engine.GitOpsEngine
+	unsubscribe   cache.Unsubscribe
 	cache         cache.ClusterCache
+	syncing       string
 }
 
 func New(engine engine.GitOpsEngine, cache cache.ClusterCache, client *client.Client, svcChan chan string, svcCache *client.ServiceCache, manCache *manifests.ManifestCache) *Engine {
@@ -34,10 +36,11 @@ func (engine *Engine) AddHealthCheck(health chan interface{}) {
 }
 
 func (engine *Engine) RegisterHandlers() {
-	engine.cache.OnResourceUpdated(func(new *cache.Resource, old *cache.Resource, nrs map[kube.ResourceKey]*cache.Resource) {
-		if id := svcId(new); id != nil {
+	engine.unsubscribe = engine.cache.OnResourceUpdated(func(new *cache.Resource, old *cache.Resource, nrs map[kube.ResourceKey]*cache.Resource) {
+		syncing := engine.syncing
+		if id := svcId(new); id != nil && *id != syncing {
 			engine.svcChan <- *id
-		} else if id := svcId(old); id != nil {
+		} else if id := svcId(old); id != nil && *id != syncing {
 			engine.svcChan <- *id
 		}
 	})

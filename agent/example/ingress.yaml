@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - test.cd-demo.onplural.sh
+    secretName: test-tls
+  rules:
+  - host: test.cd-demo.onplural.sh
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service: 
+            name: example
+            port: 
+              name: http
