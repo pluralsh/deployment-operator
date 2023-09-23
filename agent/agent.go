@@ -61,7 +61,6 @@ func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl,
 	}
 
 	engine := deploysync.New(gitOpsEngine, clusterCache, consoleClient, svcChan, svcCache, manifestCache)
-	engine.RegisterHandlers()
 	engine.AddHealthCheck(deathChan)
 
 	return &Agent{
