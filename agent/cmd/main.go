@@ -2,23 +2,16 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2/klogr"
 
-	"github.com/argoproj/gitops-engine/pkg/cache"
-	"github.com/argoproj/gitops-engine/pkg/engine"
-
-	"github.com/pluralsh/deployment-operator/agent/pkg/client"
-	"github.com/pluralsh/deployment-operator/agent/pkg/manifests"
-	deploysync "github.com/pluralsh/deployment-operator/agent/pkg/sync"
-
-	"net/http"
+	"github.com/pluralsh/deployment-operator/agent"
 )
 
 func main() {
@@ -56,65 +49,9 @@ func newCmd(log logr.Logger) *cobra.Command {
 			refresh, err := time.ParseDuration(refreshInterval)
 			checkError(err, log)
 
-			config, err := clientConfig.ClientConfig()
+			a, err := agent.New(clientConfig, refresh, consoleUrl, deployToken)
 			checkError(err, log)
-			consoleClient := client.New(consoleUrl, deployToken)
-			svcCache := client.NewCache(consoleClient, refresh)
-			manifestCache := manifests.NewCache(refresh)
-
-			svcChan := make(chan string)
-			deathChan := make(chan interface{})
-
-			// we should enable SSA if kubernetes version supports it
-			clusterCache := cache.NewClusterCache(config,
-				cache.SetLogr(log),
-				cache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (info interface{}, cacheManifest bool) {
-					svcId := un.GetAnnotations()[deploysync.SyncAnnotation]
-					sha := un.GetAnnotations()[deploysync.SyncShaAnnotation]
-					info = deploysync.NewResource(svcId, sha)
-					// cache resources that have the current annotation
-					cacheManifest = svcId != ""
-					return
-				}),
-			)
-
-			gitOpsEngine := engine.NewEngine(config, clusterCache, engine.WithLogr(log))
-			checkError(err, log)
-
-			cleanup, err := gitOpsEngine.Run()
-			checkError(err, log)
-			defer cleanup()
-
-			engine := deploysync.New(gitOpsEngine, clusterCache, consoleClient, svcChan, svcCache, manifestCache)
-			engine.RegisterHandlers()
-			engine.AddHealthCheck(deathChan)
-			go func() {
-				for {
-					go engine.ControlLoop()
-					failure := <-deathChan
-					fmt.Printf("recovered from panic %v\n", failure)
-				}
-			}()
-
-			for {
-				svcs, err := consoleClient.GetServices()
-				if err != nil {
-					log.Error(err, "failed to fetch service list from deployments service")
-					time.Sleep(refresh)
-					continue
-				}
-
-				for _, svc := range svcs {
-					svcChan <- svc.ID
-				}
-
-				// TODO: fetch kubernetes version properly
-				if err := consoleClient.Ping("1.24"); err != nil {
-					log.Error(err, "failed to ping cluster after scheduling syncs")
-				}
-
-				time.Sleep(refresh)
-			}
+			a.Run()
 		},
 	}
 	clientConfig = addKubectlFlagsToCmd(&cmd)
