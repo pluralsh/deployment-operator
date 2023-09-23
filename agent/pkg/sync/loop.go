@@ -17,6 +17,14 @@ const (
 )
 
 func (engine *Engine) ControlLoop() {
+	if engine.deathChan != nil {
+		defer func() {
+			if r := recover(); r != nil {
+				engine.deathChan <- r
+			}
+		}()
+	}
+
 	log := klogr.New()
 	for {
 		id := <-engine.svcChan

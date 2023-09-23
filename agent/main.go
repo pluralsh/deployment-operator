@@ -63,12 +63,12 @@ func newCmd(log logr.Logger) *cobra.Command {
 			manifestCache := manifests.NewCache(refresh)
 
 			svcChan := make(chan string)
+			deathChan := make(chan interface{})
 
 			// we should enable SSA if kubernetes version supports it
 			clusterCache := cache.NewClusterCache(config,
 				cache.SetLogr(log),
 				cache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (info interface{}, cacheManifest bool) {
-					// store gc mark of every resource
 					svcId := un.GetAnnotations()[deploysync.SyncAnnotation]
 					sha := un.GetAnnotations()[deploysync.SyncShaAnnotation]
 					info = deploysync.NewResource(svcId, sha)
@@ -87,7 +87,14 @@ func newCmd(log logr.Logger) *cobra.Command {
 
 			engine := deploysync.New(gitOpsEngine, clusterCache, consoleClient, svcChan, svcCache, manifestCache)
 			engine.RegisterHandlers()
-			go engine.ControlLoop()
+			engine.AddHealthCheck(deathChan)
+			go func() {
+				for {
+					go engine.ControlLoop()
+					failure := <-deathChan
+					fmt.Printf("recovered from panic %v\n", failure)
+				}
+			}()
 
 			for {
 				svcs, err := consoleClient.GetServices()
