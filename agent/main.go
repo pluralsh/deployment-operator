@@ -34,6 +34,7 @@ func newCmd(log logr.Logger) *cobra.Command {
 		resyncSeconds   int
 		port            int
 		consoleUrl      string
+		deployToken     string
 	)
 	cmd := cobra.Command{
 		Use: "deployment-agent",
@@ -48,12 +49,16 @@ func newCmd(log logr.Logger) *cobra.Command {
 				checkError(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil), log)
 			}()
 
+			if deployToken == "" {
+				deployToken = os.Getenv("DEPLOY_TOKEN")
+			}
+
 			refresh, err := time.ParseDuration(refreshInterval)
 			checkError(err, log)
 
 			config, err := clientConfig.ClientConfig()
 			checkError(err, log)
-			consoleClient := client.New(consoleUrl, os.Getenv("CONSOLE_TOKEN"))
+			consoleClient := client.New(consoleUrl, deployToken)
 			svcCache := client.NewCache(consoleClient, refresh)
 			manifestCache := manifests.NewCache(refresh)
 
@@ -110,6 +115,7 @@ func newCmd(log logr.Logger) *cobra.Command {
 	cmd.Flags().IntVar(&port, "port", 9001, "Port number.")
 	cmd.Flags().StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
 	cmd.Flags().StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
+	cmd.Flags().StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
 	return &cmd
 }
 

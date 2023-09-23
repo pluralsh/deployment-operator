@@ -1,18 +1,27 @@
 package template
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
+	"github.com/osteele/liquid"
 	console "github.com/pluralsh/console-client-go"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+var (
+	liquidEngine = liquid.NewEngine()
+)
+
+func init() {
+	for name, fn := range sprig.TxtFuncMap() {
+		liquidEngine.RegisterFilter(name, fn)
+	}
+}
 
 type raw struct {
 	dir string
@@ -20,6 +29,14 @@ type raw struct {
 
 func NewRaw(dir string) *raw {
 	return &raw{dir}
+}
+
+func renderLiquid(input []byte, svc *console.ServiceDeploymentExtended) ([]byte, error) {
+	bindings := map[string]interface{}{
+		"configuration": configMap(svc),
+		"cluster":       svc.Cluster,
+	}
+	return liquidEngine.ParseAndRender(input, bindings)
 }
 
 func (r *raw) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
@@ -34,25 +51,20 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Un
 		if ext := strings.ToLower(filepath.Ext(info.Name())); ext != ".json" && ext != ".yml" && ext != ".yaml" {
 			return nil
 		}
+		rpath, _ := filepath.Rel(r.dir, path)
+
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
 
-		var buffer bytes.Buffer
-		tpl, err := template.New("gotpl").Funcs(sprig.TxtFuncMap()).Parse(string(data))
+		rendered, err := renderLiquid(data, svc)
 		if err != nil {
-			return err
+			return fmt.Errorf("templating error in %s: %v", rpath, err)
 		}
 
-		config := configMap(svc)
-		if err := tpl.Execute(&buffer, map[string]interface{}{"Values": config}); err != nil {
-			return err
-		}
-
-		items, err := kube.SplitYAML(buffer.Bytes())
+		items, err := kube.SplitYAML(rendered)
 		if err != nil {
-			rpath, _ := filepath.Rel(r.dir, path)
 			return fmt.Errorf("failed to parse %s: %v", rpath, err)
 		}
 		res = append(res, items...)
