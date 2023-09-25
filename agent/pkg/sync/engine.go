@@ -38,11 +38,14 @@ func (engine *Engine) AddHealthCheck(health chan interface{}) {
 
 func (engine *Engine) RegisterHandlers() {
 	engine.unsubscribe = engine.cache.OnResourceUpdated(func(new *cache.Resource, old *cache.Resource, nrs map[kube.ResourceKey]*cache.Resource) {
-		syncing := engine.syncing
-		if id := svcId(new); id != nil && *id != syncing {
+		if id := svcId(new); id != nil && isRoot(new) {
 			engine.svcQueue.Add(*id)
-		} else if id := svcId(old); id != nil && *id != syncing {
+		} else if id := svcId(old); id != nil && isRoot(old) {
 			engine.svcQueue.Add(*id)
 		}
 	})
+}
+
+func isRoot(r *cache.Resource) bool {
+	return svcId(r) != nil && len(r.OwnerRefs) == 0
 }
