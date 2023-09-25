@@ -11,19 +11,11 @@
 	fi ; \
 	for REGISTRY in $(IMAGE_REGISTRIES) ; do \
   	for VERSION in $${VERSIONS} ; do \
-  	  if [ "$${VERSION}" != "latest" ] ; then \
-      	echo "Checking if '$(APP_NAME):$${VERSION}' exists in the '$${REGISTRY}/$(IMAGE_REPOSITORY)' registry" ; \
-      	docker pull $${REGISTRY}/$(IMAGE_REPOSITORY)/$(APP_NAME):$${VERSION} > /dev/null 2>&1 ; \
-      	if [ $$? -eq 0 ] ; then \
-      	   echo "This image already exists" ; \
-      	   exit; \
-      	fi ; \
-      fi ; \
-  		echo "Deploying '$(APP_NAME):$${VERSION}' to the '$${REGISTRY}/$(IMAGE_REPOSITORY)' registry" ; \
-			docker build \
-				-f $(DOCKERFILE) \
-				-t $${REGISTRY}/$(IMAGE_REPOSITORY)/$(APP_NAME):$${VERSION} \
-				$(ROOT_DIRECTORY) ; \
+  		echo "Building '$(APP_NAME):$${VERSION}' for the '$${REGISTRY}/$(IMAGE_REPOSITORY)' registry" ; \
+		docker build \
+			-f $(DOCKERFILE) \
+			-t $${REGISTRY}/$(IMAGE_REPOSITORY)/$(APP_NAME):$${VERSION} \
+			$(ROOT_DIRECTORY) ; \
   	done ; \
   done
 
