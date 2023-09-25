@@ -7,7 +7,7 @@ require (
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/deployment-operator/api v0.0.0-20230921103135-81f9b2348be2
 	github.com/pluralsh/deployment-operator/provisioner v0.0.0-00010101000000-000000000000
-	google.golang.org/grpc v1.58.1
+	google.golang.org/grpc v1.58.2
 	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.2
 	sigs.k8s.io/controller-runtime v0.16.2
