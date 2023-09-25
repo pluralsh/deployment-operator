@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"github.com/argoproj/gitops-engine/pkg/sync"
@@ -21,6 +22,7 @@ func (engine *Engine) ControlLoop() {
 		defer func() {
 			if r := recover(); r != nil {
 				engine.deathChan <- r
+				fmt.Printf("panic: %s\n", string(debug.Stack()))
 			}
 		}()
 	}
@@ -38,6 +40,7 @@ func (engine *Engine) ControlLoop() {
 			fmt.Printf("failed to fetch service from cache: %s, ignoring for now", err)
 			continue
 		}
+		log.Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 
 		var manErr error
 		results := make([]common.ResourceSyncResult, 0)
@@ -53,6 +56,8 @@ func (engine *Engine) ControlLoop() {
 			log.Error(manErr, "failed to parse manifests")
 			continue
 		}
+
+		log.Info("Syncing manifests", "count", len(manifests))
 
 		addAnnotations(manifests, svc.ID)
 		results, err = engine.engine.Sync(

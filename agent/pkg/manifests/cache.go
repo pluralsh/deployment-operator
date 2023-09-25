@@ -9,6 +9,11 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/agent/pkg/manifests/template"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2/klogr"
+)
+
+var (
+	log = klogr.New()
 )
 
 type cacheLine struct {
@@ -18,12 +23,14 @@ type cacheLine struct {
 
 type ManifestCache struct {
 	cache  cmap.ConcurrentMap[string, *cacheLine]
+	token  string
 	expiry time.Duration
 }
 
-func NewCache(expiry time.Duration) *ManifestCache {
+func NewCache(expiry time.Duration, token string) *ManifestCache {
 	return &ManifestCache{
 		cache:  cmap.New[*cacheLine](),
+		token:  token,
 		expiry: expiry,
 	}
 }
@@ -41,10 +48,12 @@ func (c *ManifestCache) Fetch(svc *console.ServiceDeploymentExtended) ([]*unstru
 		return nil, fmt.Errorf("could not fetch tarball url for service")
 	}
 
-	dir, err := fetch(*svc.Tarball)
+	log.Info("fetching tarball", "url", *svc.Tarball)
+	dir, err := fetch(*svc.Tarball, c.token)
 	if err != nil {
 		return nil, err
 	}
+	log.Info("using cache dir", "dir", dir)
 
 	c.cache.Set(svc.ID, &cacheLine{dir: dir, created: time.Now()})
 	return template.Render(dir, svc)

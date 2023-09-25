@@ -1,24 +1,41 @@
 package manifests
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/pluralsh/polly/fs"
+	"time"
 )
 
-func fetch(url string) (string, error) {
+var (
+	client = &http.Client{Timeout: time.Duration(15 * time.Second)}
+)
+
+func fetch(url, token string) (string, error) {
 	dir, err := ioutil.TempDir("", "manifests")
 	if err != nil {
 		return dir, err
 	}
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return dir, err
 	}
+	req.Header.Add("Authorization", "Token "+token)
 
-	if err := fs.Untar(dir, resp.Body); err != nil {
+	resp, err := client.Do(req)
+	if err != nil {
+		return dir, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return dir, fmt.Errorf("could not fetch manifest, error code %d", resp.StatusCode)
+	}
+
+	log.Info("finished request to", "url", url)
+
+	if err := Untar(dir, resp.Body); err != nil {
 		return dir, err
 	}
 

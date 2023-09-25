@@ -60,7 +60,10 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Un
 		if ext := strings.ToLower(filepath.Ext(info.Name())); ext != ".json" && ext != ".yml" && ext != ".yaml" {
 			return nil
 		}
-		rpath, _ := filepath.Rel(r.dir, path)
+		rpath, err := filepath.Rel(r.dir, path)
+		if err != nil {
+			return err
+		}
 
 		data, err := os.ReadFile(path)
 		if err != nil {
