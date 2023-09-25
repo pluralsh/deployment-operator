@@ -3,10 +3,13 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/polly/fs"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -19,7 +22,17 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.U
 	outb, errb := bytes.Buffer{}, bytes.Buffer{}
 
 	// TODO: add some configured values file convention, perhaps using our lua templating from plural-cli
-	cmd := exec.Command("helm", "template", svc.Name, h.dir, "--namespace", svc.Namespace)
+	args := []string{"template", svc.Name, h.dir, "--namespace", svc.Namespace}
+	f, err := h.values(svc)
+	if err != nil {
+		return nil, err
+	}
+	if f != "" {
+		args = append(args, "-f", f)
+		defer os.Remove(f)
+	}
+
+	cmd := exec.Command("helm", args...)
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 	if err := cmd.Run(); err != nil {
@@ -27,4 +40,24 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.U
 	}
 
 	return kube.SplitYAML(outb.Bytes())
+}
+
+func (h *helm) values(svc *console.ServiceDeploymentExtended) (path string, err error) {
+	lqPath := filepath.Join(h.dir, "values.yaml.liquid")
+	var data []byte
+	if fs.Exists(lqPath) {
+		data, err = os.ReadFile(lqPath)
+		if err != nil {
+			return
+		}
+
+		data, err = renderLiquid(data, svc)
+		if err != nil {
+			return
+		}
+
+		return fs.TmpFile(fmt.Sprintf("%s-%s.yaml", svc.Namespace, svc.Name), data)
+	}
+
+	return
 }
