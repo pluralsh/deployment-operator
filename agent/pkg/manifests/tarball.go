@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/pluralsh/polly/fs"
 )
 
 var (
@@ -35,7 +37,7 @@ func fetch(url, token string) (string, error) {
 
 	log.Info("finished request to", "url", url)
 
-	if err := Untar(dir, resp.Body); err != nil {
+	if err := fs.Untar(dir, resp.Body); err != nil {
 		return dir, err
 	}
 
