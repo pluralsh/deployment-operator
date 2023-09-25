@@ -537,6 +537,10 @@ github.com/pluralsh/console-client-go v0.0.4 h1:tAWVC5A/2pO7s+jAm+CB5pi48aYFPejL
 github.com/pluralsh/console-client-go v0.0.4/go.mod h1:kZjk0pXAWnvyj+miXveCho4kKQaX1Tm3CGAM+iwurWU=
 github.com/pluralsh/polly v0.1.2 h1:wY2MF5J7vBQ6vFOpeo4XS/BPnViA0+waxegL0+cMSjw=
 github.com/pluralsh/polly v0.1.2/go.mod h1:Yo1/jcW+4xwhWG+ZJikZy4J4HJkMNPZ7sq5auL2c/tY=
+github.com/pluralsh/polly v0.1.3 h1:T3XFVc4UqmgZ+cJ+xYM4ALaE7wEtt0nOpDVka/SWWOs=
+github.com/pluralsh/polly v0.1.3/go.mod h1:Yo1/jcW+4xwhWG+ZJikZy4J4HJkMNPZ7sq5auL2c/tY=
+github.com/pluralsh/polly v0.1.4 h1:Kz90peCgvsfF3ERt8cujr5TR9z4wUlqQE60Eg09ZItY=
+github.com/pluralsh/polly v0.1.4/go.mod h1:Yo1/jcW+4xwhWG+ZJikZy4J4HJkMNPZ7sq5auL2c/tY=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=

@@ -38,7 +38,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.1
 	github.com/pluralsh/console-client-go v0.0.4
-	github.com/pluralsh/polly v0.1.2
+	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.33.0
 	github.com/spf13/cobra v1.7.0
 	k8s.io/apimachinery v0.24.2
