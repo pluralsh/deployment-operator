@@ -22,6 +22,7 @@ help: ## show help
 
 ##@ Build
 
+# TODO: Fix.
 .PHONY: build
 build: ## build all modules
 	@$(MAKE) --no-print-directory -C $(MODULE_DIRECTORIES) build

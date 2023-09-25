@@ -5,8 +5,8 @@ import (
 
 	platform "github.com/pluralsh/deployment-operator/api/apis/platform/v1alpha1"
 	"github.com/pluralsh/deployment-operator/common/log"
-	"github.com/pluralsh/deployment-operator/poller/pkg/console"
-	"github.com/pluralsh/deployment-operator/poller/pkg/kubernetes"
+	"github.com/pluralsh/deployment-operator/synchronizer/pkg/console"
+	"github.com/pluralsh/deployment-operator/synchronizer/pkg/kubernetes"
 )
 
 type Synchronizer struct {
