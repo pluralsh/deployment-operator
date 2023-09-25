@@ -1,3 +1,10 @@
+ROOT_DIRECTORY = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/../..
+
+include $(ROOT_DIRECTORY)/config.mk
+include $(ROOT_DIRECTORY)/docker.mk
+
+include config.mk
+
 # Image URL to use all building/pushing image targets
 IMG ?= deployment-argocd-provider:latest
 
@@ -12,8 +19,9 @@ build:
 	go build -o bin/deployment-argocd-provider cmd/driver/main.go cmd/driver/cmd.go
 	go build -o bin/status-updater-argocd-provider cmd/status-updater/main.go
 
-docker-build:
-	docker build -t ${IMG} .
+.PHONY: docker-build
+docker-build: DOCKERFILE = $(ARGOCD_PROVIDER_DIRECTORY)/Dockerfile
+docker-build: --build
 
 docker-push:
 	docker push ${IMG}

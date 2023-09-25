@@ -1,3 +1,9 @@
+### Common application/container details
+PROJECT_NAME := deployment-operator
+# Container registry details
+IMAGE_REGISTRIES := ghcr.io
+IMAGE_REPOSITORY := plural
+
 API_DIRECTORY = $(ROOT_DIRECTORY)/api
 COMMON_DIRECTORY = $(ROOT_DIRECTORY)/common
 OPERATOR_DIRECTORY = $(ROOT_DIRECTORY)/operator

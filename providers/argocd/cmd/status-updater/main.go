@@ -5,12 +5,13 @@ import (
 	"os"
 
 	application "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
-	platform "github.com/pluralsh/deployment-operator/api/apis/platform/v1alpha1"
-	"github.com/pluralsh/deployment-operator/providers/argocd/pkg/status"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	platform "github.com/pluralsh/deployment-operator/api/apis/platform/v1alpha1"
+	"github.com/pluralsh/deployment-operator/providers/argocd/pkg/status"
 	//+kubebuilder:scaffold:imports
 )
 
