@@ -9,7 +9,8 @@ help:
 ##@ Build
 
 build:
-	go build -o bin/deployment-argocd-provider cmd/main.go cmd/cmd.go
+	go build -o bin/deployment-argocd-provider cmd/driver/main.go cmd/driver/cmd.go
+	go build -o bin/status-updater-argocd-provider cmd/status-updater/main.go
 
 docker-build:
 	docker build -t ${IMG} .
