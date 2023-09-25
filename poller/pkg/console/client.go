@@ -13,7 +13,7 @@ type authedTransport struct {
 }
 
 func (at *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("Authorization", "Token "+at.token)
+	req.Header.Set("Authorization", "Bearer "+at.token)
 	return at.wrapped.RoundTrip(req)
 }
 
@@ -31,7 +31,9 @@ func New(url, token string) *Client {
 	}
 
 	return &Client{
-		client: console.NewClient(&httpClient, url),
-		ctx:    context.Background(),
+		client: console.NewClient(&httpClient, url, func(req *http.Request) {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}),
+		ctx: context.Background(),
 	}
 }

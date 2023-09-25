@@ -24,33 +24,33 @@ func New(url, token string, interval time.Duration) Synchronizer {
 }
 
 func (s *Synchronizer) Run() {
-	go func() {
-		for {
-			apiServices, err := s.consoleClient.GetServices()
-			if err != nil {
-				log.Logger.Error(err, "failed to fetch service list from deployments service")
-				time.Sleep(s.interval)
-				continue
-			}
+	log.Logger.Info("Starting synchronizer...")
 
-			services := toKubernetesServices(apiServices)
-			existingServices, err := s.kubernetesClient.GetServices()
-			if err != nil {
-				log.Logger.Error(err, "failed to fetch service list from cluster")
-				time.Sleep(s.interval)
-				continue
-			}
-
-			err = s.sync(services, existingServices.Items)
-			if err != nil {
-				log.Logger.Error(err, "failed to sync services from deployments service to cluster")
-				time.Sleep(s.interval)
-				continue
-			}
-
+	for {
+		apiServices, err := s.consoleClient.GetServices()
+		if err != nil {
+			log.Logger.Error(err, "failed to fetch service list from deployments service")
 			time.Sleep(s.interval)
+			continue
 		}
-	}()
+
+		services := toKubernetesServices(apiServices)
+		existingServices, err := s.kubernetesClient.GetServices()
+		if err != nil {
+			log.Logger.Error(err, "failed to fetch service list from cluster")
+			time.Sleep(s.interval)
+			continue
+		}
+
+		err = s.sync(services, existingServices.Items)
+		if err != nil {
+			log.Logger.Error(err, "failed to sync services from deployments service to cluster")
+			time.Sleep(s.interval)
+			continue
+		}
+
+		time.Sleep(s.interval)
+	}
 }
 
 // TODO: Should we exit on first error?
@@ -76,6 +76,7 @@ func (s *Synchronizer) sync(services, existingServices []platform.Deployment) er
 		delete(existingServicesMap, svc.Name)
 	}
 
+	// TODO: Remove as it should be possible to create CRDs outside API?
 	for _, svc := range existingServicesMap {
 		err := s.kubernetesClient.DeleteService(svc)
 		if err != nil {
