@@ -33,7 +33,13 @@ func (engine *Engine) ControlLoop() {
 	for {
 		log.Info("Polling for new service updates")
 
-		id := <-engine.svcChan
+		item, shutdown := engine.svcQueue.Get()
+		if shutdown {
+			break
+		}
+		engine.svcQueue.Done(item) // immediately consume it from the queue
+		id := item.(string)
+
 		engine.syncing = id
 		svc, err := engine.svcCache.Get(id)
 		if err != nil {
