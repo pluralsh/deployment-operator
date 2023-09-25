@@ -11,16 +11,19 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY /cmd/main.go main.go
-COPY /cmd/cmd.go cmd.go
+COPY /cmd/driver/main.go deployment-argocd-provider.go
+COPY /cmd/driver/cmd.go cmd.go
+COPY /cmd/status-updater/main.go status-updater-argocd-provider.go
 COPY /pkg pkg/
 
-# Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-argocd-provider main.go cmd.go
 
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-argocd-provider deployment-argocd-provider.go cmd.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o status-updater-argocd-provider status-updater-argocd-provider.go
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 
 COPY --from=builder /workspace/deployment-argocd-provider .
+COPY --from=builder /workspace/status-updater-argocd-provider .
 USER 65532:65532
-ENTRYPOINT ["/deployment-argocd-provider"]
