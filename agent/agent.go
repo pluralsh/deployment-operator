@@ -6,6 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2/klogr"
 
 	"github.com/argoproj/gitops-engine/pkg/cache"
@@ -24,7 +25,7 @@ type Agent struct {
 	consoleClient *client.Client
 	engine        *deploysync.Engine
 	deathChan     chan interface{}
-	svcChan       chan string
+	svcQueue      workqueue.RateLimitingInterface
 	cleanup       engine.StopFunc
 	refresh       time.Duration
 }
@@ -38,7 +39,7 @@ func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl,
 	svcCache := client.NewCache(consoleClient, refresh)
 	manifestCache := manifests.NewCache(refresh, deployToken)
 
-	svcChan := make(chan string)
+	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	deathChan := make(chan interface{})
 
 	// we should enable SSA if kubernetes version supports it
@@ -60,14 +61,14 @@ func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl,
 		return nil, err
 	}
 
-	engine := deploysync.New(gitOpsEngine, clusterCache, consoleClient, svcChan, svcCache, manifestCache)
+	engine := deploysync.New(gitOpsEngine, clusterCache, consoleClient, svcQueue, svcCache, manifestCache)
 	engine.AddHealthCheck(deathChan)
 
 	return &Agent{
 		consoleClient: consoleClient,
 		engine:        engine,
 		deathChan:     deathChan,
-		svcChan:       svcChan,
+		svcQueue:      svcQueue,
 		cleanup:       cleanup,
 		refresh:       refresh,
 	}, nil
@@ -94,7 +95,7 @@ func (agent *Agent) Run() {
 
 		for _, svc := range svcs {
 			log.Info("sending update for", "service", svc.ID)
-			agent.svcChan <- svc.ID
+			agent.svcQueue.Add(svc.ID)
 		}
 
 		// TODO: fetch kubernetes version properly

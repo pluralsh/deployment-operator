@@ -29,6 +29,7 @@ func (engine *Engine) updateStatus(id string, results []common.ResourceSyncResul
 	if err != nil {
 		errs = append(errs, errorAttributes("reconciliation", compErr))
 	}
+	errs = lo.Filter(errs, func(e *console.ServiceErrorAttributes, ind int) bool { return e != nil })
 
 	return engine.client.UpdateComponents(id, components, errs)
 }
