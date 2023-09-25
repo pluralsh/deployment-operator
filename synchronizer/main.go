@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/poller/pkg/synchronizer"
+	"github.com/pluralsh/deployment-operator/synchronizer/pkg/synchronizer"
 )
 
 func main() {
