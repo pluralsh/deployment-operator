@@ -36,7 +36,7 @@ func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl,
 	}
 	consoleClient := client.New(consoleUrl, deployToken)
 	svcCache := client.NewCache(consoleClient, refresh)
-	manifestCache := manifests.NewCache(refresh)
+	manifestCache := manifests.NewCache(refresh, deployToken)
 
 	svcChan := make(chan string)
 	deathChan := make(chan interface{})
@@ -84,6 +84,7 @@ func (agent *Agent) Run() {
 	}()
 
 	for {
+		log.Info("fetching services for cluster")
 		svcs, err := agent.consoleClient.GetServices()
 		if err != nil {
 			log.Error(err, "failed to fetch service list from deployments service")
@@ -92,6 +93,7 @@ func (agent *Agent) Run() {
 		}
 
 		for _, svc := range svcs {
+			log.Info("sending update for", "service", svc.ID)
 			agent.svcChan <- svc.ID
 		}
 
