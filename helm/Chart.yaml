@@ -1,0 +1,6 @@
+apiVersion: v2
+name: deployment-operator
+description: creates a new instance of the plural deployment operator
+type: application
+version: 0.9.1
+appVersion: "0.0.1"
