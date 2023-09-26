@@ -55,7 +55,7 @@ fix: $(PRE) ## fix issues found by linters
 
 release-vsn: # tags and pushes a new release
 	@read -p "Version: " tag; \
-	git checkout master; \
+	git checkout main; \
 	git pull --rebase; \
 	git tag -a $$tag -m "new release"; \
 	git push origin $$tag
