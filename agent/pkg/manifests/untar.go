@@ -10,7 +10,7 @@ import (
 )
 
 func Untar(dst string, r io.Reader) error {
-	log.Info("beggining to untar stream")
+	log.Info("beginning to untar stream")
 
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
