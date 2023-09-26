@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/pluralsh/console-client-go v0.0.5
-	github.com/pluralsh/deployment-operator/api v0.0.0-20230925092845-f67b99b2d6bf
+	github.com/pluralsh/deployment-operator/api v0.0.0-20230926070646-e0bf8331015d
 	github.com/pluralsh/deployment-operator/common v0.0.0-20230925092845-f67b99b2d6bf
 	k8s.io/apimachinery v0.28.2
 	sigs.k8s.io/controller-runtime v0.16.2
