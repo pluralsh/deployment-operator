@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*.*.*'
+env:
+  GOPATH: /home/runner/go/
+  GOPROXY: "https://proxy.golang.org"
 jobs:
   test:
     name: Unit test
