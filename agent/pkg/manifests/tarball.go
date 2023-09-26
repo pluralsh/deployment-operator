@@ -2,19 +2,19 @@ package manifests
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/pluralsh/polly/fs"
 )
 
 var (
-	client = &http.Client{Timeout: time.Duration(15 * time.Second)}
+	client = &http.Client{Timeout: 15 * time.Second}
 )
 
 func fetch(url, token string) (string, error) {
-	dir, err := ioutil.TempDir("", "manifests")
+	dir, err := os.MkdirTemp("", "manifests")
 	if err != nil {
 		return dir, err
 	}
