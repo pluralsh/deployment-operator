@@ -35,7 +35,7 @@ func newCmd(log logr.Logger) *cobra.Command {
 			http.HandleFunc("/v1/health", func(w http.ResponseWriter, request *http.Request) {
 				log.Info("health check")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("ping"))
+				_, _ = w.Write([]byte("ping"))
 			})
 
 			go func() {
