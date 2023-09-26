@@ -13,10 +13,6 @@ ifndef GOPATH
 $(error $$GOPATH environment variable not set)
 endif
 
-ifeq (,$(findstring $(GOPATH)/bin,$(PATH)))
-$(error $$GOPATH/bin directory is not in your $$PATH)
-endif
-
 PRE = --ensure
 
 ##@ General
@@ -24,6 +20,12 @@ PRE = --ensure
 .PHONY: help
 help: ## show help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+##@ Run
+
+.PHONY: run
+run: ## run
+	go run cmd/main.go
 
 ##@ Build
 
@@ -37,7 +39,7 @@ docker-build: ## build image
 docker-push: ## push image
 	docker push ${IMG}
 
-##@ Tests and checks
+##@ Tests
 
 .PHONY: test
 test: ## run tests
