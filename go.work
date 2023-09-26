@@ -1,11 +1,7 @@
 go 1.21
 
 use (
-	./api
+	./agent
 	./common
-	./operator
-	./providers/argocd
-	./providers/fake
-	./provisioner
 	./tools
 )
