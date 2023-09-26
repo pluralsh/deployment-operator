@@ -6,7 +6,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/deployment-operator/api v0.0.0-20230921103135-81f9b2348be2
-	github.com/pluralsh/deployment-operator/provisioner v0.0.0-00010101000000-000000000000
+	github.com/pluralsh/deployment-operator/provisioner v0.0.0-20230926070646-e0bf8331015d
 	google.golang.org/grpc v1.58.1
 	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.2
