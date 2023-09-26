@@ -7,7 +7,7 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/agent/pkg/manifests/template"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2/klogr"
 )

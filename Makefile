@@ -1,18 +1,23 @@
 ROOT_DIRECTORY := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
-include $(ROOT_DIRECTORY)/config.mk
+PROJECT_NAME := deployment-operator
 
-PRE = --ensure-tools
+IMAGE_REGISTRIES := ghcr.io
+IMAGE_REPOSITORY := plural
 
-.PHONY: --ensure-tools
---ensure-tools:
-	@$(MAKE) --no-print-directory -C $(TOOLS_DIRECTORY) ensure
+IMG ?= deployment-agent:latest
 
-.PHONY: --run $(MODULE_DIRECTORIES)
---run: $(MODULE_DIRECTORIES)
+include tools.mk
 
-$(MODULE_DIRECTORIES):
-	@$(MAKE) --directory=$@ $(TARGET)
+ifndef GOPATH
+$(error $$GOPATH environment variable not set)
+endif
+
+ifeq (,$(findstring $(GOPATH)/bin,$(PATH)))
+$(error $$GOPATH/bin directory is not in your $$PATH)
+endif
+
+PRE = --ensure
 
 ##@ General
 
@@ -22,21 +27,26 @@ help: ## show help
 
 ##@ Build
 
-# TODO: Fix.
 .PHONY: build
-build: ## build all modules
-	@$(MAKE) --no-print-directory -C $(MODULE_DIRECTORIES) build
+build: ## build
+	go build -o bin/deployment-agent cmd/main.go
+
+docker-build: ## build image
+	docker build -t ${IMG} .
+
+docker-push: ## push image
+	docker push ${IMG}
 
 ##@ Tests and checks
 
 .PHONY: test
-test: $(PRE) ## test workspace modules
-	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} go test {}/... -v
+test: ## run tests
+	go test ./... -v
 
 .PHONY: lint
-lint: $(PRE) ## lint workspace code
-	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} golangci-lint run --timeout=10m {}/...
+lint: $(PRE) ## run linters
+	golangci-lint run ./...
 
 .PHONY: fix
-fix: $(PRE) ## fix workspace code
-	go work edit -json | jq -r '.Use[].DiskPath'  | xargs -I{} golangci-lint run --timeout=10m --fix {}/...
+fix: $(PRE) ## fix issues found by linters
+	golangci-lint run --fix ./...

@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/pluralsh/deployment-operator/pkg/agent"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2/klogr"
-
-	"github.com/pluralsh/deployment-operator/agent"
 )
 
 func main() {

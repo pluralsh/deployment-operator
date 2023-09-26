@@ -4,8 +4,8 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/engine"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
-	"github.com/pluralsh/deployment-operator/agent/pkg/client"
-	"github.com/pluralsh/deployment-operator/agent/pkg/manifests"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"k8s.io/client-go/util/workqueue"
 )
 
