@@ -3,8 +3,6 @@ go 1.21
 use (
 	./agent
 	./common
-	./providers/argocd
-	./providers/fake
 	./provisioner
 	./synchronizer
 	./tools
