@@ -1,8 +1,5 @@
 JQ_BINARY := $(shell which jq)
 GOLANGCI_LINT_BINARY := $(shell which golangci-lint)
-PROTOC_GEN_GO_GRPC_BINARY := $(shell which protoc-gen-go-grpc)
-PROTOC_GEN_GO_BINARY := $(shell which protoc-gen-go)
-CONTROLLER_GEN_BINARY := $(shell which controller-gen)
 
 ##@ General
 
@@ -13,7 +10,7 @@ help: ## show help
 ##@ Tools
 
 .PHONY: ensure
-ensure: ensure-jq ensure-golangci-lint ensure-protoc-gen-go-grpc ensure-protoc-gen-go ensure-controller-gen ## ensure all tools availability
+ensure: ensure-jq ensure-golangci-lint ## ensure all tools availability
 
 .PHONY: ensure-jq
 ensure-jq: ## ensure jq availability
@@ -31,32 +28,4 @@ ifndef GOLANGCI_LINT_BINARY
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint
 else
 	@echo "golangci-lint is already installed"
-endif
-
-.PHONY: ensure-protoc-gen-go-grpc
-ensure-protoc-gen-go-grpc: ## ensure protoc-gen-go-grpc availability
-ifndef PROTOC_GEN_GO_GRPC_BINARY
-	@echo "installing protoc-gen-go-grpc..."
-	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
-else
-	@echo "protoc-gen-go-grpc is already installed"
-endif
-
-.PHONY: ensure-protoc-gen-go
-ensure-protoc-gen-go: ## ensure protoc-gen-go availability
-ifndef PROTOC_GEN_GO_BINARY
-	@echo "installing protoc-gen-go..."
-	@go install google.golang.org/grpc/cmd/protoc-gen-go
-else
-	@echo "protoc-gen-go is already installed"
-endif
-
-
-.PHONY: ensure-controller-gen
-ensure-controller-gen: ## ensure controller-gen availability
-ifndef CONTROLLER_GEN_BINARY
-	@echo "installing controller-gen..."
-	@go install sigs.k8s.io/controller-tools/cmd/controller-gen
-else
-	@echo "controller-gen is already installed"
 endif

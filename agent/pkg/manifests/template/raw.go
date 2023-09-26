@@ -72,12 +72,12 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Un
 
 		rendered, err := renderLiquid(data, svc)
 		if err != nil {
-			return fmt.Errorf("templating error in %s: %v", rpath, err)
+			return fmt.Errorf("templating error in %s: %w", rpath, err)
 		}
 
 		items, err := kube.SplitYAML(rendered)
 		if err != nil {
-			return fmt.Errorf("failed to parse %s: %v", rpath, err)
+			return fmt.Errorf("failed to parse %s: %w", rpath, err)
 		}
 		res = append(res, items...)
 		return nil

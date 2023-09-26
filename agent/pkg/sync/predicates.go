@@ -38,7 +38,6 @@ func svcId(resource *cache.Resource) *string {
 		return nil
 	}
 
-	var id string
-	id = res.ServiceId
+	id := res.ServiceId
 	return &id
 }
