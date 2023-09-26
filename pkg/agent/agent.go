@@ -12,9 +12,9 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/engine"
 
-	"github.com/pluralsh/deployment-operator/agent/pkg/client"
-	"github.com/pluralsh/deployment-operator/agent/pkg/manifests"
-	deploysync "github.com/pluralsh/deployment-operator/agent/pkg/sync"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
 )
 
 var (
