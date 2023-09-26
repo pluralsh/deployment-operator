@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/deployment-operator/common v0.0.0-00010101000000-000000000000
+	github.com/pluralsh/deployment-operator/common v0.0.0-20230926070646-e0bf8331015d
 	google.golang.org/grpc v1.58.1
 	google.golang.org/protobuf v1.31.0
 )

@@ -3,7 +3,7 @@ module github.com/pluralsh/deployment-operator/fake
 go 1.21
 
 require (
-	github.com/pluralsh/deployment-operator/common v0.0.0-00010101000000-000000000000
+	github.com/pluralsh/deployment-operator/common v0.0.0-20230926070646-e0bf8331015d
 	github.com/pluralsh/deployment-operator/provisioner v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
