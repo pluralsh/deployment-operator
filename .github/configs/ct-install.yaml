@@ -5,8 +5,8 @@ remote: origin
 chart-dirs:
   - charts
 chart-repos:
-  - capi=https://pluralsh.github.io/deployment-operator
-helm-extra-args: "--timeout 600s"  
+  - deployop=https://pluralsh.github.io/deployment-operator
+helm-extra-args: "--timeout 600s"
 validate-chart-schema: false
 validate-maintainers: true
 validate-yaml: true
