@@ -24,6 +24,8 @@ jobs:
   publish:
     name: Publish helm chart
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.chart_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -48,7 +50,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [test, publish]
     env:
-      VERSION: ${{ needs.publish.steps.release.outputs.chart_version }}
+      VERSION: ${{ needs.publish.outputs.version }}
     permissions:
       contents: 'read'
       id-token: 'write'
