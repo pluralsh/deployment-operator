@@ -1,8 +1,10 @@
 name: CD
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
+
 
 env:
   GOPATH: /home/runner/go/
