@@ -1,5 +1,3 @@
-//go:build exclude
-
 package template
 
 import (
@@ -62,4 +60,8 @@ func (h *helm) values(svc *console.ServiceDeploymentExtended) (path string, err 
 	}
 
 	return
+}
+
+func NewHelm(dir string) Template {
+	return &helm{dir}
 }
