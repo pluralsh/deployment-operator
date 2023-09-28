@@ -49,8 +49,6 @@ jobs:
     name: Build and push agent container
     runs-on: ubuntu-20.04
     needs: [test, publish]
-    env:
-      VERSION: ${{ needs.publish.outputs.version }}
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -69,7 +67,7 @@ jobs:
           ghcr.io/pluralsh/deployment-operator
         # generate Docker tags based on the following events/attributes
         tags: |
-          type=semver,pattern={{version}},value=${{env.VERSION}}
+          type=semver,pattern={{version}},value=${{ needs.publish.outputs.version }}
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
     - name: Set up Docker Buildx
