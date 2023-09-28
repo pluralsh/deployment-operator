@@ -1,9 +1,9 @@
 name: CD
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  release:
+    types: [published]
+
 env:
   GOPATH: /home/runner/go/
   GOPROXY: "https://proxy.golang.org"
@@ -92,20 +92,20 @@ jobs:
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }} # required
       if: always()
-  release:
-    name: Create GitHub release
-    runs-on: ubuntu-20.04
-    needs: publish
-    permissions:
-      contents: write
-      discussions: write
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      with:
-        generate_release_notes: true
+#  release:
+#    name: Create GitHub release
+#    runs-on: ubuntu-20.04
+#    needs: publish
+#    permissions:
+#      contents: write
+#      discussions: write
+#    steps:
+#    - name: Checkout
+#      uses: actions/checkout@v4
+#    - name: Release
+#      uses: softprops/action-gh-release@v1
+#      with:
+#        generate_release_notes: true
   # bump:
   #   name: Bump Chart Version
   #   runs-on: ubuntu-20.04
