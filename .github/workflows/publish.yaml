@@ -57,7 +57,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Get helm chart version
-      run: echo "CHART_VERSION=$(grep '^version:' charts/<project-name>/Chart.yaml | cut -d ":" -f2 | tr -d ' ')" >> $GITHUB_ENV
+      run: echo "CHART_VERSION=$(grep '^version:' charts/deployment-operator/Chart.yaml | cut -d ":" -f2 | tr -d ' ')" >> $GITHUB_ENV
     - name: Docker meta
       id: meta
       uses: docker/metadata-action@v4
