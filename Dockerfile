@@ -23,7 +23,7 @@ RUN apk add --update --no-cache curl ca-certificates unzip wget openssl build-ba
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent main.go
 
-FROM alpine:3.17
+FROM alpine:3.18
 WORKDIR /workspace
 
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm 
