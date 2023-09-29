@@ -9,16 +9,6 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/sync"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"k8s.io/klog/v2/klogr"
-)
-
-var (
-	log = klogr.New()
-)
-
-const (
-	syncDelay = 5 * time.Second
 )
 
 func (engine *Engine) ControlLoop() {
@@ -66,6 +56,11 @@ func (engine *Engine) processItem(item interface{}) error {
 		fmt.Printf("failed to fetch service from cache: %s, ignoring for now", err)
 		return err
 	}
+
+	if Local && svc.Name == OperatorService {
+		return nil
+	}
+
 	log.Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 
 	var manErr error

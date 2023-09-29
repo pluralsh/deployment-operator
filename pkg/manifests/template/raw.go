@@ -10,10 +10,12 @@ import (
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/osteele/liquid"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
+	extensions     = []string{".json", ".yaml", ".yml", ".yaml.liquid", ".yml.liquid", ".json.liquid"}
 	liquidEngine   = liquid.NewEngine()
 	sprigFunctions = map[string]string{
 		"toJson":        "to_json",
@@ -57,7 +59,7 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Un
 		if info.IsDir() {
 			return nil
 		}
-		if ext := strings.ToLower(filepath.Ext(info.Name())); ext != ".json" && ext != ".yml" && ext != ".yaml" {
+		if ext := strings.ToLower(filepath.Ext(info.Name())); !lo.Contains(extensions, ext) {
 			return nil
 		}
 		rpath, err := filepath.Rel(r.dir, path)
