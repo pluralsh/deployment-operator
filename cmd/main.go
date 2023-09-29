@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
+	"github.com/pluralsh/deployment-operator/pkg/sync"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2/klogr"
@@ -59,6 +60,7 @@ func newCmd(log logr.Logger) *cobra.Command {
 	cmd.Flags().StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
 	cmd.Flags().StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
 	cmd.Flags().StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
+	cmd.Flags().BoolVar(&sync.Local, "local", false, "whether you're running the agent locally (and should avoid recreating the deploy operator)")
 	return &cmd
 }
 
