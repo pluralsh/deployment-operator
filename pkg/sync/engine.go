@@ -46,6 +46,11 @@ func (engine *Engine) RegisterHandlers() {
 	})
 }
 
+func (engine *Engine) WipeCache() {
+	engine.svcCache.Wipe()
+	engine.manifestCache.Wipe()
+}
+
 func isRoot(r *cache.Resource) bool {
 	return svcId(r) != nil && len(r.OwnerRefs) == 0
 }
