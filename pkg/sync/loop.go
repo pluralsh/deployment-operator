@@ -86,7 +86,7 @@ func (engine *Engine) processItem(item interface{}) error {
 	results, err = engine.engine.Sync(
 		context.Background(),
 		manifests,
-		isManagedRecursive(svc.ID),
+		isManaged(svc.ID),
 		svc.Revision.ID,
 		svc.Namespace,
 		sync.WithPrune(true),

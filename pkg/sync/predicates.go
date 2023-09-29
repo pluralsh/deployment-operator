@@ -21,13 +21,6 @@ func addAnnotations(mans []*unstructured.Unstructured, svcId string) {
 func isManaged(svcId string) func(*cache.Resource) bool {
 	return func(r *cache.Resource) bool {
 		res, ok := r.Info.(*Resource)
-		return ok && res != nil && res.ServiceId == svcId && res.Sha == Sha(svcId, r.ResourceKey())
-	}
-}
-
-func isManagedRecursive(svcId string) func(*cache.Resource) bool {
-	return func(r *cache.Resource) bool {
-		res, ok := r.Info.(*Resource)
 		return ok && res != nil && res.ServiceId == svcId
 	}
 }

@@ -36,7 +36,7 @@ func (engine *Engine) updateStatus(id string, results []common.ResourceSyncResul
 
 func (engine *Engine) collectComponents(id string, results []common.ResourceSyncResult) ([]*console.ComponentAttributes, error) {
 	res := make([]*console.ComponentAttributes, 0)
-	liveObjs, err := engine.cache.GetManagedLiveObjs([]*unstructured.Unstructured{}, isManagedRecursive(id))
+	liveObjs, err := engine.cache.GetManagedLiveObjs([]*unstructured.Unstructured{}, isManaged(id))
 	if err != nil {
 		return res, err
 	}
