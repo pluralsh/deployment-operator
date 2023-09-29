@@ -87,6 +87,7 @@ func (agent *Agent) Run() {
 
 	for {
 		log.Info("fetching services for cluster")
+		agent.engine.WipeCache()
 		svcs, err := agent.consoleClient.GetServices()
 		if err != nil {
 			log.Error(err, "failed to fetch service list from deployments service")
