@@ -8,6 +8,8 @@ import (
 
 	"github.com/argoproj/gitops-engine/pkg/sync"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
+	"github.com/samber/lo"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -84,10 +86,11 @@ func (engine *Engine) processItem(item interface{}) error {
 	results, err = engine.engine.Sync(
 		context.Background(),
 		manifests,
-		isManaged(svc.ID),
+		isManagedRecursive(svc.ID),
 		svc.Revision.ID,
 		svc.Namespace,
 		sync.WithPrune(true),
+		sync.WithPrunePropagationPolicy(lo.ToPtr(metav1.DeletePropagationBackground)),
 		sync.WithLogr(log),
 		sync.WithSyncWaveHook(delayBetweenSyncWaves),
 		sync.WithServerSideApplyManager(SSAManager),
