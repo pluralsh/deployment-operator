@@ -51,5 +51,5 @@ func (c *ServiceCache) Wipe() {
 }
 
 func (l *cacheLine) live(dur time.Duration) bool {
-	return l.created.Add(dur).Before(time.Now())
+	return l.created.Before(time.Now().Add(-dur))
 }
