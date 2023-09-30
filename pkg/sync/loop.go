@@ -83,6 +83,14 @@ func (engine *Engine) processItem(item interface{}) error {
 	log.Info("Syncing manifests", "count", len(manifests))
 
 	addAnnotations(manifests, svc.ID)
+
+	diff, err := engine.diff(manifests, svc.Namespace, svc.ID)
+	checkModifications := sync.WithResourceModificationChecker(true, diff)
+	if err != nil {
+		log.Error(err, "could not build diff list, ignoring for now")
+		checkModifications = sync.WithResourceModificationChecker(false, nil)
+	}
+
 	results, err = engine.engine.Sync(
 		context.Background(),
 		manifests,
@@ -90,6 +98,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		svc.Revision.ID,
 		svc.Namespace,
 		sync.WithPrune(true),
+		checkModifications,
 		sync.WithPrunePropagationPolicy(lo.ToPtr(metav1.DeletePropagationBackground)),
 		sync.WithLogr(log),
 		sync.WithSyncWaveHook(delayBetweenSyncWaves),
