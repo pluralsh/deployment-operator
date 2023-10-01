@@ -67,7 +67,7 @@ func (c *ManifestCache) Wipe() {
 }
 
 func (l *cacheLine) live(dur time.Duration) bool {
-	return l.created.Before(time.Now().Add(-dur))
+	return l.created.After(time.Now().Add(-dur))
 }
 
 func (l *cacheLine) wipe() {
