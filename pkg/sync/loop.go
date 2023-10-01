@@ -105,7 +105,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		sync.WithServerSideApplyManager(SSAManager),
 		sync.WithServerSideApply(true),
 		sync.WithNamespaceModifier(func(managedNs, liveNs *unstructured.Unstructured) (bool, error) {
-			return true, nil
+			return managedNs != nil && liveNs == nil, nil
 		}),
 	)
 	if err != nil {
