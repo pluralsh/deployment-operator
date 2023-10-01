@@ -2,8 +2,7 @@ package sync
 
 import (
 	"github.com/argoproj/gitops-engine/pkg/diff"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
-	"github.com/samber/lo"
+	"github.com/argoproj/gitops-engine/pkg/sync"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -13,14 +12,6 @@ func (engine *Engine) diff(manifests []*unstructured.Unstructured, namespace, sv
 		return nil, err
 	}
 
-	live := lo.Map(manifests, func(r *unstructured.Unstructured, ind int) *unstructured.Unstructured {
-		key := kube.GetResourceKey(r)
-		key.Namespace = namespace
-		if v, ok := liveObjs[key]; ok {
-			return v
-		}
-		return nil
-	})
-
-	return diff.DiffArray(manifests, live, diff.WithManager(SSAManager))
+	reconciliation := sync.Reconcile(manifests, liveObjs, namespace, engine.cache)
+	return diff.DiffArray(reconciliation.Target, reconciliation.Live, diff.WithManager(SSAManager), diff.WithLogr(log))
 }
