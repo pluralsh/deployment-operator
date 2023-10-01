@@ -91,6 +91,14 @@ func (engine *Engine) processItem(item interface{}) error {
 		checkModifications = sync.WithResourceModificationChecker(false, nil)
 	}
 
+	if svc.Name == OperatorService && diff != nil {
+		for _, d := range diff.Diffs {
+			fmt.Printf("%+v\n", d.Modified)
+			fmt.Println(string(d.PredictedLive))
+			fmt.Println(string(d.NormalizedLive))
+		}
+	}
+
 	results, err = engine.engine.Sync(
 		context.Background(),
 		manifests,
