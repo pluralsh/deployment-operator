@@ -2,3 +2,8 @@ secrets:
   deployToken: {{ configuration.deployToken }}
 
 consoleUrl: {{ configuration.url }}
+
+{% if configuration.tag %}
+image:
+  tag: {{ configuration.tag }}
+{% endif %}
