@@ -22,7 +22,7 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.U
 	outb, errb := bytes.Buffer{}, bytes.Buffer{}
 
 	// TODO: add some configured values file convention, perhaps using our lua templating from plural-cli
-	args := []string{"template", svc.Name, h.dir, "--namespace", svc.Namespace}
+	args := []string{"template", svc.Name, h.dir, "--namespace", svc.Namespace, "--include-crds"}
 	f, err := h.values(svc)
 	if err != nil {
 		return nil, err
