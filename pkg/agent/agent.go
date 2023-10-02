@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2/klogr"
-
 	"github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/engine"
-
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2/klogr"
 )
 
 var (
@@ -22,16 +21,21 @@ var (
 )
 
 type Agent struct {
-	consoleClient *client.Client
-	engine        *deploysync.Engine
-	deathChan     chan interface{}
-	svcQueue      workqueue.RateLimitingInterface
-	cleanup       engine.StopFunc
-	refresh       time.Duration
+	consoleClient   *client.Client
+	discoveryClient *discovery.DiscoveryClient
+	engine          *deploysync.Engine
+	deathChan       chan interface{}
+	svcQueue        workqueue.RateLimitingInterface
+	cleanup         engine.StopFunc
+	refresh         time.Duration
 }
 
 func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl, deployToken string) (*Agent, error) {
 	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -65,12 +69,13 @@ func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl,
 	engine.AddHealthCheck(deathChan)
 
 	return &Agent{
-		consoleClient: consoleClient,
-		engine:        engine,
-		deathChan:     deathChan,
-		svcQueue:      svcQueue,
-		cleanup:       cleanup,
-		refresh:       refresh,
+		discoveryClient: dc,
+		consoleClient:   consoleClient,
+		engine:          engine,
+		deathChan:       deathChan,
+		svcQueue:        svcQueue,
+		cleanup:         cleanup,
+		refresh:         refresh,
 	}, nil
 }
 
@@ -99,8 +104,12 @@ func (agent *Agent) Run() {
 			agent.svcQueue.Add(svc.ID)
 		}
 
-		// TODO: fetch kubernetes version properly
-		if err := agent.consoleClient.Ping("1.24"); err != nil {
+		info, err := agent.discoveryClient.ServerVersion()
+		if err != nil {
+			log.Error(err, "failed to fetch cluster version")
+		}
+		v := fmt.Sprintf("%s.%s", info.Major, info.Minor)
+		if err := agent.consoleClient.Ping(v); err != nil {
 			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
 
