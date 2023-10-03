@@ -82,6 +82,7 @@ func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl,
 func (agent *Agent) Run() {
 	defer agent.cleanup()
 	defer agent.svcQueue.ShutDown()
+	defer agent.engine.WipeCache()
 	go func() {
 		for {
 			go agent.engine.ControlLoop()
