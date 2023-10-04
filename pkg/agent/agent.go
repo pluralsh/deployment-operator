@@ -10,6 +10,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
@@ -91,13 +92,12 @@ func (agent *Agent) Run() {
 		}
 	}()
 
-	for {
+	wait.PollInfinite(agent.refresh, func() (done bool, err error) {
 		log.Info("fetching services for cluster")
 		svcs, err := agent.consoleClient.GetServices()
 		if err != nil {
 			log.Error(err, "failed to fetch service list from deployments service")
-			time.Sleep(agent.refresh)
-			continue
+			return false, nil
 		}
 
 		for _, svc := range svcs {
@@ -108,12 +108,12 @@ func (agent *Agent) Run() {
 		info, err := agent.discoveryClient.ServerVersion()
 		if err != nil {
 			log.Error(err, "failed to fetch cluster version")
+			return false, nil
 		}
 		v := fmt.Sprintf("%s.%s", info.Major, info.Minor)
 		if err := agent.consoleClient.Ping(v); err != nil {
 			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
-
-		time.Sleep(agent.refresh)
-	}
+		return false, nil
+	})
 }

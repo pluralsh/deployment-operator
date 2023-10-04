@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
-	"time"
 
 	"github.com/argoproj/gitops-engine/pkg/sync"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func (engine *Engine) ControlLoop() {
@@ -25,12 +25,12 @@ func (engine *Engine) ControlLoop() {
 
 	engine.RegisterHandlers()
 
-	for {
+	wait.PollInfinite(syncDelay, func() (done bool, err error) {
 		log.Info("Polling for new service updates")
 
 		item, shutdown := engine.svcQueue.Get()
 		if shutdown {
-			break
+			return true, nil
 		}
 
 		if err := engine.processItem(item); err != nil {
@@ -39,8 +39,8 @@ func (engine *Engine) ControlLoop() {
 
 		engine.syncing = ""
 
-		time.Sleep(time.Duration(syncDelay))
-	}
+		return false, nil
+	})
 }
 
 func (engine *Engine) processItem(item interface{}) error {
