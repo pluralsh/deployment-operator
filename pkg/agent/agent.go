@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/alitto/pond"
 	"github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/engine"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
@@ -26,7 +26,6 @@ type Agent struct {
 	discoveryClient *discovery.DiscoveryClient
 	engine          *deploysync.Engine
 	deathChan       chan interface{}
-	svcQueue        workqueue.RateLimitingInterface
 	cleanup         engine.StopFunc
 	refresh         time.Duration
 }
@@ -74,7 +73,6 @@ func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl,
 		consoleClient:   consoleClient,
 		engine:          engine,
 		deathChan:       deathChan,
-		svcQueue:        svcQueue,
 		cleanup:         cleanup,
 		refresh:         refresh,
 	}, nil
@@ -82,38 +80,37 @@ func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl,
 
 func (agent *Agent) Run() {
 	defer agent.cleanup()
-	defer agent.svcQueue.ShutDown()
 	defer agent.engine.WipeCache()
-	go func() {
-		for {
-			go agent.engine.ControlLoop()
-			failure := <-agent.deathChan
-			fmt.Printf("recovered from panic %v\n", failure)
-		}
-	}()
+	panicHandler := func(p interface{}) {
+		fmt.Printf("Task panicked: %v", p)
+	}
 
-	wait.PollInfinite(agent.refresh, func() (done bool, err error) {
+	for {
 		log.Info("fetching services for cluster")
 		svcs, err := agent.consoleClient.GetServices()
 		if err != nil {
-			log.Error(err, "failed to fetch service list from deployments service")
-			return false, nil
+			log.Error(err, "failed to fetch service list from deployments service %v", err)
+			time.Sleep(agent.refresh)
+			continue
 		}
-
+		pool := pond.New(20, 100, pond.MinWorkers(20), pond.PanicHandler(panicHandler))
 		for _, svc := range svcs {
-			log.Info("sending update for", "service", svc.ID)
-			agent.svcQueue.Add(svc.ID)
+			log.Info("sending update for", "service", svc.ID, "namespace", svc.Namespace, "name", svc.Name)
+			pool.TrySubmit(func() {
+				if err := agent.engine.ProcessItem(svc.ID); err != nil {
+					log.Error(err, "found unprocessable error")
+				}
+			})
 		}
-
+		pool.StopAndWait()
 		info, err := agent.discoveryClient.ServerVersion()
 		if err != nil {
 			log.Error(err, "failed to fetch cluster version")
-			return false, nil
 		}
 		v := fmt.Sprintf("%s.%s", info.Major, info.Minor)
 		if err := agent.consoleClient.Ping(v); err != nil {
 			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
-		return false, nil
-	})
+		time.Sleep(agent.refresh)
+	}
 }
