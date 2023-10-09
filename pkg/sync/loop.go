@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
+	"github.com/alitto/pond"
 	"github.com/argoproj/gitops-engine/pkg/sync"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"github.com/samber/lo"
@@ -27,18 +28,19 @@ func (engine *Engine) ControlLoop() {
 
 	wait.PollInfinite(syncDelay, func() (done bool, err error) {
 		log.Info("Polling for new service updates")
-
-		item, shutdown := engine.svcQueue.Get()
-		if shutdown {
-			return true, nil
+		pool := pond.New(20, 100, pond.MinWorkers(20))
+		for i := 0; i < engine.svcQueue.Len(); i++ {
+			item, shutdown := engine.svcQueue.Get()
+			if shutdown {
+				return true, nil
+			}
+			pool.TrySubmit(func() {
+				if err := engine.processItem(item); err != nil {
+					log.Error(err, "found unprocessable error")
+				}
+			})
 		}
-
-		if err := engine.processItem(item); err != nil {
-			log.Error(err, "found unprocessable error")
-		}
-
-		engine.syncing = ""
-
+		pool.StopAndWait()
 		return false, nil
 	})
 }

@@ -33,6 +33,7 @@ replace (
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
+	github.com/alitto/pond v1.8.3
 	github.com/argoproj/gitops-engine v0.7.1-0.20230906152414-b0fffe419a0f
 	github.com/go-logr/logr v1.2.4
 	github.com/orcaman/concurrent-map/v2 v2.0.1
