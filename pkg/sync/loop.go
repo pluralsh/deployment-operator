@@ -3,15 +3,48 @@ package sync
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 
 	"github.com/argoproj/gitops-engine/pkg/sync"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func (engine *Engine) ProcessItem(item interface{}) error {
+func (engine *Engine) ControlLoop() {
+	if engine.deathChan != nil {
+		defer func() {
+			if r := recover(); r != nil {
+				engine.deathChan <- r
+				fmt.Printf("panic: %s\n", string(debug.Stack()))
+			}
+		}()
+	}
+
+	engine.RegisterHandlers()
+
+	wait.PollInfinite(syncDelay, func() (done bool, err error) {
+		log.Info("Polling for new service updates")
+
+		item, shutdown := engine.svcQueue.Get()
+		if shutdown {
+			return true, nil
+		}
+
+		if err := engine.processItem(item); err != nil {
+			log.Error(err, "found unprocessable error")
+		}
+
+		engine.syncing = ""
+
+		return false, nil
+	})
+}
+
+func (engine *Engine) processItem(item interface{}) error {
+	defer engine.svcQueue.Done(item)
 	id := item.(string)
 
 	if id == "" {
@@ -19,6 +52,7 @@ func (engine *Engine) ProcessItem(item interface{}) error {
 	}
 
 	log.Info("attempting to sync service", "id", id)
+	engine.syncing = id
 	svc, err := engine.svcCache.Get(id)
 	if err != nil {
 		fmt.Printf("failed to fetch service from cache: %s, ignoring for now", err)
@@ -40,7 +74,7 @@ func (engine *Engine) ProcessItem(item interface{}) error {
 
 	if manErr != nil {
 		if err := engine.updateStatus(svc.ID, results, errorAttributes("manifests", manErr)); err != nil {
-			log.Error(err, "Failed to update service status, ignoring for now", "namespace", svc.Namespace, "name", svc.Name)
+			log.Error(err, "Failed to update service status, ignoring for now")
 		}
 		log.Error(manErr, "failed to parse manifests")
 		return manErr
@@ -53,7 +87,7 @@ func (engine *Engine) ProcessItem(item interface{}) error {
 	diff, err := engine.diff(manifests, svc.Namespace, svc.ID)
 	checkModifications := sync.WithResourceModificationChecker(true, diff)
 	if err != nil {
-		log.Error(err, "could not build diff list for service, ignoring for now", "namespace", svc.Namespace, "name", svc.Name)
+		log.Error(err, "could not build diff list, ignoring for now")
 		checkModifications = sync.WithResourceModificationChecker(false, nil)
 	}
 
@@ -79,7 +113,7 @@ func (engine *Engine) ProcessItem(item interface{}) error {
 	}
 
 	if err := engine.updateStatus(svc.ID, results, errorAttributes("sync", err)); err != nil {
-		log.Error(err, "Failed to update service status, ignoring for now", "namespace", svc.Namespace, "name", svc.Name)
+		log.Error(err, "Failed to update service status, ignoring for now")
 	}
 
 	return nil
