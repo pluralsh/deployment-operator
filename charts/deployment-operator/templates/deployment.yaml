@@ -38,17 +38,19 @@ spec:
           args:
           -  --console-url 
           - "{{ .Values.consoleUrl }}"
+          -  --leader-elect
+          - "true"
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /v1/health
+              path: /healthz
               port: http
           readinessProbe:
             httpGet:
-              path: /v1/health
+              path: /healthz
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

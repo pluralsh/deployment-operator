@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2/klogr"
 )
@@ -31,11 +31,7 @@ type Agent struct {
 	refresh         time.Duration
 }
 
-func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl, deployToken string) (*Agent, error) {
-	config, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
+func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken string) (*Agent, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
@@ -92,7 +88,7 @@ func (agent *Agent) Run() {
 		}
 	}()
 
-	wait.PollInfinite(agent.refresh, func() (done bool, err error) {
+	err := wait.PollInfinite(agent.refresh, func() (done bool, err error) {
 		log.Info("fetching services for cluster")
 		svcs, err := agent.consoleClient.GetServices()
 		if err != nil {
@@ -116,4 +112,15 @@ func (agent *Agent) Run() {
 		}
 		return false, nil
 	})
+	if err != nil {
+		return
+	}
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (agent *Agent) SetupWithManager() error {
+	go func() {
+		agent.Run()
+	}()
+	return nil
 }

@@ -1,85 +1,87 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"flag"
 	"os"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
-	"github.com/pluralsh/deployment-operator/pkg/sync"
-	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2/klogr"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+)
+
+var (
+	scheme   = runtime.NewScheme()
+	setupLog = log.Logger
 )
 
 func main() {
-	log := klogr.New() // Delegates to klog
-	err := newCmd(log).Execute()
-	checkError(err, log)
-}
+	var enableLeaderElection bool
+	var metricsAddr string
+	var probeAddr string
+	var refreshInterval string
+	var resyncSeconds int
+	var consoleUrl string
+	var deployToken string
 
-func newCmd(log logr.Logger) *cobra.Command {
-	var (
-		clientConfig    clientcmd.ClientConfig
-		refreshInterval string
-		resyncSeconds   int
-		port            int
-		consoleUrl      string
-		deployToken     string
-	)
-	cmd := cobra.Command{
-		Use: "deployment-agent",
-		Run: func(cmd *cobra.Command, args []string) {
-			http.HandleFunc("/v1/health", func(w http.ResponseWriter, request *http.Request) {
-				log.Info("health check")
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte("ping"))
-			})
-
-			go func() {
-				checkError(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil), log)
-			}()
-
-			if deployToken == "" {
-				deployToken = os.Getenv("DEPLOY_TOKEN")
-			}
-
-			refresh, err := time.ParseDuration(refreshInterval)
-			checkError(err, log)
-
-			a, err := agent.New(clientConfig, refresh, consoleUrl, deployToken)
-			checkError(err, log)
-			a.Run()
-		},
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":9001", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	flag.IntVar(&resyncSeconds, "resync-seconds", 300, "Resync duration in seconds.")
+	flag.StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
+	flag.StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
+	flag.StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
+	opts := zap.Options{
+		Development: true,
 	}
-	clientConfig = addKubectlFlagsToCmd(&cmd)
-	cmd.Flags().IntVar(&resyncSeconds, "resync-seconds", 300, "Resync duration in seconds.")
-	cmd.Flags().IntVar(&port, "port", 9001, "Port number.")
-	cmd.Flags().StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
-	cmd.Flags().StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
-	cmd.Flags().StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
-	cmd.Flags().BoolVar(&sync.Local, "local", false, "whether you're running the agent locally (and should avoid recreating the deploy operator)")
-	return &cmd
-}
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
 
-// addKubectlFlagsToCmd adds kubectl like flags to a command and returns the ClientConfig interface
-// for retrieving the values.
-func addKubectlFlagsToCmd(cmd *cobra.Command) clientcmd.ClientConfig {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
-	overrides := clientcmd.ConfigOverrides{}
-	kflags := clientcmd.RecommendedConfigOverrideFlags("")
-	cmd.PersistentFlags().StringVar(&loadingRules.ExplicitPath, "kubeconfig", "", "Path to a kube config. Only required if out-of-cluster")
-	clientcmd.BindOverrideFlags(&overrides, cmd.PersistentFlags(), kflags)
-	return clientcmd.NewInteractiveDeferredLoadingClientConfig(loadingRules, &overrides, os.Stdin)
-}
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-// checkError is a convenience function to check if an error is non-nil and exit if it was
-func checkError(err error, log logr.Logger) {
+	if deployToken == "" {
+		deployToken = os.Getenv("DEPLOY_TOKEN")
+	}
+	refresh, err := time.ParseDuration(refreshInterval)
 	if err != nil {
-		log.Error(err, "Fatal error")
+		setupLog.Error(err, "unable to get refresh interval")
+		os.Exit(1)
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:                 scheme,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "dep12loy45.plural.sh",
+		HealthProbeBindAddress: probeAddr,
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to create manager")
+		os.Exit(1)
+	}
+	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to create health check")
+		os.Exit(1)
+	}
+
+	a, err := agent.New(mgr.GetConfig(), refresh, consoleUrl, deployToken)
+	if err != nil {
+		setupLog.Error(err, "unable to create agent")
+		os.Exit(1)
+	}
+	if err := a.SetupWithManager(); err != nil {
+		setupLog.Error(err, "unable to start agent")
+		os.Exit(1)
+	}
+
+	ctx := ctrl.SetupSignalHandler()
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctx); err != nil {
+		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }
