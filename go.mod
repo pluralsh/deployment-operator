@@ -20,7 +20,7 @@ replace (
 	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.24.2
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.24.2
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.24.2
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230525220651-2546d827e515
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.24.2
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.24.2
 	k8s.io/kubectl => k8s.io/kubectl v0.24.2
@@ -80,6 +80,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
+	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
