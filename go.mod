@@ -36,7 +36,7 @@ replace (
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/alitto/pond v1.8.3
-	github.com/argoproj/gitops-engine v0.7.1-0.20230906152414-b0fffe419a0f
+	github.com/argoproj/gitops-engine v0.7.3
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.1
 	github.com/pluralsh/console-client-go v0.0.17
