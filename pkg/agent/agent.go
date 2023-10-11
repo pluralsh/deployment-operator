@@ -1,7 +1,11 @@
 package agent
 
 import (
+	"context"
 	"fmt"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 
 	"github.com/argoproj/gitops-engine/pkg/cache"
@@ -12,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2/klogr"
 )
@@ -31,11 +34,11 @@ type Agent struct {
 	refresh         time.Duration
 }
 
-func New(clientConfig clientcmd.ClientConfig, refresh time.Duration, consoleUrl, deployToken string) (*Agent, error) {
-	config, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
+func (agent *Agent) Reconcile(_ context.Context, _ reconcile.Request) (reconcile.Result, error) {
+	return reconcile.Result{}, nil
+}
+
+func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken string) (*Agent, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
@@ -116,4 +119,11 @@ func (agent *Agent) Run() {
 		}
 		return false, nil
 	})
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (agent *Agent) SetupWithManager(mgr ctrl.Manager) error {
+	agent.Run()
+	return ctrl.NewControllerManagedBy(mgr).
+		Complete(agent)
 }
