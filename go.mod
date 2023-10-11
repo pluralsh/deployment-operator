@@ -38,7 +38,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.1
-	github.com/pluralsh/console-client-go v0.0.16
+	github.com/pluralsh/console-client-go v0.0.17
 	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
