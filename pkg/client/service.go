@@ -4,7 +4,7 @@ import (
 	console "github.com/pluralsh/console-client-go"
 )
 
-func (c *Client) GetServices() ([]*console.ServiceDeploymentFragment, error) {
+func (c *Client) GetServices() ([]*console.ServiceDeploymentBaseFragment, error) {
 	resp, err := c.consoleClient.ListClusterServices(c.ctx)
 	if err != nil {
 		return nil, err
