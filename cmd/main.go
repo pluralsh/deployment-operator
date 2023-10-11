@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/agent"
@@ -27,7 +28,7 @@ func main() {
 	var deployToken string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":9001", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -62,14 +63,15 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
+	mgr.AddHealthzCheck("ping", healthz.Ping)
 
 	a, err := agent.New(mgr.GetConfig(), refresh, consoleUrl, deployToken)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent")
 		os.Exit(1)
 	}
-	if err := a.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "deployment")
+	if err := a.SetupWithManager(); err != nil {
+		setupLog.Error(err, "unable to start agent")
 		os.Exit(1)
 	}
 

@@ -1,11 +1,8 @@
 package agent
 
 import (
-	"context"
 	"fmt"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 
 	"github.com/argoproj/gitops-engine/pkg/cache"
@@ -32,10 +29,6 @@ type Agent struct {
 	svcQueue        workqueue.RateLimitingInterface
 	cleanup         engine.StopFunc
 	refresh         time.Duration
-}
-
-func (agent *Agent) Reconcile(_ context.Context, _ reconcile.Request) (reconcile.Result, error) {
-	return reconcile.Result{}, nil
 }
 
 func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken string) (*Agent, error) {
@@ -95,7 +88,7 @@ func (agent *Agent) Run() {
 		}
 	}()
 
-	wait.PollInfinite(agent.refresh, func() (done bool, err error) {
+	err := wait.PollInfinite(agent.refresh, func() (done bool, err error) {
 		log.Info("fetching services for cluster")
 		svcs, err := agent.consoleClient.GetServices()
 		if err != nil {
@@ -119,11 +112,15 @@ func (agent *Agent) Run() {
 		}
 		return false, nil
 	})
+	if err != nil {
+		return
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (agent *Agent) SetupWithManager(mgr ctrl.Manager) error {
-	agent.Run()
-	return ctrl.NewControllerManagedBy(mgr).
-		Complete(agent)
+func (agent *Agent) SetupWithManager() error {
+	go func() {
+		agent.Run()
+	}()
+	return nil
 }

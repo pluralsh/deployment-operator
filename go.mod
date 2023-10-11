@@ -20,6 +20,7 @@ replace (
 	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.24.2
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.24.2
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.24.2
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230525220651-2546d827e515
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.24.2
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.24.2
 	k8s.io/kubectl => k8s.io/kubectl v0.24.2
@@ -29,7 +30,7 @@ replace (
 	k8s.io/mount-utils => k8s.io/mount-utils v0.24.2
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.24.2
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.2
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.12.3
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.0
 )
 
 require (
@@ -62,6 +63,7 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
+	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/frankban/quicktest v1.14.4 // indirect
@@ -78,7 +80,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
-	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
