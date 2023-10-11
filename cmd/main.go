@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/agent"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -63,7 +63,10 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-	mgr.AddHealthzCheck("ping", healthz.Ping)
+	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to create health check")
+		os.Exit(1)
+	}
 
 	a, err := agent.New(mgr.GetConfig(), refresh, consoleUrl, deployToken)
 	if err != nil {

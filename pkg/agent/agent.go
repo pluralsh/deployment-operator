@@ -2,7 +2,6 @@ package agent
 
 import (
 	"fmt"
-	"k8s.io/client-go/rest"
 	"time"
 
 	"github.com/argoproj/gitops-engine/pkg/cache"
@@ -13,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2/klogr"
 )
