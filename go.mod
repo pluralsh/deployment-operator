@@ -38,7 +38,7 @@ require (
 	github.com/alitto/pond v1.8.3
 	github.com/argoproj/gitops-engine v0.7.1-0.20230906152414-b0fffe419a0f
 	github.com/orcaman/concurrent-map/v2 v2.0.1
-	github.com/osteele/liquid v1.3.1
+	github.com/osteele/liquid v1.3.2
 	github.com/pluralsh/console-client-go v0.0.17
 	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.38.1
