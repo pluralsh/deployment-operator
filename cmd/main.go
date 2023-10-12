@@ -7,6 +7,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/agent"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -36,6 +37,7 @@ func main() {
 	flag.StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
 	flag.StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
 	flag.StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
+	flag.BoolVar(&sync.Local, "local", false, "whether you're running the operator locally")
 	opts := zap.Options{
 		Development: true,
 	}

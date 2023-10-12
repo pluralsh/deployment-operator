@@ -1,6 +1,8 @@
 package sync
 
 import (
+	"fmt"
+
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
@@ -44,6 +46,7 @@ func (engine *Engine) collectComponents(id string, results []common.ResourceSync
 	}
 
 	for _, syncResult := range results {
+		fmt.Printf("%+v\n", syncResult)
 		component := fromSyncResult(syncResult)
 		obj, ok := liveObjs[syncResult.ResourceKey]
 		if ok {
@@ -83,6 +86,7 @@ func fromSyncResult(res common.ResourceSyncResult) *console.ComponentAttributes 
 		Kind:      rk.Kind,
 		Namespace: rk.Namespace,
 		Name:      rk.Name,
+		Version:   res.Version,
 		Synced:    res.Status == common.ResultCodeSynced,
 	}
 }
