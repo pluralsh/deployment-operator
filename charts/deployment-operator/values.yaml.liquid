@@ -7,3 +7,7 @@ consoleUrl: {{ configuration.url }}
 image:
   tag: {{ configuration.tag }}
 {% endif %}
+
+{% if configuration.replicas %}
+replicaCount: {{ configuration.replicas }}
+{% endif %}
