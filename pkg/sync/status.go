@@ -49,6 +49,7 @@ func (engine *Engine) collectComponents(id string, results []common.ResourceSync
 		fmt.Printf("%+v\n", syncResult)
 		component := fromSyncResult(syncResult)
 		obj, ok := liveObjs[syncResult.ResourceKey]
+		fmt.Printf("%+v\n", obj)
 		if ok {
 			seen[syncResult.ResourceKey] = true
 			gvk := obj.GroupVersionKind()
@@ -56,6 +57,7 @@ func (engine *Engine) collectComponents(id string, results []common.ResourceSync
 			component.Version = gvk.Version
 			component.Group = gvk.Group
 			component.Kind = gvk.Kind
+			component.Namespace = obj.GetNamespace()
 		}
 		res = append(res, component)
 	}
