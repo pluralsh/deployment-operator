@@ -3,17 +3,18 @@ package sync
 import (
 	"context"
 	"fmt"
+	"os"
+	"runtime/debug"
+	"time"
+
 	"github.com/alitto/pond"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"os"
-	"runtime/debug"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/printers"
-	"time"
 )
 
 const (
