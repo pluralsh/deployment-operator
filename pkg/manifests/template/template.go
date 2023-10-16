@@ -1,10 +1,12 @@
 package template
 
 import (
-	console "github.com/pluralsh/console-client-go"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
 	"path/filepath"
+
+	console "github.com/pluralsh/console-client-go"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/kubectl/pkg/cmd/util"
 )
 
 type Renderer string
@@ -15,10 +17,10 @@ const (
 )
 
 type Template interface {
-	Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error)
+	Render(svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error)
 }
 
-func Render(dir string, svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
+func Render(dir string, svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	renderer := RendererRaw
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -33,8 +35,8 @@ func Render(dir string, svc *console.ServiceDeploymentExtended) ([]*unstructured
 	})
 
 	if renderer == RendererHelm {
-		return NewHelm(dir).Render(svc)
+		return NewHelm(dir).Render(svc, utilFactory)
 	}
 
-	return NewRaw(dir).Render(svc)
+	return NewRaw(dir).Render(svc, utilFactory)
 }

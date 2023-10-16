@@ -1,14 +1,6 @@
 package sync
 
-import (
-	"crypto/sha256"
-	"encoding/base64"
-	"strings"
-
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
-)
-
-type Resource struct {
+/*type Resource struct {
 	ServiceId string
 	Sha       string
 }
@@ -21,4 +13,4 @@ func Sha(id string, key kube.ResourceKey) string {
 
 func NewResource(id, sha string) *Resource {
 	return &Resource{ServiceId: id, Sha: sha}
-}
+}*/

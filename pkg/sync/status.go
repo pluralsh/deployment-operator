@@ -1,16 +1,6 @@
 package sync
 
-import (
-	"fmt"
-
-	"github.com/argoproj/gitops-engine/pkg/health"
-	"github.com/argoproj/gitops-engine/pkg/sync/common"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
-	console "github.com/pluralsh/console-client-go"
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
-
+/*
 func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	if err == nil {
 		return nil
@@ -109,3 +99,4 @@ func toStatus(obj *unstructured.Unstructured) *console.ComponentState {
 
 	return lo.ToPtr(console.ComponentStatePending)
 }
+*/

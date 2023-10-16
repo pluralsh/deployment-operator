@@ -1,12 +1,6 @@
 package sync
 
-import (
-	"github.com/argoproj/gitops-engine/pkg/cache"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
-
-func addAnnotations(mans []*unstructured.Unstructured, svcId string) {
+/*func addAnnotations(mans []*unstructured.Unstructured, svcId string) {
 	for i := range mans {
 		annotations := mans[i].GetAnnotations()
 		if annotations == nil {
@@ -33,4 +27,4 @@ func svcId(resource *cache.Resource) *string {
 
 	id := res.ServiceId
 	return &id
-}
+}*/
