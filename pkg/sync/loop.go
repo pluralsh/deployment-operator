@@ -44,6 +44,7 @@ func (engine *Engine) ControlLoop() {
 				//return true, nil
 				break
 			}
+			log.Info("process item %v", item)
 			pool.TrySubmit(func() {
 				if err := engine.processItem(item); err != nil {
 					log.Error(err, "found unprocessable error")
@@ -102,14 +103,14 @@ func (engine *Engine) processItem(item interface{}) error {
 		ServerSideOptions: common.ServerSideOptions{
 			// It's supported since Kubernetes 1.16, so there should be no reason not to use it.
 			// https://kubernetes.io/docs/reference/using-api/server-side-apply/
-			ServerSideApply: true,
+			ServerSideApply: false,
 			// GitOps repository is the source of truth and that's what we are applying, so overwrite any conflicts.
 			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
 			ForceConflicts: true,
 			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
 			FieldManager: fieldManager,
 		},
-		ReconcileTimeout: time.Duration(0),
+		ReconcileTimeout: 10 * time.Second,
 		// If we are not waiting for status, tell the applier to not
 		// emit the events.
 		EmitStatusEvents:       true,
@@ -126,37 +127,6 @@ func (engine *Engine) processItem(item interface{}) error {
 	}
 	printer := printers.GetPrinter(printers.DefaultPrinter(), ioStreams)
 	return printer.Print(ch, common.DryRunNone, true)
-	//addAnnotations(manifests, svc.ID)
-
-	/*	diff, err := engine.diff(manifests, svc.Namespace, svc.ID)
-		checkModifications := sync.WithResourceModificationChecker(true, diff)
-		if err != nil {
-			log.Error(err, "could not build diff list, ignoring for now")
-			checkModifications = sync.WithResourceModificationChecker(false, nil)
-		}*/
-
-	/*	results, err = engine.engine.Sync(
-		context.Background(),
-		manifests,
-		isManaged(svc.ID),
-		svc.Revision.ID,
-		svc.Namespace,
-		sync.WithPrune(true),
-		checkModifications,
-		sync.WithPrunePropagationPolicy(lo.ToPtr(metav1.DeletePropagationBackground)),
-		sync.WithLogr(log),
-		sync.WithSyncWaveHook(delayBetweenSyncWaves),
-		sync.WithServerSideApplyManager(SSAManager),
-		sync.WithServerSideApply(true),
-		sync.WithNamespaceModifier(func(managedNs, liveNs *unstructured.Unstructured) (bool, error) {
-			return managedNs != nil && liveNs == nil, nil
-		}),
-	)*/
-
-	/*	if err := engine.updateStatus(svc.ID, results, errorAttributes("sync", err)); err != nil {
-		log.Error(err, "Failed to update service status, ignoring for now")
-	}*/
-
 }
 
 func splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
