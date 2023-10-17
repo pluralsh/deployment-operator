@@ -3,13 +3,14 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/fs"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 )
 

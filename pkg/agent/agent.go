@@ -129,11 +129,10 @@ func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*apply.Appl
 		return nil, err
 	}
 
-	a, err := apply.NewApplierBuilder().
+	return apply.NewApplierBuilder().
 		WithFactory(f).
 		WithInventoryClient(invClient).
 		Build()
-	return a, nil
 }
 
 func deepCopyRESTConfig(from, to *rest.Config) {
