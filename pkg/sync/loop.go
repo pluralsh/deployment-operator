@@ -3,18 +3,16 @@ package sync
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime/debug"
 	"time"
 
 	"github.com/alitto/pond"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
-	"sigs.k8s.io/cli-utils/pkg/printers"
 )
 
 const (
@@ -35,17 +33,14 @@ func (engine *Engine) ControlLoop() {
 
 	engine.RegisterHandlers()
 
-	//wait.PollInfinite(syncDelay, func() (done bool, err error) {
-	for {
+	wait.PollInfinite(syncDelay, func() (done bool, err error) {
 		log.Info("Polling for new service updates")
 		pool := pond.New(20, 100, pond.MinWorkers(20))
 		for i := 0; i < engine.svcQueue.Len(); i++ {
 			item, shutdown := engine.svcQueue.Get()
 			if shutdown {
-				//return true, nil
-				break
+				return true, nil
 			}
-			log.Info("process item %v", item)
 			pool.TrySubmit(func() {
 				if err := engine.processItem(item); err != nil {
 					log.Error(err, "found unprocessable error")
@@ -53,10 +48,9 @@ func (engine *Engine) ControlLoop() {
 			})
 		}
 		pool.StopAndWait()
-		//return false, nil
-		time.Sleep(syncDelay)
-	}
-	//})
+		return false, nil
+
+	})
 }
 
 func (engine *Engine) processItem(item interface{}) error {
@@ -91,9 +85,12 @@ func (engine *Engine) processItem(item interface{}) error {
 		log.Error(manErr, "failed to parse manifests")
 		return manErr
 	}
+	if err := engine.CheckNamespace(svc.Namespace); err != nil {
+		log.Error(err, "failed to check namespace")
+		return err
+	}
 
 	log.Info("Syncing manifests", "count", len(manifests))
-
 	invObj, manifests, err := splitObjects(id, manifests)
 	if err != nil {
 		return err
@@ -121,13 +118,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		PruneTimeout:           time.Duration(0),
 		InventoryPolicy:        inventory.PolicyMustMatch,
 	})
-	ioStreams := genericclioptions.IOStreams{
-		In:     os.Stdin,
-		Out:    os.Stdout,
-		ErrOut: os.Stderr,
-	}
-	printer := printers.GetPrinter(printers.DefaultPrinter(), ioStreams)
-	return printer.Print(ch, common.DryRunNone, true)
+	return engine.UpdateStatus(id, ch, true)
 }
 
 func splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {

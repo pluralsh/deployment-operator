@@ -40,10 +40,6 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 	}
 
 	r := bytes.NewReader(outb.Bytes())
-	namespace, enforceNamespace, err := utilFactory.ToRawKubeConfigLoader().Namespace()
-	if err != nil {
-		return nil, err
-	}
 
 	mapper, err := utilFactory.ToRESTMapper()
 	if err != nil {
@@ -52,8 +48,8 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 
 	readerOptions := manifestreader.ReaderOptions{
 		Mapper:           mapper,
-		Namespace:        namespace,
-		EnforceNamespace: enforceNamespace,
+		Namespace:        svc.Namespace,
+		EnforceNamespace: true,
 	}
 	mReader := &manifestreader.StreamManifestReader{
 		ReaderName:    "helm",

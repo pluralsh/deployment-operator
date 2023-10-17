@@ -2,20 +2,20 @@ package agent
 
 import (
 	"fmt"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/kubectl/pkg/cmd/util"
-	"sigs.k8s.io/cli-utils/pkg/apply"
-	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2/klogr"
+	"k8s.io/kubectl/pkg/cmd/util"
+	"sigs.k8s.io/cli-utils/pkg/apply"
+	"sigs.k8s.io/cli-utils/pkg/inventory"
 )
 
 var (

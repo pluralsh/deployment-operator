@@ -80,10 +80,6 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Fa
 		}
 
 		r := bytes.NewReader(rendered)
-		namespace, enforceNamespace, err := utilFactory.ToRawKubeConfigLoader().Namespace()
-		if err != nil {
-			return err
-		}
 
 		mapper, err := utilFactory.ToRESTMapper()
 		if err != nil {
@@ -92,8 +88,8 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Fa
 
 		readerOptions := manifestreader.ReaderOptions{
 			Mapper:           mapper,
-			Namespace:        namespace,
-			EnforceNamespace: enforceNamespace,
+			Namespace:        svc.Namespace,
+			EnforceNamespace: true,
 		}
 		mReader := &manifestreader.StreamManifestReader{
 			ReaderName:    "raw",
