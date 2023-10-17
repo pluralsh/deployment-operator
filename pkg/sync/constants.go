@@ -7,11 +7,8 @@ import (
 )
 
 const (
-	SyncShaAnnotation = "deployments.plural.sh/sync-sha"
-	SyncAnnotation    = "deployments.plural.sh/service-id"
-	SSAManager        = "plural-deployment-agent"
-	OperatorService   = "deploy-operator"
-	syncDelay         = 5 * time.Second
+	OperatorService = "deploy-operator"
+	syncDelay       = 5 * time.Second
 )
 
 var (

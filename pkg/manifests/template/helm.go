@@ -7,17 +7,18 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/fs"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/kubectl/pkg/cmd/util"
+	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 )
 
 type helm struct {
 	dir string
 }
 
-func (h *helm) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
+func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	// helm's k8s client version conflicts with gitops-engine, need to manually shell out (this is also how argo handles it apparently)
 	outb, errb := bytes.Buffer{}, bytes.Buffer{}
 
@@ -39,7 +40,29 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.U
 		return nil, fmt.Errorf("could not template helm chart: err=%s, out=%s", errb.Bytes(), outb.Bytes())
 	}
 
-	return kube.SplitYAML(outb.Bytes())
+	r := bytes.NewReader(outb.Bytes())
+
+	mapper, err := utilFactory.ToRESTMapper()
+	if err != nil {
+		return nil, err
+	}
+
+	readerOptions := manifestreader.ReaderOptions{
+		Mapper:           mapper,
+		Namespace:        svc.Namespace,
+		EnforceNamespace: true,
+	}
+	mReader := &manifestreader.StreamManifestReader{
+		ReaderName:    "helm",
+		Reader:        r,
+		ReaderOptions: readerOptions,
+	}
+
+	items, err := mReader.Read()
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (h *helm) values(svc *console.ServiceDeploymentExtended) (path string, err error) {

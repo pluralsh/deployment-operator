@@ -4,17 +4,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/argoproj/gitops-engine/pkg/cache"
-	"github.com/argoproj/gitops-engine/pkg/engine"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2/klogr"
+	"k8s.io/kubectl/pkg/cmd/util"
+	"sigs.k8s.io/cli-utils/pkg/apply"
+	"sigs.k8s.io/cli-utils/pkg/inventory"
 )
 
 var (
@@ -27,7 +28,6 @@ type Agent struct {
 	engine          *deploysync.Engine
 	deathChan       chan interface{}
 	svcQueue        workqueue.RateLimitingInterface
-	cleanup         engine.StopFunc
 	refresh         time.Duration
 }
 
@@ -42,27 +42,15 @@ func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken str
 
 	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	deathChan := make(chan interface{})
+	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
 
-	// we should enable SSA if kubernetes version supports it
-	clusterCache := cache.NewClusterCache(config,
-		cache.SetLogr(log),
-		cache.SetPopulateResourceInfoHandler(func(un *unstructured.Unstructured, isRoot bool) (info interface{}, cacheManifest bool) {
-			svcId := un.GetAnnotations()[deploysync.SyncAnnotation]
-			sha := un.GetAnnotations()[deploysync.SyncShaAnnotation]
-			info = deploysync.NewResource(svcId, sha)
-			// cache resources that have the current annotation
-			cacheManifest = svcId != ""
-			return
-		}),
-	)
+	f := newFactory(config)
 
-	gitOpsEngine := engine.NewEngine(config, clusterCache, engine.WithLogr(log))
-	cleanup, err := gitOpsEngine.Run()
+	applier, err := newApplier(invFactory, f)
 	if err != nil {
 		return nil, err
 	}
-
-	engine := deploysync.New(gitOpsEngine, clusterCache, consoleClient, svcQueue, svcCache, manifestCache)
+	engine := deploysync.New(f, invFactory, applier, consoleClient, svcQueue, svcCache, manifestCache)
 	engine.AddHealthCheck(deathChan)
 
 	return &Agent{
@@ -71,13 +59,11 @@ func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken str
 		engine:          engine,
 		deathChan:       deathChan,
 		svcQueue:        svcQueue,
-		cleanup:         cleanup,
 		refresh:         refresh,
 	}, nil
 }
 
 func (agent *Agent) Run() {
-	defer agent.cleanup()
 	defer agent.svcQueue.ShutDown()
 	defer agent.engine.WipeCache()
 	go func() {
@@ -123,4 +109,72 @@ func (agent *Agent) SetupWithManager() error {
 		agent.Run()
 	}()
 	return nil
+}
+
+func newFactory(cfg *rest.Config) util.Factory {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	cfgPtrCopy := cfg
+	kubeConfigFlags.WrapConfigFn = func(c *rest.Config) *rest.Config {
+		// update rest.Config to pick up QPS & timeout changes
+		deepCopyRESTConfig(cfgPtrCopy, c)
+		return c
+	}
+	matchVersionKubeConfigFlags := util.NewMatchVersionFlags(kubeConfigFlags)
+	return util.NewFactory(matchVersionKubeConfigFlags)
+}
+
+func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*apply.Applier, error) {
+	invClient, err := invFactory.NewClient(f)
+	if err != nil {
+		return nil, err
+	}
+
+	return apply.NewApplierBuilder().
+		WithFactory(f).
+		WithInventoryClient(invClient).
+		Build()
+}
+
+func deepCopyRESTConfig(from, to *rest.Config) {
+	to.Host = from.Host
+	to.APIPath = from.APIPath
+	to.ContentConfig = from.ContentConfig
+	to.Username = from.Username
+	to.Password = from.Password
+	to.BearerToken = from.BearerToken
+	to.BearerTokenFile = from.BearerTokenFile
+	to.Impersonate = rest.ImpersonationConfig{
+		UserName: from.Impersonate.UserName,
+		UID:      from.Impersonate.UID,
+		Groups:   from.Impersonate.Groups,
+		Extra:    from.Impersonate.Extra,
+	}
+	to.AuthProvider = from.AuthProvider
+	to.AuthConfigPersister = from.AuthConfigPersister
+	to.ExecProvider = from.ExecProvider
+	if from.ExecProvider != nil && from.ExecProvider.Config != nil {
+		to.ExecProvider.Config = from.ExecProvider.Config.DeepCopyObject()
+	}
+	to.TLSClientConfig = rest.TLSClientConfig{
+		Insecure:   from.TLSClientConfig.Insecure,
+		ServerName: from.TLSClientConfig.ServerName,
+		CertFile:   from.TLSClientConfig.CertFile,
+		KeyFile:    from.TLSClientConfig.KeyFile,
+		CAFile:     from.TLSClientConfig.CAFile,
+		CertData:   from.TLSClientConfig.CertData,
+		KeyData:    from.TLSClientConfig.KeyData,
+		CAData:     from.TLSClientConfig.CAData,
+		NextProtos: from.TLSClientConfig.NextProtos,
+	}
+	to.UserAgent = from.UserAgent
+	to.DisableCompression = from.DisableCompression
+	to.Transport = from.Transport
+	to.WrapTransport = from.WrapTransport
+	to.QPS = from.QPS
+	to.Burst = from.Burst
+	to.RateLimiter = from.RateLimiter
+	to.WarningHandler = from.WarningHandler
+	to.Timeout = from.Timeout
+	to.Dial = from.Dial
+	to.Proxy = from.Proxy
 }
