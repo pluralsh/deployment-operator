@@ -94,7 +94,7 @@ func (agent *Agent) Run() {
 			return false, nil
 		}
 		vs := strings.Split(info.GitVersion, "-")
-		if err := agent.consoleClient.Ping(vs[0]); err != nil {
+		if err := agent.consoleClient.Ping(strings.TrimPrefix(vs[0], "v")); err != nil {
 			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
 		return false, nil
