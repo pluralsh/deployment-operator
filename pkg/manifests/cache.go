@@ -10,6 +10,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2/klogr"
+	"k8s.io/kubectl/pkg/cmd/util"
 )
 
 var (
@@ -35,10 +36,10 @@ func NewCache(expiry time.Duration, token string) *ManifestCache {
 	}
 }
 
-func (c *ManifestCache) Fetch(svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
+func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
 	if line, ok := c.cache.Get(svc.ID); ok {
 		if line.live(c.expiry) {
-			return template.Render(line.dir, svc)
+			return template.Render(line.dir, svc, utilFactory)
 		} else {
 			line.wipe()
 		}
@@ -56,7 +57,7 @@ func (c *ManifestCache) Fetch(svc *console.ServiceDeploymentExtended) ([]*unstru
 	log.Info("using cache dir", "dir", dir)
 
 	c.cache.Set(svc.ID, &cacheLine{dir: dir, created: time.Now()})
-	return template.Render(dir, svc)
+	return template.Render(dir, svc, utilFactory)
 }
 
 func (c *ManifestCache) Wipe() {

@@ -1,17 +1,19 @@
 package template
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/osteele/liquid"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/kubectl/pkg/cmd/util"
+	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 )
 
 var (
@@ -50,7 +52,7 @@ func renderLiquid(input []byte, svc *console.ServiceDeploymentExtended) ([]byte,
 	return liquidEngine.ParseAndRender(input, bindings)
 }
 
-func (r *raw) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
+func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	res := make([]*unstructured.Unstructured, 0)
 	if err := filepath.Walk(r.dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -77,10 +79,28 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended) ([]*unstructured.Un
 			return fmt.Errorf("templating error in %s: %w", rpath, err)
 		}
 
-		items, err := kube.SplitYAML(rendered)
+		r := bytes.NewReader(rendered)
+
+		mapper, err := utilFactory.ToRESTMapper()
+		if err != nil {
+			return err
+		}
+
+		readerOptions := manifestreader.ReaderOptions{
+			Mapper:           mapper,
+			Namespace:        svc.Namespace,
+			EnforceNamespace: true,
+		}
+		mReader := &manifestreader.StreamManifestReader{
+			ReaderName:    "raw",
+			Reader:        r,
+			ReaderOptions: readerOptions,
+		}
+		items, err := mReader.Read()
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", rpath, err)
 		}
+
 		res = append(res, items...)
 		return nil
 	}); err != nil {
