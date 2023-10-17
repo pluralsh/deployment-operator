@@ -165,12 +165,13 @@ func (engine *Engine) UpdateStatus(id string, ch <-chan event.Event, printStatus
 }
 
 func fromSyncResult(e event.StatusEvent) *console.ComponentAttributes {
+	gvk := e.Resource.GroupVersionKind()
 	return &console.ComponentAttributes{
-		Group:     e.Identifier.GroupKind.Group,
-		Kind:      e.Identifier.GroupKind.Kind,
+		Group:     gvk.Group,
+		Kind:      gvk.Kind,
 		Namespace: e.Resource.GetNamespace(),
 		Name:      e.Resource.GetName(),
-		Version:   e.Resource.GetAPIVersion(),
+		Version:   gvk.Version,
 		Synced:    e.PollResourceInfo.Status == status.CurrentStatus,
 		State:     toStatus(e.Resource),
 	}
