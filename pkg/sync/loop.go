@@ -101,7 +101,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		ServerSideOptions: common.ServerSideOptions{
 			// It's supported since Kubernetes 1.16, so there should be no reason not to use it.
 			// https://kubernetes.io/docs/reference/using-api/server-side-apply/
-			ServerSideApply: false,
+			ServerSideApply: true,
 			// GitOps repository is the source of truth and that's what we are applying, so overwrite any conflicts.
 			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
 			ForceConflicts: true,
@@ -116,7 +116,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		DryRunStrategy:         common.DryRunNone,
 		PrunePropagationPolicy: metav1.DeletePropagationBackground,
 		PruneTimeout:           time.Duration(0),
-		InventoryPolicy:        inventory.PolicyMustMatch,
+		InventoryPolicy:        inventory.PolicyAdoptIfNoInventory,
 	})
 	return engine.UpdateStatus(id, ch, true)
 }
