@@ -27,10 +27,14 @@ func (engine *Engine) UpdateStatus(id string, ch <-chan event.Event, printStatus
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
 			if e.ApplyEvent.Error != nil {
-				errorMsg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
+				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
-				err = fmt.Errorf(errorMsg)
-				log.Error(err, "apply error")
+				if e.ApplyEvent.Status == event.ApplyFailed {
+					err = fmt.Errorf(msg)
+					log.Error(err, "apply error")
+				} else {
+					log.Info(msg)
+				}
 			} else {
 				log.Info(resourceIDToString(gk, name),
 					"status", strings.ToLower(e.ApplyEvent.Status.String()))
