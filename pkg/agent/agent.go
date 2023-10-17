@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -92,8 +93,8 @@ func (agent *Agent) Run() {
 			log.Error(err, "failed to fetch cluster version")
 			return false, nil
 		}
-		v := fmt.Sprintf("%s.%s", info.Major, info.Minor)
-		if err := agent.consoleClient.Ping(v); err != nil {
+		vs := strings.Split(info.GitVersion, "-")
+		if err := agent.consoleClient.Ping(vs[0]); err != nil {
 			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
 		return false, nil
