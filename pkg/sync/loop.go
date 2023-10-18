@@ -33,10 +33,13 @@ func (engine *Engine) ControlLoop() {
 
 	engine.RegisterHandlers()
 
+	pool := pond.New(20, 100, pond.MinWorkers(20))
+
 	wait.PollInfinite(syncDelay, func() (done bool, err error) {
 		log.Info("Polling for new service updates")
-		pool := pond.New(20, 100, pond.MinWorkers(20))
-		for i := 0; i < engine.svcQueue.Len(); i++ {
+		count := min(engine.svcQueue.Len(), 20-pool.RunningWorkers())
+		log.Info("pulling next %d items from queue", count)
+		for i := 0; i < count; i++ {
 			item, shutdown := engine.svcQueue.Get()
 			if shutdown {
 				return true, nil
@@ -47,7 +50,6 @@ func (engine *Engine) ControlLoop() {
 				}
 			})
 		}
-		pool.StopAndWait()
 		return false, nil
 
 	})
