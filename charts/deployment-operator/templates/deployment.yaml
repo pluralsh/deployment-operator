@@ -40,6 +40,9 @@ spec:
           - "{{ .Values.consoleUrl }}"
           -  --leader-elect
           - "true"
+          env:
+          - name: CLUSTER_ID
+            value: {{ .Values.clusterId }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
