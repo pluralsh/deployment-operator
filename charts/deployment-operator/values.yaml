@@ -11,6 +11,7 @@ image:
   tag: ""
 
 consoleUrl: ~
+clusterId: 'test'
 
 secrets:
   deployToken: REPLACE_ME

@@ -3,6 +3,10 @@ secrets:
 
 consoleUrl: {{ configuration.url }}
 
+{% if configuration.clusterId %}
+clusterId: {{ configuration.clusterId }}
+{% endif %}
+
 {% if configuration.tag %}
 image:
   tag: {{ configuration.tag }}
