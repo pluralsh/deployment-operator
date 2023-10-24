@@ -6,7 +6,6 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/alitto/pond"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,19 +31,18 @@ func (engine *Engine) ControlLoop() {
 	}
 
 	engine.RegisterHandlers()
-
-	pool := pond.New(20, 0, pond.MinWorkers(20))
 	for i := 0; i < 20; i++ {
-		pool.TrySubmit(engine.workerLoop)
+		go engine.workerLoop()
 	}
-	pool.StopAndWait()
 }
 
 func (engine *Engine) workerLoop() {
+	log.Info("starting sync worker")
 	wait.PollInfinite(syncDelay, func() (done bool, err error) {
 		log.Info("polling for new service updates")
 		item, shutdown := engine.svcQueue.Get()
 		if shutdown {
+			log.Info("shutting down worker")
 			return true, nil
 		}
 		err = engine.processItem(item)
