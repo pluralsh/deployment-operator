@@ -8,6 +8,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
@@ -29,10 +30,11 @@ type Agent struct {
 	engine          *deploysync.Engine
 	deathChan       chan interface{}
 	svcQueue        workqueue.RateLimitingInterface
+	socket          *websocket.Socket
 	refresh         time.Duration
 }
 
-func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken string) (*Agent, error) {
+func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
@@ -44,6 +46,14 @@ func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken str
 	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	deathChan := make(chan interface{})
 	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
+
+	socket, err := websocket.New(clusterId, consoleUrl, deployToken, svcQueue)
+	if err != nil {
+		if socket == nil {
+			return nil, err
+		}
+		log.Error(err, "could not initiate websocket connection, ignoring and falling back to polling")
+	}
 
 	f := newFactory(config)
 
@@ -60,6 +70,7 @@ func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken str
 		engine:          engine,
 		deathChan:       deathChan,
 		svcQueue:        svcQueue,
+		socket:          socket,
 		refresh:         refresh,
 	}, nil
 }
@@ -74,6 +85,10 @@ func (agent *Agent) Run() {
 			fmt.Printf("recovered from panic %v\n", failure)
 		}
 	}()
+
+	if err := agent.socket.Join(); err != nil {
+		log.Error(err, "could not establish websocket to upstream")
+	}
 
 	err := wait.PollInfinite(agent.refresh, func() (done bool, err error) {
 		log.Info("fetching services for cluster")
