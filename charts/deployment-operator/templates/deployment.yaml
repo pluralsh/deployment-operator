@@ -38,11 +38,10 @@ spec:
           args:
           -  --console-url 
           - "{{ .Values.consoleUrl }}"
+          - --cluster-id
+          - "{{ .Values.clusterId }}"
           -  --leader-elect
           - "true"
-          env:
-          - name: CLUSTER_ID
-            value: {{ .Values.clusterId }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
