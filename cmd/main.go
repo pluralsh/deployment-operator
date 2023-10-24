@@ -27,6 +27,7 @@ func main() {
 	var resyncSeconds int
 	var consoleUrl string
 	var deployToken string
+	var clusterId string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":9001", "The address the probe endpoint binds to.")
@@ -37,6 +38,7 @@ func main() {
 	flag.StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
 	flag.StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
 	flag.StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
+	flag.StringVar(&clusterId, "cluster-id", "", "the id of the cluster being connected to")
 	flag.BoolVar(&sync.Local, "local", false, "whether you're running the operator locally")
 	opts := zap.Options{
 		Development: true,
