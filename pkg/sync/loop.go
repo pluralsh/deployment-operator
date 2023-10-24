@@ -33,25 +33,22 @@ func (engine *Engine) ControlLoop() {
 
 	engine.RegisterHandlers()
 
-	pool := pond.New(20, 100, pond.MinWorkers(20))
+	pool := pond.New(20, 0, pond.MinWorkers(20))
+	for i := 0; i < 20; i++ {
+		pool.TrySubmit(engine.workerLoop)
+	}
+	pool.StopAndWait()
+}
 
+func (engine *Engine) workerLoop() {
 	wait.PollInfinite(syncDelay, func() (done bool, err error) {
-		log.Info("Polling for new service updates")
-		count := min(engine.svcQueue.Len(), 20-pool.RunningWorkers())
-		log.Info(fmt.Sprintf("pulling next %d items from queue", count))
-		for i := 0; i < count; i++ {
-			item, shutdown := engine.svcQueue.Get()
-			if shutdown {
-				return true, nil
-			}
-			pool.TrySubmit(func() {
-				if err := engine.processItem(item); err != nil {
-					log.Error(err, "found unprocessable error")
-				}
-			})
+		log.Info("polling for new service updates")
+		item, shutdown := engine.svcQueue.Get()
+		if shutdown {
+			return true, nil
 		}
-		return false, nil
-
+		err = engine.processItem(item)
+		return false, err
 	})
 }
 
