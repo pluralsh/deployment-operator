@@ -38,7 +38,7 @@ func (engine *Engine) ControlLoop() {
 	wait.PollInfinite(syncDelay, func() (done bool, err error) {
 		log.Info("Polling for new service updates")
 		count := min(engine.svcQueue.Len(), 20-pool.RunningWorkers())
-		log.Info("pulling next %d items from queue", count)
+		log.Info(fmt.Sprintf("pulling next %d items from queue", count))
 		for i := 0; i < count; i++ {
 			item, shutdown := engine.svcQueue.Get()
 			if shutdown {
