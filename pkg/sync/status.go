@@ -176,7 +176,13 @@ func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan ev
 	return nil
 }
 
-func (engine *Engine) UpdateStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool) error {
+func (engine *Engine) UpdateErrorStatus(id string, err error) {
+	if err := engine.updateStatus(id, []*console.ComponentAttributes{}, errorAttributes("sync", err)); err != nil {
+		log.Error(err, "Failed to update service status, ignoring for now")
+	}
+}
+
+func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool) error {
 	var statsCollector stats.Stats
 	var err error
 	components := []*console.ComponentAttributes{}
