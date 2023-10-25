@@ -50,6 +50,10 @@ func (c *ServiceCache) Wipe() {
 	c.cache.Clear()
 }
 
+func (c *ServiceCache) Expire(id string) {
+	c.cache.Remove(id)
+}
+
 func (l *cacheLine) live(dur time.Duration) bool {
 	return l.created.After(time.Now().Add(-dur))
 }
