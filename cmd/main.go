@@ -72,7 +72,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	a, err := agent.New(mgr.GetConfig(), refresh, consoleUrl, deployToken)
+	a, err := agent.New(mgr.GetConfig(), refresh, consoleUrl, deployToken, clusterId)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent")
 		os.Exit(1)
