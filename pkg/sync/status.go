@@ -107,7 +107,76 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 	return nil
 }
 
-func (engine *Engine) UpdateStatus(id string, ch <-chan event.Event, printStatus bool) error {
+func FormatSummary(namespace, name string, s stats.Stats) error {
+	if s.ApplyStats != (stats.ApplyStats{}) {
+		as := s.ApplyStats
+		log.Info(fmt.Sprintf("apply result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
+			namespace, name, as.Sum(), as.Successful, as.Skipped, as.Failed))
+	}
+	if s.PruneStats != (stats.PruneStats{}) {
+		ps := s.PruneStats
+		log.Info(fmt.Sprintf("prune result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
+			namespace, name, ps.Sum(), ps.Successful, ps.Skipped, ps.Failed))
+	}
+	if s.DeleteStats != (stats.DeleteStats{}) {
+		ds := s.DeleteStats
+		log.Info(fmt.Sprintf("delete result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
+			namespace, name, ds.Sum(), ds.Successful, ds.Skipped, ds.Failed))
+	}
+	if s.WaitStats != (stats.WaitStats{}) {
+		ws := s.WaitStats
+		log.Info(fmt.Sprintf("reconcile result for %s/%s: %d attempted, %d successful, %d skipped, %d failed, %d timed out",
+			namespace, name, ws.Sum(), ws.Successful, ws.Skipped, ws.Failed, ws.Timeout))
+	}
+	return nil
+}
+
+func (engine *Engine) PruneService(id string) {
+	if err := engine.updateStatus(id, []*console.ComponentAttributes{}, nil); err != nil {
+		log.Error(err, "Failed to update service status, ignoring for now")
+	}
+}
+
+func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan event.Event, toDelete int) error {
+	var statsCollector stats.Stats
+	var err error
+	statusCollector := &StatusCollector{
+		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
+	}
+
+	for e := range ch {
+		statsCollector.Handle(e)
+		switch e.Type {
+		case event.StatusType:
+			statusCollector.updateStatus(e.StatusEvent.Identifier, e.StatusEvent)
+
+			gk := e.StatusEvent.Identifier.GroupKind
+			name := e.StatusEvent.Identifier.Name
+			if e.StatusEvent.Error != nil {
+				errorMsg := fmt.Sprintf("%s status %s: %s\n", resourceIDToString(gk, name),
+					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
+				err = fmt.Errorf(errorMsg)
+				log.Error(err, "status error")
+			} else {
+				log.Info(resourceIDToString(gk, name),
+					"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
+			}
+		}
+	}
+
+	if err := FormatSummary(namespace, name, statsCollector); err != nil {
+		return err
+	}
+
+	ds := statsCollector.DeleteStats
+	if ds.Successful == toDelete || len(statusCollector.latestStatus) == 0 {
+		engine.PruneService(id)
+	}
+
+	return nil
+}
+
+func (engine *Engine) UpdateStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool) error {
 	var statsCollector stats.Stats
 	var err error
 	components := []*console.ComponentAttributes{}
@@ -131,30 +200,39 @@ func (engine *Engine) UpdateStatus(id string, ch <-chan event.Event, printStatus
 					log.Info(msg)
 				}
 			} else {
-				log.Info(resourceIDToString(gk, name),
-					"status", strings.ToLower(e.ApplyEvent.Status.String()))
+				if printStatus {
+					log.Info(resourceIDToString(gk, name),
+						"status", strings.ToLower(e.ApplyEvent.Status.String()))
+				}
 			}
 		case event.StatusType:
 			statusCollector.updateStatus(e.StatusEvent.Identifier, e.StatusEvent)
-			if printStatus {
-				gk := e.StatusEvent.Identifier.GroupKind
-				name := e.StatusEvent.Identifier.Name
-				if e.StatusEvent.Error != nil {
-					errorMsg := fmt.Sprintf("%s status %s: %s\n", resourceIDToString(gk, name),
-						strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
-					err = fmt.Errorf(errorMsg)
-					log.Error(err, "status error")
-				} else {
+			gk := e.StatusEvent.Identifier.GroupKind
+			name := e.StatusEvent.Identifier.Name
+			if e.StatusEvent.Error != nil {
+				errorMsg := fmt.Sprintf("%s status %s: %s\n", resourceIDToString(gk, name),
+					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
+				err = fmt.Errorf(errorMsg)
+				log.Error(err, "status error")
+			} else {
+				if printStatus {
 					log.Info(resourceIDToString(gk, name),
 						"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
 				}
 			}
+
 		}
+	}
+
+	if err := FormatSummary(namespace, name, statsCollector); err != nil {
+		return err
 	}
 
 	for _, v := range statusCollector.latestStatus {
 		consoleAttr := fromSyncResult(v)
-		components = append(components, consoleAttr)
+		if consoleAttr != nil {
+			components = append(components, consoleAttr)
+		}
 	}
 
 	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
@@ -165,6 +243,9 @@ func (engine *Engine) UpdateStatus(id string, ch <-chan event.Event, printStatus
 }
 
 func fromSyncResult(e event.StatusEvent) *console.ComponentAttributes {
+	if e.Resource == nil {
+		return nil
+	}
 	gvk := e.Resource.GroupVersionKind()
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,

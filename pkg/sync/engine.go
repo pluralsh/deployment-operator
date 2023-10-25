@@ -18,10 +18,11 @@ type Engine struct {
 	syncing       string
 	invFactory    inventory.ClientFactory
 	applier       *apply.Applier
+	destroyer     *apply.Destroyer
 	utilFactory   util.Factory
 }
 
-func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *apply.Applier, client *client.Client, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache, manCache *manifests.ManifestCache) *Engine {
+func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *apply.Applier, destroyer *apply.Destroyer, client *client.Client, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache, manCache *manifests.ManifestCache) *Engine {
 	return &Engine{
 		client:        client,
 		svcQueue:      svcQueue,
@@ -29,6 +30,7 @@ func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *
 		manifestCache: manCache,
 		invFactory:    invFactory,
 		applier:       applier,
+		destroyer:     destroyer,
 		utilFactory:   utilFactory,
 	}
 }
