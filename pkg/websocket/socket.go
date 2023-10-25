@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	phx "github.com/pluralsh/gophoenix"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2/klogr"
@@ -18,11 +19,12 @@ type Socket struct {
 	clusterId string
 	client    *phx.Client
 	svcQueue  workqueue.RateLimitingInterface
+	svcCache  *client.ServiceCache
 	channel   *phx.Channel
 }
 
-func New(clusterId, consoleUrl, deployToken string, svcQueue workqueue.RateLimitingInterface) (*Socket, error) {
-	socket := &Socket{svcQueue: svcQueue, clusterId: clusterId}
+func New(clusterId, consoleUrl, deployToken string, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache) (*Socket, error) {
+	socket := &Socket{svcQueue: svcQueue, clusterId: clusterId, svcCache: svcCache}
 	client := phx.NewClient(socket)
 
 	uri, err := wssUri(consoleUrl, deployToken)
@@ -69,6 +71,7 @@ func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
 				log.Info("got new service update from websocket", "id", id)
+				s.svcCache.Expire(id)
 				s.svcQueue.Add(id)
 			}
 		}
