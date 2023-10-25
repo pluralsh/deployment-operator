@@ -8,7 +8,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
@@ -38,16 +37,19 @@ func (engine *Engine) ControlLoop() {
 
 func (engine *Engine) workerLoop() {
 	log.Info("starting sync worker")
-	wait.PollInfinite(syncDelay, func() (done bool, err error) {
+	for {
 		log.Info("polling for new service updates")
 		item, shutdown := engine.svcQueue.Get()
 		if shutdown {
 			log.Info("shutting down worker")
-			return true, nil
+			break
 		}
-		err = engine.processItem(item)
-		return false, err
-	})
+		err := engine.processItem(item)
+		if err != nil {
+			log.Error(err, "process item")
+		}
+		time.Sleep(syncDelay)
+	}
 }
 
 func (engine *Engine) processItem(item interface{}) error {
@@ -60,12 +62,11 @@ func (engine *Engine) processItem(item interface{}) error {
 
 	log.Info("attempting to sync service", "id", id)
 	engine.syncing = id
-	svc, err := engine.svcCache.Get(id)
+	svc, err := engine.client.GetService(id)
 	if err != nil {
-		fmt.Printf("failed to fetch service from cache: %s, ignoring for now", err)
+		fmt.Printf("failed to fetch service: %s, ignoring for now", err)
 		return err
 	}
-
 	if Local && svc.Name == OperatorService {
 		return nil
 	}
@@ -74,27 +75,40 @@ func (engine *Engine) processItem(item interface{}) error {
 
 	var manErr error
 	manifests := make([]*unstructured.Unstructured, 0)
-	if svc.DeletedAt == nil {
-		manifests, manErr = engine.manifestCache.Fetch(engine.utilFactory, svc)
-	}
-
+	manifests, manErr = engine.manifestCache.Fetch(engine.utilFactory, svc)
 	if manErr != nil {
 		log.Error(manErr, "failed to parse manifests")
+		if svc.DeletedAt != nil {
+			engine.PruneService(id)
+		}
 		return manErr
 	}
-	if err := engine.CheckNamespace(svc.Namespace); err != nil {
-		log.Error(err, "failed to check namespace")
-		return err
-	}
-
 	log.Info("Syncing manifests", "count", len(manifests))
-	invObj, manifests, err := splitObjects(id, manifests)
+	invObj, manifests, err := engine.splitObjects(id, manifests)
 	if err != nil {
 		return err
 	}
 	inv := inventory.WrapInventoryInfoObj(invObj)
 
-	ch := engine.applier.Run(context.Background(), inv, manifests, apply.ApplierOptions{
+	ctx := context.Background()
+	if svc.DeletedAt != nil {
+		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		ch := engine.destroyer.Run(ctx, inv, apply.DestroyerOptions{
+			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
+			DryRunStrategy:          common.DryRunNone,
+			DeleteTimeout:           20 * time.Second,
+			DeletePropagationPolicy: metav1.DeletePropagationForeground,
+			EmitStatusEvents:        true,
+			ValidationPolicy:        1,
+		})
+		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests))
+	}
+	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
+	if err := engine.CheckNamespace(svc.Namespace); err != nil {
+		log.Error(err, "failed to check namespace")
+		return err
+	}
+	ch := engine.applier.Run(ctx, inv, manifests, apply.ApplierOptions{
 		ServerSideOptions: common.ServerSideOptions{
 			// It's supported since Kubernetes 1.16, so there should be no reason not to use it.
 			// https://kubernetes.io/docs/reference/using-api/server-side-apply/
@@ -109,16 +123,17 @@ func (engine *Engine) processItem(item interface{}) error {
 		// If we are not waiting for status, tell the applier to not
 		// emit the events.
 		EmitStatusEvents:       true,
-		NoPrune:                true,
+		NoPrune:                false,
 		DryRunStrategy:         common.DryRunNone,
 		PrunePropagationPolicy: metav1.DeletePropagationBackground,
-		PruneTimeout:           time.Duration(0),
+		PruneTimeout:           20 * time.Second,
 		InventoryPolicy:        inventory.PolicyAdoptIfNoInventory,
 	})
-	return engine.UpdateStatus(id, ch, true)
+
+	return engine.UpdateStatus(id, svc.Name, svc.Namespace, ch, false)
 }
 
-func splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
+func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	invs := make([]*unstructured.Unstructured, 0, 1)
 	resources := make([]*unstructured.Unstructured, 0, len(objs))
 	for _, obj := range objs {
@@ -130,7 +145,11 @@ func splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.U
 	}
 	switch len(invs) {
 	case 0:
-		return defaultInventoryObjTemplate(id), resources, nil
+		invObj, err := engine.defaultInventoryObjTemplate(id)
+		if err != nil {
+			return nil, nil, err
+		}
+		return invObj, resources, nil
 	case 1:
 		return invs[0], resources, nil
 	default:
@@ -138,18 +157,21 @@ func splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.U
 	}
 }
 
-func defaultInventoryObjTemplate(id string) *unstructured.Unstructured {
+func (engine *Engine) defaultInventoryObjTemplate(id string) (*unstructured.Unstructured, error) {
+	name := "inventory-" + id
+	namespace := "plrl-deploy-operator"
+
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
-				"name":      "inventory-" + id,
-				"namespace": "plrl-deploy-operator",
+				"name":      name,
+				"namespace": namespace,
 				"labels": map[string]interface{}{
 					common.InventoryLabel: id,
 				},
 			},
 		},
-	}
+	}, nil
 }
