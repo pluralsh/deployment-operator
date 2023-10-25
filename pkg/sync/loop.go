@@ -47,6 +47,10 @@ func (engine *Engine) workerLoop() {
 		err := engine.processItem(item)
 		if err != nil {
 			log.Error(err, "process item")
+			id := item.(string)
+			if id != "" {
+				engine.UpdateErrorStatus(id, err)
+			}
 		}
 		time.Sleep(syncDelay)
 	}
@@ -62,10 +66,13 @@ func (engine *Engine) processItem(item interface{}) error {
 
 	log.Info("attempting to sync service", "id", id)
 	engine.syncing = id
-	svc, err := engine.client.GetService(id)
+	svc, err := engine.svcCache.Get(id)
 	if err != nil {
 		fmt.Printf("failed to fetch service: %s, ignoring for now", err)
 		return err
+	}
+	if svc.Name == OperatorService {
+		return nil
 	}
 	if Local && svc.Name == OperatorService {
 		return nil
@@ -78,9 +85,6 @@ func (engine *Engine) processItem(item interface{}) error {
 	manifests, manErr = engine.manifestCache.Fetch(engine.utilFactory, svc)
 	if manErr != nil {
 		log.Error(manErr, "failed to parse manifests")
-		if svc.DeletedAt != nil {
-			engine.PruneService(id)
-		}
 		return manErr
 	}
 	log.Info("Syncing manifests", "count", len(manifests))
@@ -130,7 +134,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		InventoryPolicy:        inventory.PolicyAdoptIfNoInventory,
 	})
 
-	return engine.UpdateStatus(id, svc.Name, svc.Namespace, ch, false)
+	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false)
 }
 
 func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
