@@ -62,7 +62,7 @@ func (engine *Engine) processItem(item interface{}) error {
 
 	log.Info("attempting to sync service", "id", id)
 	engine.syncing = id
-	svc, err := engine.client.GetService(id)
+	svc, err := engine.svcCache.Get(id)
 	if err != nil {
 		fmt.Printf("failed to fetch service: %s, ignoring for now", err)
 		return err
@@ -78,9 +78,6 @@ func (engine *Engine) processItem(item interface{}) error {
 	manifests, manErr = engine.manifestCache.Fetch(engine.utilFactory, svc)
 	if manErr != nil {
 		log.Error(manErr, "failed to parse manifests")
-		if svc.DeletedAt != nil {
-			engine.PruneService(id)
-		}
 		return manErr
 	}
 	log.Info("Syncing manifests", "count", len(manifests))
