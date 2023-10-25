@@ -61,7 +61,11 @@ func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken, cl
 	if err != nil {
 		return nil, err
 	}
-	engine := deploysync.New(f, invFactory, applier, consoleClient, svcQueue, svcCache, manifestCache)
+	destroyer, err := newDestroyer(invFactory, f)
+	if err != nil {
+		return nil, err
+	}
+	engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, svcQueue, svcCache, manifestCache)
 	engine.AddHealthCheck(deathChan)
 
 	return &Agent{
@@ -146,6 +150,18 @@ func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*apply.Appl
 	}
 
 	return apply.NewApplierBuilder().
+		WithFactory(f).
+		WithInventoryClient(invClient).
+		Build()
+}
+
+func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.Destroyer, error) {
+	invClient, err := invFactory.NewClient(f)
+	if err != nil {
+		return nil, err
+	}
+
+	return apply.NewDestroyerBuilder().
 		WithFactory(f).
 		WithInventoryClient(invClient).
 		Build()
