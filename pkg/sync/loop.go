@@ -47,6 +47,10 @@ func (engine *Engine) workerLoop() {
 		err := engine.processItem(item)
 		if err != nil {
 			log.Error(err, "process item")
+			id := item.(string)
+			if id != "" {
+				engine.UpdateErrorStatus(id, err)
+			}
 		}
 		time.Sleep(syncDelay)
 	}
@@ -129,7 +133,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		InventoryPolicy:        inventory.PolicyAdoptIfNoInventory,
 	})
 
-	return engine.UpdateStatus(id, svc.Name, svc.Namespace, ch, false)
+	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false)
 }
 
 func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {

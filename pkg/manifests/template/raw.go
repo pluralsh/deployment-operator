@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,9 +12,12 @@ import (
 	"github.com/osteele/liquid"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
+	"sigs.k8s.io/kustomize/kyaml/kio"
+	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 )
 
 var (
@@ -54,6 +58,16 @@ func renderLiquid(input []byte, svc *console.ServiceDeploymentExtended) ([]byte,
 
 func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	res := make([]*unstructured.Unstructured, 0)
+	mapper, err := utilFactory.ToRESTMapper()
+	if err != nil {
+		return nil, err
+	}
+	readerOptions := ReaderOptions{
+		Mapper:           mapper,
+		Namespace:        svc.Namespace,
+		EnforceNamespace: true,
+	}
+
 	if err := filepath.Walk(r.dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -81,22 +95,12 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Fa
 
 		r := bytes.NewReader(rendered)
 
-		mapper, err := utilFactory.ToRESTMapper()
-		if err != nil {
-			return err
-		}
-
-		readerOptions := manifestreader.ReaderOptions{
-			Mapper:           mapper,
-			Namespace:        svc.Namespace,
-			EnforceNamespace: true,
-		}
-		mReader := &manifestreader.StreamManifestReader{
+		mReader := &StreamManifestReader{
 			ReaderName:    "raw",
 			Reader:        r,
 			ReaderOptions: readerOptions,
 		}
-		items, err := mReader.Read()
+		items, err := mReader.Read(res)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", rpath, err)
 		}
@@ -108,4 +112,50 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Fa
 	}
 
 	return res, nil
+}
+
+// ReaderOptions defines the shared inputs for the different
+// implementations of the ManifestReader interface.
+type ReaderOptions struct {
+	Mapper           meta.RESTMapper
+	Validate         bool
+	Namespace        string
+	EnforceNamespace bool
+}
+
+// StreamManifestReader reads manifest from the provided io.Reader
+// and returns them as Info objects. The returned Infos will not have
+// client or mapping set.
+type StreamManifestReader struct {
+	ReaderName string
+	Reader     io.Reader
+
+	ReaderOptions
+}
+
+// Read reads the manifests and returns them as Info objects.
+func (r *StreamManifestReader) Read(objs []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	nodes, err := (&kio.ByteReader{
+		Reader: r.Reader,
+	}).Read()
+	if err != nil {
+		return objs, err
+	}
+
+	for _, n := range nodes {
+		err = manifestreader.RemoveAnnotations(n, kioutil.IndexAnnotation)
+		if err != nil {
+			return objs, err
+		}
+		u, err := manifestreader.KyamlNodeToUnstructured(n)
+		if err != nil {
+			return objs, err
+		}
+		objs = append(objs, u)
+	}
+
+	objs = manifestreader.FilterLocalConfig(objs)
+
+	err = manifestreader.SetNamespaces(r.Mapper, objs, r.Namespace, r.EnforceNamespace)
+	return objs, err
 }
