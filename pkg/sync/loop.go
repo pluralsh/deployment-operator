@@ -67,6 +67,8 @@ func (engine *Engine) processItem(item interface{}) error {
 		fmt.Printf("failed to fetch service: %s, ignoring for now", err)
 		return err
 	}
+
+	log.Info("local flag", "is:", Local)
 	if Local && svc.Name == OperatorService {
 		return nil
 	}
