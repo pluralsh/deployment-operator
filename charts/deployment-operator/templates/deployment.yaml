@@ -65,7 +65,7 @@ spec:
           args:
             - --token-file=/etc/agentk/secrets/token
             - --kas-address={{ .Values.agentk.config.kasAddress }}
-            - --observability-listen-address=8081
+            - --observability-listen-address=:8081
             {{- if .Values.agentk.config.caCert }}
             - --ca-cert-file=/etc/agentk/config/ca.crt
             {{- end }}
