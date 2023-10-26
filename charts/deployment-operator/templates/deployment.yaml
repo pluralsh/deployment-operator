@@ -111,7 +111,7 @@ spec:
             - name: service-account-token-volume
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
-            {{- if or .Values.service.token }}
+            {{- if .Values.secrets.deployToken }}
             - name: token-volume
               mountPath: /etc/agentk/secrets
               readOnly: true
@@ -137,7 +137,7 @@ spec:
               - serviceAccountToken:
                   expirationSeconds: 3600
                   path: token
-        {{- if or .Values.secrets.deployToken }}
+        {{- if .Values.secrets.deployToken }}
         - name: token-volume
           secret:
             defaultMode: 0444
