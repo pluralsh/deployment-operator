@@ -1,0 +1,10 @@
+{{- if .Values.agentk.config.caCert }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "deployment-operator.fullname" . }}
+  labels:
+    {{- include "deployment-operator.labels" . | nindent 4 }}
+data:
+  ca.crt: {{ .Values.agentk.config.caCert | quote }}
+{{- end }}

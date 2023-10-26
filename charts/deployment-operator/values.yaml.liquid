@@ -12,6 +12,14 @@ image:
   tag: {{ configuration.tag }}
 {% endif %}
 
+agentk:
+  config:
+    kasAddress: {{ configuration.kasAddress }}
+{% if configuration.agentkTag %}
+  image:
+    tag: {{ configuration.agentkTag }}
+{% endif %}
+
 {% if configuration.replicas %}
 replicaCount: {{ configuration.replicas }}
 {% endif %}
