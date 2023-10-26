@@ -10,3 +10,28 @@ roleRef:
   kind: ClusterRole
   name: {{ .Values.rbac.clusterRole }}
   apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: plrl-console-reader
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: console-read-binding
+subjects:
+- kind: User
+  name: console@plural.sh
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: plrl-console-reader
+  apiGroup: rbac.authorization.k8s.io
