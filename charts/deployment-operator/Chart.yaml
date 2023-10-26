@@ -2,7 +2,7 @@ apiVersion: v2
 name: deployment-operator
 description: creates a new instance of the plural deployment operator
 type: application
-version: 0.2.2
+version: 0.2.3
 appVersion: "0.3.9"
 maintainers:
 - name: Plural
