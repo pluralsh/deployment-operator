@@ -65,6 +65,7 @@ spec:
           args:
             - --token-file=/etc/agentk/secrets/token
             - --kas-address={{ .Values.agentk.config.kasAddress }}
+            - --observability-listen-address=8081
             {{- if .Values.agentk.config.caCert }}
             - --ca-cert-file=/etc/agentk/config/ca.crt
             {{- end }}
@@ -80,13 +81,13 @@ spec:
           livenessProbe:
             httpGet:
               path: /liveness
-              port: 8080
+              port: 8081
             initialDelaySeconds: 15
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /readiness
-              port: 8080
+              port: 8081
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
