@@ -33,6 +33,9 @@ rbac:
   clusterRole: cluster-admin
 
 podAnnotations: {}
+#  prometheus.io/scrape: "true"
+#  prometheus.io/path: "/metrics"
+#  prometheus.io/port: "8080"
 
 podSecurityContext: {}
   # fsGroup: 2000
@@ -82,3 +85,47 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+agentk:
+  image:
+    repository: ghcr.io/pluralsh/agentk
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: 0.0.1
+  config:
+    kasAddress: ""
+    # kasHeaders:
+    #   - "Cookie: gitlab-canary"
+    # secretName: "token"
+    # caCert: "PEM certificate file to use to verify config.kasAddress. Useful if config.kasAddress is self-signed."
+
+    observability:
+      enabled: false
+      # Application-level TLS configuration for the observability service
+      tls:
+        enabled: false
+        # cert: "Public key for the TLS certificate"
+        # key: "Private key for the TLS certificate"
+        secret: { }
+        # create: false # when true, creates a certificate with values cert and key from above
+        # name: "agentk-observability"
+  # Add additional environment settings to the pod. Can be useful in proxy
+  # environments
+  extraEnv: [ ]
+  # Add additional args settings to the pod.
+  extraArgs: [ ]
+  # Show the last 80 lines or 2048 bytes (whichever is smaller) of pod logs in kubectl describe output when container exits with non-zero exit code
+  # Useful for when pod logs are cycled out of a node post-crash before an operator can capture the logs
+  # Valid values are 'File' which is the Kubernetes API default, or 'FallbackToLogsOnError'
+  # See https://kubernetes.io/docs/tasks/debug/debug-application/determine-reason-pod-failure/ for more information
+  terminationMessagePolicy: FallbackToLogsOnError
+  resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+  serviceMonitor:
+    # Specifies whether to create a ServiceMonitor resource for collecting Prometheus metrics
+    enabled: false
