@@ -16,7 +16,7 @@ kind: ClusterRole
 metadata:
   name: plrl-console-reader
 rules:
-- apiGroups: ["*"]
+- apiGroups: ["", "*"]
   resources: ["*"]
   verbs: ["get", "list"]
 - apiGroups: [""]
