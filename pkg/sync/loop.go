@@ -93,9 +93,10 @@ func (engine *Engine) processItem(item interface{}) error {
 	}
 	inv := inventory.WrapInventoryInfoObj(invObj)
 
-	deadline := time.Now().Add(engine.processingTimeout)
-	ctx, cancelCtx := context.WithDeadline(context.Background(), deadline)
-	defer cancelCtx()
+	// deadline := time.Now().Add(engine.processingTimeout)
+	// ctx, cancelCtx := context.WithDeadline(context.Background(), deadline)
+	// defer cancelCtx()
+	ctx := context.Background()
 
 	if svc.DeletedAt != nil {
 		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
