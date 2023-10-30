@@ -193,6 +193,8 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 	for e := range ch {
 		statsCollector.Handle(e)
 		switch e.Type {
+		case event.ErrorType:
+			return e.ErrorEvent.Err
 		case event.ApplyType:
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
