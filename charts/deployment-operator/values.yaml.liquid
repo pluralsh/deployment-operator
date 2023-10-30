@@ -23,3 +23,8 @@ agentk:
 {% if configuration.replicas %}
 replicaCount: {{ configuration.replicas }}
 {% endif %}
+
+{% if configuration.processingTimeout %}
+args:
+  processingTimeout: {{ configuration.processingTimeout }}
+{% endif %}

@@ -4,6 +4,9 @@
 
 replicaCount: 1
 
+args:
+  processingTimeout: 5m
+
 image:
   repository: ghcr.io/pluralsh/deployment-operator
   pullPolicy: IfNotPresent
