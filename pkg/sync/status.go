@@ -182,6 +182,24 @@ func (engine *Engine) UpdateErrorStatus(id string, err error) {
 	}
 }
 
+func FormatActionGroupEvent(age event.ActionGroupEvent) error {
+	switch age.Action {
+	case event.ApplyAction:
+		log.Info("apply phase", "status", strings.ToLower(age.Status.String()))
+	case event.PruneAction:
+		log.Info("prune phase ", "status", strings.ToLower(age.Status.String()))
+	case event.DeleteAction:
+		log.Info("delete phase", "status", strings.ToLower(age.Status.String()))
+	case event.WaitAction:
+		log.Info("reconcile phase", "status", strings.ToLower(age.Status.String()))
+	case event.InventoryAction:
+		log.Info("inventory update", "status", strings.ToLower(age.Status.String()))
+	default:
+		return fmt.Errorf("invalid action group action: %+v", age)
+	}
+	return nil
+}
+
 func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool) error {
 	var statsCollector stats.Stats
 	var err error
@@ -193,6 +211,12 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 	for e := range ch {
 		statsCollector.Handle(e)
 		switch e.Type {
+		case event.ActionGroupType:
+			if err := FormatActionGroupEvent(
+				e.ActionGroupEvent,
+			); err != nil {
+				return err
+			}
 		case event.ErrorType:
 			return e.ErrorEvent.Err
 		case event.ApplyType:
