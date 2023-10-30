@@ -26,16 +26,17 @@ var (
 )
 
 type Agent struct {
-	consoleClient     *client.Client
-	discoveryClient   *discovery.DiscoveryClient
-	engine            *deploysync.Engine
-	deathChan         chan interface{}
-	svcQueue          workqueue.RateLimitingInterface
-	socket            *websocket.Socket
-	refresh           time.Duration
+	consoleClient   *client.Client
+	discoveryClient *discovery.DiscoveryClient
+	engine          *deploysync.Engine
+	deathChan       chan interface{}
+	svcQueue        workqueue.RateLimitingInterface
+	socket          *websocket.Socket
+	refresh         time.Duration
 }
 
 func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
+	disableClientLimits(config)
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
@@ -70,13 +71,13 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	engine.AddHealthCheck(deathChan)
 
 	return &Agent{
-		discoveryClient:   dc,
-		consoleClient:     consoleClient,
-		engine:            engine,
-		deathChan:         deathChan,
-		svcQueue:          svcQueue,
-		socket:            socket,
-		refresh:           refresh,
+		discoveryClient: dc,
+		consoleClient:   consoleClient,
+		engine:          engine,
+		deathChan:       deathChan,
+		svcQueue:        svcQueue,
+		socket:          socket,
+		refresh:         refresh,
 	}, nil
 }
 
@@ -91,11 +92,11 @@ func (agent *Agent) Run() {
 		}
 	}()
 
-	if err := agent.socket.Join(); err != nil {
-		log.Error(err, "could not establish websocket to upstream")
-	}
-
 	err := wait.PollInfinite(agent.refresh, func() (done bool, err error) {
+		if err := agent.socket.Join(); err != nil {
+			log.Error(err, "could not establish websocket to upstream")
+		}
+
 		log.Info("fetching services for cluster")
 		svcs, err := agent.consoleClient.GetServices()
 		if err != nil {
@@ -105,7 +106,7 @@ func (agent *Agent) Run() {
 
 		for _, svc := range svcs {
 			log.Info("sending update for", "service", svc.ID)
-			agent.svcQueue.Add(svc.ID)
+			agent.svcQueue.AddRateLimited(svc.ID)
 		}
 
 		info, err := agent.discoveryClient.ServerVersion()
@@ -134,6 +135,7 @@ func (agent *Agent) SetupWithManager() error {
 
 func newFactory(cfg *rest.Config) util.Factory {
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	kubeConfigFlags.WithDiscoveryQPS(cfg.QPS).WithDiscoveryBurst(cfg.Burst)
 	cfgPtrCopy := cfg
 	kubeConfigFlags.WrapConfigFn = func(c *rest.Config) *rest.Config {
 		// update rest.Config to pick up QPS & timeout changes

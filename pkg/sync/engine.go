@@ -44,8 +44,7 @@ func (engine *Engine) AddHealthCheck(health chan interface{}) {
 	engine.deathChan = health
 }
 
-func (engine *Engine) RegisterHandlers() {
-}
+func (engine *Engine) RegisterHandlers() {}
 
 func (engine *Engine) WipeCache() {
 	engine.svcCache.Wipe()
