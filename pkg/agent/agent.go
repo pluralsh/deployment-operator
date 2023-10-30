@@ -5,10 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
-	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
@@ -18,6 +14,11 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
 var (
@@ -25,16 +26,16 @@ var (
 )
 
 type Agent struct {
-	consoleClient   *client.Client
-	discoveryClient *discovery.DiscoveryClient
-	engine          *deploysync.Engine
-	deathChan       chan interface{}
-	svcQueue        workqueue.RateLimitingInterface
-	socket          *websocket.Socket
-	refresh         time.Duration
+	consoleClient     *client.Client
+	discoveryClient   *discovery.DiscoveryClient
+	engine            *deploysync.Engine
+	deathChan         chan interface{}
+	svcQueue          workqueue.RateLimitingInterface
+	socket            *websocket.Socket
+	refresh           time.Duration
 }
 
-func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
+func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
@@ -65,17 +66,17 @@ func New(config *rest.Config, refresh time.Duration, consoleUrl, deployToken, cl
 	if err != nil {
 		return nil, err
 	}
-	engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, svcQueue, svcCache, manifestCache)
+	engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, svcQueue, svcCache, manifestCache, processingTimeout)
 	engine.AddHealthCheck(deathChan)
 
 	return &Agent{
-		discoveryClient: dc,
-		consoleClient:   consoleClient,
-		engine:          engine,
-		deathChan:       deathChan,
-		svcQueue:        svcQueue,
-		socket:          socket,
-		refresh:         refresh,
+		discoveryClient:   dc,
+		consoleClient:     consoleClient,
+		engine:            engine,
+		deathChan:         deathChan,
+		svcQueue:          svcQueue,
+		socket:            socket,
+		refresh:           refresh,
 	}, nil
 }
 

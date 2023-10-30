@@ -93,7 +93,10 @@ func (engine *Engine) processItem(item interface{}) error {
 	}
 	inv := inventory.WrapInventoryInfoObj(invObj)
 
-	ctx := context.Background()
+	deadline := time.Now().Add(engine.processingTimeout)
+	ctx, cancelCtx := context.WithDeadline(context.Background(), deadline)
+	defer cancelCtx()
+
 	if svc.DeletedAt != nil {
 		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
 		ch := engine.destroyer.Run(ctx, inv, apply.DestroyerOptions{

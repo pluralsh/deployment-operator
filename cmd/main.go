@@ -5,13 +5,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/agent"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/pluralsh/deployment-operator/pkg/agent"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/sync"
 )
 
 var (
@@ -24,6 +26,7 @@ func main() {
 	var metricsAddr string
 	var probeAddr string
 	var refreshInterval string
+	var processingTimeout string
 	var resyncSeconds int
 	var consoleUrl string
 	var deployToken string
@@ -35,7 +38,8 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.IntVar(&resyncSeconds, "resync-seconds", 300, "Resync duration in seconds.")
-	flag.StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
+	flag.StringVar(&refreshInterval, "refresh-interval", "20s", "Refresh interval duration")
+	flag.StringVar(&processingTimeout, "processing-timeout", "10s", "Maximum amount of time to spend trying to process queue item")
 	flag.StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
 	flag.StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
 	flag.StringVar(&clusterId, "cluster-id", "", "the id of the cluster being connected to")
@@ -44,6 +48,7 @@ func main() {
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -54,6 +59,12 @@ func main() {
 	refresh, err := time.ParseDuration(refreshInterval)
 	if err != nil {
 		setupLog.Error(err, "unable to get refresh interval")
+		os.Exit(1)
+	}
+
+	pTimeout, err := time.ParseDuration(processingTimeout)
+	if err != nil {
+		setupLog.Error(err, "unable to get processing timeout")
 		os.Exit(1)
 	}
 
@@ -72,7 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	a, err := agent.New(mgr.GetConfig(), refresh, consoleUrl, deployToken, clusterId)
+	a, err := agent.New(mgr.GetConfig(), refresh, pTimeout, consoleUrl, deployToken, clusterId)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent")
 		os.Exit(1)
