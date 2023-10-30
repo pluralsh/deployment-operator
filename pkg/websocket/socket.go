@@ -21,6 +21,8 @@ type Socket struct {
 	svcQueue  workqueue.RateLimitingInterface
 	svcCache  *client.ServiceCache
 	channel   *phx.Channel
+	connected bool
+	joined    bool
 }
 
 func New(clusterId, consoleUrl, deployToken string, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache) (*Socket, error) {
@@ -38,9 +40,16 @@ func New(clusterId, consoleUrl, deployToken string, svcQueue workqueue.RateLimit
 }
 
 func (s *Socket) Join() error {
-	channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
-	s.channel = channel
-	return err
+	if s.connected && !s.joined {
+		channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
+		s.channel = channel
+		return err
+	} else if s.joined {
+		return nil
+	}
+
+	log.Info("socket not yet connected, waiting...")
+	return nil
 }
 
 func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
@@ -59,13 +68,21 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 	return uri.Parse(finalUrl)
 }
 
-func (s *Socket) NotifyConnect()    {}
-func (s *Socket) NotifyDisconnect() {}
+func (s *Socket) NotifyConnect() {
+	s.connected = true
+}
+func (s *Socket) NotifyDisconnect() {
+	s.connected = false
+}
 
 // implement ChannelReceiver
-func (s *Socket) OnJoin(payload interface{})                        {}
-func (s *Socket) OnJoinError(payload interface{})                   {}
-func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {}
+func (s *Socket) OnJoin(payload interface{}) {
+	s.joined = true
+}
+func (s *Socket) OnJoinError(payload interface{}) {}
+func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {
+	s.joined = false
+}
 func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
 	if event == "service.event" {
 		if parsed, ok := payload.(map[string]interface{}); ok {
