@@ -42,6 +42,8 @@ spec:
           - "{{ .Values.clusterId }}"
           -  --leader-elect
           - "true"
+          - --processing-timeout
+          - {{ .Values.args.processingTimeout | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
