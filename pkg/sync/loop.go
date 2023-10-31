@@ -134,7 +134,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		DryRunStrategy:         common.DryRunNone,
 		PrunePropagationPolicy: metav1.DeletePropagationBackground,
 		PruneTimeout:           20 * time.Second,
-		InventoryPolicy:        inventory.PolicyAdoptIfNoInventory,
+		InventoryPolicy:        inventory.PolicyAdoptAll,
 	})
 
 	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false)
