@@ -106,7 +106,7 @@ func (agent *Agent) Run() {
 
 		for _, svc := range svcs {
 			log.Info("sending update for", "service", svc.ID)
-			agent.svcQueue.AddRateLimited(svc.ID)
+			agent.svcQueue.Add(svc.ID)
 		}
 
 		info, err := agent.discoveryClient.ServerVersion()
