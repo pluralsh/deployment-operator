@@ -9,6 +9,7 @@ import (
 const (
 	OperatorService = "deploy-operator"
 	syncDelay       = 5 * time.Second
+	workerCount     = 5
 )
 
 var (
