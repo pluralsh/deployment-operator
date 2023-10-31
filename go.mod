@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.2
-	github.com/pluralsh/console-client-go v0.0.27
+	github.com/pluralsh/console-client-go v0.0.29
 	github.com/pluralsh/gophoenix v0.1.3-0.20231024165338-04291b4de463
 	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.38.1
