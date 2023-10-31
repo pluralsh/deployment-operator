@@ -30,7 +30,7 @@ func (engine *Engine) ControlLoop() {
 	}
 
 	engine.RegisterHandlers()
-	for i := 0; i < 20; i++ {
+	for i := 0; i < workerCount; i++ {
 		go engine.workerLoop()
 	}
 }
