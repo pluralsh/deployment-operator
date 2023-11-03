@@ -99,6 +99,8 @@ func (engine *Engine) processItem(item interface{}) error {
 	// defer cancelCtx()
 	ctx := context.Background()
 
+	vcache := manis.VersionCache(manifests)
+
 	if svc.DeletedAt != nil {
 		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
 		ch := engine.destroyer.Run(ctx, inv, apply.DestroyerOptions{
@@ -109,10 +111,9 @@ func (engine *Engine) processItem(item interface{}) error {
 			EmitStatusEvents:        true,
 			ValidationPolicy:        1,
 		})
-		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests))
+		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests), vcache)
 	}
 
-	vcache := manis.VersionCache(manifests)
 	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
 	if err := engine.CheckNamespace(svc.Namespace); err != nil {
 		log.Error(err, "failed to check namespace")
