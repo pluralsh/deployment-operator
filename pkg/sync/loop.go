@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply"
@@ -110,6 +111,8 @@ func (engine *Engine) processItem(item interface{}) error {
 		})
 		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests))
 	}
+
+	vcache := manis.VersionCache(manifests)
 	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
 	if err := engine.CheckNamespace(svc.Namespace); err != nil {
 		log.Error(err, "failed to check namespace")
@@ -137,7 +140,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		InventoryPolicy:        inventory.PolicyAdoptAll,
 	})
 
-	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false)
+	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)
 }
 
 func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {

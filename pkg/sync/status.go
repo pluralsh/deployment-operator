@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -200,7 +201,7 @@ func FormatActionGroupEvent(age event.ActionGroupEvent) error {
 	return nil
 }
 
-func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool) error {
+func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
 	var statsCollector stats.Stats
 	var err error
 	components := []*console.ComponentAttributes{}
@@ -261,7 +262,7 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 	}
 
 	for _, v := range statusCollector.latestStatus {
-		consoleAttr := fromSyncResult(v)
+		consoleAttr := fromSyncResult(v, vcache)
 		if consoleAttr != nil {
 			components = append(components, consoleAttr)
 		}
@@ -274,17 +275,28 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 	return nil
 }
 
-func fromSyncResult(e event.StatusEvent) *console.ComponentAttributes {
+func fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
 	gvk := e.Resource.GroupVersionKind()
+	gname := manifests.GroupName{
+		Group: gvk.Group,
+		Kind:  gvk.Kind,
+		Name:  e.Resource.GetName(),
+	}
+
+	version := gvk.Version
+	if v, ok := vcache[gname]; ok {
+		version = v
+	}
+
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,
 		Kind:      gvk.Kind,
 		Namespace: e.Resource.GetNamespace(),
 		Name:      e.Resource.GetName(),
-		Version:   gvk.Version,
+		Version:   version,
 		Synced:    e.PollResourceInfo.Status == status.CurrentStatus,
 		State:     toStatus(e.Resource),
 	}
