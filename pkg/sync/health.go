@@ -205,7 +205,7 @@ func getJobHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 		var job batchv1.Job
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &job)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert unstructured Job to typed: %v", err)
+			return nil, fmt.Errorf("failed to convert unstructured Job to typed: %w", err)
 		}
 		return getBatchv1JobHealth(&job)
 	default:
@@ -236,27 +236,31 @@ func getBatchv1JobHealth(job *batchv1.Job) (*HealthStatus, error) {
 			}
 		}
 	}
+
 	if !complete {
 		return &HealthStatus{
 			Status:  HealthStatusProgressing,
 			Message: message,
 		}, nil
-	} else if failed {
+	}
+	if failed {
 		return &HealthStatus{
 			Status:  HealthStatusDegraded,
 			Message: failMsg,
 		}, nil
-	} else if isSuspended {
+	}
+	if isSuspended {
 		return &HealthStatus{
 			Status:  HealthStatusSuspended,
 			Message: failMsg,
 		}, nil
-	} else {
-		return &HealthStatus{
-			Status:  HealthStatusHealthy,
-			Message: message,
-		}, nil
 	}
+
+	return &HealthStatus{
+		Status:  HealthStatusHealthy,
+		Message: message,
+	}, nil
+
 }
 
 func getPodHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
@@ -266,7 +270,7 @@ func getPodHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 		var pod corev1.Pod
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &pod)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert unstructured Pod to typed: %v", err)
+			return nil, fmt.Errorf("failed to convert unstructured Pod to typed: %w", err)
 		}
 		return getCorev1PodHealth(&pod)
 	default:
@@ -387,7 +391,7 @@ func getPVCHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 		var pvc corev1.PersistentVolumeClaim
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &pvc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert unstructured PersistentVolumeClaim to typed: %v", err)
+			return nil, fmt.Errorf("failed to convert unstructured PersistentVolumeClaim to typed: %w", err)
 		}
 		return getCorev1PVCHealth(&pvc)
 	default:
@@ -417,7 +421,7 @@ func getServiceHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 		var service corev1.Service
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &service)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert unstructured Service to typed: %v", err)
+			return nil, fmt.Errorf("failed to convert unstructured Service to typed: %w", err)
 		}
 		return getCorev1ServiceHealth(&service)
 	default:
@@ -455,7 +459,7 @@ func getReplicaSetHealth(obj *unstructured.Unstructured) (*HealthStatus, error) 
 		var replicaSet appsv1.ReplicaSet
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &replicaSet)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert unstructured ReplicaSet to typed: %v", err)
+			return nil, fmt.Errorf("failed to convert unstructured ReplicaSet to typed: %w", err)
 		}
 		return getAppsv1ReplicaSetHealth(&replicaSet)
 	default:
@@ -506,7 +510,7 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (*HealthStatus, error) 
 		var deployment appsv1.Deployment
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &deployment)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert unstructured Deployment to typed: %v", err)
+			return nil, fmt.Errorf("failed to convert unstructured Deployment to typed: %w", err)
 		}
 		return getAppsv1DeploymentHealth(&deployment)
 	default:
@@ -529,32 +533,34 @@ func getAppsv1DeploymentHealth(deployment *appsv1.Deployment) (*HealthStatus, er
 				Status:  HealthStatusDegraded,
 				Message: fmt.Sprintf("Deployment %q exceeded its progress deadline", deployment.Name),
 			}, nil
-		} else if deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas {
+		}
+		if deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas {
 			return &HealthStatus{
 				Status:  HealthStatusProgressing,
 				Message: fmt.Sprintf("Waiting for rollout to finish: %d out of %d new replicas have been updated...", deployment.Status.UpdatedReplicas, *deployment.Spec.Replicas),
 			}, nil
-		} else if deployment.Status.Replicas > deployment.Status.UpdatedReplicas {
+		}
+		if deployment.Status.Replicas > deployment.Status.UpdatedReplicas {
 			return &HealthStatus{
 				Status:  HealthStatusProgressing,
 				Message: fmt.Sprintf("Waiting for rollout to finish: %d old replicas are pending termination...", deployment.Status.Replicas-deployment.Status.UpdatedReplicas),
 			}, nil
-		} else if deployment.Status.AvailableReplicas < deployment.Status.UpdatedReplicas {
+		}
+		if deployment.Status.AvailableReplicas < deployment.Status.UpdatedReplicas {
 			return &HealthStatus{
 				Status:  HealthStatusProgressing,
 				Message: fmt.Sprintf("Waiting for rollout to finish: %d of %d updated replicas are available...", deployment.Status.AvailableReplicas, deployment.Status.UpdatedReplicas),
 			}, nil
 		}
-	} else {
 		return &HealthStatus{
-			Status:  HealthStatusProgressing,
-			Message: "Waiting for rollout to finish: observed deployment generation less than desired generation",
+			Status: HealthStatusHealthy,
 		}, nil
 	}
-
 	return &HealthStatus{
-		Status: HealthStatusHealthy,
+		Status:  HealthStatusProgressing,
+		Message: "Waiting for rollout to finish: observed deployment generation less than desired generation",
 	}, nil
+
 }
 
 func getAppsv1DeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
@@ -574,7 +580,7 @@ func getStatefulSetHealth(obj *unstructured.Unstructured) (*HealthStatus, error)
 		var sts appsv1.StatefulSet
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &sts)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert unstructured StatefulSet to typed: %v", err)
+			return nil, fmt.Errorf("failed to convert unstructured StatefulSet to typed: %w", err)
 		}
 		return getAppsv1StatefulSetHealth(&sts)
 	default:
@@ -636,7 +642,7 @@ func getDaemonSetHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 		var daemon appsv1.DaemonSet
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &daemon)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert unstructured DaemonSet to typed: %v", err)
+			return nil, fmt.Errorf("failed to convert unstructured DaemonSet to typed: %w", err)
 		}
 		return getAppsv1DaemonSetHealth(&daemon)
 	default:

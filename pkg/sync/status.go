@@ -76,13 +76,11 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 			return getDaemonSetHealth
 		}
 	case "extensions":
-		switch gvk.Kind {
-		case IngressKind:
+		if gvk.Kind == IngressKind {
 			return getIngressHealth
 		}
 	case "networking.k8s.io":
-		switch gvk.Kind {
-		case IngressKind:
+		if gvk.Kind == IngressKind {
 			return getIngressHealth
 		}
 	case "":
@@ -95,13 +93,11 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 			return getPodHealth
 		}
 	case "batch":
-		switch gvk.Kind {
-		case JobKind:
+		if gvk.Kind == JobKind {
 			return getJobHealth
 		}
 	case "autoscaling":
-		switch gvk.Kind {
-		case HorizontalPodAutoscalerKind:
+		if gvk.Kind == HorizontalPodAutoscalerKind {
 			return getHPAHealth
 		}
 	}
@@ -147,8 +143,7 @@ func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan ev
 
 	for e := range ch {
 		statsCollector.Handle(e)
-		switch e.Type {
-		case event.StatusType:
+		if e.Type == event.StatusType {
 			statusCollector.updateStatus(e.StatusEvent.Identifier, e.StatusEvent)
 
 			gk := e.StatusEvent.Identifier.GroupKind
@@ -232,12 +227,11 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 				} else {
 					log.Info(msg)
 				}
-			} else {
-				if printStatus {
-					log.Info(resourceIDToString(gk, name),
-						"status", strings.ToLower(e.ApplyEvent.Status.String()))
-				}
+			} else if printStatus {
+				log.Info(resourceIDToString(gk, name),
+					"status", strings.ToLower(e.ApplyEvent.Status.String()))
 			}
+
 		case event.StatusType:
 			statusCollector.updateStatus(e.StatusEvent.Identifier, e.StatusEvent)
 			gk := e.StatusEvent.Identifier.GroupKind
@@ -247,13 +241,10 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
 				err = fmt.Errorf(errorMsg)
 				log.Error(err, "status error")
-			} else {
-				if printStatus {
-					log.Info(resourceIDToString(gk, name),
-						"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
-				}
+			} else if printStatus {
+				log.Info(resourceIDToString(gk, name),
+					"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
 			}
-
 		}
 	}
 
