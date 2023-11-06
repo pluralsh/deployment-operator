@@ -81,8 +81,7 @@ func (engine *Engine) processItem(item interface{}) error {
 	log.Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 
 	var manErr error
-	manifests := make([]*unstructured.Unstructured, 0)
-	manifests, manErr = engine.manifestCache.Fetch(engine.utilFactory, svc)
+	manifests, manErr := engine.manifestCache.Fetch(engine.utilFactory, svc)
 	if manErr != nil {
 		log.Error(manErr, "failed to parse manifests")
 		return manErr
