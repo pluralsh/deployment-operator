@@ -34,6 +34,10 @@ func Render(dir string, svc *console.ServiceDeploymentExtended, utilFactory util
 		return nil
 	})
 
+	if svc.Kustomize != nil {
+		return NewKustomize(dir).Render(svc, utilFactory)
+	}
+
 	if renderer == RendererHelm {
 		return NewHelm(dir).Render(svc, utilFactory)
 	}

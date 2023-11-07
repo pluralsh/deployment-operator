@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.2
-	github.com/pluralsh/console-client-go v0.0.29
+	github.com/pluralsh/console-client-go v0.0.33
 	github.com/pluralsh/gophoenix v0.1.3-0.20231024165338-04291b4de463
 	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.38.1
@@ -20,6 +20,7 @@ require (
 	k8s.io/kubectl v0.26.0
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.14.1
+	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 
 )
