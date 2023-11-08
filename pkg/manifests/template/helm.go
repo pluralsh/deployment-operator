@@ -104,7 +104,7 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 	client.DryRun = true
 	client.ReleaseName = name
 	client.Replace = true // Skip the name check
-	client.ClientOnly = false
+	client.ClientOnly = true
 	client.Namespace = namespace
 	client.IncludeCRDs = true
 	client.IsUpgrade = true
