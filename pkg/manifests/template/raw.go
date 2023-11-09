@@ -60,7 +60,7 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Fa
 	readerOptions := ReaderOptions{
 		Mapper:           mapper,
 		Namespace:        svc.Namespace,
-		EnforceNamespace: true,
+		EnforceNamespace: false,
 	}
 
 	if err := filepath.Walk(r.dir, func(path string, info os.FileInfo, err error) error {

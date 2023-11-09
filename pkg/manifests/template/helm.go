@@ -13,6 +13,7 @@ import (
 	"github.com/pluralsh/polly/fs"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
@@ -57,7 +58,7 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 	readerOptions := manifestreader.ReaderOptions{
 		Mapper:           mapper,
 		Namespace:        svc.Namespace,
-		EnforceNamespace: true,
+		EnforceNamespace: false,
 	}
 	mReader := &manifestreader.StreamManifestReader{
 		ReaderName:    "helm",
@@ -108,6 +109,12 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 	client.Namespace = namespace
 	client.IncludeCRDs = true
 	client.IsUpgrade = true
+	vsn, err := kubeVersion(conf)
+	if err != nil {
+		return nil, err
+	}
+	client.KubeVersion = vsn
+
 	rel, err := client.Run(chart, values)
 	if err != nil {
 		return nil, err
@@ -137,4 +144,22 @@ func GetActionConfig(namespace string) (*action.Configuration, error) {
 
 func NewHelm(dir string) Template {
 	return &helm{dir}
+}
+
+func kubeVersion(conf *action.Configuration) (*chartutil.KubeVersion, error) {
+	dc, err := conf.RESTClientGetter.ToDiscoveryClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get Kubernetes discovery client")
+	}
+
+	kubeVersion, err := dc.ServerVersion()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get server version from Kubernetes")
+	}
+
+	return &chartutil.KubeVersion{
+		Version: kubeVersion.GitVersion,
+		Major:   kubeVersion.Major,
+		Minor:   kubeVersion.Minor,
+	}, nil
 }

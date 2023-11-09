@@ -49,7 +49,7 @@ func (k *kustomize) Render(svc *console.ServiceDeploymentExtended, utilFactory u
 	readerOptions := manifestreader.ReaderOptions{
 		Mapper:           mapper,
 		Namespace:        svc.Namespace,
-		EnforceNamespace: true,
+		EnforceNamespace: false,
 	}
 	mReader := &manifestreader.StreamManifestReader{
 		ReaderName:    "kustomize",
