@@ -36,7 +36,7 @@ func NewCache(expiry time.Duration, token string) *ManifestCache {
 	}
 }
 
-func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
+func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	if line, ok := c.cache.Get(svc.ID); ok {
 		if line.live(c.expiry) {
 			return template.Render(line.dir, svc, utilFactory)
@@ -46,13 +46,13 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDepl
 	}
 
 	if svc.Tarball == nil {
-		return nil, fmt.Errorf("could not fetch tarball url for service")
+		return nil,nil, fmt.Errorf("could not fetch tarball url for service")
 	}
 
 	log.Info("fetching tarball", "url", *svc.Tarball)
 	dir, err := fetch(*svc.Tarball, c.token)
 	if err != nil {
-		return nil, err
+		return nil,nil, err
 	}
 	log.Info("using cache dir", "dir", dir)
 

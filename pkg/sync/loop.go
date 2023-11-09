@@ -83,11 +83,15 @@ func (engine *Engine) processItem(item interface{}) error {
 	log.Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 
 	var manErr error
-	manifests, manErr := engine.manifestCache.Fetch(engine.utilFactory, svc)
+	manifests, hooks, manErr := engine.manifestCache.Fetch(engine.utilFactory, svc)
 	if manErr != nil {
 		log.Error(manErr, "failed to parse manifests")
 		return manErr
 	}
+	if hooks != nil {
+
+	}
+
 	log.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := engine.splitObjects(id, manifests)
 	if err != nil {
