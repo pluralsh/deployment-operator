@@ -1,5 +1,10 @@
 package hook
 
+import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
 const (
 	// AnnotationKeyHook contains the hook type of a resource
 	AnnotationKeyHook = "helm.sh/hook"
@@ -21,4 +26,11 @@ func NewHookType(t string) (Type, bool) {
 			t == string(PostUpgrade) ||
 			t == string(PostInstall)
 
+}
+
+type Hook struct {
+	Weight int
+	Types  []Type
+	Kind   schema.ObjectKind
+	Object *unstructured.Unstructured
 }
