@@ -38,7 +38,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.IntVar(&resyncSeconds, "resync-seconds", 300, "Resync duration in seconds.")
-	flag.StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
+	flag.StringVar(&refreshInterval, "refresh-interval", "2m", "Refresh interval duration")
 	flag.StringVar(&processingTimeout, "processing-timeout", "1m", "Maximum amount of time to spend trying to process queue item")
 	flag.StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
 	flag.StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
