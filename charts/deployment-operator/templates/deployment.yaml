@@ -44,6 +44,8 @@ spec:
           - "true"
           - --processing-timeout
           - {{ .Values.args.processingTimeout | quote }}
+          - --enable-helm-dependency-update
+          - {{ .Values.args.enableHelmDependencyUpdate }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
