@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -15,11 +16,17 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/downloader"
+	"helm.sh/helm/v3/pkg/getter"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/yaml"
 )
+
+var settings = cli.New()
+var EnableHelmDependencyUpdate = false
 
 func debug(format string, v ...interface{}) {
 	format = fmt.Sprintf("INFO: %s\n", format)
@@ -43,6 +50,17 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 	if err != nil {
 		return nil, err
 	}
+	c, err := chartutil.LoadChartfile(path.Join(h.dir, ChartFileName))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(c.Dependencies) > 0 && EnableHelmDependencyUpdate {
+		if err := h.dependencyUpdate(config); err != nil {
+			return nil, err
+		}
+	}
+
 	out, err := h.templateHelm(config, svc.Name, svc.Namespace, values)
 	if err != nil {
 		return nil, err
@@ -129,7 +147,6 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 
 func GetActionConfig(namespace string) (*action.Configuration, error) {
 	actionConfig := new(action.Configuration)
-	settings := cli.New()
 	if os.Getenv("KUBECONFIG") != "" {
 		settings.KubeConfig = os.Getenv("KUBECONFIG")
 	}
@@ -162,4 +179,27 @@ func kubeVersion(conf *action.Configuration) (*chartutil.KubeVersion, error) {
 		Major:   kubeVersion.Major,
 		Minor:   kubeVersion.Minor,
 	}, nil
+}
+
+func (h *helm) dependencyUpdate(conf *action.Configuration) error {
+	man := &downloader.Manager{
+		Out:              log.Writer(),
+		ChartPath:        h.dir,
+		Keyring:          defaultKeyring(),
+		SkipUpdate:       false,
+		Getters:          getter.All(settings),
+		RegistryClient:   conf.RegistryClient,
+		RepositoryConfig: settings.RepositoryConfig,
+		RepositoryCache:  settings.RepositoryCache,
+		Debug:            false,
+	}
+	return man.Update()
+}
+
+// defaultKeyring returns the expanded path to the default keyring.
+func defaultKeyring() string {
+	if v, ok := os.LookupEnv("GNUPGHOME"); ok {
+		return filepath.Join(v, "pubring.gpg")
+	}
+	return filepath.Join(homedir.HomeDir(), ".gnupg", "pubring.gpg")
 }

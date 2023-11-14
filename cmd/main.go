@@ -5,15 +5,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/agent"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"github.com/pluralsh/deployment-operator/pkg/agent"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/sync"
 )
 
 var (
@@ -43,7 +43,8 @@ func main() {
 	flag.StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
 	flag.StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
 	flag.StringVar(&clusterId, "cluster-id", "", "the id of the cluster being connected to")
-	flag.BoolVar(&sync.Local, "local", false, "whether you're running the operator locally")
+	flag.BoolVar(&sync.Local, "local", true, "whether you're running the operator locally")
+	flag.BoolVar(&template.EnableHelmDependencyUpdate, "enable-helm-dependency-update", false, "enable update helm chart's dependencies")
 	opts := zap.Options{
 		Development: true,
 	}

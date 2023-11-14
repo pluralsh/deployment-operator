@@ -14,6 +14,8 @@ type Renderer string
 const (
 	RendererHelm Renderer = "helm"
 	RendererRaw  Renderer = "raw"
+
+	ChartFileName = "Chart.yaml"
 )
 
 type Template interface {
@@ -24,7 +26,7 @@ func Render(dir string, svc *console.ServiceDeploymentExtended, utilFactory util
 	renderer := RendererRaw
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		for _, file := range []string{"Chart.yaml", "values.yaml"} {
+		for _, file := range []string{ChartFileName, "values.yaml"} {
 			if !info.IsDir() && info.Name() == file {
 				renderer = RendererHelm
 				return nil
