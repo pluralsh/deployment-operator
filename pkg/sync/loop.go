@@ -73,7 +73,7 @@ func (engine *Engine) processItem(item interface{}) error {
 		return err
 	}
 
-	log.Info("local flag", "is:", Local)
+	log.Info("local", "flag", Local)
 	if Local && svc.Name == OperatorService {
 		return nil
 	}

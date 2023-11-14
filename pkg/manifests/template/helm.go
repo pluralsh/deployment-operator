@@ -25,8 +25,12 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+func init() {
+	EnableHelmDependencyUpdate = false
+}
+
 var settings = cli.New()
-var EnableHelmDependencyUpdate = false
+var EnableHelmDependencyUpdate bool
 
 func debug(format string, v ...interface{}) {
 	format = fmt.Sprintf("INFO: %s\n", format)
@@ -55,6 +59,7 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 		return nil, err
 	}
 
+	log.Println("render helm templates:", "enable dependency update=", EnableHelmDependencyUpdate, "dependencies=", len(c.Dependencies))
 	if len(c.Dependencies) > 0 && EnableHelmDependencyUpdate {
 		if err := h.dependencyUpdate(config); err != nil {
 			return nil, err

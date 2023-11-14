@@ -12,7 +12,11 @@ const (
 	workerCount     = 10
 )
 
-var (
+func init() {
 	Local = false
+}
+
+var (
+	Local bool
 	log   = klogr.New()
 )
