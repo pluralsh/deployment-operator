@@ -17,6 +17,6 @@ func init() {
 }
 
 var (
-	Local bool
+	Local = false
 	log   = klogr.New()
 )
