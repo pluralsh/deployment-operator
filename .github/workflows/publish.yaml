@@ -47,26 +47,6 @@ jobs:
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    # - uses: google-github-actions/auth@v1
-    #   with:
-    #     workload_identity_provider: 'projects/${{ secrets.GOOGLE_PROJECT_ID }}/locations/global/workloadIdentityPools/github/providers/github'
-    #     service_account: 'terraform@pluralsh.iam.gserviceaccount.com'
-    #     token_format: 'access_token'
-    #     create_credentials_file: true
-    # - uses: google-github-actions/setup-gcloud@v1.0.1
-    # - name: Login to gcr
-    #   run: gcloud auth configure-docker -q
-    # - name: installing plural
-    #   id: plrl
-    #   uses: pluralsh/setup-plural@v0.1.9
-    #   with:
-    #     email: gh-actions@plural.sh
-    # - name: Login to plural registry
-    #   uses: docker/login-action@v2
-    #   with:
-    #     registry: dkr.plural.sh
-    #     username: gh-actions@plural.sh
-    #     password: ${{ steps.plrl.outputs.token }}
     - name: Login to GHCR
       uses: docker/login-action@v3
       with:
@@ -94,44 +74,3 @@ jobs:
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }} # required
       if: always()
-#  release:
-#    name: Create GitHub release
-#    runs-on: ubuntu-20.04
-#    needs: publish
-#    permissions:
-#      contents: write
-#      discussions: write
-#    steps:
-#    - name: Checkout
-#      uses: actions/checkout@v4
-#    - name: Release
-#      uses: softprops/action-gh-release@v1
-#      with:
-#        generate_release_notes: true
-  # bump:
-  #   name: Bump Chart Version
-  #   runs-on: ubuntu-20.04
-  #   needs: [release]
-  #   permissions:
-  #     contents: write
-  #     discussions: write
-  #     pull-requests: write
-  #   steps:
-  #   - name: Checkout
-  #     uses: actions/checkout@v3
-  #     with: 
-  #       persist-credentials: false
-  #       fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
-  #   - name: push chart
-  #     uses: pluralsh/chart-releaser@v0.1.3
-  #     with:
-  #       path: ./plural/helm/console
-  #       release: ${{github.ref_name}}
-  #   - name: Create Pull Request
-  #     uses: peter-evans/create-pull-request@v5
-  #     with:
-  #       title: Release ${{github.ref_name}}
-  #       body: Automated Pull Request to release ${{github.ref_name}}
-  #       commit-message: Updated chart to release ${{github.ref_name}}
-  #       labels: release
-  #       base: master
