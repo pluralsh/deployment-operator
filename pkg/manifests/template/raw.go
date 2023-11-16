@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	"github.com/osteele/liquid"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
@@ -60,7 +61,7 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Fa
 	readerOptions := ReaderOptions{
 		Mapper:           mapper,
 		Namespace:        svc.Namespace,
-		EnforceNamespace: true,
+		EnforceNamespace: false,
 	}
 
 	if err := filepath.Walk(r.dir, func(path string, info os.FileInfo, err error) error {
@@ -105,6 +106,7 @@ func (r *raw) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Fa
 	}); err != nil {
 		return nil, err
 	}
-
+	newSet := containers.ToSet[*unstructured.Unstructured](res)
+	res = newSet.List()
 	return res, nil
 }

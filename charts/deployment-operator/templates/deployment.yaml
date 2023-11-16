@@ -36,14 +36,11 @@ spec:
           - secretRef:
               name: deployment-operator-env
           args:
-          -  --console-url 
-          - "{{ .Values.consoleUrl }}"
-          - --cluster-id
-          - "{{ .Values.clusterId }}"
-          -  --leader-elect
-          - "true"
-          - --processing-timeout
-          - {{ .Values.args.processingTimeout | quote }}
+          - -console-url={{ .Values.consoleUrl }}
+          - -cluster-id={{ .Values.clusterId }}
+          - -leader-elect=true
+          - -processing-timeout={{ .Values.args.processingTimeout }}
+          - -enable-helm-dependency-update={{ .Values.args.enableHelmDependencyUpdate }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

@@ -42,7 +42,11 @@ func New(clusterId, consoleUrl, deployToken string, svcQueue workqueue.RateLimit
 func (s *Socket) Join() error {
 	if s.connected && !s.joined {
 		channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
-		s.channel = channel
+		if err == nil {
+			log.Info("connecting to channel", "channel", fmt.Sprintf("cluster:%s", s.clusterId))
+			s.channel = channel
+			s.joined = true
+		}
 		return err
 	} else if s.joined {
 		return nil
@@ -77,12 +81,19 @@ func (s *Socket) NotifyDisconnect() {
 
 // implement ChannelReceiver
 func (s *Socket) OnJoin(payload interface{}) {
-	s.joined = true
+	log.Info("Joined websocket channel, listening for service updates")
 }
-func (s *Socket) OnJoinError(payload interface{}) {}
-func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {
+
+func (s *Socket) OnJoinError(payload interface{}) {
+	log.Info("failed to join channel, retrying")
 	s.joined = false
 }
+
+func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {
+	log.Info("left websocket channel")
+	s.joined = false
+}
+
 func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
 	if event == "service.event" {
 		if parsed, ok := payload.(map[string]interface{}); ok {

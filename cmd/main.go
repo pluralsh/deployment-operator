@@ -5,15 +5,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/agent"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"github.com/pluralsh/deployment-operator/pkg/agent"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/sync"
 )
 
 var (
@@ -21,48 +21,53 @@ var (
 	setupLog = log.Logger
 )
 
-func main() {
-	var enableLeaderElection bool
-	var metricsAddr string
-	var probeAddr string
-	var refreshInterval string
-	var processingTimeout string
-	var resyncSeconds int
-	var consoleUrl string
-	var deployToken string
-	var clusterId string
+type controllerRunOptions struct {
+	enableLeaderElection bool
+	metricsAddr          string
+	probeAddr            string
+	refreshInterval      string
+	processingTimeout    string
+	resyncSeconds        int
+	consoleUrl           string
+	deployToken          string
+	clusterId            string
+}
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":9001", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.IntVar(&resyncSeconds, "resync-seconds", 300, "Resync duration in seconds.")
-	flag.StringVar(&refreshInterval, "refresh-interval", "1m", "Refresh interval duration")
-	flag.StringVar(&processingTimeout, "processing-timeout", "1m", "Maximum amount of time to spend trying to process queue item")
-	flag.StringVar(&consoleUrl, "console-url", "", "the url of the console api to fetch services from")
-	flag.StringVar(&deployToken, "deploy-token", "", "the deploy token to auth to console api with")
-	flag.StringVar(&clusterId, "cluster-id", "", "the id of the cluster being connected to")
-	flag.BoolVar(&sync.Local, "local", false, "whether you're running the operator locally")
+func main() {
+	klog.InitFlags(nil)
+
+	opt := &controllerRunOptions{}
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
-	klog.InitFlags(nil)
+	flag.StringVar(&opt.metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&opt.probeAddr, "health-probe-bind-address", ":9001", "The address the probe endpoint binds to.")
+	flag.BoolVar(&opt.enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	flag.IntVar(&opt.resyncSeconds, "resync-seconds", 300, "Resync duration in seconds.")
+	flag.StringVar(&opt.refreshInterval, "refresh-interval", "2m", "Refresh interval duration")
+	flag.StringVar(&opt.processingTimeout, "processing-timeout", "1m", "Maximum amount of time to spend trying to process queue item")
+	flag.StringVar(&opt.consoleUrl, "console-url", "", "the url of the console api to fetch services from")
+	flag.StringVar(&opt.deployToken, "deploy-token", "", "the deploy token to auth to console api with")
+	flag.StringVar(&opt.clusterId, "cluster-id", "", "the id of the cluster being connected to")
+	flag.BoolVar(&sync.Local, "local", false, "whether you're running the operator locally")
+	flag.BoolVar(&template.EnableHelmDependencyUpdate, "enable-helm-dependency-update", false, "enable update helm chart's dependencies")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	if deployToken == "" {
-		deployToken = os.Getenv("DEPLOY_TOKEN")
+	if opt.deployToken == "" {
+		opt.deployToken = os.Getenv("DEPLOY_TOKEN")
 	}
-	refresh, err := time.ParseDuration(refreshInterval)
+	refresh, err := time.ParseDuration(opt.refreshInterval)
 	if err != nil {
 		setupLog.Error(err, "unable to get refresh interval")
 		os.Exit(1)
 	}
 
-	pTimeout, err := time.ParseDuration(processingTimeout)
+	pTimeout, err := time.ParseDuration(opt.processingTimeout)
 	if err != nil {
 		setupLog.Error(err, "unable to get processing timeout")
 		os.Exit(1)
@@ -70,9 +75,9 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		LeaderElection:         enableLeaderElection,
+		LeaderElection:         opt.enableLeaderElection,
 		LeaderElectionID:       "dep12loy45.plural.sh",
-		HealthProbeBindAddress: probeAddr,
+		HealthProbeBindAddress: opt.probeAddr,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
@@ -83,7 +88,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	a, err := agent.New(mgr.GetConfig(), refresh, pTimeout, consoleUrl, deployToken, clusterId)
+	a, err := agent.New(mgr.GetConfig(), refresh, pTimeout, opt.consoleUrl, opt.deployToken, opt.clusterId)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent")
 		os.Exit(1)

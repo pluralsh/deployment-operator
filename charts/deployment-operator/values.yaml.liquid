@@ -28,3 +28,8 @@ replicaCount: {{ configuration.replicas }}
 args:
   processingTimeout: {{ configuration.processingTimeout }}
 {% endif %}
+
+{% if configuration.enableHelmDependencyUpdate %}
+args:
+  enableHelmDependencyUpdate: {{ configuration.enableHelmDependencyUpdate }}
+{% endif %}

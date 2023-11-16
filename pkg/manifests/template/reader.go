@@ -5,7 +5,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
@@ -28,24 +27,6 @@ type StreamManifestReader struct {
 	Reader     io.Reader
 
 	ReaderOptions
-}
-
-func buildReader(name, namespace string, r io.Reader, utilFactory util.Factory) (*StreamManifestReader, error) {
-	mapper, err := utilFactory.ToRESTMapper()
-	if err != nil {
-		return nil, err
-	}
-
-	readerOptions := ReaderOptions{
-		Mapper:           mapper,
-		Namespace:        namespace,
-		EnforceNamespace: true,
-	}
-	return &StreamManifestReader{
-		ReaderName:    name,
-		Reader:        r,
-		ReaderOptions: readerOptions,
-	}, nil
 }
 
 // Read reads the manifests and returns them as Info objects.
