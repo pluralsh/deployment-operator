@@ -2,22 +2,28 @@ package template
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/fs"
 	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/cmd/util"
@@ -27,6 +33,15 @@ import (
 
 func init() {
 	EnableHelmDependencyUpdate = false
+
+	// setup helm cache directory.
+	dir, err := os.MkdirTemp("", "repositories")
+	if err != nil {
+		log.Panic(err)
+	}
+	settings.RepositoryCache = dir
+	settings.RepositoryConfig = path.Join(dir, "repositories.yaml")
+	settings.KubeInsecureSkipTLSVerify = true
 }
 
 var settings = cli.New()
@@ -61,7 +76,7 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 
 	log.Println("render helm templates:", "enable dependency update=", EnableHelmDependencyUpdate, "dependencies=", len(c.Dependencies))
 	if len(c.Dependencies) > 0 && EnableHelmDependencyUpdate {
-		if err := h.dependencyUpdate(config); err != nil {
+		if err := h.dependencyUpdate(config, c.Dependencies); err != nil {
 			return nil, err
 		}
 	}
@@ -186,12 +201,23 @@ func kubeVersion(conf *action.Configuration) (*chartutil.KubeVersion, error) {
 	}, nil
 }
 
-func (h *helm) dependencyUpdate(conf *action.Configuration) error {
+func (h *helm) dependencyUpdate(conf *action.Configuration, dependencies []*chart.Dependency) error {
+
+	for _, dep := range dependencies {
+		if err := AddRepo(dep.Name, dep.Repository); err != nil {
+			return err
+		}
+	}
+	if err := UpdateRepos(); err != nil {
+		return err
+	}
+
 	man := &downloader.Manager{
-		Out:              log.Writer(),
-		ChartPath:        h.dir,
-		Keyring:          defaultKeyring(),
-		SkipUpdate:       false,
+		Out:       log.Writer(),
+		ChartPath: h.dir,
+		Keyring:   defaultKeyring(),
+		// Must be skipped. The updater searches for the repos in the local helm cache directory, not the /temp. Fails in container.
+		SkipUpdate:       true,
 		Getters:          getter.All(settings),
 		RegistryClient:   conf.RegistryClient,
 		RepositoryConfig: settings.RepositoryConfig,
@@ -207,4 +233,110 @@ func defaultKeyring() string {
 		return filepath.Join(v, "pubring.gpg")
 	}
 	return filepath.Join(homedir.HomeDir(), ".gnupg", "pubring.gpg")
+}
+
+var errNoRepositories = errors.New("no repositories found. You must add one before updating")
+
+func UpdateRepos() error {
+	log.Println("helm repo update...")
+	f, err := repo.LoadFile(settings.RepositoryConfig)
+	switch {
+	case isNotExist(err):
+		return errNoRepositories
+	case err != nil:
+		return errors.Wrapf(err, "failed loading file: %s", settings.RepositoryConfig)
+	case len(f.Repositories) == 0:
+		return errNoRepositories
+	}
+	var repos []*repo.ChartRepository
+	for _, cfg := range f.Repositories {
+		r, err := repo.NewChartRepository(cfg, getter.All(settings))
+		if err != nil {
+			return err
+		}
+		r.CachePath = settings.RepositoryCache
+		repos = append(repos, r)
+
+	}
+
+	return updateCharts(repos, true)
+
+}
+
+func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) error {
+	var wg sync.WaitGroup
+	var repoFailList []string
+	for _, re := range repos {
+		wg.Add(1)
+		go func(re *repo.ChartRepository) {
+			defer wg.Done()
+			if _, err := re.DownloadIndexFile(); err != nil {
+				log.Printf("unable to get an update from the %q chart repository (%s):\n\t%s\n", re.Config.Name, re.Config.URL, err)
+				repoFailList = append(repoFailList, re.Config.URL)
+			} else {
+				log.Printf("successfully got an update from the %q chart repository\n", re.Config.Name)
+			}
+		}(re)
+	}
+	wg.Wait()
+
+	if len(repoFailList) > 0 && failOnRepoUpdateFail {
+		return fmt.Errorf("failed to update the following repositories: %s",
+			repoFailList)
+	}
+
+	log.Printf("Update Complete.")
+	return nil
+}
+
+func AddRepo(repoName, repoUrl string) error {
+	repoFile := settings.RepositoryConfig
+	err := os.MkdirAll(filepath.Dir(repoFile), os.ModePerm)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+	log.Printf("Adding repo %s to %s\n", repoName, repoFile)
+	// Acquire a file lock for process synchronization.
+	repoFileExt := filepath.Ext(repoFile)
+	var lockPath string
+	if len(repoFileExt) > 0 && len(repoFileExt) < len(repoFile) {
+		lockPath = strings.TrimSuffix(repoFile, repoFileExt) + ".lock"
+	} else {
+		lockPath = repoFile + ".lock"
+	}
+	fileLock := flock.New(lockPath)
+	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
+	if err == nil && locked {
+		defer func(fileLock *flock.Flock) {
+			_ = fileLock.Unlock()
+		}(fileLock)
+	}
+	if err != nil {
+		return err
+	}
+
+	b, err := os.ReadFile(repoFile)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	var f repo.File
+	if err := yaml.Unmarshal(b, &f); err != nil {
+		return err
+	}
+
+	c := repo.Entry{
+		Name:                  repoName,
+		URL:                   repoUrl,
+		InsecureSkipTLSverify: true,
+	}
+	f.Update(&c)
+	log.Printf("Repo %s added to %s\n", repoName, repoFile)
+	return f.WriteFile(repoFile, 0644)
+}
+
+func isNotExist(err error) bool {
+	return os.IsNotExist(errors.Cause(err))
 }
