@@ -20,6 +20,8 @@ const (
 	// The field manager name for the ones agentk owns, see
 	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
 	fieldManager = "application/apply-patch"
+
+	inventoryFileNamespace = "plrl-deploy-operator"
 )
 
 func (engine *Engine) ControlLoop() {
@@ -124,27 +126,8 @@ func (engine *Engine) processItem(item interface{}) error {
 		log.Error(err, "failed to check namespace")
 		return err
 	}
-	ch := engine.applier.Run(ctx, inv, manifests, apply.ApplierOptions{
-		ServerSideOptions: common.ServerSideOptions{
-			// It's supported since Kubernetes 1.16, so there should be no reason not to use it.
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/
-			ServerSideApply: true,
-			// GitOps repository is the source of truth and that's what we are applying, so overwrite any conflicts.
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
-			ForceConflicts: true,
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
-			FieldManager: fieldManager,
-		},
-		ReconcileTimeout: 10 * time.Second,
-		// If we are not waiting for status, tell the applier to not
-		// emit the events.
-		EmitStatusEvents:       true,
-		NoPrune:                false,
-		DryRunStrategy:         common.DryRunNone,
-		PrunePropagationPolicy: metav1.DeletePropagationBackground,
-		PruneTimeout:           20 * time.Second,
-		InventoryPolicy:        inventory.PolicyAdoptAll,
-	})
+
+	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
 
 	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)
 }
@@ -174,20 +157,5 @@ func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured)
 }
 
 func (engine *Engine) defaultInventoryObjTemplate(id string) (*unstructured.Unstructured, error) {
-	name := "inventory-" + id
-	namespace := "plrl-deploy-operator"
-
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "ConfigMap",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
-				"labels": map[string]interface{}{
-					common.InventoryLabel: id,
-				},
-			},
-		},
-	}, nil
+	return GenDefaultInventoryUnstructuredMap(inventoryFileNamespace, GetInventoryName(id), id), nil
 }

@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -29,8 +30,9 @@ func NewHookType(t string) (Type, bool) {
 }
 
 type Hook struct {
-	Weight int
-	Types  []Type
-	Kind   schema.ObjectKind
-	Object *unstructured.Unstructured
+	Weight         int
+	Types          containers.Set[Type]
+	DeletePolicies containers.Set[DeletePolicy]
+	Kind           schema.ObjectKind
+	Object         *unstructured.Unstructured
 }

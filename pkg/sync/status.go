@@ -198,10 +198,9 @@ func FormatActionGroupEvent(age event.ActionGroupEvent) error {
 	return nil
 }
 
-func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
+func GetStatusCollector(ch <-chan event.Event, printStatus bool) (*stats.Stats, *StatusCollector, error) {
 	var statsCollector stats.Stats
 	var err error
-	components := []*console.ComponentAttributes{}
 	statusCollector := &StatusCollector{
 		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
 	}
@@ -213,10 +212,10 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 			if err := FormatActionGroupEvent(
 				e.ActionGroupEvent,
 			); err != nil {
-				return err
+				return nil, nil, err
 			}
 		case event.ErrorType:
-			return e.ErrorEvent.Err
+			return nil, nil, e.ErrorEvent.Err
 		case event.ApplyType:
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
@@ -250,7 +249,18 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 		}
 	}
 
-	if err := FormatSummary(namespace, name, statsCollector); err != nil {
+	return &statsCollector, statusCollector, nil
+}
+
+func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
+	components := []*console.ComponentAttributes{}
+
+	statsCollector, statusCollector, err := GetStatusCollector(ch, printStatus)
+	if err != nil {
+		return err
+	}
+
+	if err := FormatSummary(namespace, name, *statsCollector); err != nil {
 		return err
 	}
 

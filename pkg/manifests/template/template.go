@@ -1,9 +1,10 @@
 package template
 
 import (
-	"github.com/pluralsh/deployment-operator/pkg/hook"
 	"os"
 	"path/filepath"
+
+	"github.com/pluralsh/deployment-operator/pkg/hook"
 
 	console "github.com/pluralsh/console-client-go"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -16,14 +17,14 @@ const (
 	RendererHelm    Renderer = "helm"
 	RendererRaw     Renderer = "raw"
 	RenderKustomize Renderer = "kustomize"
-ChartFileName = "Chart.yaml"
+	ChartFileName            = "Chart.yaml"
 )
 
 type Template interface {
 	Render(svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error)
 }
 
-func Render(dir string, svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func Render(dir string, svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	renderer := RendererRaw
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

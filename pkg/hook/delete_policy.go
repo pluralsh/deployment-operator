@@ -2,6 +2,7 @@ package hook
 
 import (
 	resourceutil "github.com/pluralsh/deployment-operator/pkg/sync/resource"
+	"github.com/pluralsh/polly/containers"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -30,5 +31,9 @@ func DeletePolicies(obj *unstructured.Unstructured) []DeletePolicy {
 			policies = append(policies, p)
 		}
 	}
-	return policies
+	if policies == nil {
+		policies = append(policies, BeforeHookCreation)
+	}
+	newSet := containers.ToSet[DeletePolicy](policies)
+	return newSet.List()
 }
