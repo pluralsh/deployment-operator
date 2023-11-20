@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
+	github.com/gofrs/flock v0.8.1
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.2
 	github.com/pkg/errors v0.9.1
