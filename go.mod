@@ -13,7 +13,7 @@ require (
 	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.38.1
 	github.com/spf13/pflag v1.0.5
-	go.uber.org/zap v1.24.0
+	go.uber.org/zap v1.26.0
 	helm.sh/helm/v3 v3.11.2
 	k8s.io/api v0.26.0
 	k8s.io/apimachinery v0.26.0
@@ -136,7 +136,7 @@ require (
 	github.com/xlab/treeprint v1.1.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/net v0.5.0 // indirect
