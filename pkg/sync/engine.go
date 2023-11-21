@@ -3,6 +3,8 @@ package sync
 import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"time"
 
@@ -14,6 +16,7 @@ import (
 
 type Engine struct {
 	client            *client.Client
+	clientset         *kubernetes.Clientset
 	svcQueue          workqueue.RateLimitingInterface
 	deathChan         chan interface{}
 	svcCache          *client.ServiceCache
@@ -42,6 +45,12 @@ func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *
 
 func (engine *Engine) AddHealthCheck(health chan interface{}) {
 	engine.deathChan = health
+}
+
+func (engine *Engine) WithConfig(config *rest.Config) error {
+	cs, err := kubernetes.NewForConfig(config)
+	engine.clientset = cs
+	return err
 }
 
 func (engine *Engine) RegisterHandlers() {}

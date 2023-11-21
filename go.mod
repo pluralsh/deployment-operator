@@ -8,7 +8,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.2
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console-client-go v0.0.33
+	github.com/pluralsh/console-client-go v0.0.38
 	github.com/pluralsh/gophoenix v0.1.3-0.20231024165338-04291b4de463
 	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.38.1
