@@ -3,6 +3,9 @@ package sync
 import (
 	"context"
 	"fmt"
+	"github.com/pluralsh/polly/containers"
+
+	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
 	"github.com/pluralsh/deployment-operator/pkg/hook"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,13 +17,6 @@ import (
 
 func (engine *Engine) managePreInstallHooks(ctx context.Context, namespace, name, id string, hookObjects []*unstructured.Unstructured, objects []*unstructured.Unstructured) error {
 	if len(hookObjects) == 0 {
-		return nil
-	}
-	installed, err := engine.isInstalled(id, objects)
-	if err != nil {
-		return err
-	}
-	if installed {
 		return nil
 	}
 	preInstallHooks := make([]hook.Hook, 0)
@@ -68,6 +64,42 @@ func (engine *Engine) preInstallHooks(ctx context.Context, namespace, name, id s
 		hookSet[objKey] = h.Object
 	}
 
+	if err := engine.updateHookInventory(ctx, namespace, name, id, hookSet, deleteBefore); err != nil {
+		return err
+	}
+
+	for _, obj := range hookSet {
+		manifests = append(manifests, obj)
+	}
+	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
+	statsCollector, statusCollector, err := GetStatusCollector(ch, false)
+	if err != nil {
+		return err
+	}
+
+	if err := FormatSummary(namespace, name, *statsCollector); err != nil {
+		return err
+	}
+	toDelete := object.ObjMetadataSet{}
+	for k, v := range statusCollector.latestStatus {
+		if v.PollResourceInfo.Status == status.FailedStatus {
+			if deleteFailed.Contains(k) {
+				toDelete = append(toDelete, k)
+			}
+		}
+		if v.PollResourceInfo.Status == status.FailedStatus {
+			if deleteSucceeded.Contains(k) {
+				toDelete = append(toDelete, k)
+			}
+		}
+	}
+
+	return engine.updateHookInventory(ctx, namespace, name, id, hookSet, toDelete)
+}
+
+func (engine *Engine) updateHookInventory(ctx context.Context, namespace, name, id string, allHooks map[object.ObjMetadata]*unstructured.Unstructured, deletePolicyHooks ...object.ObjMetadataSet) error {
+	inv := inventory.WrapInventoryInfoObj(hookInventoryObjTemplate(id, hook.PreInstall))
+	var manifests []*unstructured.Unstructured
 	client, err := engine.utilFactory.KubernetesClientSet()
 	if err != nil {
 		return err
@@ -78,51 +110,44 @@ func (engine *Engine) preInstallHooks(ctx context.Context, namespace, name, id s
 			return err
 		}
 	}
-	if invMap != nil && invMap.Data != nil {
-		invElem, err := ConvertInventoryMap(invMap)
-		if err != nil {
-			return err
-		}
-		invObj := inventory.WrapInventoryObj(invElem)
-		invObjSet, err := invObj.Load()
-		if err != nil {
-			return err
-		}
-		diffObj := invObjSet.Diff(deleteBefore)
-		for _, objKey := range diffObj {
-			manifests = append(manifests, hookSet[objKey])
-		}
-		// delete previous resources
-		ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
-		statsCollector, _, err := GetStatusCollector(ch, false)
-		if err != nil {
-			return err
-		}
-		if err := FormatSummary(namespace, name, *statsCollector); err != nil {
-			return err
-		}
+	if invMap == nil {
+		return nil
 	}
-
-	if len(hookSet) == 0 {
+	if invMap.Data == nil {
 		return nil
 	}
 
-	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
-	statsCollector, statusCollector, err := GetStatusCollector(ch, false)
+	invElem, err := ConvertInventoryMap(invMap)
+	if err != nil {
+		return err
+	}
+	invObj := inventory.WrapInventoryObj(invElem)
+	invObjSet, err := invObj.Load()
 	if err != nil {
 		return err
 	}
 
+	for _, v := range deletePolicyHooks {
+		diffObj := invObjSet.Diff(v)
+		for _, objKey := range diffObj {
+			manifests = append(manifests, allHooks[objKey])
+		}
+	}
+	manifestSet := containers.ToSet[*unstructured.Unstructured](manifests)
+	// delete previous resources
+	ch := engine.applier.Run(ctx, inv, manifestSet.List(), GetDefaultApplierOptions())
+	statsCollector, statusCollector, err := GetStatusCollector(ch, false)
+	if err != nil {
+		return err
+	}
 	if err := FormatSummary(namespace, name, *statsCollector); err != nil {
 		return err
 	}
-
-	for _, v := range statusCollector.latestStatus {
-		if v.Resource == nil {
-			continue
+	for k, v := range statusCollector.latestStatus {
+		if v.PollResourceInfo.Status == status.FailedStatus {
+			return fmt.Errorf("failed to delete %v", k)
 		}
 	}
-
 	return nil
 }
 
