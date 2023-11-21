@@ -28,6 +28,7 @@ var (
 type Agent struct {
 	consoleClient   *client.Client
 	discoveryClient *discovery.DiscoveryClient
+	config          *rest.Config
 	engine          *deploysync.Engine
 	deathChan       chan interface{}
 	svcQueue        workqueue.RateLimitingInterface
@@ -69,6 +70,9 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	}
 	engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, svcQueue, svcCache, manifestCache, processingTimeout)
 	engine.AddHealthCheck(deathChan)
+	if err := engine.WithConfig(config); err != nil {
+		return nil, err
+	}
 
 	return &Agent{
 		discoveryClient: dc,
@@ -118,6 +122,7 @@ func (agent *Agent) Run() {
 		if err := agent.consoleClient.Ping(strings.TrimPrefix(vs[0], "v")); err != nil {
 			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
+		agent.engine.ScrapeKube()
 		return false, nil
 	})
 	if err != nil {
