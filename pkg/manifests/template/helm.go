@@ -182,6 +182,16 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 	if err != nil {
 		return nil, err
 	}
+	for _, hook := range rel.Hooks {
+		_, err = fmt.Fprintln(&manifests, "---")
+		if err != nil {
+			return nil, err
+		}
+		_, err = fmt.Fprintln(&manifests, strings.TrimSpace(hook.Manifest))
+		if err != nil {
+			return nil, err
+		}
+	}
 	return manifests.Bytes(), nil
 }
 

@@ -90,9 +90,6 @@ func (engine *Engine) processItem(item interface{}) error {
 		log.Error(manErr, "failed to parse manifests")
 		return manErr
 	}
-	if hooks != nil {
-
-	}
 
 	log.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := engine.splitObjects(id, manifests)
@@ -127,8 +124,11 @@ func (engine *Engine) processItem(item interface{}) error {
 		return err
 	}
 
-	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
+	if err := engine.managePreInstallHooks(ctx, svc.Namespace, svc.Name, id, hooks, manifests); err != nil {
+		return err
+	}
 
+	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
 	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)
 }
 

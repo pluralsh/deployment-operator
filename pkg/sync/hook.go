@@ -5,15 +5,17 @@ import (
 	"fmt"
 
 	"github.com/pluralsh/deployment-operator/pkg/hook"
-	"github.com/pluralsh/polly/containers"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
 func (engine *Engine) managePreInstallHooks(ctx context.Context, namespace, name, id string, hookObjects []*unstructured.Unstructured, objects []*unstructured.Unstructured) error {
+	if len(hookObjects) == 0 {
+		return nil
+	}
 	installed, err := engine.isInstalled(id, objects)
 	if err != nil {
 		return err
@@ -35,24 +37,37 @@ func (engine *Engine) managePreInstallHooks(ctx context.Context, namespace, name
 func (engine *Engine) preInstallHooks(ctx context.Context, namespace, name, id string, hooks []hook.Hook) error {
 	inv := inventory.WrapInventoryInfoObj(hookInventoryObjTemplate(id, hook.PreInstall))
 	var manifests []*unstructured.Unstructured
-	hookSet := containers.Set[*unstructured.Unstructured]{}
-	deleteBefore := containers.Set[*unstructured.Unstructured]{}
-	deleteFailed := containers.Set[*unstructured.Unstructured]{}
-	deleteSucceeded := containers.Set[*unstructured.Unstructured]{}
+	hookSet := map[object.ObjMetadata]*unstructured.Unstructured{}
+	deleteBefore := object.ObjMetadataSet{}
+	deleteFailed := object.ObjMetadataSet{}
+	deleteSucceeded := object.ObjMetadataSet{}
 	for _, h := range hooks {
 		if h.DeletePolicies.Has(hook.BeforeHookCreation) {
-			deleteBefore.Add(h.Object)
+			obj, err := object.RuntimeToObjMeta(h.Object)
+			if err != nil {
+				return err
+			}
+			deleteBefore = append(deleteBefore, obj)
 		} else if h.DeletePolicies.Has(hook.HookFailed) {
-			deleteFailed.Add(h.Object)
+			obj, err := object.RuntimeToObjMeta(h.Object)
+			if err != nil {
+				return err
+			}
+			deleteFailed = append(deleteFailed, obj)
 		} else if h.DeletePolicies.Has(hook.HookSucceeded) {
-			deleteSucceeded.Add(h.Object)
+			obj, err := object.RuntimeToObjMeta(h.Object)
+			if err != nil {
+				return err
+			}
+			deleteSucceeded = append(deleteSucceeded, obj)
 		}
-		hookSet.Add(h.Object)
+		objKey, err := object.RuntimeToObjMeta(h.Object)
+		if err != nil {
+			return err
+		}
+		hookSet[objKey] = h.Object
 	}
-	dynamicClient, err := engine.utilFactory.DynamicClient()
-	if err != nil {
-		return err
-	}
+
 	client, err := engine.utilFactory.KubernetesClientSet()
 	if err != nil {
 		return err
@@ -63,25 +78,32 @@ func (engine *Engine) preInstallHooks(ctx context.Context, namespace, name, id s
 			return err
 		}
 	}
-	if invMap != nil {
+	if invMap != nil && invMap.Data != nil {
+		invElem, err := ConvertInventoryMap(invMap)
+		if err != nil {
+			return err
+		}
+		invObj := inventory.WrapInventoryObj(invElem)
+		invObjSet, err := invObj.Load()
+		if err != nil {
+			return err
+		}
+		diffObj := invObjSet.Diff(deleteBefore)
+		for _, objKey := range diffObj {
+			manifests = append(manifests, hookSet[objKey])
+		}
 		// delete previous resources
-		for _, r := range deleteBefore.List() {
-			gvk := r.GroupVersionKind()
-			gvr := schema.GroupVersionResource{
-				Group:    gvk.Group,
-				Version:  gvk.Version,
-				Resource: gvk.Kind,
-			}
-			if err := dynamicClient.Resource(gvr).Namespace(r.GetNamespace()).Delete(ctx, r.GetName(), metav1.DeleteOptions{}); err != nil {
-				if !apierrors.IsNotFound(err) {
-					return err
-				}
-			}
+		ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
+		statsCollector, _, err := GetStatusCollector(ch, false)
+		if err != nil {
+			return err
+		}
+		if err := FormatSummary(namespace, name, *statsCollector); err != nil {
+			return err
 		}
 	}
 
-	manifests = hookSet.List()
-	if len(manifests) == 0 {
+	if len(hookSet) == 0 {
 		return nil
 	}
 
@@ -99,7 +121,6 @@ func (engine *Engine) preInstallHooks(ctx context.Context, namespace, name, id s
 		if v.Resource == nil {
 			continue
 		}
-
 	}
 
 	return nil
@@ -113,11 +134,12 @@ func (engine *Engine) isInstalled(id string, objects []*unstructured.Unstructure
 	}
 	invConfigMap, err := client.CoreV1().ConfigMaps(inventoryFileNamespace).Get(context.Background(), inventoryName, metav1.GetOptions{})
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
 		return false, err
 	}
-	if apierrors.IsNotFound(err) {
-		return false, nil
-	}
+
 	if len(invConfigMap.Data) == len(objects) {
 		return true, nil
 	}

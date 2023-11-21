@@ -6,8 +6,10 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/hook"
 	"github.com/pluralsh/polly/containers"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
@@ -78,4 +80,14 @@ func GetHooks(obj []*unstructured.Unstructured) []hook.Hook {
 	})
 
 	return hooks
+}
+
+func ConvertInventoryMap(inventoryMap *v1.ConfigMap) (*unstructured.Unstructured, error) {
+	res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(inventoryMap)
+	if err != nil {
+		return nil, err
+	}
+	return &unstructured.Unstructured{
+		Object: res,
+	}, nil
 }

@@ -24,15 +24,12 @@ func NewDeletePolicy(p string) (DeletePolicy, bool) {
 }
 
 func DeletePolicies(obj *unstructured.Unstructured) []DeletePolicy {
-	var policies []DeletePolicy
+	policies := []DeletePolicy{BeforeHookCreation}
 	for _, text := range resourceutil.GetAnnotationCSVs(obj, "helm.sh/hook-delete-policy") {
 		p, ok := NewDeletePolicy(text)
 		if ok {
 			policies = append(policies, p)
 		}
-	}
-	if policies == nil {
-		policies = append(policies, BeforeHookCreation)
 	}
 	newSet := containers.ToSet[DeletePolicy](policies)
 	return newSet.List()
