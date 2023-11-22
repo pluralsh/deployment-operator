@@ -4,12 +4,12 @@ import (
 	"sort"
 	"time"
 
+	"sigs.k8s.io/cli-utils/pkg/object"
+
 	"github.com/pluralsh/deployment-operator/pkg/hook"
 	"github.com/pluralsh/polly/containers"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
@@ -33,6 +33,17 @@ func GenDefaultInventoryUnstructuredMap(namespace, name, id string) *unstructure
 
 func GetInventoryName(id string) string {
 	return "inventory-" + id
+}
+
+func GetDefaultPruneOptions() apply.DestroyerOptions {
+	return apply.DestroyerOptions{
+		InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
+		DryRunStrategy:          common.DryRunNone,
+		DeleteTimeout:           20 * time.Second,
+		DeletePropagationPolicy: metav1.DeletePropagationForeground,
+		EmitStatusEvents:        true,
+		ValidationPolicy:        1,
+	}
 }
 
 func GetDefaultApplierOptions() apply.ApplierOptions {
@@ -82,12 +93,32 @@ func GetHooks(obj []*unstructured.Unstructured) []hook.Hook {
 	return hooks
 }
 
-func ConvertInventoryMap(inventoryMap *v1.ConfigMap) (*unstructured.Unstructured, error) {
-	res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(inventoryMap)
-	if err != nil {
-		return nil, err
+func GetDeletePolicyHooks(hooks []hook.Hook) (deleteBefore, deleteFailed, deleteSucceeded object.ObjMetadataSet, err error) {
+	deleteBefore = object.ObjMetadataSet{}
+	deleteFailed = object.ObjMetadataSet{}
+	deleteSucceeded = object.ObjMetadataSet{}
+	for _, h := range hooks {
+		if h.DeletePolicies.Has(hook.BeforeHookCreation) {
+			obj, err := object.RuntimeToObjMeta(h.Object)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			deleteBefore = append(deleteBefore, obj)
+		}
+		if h.DeletePolicies.Has(hook.HookFailed) {
+			obj, err := object.RuntimeToObjMeta(h.Object)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			deleteFailed = append(deleteFailed, obj)
+		}
+		if h.DeletePolicies.Has(hook.HookSucceeded) {
+			obj, err := object.RuntimeToObjMeta(h.Object)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			deleteSucceeded = append(deleteSucceeded, obj)
+		}
 	}
-	return &unstructured.Unstructured{
-		Object: res,
-	}, nil
+	return
 }

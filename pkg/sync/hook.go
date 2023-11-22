@@ -3,83 +3,102 @@ package sync
 import (
 	"context"
 	"fmt"
-	"github.com/pluralsh/polly/containers"
 
-	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
-
+	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/hook"
+	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
+	"github.com/pluralsh/polly/containers"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
-func (engine *Engine) managePreInstallHooks(ctx context.Context, namespace, name, id string, hookObjects []*unstructured.Unstructured, objects []*unstructured.Unstructured) error {
+func (engine *Engine) managePreInstallHooks(ctx context.Context, namespace, name, id string, hookObjects []*unstructured.Unstructured, delete bool) ([]*console.ComponentAttributes, error) {
 	if len(hookObjects) == 0 {
-		return nil
+		return nil, nil
 	}
+	vcache := manis.VersionCache(hookObjects)
+	hookSet := map[object.ObjMetadata]*unstructured.Unstructured{}
 	preInstallHooks := make([]hook.Hook, 0)
+	client, err := engine.utilFactory.KubernetesClientSet()
+	if err != nil {
+		return nil, err
+	}
+	preInstallHookInventory := hook.NewInventory(ctx, inventoryFileNamespace, getInvHookName(id, hook.PreInstall), client)
+	deleted, err := preInstallHookInventory.GetDeleted()
+	if err != nil {
+		return nil, err
+	}
+
 	hooks := GetHooks(hookObjects)
 	for _, h := range hooks {
 		if h.Types.Has(hook.PreInstall) {
-			preInstallHooks = append(preInstallHooks, h)
+			objKey, err := object.RuntimeToObjMeta(h.Object)
+			if err != nil {
+				return nil, err
+			}
+			if !deleted.Contains(objKey) {
+				hookSet[objKey] = h.Object
+				preInstallHooks = append(preInstallHooks, h)
+			}
 		}
 	}
 
-	return engine.preInstallHooks(ctx, namespace, name, id, preInstallHooks)
+	// nothing to update
+	if len(preInstallHooks) == 0 {
+		return nil, nil
+	}
+
+	inv := inventory.WrapInventoryInfoObj(hookInventoryObjTemplate(id, hook.PreInstall))
+	if delete {
+		ch := engine.destroyer.Run(ctx, inv, GetDefaultPruneOptions())
+		statsCollector, _, err := GetStatusCollector(ch, false)
+		if err != nil {
+			return nil, err
+		}
+		if err := FormatSummary(namespace, name, *statsCollector); err != nil {
+			return nil, err
+		}
+
+		if statsCollector.DeleteStats.Failed > 0 {
+			return nil, fmt.Errorf("failed to delete pre install hooks")
+		}
+
+	}
+
+	return engine.preInstallHooks(ctx, namespace, name, id, preInstallHooks, hookSet, preInstallHookInventory, vcache, inv)
 }
 
-func (engine *Engine) preInstallHooks(ctx context.Context, namespace, name, id string, hooks []hook.Hook) error {
-	inv := inventory.WrapInventoryInfoObj(hookInventoryObjTemplate(id, hook.PreInstall))
+func (engine *Engine) preInstallHooks(ctx context.Context, namespace, name, id string, hooks []hook.Hook, hookSet map[object.ObjMetadata]*unstructured.Unstructured, hookInventory *hook.Inventory, vcache map[manis.GroupName]string, inv inventory.Info) ([]*console.ComponentAttributes, error) {
 	var manifests []*unstructured.Unstructured
-	hookSet := map[object.ObjMetadata]*unstructured.Unstructured{}
-	deleteBefore := object.ObjMetadataSet{}
-	deleteFailed := object.ObjMetadataSet{}
-	deleteSucceeded := object.ObjMetadataSet{}
-	for _, h := range hooks {
-		if h.DeletePolicies.Has(hook.BeforeHookCreation) {
-			obj, err := object.RuntimeToObjMeta(h.Object)
-			if err != nil {
-				return err
-			}
-			deleteBefore = append(deleteBefore, obj)
-		} else if h.DeletePolicies.Has(hook.HookFailed) {
-			obj, err := object.RuntimeToObjMeta(h.Object)
-			if err != nil {
-				return err
-			}
-			deleteFailed = append(deleteFailed, obj)
-		} else if h.DeletePolicies.Has(hook.HookSucceeded) {
-			obj, err := object.RuntimeToObjMeta(h.Object)
-			if err != nil {
-				return err
-			}
-			deleteSucceeded = append(deleteSucceeded, obj)
-		}
-		objKey, err := object.RuntimeToObjMeta(h.Object)
-		if err != nil {
-			return err
-		}
-		hookSet[objKey] = h.Object
+	deleteBefore, deleteFailed, deleteSucceeded, err := GetDeletePolicyHooks(hooks)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := engine.updateHookInventory(ctx, namespace, name, id, hookSet, deleteBefore); err != nil {
-		return err
+	// delete before
+	if len(deleteBefore) > 0 {
+		if err := engine.updateHookInventory(ctx, inv, namespace, name, id, hookSet, hookInventory, deleteBefore); err != nil {
+			return nil, err
+		}
 	}
-
 	for _, obj := range hookSet {
 		manifests = append(manifests, obj)
 	}
 	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
 	statsCollector, statusCollector, err := GetStatusCollector(ch, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := FormatSummary(namespace, name, *statsCollector); err != nil {
-		return err
+		return nil, err
 	}
+
+	components := []*console.ComponentAttributes{}
 	toDelete := object.ObjMetadataSet{}
 	for k, v := range statusCollector.latestStatus {
 		if v.PollResourceInfo.Status == status.FailedStatus {
@@ -87,44 +106,37 @@ func (engine *Engine) preInstallHooks(ctx context.Context, namespace, name, id s
 				toDelete = append(toDelete, k)
 			}
 		}
-		if v.PollResourceInfo.Status == status.FailedStatus {
+		if v.PollResourceInfo.Status == status.CurrentStatus {
 			if deleteSucceeded.Contains(k) {
 				toDelete = append(toDelete, k)
 			}
 		}
-	}
 
-	return engine.updateHookInventory(ctx, namespace, name, id, hookSet, toDelete)
-}
-
-func (engine *Engine) updateHookInventory(ctx context.Context, namespace, name, id string, allHooks map[object.ObjMetadata]*unstructured.Unstructured, deletePolicyHooks ...object.ObjMetadataSet) error {
-	inv := inventory.WrapInventoryInfoObj(hookInventoryObjTemplate(id, hook.PreInstall))
-	var manifests []*unstructured.Unstructured
-	client, err := engine.utilFactory.KubernetesClientSet()
-	if err != nil {
-		return err
-	}
-	invMap, err := client.CoreV1().ConfigMaps(inventoryFileNamespace).Get(ctx, getInvHookName(id, hook.PreInstall), metav1.GetOptions{})
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
+		consoleAttr := fromSyncResult(v, vcache)
+		if consoleAttr != nil {
+			components = append(components, consoleAttr)
 		}
 	}
-	if invMap == nil {
-		return nil
+
+	// delete failed and succeeded
+	if len(deleteSucceeded) > 0 || len(deleteFailed) > 0 {
+		if err := engine.updateHookInventory(ctx, inv, namespace, name, id, hookSet, hookInventory, toDelete); err != nil {
+			return nil, err
+		}
 	}
-	if invMap.Data == nil {
-		return nil
+	return components, hookInventory.SetDeleted(toDelete)
+}
+
+func (engine *Engine) updateHookInventory(ctx context.Context, inv inventory.Info, namespace, name, id string, allHooks map[object.ObjMetadata]*unstructured.Unstructured, hookInventory *hook.Inventory, deletePolicyHooks ...object.ObjMetadataSet) error {
+	var manifests []*unstructured.Unstructured
+
+	invObjSet, err := hookInventory.Load()
+	if err != nil {
+		return err
 	}
 
-	invElem, err := ConvertInventoryMap(invMap)
-	if err != nil {
-		return err
-	}
-	invObj := inventory.WrapInventoryObj(invElem)
-	invObjSet, err := invObj.Load()
-	if err != nil {
-		return err
+	if len(invObjSet) == 0 {
+		return nil
 	}
 
 	for _, v := range deletePolicyHooks {
@@ -145,7 +157,7 @@ func (engine *Engine) updateHookInventory(ctx context.Context, namespace, name, 
 	}
 	for k, v := range statusCollector.latestStatus {
 		if v.PollResourceInfo.Status == status.FailedStatus {
-			return fmt.Errorf("failed to delete %v", k)
+			return fmt.Errorf("failed to update %v", k)
 		}
 	}
 	return nil

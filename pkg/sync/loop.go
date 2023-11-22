@@ -2,12 +2,10 @@ package sync
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"runtime/debug"
 	"time"
 
-	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -104,18 +102,9 @@ func (engine *Engine) processItem(item interface{}) error {
 	ctx := context.Background()
 
 	vcache := manis.VersionCache(manifests)
-
+	delete := false
 	if svc.DeletedAt != nil {
-		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := engine.destroyer.Run(ctx, inv, apply.DestroyerOptions{
-			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
-			DryRunStrategy:          common.DryRunNone,
-			DeleteTimeout:           20 * time.Second,
-			DeletePropagationPolicy: metav1.DeletePropagationBackground,
-			EmitStatusEvents:        true,
-			ValidationPolicy:        1,
-		})
-		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests), vcache)
+		delete = true
 	}
 
 	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
@@ -124,12 +113,20 @@ func (engine *Engine) processItem(item interface{}) error {
 		return err
 	}
 
-	if err := engine.managePreInstallHooks(ctx, svc.Namespace, svc.Name, id, hooks, manifests); err != nil {
+	hookComponents, err := engine.managePreInstallHooks(ctx, svc.Namespace, svc.Name, id, hooks, delete)
+	if err != nil {
 		return err
 	}
 
+	if delete {
+		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		ch := engine.destroyer.Run(ctx, inv, GetDefaultPruneOptions())
+		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests), vcache)
+	}
+
+	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
 	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
-	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)
+	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache, hookComponents)
 }
 
 func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {

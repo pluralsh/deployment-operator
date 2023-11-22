@@ -249,10 +249,10 @@ func GetStatusCollector(ch <-chan event.Event, printStatus bool) (*stats.Stats, 
 		}
 	}
 
-	return &statsCollector, statusCollector, nil
+	return &statsCollector, statusCollector, err
 }
 
-func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
+func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string, extraComponents []*console.ComponentAttributes) error {
 	components := []*console.ComponentAttributes{}
 
 	statsCollector, statusCollector, err := GetStatusCollector(ch, printStatus)
@@ -270,6 +270,8 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 			components = append(components, consoleAttr)
 		}
 	}
+
+	components = append(components, extraComponents...)
 
 	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		log.Error(err, "Failed to update service status, ignoring for now")
