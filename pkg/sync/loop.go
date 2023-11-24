@@ -6,6 +6,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/hook"
+
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -100,11 +102,19 @@ func (engine *Engine) processItem(item interface{}) error {
 	// ctx, cancelCtx := context.WithDeadline(context.Background(), deadline)
 	// defer cancelCtx()
 	ctx := context.Background()
-
 	vcache := manis.VersionCache(manifests)
-	delete := false
 	if svc.DeletedAt != nil {
-		delete = true
+		// delete hooks
+		if err := engine.deleteHooks(ctx, svc.Namespace, svc.Name, id, hook.PreInstall); err != nil {
+			return err
+		}
+		if err := engine.deleteHooks(ctx, svc.Namespace, svc.Name, id, hook.PostInstall); err != nil {
+			return err
+		}
+
+		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		ch := engine.destroyer.Run(ctx, inv, GetDefaultPruneOptions())
+		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests), vcache)
 	}
 
 	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
@@ -113,20 +123,36 @@ func (engine *Engine) processItem(item interface{}) error {
 		return err
 	}
 
-	hookComponents, err := engine.managePreInstallHooks(ctx, svc.Namespace, svc.Name, id, hooks, delete)
+	// mange pre-install hooks
+	preInstallComponents, err := engine.manageHooks(ctx, hook.PreInstall, svc.Namespace, svc.Name, id, hooks)
 	if err != nil {
 		return err
 	}
-
-	if delete {
-		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := engine.destroyer.Run(ctx, inv, GetDefaultPruneOptions())
-		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests), vcache)
-	}
-
 	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
 	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
-	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache, hookComponents)
+	components, err := engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)
+	if err != nil {
+		return err
+	}
+	components = append(components, preInstallComponents...)
+
+	installed, err := engine.isInstalled(id, manifests)
+	if err != nil {
+		return err
+	}
+	if installed {
+		postInstallComponents, err := engine.manageHooks(ctx, hook.PostInstall, svc.Namespace, svc.Name, id, hooks)
+		if err != nil {
+			return err
+		}
+		components = append(components, postInstallComponents...)
+	}
+
+	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
+		log.Error(err, "Failed to update service status, ignoring for now")
+	}
+
+	return nil
 }
 
 func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
