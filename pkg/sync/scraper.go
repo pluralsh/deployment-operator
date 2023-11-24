@@ -33,9 +33,9 @@ func (engine *Engine) ScrapeKube() {
 			AddRuntimeServiceInfo(ss.GetLabels(), runtimeServices)
 		}
 	}
-	/*	if err := engine.client.RegisterRuntimeServices(runtimeServices, nil); err != nil {
+	if err := engine.client.RegisterRuntimeServices(runtimeServices, nil); err != nil {
 		log.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
-	}*/
+	}
 }
 
 func AddRuntimeServiceInfo(labels map[string]string, acc map[string]string) {
