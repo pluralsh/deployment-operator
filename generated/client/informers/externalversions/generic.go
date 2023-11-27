@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	v1alpha1 "./apis/platform/v1alpha1"
-	vpnv1alpha1 "./apis/vpn/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -55,10 +54,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=platform, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("configurationoverlays"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Platform().V1alpha1().ConfigurationOverlays().Informer()}, nil
-
-		// Group=vpn, Version=v1alpha1
-	case vpnv1alpha1.SchemeGroupVersion.WithResource("wireguardpeers"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Vpn().V1alpha1().WireguardPeers().Informer()}, nil
 
 	}
 

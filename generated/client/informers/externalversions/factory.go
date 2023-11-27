@@ -21,7 +21,6 @@ import (
 	versioned "generated/client/clientset/versioned"
 	internalinterfaces "generated/client/informers/externalversions/internalinterfaces"
 	platform "generated/client/informers/externalversions/platform"
-	vpn "generated/client/informers/externalversions/vpn"
 	reflect "reflect"
 	sync "sync"
 	time "time"
@@ -173,13 +172,8 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Platform() platform.Interface
-	Vpn() vpn.Interface
 }
 
 func (f *sharedInformerFactory) Platform() platform.Interface {
 	return platform.New(f, f.namespace, f.tweakListOptions)
-}
-
-func (f *sharedInformerFactory) Vpn() vpn.Interface {
-	return vpn.New(f, f.namespace, f.tweakListOptions)
 }
