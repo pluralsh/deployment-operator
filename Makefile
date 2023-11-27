@@ -108,11 +108,11 @@ run-client-gen: client-gen
 #	$(CLIENT_GEN) --clientset-name versioned --input-base ./apis --input platform/v1alpha1,vpn/v1alpha1 --output-package github.com/pluralsh/deployment-operator/generated/client/clientset --go-header-file hack/boilerplate.go.txt
 
 run-lister-gen: lister-gen
-	$(LISTER_GEN) --input-dirs ./apis/platform/v1alpha1,./apis/vpn/v1alpha1 --output-base ./ --output-package generated/client/listers --go-header-file hack/boilerplate.go.txt -v 2
+	$(LISTER_GEN) --input-dirs ./apis/platform/v1alpha1,./apis/vpn/v1alpha1 --output-base ./ --output-package generated/client/listers --go-header-file hack/boilerplate.go.txt
 #	$(LISTER_GEN) --input-dirs github.com/pluralsh/deployment-operator/apis/platform/v1alpha1,github.com/pluralsh/deployment-operator/apis/vpn/v1alpha1 --output-package github.com/pluralsh/deployment-operator/generated/client/listers --go-header-file hack/boilerplate.go.txt
 
 run-informer-gen: informer-gen
-	$(INFORMER_GEN) --input-dirs apis/platform/v1alpha1,apis/vpn/v1alpha1 --versioned-clientset-package generated/client/clientset/versioned --listers-package generated/client/listers --output-package generated/client/informers --go-header-file hack/boilerplate.go.txt
+	$(INFORMER_GEN) --input-dirs ./apis/platform/v1alpha1,./apis/vpn/v1alpha1 --versioned-clientset-package generated/client/clientset/versioned --listers-package generated/client/listers --output-base ./ --output-package generated/client/informers --go-header-file hack/boilerplate.go.txt
 #	$(INFORMER_GEN) --input-dirs github.com/pluralsh/deployment-operator/apis/platform/v1alpha1,github.com/pluralsh/deployment-operator/apis/vpn/v1alpha1 --versioned-clientset-package github.com/pluralsh/deployment-operator/generated/client/clientset/versioned --listers-package github.com/pluralsh/deployment-operator/generated/client/listers --output-package github.com/pluralsh/deployment-operator/generated/client/informers --go-header-file hack/boilerplate.go.txt
 
 generate-client: run-client-gen run-lister-gen run-informer-gen
