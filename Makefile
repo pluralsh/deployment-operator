@@ -104,7 +104,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 run-client-gen: client-gen
-	$(CLIENT_GEN) --clientset-name versioned --input-base apis --input platform/v1alpha1,vpn/v1alpha1 --output-package generated/client/clientset --go-header-file hack/boilerplate.go.txt --alsologtostderr --logtostderr 
+	$(CLIENT_GEN) --clientset-name versioned --input-base apis --input platform/v1alpha1,vpn/v1alpha1 --output-base ./ --output-package generated/client/clientset --go-header-file hack/boilerplate.go.txt
 #	$(CLIENT_GEN) --clientset-name versioned --input-base ./apis --input platform/v1alpha1,vpn/v1alpha1 --output-package github.com/pluralsh/deployment-operator/generated/client/clientset --go-header-file hack/boilerplate.go.txt
 
 run-lister-gen: lister-gen
