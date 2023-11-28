@@ -76,6 +76,7 @@ type PipelineGateSpec struct {
 type GateSpec struct {
 	// TODO: think about replacing this with the actual type from the k8s api
 	JobSpec JobGateSpec `json:"jobSpec"`
+	Build   string      `json:"build"`
 }
 
 // JobGateSpec represents the full specification of a job gate
