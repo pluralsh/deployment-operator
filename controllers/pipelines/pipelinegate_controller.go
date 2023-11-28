@@ -20,11 +20,19 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/go-logr/logr"
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+
+	//corev1 "k8s.io/api/core/v1"
+	//job "k8s.io/api/batch/v1"
+	batchv1 "k8s.io/api/batch/v1"
+
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // PipelineGateReconciler reconciles a PipelineGate object
@@ -59,4 +67,32 @@ func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pipelinesv1alpha1.PipelineGate{}).
 		Complete(r)
+}
+
+// Job reconciles a k8s job object.
+func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger) error {
+	foundJob := &batchv1.Job{}
+	justCreated := false
+	if err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, foundJob); err != nil {
+		if apierrs.IsNotFound(err) {
+			log.Info("Creating Job", "namespace", job.Namespace, "name", job.Name)
+			if err := r.Create(ctx, job); err != nil {
+				log.Error(err, "Unable to create Job")
+				return err
+			}
+			justCreated = true
+		} else {
+			log.Error(err, "Error getting Job")
+			return err
+		}
+	}
+	if !justCreated && CopyJobFields(job, foundJob, log) {
+		log.Info("Updating Job", "namespace", job.Namespace, "name", job.Name)
+		if err := r.Update(ctx, foundJob); err != nil {
+			log.Error(err, "Unable to update Job")
+			return err
+		}
+	}
+
+	return nil
 }
