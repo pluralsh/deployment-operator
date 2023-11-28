@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	exampleapiv1alpha1 "github.com/pluralsh/deployment-operator/apis/exampleapi/v1alpha1"
-	exampleapicontrollers "github.com/pluralsh/deployment-operator/controllers/exampleapi"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+	pipelinescontrollers "github.com/pluralsh/deployment-operator/controllers/pipelines"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -44,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(exampleapiv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(pipelinesv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -89,18 +89,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ExampleKindReconciler{
+	if err = (&pipelinescontrollers.PipelineGateReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ExampleKind")
-		os.Exit(1)
-	}
-	if err = (&exampleapicontrollers.ExampleKindReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ExampleKind")
+		setupLog.Error(err, "unable to create controller", "controller", "PipelineGateee")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
