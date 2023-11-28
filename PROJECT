@@ -1,0 +1,16 @@
+domain: plural.sh
+layout:
+- go.kubebuilder.io/v3
+multigroup: true
+projectName: deployment-operator
+repo: github.com/pluralsh/deployment-operator
+resources: []
+- api:
+    crdVersion: v1alpha1
+    namespaced: true
+  domain: plural.sh
+  group: pipelines
+  kind: PipelineGate
+  path: github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1
+  version: v1alpha1
+version: "3"
