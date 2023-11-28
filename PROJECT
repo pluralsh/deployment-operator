@@ -18,13 +18,4 @@ resources:
   kind: PipelineGate
   path: github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1
   version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: plural.sh
-  group: exampleapi
-  kind: ExampleKind
-  path: github.com/pluralsh/deployment-operator/apis/exampleapi/v1alpha1
-  version: v1alpha1
 version: "3"
