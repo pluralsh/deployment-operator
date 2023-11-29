@@ -29,7 +29,6 @@ import (
 	"github.com/go-logr/logr"
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
 
-	corev1 "k8s.io/api/core/v1"
 	//job "k8s.io/api/batch/v1"
 	batchv1 "k8s.io/api/batch/v1"
 
@@ -40,6 +39,7 @@ import (
 type PipelineGateReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 //+kubebuilder:rbac:groups=pipelines.plural.sh,resources=pipelinegates,verbs=get;list;watch;create;update;patch;delete
@@ -58,7 +58,30 @@ type PipelineGateReconciler struct {
 func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
+	log := r.Log.WithValues("workspace", req.NamespacedName)
+
+	pipelineGateInstance := &pipelinesv1alpha1.PipelineGate{}
+
+	// get pipelinegate
+	if err := r.Get(ctx, req.NamespacedName, pipelineGateInstance); err != nil {
+		if apierrs.IsNotFound(err) {
+			log.Info("Unable to fetch PipelineGate - skipping", "namespace", pipelineGateInstance.Namespace, "name", pipelineGateInstance.Name)
+			return ctrl.Result{}, nil
+		}
+		log.Error(err, "unable to fetch PipelineGate")
+		return ctrl.Result{}, err
+	}
+
+	//if pipelinegate is terminating, no need to reconcile
+	if pipelineGateInstance.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+
 	// TODO(user): your logic here
+	// create job
+	// update pipelinegate status
+	// update job status
+	// include a ttl?
 
 	return ctrl.Result{}, nil
 }
@@ -67,9 +90,9 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pipelinesv1alpha1.PipelineGate{}).
-		Owns(&corev1.Namespace{}).
-		Owns(&corev1.ServiceAccount{}).
-		Owns(&rbacv1.RoleBinding{}).
+		//Owns(&corev1.Namespace{}).
+		//Owns(&corev1.ServiceAccount{}).
+		//Owns(&rbacv1.RoleBinding{}).
 		Complete(r)
 
 }
