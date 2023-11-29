@@ -31,8 +31,8 @@ import (
 
 	//job "k8s.io/api/batch/v1"
 	batchv1 "k8s.io/api/batch/v1"
-
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PipelineGateReconciler reconciles a PipelineGate object
@@ -77,8 +77,13 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// TODO(user): your logic here
 	// create job
+
+	job := r.generateJob(ctx, log, pipelineGateInstance)
+	if err := ctrl.SetControllerReference(pipelineGateInstance, job, r.Scheme); err != nil {
+		log.Error(err, "Error setting ControllerReference for Statefulset")
+		return ctrl.Result{}, err
+	}
 	// update pipelinegate status
 	// update job status
 	// include a ttl?
@@ -123,6 +128,16 @@ func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger
 	}
 
 	return nil
+}
+
+func (r *PipelineGateReconciler) generateJob(ctx context.Context, log logr.Logger, pipelineGateInstance *pipelinesv1alpha1.PipelineGate) *batchv1.Job {
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pipelineGateInstance.Name,
+			Namespace: pipelineGateInstance.Namespace,
+		},
+		Spec: pipelineGateInstance.Spec.GateSpec.JobSpec,
+	}
 }
 
 func CopyJobFields(from, to *batchv1.Job, log logr.Logger) bool {
