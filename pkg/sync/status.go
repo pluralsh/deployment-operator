@@ -128,12 +128,6 @@ func FormatSummary(namespace, name string, s stats.Stats) error {
 	return nil
 }
 
-func (engine *Engine) PruneService(id string) {
-	if err := engine.updateStatus(id, []*console.ComponentAttributes{}, nil); err != nil {
-		log.Error(err, "Failed to update service status, ignoring for now")
-	}
-}
-
 func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan event.Event, toDelete int, vcache map[manifests.GroupName]string) error {
 	var statsCollector stats.Stats
 	var err error
@@ -164,21 +158,17 @@ func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan ev
 		return err
 	}
 
-	ds := statsCollector.DeleteStats
-	if ds.Successful == toDelete || len(statusCollector.latestStatus) == 0 {
-		engine.PruneService(id)
-	} else {
-		components := []*console.ComponentAttributes{}
-		for _, v := range statusCollector.latestStatus {
-			consoleAttr := fromSyncResult(v, vcache)
-			if consoleAttr != nil {
-				components = append(components, consoleAttr)
-			}
+	components := []*console.ComponentAttributes{}
+	for _, v := range statusCollector.latestStatus {
+		consoleAttr := fromSyncResult(v, vcache)
+		if consoleAttr != nil {
+			components = append(components, consoleAttr)
 		}
+	}
 
-		if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
-			log.Error(err, "Failed to update service status, ignoring for now")
-		}
+	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
+	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
+		log.Error(err, "Failed to update service status, ignoring for now")
 	}
 
 	return nil
