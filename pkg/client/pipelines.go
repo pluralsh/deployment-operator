@@ -99,28 +99,68 @@ func (c *Client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
 
 func (c *Client) ParsePipelineGateCR(fragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
 	// Create a PipelineGate instance
-	pipelineGate := &pipelinesv1alpha1.PipelineGate{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PipelineGate",
-			APIVersion: "yourgroup/version",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fragment.Name,
-			Namespace: fragment.Spec.Job.Namespace,
-			// You may set other metadata fields as needed (namespace, labels, annotations)
-		},
-		Spec: pipelinesv1alpha1.PipelineGateSpec{
-			ID:       fragment.ID,
-			Name:     fragment.Name,
-			Type:     pipelinesv1alpha1.GateType(fragment.Type),
-			GateSpec: pipelinesv1alpha1.GateSpec{convertToJobSpec(&fragment.Spec.Job)},
-		},
-		Status: pipelinesv1alpha1.PipelineGateStatus{
-			State: pipelinesv1alpha1.GateState(fragment.State),
-		},
+
+	pipelineGate := &pipelinesv1alpha1.PipelineGate{}
+
+	if fragment.Spec.Job == nil {
+		return pipelineGate, nil
 	}
 
-	return pipelineGate, nil
+	if fragment.Spec.Job.Raw != nil {
+		job, err := parseYAMLIntoJob(*fragment.Spec.Job.Raw)
+		if err != nil {
+			return nil, err
+		}
+		// from schema.graphql: "a raw kubernetes job resource, overrides any other configuration"
+		pipelineGate = &pipelinesv1alpha1.PipelineGate{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "PipelineGate",
+				APIVersion: "pipelines/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      job.Name,
+				Namespace: job.Namespace,
+			},
+			Spec: pipelinesv1alpha1.PipelineGateSpec{
+				ID:       fragment.ID,
+				Name:     fragment.Name,
+				Type:     pipelinesv1alpha1.GateType(fragment.Type),
+				GateSpec: pipelinesv1alpha1.GateSpec{JobSpec: job.Spec},
+			},
+		}
+		return pipelineGate, nil
+	}
+
+	//pipelineGate := &pipelinesv1alpha1.PipelineGate{
+	//	TypeMeta: metav1.TypeMeta{
+	//		Kind:       "PipelineGate",
+	//		APIVersion: "pipelines/v1alpha1",
+	//	},
+	//	ObjectMeta: metav1.ObjectMeta{
+	//		Name:      fragment.Name,
+	//		Namespace: "default",
+	//		// You may set other metadata fields as needed (namespace, labels, annotations)
+	//	},
+	//	Spec: pipelinesv1alpha1.PipelineGateSpec{
+	//		ID:   fragment.ID,
+	//		Name: fragment.Name,
+	//		Type: pipelinesv1alpha1.GateType(fragment.Type),
+	//	},
+	//}
+
+	//Spec: pipelinesv1alpha1.PipelineGateSpec{
+	//		ID:   fragment.ID,
+	//		Name: fragment.Name,
+	//		Type: pipelinesv1alpha1.GateType(fragment.Type),
+	//		GateSpec: pipelinesv1alpha1.GateSpec{
+	//			JobSpec: *job,
+	//		},
+	//	},
+	//	Status: pipelinesv1alpha1.PipelineGateStatus{
+	//		State: pipelinesv1alpha1.GateState(fragment.State),
+	//	},
+
+	//return pipelineGate, nil
 }
 
 func parseYAMLIntoJob(yamlString string) (*batchv1.Job, error) {
@@ -138,11 +178,11 @@ func parseYAMLIntoJob(yamlString string) (*batchv1.Job, error) {
 		return obj, nil
 	}
 
-	return nil, fmt.Errorf("parsed object is not of type JobSpec")
+	return nil, fmt.Errorf("parsed object is not of type Job")
 }
 
 // //////////////// Helper function to convert the GateSpecFragment.Job into batchv1.JobSpec
-func convertToJobSpec(fragment *console.JobSpecFragment) (batchv1.JobSpec, error) {
+func convertToJob(fragment console.JobSpecFragment) (*batchv1.Job, error) {
 	//type JobSpecFragment struct {
 	//	Namespace      string                   "json:\"namespace\" graphql:\"namespace\""
 	//	Raw            *string                  "json:\"raw\" graphql:\"raw\""
@@ -151,12 +191,8 @@ func convertToJobSpec(fragment *console.JobSpecFragment) (batchv1.JobSpec, error
 	//	Annotations    map[string]interface{}   "json:\"annotations\" graphql:\"annotations\""
 	//	ServiceAccount *string                  "json:\"serviceAccount\" graphql:\"serviceAccount\""
 	//}
-	if fragment == nil {
-		return batchv1.JobSpec{}
-	}
 
 	if fragment.Raw != nil {
-		job := parseYAMLIntoJob(*fragment.Raw)
 		return parseYAMLIntoJob(*fragment.Raw)
 	}
 
