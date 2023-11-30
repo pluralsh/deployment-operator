@@ -72,24 +72,40 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	//if pipelinegate is terminating, no need to reconcile
+	// if pipelinegate is terminating, no need to reconcile
 	if pipelineGateInstance.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 
-	// create job
+	if pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState.Closed {
+		return ctrl.Result{}, nil
+	}
 
+	// create job
 	job := r.generateJob(ctx, log, pipelineGateInstance)
 	if err := ctrl.SetControllerReference(pipelineGateInstance, job, r.Scheme); err != nil {
-		log.Error(err, "Error setting ControllerReference for Statefulset")
+		log.Error(err, "Error setting ControllerReference for Job")
 		return ctrl.Result{}, err
 	}
+	if err := Job(ctx, r.Client, job, log); err != nil {
+		log.Error(err, "Error reconciling Job", "job", job.Name, "namespace", job.Namespace)
+		return ctrl.Result{}, err
+	}
+
 	// update pipelinegate status
 	// update job status
 	// include a ttl?
 
 	return ctrl.Result{}, nil
 }
+
+//func (r *PipelineGateReconciler) updateStatusAndReturn(ctx context.Context, pipelineGateInstance *pipelinesv1alpha1.PipelineGate, gateState pipelinesv1alpha1.GateState, message string) (ctrl.Result, error) {
+//	pipelineGateInstance.Status.GateState = gateState
+//	if err := r.Update(ctx, pipelineGateInstance); err != nil {
+//		return ctrl.Result{}, err
+//	}
+//	return ctrl.Result{}, nil
+//}
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
