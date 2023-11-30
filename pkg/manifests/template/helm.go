@@ -29,6 +29,8 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/yaml"
+
+	"github.com/samber/lo"
 )
 
 func init() {
@@ -112,10 +114,28 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 }
 
 func (h *helm) values(svc *console.ServiceDeploymentExtended) (map[string]interface{}, error) {
-	lqPath := filepath.Join(h.dir, "values.yaml.liquid")
+	currentMap, err := h.valuesFile(svc, "values.yaml.liquid")
+	if err != nil {
+		return currentMap, err
+	}
+	if svc.Helm != nil && svc.Helm.ValuesFiles != nil && len(svc.Helm.ValuesFiles) > 0 {
+		for _, f := range svc.Helm.ValuesFiles {
+			nextMap, err := h.valuesFile(svc, lo.FromPtr(f))
+			if err != nil {
+				return currentMap, err
+			}
+			currentMap = lo.Assign(currentMap, nextMap)
+		}
+	}
+
+	return currentMap, nil
+}
+
+func (h *helm) valuesFile(svc *console.ServiceDeploymentExtended, filename string) (map[string]interface{}, error) {
+	filename = filepath.Join(h.dir, filename)
 	currentMap := map[string]interface{}{}
-	if fs.Exists(lqPath) {
-		data, err := os.ReadFile(lqPath)
+	if fs.Exists(filename) {
+		data, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +145,7 @@ func (h *helm) values(svc *console.ServiceDeploymentExtended) (map[string]interf
 			return nil, err
 		}
 		if err := yaml.Unmarshal(data, &currentMap); err != nil {
-			return nil, errors.Wrapf(err, "failed to parse %s", lqPath)
+			return nil, errors.Wrapf(err, "failed to parse %s", filename)
 		}
 	}
 
