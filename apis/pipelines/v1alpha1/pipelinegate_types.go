@@ -78,36 +78,36 @@ type GateSpec struct {
 	JobSpec batchv1.JobSpec `json:"jobSpec"`
 }
 
-// JobGateSpec represents the full specification of a job gate
-type JobGateSpec struct {
-	Namespace  string          `json:"namespace"`
-	Raw        string          `json:"raw"`
-	Containers []ContainerSpec `json:"containers"`
-	// TODO: add support for these
-	//Labels         Map             `json:"labels"`
-	//Annotations    Map             `json:"annotations"`
-	ServiceAccount string `json:"serviceAccount"`
-}
-
-// ContainerSpec represents a shortform spec for job containers, designed for ease-of-use
-type ContainerSpec struct {
-	Image   string             `json:"image"`
-	Args    []string           `json:"args"`
-	Env     []ContainerEnv     `json:"env"`
-	EnvFrom []ContainerEnvFrom `json:"envFrom"`
-}
-
-// ContainerEnv represents a container env variable
-type ContainerEnv struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-// ContainerEnvFrom represents env from declarations for containers
-type ContainerEnvFrom struct {
-	ConfigMap string `json:"configMap"`
-	Secret    string `json:"secret"`
-}
+//// JobGateSpec represents the full specification of a job gate
+//type JobGateSpec struct {
+//	Namespace  string          `json:"namespace"`
+//	Raw        string          `json:"raw"`
+//	Containers []ContainerSpec `json:"containers"`
+//	// TODO: add support for these
+//	//Labels         Map             `json:"labels"`
+//	//Annotations    Map             `json:"annotations"`
+//	ServiceAccount string `json:"serviceAccount"`
+//}
+//
+//// ContainerSpec represents a shortform spec for job containers, designed for ease-of-use
+//type ContainerSpec struct {
+//	Image   string             `json:"image"`
+//	Args    []string           `json:"args"`
+//	Env     []ContainerEnv     `json:"env"`
+//	EnvFrom []ContainerEnvFrom `json:"envFrom"`
+//}
+//
+//// ContainerEnv represents a container env variable
+//type ContainerEnv struct {
+//	Name  string `json:"name"`
+//	Value string `json:"value"`
+//}
+//
+//// ContainerEnvFrom represents env from declarations for containers
+//type ContainerEnvFrom struct {
+//	ConfigMap string `json:"configMap"`
+//	Secret    string `json:"secret"`
+//}
 
 // +kubebuilder:object:root=true
 // PipelineGateList contains a list of PipelineGate
