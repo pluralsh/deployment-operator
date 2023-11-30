@@ -18,6 +18,9 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+
+	batchv1 "k8s.io/api/batch/v1"
 )
 
 // +kubebuilder:validation:Enum=PENDING;OPEN;CLOSED
@@ -67,16 +70,12 @@ type PipelineGateSpec struct {
 	Name     string   `json:"name"`
 	Type     GateType `json:"type"`
 	GateSpec GateSpec `json:"gateSpec"`
-	Approver string   `json:"approver"` // just the name probably
-	//InsertedAt DateTime    `json:"insertedAt"`
-	//UpdatedAt  DateTime    `json:"updatedAt"`
 }
 
 // GateSpec defines the detailed gate specifications
 type GateSpec struct {
 	// TODO: think about replacing this with the actual type from the k8s api
-	JobSpec JobGateSpec `json:"jobSpec"`
-	Build   string      `json:"build"`
+	JobSpec batchv1.JobSpec `json:"jobSpec"`
 }
 
 // JobGateSpec represents the full specification of a job gate
