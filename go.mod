@@ -9,7 +9,7 @@ require (
 	github.com/osteele/liquid v1.3.2
 	github.com/pkg/errors v0.9.1
 	github.com/pluralsh/console-client-go v0.0.48
-	github.com/pluralsh/gophoenix v0.1.3-0.20231024165338-04291b4de463
+	github.com/pluralsh/gophoenix v0.1.3-0.20231130220741-95764950bb42
 	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.38.1
 	github.com/spf13/pflag v1.0.5

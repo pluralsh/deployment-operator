@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/kataras/golog"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	phx "github.com/pluralsh/gophoenix"
 	"k8s.io/client-go/util/workqueue"
@@ -14,6 +15,10 @@ import (
 var (
 	log = klogr.New()
 )
+
+func init() {
+	golog.Default.SetLevel("Debug")
+}
 
 type Socket struct {
 	clusterId string

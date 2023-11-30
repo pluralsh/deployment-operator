@@ -560,6 +560,14 @@ github.com/pluralsh/console-client-go v0.0.48 h1:J/6IYZdQkZGf4pDPUbodCsdg8pz6EBd
 github.com/pluralsh/console-client-go v0.0.48/go.mod h1:u/RjzXE3wtl3L6wiWxwhQHSpxFX46+EYvpkss2mALN4=
 github.com/pluralsh/gophoenix v0.1.3-0.20231024165338-04291b4de463 h1:PtXJG2hM73c98bqYAaFNtY+eJ1RupEArHSarNzi3Hek=
 github.com/pluralsh/gophoenix v0.1.3-0.20231024165338-04291b4de463/go.mod h1:IagWXKFYu6NTHzcJx2dJyrIlZ1Sv2PH3fhOtplA9qOs=
+github.com/pluralsh/gophoenix v0.1.3-0.20231130185730-05776a7643b6 h1:UiVpDs8L6EGtucWla0XyncEARxkr/bn7vgt4Bysvbzs=
+github.com/pluralsh/gophoenix v0.1.3-0.20231130185730-05776a7643b6/go.mod h1:IagWXKFYu6NTHzcJx2dJyrIlZ1Sv2PH3fhOtplA9qOs=
+github.com/pluralsh/gophoenix v0.1.3-0.20231130205457-0e0e5355b47e h1:pjGG1BTgsTQPIa6aU8v7FXElEX3620urwIgtdN4povo=
+github.com/pluralsh/gophoenix v0.1.3-0.20231130205457-0e0e5355b47e/go.mod h1:IagWXKFYu6NTHzcJx2dJyrIlZ1Sv2PH3fhOtplA9qOs=
+github.com/pluralsh/gophoenix v0.1.3-0.20231130213806-9891b89c41ef h1:uANitAj26p6/n7G+f17wYCwLL8yPHRp37KGobqMQc2k=
+github.com/pluralsh/gophoenix v0.1.3-0.20231130213806-9891b89c41ef/go.mod h1:IagWXKFYu6NTHzcJx2dJyrIlZ1Sv2PH3fhOtplA9qOs=
+github.com/pluralsh/gophoenix v0.1.3-0.20231130220741-95764950bb42 h1:mLN+3FvhsH8C/HR7VYTSpcb1/9b6T7fCNcoIjjFvIWE=
+github.com/pluralsh/gophoenix v0.1.3-0.20231130220741-95764950bb42/go.mod h1:IagWXKFYu6NTHzcJx2dJyrIlZ1Sv2PH3fhOtplA9qOs=
 github.com/pluralsh/polly v0.1.4 h1:Kz90peCgvsfF3ERt8cujr5TR9z4wUlqQE60Eg09ZItY=
 github.com/pluralsh/polly v0.1.4/go.mod h1:Yo1/jcW+4xwhWG+ZJikZy4J4HJkMNPZ7sq5auL2c/tY=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
