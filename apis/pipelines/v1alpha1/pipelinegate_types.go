@@ -19,29 +19,31 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
-
+	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 )
 
 // +kubebuilder:validation:Enum=PENDING;OPEN;CLOSED
 // GateState represents the state of a gate
-type GateState string
+// type GateState string
+type GateState console.GateState
 
-const (
-	Pending GateState = "PENDING"
-	Open    GateState = "OPEN"
-	Closed  GateState = "CLOSED"
-)
+//const (
+//	Pending GateState = "PENDING"
+//	Open    GateState = "OPEN"
+//	Closed  GateState = "CLOSED"
+//)
 
 // +kubebuilder:validation:Enum=APPROVAL;WINDOW;JOB
 // GateType represents the type of a gate
-type GateType string
+// type GateType string
+type GateType console.GateType
 
-const (
-	Approval GateType = "APPROVAL"
-	Window   GateType = "WINDOW"
-	Job      GateType = "JOB"
-)
+//const (
+//	Approval GateType = "APPROVAL"
+//	Window   GateType = "WINDOW"
+//	Job      GateType = "JOB"
+//)
 
 //+genclient
 //+kubebuilder:object:root=true
