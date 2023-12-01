@@ -75,8 +75,10 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 func (s *Socket) NotifyConnect() {
 	s.connected = true
 }
+
 func (s *Socket) NotifyDisconnect() {
 	s.connected = false
+	s.joined = false
 }
 
 // implement ChannelReceiver
