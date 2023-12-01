@@ -6,6 +6,7 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 )
@@ -24,90 +25,33 @@ func (c *Client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
 	return resp.ClusterGates, nil
 }
 
-//type PipelineGateFragment struct {
-//	ID        string            "json:\"id\" graphql:\"id\""
-//	Name      string            "json:\"name\" graphql:\"name\""
-//	Type      GateType          "json:\"type\" graphql:\"type\""
-//	State     GateState         "json:\"state\" graphql:\"state\""
-//	UpdatedAt *string           "json:\"updatedAt\" graphql:\"updatedAt\""
-//	Spec      *GateSpecFragment "json:\"spec\" graphql:\"spec\""
-//}
-//
-//type GateType string
-//
-//const (
-//	GateTypeApproval GateType = "APPROVAL"
-//	GateTypeWindow   GateType = "WINDOW"
-//	GateTypeJob      GateType = "JOB"
-//)
-//
-//type GateState string
-//
-//const (
-//	GateStatePending GateState = "PENDING"
-//	GateStateOpen    GateState = "OPEN"
-//	GateStateClosed  GateState = "CLOSED"
-//)
-//
-//type GateSpecFragment struct {
-//	Job *struct {
-//		Namespace  string  "json:\"namespace\" graphql:\"namespace\""
-//		Raw        *string "json:\"raw\" graphql:\"raw\""
-//		Containers []*struct {
-//			Image string    "json:\"image\" graphql:\"image\""
-//			Args  []*string "json:\"args\" graphql:\"args\""
-//			Env   []*struct {
-//				Name  string "json:\"name\" graphql:\"name\""
-//				Value string "json:\"value\" graphql:\"value\""
-//			} "json:\"env\" graphql:\"env\""
-//			EnvFrom []*struct {
-//				ConfigMap string "json:\"configMap\" graphql:\"configMap\""
-//				Secret    string "json:\"secret\" graphql:\"secret\""
-//			} "json:\"envFrom\" graphql:\"envFrom\""
-//		} "json:\"containers\" graphql:\"containers\""
-//		Labels         map[string]interface{} "json:\"labels\" graphql:\"labels\""
-//		Annotations    map[string]interface{} "json:\"annotations\" graphql:\"annotations\""
-//		ServiceAccount *string                "json:\"serviceAccount\" graphql:\"serviceAccount\""
-//	} "json:\"job\" graphql:\"job\""
-//}
-//
-//type PipelineGate struct {
-//	metav1.TypeMeta   `json:",inline"`            // name and apiVersion
-//	metav1.ObjectMeta `json:"metadata,omitempty"` // namespace, labels, annotations
-//
-//	Spec   PipelineGateSpec   `json:"spec,omitempty"`
-//	Status PipelineGateStatus `json:"status,omitempty"`
-//}
-//
-//// PipelineGateStatus defines the observed state of ConfigurationOverlay
-//type PipelineGateStatus struct {
-//	State GateState `json:"state"`
-//}
-//
-//// PipelineGateSpec defines the detailed gate specifications
-//type PipelineGateSpec struct {
-//	ID       string   `json:"id"`
-//	Name     string   `json:"name"`
-//	Type     GateType `json:"type"`
-//	GateSpec GateSpec `json:"gateSpec"`
-//}
-//
-//// GateSpec defines the detailed gate specifications
-//type GateSpec struct {
-//	JobSpec batchv1.JobSpec `json:"jobSpec"`
-//}
-
-func (c *Client) ParsePipelineGateCR(fragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
+func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
 	// Create a PipelineGate instance
 
-	pipelineGate := &pipelinesv1alpha1.PipelineGate{}
-
-	if fragment.Spec.Job == nil {
-		return pipelineGate, nil
+	//pipelineGate := &pipelinesv1alpha1.PipelineGate{}
+	pipelineGate := &pipelinesv1alpha1.PipelineGate{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PipelineGate",
+			APIVersion: "pipelines/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pgFragment.Name,
+			//Namespace: "default",
+			// You may set other metadata fields as needed (namespace, labels, annotations)
+		},
+		Spec: pipelinesv1alpha1.PipelineGateSpec{
+			ID:       pgFragment.ID,
+			Name:     pgFragment.Name,
+			Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
+			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
+		},
+		Status: pipelinesv1alpha1.PipelineGateStatus{
+			State: pipelinesv1alpha1.GateState(pgFragment.State),
+		},
 	}
 
-	if fragment.Spec.Job.Raw != nil {
-		job, err := parseYAMLIntoJob(*fragment.Spec.Job.Raw)
+	if pgFragment.Spec != nil && pgFragment.Spec.Job != nil && pgFragment.Spec.Job.Raw != nil {
+		job, err := jobFromYaml(*pgFragment.Spec.Job.Raw)
 		if err != nil {
 			return nil, err
 		}
@@ -118,52 +62,26 @@ func (c *Client) ParsePipelineGateCR(fragment *console.PipelineGateFragment) (*p
 				APIVersion: "pipelines/v1alpha1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      job.Name,
-				Namespace: job.Namespace,
+				Name: job.Name,
+				//Namespace: job.Namespace,
 			},
 			Spec: pipelinesv1alpha1.PipelineGateSpec{
-				ID:       fragment.ID,
-				Name:     fragment.Name,
-				Type:     pipelinesv1alpha1.GateType(fragment.Type),
-				GateSpec: pipelinesv1alpha1.GateSpec{JobSpec: job.Spec},
+				ID:       pgFragment.ID,
+				Name:     pgFragment.Name,
+				Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
+				GateSpec: &pipelinesv1alpha1.GateSpec{JobSpec: &job.Spec},
+			},
+			Status: pipelinesv1alpha1.PipelineGateStatus{
+				State: pipelinesv1alpha1.GateState(pgFragment.State),
 			},
 		}
-		return pipelineGate, nil
 	}
 
-	//pipelineGate := &pipelinesv1alpha1.PipelineGate{
-	//	TypeMeta: metav1.TypeMeta{
-	//		Kind:       "PipelineGate",
-	//		APIVersion: "pipelines/v1alpha1",
-	//	},
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name:      fragment.Name,
-	//		Namespace: "default",
-	//		// You may set other metadata fields as needed (namespace, labels, annotations)
-	//	},
-	//	Spec: pipelinesv1alpha1.PipelineGateSpec{
-	//		ID:   fragment.ID,
-	//		Name: fragment.Name,
-	//		Type: pipelinesv1alpha1.GateType(fragment.Type),
-	//	},
-	//}
+	return pipelineGate, nil
 
-	//Spec: pipelinesv1alpha1.PipelineGateSpec{
-	//		ID:   fragment.ID,
-	//		Name: fragment.Name,
-	//		Type: pipelinesv1alpha1.GateType(fragment.Type),
-	//		GateSpec: pipelinesv1alpha1.GateSpec{
-	//			JobSpec: *job,
-	//		},
-	//	},
-	//	Status: pipelinesv1alpha1.PipelineGateStatus{
-	//		State: pipelinesv1alpha1.GateState(fragment.State),
-	//	},
-
-	//return pipelineGate, nil
 }
 
-func parseYAMLIntoJob(yamlString string) (*batchv1.Job, error) {
+func jobFromYaml(yamlString string) (*batchv1.Job, error) {
 	job := &batchv1.Job{}
 
 	// unmarshal the YAML string into the Job rep
@@ -181,72 +99,101 @@ func parseYAMLIntoJob(yamlString string) (*batchv1.Job, error) {
 	return nil, fmt.Errorf("parsed object is not of type Job")
 }
 
-// //////////////// Helper function to convert the GateSpecFragment.Job into batchv1.JobSpec
-func convertToJob(fragment console.JobSpecFragment) (*batchv1.Job, error) {
-	//type JobSpecFragment struct {
-	//	Namespace      string                   "json:\"namespace\" graphql:\"namespace\""
-	//	Raw            *string                  "json:\"raw\" graphql:\"raw\""
-	//	Containers     []*ContainerSpecFragment "json:\"containers\" graphql:\"containers\""
-	//	Labels         map[string]interface{}   "json:\"labels\" graphql:\"labels\""
-	//	Annotations    map[string]interface{}   "json:\"annotations\" graphql:\"annotations\""
-	//	ServiceAccount *string                  "json:\"serviceAccount\" graphql:\"serviceAccount\""
-	//}
-
-	if fragment.Raw != nil {
-		return parseYAMLIntoJob(*fragment.Raw)
+func gateSpecFromGateSpecFragment(gateName string, gsFragment *console.GateSpecFragment) *pipelinesv1alpha1.GateSpec {
+	if gsFragment == nil {
+		return nil
 	}
+	return &pipelinesv1alpha1.GateSpec{
+		JobSpec: jobSpecFromJobSpecFragment(gateName, gsFragment.Job),
+	}
+}
 
-	// Create a basic JobSpec
-	//jobSpec := batchv1.JobSpec{
-	//	metav1.ObjectMeta{
-	//		Name:      fragment.Name,
-	//		Namespace: fragment.Namespace,
-	//	},
-	//	Template: corev1.PodTemplateSpec{
-	//		Spec: corev1.PodSpec{
-	//			Containers: convertToContainers(fragment.Containers),
-	//			Labels:     fragment.Labels,
-	//			// Set other fields as needed
-	//		},
-	//	},
-	//	// Set other fields as needed
-	//}
-
+func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFragment) *batchv1.JobSpec {
+	if jsFragment == nil {
+		return nil
+	}
+	if jsFragment.Raw != nil {
+		job, err := jobFromYaml(*jsFragment.Raw)
+		// TODO: handle error
+		if err != nil {
+			return nil
+		}
+		return &job.Spec
+	}
+	jobSpec := &batchv1.JobSpec{
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      gateName,
+				Namespace: jsFragment.Namespace,
+				// convert map[string]interface{} to map[string]string
+				Labels:      stringMapFromInterfaceMap(jsFragment.Labels),
+				Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
+			},
+			Spec: corev1.PodSpec{
+				Containers: containersFromContainerSpecFragments(gateName, jsFragment.Containers),
+			},
+		},
+	}
 	return jobSpec
 }
 
-//
-//// Helper function to convert []*console.GateSpecFragmentJobContainer into []v1.Container
-//func convertToContainers(*console.GateSpecFragment) []v1.Container {
-//	var containers []v1.Container
-//
-//	for _, containerFragment := range containerFragments {
-//		container := v1.Container{
-//			Name:  containerFragment.Image,
-//			Image: containerFragment.Image,
-//			Args:  containerFragment.Args,
-//			Env:   convertToEnvVars(containerFragment.Env),
-//			// Set other fields as needed
-//		}
-//
-//		containers = append(containers, container)
-//	}
-//
-//	return containers
-//}
-//
-//// Helper function to convert []*console.GateSpecFragmentJobContainerEnv into []v1.EnvVar
-//func convertToEnvVars(envFragments []*console.GateSpecFragment) []v1.EnvVar {
-//	var envVars []corev1.EnvVar
-//
-//	for _, envFragment := range envFragments {
-//		envVar := corev1.EnvVar{
-//			Name:  envFragment.Name,
-//			Value: envFragment.Value,
-//		}
-//
-//		envVars = append(envVars, envVar)
-//	}
-//
-//	return envVars
-//}
+func containersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment) []corev1.Container {
+	var containers []corev1.Container
+
+	for i, csFragment := range containerSpecFragments {
+		if csFragment == nil {
+			continue
+		}
+
+		container := corev1.Container{
+			// todo: maybe add a name to the graphql api too? for now let's use the gate name plus the container fragment index
+			Name:  gateName + "-" + fmt.Sprintf("%d", i),
+			Image: csFragment.Image,
+			Args:  make([]string, 0),
+		}
+
+		for i, arg := range csFragment.Args {
+			container.Args[i] = *arg
+		}
+
+		for _, envVar := range csFragment.Env {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  envVar.Name,
+				Value: envVar.Value,
+			})
+		}
+
+		// translate the EnvFrom structs from the fragment into the according corev1.EnvFromSource of the k8s pod api
+		for _, envFrom := range csFragment.EnvFrom {
+			container.EnvFrom = append(container.EnvFrom, corev1.EnvFromSource{
+				ConfigMapRef: &corev1.ConfigMapEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: envFrom.ConfigMap,
+					},
+				},
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: envFrom.Secret,
+					},
+				},
+			})
+		}
+
+		containers = append(containers, container)
+	}
+
+	return containers
+}
+
+func stringMapFromInterfaceMap(labels map[string]interface{}) map[string]string {
+	result := make(map[string]string)
+
+	for key, value := range labels {
+		if strValue, ok := value.(string); ok {
+			result[key] = strValue
+		} else {
+			fmt.Printf("Skipping non-string value for key %s\n", key)
+		}
+	}
+	return result
+}
