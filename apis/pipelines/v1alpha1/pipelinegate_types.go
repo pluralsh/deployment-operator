@@ -52,8 +52,8 @@ type GateType console.GateType
 // PipelineGate is the Schema for the pipelinegate API
 // PipelineGate represents a gate blocking promotion along a release pipeline
 type PipelineGate struct {
-	metav1.TypeMeta   `json:",inline"`            // name and apiVersion
-	metav1.ObjectMeta `json:"metadata,omitempty"` // namespace, labels, annotations
+	metav1.TypeMeta   `json:",inline"`            // kind and apiVersion
+	metav1.ObjectMeta `json:"metadata,omitempty"` // name, namespace, labels, annotations
 
 	Spec   PipelineGateSpec   `json:"spec,omitempty"`
 	Status PipelineGateStatus `json:"status,omitempty"`
@@ -68,16 +68,16 @@ type PipelineGateStatus struct {
 
 // PipelineGateSpec defines the detailed gate specifications
 type PipelineGateSpec struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Type     GateType `json:"type"`
-	GateSpec GateSpec `json:"gateSpec"`
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Type     GateType  `json:"type"`
+	GateSpec *GateSpec `json:"gateSpec,omitempty"`
 }
 
 // GateSpec defines the detailed gate specifications
 type GateSpec struct {
 	// TODO: think about replacing this with the actual type from the k8s api
-	JobSpec batchv1.JobSpec `json:"jobSpec"`
+	JobSpec *batchv1.JobSpec `json:"job"`
 }
 
 //// JobGateSpec represents the full specification of a job gate
