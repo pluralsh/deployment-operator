@@ -75,8 +75,10 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 func (s *Socket) NotifyConnect() {
 	s.connected = true
 }
+
 func (s *Socket) NotifyDisconnect() {
 	s.connected = false
+	s.joined = false
 }
 
 // implement ChannelReceiver
@@ -95,6 +97,7 @@ func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {
 }
 
 func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
+	log.Info("found payload", "event", event, "payload", fmt.Sprintf("%+v", payload))
 	if event == "service.event" {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
