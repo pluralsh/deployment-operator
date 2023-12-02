@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/polly/fs"
 )
 
@@ -32,6 +33,14 @@ func fetch(url, token string) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
+		if resp.StatusCode == 403 {
+			return dir, errors.UnauthenticatedError
+		}
+
+		if resp.StatusCode == 402 {
+			return dir, errors.TransientManifestError
+		}
+
 		return dir, fmt.Errorf("could not fetch manifest, error code %d", resp.StatusCode)
 	}
 
