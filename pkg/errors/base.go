@@ -4,4 +4,4 @@ import (
 	"errors"
 )
 
-var ExpectedError = errors.New("This is a transient, expected error")
+var ExpectedError = errors.New("this is a transient, expected error")
