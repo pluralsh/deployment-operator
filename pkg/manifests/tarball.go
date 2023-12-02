@@ -34,11 +34,11 @@ func fetch(url, token string) (string, error) {
 
 	if resp.StatusCode != 200 {
 		if resp.StatusCode == 403 {
-			return dir, errors.UnauthenticatedError
+			return dir, errors.ErrUnauthenticated
 		}
 
 		if resp.StatusCode == 402 {
-			return dir, errors.TransientManifestError
+			return dir, errors.ErrTransientManifest
 		}
 
 		return dir, fmt.Errorf("could not fetch manifest, error code %d", resp.StatusCode)

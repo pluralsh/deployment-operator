@@ -51,7 +51,7 @@ func (engine *Engine) workerLoop() {
 		if err != nil {
 			log.Error(err, "process item")
 			id := item.(string)
-			if id != "" && !errors.Is(err, plrlerrors.ExpectedError) {
+			if id != "" && !errors.Is(err, plrlerrors.ErrExpected) {
 				engine.UpdateErrorStatus(id, err)
 			}
 		}
