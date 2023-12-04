@@ -14,6 +14,8 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+
+	"github.com/samber/lo"
 )
 
 const (
@@ -88,6 +90,9 @@ func (engine *Engine) processItem(item interface{}) error {
 		log.Error(manErr, "failed to parse manifests")
 		return manErr
 	}
+
+	manifests = postProcess(manifests)
+
 	log.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := engine.splitObjects(id, manifests)
 	if err != nil {
@@ -167,6 +172,22 @@ func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured)
 	default:
 		return nil, nil, fmt.Errorf("expecting zero or one inventory object, found %d", len(invs))
 	}
+}
+
+func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
+	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
+		if man.GetKind() != "CustomResourceDefinition" {
+			return man
+		}
+
+		annotations := man.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		annotations[common.LifecycleDeleteAnnotation] = common.PreventDeletion
+		man.SetAnnotations(annotations)
+		return man
+	})
 }
 
 func (engine *Engine) defaultInventoryObjTemplate(id string) (*unstructured.Unstructured, error) {
