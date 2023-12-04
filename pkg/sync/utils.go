@@ -40,7 +40,7 @@ func GetDefaultPruneOptions() apply.DestroyerOptions {
 		InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
 		DryRunStrategy:          common.DryRunNone,
 		DeleteTimeout:           20 * time.Second,
-		DeletePropagationPolicy: metav1.DeletePropagationForeground,
+		DeletePropagationPolicy: metav1.DeletePropagationBackground,
 		EmitStatusEvents:        true,
 		ValidationPolicy:        1,
 	}

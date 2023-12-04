@@ -2,17 +2,17 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/hook"
+	console "github.com/pluralsh/console-client-go"
 
+	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
+	"github.com/pluralsh/deployment-operator/pkg/hook"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/cli-utils/pkg/apply"
-	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 )
 
@@ -128,6 +128,17 @@ func (engine *Engine) processItem(item interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	for _, c := range preInstallComponents {
+		if *c.State != console.ComponentStateRunning {
+			// wait until hooks are completed
+			if err := engine.updateStatus(id, preInstallComponents, errorAttributes("sync", err)); err != nil {
+				log.Error(err, "Failed to update service status, ignoring for now")
+			}
+			return nil
+		}
+	}
+
 	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
 	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
 	components, err := engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)

@@ -101,21 +101,29 @@ func (engine *Engine) hooksHandler(ctx context.Context, namespace, name string, 
 
 	components := []*console.ComponentAttributes{}
 	toDelete := object.ObjMetadataSet{}
+	failed := console.ComponentStateFailed
+	running := console.ComponentStateRunning
 	for k, v := range statusCollector.latestStatus {
-		if v.PollResourceInfo.Status == status.FailedStatus {
-			if deleteFailed.Contains(k) {
-				toDelete = append(toDelete, k)
-			}
-		}
-		if v.PollResourceInfo.Status == status.CurrentStatus {
-			if deleteSucceeded.Contains(k) {
-				toDelete = append(toDelete, k)
-			}
-		}
-
 		consoleAttr := fromSyncResult(v, vcache)
 		if consoleAttr != nil {
+			if consoleAttr.State == nil {
+				if v.PollResourceInfo.Status == status.FailedStatus {
+					consoleAttr.State = &failed
+				}
+				if v.PollResourceInfo.Status == status.CurrentStatus {
+					consoleAttr.State = &running
+				}
+			}
 			components = append(components, consoleAttr)
+			if *consoleAttr.State == console.ComponentStateFailed {
+				if deleteFailed.Contains(k) {
+					toDelete = append(toDelete, k)
+				}
+			} else if *consoleAttr.State == console.ComponentStateRunning {
+				if deleteSucceeded.Contains(k) {
+					toDelete = append(toDelete, k)
+				}
+			}
 		}
 	}
 
