@@ -97,7 +97,6 @@ func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {
 }
 
 func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
-	log.Info("found payload", "event", event, "payload", fmt.Sprintf("%+v", payload))
 	if event == "service.event" {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
