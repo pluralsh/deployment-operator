@@ -2,10 +2,12 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"time"
 
+	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -49,7 +51,7 @@ func (engine *Engine) workerLoop() {
 		if err != nil {
 			log.Error(err, "process item")
 			id := item.(string)
-			if id != "" {
+			if id != "" && !errors.Is(err, plrlerrors.ErrExpected) {
 				engine.UpdateErrorStatus(id, err)
 			}
 		}

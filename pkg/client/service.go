@@ -26,3 +26,8 @@ func (c *Client) UpdateComponents(id string, components []*console.ComponentAttr
 	_, err := c.consoleClient.UpdateServiceComponents(c.ctx, id, components, errs)
 	return err
 }
+
+func (c *Client) AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error {
+	_, err := c.consoleClient.AddServiceError(c.ctx, id, errs)
+	return err
+}
