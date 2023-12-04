@@ -175,7 +175,7 @@ func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan ev
 }
 
 func (engine *Engine) UpdateErrorStatus(id string, err error) {
-	if err := engine.updateStatus(id, []*console.ComponentAttributes{}, errorAttributes("sync", err)); err != nil {
+	if err := engine.addErrors(id, errorAttributes("sync", err)); err != nil {
 		log.Error(err, "Failed to update service status, ignoring for now")
 	}
 }
@@ -319,6 +319,10 @@ func (engine *Engine) updateStatus(id string, components []*console.ComponentAtt
 	}
 
 	return engine.client.UpdateComponents(id, components, errs)
+}
+
+func (engine *Engine) addErrors(id string, err *console.ServiceErrorAttributes) error {
+	return engine.client.AddServiceErrors(id, []*console.ServiceErrorAttributes{err})
 }
 
 func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
