@@ -7,12 +7,12 @@ import (
 	"runtime/debug"
 	"time"
 
+	console "github.com/pluralsh/console-client-go"
+
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
+	"github.com/pluralsh/deployment-operator/pkg/hook"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/cli-utils/pkg/apply"
-	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 )
 
@@ -20,6 +20,8 @@ const (
 	// The field manager name for the ones agentk owns, see
 	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
 	fieldManager = "application/apply-patch"
+
+	inventoryFileNamespace = "plrl-deploy-operator"
 )
 
 func (engine *Engine) ControlLoop() {
@@ -83,11 +85,12 @@ func (engine *Engine) processItem(item interface{}) error {
 	log.Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 
 	var manErr error
-	manifests, manErr := engine.manifestCache.Fetch(engine.utilFactory, svc)
+	manifests, hooks, manErr := engine.manifestCache.Fetch(engine.utilFactory, svc)
 	if manErr != nil {
 		log.Error(manErr, "failed to parse manifests")
 		return manErr
 	}
+
 	log.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := engine.splitObjects(id, manifests)
 	if err != nil {
@@ -99,19 +102,18 @@ func (engine *Engine) processItem(item interface{}) error {
 	// ctx, cancelCtx := context.WithDeadline(context.Background(), deadline)
 	// defer cancelCtx()
 	ctx := context.Background()
-
 	vcache := manis.VersionCache(manifests)
-
 	if svc.DeletedAt != nil {
+		// delete hooks
+		if err := engine.deleteHooks(ctx, svc.Namespace, svc.Name, id, hook.PreInstall); err != nil {
+			return err
+		}
+		if err := engine.deleteHooks(ctx, svc.Namespace, svc.Name, id, hook.PostInstall); err != nil {
+			return err
+		}
+
 		log.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := engine.destroyer.Run(ctx, inv, apply.DestroyerOptions{
-			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
-			DryRunStrategy:          common.DryRunNone,
-			DeleteTimeout:           20 * time.Second,
-			DeletePropagationPolicy: metav1.DeletePropagationBackground,
-			EmitStatusEvents:        true,
-			ValidationPolicy:        1,
-		})
+		ch := engine.destroyer.Run(ctx, inv, GetDefaultPruneOptions())
 		return engine.UpdatePruneStatus(id, svc.Name, svc.Namespace, ch, len(manifests), vcache)
 	}
 
@@ -120,29 +122,48 @@ func (engine *Engine) processItem(item interface{}) error {
 		log.Error(err, "failed to check namespace")
 		return err
 	}
-	ch := engine.applier.Run(ctx, inv, manifests, apply.ApplierOptions{
-		ServerSideOptions: common.ServerSideOptions{
-			// It's supported since Kubernetes 1.16, so there should be no reason not to use it.
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/
-			ServerSideApply: true,
-			// GitOps repository is the source of truth and that's what we are applying, so overwrite any conflicts.
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
-			ForceConflicts: true,
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
-			FieldManager: fieldManager,
-		},
-		ReconcileTimeout: 10 * time.Second,
-		// If we are not waiting for status, tell the applier to not
-		// emit the events.
-		EmitStatusEvents:       true,
-		NoPrune:                false,
-		DryRunStrategy:         common.DryRunNone,
-		PrunePropagationPolicy: metav1.DeletePropagationBackground,
-		PruneTimeout:           20 * time.Second,
-		InventoryPolicy:        inventory.PolicyAdoptAll,
-	})
 
-	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)
+	// mange pre-install hooks
+	preInstallComponents, err := engine.manageHooks(ctx, hook.PreInstall, svc.Namespace, svc.Name, id, hooks)
+	if err != nil {
+		return err
+	}
+
+	for _, c := range preInstallComponents {
+		if *c.State != console.ComponentStateRunning {
+			// wait until hooks are completed
+			if err := engine.updateStatus(id, preInstallComponents, errorAttributes("sync", err)); err != nil {
+				log.Error(err, "Failed to update service status, ignoring for now")
+			}
+			return nil
+		}
+	}
+
+	log.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
+	ch := engine.applier.Run(ctx, inv, manifests, GetDefaultApplierOptions())
+	components, err := engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)
+	if err != nil {
+		return err
+	}
+	components = append(components, preInstallComponents...)
+
+	installed, err := engine.isInstalled(id, manifests)
+	if err != nil {
+		return err
+	}
+	if installed {
+		postInstallComponents, err := engine.manageHooks(ctx, hook.PostInstall, svc.Namespace, svc.Name, id, hooks)
+		if err != nil {
+			return err
+		}
+		components = append(components, postInstallComponents...)
+	}
+
+	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
+		log.Error(err, "Failed to update service status, ignoring for now")
+	}
+
+	return nil
 }
 
 func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
@@ -170,20 +191,5 @@ func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured)
 }
 
 func (engine *Engine) defaultInventoryObjTemplate(id string) (*unstructured.Unstructured, error) {
-	name := "inventory-" + id
-	namespace := "plrl-deploy-operator"
-
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "ConfigMap",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
-				"labels": map[string]interface{}{
-					common.InventoryLabel: id,
-				},
-			},
-		},
-	}, nil
+	return GenDefaultInventoryUnstructuredMap(inventoryFileNamespace, GetInventoryName(id), id), nil
 }
