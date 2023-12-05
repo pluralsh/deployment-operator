@@ -67,6 +67,10 @@ func (c *ManifestCache) Wipe() {
 	c.cache.Clear()
 }
 
+func (c *ManifestCache) Expire(id string) {
+	c.cache.Remove(id)
+}
+
 func (l *cacheLine) live(dur time.Duration) bool {
 	return l.created.After(time.Now().Add(-dur))
 }

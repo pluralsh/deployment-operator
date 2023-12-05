@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	phx "github.com/pluralsh/gophoenix"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2/klogr"
 )
 
@@ -15,18 +13,21 @@ var (
 	log = klogr.New()
 )
 
+type Publisher interface {
+	PublishService(id string)
+}
+
 type Socket struct {
 	clusterId string
 	client    *phx.Client
-	svcQueue  workqueue.RateLimitingInterface
-	svcCache  *client.ServiceCache
+	publisher Publisher
 	channel   *phx.Channel
 	connected bool
 	joined    bool
 }
 
-func New(clusterId, consoleUrl, deployToken string, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache) (*Socket, error) {
-	socket := &Socket{svcQueue: svcQueue, clusterId: clusterId, svcCache: svcCache}
+func New(clusterId, consoleUrl, deployToken string, publisher Publisher) (*Socket, error) {
+	socket := &Socket{clusterId: clusterId, publisher: publisher}
 	client := phx.NewClient(socket)
 
 	uri, err := wssUri(consoleUrl, deployToken)
@@ -101,8 +102,7 @@ func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
 				log.Info("got new service update from websocket", "id", id)
-				s.svcCache.Expire(id)
-				s.svcQueue.Add(id)
+				s.publisher.PublishService(id)
 			}
 		}
 	}
