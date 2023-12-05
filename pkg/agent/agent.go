@@ -50,7 +50,12 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	deathChan := make(chan interface{})
 	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
 
-	socket, err := websocket.New(clusterId, consoleUrl, deployToken, svcQueue, svcCache)
+	publisher := &socketPublisher{
+		svcQueue: svcQueue,
+		svcCache: svcCache,
+		manCache: manifestCache,
+	}
+	socket, err := websocket.New(clusterId, consoleUrl, deployToken, publisher)
 	if err != nil {
 		if socket == nil {
 			return nil, err
