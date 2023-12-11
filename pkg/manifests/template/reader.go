@@ -29,6 +29,21 @@ type StreamManifestReader struct {
 	ReaderOptions
 }
 
+func streamManifests(in io.Reader, mapper meta.RESTMapper, name, namespace string) ([]*unstructured.Unstructured, error) {
+	readerOptions := ReaderOptions{
+		Mapper:           mapper,
+		Namespace:        namespace,
+		EnforceNamespace: false,
+	}
+	mReader := &StreamManifestReader{
+		ReaderName:    name,
+		Reader:        in,
+		ReaderOptions: readerOptions,
+	}
+
+	return mReader.Read([]*unstructured.Unstructured{})
+}
+
 // Read reads the manifests and returns them as Info objects.
 func (r *StreamManifestReader) Read(objs []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
 	nodes, err := (&kio.ByteReader{
@@ -52,6 +67,6 @@ func (r *StreamManifestReader) Read(objs []*unstructured.Unstructured) ([]*unstr
 
 	objs = manifestreader.FilterLocalConfig(objs)
 
-	err = manifestreader.SetNamespaces(r.Mapper, objs, r.Namespace, r.EnforceNamespace)
+	err = setNamespaces(r.Mapper, objs, r.Namespace, r.EnforceNamespace)
 	return objs, err
 }
