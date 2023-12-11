@@ -34,9 +34,9 @@ func New(clusterId, consoleUrl, deployToken string, publisher Publisher) (*Socke
 	if err != nil {
 		return nil, err
 	}
-
-	err = client.Connect(*uri, http.Header{})
 	socket.client = client
+	err = client.Connect(*uri, http.Header{})
+
 	return socket, err
 }
 
