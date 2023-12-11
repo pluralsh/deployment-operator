@@ -75,6 +75,7 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 
 func (s *Socket) NotifyConnect() {
 	s.connected = true
+	s.Join()
 }
 
 func (s *Socket) NotifyDisconnect() {
