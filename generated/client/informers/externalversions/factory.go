@@ -18,13 +18,13 @@ limitations under the License.
 package externalversions
 
 import (
-	versioned "generated/client/clientset/versioned"
-	internalinterfaces "generated/client/informers/externalversions/internalinterfaces"
-	pipelines "generated/client/informers/externalversions/pipelines"
 	reflect "reflect"
 	sync "sync"
 	time "time"
 
+	versioned "github.com/pluralsh/deployment-operator/generated/client/clientset/versioned"
+	internalinterfaces "github.com/pluralsh/deployment-operator/generated/client/informers/externalversions/internalinterfaces"
+	pipelines "github.com/pluralsh/deployment-operator/generated/client/informers/externalversions/pipelines"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

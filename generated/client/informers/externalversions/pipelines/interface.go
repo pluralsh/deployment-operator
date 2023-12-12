@@ -18,8 +18,8 @@ limitations under the License.
 package pipelines
 
 import (
-	internalinterfaces "generated/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "generated/client/informers/externalversions/pipelines/v1alpha1"
+	internalinterfaces "github.com/pluralsh/deployment-operator/generated/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/pluralsh/deployment-operator/generated/client/informers/externalversions/pipelines/v1alpha1"
 )
 
 // Interface provides access to each of this group's versions.
