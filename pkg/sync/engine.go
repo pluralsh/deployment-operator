@@ -8,6 +8,7 @@ import (
 
 	"time"
 
+	console "github.com/pluralsh/console-client-go"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/apply"
@@ -27,9 +28,11 @@ type Engine struct {
 	destroyer         *apply.Destroyer
 	utilFactory       util.Factory
 	processingTimeout time.Duration
+	gateQueue         workqueue.RateLimitingInterface
+	gateCache         *client.GenericCache[console.PipelineGateFragment]
 }
 
-func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *apply.Applier, destroyer *apply.Destroyer, client *client.Client, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache, manCache *manifests.ManifestCache, processingTimeout time.Duration) *Engine {
+func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *apply.Applier, destroyer *apply.Destroyer, client *client.Client, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache, manCache *manifests.ManifestCache, processingTimeout time.Duration, gateQueue workqueue.RateLimitingInterface) *Engine {
 	return &Engine{
 		client:            client,
 		svcQueue:          svcQueue,
@@ -40,6 +43,7 @@ func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *
 		destroyer:         destroyer,
 		utilFactory:       utilFactory,
 		processingTimeout: processingTimeout,
+		gateQueue:         gateQueue,
 	}
 }
 
