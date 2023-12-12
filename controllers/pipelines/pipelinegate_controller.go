@@ -28,6 +28,7 @@ import (
 
 	"github.com/go-logr/logr"
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+	console "github.com/pluralsh/deployment-operator/client"
 
 	//job "k8s.io/api/batch/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -38,8 +39,9 @@ import (
 // PipelineGateReconciler reconciles a PipelineGate object
 type PipelineGateReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
+	consoleClient console.Client
+	Scheme        *runtime.Scheme
+	Log           logr.Logger
 }
 
 //+kubebuilder:rbac:groups=pipelines.plural.sh,resources=pipelinegates,verbs=get;list;watch;create;update;patch;delete
@@ -77,7 +79,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	if pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState.Closed {
+	if pipelineGateInstance.Status.State == console.GateStateClosed {
 		return ctrl.Result{}, nil
 	}
 
