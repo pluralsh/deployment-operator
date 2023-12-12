@@ -73,7 +73,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./apis/..." output:crd:artifacts:config=config/crd/bases
 
 generate: controller-gen generate-client ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations and the clientset, informers and listers.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./apis/..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./apis/..." 
 
 ##	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./apis/..." output:crd:artifacts:config=config/crd/bases
 
@@ -106,16 +106,16 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 run-client-gen: client-gen
-	$(CLIENT_GEN) --clientset-name versioned --input-base apis --input pipelines/v1alpha1 --output-base ./ --output-package generated/client/clientset --go-header-file hack/boilerplate.go.txt
-#	$(CLIENT_GEN) --clientset-name versioned --input-base ./apis --input platform/v1alpha1,vpn/v1alpha1 --output-package github.com/pluralsh/deployment-operator/generated/client/clientset --go-header-file hack/boilerplate.go.txt
+#	$(CLIENT_GEN) --clientset-name versioned --input-base apis --input pipelines/v1alpha1 --output-base ./ --output-package generated/client/clientset --go-header-file hack/boilerplate.go.txt
+	$(CLIENT_GEN) --clientset-name versioned --input-base apis --input pipelines/v1alpha1 --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/clientset --go-header-file hack/boilerplate.go.txt
 
 run-lister-gen: lister-gen
-	$(LISTER_GEN) --input-dirs ./apis/pipelines/v1alpha1 --output-base ./ --output-package generated/client/listers --go-header-file hack/boilerplate.go.txt
-#	$(LISTER_GEN) --input-dirs github.com/pluralsh/deployment-operator/apis/platform/v1alpha1,github.com/pluralsh/deployment-operator/apis/vpn/v1alpha1 --output-package github.com/pluralsh/deployment-operator/generated/client/listers --go-header-file hack/boilerplate.go.txt
+	$(LISTER_GEN) --input-dirs apis/pipelines/v1alpha1 --output-base ./ --output-package generated/client/listers --go-header-file hack/boilerplate.go.txt
+#	$(LISTER_GEN) --input-dirs ./apis/pipelines/v1alpha1 --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/listers --go-header-file hack/boilerplate.go.txt
 
 run-informer-gen: informer-gen
 	$(INFORMER_GEN) --input-dirs ./apis/pipelines/v1alpha1 --versioned-clientset-package generated/client/clientset/versioned --listers-package generated/client/listers --output-base ./ --output-package generated/client/informers --go-header-file hack/boilerplate.go.txt
-#	$(INFORMER_GEN) --input-dirs github.com/pluralsh/deployment-operator/apis/platform/v1alpha1,github.com/pluralsh/deployment-operator/apis/vpn/v1alpha1 --versioned-clientset-package github.com/pluralsh/deployment-operator/generated/client/clientset/versioned --listers-package github.com/pluralsh/deployment-operator/generated/client/listers --output-package github.com/pluralsh/deployment-operator/generated/client/informers --go-header-file hack/boilerplate.go.txt
+#	$(INFORMER_GEN) --input-dirs ./apis/pipelines/v1alpha1 --versioned-clientset-package github.com/pluralsh/deployment-operator/generated/client/clientset/versioned --listers-package github.com/pluralsh/deployment-operator/generated/client/listers --output-package github.com/pluralsh/deployment-operator/generated/client/informers --go-header-file hack/boilerplate.go.txt
 
 generate-client: run-client-gen run-lister-gen run-informer-gen
 #	rm -rf generated
