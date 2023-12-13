@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/cmd/util"
-	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/yaml"
 
 	"github.com/samber/lo"
@@ -89,28 +88,12 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 	}
 
 	r := bytes.NewReader(out)
-
 	mapper, err := utilFactory.ToRESTMapper()
 	if err != nil {
 		return nil, err
 	}
 
-	readerOptions := manifestreader.ReaderOptions{
-		Mapper:           mapper,
-		Namespace:        svc.Namespace,
-		EnforceNamespace: false,
-	}
-	mReader := &manifestreader.StreamManifestReader{
-		ReaderName:    "helm",
-		Reader:        r,
-		ReaderOptions: readerOptions,
-	}
-
-	items, err := mReader.Read()
-	if err != nil {
-		return nil, err
-	}
-	return items, nil
+	return streamManifests(r, mapper, "helm", svc.Namespace)
 }
 
 func (h *helm) values(svc *console.ServiceDeploymentExtended) (map[string]interface{}, error) {

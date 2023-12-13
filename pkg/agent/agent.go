@@ -101,7 +101,7 @@ func (agent *Agent) Run() {
 		}
 	}()
 
-	err := wait.PollInfinite(agent.refresh, func() (done bool, err error) {
+	err := wait.PollImmediateInfinite(agent.refresh, func() (done bool, err error) {
 		if err := agent.socket.Join(); err != nil {
 			log.Error(err, "could not establish websocket to upstream")
 		}
