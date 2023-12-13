@@ -14,12 +14,24 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+	pipelinecontroller "github.com/pluralsh/deployment-operator/controllers/pipelines"
+	//controller runtime manager
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = log.Logger
 )
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(pipelinesv1alpha1.AddToScheme(scheme))
+}
 
 type controllerRunOptions struct {
 	enableLeaderElection bool
@@ -88,13 +100,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	a, err := agent.New(mgr.GetConfig(), refresh, pTimeout, opt.consoleUrl, opt.deployToken, opt.clusterId)
+	a, err := agent.New(mgr, refresh, pTimeout, opt.consoleUrl, opt.deployToken, opt.clusterId)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent")
 		os.Exit(1)
 	}
 	if err := a.SetupWithManager(); err != nil {
 		setupLog.Error(err, "unable to start agent")
+		os.Exit(1)
+	}
+	if err = (&pipelinecontroller.PipelineGateReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("PipelineGate"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Group")
 		os.Exit(1)
 	}
 
