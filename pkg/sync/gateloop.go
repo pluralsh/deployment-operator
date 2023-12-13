@@ -7,12 +7,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
-	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/cli-utils/pkg/apply"
-	"sigs.k8s.io/cli-utils/pkg/common"
-	"sigs.k8s.io/cli-utils/pkg/inventory"
 )
 
 //const (
@@ -47,11 +42,7 @@ func (engine *Engine) gateWorkerLoop() {
 		}
 		err := engine.processGate(gate)
 		if err != nil {
-			log.Error(err, "process gate")
-			id := gate.(string)
-			if id != "" {
-				engine.UpdateErrorStatus(id, err)
-			}
+			log.Error(err, "failed to process gate")
 		}
 		time.Sleep(syncDelay)
 	}
@@ -66,17 +57,17 @@ func (engine *Engine) processGate(item interface{}) error {
 	//	but reconciliation wasn't quick enough failed to update the status
 	//  - only way to check if the gate is synced is to check if the CRD object exists -> k8s API call
 	//3. if status is CLOSED, then do nothing, reconciliation will take care of clean up
-	//4. if status is PENDING, it has already been synced, so do nothing
+	//4. if status is PENDING, it has already been synced into the cluster, so do nothing
 	defer engine.gateQueue.Done(item)
 	gate, ok := item.(console.PipelineGateFragment)
 	if !ok {
 		// handle if assertion fails (shouldn't happen)
 		err := fmt.Errorf("unexpected type: %T", item)
-		log.Error(err, "failed to process gate item: %s, ignoring for now")
+		log.Error(err, "failed to process gate item, ignoring for now", "error", err)
 		return err
 	}
 
-	log.Info("attempting to sync gate", "id", gate.ID)
+	log.Info("attempting to sync gate", "Name", gate.Name, "ID", gate.ID)
 	// TODO: shouldn't it always be in the gate cache? and if it's not do we put it there?
 	//gate, err := engine.gateCache.Get(gate.ID, gate)
 	//if err != nil {
@@ -86,118 +77,35 @@ func (engine *Engine) processGate(item interface{}) error {
 
 	log.Info("syncing gate", "name", gate.Name)
 
-	gateCR, err := engine.client.ParsePipelineGateCR(&gate)
-	// TODO error handling
-	if err != nil {
-		log.Error(err, "failed to parse gate CR from gate fragment")
-		return err
+	if gate.State == console.GateStateClosed {
+		log.Info(fmt.Sprintf("gate is %s, skipping", gate.State), "Name", gate.Name, "ID", gate.ID)
+		return nil
 	}
 
-	// apply the gate CR to the cluster
-	engine.clientset.PipelineV1alpha1().PipelineGates(gateCR.Namespace).Apply(context.Background(), gateCR, metav1.ApplyOptions{})
-
-	var manErr error
-	manifests, manErr := engine.manifestCache.Fetch(engine.utilFactory, gate)
-	if manErr != nil {
-		log.Error(manErr, "failed to parse manifests")
-		return manErr
-	}
-	log.Info("Syncing manifests", "count", len(manifests))
-	invObj, manifests, err := engine.splitObjects(id, manifests)
-	if err != nil {
-		return err
-	}
-	inv := inventory.WrapInventoryInfoObj(invObj)
-
-	// deadline := time.Now().Add(engine.processingTimeout)
-	// ctx, cancelCtx := context.WithDeadline(context.Background(), deadline)
-	// defer cancelCtx()
-	ctx := context.Background()
-
-	vcache := manis.VersionCache(manifests)
-
-	if gate.DeletedAt != nil {
-		log.Info("Deleting service", "name", gate.Name, "namespace", gate.Namespace)
-		ch := engine.destroyer.Run(ctx, inv, apply.DestroyerOptions{
-			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
-			DryRunStrategy:          common.DryRunNone,
-			DeleteTimeout:           20 * time.Second,
-			DeletePropagationPolicy: metav1.DeletePropagationForeground,
-			EmitStatusEvents:        true,
-			ValidationPolicy:        1,
-		})
-		return engine.UpdatePruneStatus(id, gate.Name, gate.Namespace, ch, len(manifests), vcache)
+	if gate.State == console.GateStatePending {
+		log.Info(fmt.Sprintf("gate is %s, so it should be already synced, skipping", gate.State), "Name", gate.Name, "ID", gate.ID)
+		return nil
 	}
 
-	log.Info("Apply service", "name", gate.Name, "namespace", gate.Namespace)
-	if err := engine.CheckNamespace(gate.Namespace); err != nil {
-		log.Error(err, "failed to check namespace")
-		return err
-	}
-	ch := engine.applier.Run(ctx, inv, manifests, apply.ApplierOptions{
-		ServerSideOptions: common.ServerSideOptions{
-			// It's supported since Kubernetes 1.16, so there should be no reason not to use it.
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/
-			ServerSideApply: true,
-			// GitOps repository is the source of truth and that's what we are applying, so overwrite any conflicts.
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
-			ForceConflicts: true,
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
-			FieldManager: fieldManager,
-		},
-		ReconcileTimeout: 10 * time.Second,
-		// If we are not waiting for status, tell the applier to not
-		// emit the events.
-		EmitStatusEvents:       true,
-		NoPrune:                false,
-		DryRunStrategy:         common.DryRunNone,
-		PrunePropagationPolicy: metav1.DeletePropagationBackground,
-		PruneTimeout:           20 * time.Second,
-		InventoryPolicy:        inventory.PolicyAdoptAll,
-	})
-
-	return engine.UpdateApplyStatus(id, gate.Name, gate.Namespace, ch, false, vcache)
-}
-
-func (engine *Engine) splitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	invs := make([]*unstructured.Unstructured, 0, 1)
-	resources := make([]*unstructured.Unstructured, 0, len(objs))
-	for _, obj := range objs {
-		if inventory.IsInventoryObject(obj) {
-			invs = append(invs, obj)
-		} else {
-			resources = append(resources, obj)
-		}
-	}
-	switch len(invs) {
-	case 0:
-		invObj, err := engine.defaultInventoryObjTemplate(id)
+	if gate.State == console.GateStateOpen {
+		// parse a gate CR from the gate fragment
+		gateCR, err := engine.client.ParsePipelineGateCR(&gate)
 		if err != nil {
-			return nil, nil, err
+			log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
+			return err
 		}
-		return invObj, resources, nil
-	case 1:
-		return invs[0], resources, nil
-	default:
-		return nil, nil, fmt.Errorf("expecting zero or one inventory object, found %d", len(invs))
+		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates("")
+		gateCreated, err := pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
+			return err
+		}
+		log.Info("gate synced", "Name", gate.Name, "ID", gate.ID)
+		gateState := console.GateStatePending
+		// TODO: add job ref, if it exists, but at this point it most likely doesn't because it hasn't been reconcilced yet
+		log.Info("update gate state in console", "Name", gate.Name, "ID", gate.ID)
+		// TODO: actually get the job ref, but it could be that the gate has no job ref
+		engine.client.UpdateGate(gate.ID, console.GateUpdateAttributes{State: &gateState, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: gateCreated.Name, Namespace: gateCreated.Namespace}}})
 	}
-}
-
-func (engine *Engine) defaultInventoryObjTemplate(id string) (*unstructured.Unstructured, error) {
-	name := "inventory-" + id
-	namespace := "plrl-deploy-operator"
-
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "ConfigMap",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
-				"labels": map[string]interface{}{
-					common.InventoryLabel: id,
-				},
-			},
-		},
-	}, nil
+	return nil
 }
