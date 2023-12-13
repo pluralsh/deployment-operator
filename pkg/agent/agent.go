@@ -15,10 +15,12 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 
+	generated "github.com/pluralsh/deployment-operator/generated/client/clientset/versioned"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
@@ -37,12 +39,19 @@ type Agent struct {
 	refresh         time.Duration
 }
 
-func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
+func New(mgr manager.Manager, refresh, processingTimeout time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
+	config := mgr.GetConfig()
 	disableClientLimits(config)
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
+	ctrlClient := mgr.GetClient()
+	genClientset, err := generated.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	consoleClient := client.New(consoleUrl, deployToken)
 	svcCache := client.NewCache(consoleClient, refresh)
 	// anonymous function that takes a client and a string and returns a *Pipeline and an error
@@ -73,7 +82,7 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	if err != nil {
 		return nil, err
 	}
-	engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, svcQueue, svcCache, manifestCache, processingTimeout, gateQueue)
+	engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, ctrlClient, genClientset, svcQueue, svcCache, manifestCache, processingTimeout, gateQueue)
 	engine.AddHealthCheck(deathChan)
 	if err := engine.WithConfig(config); err != nil {
 		return nil, err
