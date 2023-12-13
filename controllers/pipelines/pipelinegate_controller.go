@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
+	console "github.com/pluralsh/console-client-go"
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
-	console "github.com/pluralsh/deployment-operator/client"
 
 	//job "k8s.io/api/batch/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -79,7 +79,8 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	if pipelineGateInstance.Status.State == console.GateStateClosed {
+	// TODO: fix
+	if pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState(console.GateStateClosed) {
 		return ctrl.Result{}, nil
 	}
 
@@ -154,7 +155,7 @@ func (r *PipelineGateReconciler) generateJob(ctx context.Context, log logr.Logge
 			Name:      pipelineGateInstance.Name,
 			Namespace: pipelineGateInstance.Namespace,
 		},
-		Spec: pipelineGateInstance.Spec.GateSpec.JobSpec,
+		Spec: *pipelineGateInstance.Spec.GateSpec.JobSpec,
 	}
 }
 
