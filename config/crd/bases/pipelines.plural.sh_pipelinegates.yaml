@@ -18,8 +18,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: PipelineGate is the Schema for the pipelinegate API PipelineGate
-          represents a gate blocking promotion along a release pipeline
+        description: PipelineGate represents a gate blocking promotion along a release
+          pipeline
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -40,8 +40,7 @@ spec:
                 description: GateSpec defines the detailed gate specifications
                 properties:
                   job:
-                    description: 'TODO: think about replacing this with the actual
-                      type from the k8s api'
+                    description: resuse JobSpec type from the kubernetes api
                     properties:
                       activeDeadlineSeconds:
                         description: Specifies the duration in seconds relative to
@@ -8708,8 +8707,8 @@ spec:
               name:
                 type: string
               type:
-                description: GateType represents the type of a gate type GateType
-                  string
+                description: GateType represents the type of a gate, reused from console
+                  client
                 enum:
                 - APPROVAL
                 - WINDOW
@@ -8721,12 +8720,11 @@ spec:
             - type
             type: object
           status:
-            description: PipelineGateStatus defines the observed state of ConfigurationOverlay
+            description: PipelineGateStatus defines the observed state of the PipelineGate
             properties:
               state:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
+                description: GateState represents the state of a gate, reused from
+                  console client
                 enum:
                 - PENDING
                 - OPEN
