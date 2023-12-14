@@ -67,7 +67,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// get pipelinegate
 	if err := r.Get(ctx, req.NamespacedName, pipelineGateInstance); err != nil {
 		if apierrs.IsNotFound(err) {
-			log.Info("Unable to fetch PipelineGate - skipping", "namespace", pipelineGateInstance.Namespace, "name", pipelineGateInstance.Name)
+			log.Info("Unable to fetch PipelineGate - skipping", "Namespace", pipelineGateInstance.Namespace, "Name", pipelineGateInstance.Name)
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "unable to fetch PipelineGate")
@@ -79,27 +79,66 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// TODO: fix
 	if pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState(console.GateStateClosed) {
 		return ctrl.Result{}, nil
 	}
 
-	// create job
+	// create job from jobspec in pipelinegate
 	job := r.generateJob(ctx, log, pipelineGateInstance)
 	if err := ctrl.SetControllerReference(pipelineGateInstance, job, r.Scheme); err != nil {
 		log.Error(err, "Error setting ControllerReference for Job")
 		return ctrl.Result{}, err
 	}
-	if err := Job(ctx, r.Client, job, log); err != nil {
-		log.Error(err, "Error reconciling Job", "job", job.Name, "namespace", job.Namespace)
+	// reconcile job, might
+	reconciledJob, err := Job(ctx, r.Client, job, log)
+	if err != nil {
+		log.Error(err, "Error reconciling Job", "Job", job.Name, "Namespace", job.Namespace)
 		return ctrl.Result{}, err
 	}
-
-	// update pipelinegate status
-	// update job status
-	// include a ttl?
+	if failed, condition := hasFailed(reconciledJob); failed {
+		log.Info("Job failed", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
+		gateStateClosed := console.GateStateClosed
+		updateAttributes := console.GateUpdateAttributes{State: &gateStateClosed, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
+		r.consoleClient.UpdateGate(context.Background(), pipelineGateInstance.Spec.ID, updateAttributes)
+		log.Info("Updated gate state at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStateClosed)
+		return ctrl.Result{}, nil
+	}
+	if succeeded, condition := hasSucceeded(reconciledJob); succeeded {
+		log.Info("Job succeded", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
+		gateStateOpen := console.GateStateOpen
+		updateAttributes := console.GateUpdateAttributes{State: &gateStateOpen, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
+		r.consoleClient.UpdateGate(context.Background(), pipelineGateInstance.Spec.ID, updateAttributes)
+		log.Info("Updated gate state at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStateOpen)
+		return ctrl.Result{}, nil
+	}
+	gateStatePending := console.GateStatePending
+	updateAttributes := console.GateUpdateAttributes{State: &gateStatePending, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
+	r.consoleClient.UpdateGate(context.Background(), pipelineGateInstance.Spec.ID, updateAttributes)
+	log.Info("Updated gate at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStatePending)
 
 	return ctrl.Result{}, nil
+}
+
+func hasFailed(job *batchv1.Job) (bool, *batchv1.JobCondition) {
+	conditions := job.Status.Conditions
+	// check if the conditions slice contains a failed condition
+	for _, condition := range conditions {
+		if condition.Type == batchv1.JobFailed {
+			return true, &condition
+		}
+	}
+	return false, nil
+}
+
+func hasSucceeded(job *batchv1.Job) (bool, *batchv1.JobCondition) {
+	conditions := job.Status.Conditions
+	// check if the conditions slice contains a failed condition
+	for _, condition := range conditions {
+		if condition.Type == batchv1.JobComplete {
+			return true, &condition
+		}
+	}
+	return false, nil
 }
 
 //func (r *PipelineGateReconciler) updateStatusAndReturn(ctx context.Context, pipelineGateInstance *pipelinesv1alpha1.PipelineGate, gateState pipelinesv1alpha1.GateState, message string) (ctrl.Result, error) {
@@ -114,7 +153,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&pipelinesv1alpha1.PipelineGate{}).
-		//Owns(&corev1.Namespace{}).
+		Owns(&batchv1.Job{}).
 		//Owns(&corev1.ServiceAccount{}).
 		//Owns(&rbacv1.RoleBinding{}).
 		Complete(r)
@@ -122,7 +161,7 @@ func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // Job reconciles a k8s job object.
-func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger) error {
+func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger) (*batchv1.Job, error) {
 	foundJob := &batchv1.Job{}
 	justCreated := false
 	if err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, foundJob); err != nil {
@@ -130,23 +169,25 @@ func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger
 			log.Info("Creating Job", "namespace", job.Namespace, "name", job.Name)
 			if err := r.Create(ctx, job); err != nil {
 				log.Error(err, "Unable to create Job")
-				return err
+				return nil, err
 			}
 			justCreated = true
 		} else {
 			log.Error(err, "Error getting Job")
-			return err
+			return nil, err
 		}
 	}
 	if !justCreated && CopyJobFields(job, foundJob, log) {
 		log.Info("Updating Job", "namespace", job.Namespace, "name", job.Name)
 		if err := r.Update(ctx, foundJob); err != nil {
 			log.Error(err, "Unable to update Job")
-			return err
+			return foundJob, err
 		}
 	}
-
-	return nil
+	if justCreated {
+		return job, nil
+	}
+	return foundJob, nil
 }
 
 func (r *PipelineGateReconciler) generateJob(ctx context.Context, log logr.Logger, pipelineGateInstance *pipelinesv1alpha1.PipelineGate) *batchv1.Job {
