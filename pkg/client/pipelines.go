@@ -41,7 +41,7 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 		},
 		Spec: pipelinesv1alpha1.PipelineGateSpec{
 			ID:       pgFragment.ID,
-			Name:     pgFragment.Name,
+			Name:     pgFragment.Name + "-" + pgFragment.ID,
 			Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
 			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
 		},
