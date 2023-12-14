@@ -77,7 +77,11 @@ func (engine *Engine) processGate(item interface{}) error {
 
 	log.Info("syncing gate", "name", gate.Name)
 
-	if gate.State == console.GateStateClosed {
+	if gate.Type == console.GateTypeJob {
+		log.Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
+	}
+
+	if gate.State == console.GateStateOpen {
 		log.Info(fmt.Sprintf("gate is %s, skipping", gate.State), "Name", gate.Name, "ID", gate.ID)
 		return nil
 	}
@@ -87,7 +91,7 @@ func (engine *Engine) processGate(item interface{}) error {
 		return nil
 	}
 
-	if gate.State == console.GateStateOpen {
+	if gate.State == console.GateStateClosed {
 		// parse a gate CR from the gate fragment
 		gateCR, err := engine.client.ParsePipelineGateCR(&gate)
 		if err != nil {
@@ -95,17 +99,17 @@ func (engine *Engine) processGate(item interface{}) error {
 			return err
 		}
 		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates("")
-		gateCreated, err := pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
+		_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
 		if err != nil {
 			log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
 			return err
 		}
 		log.Info("gate synced", "Name", gate.Name, "ID", gate.ID)
-		gateState := console.GateStatePending
-		// TODO: add job ref, if it exists, but at this point it most likely doesn't because it hasn't been reconcilced yet
-		log.Info("update gate state in console", "Name", gate.Name, "ID", gate.ID)
-		// TODO: actually get the job ref, but it could be that the gate has no job ref
-		engine.client.UpdateGate(gate.ID, console.GateUpdateAttributes{State: &gateState, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: gateCreated.Name, Namespace: gateCreated.Namespace}}})
+		//gateState := console.GateStatePending
+		//// TODO: add job ref, if it exists, but at this point it most likely doesn't because it hasn't been reconcilced yet
+		//log.Info("update gate state in console", "Name", gate.Name, "ID", gate.ID)
+		//// TODO: actually get the job ref, but it could be that the gate has no job ref
+		//engine.client.UpdateGate(gate.ID, console.GateUpdateAttributes{State: &gateState, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: gateCreated.Name, Namespace: gateCreated.Namespace}}})
 	}
 	return nil
 }
