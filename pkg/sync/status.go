@@ -28,6 +28,7 @@ const (
 	// Assigned to resources that are suspended or paused. The typical example is a
 	// [suspended](https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#suspend) CronJob.
 	HealthStatusSuspended HealthStatusCode = "Suspended"
+	HealthStatusPaused    HealthStatusCode = "Paused"
 	// Degrade status is used if resource status indicates failure or resource could not reach healthy state
 	// within some timeout.
 	HealthStatusDegraded HealthStatusCode = "Degraded"
@@ -95,6 +96,10 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 	case "batch":
 		if gvk.Kind == JobKind {
 			return getJobHealth
+		}
+	case "flagger.app":
+		if gvk.Kind == CanaryKind {
+			return getCanaryHealth
 		}
 	case "autoscaling":
 		if gvk.Kind == HorizontalPodAutoscalerKind {
@@ -307,6 +312,10 @@ func toStatus(obj *unstructured.Unstructured) *console.ComponentState {
 
 	if h.Status == HealthStatusHealthy {
 		return lo.ToPtr(console.ComponentStateRunning)
+	}
+
+	if h.Status == HealthStatusPaused {
+		return lo.ToPtr(console.ComponentStatePaused)
 	}
 
 	return lo.ToPtr(console.ComponentStatePending)

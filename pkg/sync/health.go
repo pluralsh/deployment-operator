@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -34,6 +35,7 @@ const (
 	APIServiceKind               = "APIService"
 	NamespaceKind                = "Namespace"
 	HorizontalPodAutoscalerKind  = "HorizontalPodAutoscaler"
+	CanaryKind                   = "Canary"
 )
 
 var (
@@ -86,6 +88,47 @@ func getHPAHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	default:
 		return nil, fmt.Errorf("unsupported HPA GVK: %s", gvk)
 	}
+}
+
+func getCanaryHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	var canary flaggerv1beta1.Canary
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &canary); err != nil {
+		return nil, err
+	}
+	var msg string
+	for _, cond := range canary.Status.Conditions {
+		if cond.Type == "Promoted" {
+			msg = cond.Message
+		}
+	}
+
+	phase := canary.Status.Phase
+	if phase == flaggerv1beta1.CanaryPhaseSucceeded || phase == flaggerv1beta1.CanaryPhaseInitialized {
+		return &HealthStatus{
+			Status:  HealthStatusHealthy,
+			Message: msg,
+		}, nil
+	}
+
+	if phase == flaggerv1beta1.CanaryPhaseWaitingPromotion || phase == flaggerv1beta1.CanaryPhaseWaiting {
+		return &HealthStatus{
+			Status:  HealthStatusPaused,
+			Message: msg,
+		}, nil
+	}
+
+	if phase == flaggerv1beta1.CanaryPhaseFailed {
+		return &HealthStatus{
+			Status:  HealthStatusDegraded,
+			Message: msg,
+		}, nil
+	}
+
+	status := &HealthStatus{
+		Status:  HealthStatusProgressing,
+		Message: msg,
+	}
+	return status, nil
 }
 
 func getAutoScalingV2HPAHealth(hpa *autoscalingv2.HorizontalPodAutoscaler) (*HealthStatus, error) {
