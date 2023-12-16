@@ -125,28 +125,29 @@ func (engine *Engine) processItem(item interface{}) error {
 		log.Error(err, "failed to check namespace")
 		return err
 	}
-	ch := engine.applier.Run(ctx, inv, manifests, apply.ApplierOptions{
+
+	options := apply.ApplierOptions{
 		ServerSideOptions: common.ServerSideOptions{
-			// It's supported since Kubernetes 1.16, so there should be no reason not to use it.
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/
 			ServerSideApply: true,
-			// GitOps repository is the source of truth and that's what we are applying, so overwrite any conflicts.
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts
-			ForceConflicts: true,
-			// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
-			FieldManager: fieldManager,
+			ForceConflicts:  true,
+			FieldManager:    fieldManager,
 		},
-		ReconcileTimeout: 10 * time.Second,
-		// If we are not waiting for status, tell the applier to not
-		// emit the events.
+		ReconcileTimeout:       10 * time.Second,
 		EmitStatusEvents:       true,
 		NoPrune:                false,
 		DryRunStrategy:         common.DryRunNone,
 		PrunePropagationPolicy: metav1.DeletePropagationBackground,
 		PruneTimeout:           20 * time.Second,
 		InventoryPolicy:        inventory.PolicyAdoptAll,
-	})
+	}
 
+	// ch := engine.applier.Run(ctx, inv, manifests, options)
+	// if changed, err := engine.DryRunStatus(id, svc.Name, svc.Namespace, ch, vcache); !changed || err != nil {
+	// 	return err
+	// }
+
+	options.DryRunStrategy = common.DryRunNone
+	ch := engine.applier.Run(ctx, inv, manifests, options)
 	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)
 }
 

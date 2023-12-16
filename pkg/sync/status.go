@@ -163,14 +163,7 @@ func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan ev
 		return err
 	}
 
-	components := []*console.ComponentAttributes{}
-	for _, v := range statusCollector.latestStatus {
-		consoleAttr := fromSyncResult(v, vcache)
-		if consoleAttr != nil {
-			components = append(components, consoleAttr)
-		}
-	}
-
+	components := statusCollector.Components(vcache)
 	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
 	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		log.Error(err, "Failed to update service status, ignoring for now")
@@ -203,10 +196,16 @@ func FormatActionGroupEvent(age event.ActionGroupEvent) error {
 	return nil
 }
 
+func (engine *Engine) DryRunStatus(id, name, namespace string, ch <-chan event.Event, vcache map[manifests.GroupName]string) (bool, error) {
+	for e := range ch {
+		fmt.Println("%+v", e)
+	}
+	return false, nil
+}
+
 func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
 	var statsCollector stats.Stats
 	var err error
-	components := []*console.ComponentAttributes{}
 	statusCollector := &StatusCollector{
 		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
 	}
@@ -259,13 +258,7 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 		return err
 	}
 
-	for _, v := range statusCollector.latestStatus {
-		consoleAttr := fromSyncResult(v, vcache)
-		if consoleAttr != nil {
-			components = append(components, consoleAttr)
-		}
-	}
-
+	components := statusCollector.Components(vcache)
 	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		log.Error(err, "Failed to update service status, ignoring for now")
 	}
@@ -352,6 +345,19 @@ type StatusCollector struct {
 func (sc *StatusCollector) updateStatus(id object.ObjMetadata, se event.StatusEvent) {
 	sc.latestStatus[id] = se
 }
+
+func (sc *StatusCollector) Components(vcache map[manifests.GroupName]string) []*console.ComponentAttributes {
+	components := []*console.ComponentAttributes{}
+	for _, v := range sc.latestStatus {
+		consoleAttr := fromSyncResult(v, vcache)
+		if consoleAttr != nil {
+			components = append(components, consoleAttr)
+		}
+	}
+
+	return components
+}
+
 func resourceIDToString(gk schema.GroupKind, name string) string {
 	return fmt.Sprintf("%s/%s", strings.ToLower(gk.String()), name)
 }
