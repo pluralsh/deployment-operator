@@ -198,7 +198,7 @@ func FormatActionGroupEvent(age event.ActionGroupEvent) error {
 
 func (engine *Engine) DryRunStatus(id, name, namespace string, ch <-chan event.Event, vcache map[manifests.GroupName]string) (bool, error) {
 	for e := range ch {
-		fmt.Println("%+v", e)
+		fmt.Printf("%+v\n", e)
 	}
 	return false, nil
 }

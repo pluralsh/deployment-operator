@@ -39,16 +39,16 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 	}
 	if cx.client == nil {
 		if cx.factory == nil {
-			return nil, fmt.Errorf("a factory must be provided or all other options: %v", err)
+			return nil, fmt.Errorf("a factory must be provided or all other options: %w", err)
 		}
 		cx.client, err = cx.factory.DynamicClient()
 		if err != nil {
-			return nil, fmt.Errorf("error getting dynamic client: %v", err)
+			return nil, fmt.Errorf("error getting dynamic client: %w", err)
 		}
 	}
 	if cx.discoClient == nil {
 		if cx.factory == nil {
-			return nil, fmt.Errorf("a factory must be provided or all other options: %v", err)
+			return nil, fmt.Errorf("a factory must be provided or all other options: %w", err)
 		}
 		cx.discoClient, err = cx.factory.ToDiscoveryClient()
 		if err != nil {
@@ -61,21 +61,21 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 		}
 		cx.mapper, err = cx.factory.ToRESTMapper()
 		if err != nil {
-			return nil, fmt.Errorf("error getting rest mapper: %v", err)
+			return nil, fmt.Errorf("error getting rest mapper: %w", err)
 		}
 	}
 	if cx.restConfig == nil {
 		if cx.factory == nil {
-			return nil, fmt.Errorf("a factory must be provided or all other options: %v", err)
+			return nil, fmt.Errorf("a factory must be provided or all other options: %w", err)
 		}
 		cx.restConfig, err = cx.factory.ToRESTConfig()
 		if err != nil {
-			return nil, fmt.Errorf("error getting rest config: %v", err)
+			return nil, fmt.Errorf("error getting rest config: %w", err)
 		}
 	}
 	if cx.unstructuredClientForMapping == nil {
 		if cx.factory == nil {
-			return nil, fmt.Errorf("a factory must be provided or all other options: %v", err)
+			return nil, fmt.Errorf("a factory must be provided or all other options: %w", err)
 		}
 		cx.unstructuredClientForMapping = cx.factory.UnstructuredClientForMapping
 	}
