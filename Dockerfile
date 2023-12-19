@@ -17,7 +17,7 @@ COPY /pkg pkg/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent main.go
 
-FROM alpine:3.18
+FROM alpine:3.19
 WORKDIR /workspace
 
 COPY --from=builder /workspace/deployment-agent .
