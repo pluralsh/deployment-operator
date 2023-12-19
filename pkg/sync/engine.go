@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"k8s.io/client-go/kubernetes"
@@ -23,13 +24,13 @@ type Engine struct {
 	manifestCache     *manifests.ManifestCache
 	syncing           string
 	invFactory        inventory.ClientFactory
-	applier           *apply.Applier
+	applier           *applier.Applier
 	destroyer         *apply.Destroyer
 	utilFactory       util.Factory
 	processingTimeout time.Duration
 }
 
-func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *apply.Applier, destroyer *apply.Destroyer, client *client.Client, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache, manCache *manifests.ManifestCache, processingTimeout time.Duration) *Engine {
+func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *applier.Applier, destroyer *apply.Destroyer, client *client.Client, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache, manCache *manifests.ManifestCache, processingTimeout time.Duration) *Engine {
 	return &Engine{
 		client:            client,
 		svcQueue:          svcQueue,

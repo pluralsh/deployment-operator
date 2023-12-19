@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 
+	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
@@ -156,13 +157,13 @@ func newFactory(cfg *rest.Config) util.Factory {
 	return util.NewFactory(matchVersionKubeConfigFlags)
 }
 
-func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*apply.Applier, error) {
+func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*applier.Applier, error) {
 	invClient, err := invFactory.NewClient(f)
 	if err != nil {
 		return nil, err
 	}
 
-	return apply.NewApplierBuilder().
+	return applier.NewApplierBuilder().
 		WithFactory(f).
 		WithInventoryClient(invClient).
 		Build()

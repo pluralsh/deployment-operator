@@ -28,6 +28,7 @@ const (
 	// Assigned to resources that are suspended or paused. The typical example is a
 	// [suspended](https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#suspend) CronJob.
 	HealthStatusSuspended HealthStatusCode = "Suspended"
+	HealthStatusPaused    HealthStatusCode = "Paused"
 	// Degrade status is used if resource status indicates failure or resource could not reach healthy state
 	// within some timeout.
 	HealthStatusDegraded HealthStatusCode = "Degraded"
@@ -96,6 +97,10 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 		if gvk.Kind == JobKind {
 			return getJobHealth
 		}
+	case "flagger.app":
+		if gvk.Kind == CanaryKind {
+			return getCanaryHealth
+		}
 	case "autoscaling":
 		if gvk.Kind == HorizontalPodAutoscalerKind {
 			return getHPAHealth
@@ -158,14 +163,7 @@ func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan ev
 		return err
 	}
 
-	components := []*console.ComponentAttributes{}
-	for _, v := range statusCollector.latestStatus {
-		consoleAttr := fromSyncResult(v, vcache)
-		if consoleAttr != nil {
-			components = append(components, consoleAttr)
-		}
-	}
-
+	components := statusCollector.Components(vcache)
 	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
 	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		log.Error(err, "Failed to update service status, ignoring for now")
@@ -198,10 +196,16 @@ func FormatActionGroupEvent(age event.ActionGroupEvent) error {
 	return nil
 }
 
+func (engine *Engine) DryRunStatus(id, name, namespace string, ch <-chan event.Event, vcache map[manifests.GroupName]string) (bool, error) {
+	for e := range ch {
+		fmt.Printf("%+v\n", e)
+	}
+	return false, nil
+}
+
 func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
 	var statsCollector stats.Stats
 	var err error
-	components := []*console.ComponentAttributes{}
 	statusCollector := &StatusCollector{
 		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
 	}
@@ -254,13 +258,7 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 		return err
 	}
 
-	for _, v := range statusCollector.latestStatus {
-		consoleAttr := fromSyncResult(v, vcache)
-		if consoleAttr != nil {
-			components = append(components, consoleAttr)
-		}
-	}
-
+	components := statusCollector.Components(vcache)
 	if err := engine.updateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		log.Error(err, "Failed to update service status, ignoring for now")
 	}
@@ -309,6 +307,10 @@ func toStatus(obj *unstructured.Unstructured) *console.ComponentState {
 		return lo.ToPtr(console.ComponentStateRunning)
 	}
 
+	if h.Status == HealthStatusPaused {
+		return lo.ToPtr(console.ComponentStatePaused)
+	}
+
 	return lo.ToPtr(console.ComponentStatePending)
 }
 
@@ -343,6 +345,19 @@ type StatusCollector struct {
 func (sc *StatusCollector) updateStatus(id object.ObjMetadata, se event.StatusEvent) {
 	sc.latestStatus[id] = se
 }
+
+func (sc *StatusCollector) Components(vcache map[manifests.GroupName]string) []*console.ComponentAttributes {
+	components := []*console.ComponentAttributes{}
+	for _, v := range sc.latestStatus {
+		consoleAttr := fromSyncResult(v, vcache)
+		if consoleAttr != nil {
+			components = append(components, consoleAttr)
+		}
+	}
+
+	return components
+}
+
 func resourceIDToString(gk schema.GroupKind, name string) string {
 	return fmt.Sprintf("%s/%s", strings.ToLower(gk.String()), name)
 }
