@@ -77,7 +77,7 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects objec
 				Inv:       invInfo,
 				InvPolicy: options.InventoryPolicy,
 			},
-			filter.DependencyFilter{
+			filters.DependencyFilter{
 				TaskContext:       taskContext,
 				ActuationStrategy: actuation.ActuationStrategyApply,
 				DryRunStrategy:    options.DryRunStrategy,
