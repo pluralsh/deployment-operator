@@ -70,9 +70,10 @@ func setNamespaces(mapper meta.RESTMapper, objs []*unstructured.Unstructured,
 		}
 	}
 	if len(unknownGVKs) > 0 {
-		return &manifestreader.UnknownTypesError{
+		err := &manifestreader.UnknownTypesError{
 			GroupVersionKinds: unknownGVKs,
 		}
+		fmt.Printf("Found unknown types %s, ignoring for now", err)
 	}
 	return nil
 }
