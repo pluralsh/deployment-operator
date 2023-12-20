@@ -7,6 +7,10 @@ IMAGE_REPOSITORY := plural
 
 IMG ?= deployment-agent:latest
 
+ENVTEST ?= $(shell which setup-envtest)
+
+ENVTEST_K8S_VERSION := 1.28.3
+
 include tools.mk
 
 ifndef GOPATH
@@ -42,8 +46,8 @@ docker-push: ## push image
 ##@ Tests
 
 .PHONY: test
-test: ## run tests
-	go test ./... -v
+test: envtest ## run tests
+	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test $$(go list ./... | grep -v /e2e) -v
 
 .PHONY: lint
 lint: $(PRE) ## run linters
@@ -64,3 +68,21 @@ delete-tag:  ## deletes a tag from git locally and upstream
 	@read -p "Version: " tag; \
 	git tag -d $$tag; \
 	git push origin :$$tag
+
+
+.PHONY: tools
+tools: ## install required tools
+tools: --tool
+
+.PHONY: --tool
+%--tool: TOOL = .*
+--tool: # INTERNAL: installs tool with name provided via $(TOOL) variable or all tools.
+	@cat tools.go | grep _ | awk -F'"' '$$2 ~ /$(TOOL)/ {print $$2}' | xargs -I {} go install {}
+
+.PHONY: envtest
+envtest: TOOL = setup-envtest
+envtest: --tool ## Download and install setup-envtest in the $GOPATH/bin
+
+.PHONY: mockery
+mockery: TOOL = mockery
+mockery: --tool
