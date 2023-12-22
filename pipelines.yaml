@@ -1,0 +1,19 @@
+name: pipeline-demo
+stages:
+- name: dev
+  services:
+  - name: mgmt/cd-demo
+- name: prod
+  services:
+  - name: mgmt/cd-demo-2
+    criteria:
+      source: mgmt/cd-demo
+      secrets:
+      - tag
+edges:
+- from: dev
+  to: prod
+  gates:
+  - name: Approve
+    type: job
+    
