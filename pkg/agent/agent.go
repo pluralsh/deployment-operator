@@ -130,6 +130,8 @@ func (agent *Agent) Run() {
 
 		log.Info("fetching gates for cluster")
 		gates, err := agent.consoleClient.GetClusterGates()
+		// log length of gates
+		log.Info("length of gates", "length", len(gates))
 		if err != nil {
 			log.Error(err, "failed to fetch gate list from deployments service")
 			return false, nil
