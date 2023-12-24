@@ -4,6 +4,11 @@ import (
 	console "github.com/pluralsh/console-client-go"
 )
 
+func (c *Client) PingCluster(attributes console.ClusterPing) error {
+	_, err := c.consoleClient.PingCluster(c.ctx, attributes)
+	return err
+}
+
 func (c *Client) Ping(vsn string) error {
 	_, err := c.consoleClient.PingCluster(c.ctx, console.ClusterPing{CurrentVersion: vsn})
 	return err
