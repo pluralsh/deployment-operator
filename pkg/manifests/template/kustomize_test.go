@@ -1,12 +1,13 @@
 package template
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	console "github.com/pluralsh/console-client-go"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	console "github.com/pluralsh/console-client-go"
 )
 
 var _ = Describe("Kustomize template", func() {

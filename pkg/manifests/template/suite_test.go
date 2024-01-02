@@ -18,13 +18,11 @@ package template
 
 import (
 	"fmt"
-	"io/ioutil"
-	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
-	"net/http"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -84,29 +82,3 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
-
-func mockoon() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/mockoon" {
-			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-			return
-		}
-
-		resp, err := http.Get(os.Getenv("MOCKURL"))
-		if err != nil {
-			Expect(err).NotTo(HaveOccurred())
-		}
-		defer resp.Body.Close()
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "Querying Mockoon API from ENV VAR:", os.Getenv("MOCKURL"))
-		fmt.Fprintln(w, string(body))
-	})
-}
