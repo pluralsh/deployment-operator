@@ -18,10 +18,11 @@ package template
 
 import (
 	"fmt"
-	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
