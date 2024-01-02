@@ -21,12 +21,12 @@ require (
 	github.com/vektra/mockery/v2 v2.39.0
 	go.uber.org/zap v1.26.0
 	helm.sh/helm/v3 v3.11.2
-	k8s.io/api v0.27.7
-	k8s.io/apimachinery v0.27.7
-	k8s.io/cli-runtime v0.26.0
-	k8s.io/client-go v0.27.7
+	k8s.io/api v0.27.9
+	k8s.io/apimachinery v0.27.9
+	k8s.io/cli-runtime v0.26.12
+	k8s.io/client-go v0.27.9
 	k8s.io/klog/v2 v2.110.1
-	k8s.io/kubectl v0.26.0
+	k8s.io/kubectl v0.26.12
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.15.3
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20231215020716-1b80b9629af8
