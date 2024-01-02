@@ -2,7 +2,6 @@ package agent
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -18,6 +17,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	"github.com/pluralsh/deployment-operator/pkg/ping"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -29,6 +29,7 @@ var (
 type Agent struct {
 	consoleClient   *client.Client
 	discoveryClient *discovery.DiscoveryClient
+	pinger          *ping.Pinger
 	config          *rest.Config
 	engine          *deploysync.Engine
 	deathChan       chan interface{}
@@ -80,8 +81,11 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 		return nil, err
 	}
 
+	pinger := ping.New(consoleClient, dc, f)
+
 	return &Agent{
 		discoveryClient: dc,
+		pinger:          pinger,
 		consoleClient:   consoleClient,
 		engine:          engine,
 		deathChan:       deathChan,
@@ -119,15 +123,10 @@ func (agent *Agent) Run() {
 			agent.svcQueue.Add(svc.ID)
 		}
 
-		info, err := agent.discoveryClient.ServerVersion()
-		if err != nil {
-			log.Error(err, "failed to fetch cluster version")
-			return false, nil
-		}
-		vs := strings.Split(info.GitVersion, "-")
-		if err := agent.consoleClient.Ping(strings.TrimPrefix(vs[0], "v")); err != nil {
+		if err := agent.pinger.Ping(); err != nil {
 			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
+
 		agent.engine.ScrapeKube()
 		return false, nil
 	})
