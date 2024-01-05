@@ -33,10 +33,10 @@ edges:
             envFrom:
               - secret: my-secret
                 configMap: my-configmap
-        labels:
-          app: example-app
-          l2: value
-        annotations:
-          example.com/annotation: "value"
-          example.com/annotations2: "value2"
+        #labels:
+        #  app: example-app
+        #  l2: value
+        #annotations:
+        #  example.com/annotation: "value"
+        #  example.com/annotations2: "value2"
         serviceAccount: default
