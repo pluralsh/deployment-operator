@@ -14,6 +14,29 @@ edges:
 - from: dev
   to: prod
   gates:
-  - name: Approve
+  - name: example-gate
     type: job
-    
+    cluster: example-cluster
+    clusterId: cluster-1
+    spec:
+      job:
+        namespace: default
+        containers:
+          - image: alpine:3.7
+            args:
+              - /bin/sh
+              - -c
+              - echo "Hello, World!"
+            env:
+              - name: ENV_VAR_1
+                value: value1
+            envFrom:
+              - secret: my-secret
+                configMap: my-configmap
+        labels:
+          app: example-app
+          l2: value
+        annotations:
+          example.com/annotation: "value"
+          example.com/annotations2: "value2"
+        serviceAccount: default
