@@ -16,8 +16,8 @@ edges:
   gates:
   - name: example-gate
     type: job
-    cluster: example-cluster
-    clusterId: cluster-1
+    cluster: mgmt
+    clusterId: 3582ee4a-4c76-4428-a05a-ebfacf585880
     spec:
       job:
         namespace: default
