@@ -13,6 +13,8 @@ import (
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/kubectl/pkg/util/podutils"
@@ -723,4 +725,34 @@ func getAppsv1DaemonSetHealth(daemon *appsv1.DaemonSet) (*HealthStatus, error) {
 	return &HealthStatus{
 		Status: HealthStatusHealthy,
 	}, nil
+}
+
+type Status struct {
+	Conditions []metav1.Condition
+}
+
+const readyCondition = "Ready"
+
+func getOtherHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	sts := Status{}
+	status, ok := obj.Object["status"]
+	if ok {
+		s, ok := status.(map[string]interface{})
+		if ok {
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(s, &sts); err != nil {
+				return nil, nil
+			}
+			if meta.FindStatusCondition(sts.Conditions, readyCondition) != nil {
+				status := HealthStatusProgressing
+				if meta.IsStatusConditionTrue(sts.Conditions, readyCondition) {
+					status = HealthStatusHealthy
+				}
+				return &HealthStatus{
+					Status: status,
+				}, nil
+			}
+		}
+	}
+
+	return nil, nil
 }

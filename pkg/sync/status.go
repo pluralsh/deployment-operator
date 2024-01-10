@@ -106,7 +106,7 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 			return getHPAHealth
 		}
 	}
-	return nil
+	return getOtherHealth
 }
 
 func FormatSummary(namespace, name string, s stats.Stats) error {
