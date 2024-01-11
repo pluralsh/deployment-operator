@@ -145,7 +145,6 @@ func (engine *Engine) processItem(item interface{}) error {
 	// if changed, err := engine.DryRunStatus(id, svc.Name, svc.Namespace, ch, vcache); !changed || err != nil {
 	// 	return err
 	// }
-
 	options.DryRunStrategy = common.DryRunNone
 	ch := engine.applier.Run(ctx, inv, manifests, options)
 	return engine.UpdateApplyStatus(id, svc.Name, svc.Namespace, ch, false, vcache)

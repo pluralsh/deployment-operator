@@ -143,6 +143,14 @@ func (agent *Agent) SetupWithManager() error {
 	return nil
 }
 
+func (agent *Agent) GetLuaScript() string {
+	return agent.engine.GetLuaScript()
+}
+
+func (agent *Agent) SetLuaScript(script string) {
+	agent.engine.SetLuaScript(script)
+}
+
 func newFactory(cfg *rest.Config) util.Factory {
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
 	kubeConfigFlags.WithDiscoveryQPS(cfg.QPS).WithDiscoveryBurst(cfg.Burst)

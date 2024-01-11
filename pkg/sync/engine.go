@@ -28,6 +28,7 @@ type Engine struct {
 	destroyer         *apply.Destroyer
 	utilFactory       util.Factory
 	processingTimeout time.Duration
+	luaScript         string
 }
 
 func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *applier.Applier, destroyer *apply.Destroyer, client *client.Client, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache, manCache *manifests.ManifestCache, processingTimeout time.Duration) *Engine {
@@ -59,4 +60,12 @@ func (engine *Engine) RegisterHandlers() {}
 func (engine *Engine) WipeCache() {
 	engine.svcCache.Wipe()
 	engine.manifestCache.Wipe()
+}
+
+func (engine *Engine) GetLuaScript() string {
+	return engine.luaScript
+}
+
+func (engine *Engine) SetLuaScript(script string) {
+	engine.luaScript = script
 }

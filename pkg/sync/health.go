@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
+	"github.com/pluralsh/deployment-operator/pkg/lua"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -755,4 +756,19 @@ func getOtherHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	}
 
 	return nil, nil
+}
+
+func (engine *Engine) getLuaHealthConvert(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	out, err := lua.ExecuteLua(obj.Object, engine.luaScript)
+	if err != nil {
+		return nil, err
+	}
+	healthStatus := &HealthStatus{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(out, healthStatus); err != nil {
+		return nil, err
+	}
+	if healthStatus.Status == "" && healthStatus.Message == "" {
+		return nil, nil
+	}
+	return healthStatus, nil
 }
