@@ -1,0 +1,178 @@
+query Pipelines($first: Int = 50, $after: String) {
+  pipelines(first: $first, after: $after) {
+    edges {
+      cursor
+      node {
+        ...Pipeline
+        __typename
+      }
+      __typename
+    }
+    pageInfo {
+      ...PageInfo
+      __typename
+    }
+    __typename
+  }
+}
+fragment Pipeline on Pipeline {
+  id
+  name
+  insertedAt
+  updatedAt
+  edges {
+    ...PipelineStageEdge
+    __typename
+  }
+  stages {
+    ...PipelineStage
+    __typename
+  }
+  __typename
+}
+fragment PipelineStageEdge on PipelineStageEdge {
+  id
+  insertedAt
+  promotedAt
+  updatedAt
+  gates {
+    ...PipelineGate
+    __typename
+  }
+  from {
+    ...PipelineStage
+    __typename
+  }
+  to {
+    ...PipelineStage
+    __typename
+  }
+  __typename
+}
+fragment PipelineGate on PipelineGate {
+  id
+  name
+  state
+  type
+  approver {
+    ...User
+    __typename
+  }
+  insertedAt
+  updatedAt
+  __typename
+}
+fragment User on User {
+  id
+  pluralId
+  name
+  email
+  profile
+  backgroundColor
+  readTimestamp
+  roles {
+    admin
+    __typename
+  }
+  __typename
+}
+fragment PipelineStage on PipelineStage {
+  id
+  name
+  insertedAt
+  updatedAt
+  promotion {
+    ...PipelinePromotion
+    __typename
+  }
+  services {
+    ...StageService
+    __typename
+  }
+  __typename
+}
+fragment PipelinePromotion on PipelinePromotion {
+  id
+  services {
+    ...PromotionService
+    __typename
+  }
+  insertedAt
+  updatedAt
+  promotedAt
+  revisedAt
+  __typename
+}
+fragment PromotionService on PromotionService {
+  id
+  revision {
+    ...Revision
+    __typename
+  }
+  service {
+    ...PipelineServiceDeployment
+    __typename
+  }
+  insertedAt
+  updatedAt
+  __typename
+}
+fragment Revision on Revision {
+  id
+  git {
+    ref
+    folder
+    __typename
+  }
+  insertedAt
+  updatedAt
+  message
+  sha
+  version
+  __typename
+}
+fragment PipelineServiceDeployment on ServiceDeployment {
+  id
+  name
+  namespace
+  cluster {
+    id
+    name
+    __typename
+  }
+  status
+  componentStatus
+  __typename
+}
+fragment StageService on StageService {
+  id
+  criteria {
+    ...PromotionCriteria
+    __typename
+  }
+  insertedAt
+  updatedAt
+  service {
+    ...PipelineServiceDeployment
+    __typename
+  }
+  __typename
+}
+fragment PromotionCriteria on PromotionCriteria {
+  id
+  secrets
+  source {
+    ...PipelineServiceDeployment
+    __typename
+  }
+  insertedAt
+  updatedAt
+  __typename
+}
+fragment PageInfo on PageInfo {
+  hasNextPage
+  endCursor
+  hasPreviousPage
+  startCursor
+  __typename
+}
