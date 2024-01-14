@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -13,7 +14,9 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	generated "github.com/pluralsh/deployment-operator/generated/client/clientset/versioned"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
@@ -34,13 +37,20 @@ type Agent struct {
 	engine          *deploysync.Engine
 	deathChan       chan interface{}
 	svcQueue        workqueue.RateLimitingInterface
+	gateQueue       workqueue.RateLimitingInterface
 	socket          *websocket.Socket
 	refresh         time.Duration
 }
 
-func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
+func New(mgr manager.Manager, refresh, processingTimeout time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
+	config := mgr.GetConfig()
 	disableClientLimits(config)
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	ctrlClient := mgr.GetClient()
+	genClientset, err := generated.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +59,7 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	manifestCache := manifests.NewCache(refresh, deployToken)
 
 	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	gateQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	deathChan := make(chan interface{})
 	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
 
@@ -75,7 +86,8 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	if err != nil {
 		return nil, err
 	}
-	engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, svcQueue, svcCache, manifestCache, processingTimeout)
+	//engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, svcQueue, svcCache, manifestCache, processingTimeout)
+	engine := deploysync.New(f, invFactory, applier, destroyer, consoleClient, ctrlClient, genClientset, svcQueue, svcCache, manifestCache, processingTimeout, gateQueue)
 	engine.AddHealthCheck(deathChan)
 	if err := engine.WithConfig(config); err != nil {
 		return nil, err
@@ -90,6 +102,7 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 		engine:          engine,
 		deathChan:       deathChan,
 		svcQueue:        svcQueue,
+		gateQueue:       gateQueue,
 		socket:          socket,
 		refresh:         refresh,
 	}, nil
@@ -121,6 +134,31 @@ func (agent *Agent) Run() {
 		for _, svc := range svcs {
 			log.Info("sending update for", "service", svc.ID)
 			agent.svcQueue.Add(svc.ID)
+		}
+
+		log.Info("fetching gates for cluster")
+		gates, err := agent.consoleClient.GetClusterGates()
+		// log length of gates
+		log.Info("length of gates", "length", len(gates))
+		if err != nil {
+			log.Error(err, "failed to fetch gate list from deployments service")
+			return false, nil
+		}
+
+		// as opposed to the services, we add the whole gate to the queue
+		for _, gate := range gates {
+			log.Info("queuing in", "gate", gate.ID)
+			agent.gateQueue.Add(gate)
+		}
+
+		info, err := agent.discoveryClient.ServerVersion()
+		if err != nil {
+			log.Error(err, "failed to fetch cluster version")
+			return false, nil
+		}
+		vs := strings.Split(info.GitVersion, "-")
+		if err := agent.consoleClient.Ping(strings.TrimPrefix(vs[0], "v")); err != nil {
+			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
 
 		if err := agent.pinger.Ping(); err != nil {
