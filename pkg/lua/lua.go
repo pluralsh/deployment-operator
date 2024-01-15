@@ -44,7 +44,7 @@ func ExecuteLua(vals map[string]interface{}, tplate string) (map[string]interfac
 func GetFuncMap() template.FuncMap {
 	funcs := sprig.TxtFuncMap()
 	funcs["isStatusConditionTrue"] = isStatusConditionTrue
-	funcs["statusConditionExist"] = statusConditionExist
+	funcs["statusConditionExists"] = statusConditionExists
 	return funcs
 }
 
