@@ -10,7 +10,7 @@ type Status struct {
 	Conditions []metav1.Condition
 }
 
-func isStatusConditionExist(s map[string]interface{}, condition string) bool {
+func statusConditionExist(s map[string]interface{}, condition string) bool {
 	sts := Status{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(s, &sts); err != nil {
 		return false
