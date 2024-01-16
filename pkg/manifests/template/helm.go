@@ -170,14 +170,22 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 
 	manifests := strings.Split(rel.Manifest, "---")
 	for i, manifest := range manifests {
+		trim := strings.TrimSpace(manifest)
+		if trim == "" {
+			continue
+		}
+
 		var u unstructured.Unstructured
-		err := yaml.Unmarshal([]byte(strings.TrimSpace(manifest)), u)
+		err = yaml.Unmarshal([]byte(trim), &u)
 		if err != nil {
 			return nil, err
 		}
 
 		// Set recommended Helm labels. See: https://helm.sh/docs/chart_best_practices/labels/.
 		labels := u.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
 		labels[appManagedByLabel] = appManagedByHelm
 		if _, ok := labels["app.kubernetes.io/instance"]; !ok {
 			labels["app.kubernetes.io/instance"] = rel.Name
@@ -186,17 +194,20 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 			labels["app.kubernetes.io/name"] = rel.Chart.Name()
 		}
 		if _, ok := labels["helm.sh/chart"]; !ok && rel.Chart.Metadata != nil {
-			labels["helm.sh/chart"] = rel.Chart.Name() + "-" + rel.Chart.Metadata.Version
+			labels["helm.sh/chart"] = rel.Chart.Name() + "-" + strings.ReplaceAll(rel.Chart.Metadata.Version, "+", "_")
 		}
 		u.SetLabels(labels)
 
 		// Set the same annotations that would be set by Helm to add release tracking metadata to all resources.
 		annotations := u.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
 		annotations[helmReleaseNameAnnotation] = rel.Name
 		annotations[helmReleaseNamespaceAnnotation] = rel.Namespace
 		u.SetAnnotations(annotations)
 
-		updated, err := yaml.Marshal(u)
+		updated, err := yaml.Marshal(u.UnstructuredContent())
 		if err != nil {
 			return nil, err
 		}
@@ -204,7 +215,7 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 	}
 
 	var buffer bytes.Buffer
-	_, err = fmt.Fprintln(&buffer, strings.TrimSpace(strings.Join(manifests, "\n---\n")))
+	_, err = fmt.Fprintln(&buffer, strings.TrimSpace(strings.Join(manifests, "---\n")))
 	if err != nil {
 		return nil, err
 	}
