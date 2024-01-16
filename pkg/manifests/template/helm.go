@@ -23,6 +23,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/homedir"
@@ -30,6 +31,16 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/samber/lo"
+)
+
+const (
+	appNameLabel                   = "app.kubernetes.io/name"
+	appInstanceLabel               = "app.kubernetes.io/instance"
+	appManagedByLabel              = "app.kubernetes.io/managed-by"
+	appManagedByHelm               = "Helm"
+	helmChartLabel                 = "helm.sh/chart"
+	helmReleaseNameAnnotation      = "meta.helm.sh/release-name"
+	helmReleaseNamespaceAnnotation = "meta.helm.sh/release-namespace"
 )
 
 func init() {
@@ -82,18 +93,57 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 		}
 	}
 
-	out, err := h.templateHelm(config, svc.Name, svc.Namespace, values)
+	rel, err := h.templateHelm(config, svc.Name, svc.Namespace, values)
 	if err != nil {
 		return nil, err
 	}
 
-	r := bytes.NewReader(out)
+	var buffer bytes.Buffer
+	_, err = fmt.Fprintln(&buffer, strings.TrimSpace(rel.Manifest))
+	if err != nil {
+		return nil, err
+	}
+
+	r := bytes.NewReader(buffer.Bytes())
 	mapper, err := utilFactory.ToRESTMapper()
 	if err != nil {
 		return nil, err
 	}
 
-	return streamManifests(r, mapper, "helm", svc.Namespace)
+	manifests, err := streamManifests(r, mapper, "helm", svc.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, manifest := range manifests {
+		// Set recommended Helm labels. See: https://helm.sh/docs/chart_best_practices/labels/.
+		labels := manifest.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[appManagedByLabel] = appManagedByHelm
+		if _, ok := labels[appInstanceLabel]; !ok {
+			labels[appInstanceLabel] = rel.Name
+		}
+		if _, ok := labels[appNameLabel]; !ok {
+			labels[appNameLabel] = rel.Chart.Name()
+		}
+		if _, ok := labels[helmChartLabel]; !ok && rel.Chart.Metadata != nil {
+			labels[helmChartLabel] = rel.Chart.Name() + "-" + strings.ReplaceAll(rel.Chart.Metadata.Version, "+", "_")
+		}
+		manifest.SetLabels(labels)
+
+		// Set the same annotations that would be set by Helm to add release tracking metadata to all resources.
+		annotations := manifest.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations[helmReleaseNameAnnotation] = rel.Name
+		annotations[helmReleaseNamespaceAnnotation] = rel.Namespace
+		manifest.SetAnnotations(annotations)
+	}
+
+	return manifests, nil
 }
 
 func (h *helm) values(svc *console.ServiceDeploymentExtended) (map[string]interface{}, error) {
@@ -135,7 +185,7 @@ func (h *helm) valuesFile(svc *console.ServiceDeploymentExtended, filename strin
 	return currentMap, nil
 }
 
-func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, values map[string]interface{}) ([]byte, error) {
+func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, values map[string]interface{}) (*release.Release, error) {
 	// load chart from the path
 	chart, err := loader.Load(h.dir)
 	if err != nil {
@@ -156,16 +206,7 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 	}
 	client.KubeVersion = vsn
 
-	rel, err := client.Run(chart, values)
-	if err != nil {
-		return nil, err
-	}
-	var manifests bytes.Buffer
-	_, err = fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
-	if err != nil {
-		return nil, err
-	}
-	return manifests.Bytes(), nil
+	return client.Run(chart, values)
 }
 
 func GetActionConfig(namespace string) (*action.Configuration, error) {
