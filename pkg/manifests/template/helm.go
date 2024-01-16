@@ -32,6 +32,13 @@ import (
 	"github.com/samber/lo"
 )
 
+const (
+	appManagedByLabel              = "app.kubernetes.io/managed-by"
+	appManagedByHelm               = "Helm"
+	helmReleaseNameAnnotation      = "meta.helm.sh/release-name"
+	helmReleaseNamespaceAnnotation = "meta.helm.sh/release-namespace"
+)
+
 func init() {
 	EnableHelmDependencyUpdate = false
 
@@ -160,12 +167,49 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 	if err != nil {
 		return nil, err
 	}
-	var manifests bytes.Buffer
-	_, err = fmt.Fprintln(&manifests, strings.TrimSpace(rel.Manifest))
+
+	manifests := strings.Split(rel.Manifest, "---")
+	for i, manifest := range manifests {
+		var u unstructured.Unstructured
+		err := yaml.Unmarshal([]byte(strings.TrimSpace(manifest)), u)
+		if err != nil {
+			return nil, err
+		}
+
+		// Set recommended Helm labels. See: https://helm.sh/docs/chart_best_practices/labels/.
+		labels := u.GetLabels()
+		labels[appManagedByLabel] = appManagedByHelm
+		if _, ok := labels["app.kubernetes.io/instance"]; !ok {
+			labels["app.kubernetes.io/instance"] = rel.Name
+		}
+		if _, ok := labels["app.kubernetes.io/name"]; !ok {
+			labels["app.kubernetes.io/name"] = rel.Chart.Name()
+		}
+		if _, ok := labels["helm.sh/chart"]; !ok && rel.Chart.Metadata != nil {
+			labels["helm.sh/chart"] = rel.Chart.Name() + "-" + rel.Chart.Metadata.Version
+		}
+		u.SetLabels(labels)
+
+		// Set the same annotations that would be set by Helm to add release tracking metadata to all resources.
+		annotations := u.GetAnnotations()
+		annotations[helmReleaseNameAnnotation] = rel.Name
+		annotations[helmReleaseNamespaceAnnotation] = rel.Namespace
+		u.SetAnnotations(annotations)
+
+		updated, err := yaml.Marshal(u)
+		if err != nil {
+			return nil, err
+		}
+		manifests[i] = string(updated)
+	}
+
+	var buffer bytes.Buffer
+	_, err = fmt.Fprintln(&buffer, strings.TrimSpace(strings.Join(manifests, "\n---\n")))
 	if err != nil {
 		return nil, err
 	}
-	return manifests.Bytes(), nil
+
+	return buffer.Bytes(), nil
 }
 
 func GetActionConfig(namespace string) (*action.Configuration, error) {
