@@ -161,7 +161,12 @@ func (h *helm) values(svc *console.ServiceDeploymentExtended) (map[string]interf
 		}
 	}
 
-	return currentMap, nil
+	overrides, err := h.valuesFile(svc, "values.yaml.static")
+	if err != nil {
+		return currentMap, nil
+	}
+
+	return lo.Assign(currentMap, overrides), nil
 }
 
 func (h *helm) valuesFile(svc *console.ServiceDeploymentExtended, filename string) (map[string]interface{}, error) {
@@ -173,9 +178,11 @@ func (h *helm) valuesFile(svc *console.ServiceDeploymentExtended, filename strin
 			return nil, err
 		}
 
-		data, err = renderLiquid(data, svc)
-		if err != nil {
-			return nil, err
+		if strings.HasSuffix(filename, ".liquid") {
+			data, err = renderLiquid(data, svc)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if err := yaml.Unmarshal(data, &currentMap); err != nil {
 			return nil, errors.Wrapf(err, "failed to parse %s", filename)

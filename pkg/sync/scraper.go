@@ -2,7 +2,9 @@ package sync
 
 import (
 	"context"
+	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,12 +47,36 @@ func AddRuntimeServiceInfo(labels map[string]string, acc map[string]string) {
 
 	if vsn, ok := labels["app.kubernetes.io/version"]; ok {
 		if name, ok := labels["app.kubernetes.io/name"]; ok {
-			acc[name] = vsn
+			addVersion(acc, name, vsn)
 			return
 		}
 
 		if name, ok := labels["app.kubernetes.io/part-of"]; ok {
-			acc[name] = vsn
+			addVersion(acc, name, vsn)
 		}
+	}
+}
+
+func addVersion(services map[string]string, name, vsn string) {
+	old, ok := services[name]
+	if !ok {
+		services[name] = vsn
+		return
+	}
+
+	parsedOld, err := semver.NewVersion(strings.TrimPrefix(old, "v"))
+	if err != nil {
+		services[name] = vsn
+		return
+	}
+
+	parsedNew, err := semver.NewVersion(strings.TrimPrefix(vsn, "v"))
+	if err != nil {
+		services[name] = vsn
+		return
+	}
+
+	if parsedNew.LessThan(parsedOld) {
+		services[name] = vsn
 	}
 }
