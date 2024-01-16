@@ -33,8 +33,11 @@ import (
 )
 
 const (
+	appNameLabel                   = "app.kubernetes.io/name"
+	appInstanceLabel               = "app.kubernetes.io/instance"
 	appManagedByLabel              = "app.kubernetes.io/managed-by"
 	appManagedByHelm               = "Helm"
+	helmChartLabel                 = "helm.sh/chart"
 	helmReleaseNameAnnotation      = "meta.helm.sh/release-name"
 	helmReleaseNamespaceAnnotation = "meta.helm.sh/release-namespace"
 )
@@ -187,14 +190,14 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 			labels = make(map[string]string)
 		}
 		labels[appManagedByLabel] = appManagedByHelm
-		if _, ok := labels["app.kubernetes.io/instance"]; !ok {
-			labels["app.kubernetes.io/instance"] = rel.Name
+		if _, ok := labels[appInstanceLabel]; !ok {
+			labels[appInstanceLabel] = rel.Name
 		}
-		if _, ok := labels["app.kubernetes.io/name"]; !ok {
-			labels["app.kubernetes.io/name"] = rel.Chart.Name()
+		if _, ok := labels[appNameLabel]; !ok {
+			labels[appNameLabel] = rel.Chart.Name()
 		}
-		if _, ok := labels["helm.sh/chart"]; !ok && rel.Chart.Metadata != nil {
-			labels["helm.sh/chart"] = rel.Chart.Name() + "-" + strings.ReplaceAll(rel.Chart.Metadata.Version, "+", "_")
+		if _, ok := labels[helmChartLabel]; !ok && rel.Chart.Metadata != nil {
+			labels[helmChartLabel] = rel.Chart.Name() + "-" + strings.ReplaceAll(rel.Chart.Metadata.Version, "+", "_")
 		}
 		u.SetLabels(labels)
 
