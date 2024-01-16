@@ -30,25 +30,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// HealthConvertReconciler reconciles a LuaScript object
-type HealthConvertReconciler struct {
+// CustomHealthReconciler reconciles a LuaScript object
+type CustomHealthReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Agent  *agent.Agent
 }
 
-//+kubebuilder:rbac:groups=deployments.plural.sh,resources=healthconverts,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=deployments.plural.sh,resources=healthconverts/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=deployments.plural.sh,resources=healthconverts/finalizers,verbs=update
+//+kubebuilder:rbac:groups=deployments.plural.sh,resources=customhealths,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=deployments.plural.sh,resources=customhealths/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=deployments.plural.sh,resources=customhealths/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
-func (r *HealthConvertReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, reterr error) {
+func (r *CustomHealthReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, reterr error) {
 	logger := log.FromContext(ctx)
-	script := &v1alpha1.HealthConvert{}
+	script := &v1alpha1.CustomHealth{}
 	if err := r.Get(ctx, req.NamespacedName, script); err != nil {
 		logger.Error(err, "Unable to fetch LuaScript")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -74,8 +74,8 @@ func (r *HealthConvertReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HealthConvertReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CustomHealthReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.HealthConvert{}).
+		For(&v1alpha1.CustomHealth{}).
 		Complete(r)
 }

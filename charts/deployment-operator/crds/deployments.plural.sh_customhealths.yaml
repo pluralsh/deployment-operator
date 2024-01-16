@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: healthconverts.deployments.plural.sh
+  name: customhealths.deployments.plural.sh
 spec:
   group: deployments.plural.sh
   names:
-    kind: HealthConvert
-    listKind: HealthConvertList
-    plural: healthconverts
-    singular: healthconvert
+    kind: CustomHealth
+    listKind: CustomHealthList
+    plural: customhealths
+    singular: customhealth
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HealthConvert is the Schema for the HealthConverts API
+        description: CustomHealth is the Schema for the HealthConverts API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,13 +33,13 @@ spec:
           metadata:
             type: object
           spec:
-            description: HealthConvertSpec defines the desired state of HealthConvert
+            description: CustomHealthSpec defines the desired state of CustomHealth
             properties:
               script:
                 type: string
             type: object
           status:
-            description: HealthConvertStatus defines the observed state of HealthConvert
+            description: CustomHealthStatus defines the observed state of CustomHealth
             properties:
               conditions:
                 description: Represents the observations of a HealthConvert current

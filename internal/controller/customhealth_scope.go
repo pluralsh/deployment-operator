@@ -13,7 +13,7 @@ import (
 
 type LuaScriptScope struct {
 	Client        client.Client
-	HealthConvert *v1alpha1.HealthConvert
+	HealthConvert *v1alpha1.CustomHealth
 	ctx           context.Context
 }
 
@@ -22,7 +22,7 @@ func (p *LuaScriptScope) PatchObject() error {
 	key := client.ObjectKeyFromObject(p.HealthConvert)
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		oldScript := &v1alpha1.HealthConvert{}
+		oldScript := &v1alpha1.CustomHealth{}
 		if err := p.Client.Get(p.ctx, key, oldScript); err != nil {
 			return fmt.Errorf("could not fetch current %s/%s state, got error: %+v", oldScript.GetName(), oldScript.GetNamespace(), err)
 		}
@@ -36,7 +36,7 @@ func (p *LuaScriptScope) PatchObject() error {
 
 }
 
-func NewClusterScope(ctx context.Context, client client.Client, luaScript *v1alpha1.HealthConvert) (*LuaScriptScope, error) {
+func NewClusterScope(ctx context.Context, client client.Client, luaScript *v1alpha1.CustomHealth) (*LuaScriptScope, error) {
 	if luaScript == nil {
 		return nil, errors.New("failed to create new cluster scope, got nil cluster")
 	}

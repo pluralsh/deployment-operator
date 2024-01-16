@@ -21,13 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HealthConvertSpec defines the desired state of HealthConvert
-type HealthConvertSpec struct {
+// CustomHealthSpec defines the desired state of CustomHealth
+type CustomHealthSpec struct {
 	Script string `json:"script,omitempty"`
 }
 
-// HealthConvertStatus defines the observed state of HealthConvert
-type HealthConvertStatus struct {
+// CustomHealthStatus defines the observed state of CustomHealth
+type CustomHealthStatus struct {
 	// Represents the observations of a HealthConvert current state.
 	// +patchMergeKey=type
 	// +patchStrategy=merge
@@ -39,28 +39,28 @@ type HealthConvertStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// HealthConvert is the Schema for the HealthConverts API
-type HealthConvert struct {
+// CustomHealth is the Schema for the HealthConverts API
+type CustomHealth struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HealthConvertSpec   `json:"spec,omitempty"`
-	Status HealthConvertStatus `json:"status,omitempty"`
+	Spec   CustomHealthSpec   `json:"spec,omitempty"`
+	Status CustomHealthStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// HealthConvertList contains a list of HealthConvert
-type HealthConvertList struct {
+// CustomHealthList contains a list of CustomHealth
+type CustomHealthList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []HealthConvert `json:"items"`
+	Items           []CustomHealth `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&HealthConvert{}, &HealthConvertList{})
+	SchemeBuilder.Register(&CustomHealth{}, &CustomHealthList{})
 }
 
-func (c *HealthConvert) SetCondition(condition metav1.Condition) {
+func (c *CustomHealth) SetCondition(condition metav1.Condition) {
 	meta.SetStatusCondition(&c.Status.Conditions, condition)
 }
