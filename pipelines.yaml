@@ -5,7 +5,7 @@ stages:
   - name: mgmt/cd-demo
 - name: prod
   services:
-  - name: mgmt/cd-demo-2
+  - name: mgmt/cd-demo2
     criteria:
       source: mgmt/cd-demo
       secrets:
@@ -17,7 +17,7 @@ edges:
   - name: example-gate
     type: job
     cluster: mgmt
-    clusterId: 3582ee4a-4c76-4428-a05a-ebfacf585880
+    clusterId: 15909239-6fac-472d-934f-6c793933cd79
     spec:
       job:
         namespace: default
