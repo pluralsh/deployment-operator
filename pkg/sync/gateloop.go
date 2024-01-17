@@ -59,7 +59,7 @@ func (engine *Engine) processGate(item interface{}) error {
 	//3. if status is CLOSED, then do nothing, reconciliation will take care of clean up
 	//4. if status is PENDING, it has already been synced into the cluster, so do nothing
 	defer engine.gateQueue.Done(item)
-	gate, ok := item.(console.PipelineGateFragment)
+	gate, ok := item.(*console.PipelineGateFragment)
 	if !ok {
 		// handle if assertion fails (shouldn't happen)
 		err := fmt.Errorf("unexpected type: %T", item)
@@ -77,7 +77,7 @@ func (engine *Engine) processGate(item interface{}) error {
 
 	log.Info("syncing gate", "name", gate.Name)
 
-	if gate.Type == console.GateTypeJob {
+	if gate.Type != console.GateTypeJob {
 		log.Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
 	}
 
@@ -87,13 +87,24 @@ func (engine *Engine) processGate(item interface{}) error {
 	}
 
 	if gate.State == console.GateStatePending {
-		log.Info(fmt.Sprintf("gate is %s, so it should be already synced, skipping", gate.State), "Name", gate.Name, "ID", gate.ID)
+		//log.Info(fmt.Sprintf("gate is %s, so it should be already synced, skipping", gate.State), "Name", gate.Name, "ID", gate.ID)
+		gateCR, err := engine.client.ParsePipelineGateCR(gate)
+		if err != nil {
+			log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
+			return err
+		}
+		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates("")
+		_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
+		if err != nil {
+			log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
+			return err
+		}
 		return nil
 	}
 
 	if gate.State == console.GateStateClosed {
 		// parse a gate CR from the gate fragment
-		gateCR, err := engine.client.ParsePipelineGateCR(&gate)
+		gateCR, err := engine.client.ParsePipelineGateCR(gate)
 		if err != nil {
 			log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
 			return err
