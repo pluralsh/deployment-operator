@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"runtime/debug"
 	"time"
@@ -76,6 +77,11 @@ func (engine *Engine) processGate(item interface{}) error {
 	//}
 
 	log.Info("syncing gate", "name", gate.Name)
+	gateJSON, err := json.MarshalIndent(gate, "", "  ")
+	if err != nil {
+		log.Error(err, "failed to marshalindent gate")
+	}
+	fmt.Printf("gate json from API: \n %s\n", string(gateJSON))
 
 	if gate.Type != console.GateTypeJob {
 		log.Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
@@ -93,7 +99,13 @@ func (engine *Engine) processGate(item interface{}) error {
 			log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
 			return err
 		}
-		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates("")
+		gateCRJSON, err := json.MarshalIndent(gateCR, "", "  ")
+		if err != nil {
+			log.Error(err, "failed to marshalindent gateCR")
+		}
+		fmt.Printf("parsed gateCR json:\n %s\n", string(gateCRJSON))
+
+		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
 		_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
 		if err != nil {
 			log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
@@ -109,7 +121,7 @@ func (engine *Engine) processGate(item interface{}) error {
 			log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
 			return err
 		}
-		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates("")
+		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
 		_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
 		if err != nil {
 			log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
