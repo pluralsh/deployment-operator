@@ -8,6 +8,7 @@ import (
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
 	pipelinecontroller "github.com/pluralsh/deployment-operator/controllers/pipelines"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/sync"
@@ -107,9 +108,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&pipelinecontroller.PipelineGateReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("PipelineGate"),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		ConsoleClient: client.New(opt.consoleUrl, opt.deployToken),
+		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
+		Scheme:        mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Group")
 		os.Exit(1)
