@@ -8,6 +8,7 @@ import (
 	pipelinecontroller "github.com/pluralsh/deployment-operator/controllers/pipelines"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -91,9 +92,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&pipelinecontroller.PipelineGateReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("PipelineGate"),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		ConsoleClient: client.New(opt.consoleUrl, opt.deployToken),
+		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
+		Scheme:        mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Group")
 		os.Exit(1)

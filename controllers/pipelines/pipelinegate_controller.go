@@ -18,12 +18,16 @@ package pipelines
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
+	"encoding/json"
+
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
@@ -39,7 +43,7 @@ import (
 // PipelineGateReconciler reconciles a PipelineGate object
 type PipelineGateReconciler struct {
 	client.Client
-	consoleClient console.Client
+	ConsoleClient *consoleclient.Client
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
 }
@@ -99,7 +103,13 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		log.Info("Job failed", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
 		gateStateClosed := console.GateStateClosed
 		updateAttributes := console.GateUpdateAttributes{State: &gateStateClosed, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
-		r.consoleClient.UpdateGate(context.Background(), pipelineGateInstance.Spec.ID, updateAttributes)
+		gateJSON, err := json.MarshalIndent(updateAttributes, "", "  ")
+		if err != nil {
+			log.Error(err, "failed to marshalindent updateAttributes")
+		}
+		fmt.Printf("updateAttributes json from API: \n %s\n", string(gateJSON))
+
+		r.ConsoleClient.UpdateGate(pipelineGateInstance.Spec.ID, updateAttributes)
 		log.Info("Updated gate state at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStateClosed)
 		return ctrl.Result{}, nil
 	}
@@ -107,13 +117,25 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		log.Info("Job succeeded", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
 		gateStateOpen := console.GateStateOpen
 		updateAttributes := console.GateUpdateAttributes{State: &gateStateOpen, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
-		r.consoleClient.UpdateGate(context.Background(), pipelineGateInstance.Spec.ID, updateAttributes)
+		gateJSON, err := json.MarshalIndent(updateAttributes, "", "  ")
+		if err != nil {
+			log.Error(err, "failed to marshalindent updateAttributes")
+		}
+		fmt.Printf("updateAttributes json from API: \n %s\n", string(gateJSON))
+
+		r.ConsoleClient.UpdateGate(pipelineGateInstance.Spec.ID, updateAttributes)
 		log.Info("Updated gate state at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStateOpen)
 		return ctrl.Result{}, nil
 	}
 	gateStatePending := console.GateStatePending
 	updateAttributes := console.GateUpdateAttributes{State: &gateStatePending, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
-	r.consoleClient.UpdateGate(context.Background(), pipelineGateInstance.Spec.ID, updateAttributes)
+	gateJSON, err := json.MarshalIndent(updateAttributes, "", "  ")
+	if err != nil {
+		log.Error(err, "failed to marshalindent updateAttributes")
+	}
+	fmt.Printf("updateAttributes json from API: \n %s\n", string(gateJSON))
+
+	r.ConsoleClient.UpdateGate(pipelineGateInstance.Spec.ID, updateAttributes)
 	log.Info("Updated gate at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStatePending)
 
 	return ctrl.Result{}, nil
