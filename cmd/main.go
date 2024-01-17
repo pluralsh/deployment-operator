@@ -5,11 +5,15 @@ import (
 	"os"
 	"time"
 
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -20,6 +24,13 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = log.Logger
 )
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
+	utilruntime.Must(deploymentsv1alpha1.AddToScheme(scheme))
+	//+kubebuilder:scaffold:scheme
+}
 
 type controllerRunOptions struct {
 	enableLeaderElection bool
@@ -83,10 +94,6 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to create health check")
-		os.Exit(1)
-	}
 
 	a, err := agent.New(mgr.GetConfig(), refresh, pTimeout, opt.consoleUrl, opt.deployToken, opt.clusterId)
 	if err != nil {
@@ -95,6 +102,20 @@ func main() {
 	}
 	if err := a.SetupWithManager(); err != nil {
 		setupLog.Error(err, "unable to start agent")
+		os.Exit(1)
+	}
+
+	if err = (&controller.CustomHealthReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Agent:  a,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HealthConvert")
+	}
+	//+kubebuilder:scaffold:builder
+
+	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to create health check")
 		os.Exit(1)
 	}
 
