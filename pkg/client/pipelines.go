@@ -131,7 +131,8 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 				Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
 			},
 			Spec: corev1.PodSpec{
-				Containers: containersFromContainerSpecFragments(gateName, jsFragment.Containers),
+				Containers:    containersFromContainerSpecFragments(gateName, jsFragment.Containers),
+				RestartPolicy: corev1.RestartPolicyOnFailure,
 			},
 		},
 	}
