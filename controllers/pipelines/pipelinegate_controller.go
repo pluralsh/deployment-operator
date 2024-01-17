@@ -104,7 +104,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 	if succeeded, condition := hasSucceeded(reconciledJob); succeeded {
-		log.Info("Job succeded", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
+		log.Info("Job succeeded", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
 		gateStateOpen := console.GateStateOpen
 		updateAttributes := console.GateUpdateAttributes{State: &gateStateOpen, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
 		r.consoleClient.UpdateGate(context.Background(), pipelineGateInstance.Spec.ID, updateAttributes)
@@ -202,19 +202,19 @@ func (r *PipelineGateReconciler) generateJob(ctx context.Context, log logr.Logge
 
 func CopyJobFields(from, to *batchv1.Job, log logr.Logger) bool {
 	requireUpdate := false
-	for k, v := range to.Labels {
-		if from.Labels[k] != v {
-			log.V(1).Info("reconciling Job due to label change")
-			log.V(2).Info("difference in Job labels", "wanted", from.Labels, "existing", to.Labels)
-			requireUpdate = true
-		}
-	}
-	if len(to.Labels) == 0 && len(from.Labels) != 0 {
-		log.V(1).Info("reconciling Job due to label change")
-		log.V(2).Info("difference in Job labels", "wanted", from.Labels, "existing", to.Labels)
-		requireUpdate = true
-	}
-	to.Labels = from.Labels
+	//for k, v := range to.Labels {
+	//	if from.Labels[k] != v {
+	//		log.V(1).Info("reconciling Job due to label change")
+	//		log.V(2).Info("difference in Job labels", "wanted", from.Labels, "existing", to.Labels)
+	//		requireUpdate = true
+	//	}
+	//}
+	//if len(to.Labels) == 0 && len(from.Labels) != 0 {
+	//	log.V(1).Info("reconciling Job due to label change")
+	//	log.V(2).Info("difference in Job labels", "wanted", from.Labels, "existing", to.Labels)
+	//	requireUpdate = true
+	//}
+	//to.Labels = from.Labels
 
 	// for k, v := range to.Annotations {
 	// 	if from.Annotations[k] != v {
@@ -230,33 +230,33 @@ func CopyJobFields(from, to *batchv1.Job, log logr.Logger) bool {
 	// }
 	// to.Annotations = from.Annotations
 
-	for k, v := range to.Spec.Template.Labels {
-		if from.Spec.Template.Labels[k] != v {
-			log.V(1).Info("reconciling Job due to template label change")
-			log.V(2).Info("difference in Job template labels", "wanted", from.Spec.Template.Labels, "existing", to.Spec.Template.Labels)
-			requireUpdate = true
-		}
-	}
-	if len(to.Spec.Template.Labels) == 0 && len(from.Spec.Template.Labels) != 0 {
-		log.V(1).Info("reconciling Job due to template label change")
-		log.V(2).Info("difference in Job template labels", "wanted", from.Spec.Template.Labels, "existing", to.Spec.Template.Labels)
-		requireUpdate = true
-	}
-	to.Spec.Template.Labels = from.Spec.Template.Labels
+	//for k, v := range to.Spec.Template.Labels {
+	//	if from.Spec.Template.Labels[k] != v {
+	//		log.V(1).Info("reconciling Job due to template label change")
+	//		log.V(2).Info("difference in Job template labels", "wanted", from.Spec.Template.Labels, "existing", to.Spec.Template.Labels)
+	//		requireUpdate = true
+	//	}
+	//}
+	//if len(to.Spec.Template.Labels) == 0 && len(from.Spec.Template.Labels) != 0 {
+	//	log.V(1).Info("reconciling Job due to template label change")
+	//	log.V(2).Info("difference in Job template labels", "wanted", from.Spec.Template.Labels, "existing", to.Spec.Template.Labels)
+	//	requireUpdate = true
+	//}
+	//to.Spec.Template.Labels = from.Spec.Template.Labels
 
-	for k, v := range to.Spec.Template.Annotations {
-		if from.Spec.Template.Annotations[k] != v {
-			log.V(1).Info("reconciling Job due to template annotation change")
-			log.V(2).Info("difference in Job template annotations", "wanted", from.Spec.Template.Annotations, "existing", to.Spec.Template.Annotations)
-			requireUpdate = true
-		}
-	}
-	if len(to.Spec.Template.Annotations) == 0 && len(from.Spec.Template.Annotations) != 0 {
-		log.V(1).Info("reconciling Job due to template annotation change")
-		log.V(2).Info("difference in Job template annotations", "wanted", from.Spec.Template.Annotations, "existing", to.Spec.Template.Annotations)
-		requireUpdate = true
-	}
-	to.Spec.Template.Annotations = from.Spec.Template.Annotations
+	//for k, v := range to.Spec.Template.Annotations {
+	//	if from.Spec.Template.Annotations[k] != v {
+	//		log.V(1).Info("reconciling Job due to template annotation change")
+	//		log.V(2).Info("difference in Job template annotations", "wanted", from.Spec.Template.Annotations, "existing", to.Spec.Template.Annotations)
+	//		requireUpdate = true
+	//	}
+	//}
+	//if len(to.Spec.Template.Annotations) == 0 && len(from.Spec.Template.Annotations) != 0 {
+	//	log.V(1).Info("reconciling Job due to template annotation change")
+	//	log.V(2).Info("difference in Job template annotations", "wanted", from.Spec.Template.Annotations, "existing", to.Spec.Template.Annotations)
+	//	requireUpdate = true
+	//}
+	//to.Spec.Template.Annotations = from.Spec.Template.Annotations
 
 	if !reflect.DeepEqual(to.Spec.Template.Spec.Volumes, from.Spec.Template.Spec.Volumes) {
 		log.V(1).Info("reconciling Job due to volumes change")
