@@ -118,6 +118,14 @@ func (agent *Agent) Run() {
 			fmt.Printf("recovered from panic %v\n", failure)
 		}
 	}()
+	go func() {
+		for {
+			go agent.engine.GateControlLoop()
+			failure := <-agent.deathChan
+			fmt.Printf("recovered from panic %v\n", failure)
+		}
+
+	}()
 
 	err := wait.PollImmediateInfinite(agent.refresh, func() (done bool, err error) {
 		if err := agent.socket.Join(); err != nil {
