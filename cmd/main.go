@@ -4,7 +4,10 @@ import (
 	"os"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+	pipelinecontroller "github.com/pluralsh/deployment-operator/controllers/pipelines"
 	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/pkg/agent"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,6 +21,11 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = log.Logger
 )
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(pipelinesv1alpha1.AddToScheme(scheme))
+}
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -80,6 +88,14 @@ func main() {
 	}
 	if err := a.SetupWithManager(); err != nil {
 		setupLog.Error(err, "unable to start agent")
+		os.Exit(1)
+	}
+	if err = (&pipelinecontroller.PipelineGateReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("PipelineGate"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Group")
 		os.Exit(1)
 	}
 

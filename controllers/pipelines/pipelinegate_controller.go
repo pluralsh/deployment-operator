@@ -60,7 +60,7 @@ type PipelineGateReconciler struct {
 func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	log := r.Log.WithValues("workspace", req.NamespacedName)
+	log := r.Log.WithValues("PipelineGate", req.NamespacedName)
 
 	pipelineGateInstance := &pipelinesv1alpha1.PipelineGate{}
 
