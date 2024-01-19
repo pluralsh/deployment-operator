@@ -3,6 +3,7 @@ module github.com/pluralsh/deployment-operator
 go 1.21
 
 require (
+	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fluxcd/flagger v1.35.0
@@ -44,7 +45,6 @@ require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Masterminds/squirrel v1.5.3 // indirect
 	github.com/Yamashou/gqlgenc v0.14.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
