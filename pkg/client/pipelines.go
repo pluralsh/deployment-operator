@@ -35,10 +35,8 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			APIVersion: "pipelines/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: pgFragment.Name,
-			// the pipelinegate shoudl probably include a namespace otherwise this will fail unless it's a job gate
+			Name:      pgFragment.Name + "-" + pgFragment.ID,
 			Namespace: pgFragment.Spec.Job.Namespace,
-			// You may set other metadata fields as needed (namespace, labels, annotations)
 		},
 		Spec: pipelinesv1alpha1.PipelineGateSpec{
 			ID:       pgFragment.ID,
@@ -63,7 +61,7 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 				APIVersion: "pipelines/v1alpha1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      job.Name,
+				Name:      pgFragment.Name + "-" + pgFragment.ID,
 				Namespace: job.Namespace,
 			},
 			Spec: pipelinesv1alpha1.PipelineGateSpec{
