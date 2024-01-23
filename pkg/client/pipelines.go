@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 
 	console "github.com/pluralsh/console-client-go"
@@ -28,6 +29,13 @@ func (c *Client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
 func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
 	// Create a PipelineGate instance
 
+	gateJSON, err := json.MarshalIndent(pgFragment, "", "  ")
+	if err != nil {
+		fmt.Printf("failed to parse gate fragment in ParsePipelineGateCR")
+	}
+	fmt.Printf("gate fragment to parse: \n %s\n", string(gateJSON))
+
+	// print the object meta of the
 	//pipelineGate := &pipelinesv1alpha1.PipelineGate{}
 	pipelineGate := &pipelinesv1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
@@ -48,33 +56,39 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			State: pipelinesv1alpha1.GateState(pgFragment.State),
 		},
 	}
-
-	if pgFragment.Spec != nil && pgFragment.Spec.Job != nil && pgFragment.Spec.Job.Raw != nil {
-		job, err := jobFromYaml(*pgFragment.Spec.Job.Raw)
-		if err != nil {
-			return nil, err
-		}
-		// from schema.graphql: "a raw kubernetes job resource, overrides any other configuration"
-		pipelineGate = &pipelinesv1alpha1.PipelineGate{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "PipelineGate",
-				APIVersion: "pipelines/v1alpha1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      pgFragment.Name + "-" + pgFragment.ID,
-				Namespace: job.Namespace,
-			},
-			Spec: pipelinesv1alpha1.PipelineGateSpec{
-				ID:       pgFragment.ID,
-				Name:     pgFragment.Name,
-				Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
-				GateSpec: &pipelinesv1alpha1.GateSpec{JobSpec: &job.Spec},
-			},
-			Status: pipelinesv1alpha1.PipelineGateStatus{
-				State: pipelinesv1alpha1.GateState(pgFragment.State),
-			},
-		}
+	gateCRJSON, err := json.MarshalIndent(pipelineGate, "", "  ")
+	if err != nil {
+		fmt.Printf("failed to parse gate cr in ParsePipelineGateCR")
 	}
+	fmt.Printf("parsed gate CR in ParsePipelineGateCR: \n %s\n", string(gateCRJSON))
+
+	//if pgFragment.Spec != nil && pgFragment.Spec.Job != nil && pgFragment.Spec.Job.Raw != nil {
+	//	fmt.Println("gate cr from raw job string")
+	//	job, err := jobFromYaml(*pgFragment.Spec.Job.Raw)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	// from schema.graphql: "a raw kubernetes job resource, overrides any other configuration"
+	//	pipelineGate = &pipelinesv1alpha1.PipelineGate{
+	//		TypeMeta: metav1.TypeMeta{
+	//			Kind:       "PipelineGate",
+	//			APIVersion: "pipelines/v1alpha1",
+	//		},
+	//		ObjectMeta: metav1.ObjectMeta{
+	//			Name:      pgFragment.Name + "-" + pgFragment.ID,
+	//			Namespace: job.Namespace,
+	//		},
+	//		Spec: pipelinesv1alpha1.PipelineGateSpec{
+	//			ID:       pgFragment.ID,
+	//			Name:     pgFragment.Name,
+	//			Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
+	//			GateSpec: &pipelinesv1alpha1.GateSpec{JobSpec: &job.Spec},
+	//		},
+	//		Status: pipelinesv1alpha1.PipelineGateStatus{
+	//			State: pipelinesv1alpha1.GateState(pgFragment.State),
+	//		},
+	//	}
+	//}
 
 	return pipelineGate, nil
 
@@ -111,12 +125,19 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	if jsFragment == nil {
 		return nil
 	}
-	if jsFragment.Raw != nil {
+	if jsFragment.Raw != nil && *jsFragment.Raw != "null" {
+		fmt.Printf("existing raw job spec\n %s\n", *jsFragment.Raw)
 		job, err := jobFromYaml(*jsFragment.Raw)
 		// TODO: handle error
 		if err != nil {
 			return nil
 		}
+		jobspecJSON, err := json.MarshalIndent(job, "", "  ")
+		if err != nil {
+			fmt.Printf("failed to marshall raw jobspecJSON")
+		}
+		fmt.Printf("parsed raw jobspec: \n %s\n", string(jobspecJSON))
+
 		return &job.Spec
 	}
 	jobSpec := &batchv1.JobSpec{
@@ -134,6 +155,12 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 			},
 		},
 	}
+	jobspecJSON, err := json.MarshalIndent(jobSpec, "", "  ")
+	if err != nil {
+		fmt.Printf("failed to marshall jobspecJSON")
+	}
+	fmt.Printf("parsed jobspec: \n %s\n", string(jobspecJSON))
+
 	return jobSpec
 }
 
