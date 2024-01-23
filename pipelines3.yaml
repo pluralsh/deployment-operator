@@ -20,14 +20,18 @@ edges:
     clusterId: 15909239-6fac-472d-934f-6c793933cd79
     spec:
       job:
-        namespace: defaul
-        containers:
-          - image: alpine:3.7
-            args:
-              - /bin/sh
-              - -c
-              - echo "Hello, cruel World!"; exit 1
-            env:
-              - name: ENV_VAR_1
-                value: value1
-        serviceAccount: default
+        raw:
+          template:
+            spec:
+              serviceAccountName: default
+              containers:
+              - name: example-gate3
+                image: alpine:3.7
+                args:
+                - /bin/sh
+                - -c
+                - echo "Hello, cruel World!"; exit 1
+                env:
+                - name: ENV_VAR_1
+                  value: value1
+              restartPolicy: Never
