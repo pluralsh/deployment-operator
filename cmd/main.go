@@ -5,8 +5,10 @@ import (
 	"os"
 	"time"
 
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
 	pipelinecontroller "github.com/pluralsh/deployment-operator/controllers/pipelines"
+	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -29,6 +31,9 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(pipelinesv1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(deploymentsv1alpha1.AddToScheme(scheme))
+	//+kubebuilder:scaffold:scheme
 }
 
 type controllerRunOptions struct {
@@ -93,10 +98,6 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to create health check")
-		os.Exit(1)
-	}
 
 	a, err := agent.New(mgr, refresh, pTimeout, opt.consoleUrl, opt.deployToken, opt.clusterId)
 	if err != nil {
@@ -114,6 +115,20 @@ func main() {
 		Scheme:        mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Group")
+		os.Exit(1)
+	}
+
+	if err = (&controller.CustomHealthReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Agent:  a,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HealthConvert")
+	}
+	//+kubebuilder:scaffold:builder
+
+	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to create health check")
 		os.Exit(1)
 	}
 

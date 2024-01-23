@@ -3,11 +3,13 @@ module github.com/pluralsh/deployment-operator
 go 1.21
 
 require (
+	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fluxcd/flagger v1.35.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/gofrs/flock v0.8.1
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.27.10
 	github.com/orcaman/concurrent-map/v2 v2.0.1
@@ -19,6 +21,7 @@ require (
 	github.com/samber/lo v1.38.1
 	github.com/spf13/pflag v1.0.5
 	github.com/vektra/mockery/v2 v2.39.0
+	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.26.0
 	helm.sh/helm/v3 v3.11.2
 	k8s.io/api v0.27.7
@@ -27,6 +30,7 @@ require (
 	k8s.io/client-go v0.27.7
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubectl v0.26.0
+	layeh.com/gopher-luar v1.0.11
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.15.3
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20231215020716-1b80b9629af8
@@ -41,7 +45,6 @@ require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Masterminds/squirrel v1.5.3 // indirect
 	github.com/Yamashou/gqlgenc v0.14.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
@@ -122,7 +125,6 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect

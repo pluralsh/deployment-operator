@@ -42,7 +42,7 @@ type HealthStatus struct {
 }
 
 // GetResourceHealth returns the health of a k8s resource
-func getResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, err error) {
+func (engine *Engine) getResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, err error) {
 	if obj.GetDeletionTimestamp() != nil {
 		return &HealthStatus{
 			Status:  HealthStatusProgressing,
@@ -50,7 +50,7 @@ func getResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, er
 		}, nil
 	}
 
-	if healthCheck := GetHealthCheckFunc(obj.GroupVersionKind()); healthCheck != nil {
+	if healthCheck := engine.GetHealthCheckFunc(obj.GroupVersionKind()); healthCheck != nil {
 		if health, err = healthCheck(obj); err != nil {
 			health = &HealthStatus{
 				Status:  HealthStatusUnknown,
@@ -63,7 +63,7 @@ func getResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, er
 }
 
 // GetHealthCheckFunc returns built-in health check function or nil if health check is not supported
-func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
+func (engine *Engine) GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	switch gvk.Group {
 	case "apps":
 		switch gvk.Kind {
@@ -106,6 +106,11 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 			return getHPAHealth
 		}
 	}
+
+	if engine.GetLuaScript() != "" {
+		return engine.getLuaHealthConvert
+	}
+
 	return getOtherHealth
 }
 
@@ -138,6 +143,7 @@ func (engine *Engine) UpdatePruneStatus(id, name, namespace string, ch <-chan ev
 	var err error
 	statusCollector := &StatusCollector{
 		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
+		engine:       engine,
 	}
 
 	for e := range ch {
@@ -208,6 +214,7 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 	var err error
 	statusCollector := &StatusCollector{
 		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
+		engine:       engine,
 	}
 
 	for e := range ch {
@@ -266,7 +273,7 @@ func (engine *Engine) UpdateApplyStatus(id, name, namespace string, ch <-chan ev
 	return nil
 }
 
-func fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
+func (engine *Engine) fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
@@ -289,12 +296,12 @@ func fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string) 
 		Name:      e.Resource.GetName(),
 		Version:   version,
 		Synced:    e.PollResourceInfo.Status == status.CurrentStatus,
-		State:     toStatus(e.Resource),
+		State:     engine.toStatus(e.Resource),
 	}
 }
 
-func toStatus(obj *unstructured.Unstructured) *console.ComponentState {
-	h, _ := getResourceHealth(obj)
+func (engine *Engine) toStatus(obj *unstructured.Unstructured) *console.ComponentState {
+	h, _ := engine.getResourceHealth(obj)
 	if h == nil {
 		return nil
 	}
@@ -340,6 +347,7 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 
 type StatusCollector struct {
 	latestStatus map[object.ObjMetadata]event.StatusEvent
+	engine       *Engine
 }
 
 func (sc *StatusCollector) updateStatus(id object.ObjMetadata, se event.StatusEvent) {
@@ -349,7 +357,7 @@ func (sc *StatusCollector) updateStatus(id object.ObjMetadata, se event.StatusEv
 func (sc *StatusCollector) Components(vcache map[manifests.GroupName]string) []*console.ComponentAttributes {
 	components := []*console.ComponentAttributes{}
 	for _, v := range sc.latestStatus {
-		consoleAttr := fromSyncResult(v, vcache)
+		consoleAttr := sc.engine.fromSyncResult(v, vcache)
 		if consoleAttr != nil {
 			components = append(components, consoleAttr)
 		}

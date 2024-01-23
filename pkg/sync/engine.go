@@ -34,6 +34,7 @@ type Engine struct {
 	utilFactory       util.Factory
 	processingTimeout time.Duration
 	gateQueue         workqueue.RateLimitingInterface
+	luaScript         string
 }
 
 func New(
@@ -81,4 +82,12 @@ func (engine *Engine) RegisterHandlers() {}
 func (engine *Engine) WipeCache() {
 	engine.svcCache.Wipe()
 	engine.manifestCache.Wipe()
+}
+
+func (engine *Engine) GetLuaScript() string {
+	return engine.luaScript
+}
+
+func (engine *Engine) SetLuaScript(script string) {
+	engine.luaScript = script
 }
