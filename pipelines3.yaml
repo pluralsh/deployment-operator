@@ -20,6 +20,7 @@ edges:
     clusterId: 15909239-6fac-472d-934f-6c793933cd79
     spec:
       job:
+        namespace: default
         raw:
           template:
             spec:
