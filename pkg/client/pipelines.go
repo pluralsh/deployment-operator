@@ -27,7 +27,6 @@ func (c *Client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
 }
 
 func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
-	// Create a PipelineGate instance
 
 	gateJSON, err := json.MarshalIndent(pgFragment, "", "  ")
 	if err != nil {
@@ -35,8 +34,6 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 	}
 	fmt.Printf("gate fragment to parse: \n %s\n", string(gateJSON))
 
-	// print the object meta of the
-	//pipelineGate := &pipelinesv1alpha1.PipelineGate{}
 	pipelineGate := &pipelinesv1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PipelineGate",
@@ -53,7 +50,8 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
 		},
 		Status: pipelinesv1alpha1.PipelineGateStatus{
-			State: pipelinesv1alpha1.GateState(pgFragment.State),
+			State:  pipelinesv1alpha1.GateState(pgFragment.State),
+			JobRef: nil,
 		},
 	}
 	gateCRJSON, err := json.MarshalIndent(pipelineGate, "", "  ")
@@ -62,36 +60,7 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 	}
 	fmt.Printf("parsed gate CR in ParsePipelineGateCR: \n %s\n", string(gateCRJSON))
 
-	//if pgFragment.Spec != nil && pgFragment.Spec.Job != nil && pgFragment.Spec.Job.Raw != nil {
-	//	fmt.Println("gate cr from raw job string")
-	//	job, err := jobFromYaml(*pgFragment.Spec.Job.Raw)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	// from schema.graphql: "a raw kubernetes job resource, overrides any other configuration"
-	//	pipelineGate = &pipelinesv1alpha1.PipelineGate{
-	//		TypeMeta: metav1.TypeMeta{
-	//			Kind:       "PipelineGate",
-	//			APIVersion: "pipelines/v1alpha1",
-	//		},
-	//		ObjectMeta: metav1.ObjectMeta{
-	//			Name:      pgFragment.Name + "-" + pgFragment.ID,
-	//			Namespace: job.Namespace,
-	//		},
-	//		Spec: pipelinesv1alpha1.PipelineGateSpec{
-	//			ID:       pgFragment.ID,
-	//			Name:     pgFragment.Name,
-	//			Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
-	//			GateSpec: &pipelinesv1alpha1.GateSpec{JobSpec: &job.Spec},
-	//		},
-	//		Status: pipelinesv1alpha1.PipelineGateStatus{
-	//			State: pipelinesv1alpha1.GateState(pgFragment.State),
-	//		},
-	//	}
-	//}
-
 	return pipelineGate, nil
-
 }
 
 func jobFromYaml(yamlString string) (*batchv1.Job, error) {
