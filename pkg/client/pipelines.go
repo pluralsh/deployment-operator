@@ -43,12 +43,12 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			APIVersion: "pipelines/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pgFragment.Name + "-" + pgFragment.ID,
+			Name:      pgFragment.Name, // + "-" + pgFragment.ID,
 			Namespace: pgFragment.Spec.Job.Namespace,
 		},
 		Spec: pipelinesv1alpha1.PipelineGateSpec{
 			ID:       pgFragment.ID,
-			Name:     pgFragment.Name + "-" + pgFragment.ID,
+			Name:     pgFragment.Name, // + "-" + pgFragment.ID,
 			Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
 			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
 		},
@@ -155,6 +155,13 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 			},
 		},
 	}
+	// Add the gatename annotation
+	if jobSpec.Template.ObjectMeta.Annotations == nil {
+		jobSpec.Template.ObjectMeta.Annotations = make(map[string]string)
+	}
+	gateNameAnnotationKey := pipelinesv1alpha1.GroupVersion.Group + "/gatename"
+	jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
+
 	jobspecJSON, err := json.MarshalIndent(jobSpec, "", "  ")
 	if err != nil {
 		fmt.Printf("failed to marshall jobspecJSON")

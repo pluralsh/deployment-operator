@@ -1,0 +1,29 @@
+{
+    "template": {
+        "metadata": {
+            "creationTimestamp": null
+        },
+        "spec": {
+            "containers": [
+                {
+                    "name": "example-gate3",
+                    "image": "alpine:3.7",
+                    "args": [
+                        "/bin/sh",
+                        "-c",
+                        "echo \"Hello, cruel World!\"; exit 1"
+                    ],
+                    "env": [
+                        {
+                            "name": "ENV_VAR_1",
+                            "value": "value1"
+                        }
+                    ],
+                    "resources": {}
+                }
+            ],
+            "restartPolicy": "Never",
+            "serviceAccountName": "default"
+        }
+    }
+}
