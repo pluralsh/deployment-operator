@@ -46,7 +46,8 @@ type PipelineGate struct {
 
 // PipelineGateStatus defines the observed state of the PipelineGate
 type PipelineGateStatus struct {
-	State GateState `json:"state"`
+	State  GateState `json:"state"`
+	JobRef *string   `json:"jobRef,omitempty"`
 }
 
 // PipelineGateSpec defines the detailed gate specifications
