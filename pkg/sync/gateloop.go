@@ -8,6 +8,9 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+	"github.com/pluralsh/deployment-operator/generated/client/clientset/versioned"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -87,52 +90,70 @@ func (engine *Engine) processGate(item interface{}) error {
 		log.Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
 	}
 
-	if gate.State == console.GateStateOpen {
-		log.Info(fmt.Sprintf("gate is %s, skipping", gate.State), "Name", gate.Name, "ID", gate.ID)
-		return nil
+	//if gate.State == console.GateStateOpen {
+	//	log.Info(fmt.Sprintf("gate is %s, skipping", gate.State), "Name", gate.Name, "ID", gate.ID)
+	//	return nil
+	//}
+	gateCR, err := engine.client.ParsePipelineGateCR(gate)
+	if err != nil {
+		log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
+		return err
 	}
-
-	if gate.State == console.GateStatePending {
-		//log.Info(fmt.Sprintf("gate is %s, so it should be already synced, skipping", gate.State), "Name", gate.Name, "ID", gate.ID)
-		gateCR, err := engine.client.ParsePipelineGateCR(gate)
-		if err != nil {
-			log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
-			return err
-		}
-		gateCRJSON, err := json.MarshalIndent(gateCR, "", "  ")
-		if err != nil {
-			log.Error(err, "failed to marshalindent gateCR")
-		}
-		fmt.Printf("parsed gateCR json:\n %s\n", string(gateCRJSON))
-
-		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
-		_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
-		if err != nil {
-			log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
-			return err
-		}
-		return nil
+	gateCRJSON, err := json.MarshalIndent(gateCR, "", "  ")
+	if err != nil {
+		log.Error(err, "failed to marshalindent gateCR")
 	}
+	fmt.Printf("parsed gateCR json:\n %s\n", string(gateCRJSON))
+	updateOrCreatePipelineGate(engine.genClientset, gateCR, gate)
 
-	if gate.State == console.GateStateClosed {
-		// parse a gate CR from the gate fragment
-		gateCR, err := engine.client.ParsePipelineGateCR(gate)
-		if err != nil {
-			log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
+	//if gate.State == console.GateStatePending || gate.State == console.GateStateClosed {
+	//	gateCR, err := engine.client.ParsePipelineGateCR(gate)
+	//	if err != nil {
+	//		log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
+	//		return err
+	//	}
+	//	gateCRJSON, err := json.MarshalIndent(gateCR, "", "  ")
+	//	if err != nil {
+	//		log.Error(err, "failed to marshalindent gateCR")
+	//	}
+	//	fmt.Printf("parsed gateCR json:\n %s\n", string(gateCRJSON))
+	//	updateOrCreatePipelineGate(engine.genClientset, gateCR, gate)
+	//	return nil
+	//}
+
+	//if gate.State == console.GateStateClosed {
+	//	// parse a gate CR from the gate fragment
+	//	gateCR, err := engine.client.ParsePipelineGateCR(gate)
+	//	if err != nil {
+	//		log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
+	//		return err
+	//	}
+	//	updateOrCreatePipelineGate(engine.genClientset, gateCR, gate)
+	//	log.Info("gate synced", "Name", gate.Name, "ID", gate.ID)
+	//	//gateState := console.GateStatePending
+	//	//// TODO: add job ref, if it exists, but at this point it most likely doesn't because it hasn't been reconcilced yet
+	//	//log.Info("update gate state in console", "Name", gate.Name, "ID", gate.ID)
+	//	//// TODO: actually get the job ref, but it could be that the gate has no job ref
+	//	//engine.client.UpdateGate(gate.ID, console.GateUpdateAttributes{State: &gateState, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: gateCreated.Name, Namespace: gateCreated.Namespace}}})
+	//}
+	return nil
+}
+
+func updateOrCreatePipelineGate(clientset *versioned.Clientset, gateCR *pipelinesv1alpha1.PipelineGate, gate *console.PipelineGateFragment) error {
+	pgClient := clientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
+	_, err := pgClient.Update(context.Background(), gateCR, metav1.UpdateOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// If the PipelineGate doesn't exist, create it.
+			_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
+			if err != nil {
+				log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
+				return err
+			}
+		} else {
+			log.Error(err, "failed to update gate", "Name", gate.Name, "ID", gate.ID)
 			return err
 		}
-		pgClient := engine.genClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
-		_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
-		if err != nil {
-			log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
-			return err
-		}
-		log.Info("gate synced", "Name", gate.Name, "ID", gate.ID)
-		//gateState := console.GateStatePending
-		//// TODO: add job ref, if it exists, but at this point it most likely doesn't because it hasn't been reconcilced yet
-		//log.Info("update gate state in console", "Name", gate.Name, "ID", gate.ID)
-		//// TODO: actually get the job ref, but it could be that the gate has no job ref
-		//engine.client.UpdateGate(gate.ID, console.GateUpdateAttributes{State: &gateState, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: gateCreated.Name, Namespace: gateCreated.Namespace}}})
 	}
 	return nil
 }
