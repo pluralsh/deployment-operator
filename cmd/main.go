@@ -115,8 +115,6 @@ func main() {
 			ConsoleClient:   a.ConsoleClient,
 			DiscoveryClient: a.DiscoveryClient,
 			Engine:          a.Engine,
-			SvcQueue:        a.SvcQueue,
-			Refresh:         refresh,
 		},
 		Queue:            a.SvcQueue,
 		CacheSyncTimeout: pTimeout,

@@ -16,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
@@ -46,8 +45,6 @@ type ServiceReconciler struct {
 	ConsoleClient   *client.Client
 	DiscoveryClient *discovery.DiscoveryClient
 	Engine          *deploysync.Engine
-	SvcQueue        workqueue.RateLimitingInterface
-	Refresh         time.Duration
 }
 
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
