@@ -8,7 +8,7 @@ rules:
 - apiGroups:
   - deployments.plural.sh
   resources:
-  - healthconverts
+  - customhealths
   verbs:
   - create
   - delete
@@ -20,13 +20,39 @@ rules:
 - apiGroups:
   - deployments.plural.sh
   resources:
-  - healthconverts/finalizers
+  - customhealths/finalizers
   verbs:
   - update
 - apiGroups:
   - deployments.plural.sh
   resources:
-  - healthconverts/status
+  - customhealths/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - pipelines.plural.sh
+  resources:
+  - pipelinegates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pipelines.plural.sh
+  resources:
+  - pipelinegates/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - pipelines.plural.sh
+  resources:
+  - pipelinegates/status
   verbs:
   - get
   - patch

@@ -46,16 +46,18 @@ type PipelineGate struct {
 
 // PipelineGateStatus defines the observed state of the PipelineGate
 type PipelineGateStatus struct {
-	State  GateState `json:"state"`
-	JobRef *string   `json:"jobRef,omitempty"`
+	State        GateState  `json:"state"`
+	LastReported *GateState `json:"lastReported"`
+	JobRef       *string    `json:"jobRef,omitempty"`
 }
 
 // PipelineGateSpec defines the detailed gate specifications
 type PipelineGateSpec struct {
-	ID       string    `json:"id"`
-	Name     string    `json:"name"`
-	Type     GateType  `json:"type"`
-	GateSpec *GateSpec `json:"gateSpec,omitempty"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Type        GateType  `json:"type"`
+	SyncedState GateState `json:"syncedState"`
+	GateSpec    *GateSpec `json:"gateSpec,omitempty"`
 }
 
 // GateSpec defines the detailed gate specifications
