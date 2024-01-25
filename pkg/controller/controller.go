@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -44,9 +43,6 @@ type Controller struct {
 	// mu is used to synchronize Controller setup
 	mu sync.Mutex
 
-	// Started is true if the Controller has been Started
-	Started bool
-
 	// ctx is the context that was passed to Start() and used when starting watches.
 	//
 	// According to the docs, contexts should not be stored in a struct: https://golang.org/pkg/context,
@@ -82,20 +78,23 @@ func (c *Controller) Reconcile(ctx context.Context, req string) (_ reconcile.Res
 	return c.Do.Reconcile(ctx, req)
 }
 
+func (c *Controller) SetupWithManager(manager *ControllerManager) {
+	c.MaxConcurrentReconciles = manager.MaxConcurrentReconciles
+	c.CacheSyncTimeout = manager.CacheSyncTimeout
+	c.RecoverPanic = manager.RecoverPanic
+}
+
 // Start implements controller.Controller.
-func (c *Controller) Start(ctx context.Context) error {
+func (c *Controller) Start(ctx context.Context) {
 	// use an IIFE to get proper lock handling
 	// but lock outside to get proper handling of the queue shutdown
 	c.mu.Lock()
-	if c.Started {
-		return errors.New("controller was started more than once. This is likely to be caused by being added to a manager multiple times")
-	}
 
 	// Set the internal context.
 	c.ctx = ctx
 
 	wg := &sync.WaitGroup{}
-	err := func() error {
+	func() {
 		defer c.mu.Unlock()
 		defer utilruntime.HandleCrash()
 
@@ -109,17 +108,10 @@ func (c *Controller) Start(ctx context.Context) error {
 				}
 			}()
 		}
-
-		c.Started = true
-		return nil
 	}()
-	if err != nil {
-		return err
-	}
 
 	<-ctx.Done()
 	wg.Wait()
-	return nil
 }
 
 // processNextWorkItem will read a single work item off the workqueue and

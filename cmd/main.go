@@ -108,25 +108,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	svcController := svccontroller.Controller{
-		Name:                    "Service Controller",
-		MaxConcurrentReconciles: 10,
+	controllerManager := svccontroller.NewControllerManager(10, pTimeout, lo.ToPtr(true))
+
+	controllerManager.AddController(&svccontroller.Controller{
+		Name: "Service Controller",
 		Do: &service.ServiceReconciler{
 			ConsoleClient:   a.ConsoleClient,
 			DiscoveryClient: a.DiscoveryClient,
 			Engine:          a.Engine,
 		},
-		Queue:            a.SvcQueue,
-		CacheSyncTimeout: pTimeout,
-		RecoverPanic:     lo.ToPtr(true),
+		Queue: a.SvcQueue,
+	})
+
+	if err = controllerManager.Start(); err != nil {
+		setupLog.Error(err, "unable to start controller manager")
+		os.Exit(1)
 	}
-	go func() {
-		err := svcController.Start(ctx)
-		if err != nil {
-			setupLog.Error(err, "unable to start service controller")
-			os.Exit(1)
-		}
-	}()
 
 	if err = (&controller.CustomHealthReconciler{
 		Client: mgr.GetClient(),
