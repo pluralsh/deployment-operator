@@ -1,8 +1,13 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/samber/lo"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -95,14 +100,35 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	}, nil
 }
 
-func (agent *Agent) Run() {
+func (agent *Agent) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
+	log.Info(fmt.Sprintf("received id %s", id))
+
+	return reconcile.Result{}, nil
+}
+
+func (agent *Agent) Run(ctx context.Context) {
 	defer agent.svcQueue.ShutDown()
 	defer agent.engine.WipeCache()
-	go func() {
+	/*	go func() {
 		for {
 			go agent.engine.ControlLoop()
 			failure := <-agent.deathChan
 			fmt.Printf("recovered from panic %v\n", failure)
+		}
+	}()*/
+
+	svcController := controller.Controller{
+		Name:                    "Service Controller",
+		MaxConcurrentReconciles: 10,
+		Do:                      agent,
+		Queue:                   agent.svcQueue,
+		CacheSyncTimeout:        time.Second,
+		RecoverPanic:            lo.ToPtr(true),
+	}
+	go func() {
+		err := svcController.Start(ctx)
+		if err != nil {
+			log.Error(err, "cant create service controller")
 		}
 	}()
 
@@ -136,9 +162,9 @@ func (agent *Agent) Run() {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (agent *Agent) SetupWithManager() error {
+func (agent *Agent) SetupWithManager(ctx context.Context) error {
 	go func() {
-		agent.Run()
+		agent.Run(ctx)
 	}()
 	return nil
 }

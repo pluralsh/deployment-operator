@@ -94,13 +94,13 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-
+	ctx := ctrl.SetupSignalHandler()
 	a, err := agent.New(mgr.GetConfig(), refresh, pTimeout, opt.consoleUrl, opt.deployToken, opt.clusterId)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent")
 		os.Exit(1)
 	}
-	if err := a.SetupWithManager(); err != nil {
+	if err := a.SetupWithManager(ctx); err != nil {
 		setupLog.Error(err, "unable to start agent")
 		os.Exit(1)
 	}
@@ -119,7 +119,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := ctrl.SetupSignalHandler()
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")

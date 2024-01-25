@@ -20,7 +20,7 @@ type Engine struct {
 	clientset         *kubernetes.Clientset
 	svcQueue          workqueue.RateLimitingInterface
 	deathChan         chan interface{}
-	svcCache          *client.ServiceCache
+	SvcCache          *client.ServiceCache
 	manifestCache     *manifests.ManifestCache
 	syncing           string
 	invFactory        inventory.ClientFactory
@@ -35,7 +35,7 @@ func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *
 	return &Engine{
 		client:            client,
 		svcQueue:          svcQueue,
-		svcCache:          svcCache,
+		SvcCache:          svcCache,
 		manifestCache:     manCache,
 		invFactory:        invFactory,
 		applier:           applier,
@@ -58,7 +58,7 @@ func (engine *Engine) WithConfig(config *rest.Config) error {
 func (engine *Engine) RegisterHandlers() {}
 
 func (engine *Engine) WipeCache() {
-	engine.svcCache.Wipe()
+	engine.SvcCache.Wipe()
 	engine.manifestCache.Wipe()
 }
 

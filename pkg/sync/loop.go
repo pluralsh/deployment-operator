@@ -71,7 +71,7 @@ func (engine *Engine) processItem(item interface{}) error {
 
 	log.Info("attempting to sync service", "id", id)
 	engine.syncing = id
-	svc, err := engine.svcCache.Get(id)
+	svc, err := engine.SvcCache.Get(id)
 	if err != nil {
 		fmt.Printf("failed to fetch service: %s, ignoring for now", err)
 		return err
