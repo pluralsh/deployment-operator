@@ -46,15 +46,10 @@ type PipelineGate struct {
 
 // PipelineGateStatus defines the observed state of the PipelineGate
 type PipelineGateStatus struct {
-	State          GateState      `json:"state"`
-	LastReported   *GateState     `json:"lastReported"`
-	LastReportedAt *metav1.Time   `json:"lastReportedAt,omitempty"`
-	JobRef         NamespacedName `json:"jobRef,omitempty"`
-}
-
-type NamespacedName struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
+	State          GateState              `json:"state"`
+	LastReported   *GateState             `json:"lastReported"`
+	LastReportedAt *metav1.Time           `json:"lastReportedAt,omitempty"`
+	JobRef         console.NamespacedName `json:"jobRef,omitempty"`
 }
 
 // PipelineGateSpec defines the detailed gate specifications
