@@ -16,31 +16,31 @@ import (
 )
 
 type Engine struct {
-	client            *client.Client
-	clientset         *kubernetes.Clientset
+	Client            *client.Client
+	Clientset         *kubernetes.Clientset
 	svcQueue          workqueue.RateLimitingInterface
 	deathChan         chan interface{}
 	SvcCache          *client.ServiceCache
-	manifestCache     *manifests.ManifestCache
+	ManifestCache     *manifests.ManifestCache
 	syncing           string
 	invFactory        inventory.ClientFactory
-	applier           *applier.Applier
-	destroyer         *apply.Destroyer
-	utilFactory       util.Factory
+	Applier           *applier.Applier
+	Destroyer         *apply.Destroyer
+	UtilFactory       util.Factory
 	processingTimeout time.Duration
-	luaScript         string
+	LuaScript         string
 }
 
 func New(utilFactory util.Factory, invFactory inventory.ClientFactory, applier *applier.Applier, destroyer *apply.Destroyer, client *client.Client, svcQueue workqueue.RateLimitingInterface, svcCache *client.ServiceCache, manCache *manifests.ManifestCache, processingTimeout time.Duration) *Engine {
 	return &Engine{
-		client:            client,
+		Client:            client,
 		svcQueue:          svcQueue,
 		SvcCache:          svcCache,
-		manifestCache:     manCache,
+		ManifestCache:     manCache,
 		invFactory:        invFactory,
-		applier:           applier,
-		destroyer:         destroyer,
-		utilFactory:       utilFactory,
+		Applier:           applier,
+		Destroyer:         destroyer,
+		UtilFactory:       utilFactory,
 		processingTimeout: processingTimeout,
 	}
 }
@@ -51,21 +51,19 @@ func (engine *Engine) AddHealthCheck(health chan interface{}) {
 
 func (engine *Engine) WithConfig(config *rest.Config) error {
 	cs, err := kubernetes.NewForConfig(config)
-	engine.clientset = cs
+	engine.Clientset = cs
 	return err
 }
 
-func (engine *Engine) RegisterHandlers() {}
-
 func (engine *Engine) WipeCache() {
 	engine.SvcCache.Wipe()
-	engine.manifestCache.Wipe()
+	engine.ManifestCache.Wipe()
 }
 
 func (engine *Engine) GetLuaScript() string {
-	return engine.luaScript
+	return engine.LuaScript
 }
 
 func (engine *Engine) SetLuaScript(script string) {
-	engine.luaScript = script
+	engine.LuaScript = script
 }

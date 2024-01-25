@@ -7,21 +7,21 @@ import (
 	console "github.com/pluralsh/console-client-go"
 )
 
-type cacheLine struct {
-	svc     *console.ServiceDeploymentExtended
+type cacheLine[T any] struct {
+	svc     *T
 	created time.Time
 }
 
 type ServiceCache struct {
 	client *Client
-	cache  cmap.ConcurrentMap[string, *cacheLine]
+	cache  cmap.ConcurrentMap[string, *cacheLine[console.ServiceDeploymentExtended]]
 	expiry time.Duration
 }
 
 func NewCache(client *Client, expiry time.Duration) *ServiceCache {
 	return &ServiceCache{
 		client: client,
-		cache:  cmap.New[*cacheLine](),
+		cache:  cmap.New[*cacheLine[console.ServiceDeploymentExtended]](),
 		expiry: expiry,
 	}
 }
@@ -42,7 +42,7 @@ func (c *ServiceCache) Set(id string) (*console.ServiceDeploymentExtended, error
 		return nil, err
 	}
 
-	c.cache.Set(id, &cacheLine{svc: svc, created: time.Now()})
+	c.cache.Set(id, &cacheLine[console.ServiceDeploymentExtended]{svc: svc, created: time.Now()})
 	return svc, nil
 }
 
@@ -54,6 +54,6 @@ func (c *ServiceCache) Expire(id string) {
 	c.cache.Remove(id)
 }
 
-func (l *cacheLine) live(dur time.Duration) bool {
+func (l *cacheLine[T]) live(dur time.Duration) bool {
 	return l.created.After(time.Now().Add(-dur))
 }

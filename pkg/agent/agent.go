@@ -2,13 +2,11 @@ package agent
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/samber/lo"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
@@ -100,12 +98,6 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	}, nil
 }
 
-func (agent *Agent) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
-	log.Info(fmt.Sprintf("received id %s", id))
-
-	return reconcile.Result{}, nil
-}
-
 func (agent *Agent) Run(ctx context.Context) {
 	defer agent.svcQueue.ShutDown()
 	defer agent.engine.WipeCache()
@@ -120,7 +112,7 @@ func (agent *Agent) Run(ctx context.Context) {
 	svcController := controller.Controller{
 		Name:                    "Service Controller",
 		MaxConcurrentReconciles: 10,
-		Do:                      agent,
+		Do:                      &service.ServiceReconciler{},
 		Queue:                   agent.svcQueue,
 		CacheSyncTimeout:        time.Second,
 		RecoverPanic:            lo.ToPtr(true),
@@ -153,7 +145,7 @@ func (agent *Agent) Run(ctx context.Context) {
 			log.Error(err, "failed to ping cluster after scheduling syncs")
 		}
 
-		agent.engine.ScrapeKube()
+		agent.ScrapeKube()
 		return false, nil
 	})
 	if err != nil {

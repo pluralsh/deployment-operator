@@ -8,9 +8,9 @@ import (
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	"github.com/pluralsh/deployment-operator/pkg/sync"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -63,7 +63,7 @@ func main() {
 	flag.StringVar(&opt.consoleUrl, "console-url", "", "the url of the console api to fetch services from")
 	flag.StringVar(&opt.deployToken, "deploy-token", "", "the deploy token to auth to console api with")
 	flag.StringVar(&opt.clusterId, "cluster-id", "", "the id of the cluster being connected to")
-	flag.BoolVar(&sync.Local, "local", false, "whether you're running the operator locally")
+	flag.BoolVar(&service.Local, "local", false, "whether you're running the operator locally")
 	flag.BoolVar(&template.EnableHelmDependencyUpdate, "enable-helm-dependency-update", false, "enable update helm chart's dependencies")
 	flag.Parse()
 
