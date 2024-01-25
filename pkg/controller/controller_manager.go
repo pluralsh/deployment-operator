@@ -25,12 +25,13 @@ type ControllerManager struct {
 	ctx context.Context
 }
 
-func NewControllerManager(maxConcurrentReconciles int, cacheSyncTimeout time.Duration, recoverPanic *bool) *ControllerManager {
+func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cacheSyncTimeout time.Duration, recoverPanic *bool) *ControllerManager {
 	return &ControllerManager{
 		Controllers:             make([]*Controller, 0),
 		MaxConcurrentReconciles: maxConcurrentReconciles,
 		CacheSyncTimeout:        cacheSyncTimeout,
 		RecoverPanic:            recoverPanic,
+		ctx:                     ctx,
 	}
 }
 

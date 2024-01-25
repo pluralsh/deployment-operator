@@ -108,7 +108,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	controllerManager := svccontroller.NewControllerManager(10, pTimeout, lo.ToPtr(true))
+	controllerManager := svccontroller.NewControllerManager(ctx, 10, pTimeout, lo.ToPtr(true))
 
 	controllerManager.AddController(&svccontroller.Controller{
 		Name: "Service Controller",
