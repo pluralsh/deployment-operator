@@ -4,9 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
@@ -30,15 +27,16 @@ var (
 )
 
 type Agent struct {
-	consoleClient   *client.Client
-	discoveryClient *discovery.DiscoveryClient
+	ConsoleClient   *client.Client
+	DiscoveryClient *discovery.DiscoveryClient
 	pinger          *ping.Pinger
 	config          *rest.Config
-	engine          *deploysync.Engine
+	Engine          *deploysync.Engine
 	deathChan       chan interface{}
-	svcQueue        workqueue.RateLimitingInterface
+	SvcQueue        workqueue.RateLimitingInterface
 	socket          *websocket.Socket
 	refresh         time.Duration
+	svcQueue        workqueue.RateLimitingInterface
 }
 
 func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
@@ -87,56 +85,27 @@ func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleU
 	pinger := ping.New(consoleClient, dc, f)
 
 	return &Agent{
-		discoveryClient: dc,
+		DiscoveryClient: dc,
 		pinger:          pinger,
-		consoleClient:   consoleClient,
-		engine:          engine,
+		ConsoleClient:   consoleClient,
+		Engine:          engine,
 		deathChan:       deathChan,
-		svcQueue:        svcQueue,
+		SvcQueue:        svcQueue,
 		socket:          socket,
 		refresh:         refresh,
 	}, nil
 }
 
 func (agent *Agent) Run(ctx context.Context) {
-	defer agent.svcQueue.ShutDown()
-	defer agent.engine.WipeCache()
-	/*	go func() {
-		for {
-			go agent.engine.ControlLoop()
-			failure := <-agent.deathChan
-			fmt.Printf("recovered from panic %v\n", failure)
-		}
-	}()*/
-
-	svcController := controller.Controller{
-		Name:                    "Service Controller",
-		MaxConcurrentReconciles: 10,
-		Do: &service.ServiceReconciler{
-			ConsoleClient:   agent.consoleClient,
-			DiscoveryClient: agent.discoveryClient,
-			Engine:          agent.engine,
-			SvcQueue:        agent.svcQueue,
-			Refresh:         time.Second,
-		},
-		Queue:            agent.svcQueue,
-		CacheSyncTimeout: time.Second,
-		RecoverPanic:     lo.ToPtr(true),
-	}
-	go func() {
-		err := svcController.Start(ctx)
-		if err != nil {
-			log.Error(err, "cant create service controller")
-		}
-	}()
-
+	defer agent.SvcQueue.ShutDown()
+	defer agent.Engine.WipeCache()
 	err := wait.PollImmediateInfinite(agent.refresh, func() (done bool, err error) {
 		if err := agent.socket.Join(); err != nil {
 			log.Error(err, "could not establish websocket to upstream")
 		}
 
 		log.Info("fetching services for cluster")
-		svcs, err := agent.consoleClient.GetServices()
+		svcs, err := agent.ConsoleClient.GetServices()
 		if err != nil {
 			log.Error(err, "failed to fetch service list from deployments service")
 			return false, nil
@@ -144,7 +113,7 @@ func (agent *Agent) Run(ctx context.Context) {
 
 		for _, svc := range svcs {
 			log.Info("sending update for", "service", svc.ID)
-			agent.svcQueue.Add(svc.ID)
+			agent.SvcQueue.Add(svc.ID)
 		}
 
 		if err := agent.pinger.Ping(); err != nil {
@@ -168,11 +137,11 @@ func (agent *Agent) SetupWithManager(ctx context.Context) error {
 }
 
 func (agent *Agent) GetLuaScript() string {
-	return agent.engine.GetLuaScript()
+	return agent.Engine.GetLuaScript()
 }
 
 func (agent *Agent) SetLuaScript(script string) {
-	agent.engine.SetLuaScript(script)
+	agent.Engine.SetLuaScript(script)
 }
 
 func newFactory(cfg *rest.Config) util.Factory {

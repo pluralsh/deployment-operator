@@ -5,9 +5,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/samber/lo"
+
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
+	svccontroller "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
@@ -104,6 +107,28 @@ func main() {
 		setupLog.Error(err, "unable to start agent")
 		os.Exit(1)
 	}
+
+	svcController := svccontroller.Controller{
+		Name:                    "Service Controller",
+		MaxConcurrentReconciles: 10,
+		Do: &service.ServiceReconciler{
+			ConsoleClient:   a.ConsoleClient,
+			DiscoveryClient: a.DiscoveryClient,
+			Engine:          a.Engine,
+			SvcQueue:        a.SvcQueue,
+			Refresh:         refresh,
+		},
+		Queue:            a.SvcQueue,
+		CacheSyncTimeout: pTimeout,
+		RecoverPanic:     lo.ToPtr(true),
+	}
+	go func() {
+		err := svcController.Start(ctx)
+		if err != nil {
+			setupLog.Error(err, "unable to start service controller")
+			os.Exit(1)
+		}
+	}()
 
 	if err = (&controller.CustomHealthReconciler{
 		Client: mgr.GetClient(),
