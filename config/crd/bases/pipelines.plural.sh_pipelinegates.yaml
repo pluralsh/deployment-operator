@@ -8624,6 +8624,9 @@ spec:
                 type: object
               id:
                 type: string
+              lastReportedAt:
+                format: date-time
+                type: string
               name:
                 type: string
               syncedState:
@@ -8652,7 +8655,15 @@ spec:
             description: PipelineGateStatus defines the observed state of the PipelineGate
             properties:
               jobRef:
-                type: string
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
               lastReported:
                 description: GateState represents the state of a gate, reused from
                   console client
@@ -8660,6 +8671,9 @@ spec:
                 - PENDING
                 - OPEN
                 - CLOSED
+                type: string
+              lastReportedAt:
+                format: date-time
                 type: string
               state:
                 description: GateState represents the state of a gate, reused from
