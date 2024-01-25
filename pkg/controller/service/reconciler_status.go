@@ -10,11 +10,9 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
 
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
-	"sigs.k8s.io/cli-utils/pkg/object"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -112,33 +110,6 @@ func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func
 	return getOtherHealth
 }
 
-func (s *ServiceReconciler) FromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
-	if e.Resource == nil {
-		return nil
-	}
-	gvk := e.Resource.GroupVersionKind()
-	gname := manifests.GroupName{
-		Group: gvk.Group,
-		Kind:  gvk.Kind,
-		Name:  e.Resource.GetName(),
-	}
-
-	version := gvk.Version
-	if v, ok := vcache[gname]; ok {
-		version = v
-	}
-
-	return &console.ComponentAttributes{
-		Group:     gvk.Group,
-		Kind:      gvk.Kind,
-		Namespace: e.Resource.GetNamespace(),
-		Name:      e.Resource.GetName(),
-		Version:   version,
-		Synced:    e.PollResourceInfo.Status == status.CurrentStatus,
-		State:     s.toStatus(e.Resource),
-	}
-}
-
 func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.ComponentState {
 	h, _ := s.getResourceHealth(obj)
 	if h == nil {
@@ -165,10 +136,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, id, name, nam
 
 	var statsCollector stats.Stats
 	var err error
-	statusCollector := &StatusCollector{
-		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
-		reconciler:   s,
-	}
+	statusCollector := newStatusCollector(s)
 
 	for e := range ch {
 		statsCollector.Handle(e)
@@ -193,7 +161,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, id, name, nam
 		return err
 	}
 
-	components := statusCollector.Components(vcache)
+	components := statusCollector.components(vcache)
 	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
 	if err := s.UpdateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
@@ -207,10 +175,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, id, name, nam
 
 	var statsCollector stats.Stats
 	var err error
-	statusCollector := &StatusCollector{
-		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
-		reconciler:   s,
-	}
+	statusCollector := newStatusCollector(s)
 
 	for e := range ch {
 		statsCollector.Handle(e)
@@ -258,7 +223,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, id, name, nam
 		return err
 	}
 
-	components := statusCollector.Components(vcache)
+	components := statusCollector.components(vcache)
 	if err := s.UpdateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
