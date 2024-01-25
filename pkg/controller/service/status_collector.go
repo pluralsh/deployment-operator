@@ -8,26 +8,26 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
-type StatusCollector struct {
+type serviceComponentsStatusCollector struct {
 	latestStatus map[object.ObjMetadata]event.StatusEvent
 	reconciler   *ServiceReconciler
 }
 
-func newStatusCollector(reconciler *ServiceReconciler) *StatusCollector {
-	return &StatusCollector{
+func newServiceComponentsStatusCollector(reconciler *ServiceReconciler) *serviceComponentsStatusCollector {
+	return &serviceComponentsStatusCollector{
 		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
 		reconciler:   reconciler,
 	}
 }
 
-func (sc *StatusCollector) updateStatus(id object.ObjMetadata, se event.StatusEvent) {
+func (sc *serviceComponentsStatusCollector) updateStatus(id object.ObjMetadata, se event.StatusEvent) {
 	sc.latestStatus[id] = se
 }
 
-func (sc *StatusCollector) components(vcache map[manifests.GroupName]string) []*console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[manifests.GroupName]string) []*console.ComponentAttributes {
 	components := make([]*console.ComponentAttributes, 0, len(sc.latestStatus))
 	for _, v := range sc.latestStatus {
-		if attrs := sc.component(v, vcache); attrs != nil {
+		if attrs := sc.componentAttributes(v, vcache); attrs != nil {
 			components = append(components, attrs)
 		}
 	}
@@ -35,7 +35,7 @@ func (sc *StatusCollector) components(vcache map[manifests.GroupName]string) []*
 	return components
 }
 
-func (sc *StatusCollector) component(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) componentAttributes(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}

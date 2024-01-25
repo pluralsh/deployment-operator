@@ -136,7 +136,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, id, name, nam
 
 	var statsCollector stats.Stats
 	var err error
-	statusCollector := newStatusCollector(s)
+	statusCollector := newServiceComponentsStatusCollector(s)
 
 	for e := range ch {
 		statsCollector.Handle(e)
@@ -161,7 +161,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, id, name, nam
 		return err
 	}
 
-	components := statusCollector.components(vcache)
+	components := statusCollector.componentsAttributes(vcache)
 	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
 	if err := s.UpdateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
@@ -175,7 +175,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, id, name, nam
 
 	var statsCollector stats.Stats
 	var err error
-	statusCollector := newStatusCollector(s)
+	statusCollector := newServiceComponentsStatusCollector(s)
 
 	for e := range ch {
 		statsCollector.Handle(e)
@@ -223,7 +223,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, id, name, nam
 		return err
 	}
 
-	components := statusCollector.components(vcache)
+	components := statusCollector.componentsAttributes(vcache)
 	if err := s.UpdateStatus(id, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
