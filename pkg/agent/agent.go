@@ -112,10 +112,16 @@ func (agent *Agent) Run(ctx context.Context) {
 	svcController := controller.Controller{
 		Name:                    "Service Controller",
 		MaxConcurrentReconciles: 10,
-		Do:                      &service.ServiceReconciler{},
-		Queue:                   agent.svcQueue,
-		CacheSyncTimeout:        time.Second,
-		RecoverPanic:            lo.ToPtr(true),
+		Do: &service.ServiceReconciler{
+			ConsoleClient:   agent.consoleClient,
+			DiscoveryClient: agent.discoveryClient,
+			Engine:          agent.engine,
+			SvcQueue:        agent.svcQueue,
+			Refresh:         time.Second,
+		},
+		Queue:            agent.svcQueue,
+		CacheSyncTimeout: time.Second,
+		RecoverPanic:     lo.ToPtr(true),
 	}
 	go func() {
 		err := svcController.Start(ctx)

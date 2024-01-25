@@ -9,16 +9,13 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
-	"github.com/pluralsh/deployment-operator/pkg/ping"
 	deploysync "github.com/pluralsh/deployment-operator/pkg/sync"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
@@ -46,21 +43,18 @@ const (
 )
 
 type ServiceReconciler struct {
-	consoleClient   *client.Client
-	discoveryClient *discovery.DiscoveryClient
-	pinger          *ping.Pinger
-	config          *rest.Config
-	engine          *deploysync.Engine
-	svcQueue        workqueue.RateLimitingInterface
-	socket          *websocket.Socket
-	refresh         time.Duration
+	ConsoleClient   *client.Client
+	DiscoveryClient *discovery.DiscoveryClient
+	Engine          *deploysync.Engine
+	SvcQueue        workqueue.RateLimitingInterface
+	Refresh         time.Duration
 }
 
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
 	logger := log.FromContext(ctx)
 
 	logger.Info("attempting to sync service", "id", id)
-	svc, err := s.engine.SvcCache.Get(id)
+	svc, err := s.Engine.SvcCache.Get(id)
 	if err != nil {
 		fmt.Printf("failed to fetch service: %s, ignoring for now", err)
 		return
@@ -82,7 +76,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	logger.Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 
-	manifests, err := s.engine.ManifestCache.Fetch(s.engine.UtilFactory, svc)
+	manifests, err := s.Engine.ManifestCache.Fetch(s.Engine.UtilFactory, svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests")
 		return
@@ -91,7 +85,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	manifests = postProcess(manifests)
 
 	logger.Info("Syncing manifests", "count", len(manifests))
-	invObj, manifests, err := s.engine.SplitObjects(id, manifests)
+	invObj, manifests, err := s.Engine.SplitObjects(id, manifests)
 	if err != nil {
 		return
 	}
@@ -101,7 +95,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	if svc.DeletedAt != nil {
 		logger.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := s.engine.Destroyer.Run(ctx, inv, apply.DestroyerOptions{
+		ch := s.Engine.Destroyer.Run(ctx, inv, apply.DestroyerOptions{
 			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
 			DryRunStrategy:          common.DryRunNone,
 			DeleteTimeout:           20 * time.Second,
@@ -135,12 +129,12 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		InventoryPolicy:        inventory.PolicyAdoptAll,
 	}
 
-	// ch := engine.applier.Run(ctx, inv, manifests, options)
-	// if changed, err := engine.DryRunStatus(id, svc.Name, svc.Namespace, ch, vcache); !changed || err != nil {
+	// ch := Engine.applier.Run(ctx, inv, manifests, options)
+	// if changed, err := Engine.DryRunStatus(id, svc.Name, svc.Namespace, ch, vcache); !changed || err != nil {
 	// 	return err
 	// }
 	options.DryRunStrategy = common.DryRunNone
-	ch := s.engine.Applier.Run(ctx, inv, manifests, options)
+	ch := s.Engine.Applier.Run(ctx, inv, manifests, options)
 	err = s.UpdateApplyStatus(ctx, id, svc.Name, svc.Namespace, ch, false, vcache)
 
 	return
@@ -150,7 +144,7 @@ func (s *ServiceReconciler) CheckNamespace(namespace string) error {
 	if namespace == "" {
 		return nil
 	}
-	client, err := s.engine.UtilFactory.KubernetesClientSet()
+	client, err := s.Engine.UtilFactory.KubernetesClientSet()
 	if err != nil {
 		return err
 	}

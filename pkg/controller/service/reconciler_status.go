@@ -105,7 +105,7 @@ func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func
 		}
 	}
 
-	if s.engine.LuaScript != "" {
+	if s.Engine.LuaScript != "" {
 		return s.getLuaHealthConvert
 	}
 
@@ -337,11 +337,11 @@ func (s *ServiceReconciler) UpdateStatus(id string, components []*console.Compon
 		errs = append(errs, err)
 	}
 
-	return s.consoleClient.UpdateComponents(id, components, errs)
+	return s.ConsoleClient.UpdateComponents(id, components, errs)
 }
 
 func (s *ServiceReconciler) AddErrors(id string, err *console.ServiceErrorAttributes) error {
-	return s.consoleClient.AddServiceErrors(id, []*console.ServiceErrorAttributes{err})
+	return s.ConsoleClient.AddServiceErrors(id, []*console.ServiceErrorAttributes{err})
 }
 
 func resourceIDToString(gk schema.GroupKind, name string) string {
