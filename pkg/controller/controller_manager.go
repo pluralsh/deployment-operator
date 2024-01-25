@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type ControllerManager struct {
@@ -23,16 +25,24 @@ type ControllerManager struct {
 	Started bool
 
 	ctx context.Context
+
+	client *client.Client
 }
 
-func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cacheSyncTimeout time.Duration, recoverPanic *bool) *ControllerManager {
+func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cacheSyncTimeout time.Duration,
+	recoverPanic *bool, consoleUrl, deployToken string) *ControllerManager {
 	return &ControllerManager{
 		Controllers:             make([]*Controller, 0),
 		MaxConcurrentReconciles: maxConcurrentReconciles,
 		CacheSyncTimeout:        cacheSyncTimeout,
 		RecoverPanic:            recoverPanic,
 		ctx:                     ctx,
+		client:                  client.New(consoleUrl, deployToken),
 	}
+}
+
+func (cm *ControllerManager) GetClient() *client.Client {
+	return cm.client
 }
 
 func (cm *ControllerManager) AddController(ctrl *Controller) {

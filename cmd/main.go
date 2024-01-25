@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/samber/lo"
-
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
@@ -14,6 +12,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -108,23 +107,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	controllerManager := svccontroller.NewControllerManager(ctx, 10, pTimeout, lo.ToPtr(true))
-
-	controllerManager.AddController(&svccontroller.Controller{
-		Name: "Service Controller",
-		Do: &service.ServiceReconciler{
-			ConsoleClient:   a.ConsoleClient,
-			DiscoveryClient: a.DiscoveryClient,
-			Engine:          a.Engine,
-		},
-		Queue: a.SvcQueue,
-	})
-
-	if err = controllerManager.Start(); err != nil {
-		setupLog.Error(err, "unable to start controller manager")
-		os.Exit(1)
-	}
-
 	if err = (&controller.CustomHealthReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -142,6 +124,24 @@ func main() {
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+
+	// Start deployment operator controller manager.
+	manager := svccontroller.NewControllerManager(ctx, 10, pTimeout, lo.ToPtr(true), opt.consoleUrl, opt.deployToken)
+
+	manager.AddController(&svccontroller.Controller{
+		Name: "Service Controller",
+		Do: &service.ServiceReconciler{
+			ConsoleClient:   a.ConsoleClient, // manager.GetClient(), // TODO: Make sure that console client is created just once to use common cache.
+			DiscoveryClient: a.DiscoveryClient,
+			Engine:          a.Engine,
+		},
+		Queue: a.SvcQueue,
+	})
+
+	if err := manager.Start(); err != nil {
+		setupLog.Error(err, "unable to start controller manager")
 		os.Exit(1)
 	}
 }
