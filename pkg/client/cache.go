@@ -4,53 +4,54 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
-	console "github.com/pluralsh/console-client-go"
 )
 
 type cacheLine[T any] struct {
-	svc     *T
-	created time.Time
+	resource *T
+	created  time.Time
 }
 
-type ServiceCache struct {
-	client *Client
-	cache  cmap.ConcurrentMap[string, *cacheLine[console.ServiceDeploymentExtended]]
-	expiry time.Duration
+type Cache[T any] struct {
+	cache     cmap.ConcurrentMap[string, *cacheLine[T]]
+	expiry    time.Duration
+	clientGet Getter[T]
 }
 
-func NewCache(client *Client, expiry time.Duration) *ServiceCache {
-	return &ServiceCache{
-		client: client,
-		cache:  cmap.New[*cacheLine[console.ServiceDeploymentExtended]](),
-		expiry: expiry,
+type Getter[T any] func(id string) (*T, error)
+
+func NewCache[T any](expiry time.Duration, clientGet Getter[T]) *Cache[T] {
+	return &Cache[T]{
+		cache:     cmap.New[*cacheLine[T]](),
+		clientGet: clientGet,
+		expiry:    expiry,
 	}
 }
 
-func (c *ServiceCache) Get(id string) (*console.ServiceDeploymentExtended, error) {
+func (c *Cache[T]) Get(id string) (*T, error) {
 	if line, ok := c.cache.Get(id); ok {
 		if line.live(c.expiry) {
-			return line.svc, nil
+			return line.resource, nil
 		}
 	}
 
 	return c.Set(id)
 }
 
-func (c *ServiceCache) Set(id string) (*console.ServiceDeploymentExtended, error) {
-	svc, err := c.client.GetService(id)
+func (c *Cache[T]) Set(id string) (*T, error) {
+	resource, err := c.clientGet(id)
 	if err != nil {
 		return nil, err
 	}
 
-	c.cache.Set(id, &cacheLine[console.ServiceDeploymentExtended]{svc: svc, created: time.Now()})
-	return svc, nil
+	c.cache.Set(id, &cacheLine[T]{resource: resource, created: time.Now()})
+	return resource, nil
 }
 
-func (c *ServiceCache) Wipe() {
+func (c *Cache[T]) Wipe() {
 	c.cache.Clear()
 }
 
-func (c *ServiceCache) Expire(id string) {
+func (c *Cache[T]) Expire(id string) {
 	c.cache.Remove(id)
 }
 

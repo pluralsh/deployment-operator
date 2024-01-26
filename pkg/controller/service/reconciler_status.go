@@ -103,7 +103,7 @@ func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func
 		}
 	}
 
-	if s.Engine.LuaScript != "" {
+	if s.GetLuaScript() != "" {
 		return s.getLuaHealthConvert
 	}
 

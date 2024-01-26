@@ -24,6 +24,12 @@ var singleInstance *Client
 type Client struct {
 	ctx           context.Context
 	consoleClient *console.Client
+	url           string
+	token         string
+}
+
+func (c *Client) GetCredentials() (url, token string) {
+	return c.url, c.token
 }
 
 func New(url, token string) *Client {
@@ -41,9 +47,11 @@ func New(url, token string) *Client {
 			singleInstance = &Client{
 				consoleClient: console.NewClient(&httpClient, url),
 				ctx:           context.Background(),
+				url:           url,
+				token:         token,
 			}
 		}
-
 	}
+
 	return singleInstance
 }

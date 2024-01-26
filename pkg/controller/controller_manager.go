@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type ControllerManager struct {
 	Controllers []*Controller
 
-	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 1.
+	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run.
 	MaxConcurrentReconciles int
 
 	// CacheSyncTimeout refers to the time limit set on waiting for cache to sync
@@ -21,8 +22,10 @@ type ControllerManager struct {
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
 	RecoverPanic *bool
 
-	// Started is true if the ControllerManager has been Started
-	Started bool
+	Refresh time.Duration
+
+	// started is true if the ControllerManager has been Started
+	started bool
 
 	ctx context.Context
 
@@ -30,12 +33,14 @@ type ControllerManager struct {
 }
 
 func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cacheSyncTimeout time.Duration,
-	recoverPanic *bool, consoleUrl, deployToken string) *ControllerManager {
+	refresh time.Duration, recoverPanic *bool, consoleUrl, deployToken string) *ControllerManager {
 	return &ControllerManager{
 		Controllers:             make([]*Controller, 0),
 		MaxConcurrentReconciles: maxConcurrentReconciles,
 		CacheSyncTimeout:        cacheSyncTimeout,
 		RecoverPanic:            recoverPanic,
+		Refresh:                 refresh,
+		started:                 false,
 		ctx:                     ctx,
 		client:                  client.New(consoleUrl, deployToken),
 	}
@@ -52,17 +57,26 @@ func (cm *ControllerManager) AddController(ctrl *Controller) {
 }
 
 func (cm *ControllerManager) Start() error {
-	if cm.Started {
+	if cm.started {
 		return errors.New("controller manager was started more than once")
 	}
 
 	for _, ctrl := range cm.Controllers {
 		controller := ctrl
+
+		go func() {
+			defer controller.Do.ShutdownQueue()
+			defer controller.Do.WipeCache()
+			_ = wait.PollImmediateInfinite(cm.Refresh, func() (done bool, err error) {
+				return controller.Do.Poll(cm.ctx)
+			})
+		}()
+
 		go func() {
 			controller.Start(cm.ctx)
 		}()
 	}
 
-	cm.Started = true
+	cm.started = true
 	return nil
 }

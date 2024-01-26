@@ -17,23 +17,28 @@ import (
 )
 
 type Reconciler interface {
-	// Reconcile performs a full reconciliation for the object referred to by the Request.
-	// The Controller will requeue the Request to be processed again if an error is non-nil or
-	// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
+	// Reconcile Kubernetes resources to reflect state from the Console.
 	Reconcile(context.Context, string) (reconcile.Result, error)
+
+	// Poll Console for any state changes and put them in the queue that will be consumed by Reconcile.
+	Poll(context.Context) (bool, error)
+
+	// WipeCache containing Console resources.
+	WipeCache()
+
+	// ShutdownQueue containing Console resources.
+	ShutdownQueue()
 }
 
-// Controller implements controller.Controller.
 type Controller struct {
-	// Name is used to uniquely identify a Controller in tracing, logging and monitoring.  Name is required.
+	// Name is used to uniquely identify a Controller in tracing, logging and monitoring. Name is required.
 	Name string
 
 	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 1.
 	MaxConcurrentReconciles int
 
-	// Reconciler is a function that can be called at any time with the Name / Namespace of an object and
+	// Reconciler is a function that can be called at any time with the ID of an object and
 	// ensures that the state of the system matches the state specified in the object.
-	// Defaults to the DefaultReconcileFunc.
 	Do Reconciler
 
 	// Queue is an listeningQueue that listens for events from Informers and adds object keys to
@@ -58,7 +63,6 @@ type Controller struct {
 	RecoverPanic *bool
 }
 
-// Reconcile implements reconcile.Reconciler.
 func (c *Controller) Reconcile(ctx context.Context, req string) (_ reconcile.Result, err error) {
 	defer func() {
 		if r := recover(); r != nil {

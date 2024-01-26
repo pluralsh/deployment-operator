@@ -764,7 +764,7 @@ func getOtherHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 }
 
 func (s *ServiceReconciler) getLuaHealthConvert(obj *unstructured.Unstructured) (*HealthStatus, error) {
-	out, err := lua.ExecuteLua(obj.Object, s.Engine.LuaScript)
+	out, err := lua.ExecuteLua(obj.Object, s.LuaScript)
 	if err != nil {
 		return nil, err
 	}
