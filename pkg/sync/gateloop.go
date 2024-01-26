@@ -103,7 +103,7 @@ func (engine *Engine) processGate(item interface{}) error {
 	if err != nil {
 		log.Error(err, "failed to marshalindent gateCR")
 	}
-	fmt.Printf("parsed gateCR json:\n %s\n", string(gateCRJSON))
+	fmt.Printf("updating or creating gateCR json:\n %s\n", string(gateCRJSON))
 	updateOrCreatePipelineGate(engine.genClientset, gateCR, gate)
 
 	//if gate.State == console.GateStatePending || gate.State == console.GateStateClosed {
