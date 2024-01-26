@@ -95,8 +95,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// PENDING ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	if gate.Status.State != nil && *gate.Status.State == pipelinesv1alpha1.GateState(console.GateStatePending) {
-		// if there is no jobRef, then we need to create a job, this means this is either a new gate or a rerun
-		if gate.Status.JobRef == nil {
+		if gate.Status.JobRef == nil { // if there is no jobRef, then we need to create a job, this means this is either a new gate or a rerun
 			jobName := fmt.Sprintf("%s-%s", gate.Name, uuid.New().String())
 			jobRef := console.NamespacedName{Name: jobName, Namespace: gate.Namespace}
 			job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, jobRef)
@@ -110,9 +109,16 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				log.Error(err, "Error reconciling Job", "Job", job.Name, "Namespace", job.Namespace)
 				return ctrl.Result{}, err
 			}
+			gateState := pipelinesv1alpha1.GateState(console.GateStatePending)
+			gate.Status.State = &gateState
+			gate.Status.JobRef = &jobRef
+			if err := r.Status().Update(ctx, gate); err != nil {
+				log.Error(err, "Failed to update PipelineGate status at CR")
+				return ctrl.Result{}, err
+			}
+			log.Info("Updated gate state after reconciling job", "Name", gate.Name, "ID", gate.Spec.ID, "State", gateState)
 			return ctrl.Result{}, nil
-		} else {
-			// if there is a jobRef, then we need to check the job status
+		} else { // if there is a jobRef, then we need to check the job status
 			job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, *gate.Status.JobRef)
 			if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
 				log.Error(err, "Error setting ControllerReference for Job")
@@ -144,7 +150,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				log.Error(err, "Failed to update PipelineGate status at CR")
 				return ctrl.Result{}, err
 			}
-			log.Info("Updated gate state", "Name", gate.Name, "ID", gate.Spec.ID, "State", gateState)
+			log.Info("Updated gate state after reconciling job", "Name", gate.Name, "ID", gate.Spec.ID, "State", gateState)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -194,10 +200,15 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// SCHEDULE RERUN /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// gate is closed or open as per last reconciliation, but got updated from console to pending, for a rerun of the pipeline for example
-	if gate.Status.State != nil &&
+	if gate.Status.State != nil && // before we compare these, we need to make sure they are not nil
 		gate.Status.LastReported != nil &&
 		gate.Status.LastReportedAt != nil &&
 		gate.Spec.LastSyncedAt != nil &&
+		// how to determine if there was a re-run
+		// 1) the state is open or closed
+		// 2) the last reported state is open or closed, by our knowledge this was the last state at the console
+		// 3) the last sync from console (agent pull) happened AFTER we last reported the state
+		// 4) the state at the console is pending, as reflecte by synced state
 		((*gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateOpen) && *gate.Status.LastReported == pipelinesv1alpha1.GateState(console.GateStateOpen)) ||
 			(*gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateClosed) && *gate.Status.LastReported == pipelinesv1alpha1.GateState(console.GateStateClosed))) &&
 		(*gate.Status.LastReportedAt).Before(gate.Spec.LastSyncedAt) &&
