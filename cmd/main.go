@@ -2,10 +2,11 @@ package main
 
 import (
 	"flag"
-	svccontroller "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/samber/lo"
 	"os"
 	"time"
+
+	svccontroller "github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/samber/lo"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/controller"
@@ -97,13 +98,32 @@ func main() {
 		os.Exit(1)
 	}
 	ctx := ctrl.SetupSignalHandler()
-	a, err := agent.New(mgr.GetConfig(), refresh, pTimeout, opt.consoleUrl, opt.deployToken, opt.clusterId)
+
+	// Start deployment operator controller manager.
+	manager := svccontroller.NewControllerManager(ctx, 10, pTimeout, lo.ToPtr(true), opt.consoleUrl, opt.deployToken)
+
+	a, err := agent.New(mgr.GetConfig(), refresh, pTimeout, manager.GetClient(), opt.consoleUrl, opt.deployToken, opt.clusterId)
 	if err != nil {
 		setupLog.Error(err, "unable to create agent")
 		os.Exit(1)
 	}
 	if err := a.SetupWithManager(ctx); err != nil {
 		setupLog.Error(err, "unable to start agent")
+		os.Exit(1)
+	}
+
+	manager.AddController(&svccontroller.Controller{
+		Name: "Service Controller",
+		Do: &service.ServiceReconciler{
+			ConsoleClient:   manager.GetClient(),
+			DiscoveryClient: a.DiscoveryClient,
+			Engine:          a.Engine,
+		},
+		Queue: a.SvcQueue,
+	})
+
+	if err := manager.Start(); err != nil {
+		setupLog.Error(err, "unable to start controller manager")
 		os.Exit(1)
 	}
 
@@ -115,24 +135,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "HealthConvert")
 	}
 	//+kubebuilder:scaffold:builder
-
-	// Start deployment operator controller manager.
-	manager := svccontroller.NewControllerManager(ctx, 10, pTimeout, lo.ToPtr(true), opt.consoleUrl, opt.deployToken)
-
-	manager.AddController(&svccontroller.Controller{
-		Name: "Service Controller",
-		Do: &service.ServiceReconciler{
-			ConsoleClient:   a.ConsoleClient, // manager.GetClient(), // TODO: Make sure that console client is created just once to use common cache.
-			DiscoveryClient: a.DiscoveryClient,
-			Engine:          a.Engine,
-		},
-		Queue: a.SvcQueue,
-	})
-
-	if err := manager.Start(); err != nil {
-		setupLog.Error(err, "unable to start controller manager")
-		os.Exit(1)
-	}
 
 	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to create health check")

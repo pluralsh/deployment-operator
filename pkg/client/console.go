@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	console "github.com/pluralsh/console-client-go"
 )
@@ -17,21 +18,32 @@ func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.wrapped.RoundTrip(req)
 }
 
+var lock = &sync.Mutex{}
+var singleInstance *Client
+
 type Client struct {
 	ctx           context.Context
 	consoleClient *console.Client
 }
 
 func New(url, token string) *Client {
-	httpClient := http.Client{
-		Transport: &authedTransport{
-			token:   token,
-			wrapped: http.DefaultTransport,
-		},
-	}
+	if singleInstance == nil {
+		lock.Lock()
+		defer lock.Unlock()
+		if singleInstance == nil {
+			httpClient := http.Client{
+				Transport: &authedTransport{
+					token:   token,
+					wrapped: http.DefaultTransport,
+				},
+			}
 
-	return &Client{
-		consoleClient: console.NewClient(&httpClient, url),
-		ctx:           context.Background(),
+			singleInstance = &Client{
+				consoleClient: console.NewClient(&httpClient, url),
+				ctx:           context.Background(),
+			}
+		}
+
 	}
+	return singleInstance
 }

@@ -39,13 +39,12 @@ type Agent struct {
 	svcQueue        workqueue.RateLimitingInterface
 }
 
-func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleUrl, deployToken, clusterId string) (*Agent, error) {
+func New(config *rest.Config, refresh, processingTimeout time.Duration, consoleClient *client.Client, consoleUrl, deployToken, clusterId string) (*Agent, error) {
 	disableClientLimits(config)
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	consoleClient := client.New(consoleUrl, deployToken)
 	svcCache := client.NewCache(consoleClient, refresh)
 	manifestCache := manifests.NewCache(refresh, deployToken)
 
