@@ -2,17 +2,17 @@ package main
 
 import (
 	"flag"
+	svccontroller "github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/samber/lo"
 	"os"
 	"time"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/agent"
-	svccontroller "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -116,17 +116,6 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
-	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to create health check")
-		os.Exit(1)
-	}
-
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
-	}
-
 	// Start deployment operator controller manager.
 	manager := svccontroller.NewControllerManager(ctx, 10, pTimeout, lo.ToPtr(true), opt.consoleUrl, opt.deployToken)
 
@@ -142,6 +131,17 @@ func main() {
 
 	if err := manager.Start(); err != nil {
 		setupLog.Error(err, "unable to start controller manager")
+		os.Exit(1)
+	}
+
+	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to create health check")
+		os.Exit(1)
+	}
+
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctx); err != nil {
+		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }
