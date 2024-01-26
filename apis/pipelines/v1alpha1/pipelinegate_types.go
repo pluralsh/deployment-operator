@@ -46,8 +46,8 @@ type PipelineGate struct {
 
 // PipelineGateStatus defines the observed state of the PipelineGate
 type PipelineGateStatus struct {
-	State          *GateState              `json:"state"`
-	LastReported   *GateState              `json:"lastReported"`
+	State          *GateState              `json:"state,omitempty"`
+	LastReported   *GateState              `json:"lastReported,omitempty"`
 	LastReportedAt *metav1.Time            `json:"lastReportedAt,omitempty"`
 	JobRef         *console.NamespacedName `json:"jobRef,omitempty"`
 }

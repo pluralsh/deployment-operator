@@ -8683,9 +8683,6 @@ spec:
                 - OPEN
                 - CLOSED
                 type: string
-            required:
-            - lastReported
-            - state
             type: object
         type: object
     served: true
