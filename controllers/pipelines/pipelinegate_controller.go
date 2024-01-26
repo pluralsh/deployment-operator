@@ -64,104 +64,155 @@ type PipelineGateReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// ASSUMPTION: GATE AT CONSOLE CANNOT BE SET TO CLOSED OR OPEN BY USER
 	_ = log.FromContext(ctx)
 
 	log := r.Log.WithValues("PipelineGate", req.NamespacedName)
 
-	pipelineGateInstance := &pipelinesv1alpha1.PipelineGate{}
+	gate := &pipelinesv1alpha1.PipelineGate{}
 
 	// get pipelinegate
-	if err := r.Get(ctx, req.NamespacedName, pipelineGateInstance); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, gate); err != nil {
 		if apierrs.IsNotFound(err) {
-			log.Info("Unable to fetch PipelineGate - skipping", "Namespace", pipelineGateInstance.Namespace, "Name", pipelineGateInstance.Name)
+			log.Info("Unable to fetch PipelineGate - skipping", "Namespace", gate.Namespace, "Name", gate.Name)
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "unable to fetch PipelineGate")
 		return ctrl.Result{}, err
 	}
 
-	if pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState(console.GateStateOpen) {
-		log.Info("PipelineGate is Open - skipping", "Namespace", pipelineGateInstance.Namespace, "Name", pipelineGateInstance.Name)
-		return ctrl.Result{}, nil
-	}
-
-	if pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState(console.GateStateClosed) {
-		log.Info("PipelineGate is Closed - skipping", "Namespace", pipelineGateInstance.Namespace, "Name", pipelineGateInstance.Name)
-		return ctrl.Result{}, nil
-	}
-
-	//if pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState(console.GateStatePending) || pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState(console.GateStateClosed) {
-	if pipelineGateInstance.Status.State == pipelinesv1alpha1.GateState(console.GateStatePending) {
-		var jobName string
-		if pipelineGateInstance.Status.JobRef != nil && *pipelineGateInstance.Status.JobRef != "" {
-			jobName = *pipelineGateInstance.Status.JobRef
-		} else {
-			jobName = fmt.Sprintf("%s-%s", pipelineGateInstance.Name, uuid.New().String())
-		}
-		job := r.generateJob(ctx, log, pipelineGateInstance, jobName)
-		if err := ctrl.SetControllerReference(pipelineGateInstance, job, r.Scheme); err != nil {
-			log.Error(err, "Error setting ControllerReference for Job")
+	// INITIAL STATE /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// on initial reconcile we set the state to pending
+	if gate.Status.State == nil {
+		// update CR state
+		gate.Status.State = &gate.Spec.SyncedState
+		if err := r.Status().Update(ctx, gate); err != nil {
+			log.Error(err, "Failed to update PipelineGate status at CR")
 			return ctrl.Result{}, err
 		}
-		// Update the PipelineGate's JobRef to the new/existing job's name.
-		pipelineGateInstance.Status.JobRef = &jobName
+		return ctrl.Result{}, nil
+	}
 
-		// reconcile job
-		reconciledJob, err := Job(ctx, r.Client, job, log)
+	// PENDING ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	if gate.Status.State != nil && *gate.Status.State == pipelinesv1alpha1.GateState(console.GateStatePending) {
+		// if there is no jobRef, then we need to create a job, this means this is either a new gate or a rerun
+		if gate.Status.JobRef == nil {
+			jobName := fmt.Sprintf("%s-%s", gate.Name, uuid.New().String())
+			jobRef := console.NamespacedName{Name: jobName, Namespace: gate.Namespace}
+			job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, jobRef)
+			if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
+				log.Error(err, "Error setting ControllerReference for Job")
+				return ctrl.Result{}, err
+			}
+			// reconcile job
+			_, err := Job(ctx, r.Client, job, log)
+			if err != nil {
+				log.Error(err, "Error reconciling Job", "Job", job.Name, "Namespace", job.Namespace)
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		} else {
+			// if there is a jobRef, then we need to check the job status
+			job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, *gate.Status.JobRef)
+			if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
+				log.Error(err, "Error setting ControllerReference for Job")
+				return ctrl.Result{}, err
+			}
+			// reconcile job, creates a new one or gets the old one
+			reconciledJob, err := Job(ctx, r.Client, job, log)
+			if err != nil {
+				log.Error(err, "Error reconciling Job", "Job", job.Name, "Namespace", job.Namespace)
+				return ctrl.Result{}, err
+			}
+
+			var gateState pipelinesv1alpha1.GateState
+			if failed, condition := hasFailed(reconciledJob); failed {
+				// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
+				log.Info("Job failed", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
+				gateState = pipelinesv1alpha1.GateState(console.GateStateClosed)
+			} else if succeeded, condition := hasSucceeded(reconciledJob); succeeded {
+				// if the job is complete, then we need to update the gate state to open, unless it's a rerun
+				log.Info("Job succeeded", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
+				gateState = pipelinesv1alpha1.GateState(console.GateStateOpen)
+			} else {
+				// if the job is still running, then we need to do nothing
+				log.Info("Job is still running", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
+				gateState = pipelinesv1alpha1.GateState(console.GateStatePending)
+			}
+			gate.Status.State = &gateState
+			if err := r.Status().Update(ctx, gate); err != nil {
+				log.Error(err, "Failed to update PipelineGate status at CR")
+				return ctrl.Result{}, err
+			}
+			log.Info("Updated gate state", "Name", gate.Name, "ID", gate.Spec.ID, "State", gateState)
+			return ctrl.Result{}, nil
+		}
+	}
+
+	// PUSH SYNC ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// gate is open or closed as per last reconciliation
+	if gate.Status.State != nil &&
+		(gate.Status.LastReported == nil || *gate.Status.LastReported == pipelinesv1alpha1.GateState(console.GateStatePending)) &&
+		(*gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateOpen) || *gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateClosed)) {
+
+		// def state var for update
+		var gateState console.GateState
+		if *gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateOpen) {
+			gateState = console.GateStateOpen
+		} else {
+			gateState = console.GateStateClosed
+		}
+		log.Info("PipelineGate State changed", "Namespace", gate.Namespace, "Name", gate.Name, "State", gate.Status.State)
+
+		updateAttributes := console.GateUpdateAttributes{State: &gateState, Status: &console.GateStatusAttributes{JobRef: gate.Status.JobRef}}
+		// DEBUG
+		gateJSON, err := json.MarshalIndent(updateAttributes, "", "  ")
 		if err != nil {
-			log.Error(err, "Error reconciling Job", "Job", job.Name, "Namespace", job.Namespace)
+			log.Error(err, "failed to marshalindent updateAttributes")
+		}
+		fmt.Printf("updateAttributes json from API: \n %s\n", string(gateJSON))
+		// DEBUG
+		// try to update gate at console
+		if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, updateAttributes); err != nil {
+			log.Error(err, "Failed to update PipelineGate status to console")
 			return ctrl.Result{}, err
 		}
-		// job created
-		if failed, condition := hasFailed(reconciledJob); failed {
-			log.Info("Job failed", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
-			gateStateClosed := console.GateStateClosed
-			pipelineGateInstance.Status.State = pipelinesv1alpha1.GateState(gateStateClosed)
-			updateAttributes := console.GateUpdateAttributes{State: &gateStateClosed, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
-			// DEBUG
-			gateJSON, err := json.MarshalIndent(updateAttributes, "", "  ")
-			if err != nil {
-				log.Error(err, "failed to marshalindent updateAttributes")
-			}
-			fmt.Printf("updateAttributes json from API: \n %s\n", string(gateJSON))
-			// DEBUG
-			r.ConsoleClient.UpdateGate(pipelineGateInstance.Spec.ID, updateAttributes)
-			log.Info("Updated gate state at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStateClosed)
-			return ctrl.Result{}, nil
-		} else if succeeded, condition := hasSucceeded(reconciledJob); succeeded {
-			log.Info("Job succeeded", "Name", job.Name, "Namespace", job.Namespace, "Condition", condition)
-			gateStateOpen := console.GateStateOpen
-			pipelineGateInstance.Status.State = pipelinesv1alpha1.GateState(gateStateOpen)
-			updateAttributes := console.GateUpdateAttributes{State: &gateStateOpen, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
-			// DEBUG
-			gateJSON, err := json.MarshalIndent(updateAttributes, "", "  ")
-			if err != nil {
-				log.Error(err, "failed to marshalindent updateAttributes")
-			}
-			fmt.Printf("updateAttributes json from API: \n %s\n", string(gateJSON))
-			// DEBUG
-			r.ConsoleClient.UpdateGate(pipelineGateInstance.Spec.ID, updateAttributes)
-			log.Info("Updated gate state at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStateOpen)
-			return ctrl.Result{}, nil
-		} else {
-			gateStatePending := console.GateStatePending
-			pipelineGateInstance.Status.State = pipelinesv1alpha1.GateState(gateStatePending)
-			updateAttributes := console.GateUpdateAttributes{State: &gateStatePending, Status: &console.GateStatusAttributes{JobRef: &console.NamespacedName{Name: reconciledJob.Name, Namespace: reconciledJob.Namespace}}}
-			// DEBUG
-			gateJSON, err := json.MarshalIndent(updateAttributes, "", "  ")
-			if err != nil {
-				log.Error(err, "failed to marshalindent updateAttributes")
-			}
-			fmt.Printf("updateAttributes json from API: \n %s\n", string(gateJSON))
-			// DEBUG
-			r.ConsoleClient.UpdateGate(pipelineGateInstance.Spec.ID, updateAttributes)
-			log.Info("Updated gate state at console", "Name", pipelineGateInstance.Name, "ID", pipelineGateInstance.Spec.ID, "State", gateStatePending)
-		}
-		if err := r.Status().Update(ctx, pipelineGateInstance); err != nil {
-			log.Error(err, "Failed to update PipelineGate status")
+		log.Info("Updated gate state at console", "Name", gate.Name, "ID", gate.Spec.ID, "State", gateState)
+
+		// update CR state
+		lastReportedAt := metav1.Now()
+		gate.Status.LastReportedAt = &lastReportedAt
+		lastReported := pipelinesv1alpha1.GateState(gateState)
+		gate.Status.LastReported = &lastReported
+		if err := r.Status().Update(ctx, gate); err != nil {
+			log.Error(err, "Failed to update PipelineGate status at CR")
 			return ctrl.Result{}, err
 		}
+
+		return ctrl.Result{}, nil
 	}
+
+	// SCHEDULE RERUN /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// gate is closed or open as per last reconciliation, but got updated from console to pending, for a rerun of the pipeline for example
+	if gate.Status.State != nil &&
+		gate.Status.LastReported != nil &&
+		gate.Status.LastReportedAt != nil &&
+		gate.Spec.LastSyncedAt != nil &&
+		((*gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateOpen) && *gate.Status.LastReported == pipelinesv1alpha1.GateState(console.GateStateOpen)) ||
+			(*gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateClosed) && *gate.Status.LastReported == pipelinesv1alpha1.GateState(console.GateStateClosed))) &&
+		(*gate.Status.LastReportedAt).Before(gate.Spec.LastSyncedAt) &&
+		gate.Spec.SyncedState == pipelinesv1alpha1.GateState(console.GateStatePending) {
+		// update CR state
+		gate.Status.State = &gate.Spec.SyncedState // will be pending
+		// set jobRef to nil, this is important to make sure we create a new job
+		gate.Status.JobRef = nil
+		if err := r.Status().Update(ctx, gate); err != nil {
+			log.Error(err, "Failed to update PipelineGate status at CR")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -227,13 +278,13 @@ func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger
 	return foundJob, nil
 }
 
-func (r *PipelineGateReconciler) generateJob(ctx context.Context, log logr.Logger, pipelineGateInstance *pipelinesv1alpha1.PipelineGate, jobName string) *batchv1.Job {
+func (r *PipelineGateReconciler) generateJob(ctx context.Context, log logr.Logger, jobSpec batchv1.JobSpec, jobRef console.NamespacedName) *batchv1.Job {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: pipelineGateInstance.Namespace,
+			Name:      jobRef.Name,
+			Namespace: jobRef.Namespace,
 		},
-		Spec: *pipelineGateInstance.Spec.GateSpec.JobSpec,
+		Spec: jobSpec,
 	}
 }
 
