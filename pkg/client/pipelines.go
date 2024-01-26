@@ -34,6 +34,7 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 	}
 	fmt.Printf("gate fragment to parse: \n %s\n", string(gateJSON))
 
+	now := metav1.Now()
 	pipelineGate := &pipelinesv1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PipelineGate",
@@ -44,14 +45,12 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			Namespace: pgFragment.Spec.Job.Namespace,
 		},
 		Spec: pipelinesv1alpha1.PipelineGateSpec{
-			ID:       pgFragment.ID,
-			Name:     pgFragment.Name, // + "-" + pgFragment.ID,
-			Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
-			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
-		},
-		Status: pipelinesv1alpha1.PipelineGateStatus{
-			State:  pipelinesv1alpha1.GateState(pgFragment.State),
-			JobRef: nil,
+			ID:           pgFragment.ID,
+			Name:         pgFragment.Name, // + "-" + pgFragment.ID,
+			Type:         pipelinesv1alpha1.GateType(pgFragment.Type),
+			GateSpec:     gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
+			SyncedState:  pipelinesv1alpha1.GateState(pgFragment.State),
+			LastSyncedAt: &now,
 		},
 	}
 	gateCRJSON, err := json.MarshalIndent(pipelineGate, "", "  ")
