@@ -52,12 +52,12 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 		}
 		cx.discoClient, err = cx.factory.ToDiscoveryClient()
 		if err != nil {
-			return nil, fmt.Errorf("error getting discovery client: %v", err)
+			return nil, fmt.Errorf("error getting discovery client: %w", err)
 		}
 	}
 	if cx.mapper == nil {
 		if cx.factory == nil {
-			return nil, fmt.Errorf("a factory must be provided or all other options: %v", err)
+			return nil, fmt.Errorf("a factory must be provided or all other options: %w", err)
 		}
 		cx.mapper, err = cx.factory.ToRESTMapper()
 		if err != nil {
