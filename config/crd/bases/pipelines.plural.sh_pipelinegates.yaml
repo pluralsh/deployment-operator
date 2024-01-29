@@ -8624,7 +8624,7 @@ spec:
                 type: object
               id:
                 type: string
-              lastReportedAt:
+              lastSyncedAt:
                 format: date-time
                 type: string
               name:
