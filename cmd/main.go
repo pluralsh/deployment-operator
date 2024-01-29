@@ -20,15 +20,17 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(deploymentsv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
 	opt := newOptions()
-
 	config := ctrl.GetConfigOrDie()
+	ctx := ctrl.SetupSignalHandler()
+
+	serviceReconciler := runAgent(opt, config, ctx)
+
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
 		LeaderElection:         opt.enableLeaderElection,
@@ -39,9 +41,6 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-	ctx := ctrl.SetupSignalHandler()
-
-	serviceReconciler := runAgent(opt, config, ctx)
 
 	if err = (&controller.CustomHealthReconciler{
 		Client:            mgr.GetClient(),
