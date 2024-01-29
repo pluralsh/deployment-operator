@@ -41,6 +41,11 @@ func New(clusterId, consoleUrl, deployToken string) (*Socket, error) {
 }
 
 func (s *Socket) AddPublisher(event string, publisher Publisher) {
+	if event == "" {
+		log.Info("cannot register publisher without event type")
+		return
+	}
+
 	if _, ok := s.publishers[event]; !ok {
 		s.publishers[event] = publisher
 	} else {
