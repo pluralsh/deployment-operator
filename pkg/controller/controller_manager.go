@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 )
 
 type ControllerManager struct {
@@ -30,10 +32,21 @@ type ControllerManager struct {
 	ctx context.Context
 
 	client *client.Client
+
+	Socket *websocket.Socket
 }
 
 func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cacheSyncTimeout time.Duration,
-	refresh time.Duration, recoverPanic *bool, consoleUrl, deployToken string) *ControllerManager {
+	refresh time.Duration, recoverPanic *bool, consoleUrl, deployToken, clusterId string) (*ControllerManager, error) {
+
+	socket, err := websocket.New(clusterId, consoleUrl, deployToken)
+	if err != nil {
+		if socket == nil {
+			return nil, err
+		}
+		klog.Error(err, "could not initiate websocket connection, ignoring and falling back to polling")
+	}
+
 	return &ControllerManager{
 		Controllers:             make([]*Controller, 0),
 		MaxConcurrentReconciles: maxConcurrentReconciles,
@@ -43,7 +56,8 @@ func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cach
 		started:                 false,
 		ctx:                     ctx,
 		client:                  client.New(consoleUrl, deployToken),
-	}
+		Socket:                  socket,
+	}, nil
 }
 
 func (cm *ControllerManager) GetClient() *client.Client {
@@ -64,6 +78,8 @@ func (cm *ControllerManager) Start() error {
 	for _, ctrl := range cm.Controllers {
 		controller := ctrl
 
+		cm.Socket.AddPublisher(controller.Do.GetPublisher())
+
 		go func() {
 			defer controller.Do.ShutdownQueue()
 			defer controller.Do.WipeCache()
@@ -76,6 +92,12 @@ func (cm *ControllerManager) Start() error {
 			controller.Start(cm.ctx)
 		}()
 	}
+
+	go func() {
+		_ = wait.PollImmediateInfinite(cm.Refresh, func() (done bool, err error) {
+			return false, cm.Socket.Join()
+		})
+	}()
 
 	cm.started = true
 	return nil

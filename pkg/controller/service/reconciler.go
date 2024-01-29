@@ -52,7 +52,6 @@ const (
 
 type ServiceReconciler struct {
 	ConsoleClient *client.Client
-	ConsoleSocket *websocket.Socket
 	Config        *rest.Config
 	Clientset     *kubernetes.Clientset
 	Applier       *applier.Applier
@@ -74,7 +73,7 @@ var (
 func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, refresh time.Duration, clusterId string) (*ServiceReconciler, error) {
 	disableClientLimits(config)
 
-	consoleUrl, deployToken := consoleClient.GetCredentials()
+	_, deployToken := consoleClient.GetCredentials()
 
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
@@ -88,20 +87,6 @@ func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, ref
 	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	manifestCache := manifests.NewCache(refresh, deployToken)
-
-	publisher := &socketPublisher{
-		svcQueue: svcQueue,
-		svcCache: svcCache,
-		manCache: manifestCache,
-	}
-
-	socket, err := websocket.New(clusterId, consoleUrl, deployToken, publisher)
-	if err != nil {
-		if socket == nil {
-			return nil, err
-		}
-		klog.Error(err, "could not initiate websocket connection, ignoring and falling back to polling")
-	}
 
 	f := newFactory(config)
 
@@ -124,7 +109,6 @@ func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, ref
 
 	return &ServiceReconciler{
 		ConsoleClient:   consoleClient,
-		ConsoleSocket:   socket,
 		Config:          config,
 		Clientset:       cs,
 		SvcQueue:        svcQueue,
@@ -136,6 +120,15 @@ func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, ref
 		discoveryClient: discoveryClient,
 		pinger:          ping.New(consoleClient, discoveryClient, f),
 	}, nil
+}
+
+func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
+	return "service.event", &socketPublisher{
+		svcQueue: s.SvcQueue,
+		svcCache: s.SvcCache,
+		manCache: s.ManifestCache,
+	}
+
 }
 
 func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*applier.Applier, error) {
@@ -189,10 +182,6 @@ func (s *ServiceReconciler) ShutdownQueue() {
 
 func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 	logger := log.FromContext(ctx)
-
-	if err := s.ConsoleSocket.Join(); err != nil {
-		logger.Error(err, "could not establish websocket to upstream")
-	}
 
 	logger.Info("fetching services for cluster")
 	svcs, err := s.ConsoleClient.GetServices()

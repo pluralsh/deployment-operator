@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -22,6 +23,10 @@ type Reconciler interface {
 
 	// Poll Console for any state changes and put them in the queue that will be consumed by Reconcile.
 	Poll(context.Context) (bool, error)
+
+	// GetPublisher returns event name, i.e. "event.service", and Publisher that will be registered with this reconciler.
+	// TODO: Make it optional and/or accept multiple publishers.
+	GetPublisher() (string, websocket.Publisher)
 
 	// WipeCache containing Console resources.
 	WipeCache()

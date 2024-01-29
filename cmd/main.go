@@ -102,7 +102,11 @@ func main() {
 	ctx := ctrl.SetupSignalHandler()
 
 	// Start deployment operator controller manager.
-	manager := svccontroller.NewControllerManager(ctx, opt.maxCurrentReconciles, pTimeout, refresh, lo.ToPtr(true), opt.consoleUrl, opt.deployToken)
+	manager, err := svccontroller.NewControllerManager(ctx, opt.maxCurrentReconciles, pTimeout, refresh, lo.ToPtr(true), opt.consoleUrl, opt.deployToken, opt.clusterId)
+	if err != nil {
+		setupLog.Error(err, "unable to create manager")
+		os.Exit(1)
+	}
 
 	serviceReconciler, err := service.NewServiceReconciler(manager.GetClient(), config, manager.Refresh, opt.clusterId)
 	if err != nil {
