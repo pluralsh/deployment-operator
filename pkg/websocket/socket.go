@@ -14,7 +14,7 @@ var (
 )
 
 type Publisher interface {
-	PublishService(id string)
+	Publish(id string)
 }
 
 type Socket struct {
@@ -103,7 +103,7 @@ func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
 				log.Info("got new service update from websocket", "id", id)
-				s.publisher.PublishService(id)
+				s.publisher.Publish(id)
 			}
 		}
 	}

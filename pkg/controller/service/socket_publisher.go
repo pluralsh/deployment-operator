@@ -14,7 +14,7 @@ type socketPublisher struct {
 	manCache *manifests.ManifestCache
 }
 
-func (pub *socketPublisher) PublishService(id string) {
+func (pub *socketPublisher) Publish(id string) {
 	pub.svcCache.Expire(id)
 	pub.manCache.Expire(id)
 	pub.svcQueue.Add(id)
