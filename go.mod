@@ -18,7 +18,7 @@ require (
 	github.com/pluralsh/console-client-go v0.0.80
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.1.4
-	github.com/samber/lo v1.38.1
+	github.com/samber/lo v1.39.0
 	github.com/spf13/pflag v1.0.5
 	github.com/vektra/mockery/v2 v2.39.0
 	github.com/yuin/gopher-lua v1.1.1
