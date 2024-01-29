@@ -156,6 +156,6 @@ func updateOrCreatePipelineGate(clientset *versioned.Clientset, gateCR *pipeline
 			return err
 		}
 	}
-	log.Info("Updated pipeline gate", "Namespace", gateCR.Namespace, "Name", gate.Name, "ID", gate.ID)
+	log.Info("Updated pipeline gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 	return nil
 }
