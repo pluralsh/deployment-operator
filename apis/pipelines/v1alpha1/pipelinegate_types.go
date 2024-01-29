@@ -58,7 +58,7 @@ type PipelineGateSpec struct {
 	Name         string       `json:"name"`
 	Type         GateType     `json:"type"`
 	SyncedState  GateState    `json:"syncedState"`
-	LastSyncedAt *metav1.Time `json:"lastReportedAt,omitempty"`
+	LastSyncedAt *metav1.Time `json:"lastSyncedAt,omitempty"`
 	GateSpec     *GateSpec    `json:"gateSpec,omitempty"`
 }
 
