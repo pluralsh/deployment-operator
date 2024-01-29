@@ -6,11 +6,11 @@ import (
 	"net/url"
 
 	phx "github.com/pluralsh/gophoenix"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 )
 
 var (
-	log = klogr.New()
+	log = textlogger.NewLogger(textlogger.NewConfig())
 )
 
 type Publisher interface {
@@ -83,7 +83,7 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 
 func (s *Socket) NotifyConnect() {
 	s.connected = true
-	s.Join()
+	_ = s.Join()
 }
 
 func (s *Socket) NotifyDisconnect() {

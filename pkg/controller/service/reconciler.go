@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
@@ -65,10 +65,6 @@ type ServiceReconciler struct {
 	discoveryClient *discovery.DiscoveryClient
 	pinger          *ping.Pinger
 }
-
-var (
-	klog = klogr.New()
-)
 
 func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, refresh time.Duration, clusterId string) (*ServiceReconciler, error) {
 	disableClientLimits(config)
