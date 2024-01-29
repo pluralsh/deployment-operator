@@ -77,7 +77,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			log.Info("Unable to fetch PipelineGate - skipping", "Namespace", gate.Namespace, "Name", gate.Name)
 			return ctrl.Result{}, nil
 		}
-		log.Error(err, "unable to fetch PipelineGate")
+		log.Error(err, "Unable to fetch PipelineGate")
 		return ctrl.Result{}, err
 	}
 
@@ -90,6 +90,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			log.Error(err, "Failed to update PipelineGate status at CR")
 			return ctrl.Result{}, err
 		}
+		log.Info("Updated state of CR on first reconcile", "Namespace", gate.Namespace, "Name", gate.Name, "ID", gate.Spec.ID, "SyncedState", gate.Spec.SyncedState, "LastSyncedAt", gate.Spec.LastSyncedAt, "State", gate.Status.State, "LastReportedAt", gate.Status.LastReportedAt)
 		return ctrl.Result{}, nil
 	}
 
