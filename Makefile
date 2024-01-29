@@ -48,13 +48,13 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 
 .PHONY: run
 run: ## run
-	go run cmd/main.go
+	go run cmd/*
 
 ##@ Build
 
 .PHONY: build
 build: ## build
-	go build -o bin/deployment-agent cmd/main.go
+	go build -o bin/deployment-agent cmd/*
 
 docker-build: ## build image
 	docker build -t ${IMG} .
