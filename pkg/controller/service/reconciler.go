@@ -257,7 +257,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			ValidationPolicy:        1,
 		})
 
-		err = s.UpdatePruneStatus(ctx, id, svc.Name, svc.Namespace, ch, len(manifests), vcache)
+		err = s.UpdatePruneStatus(ctx, svc, ch, vcache)
 		return
 	}
 
@@ -284,7 +284,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	options.DryRunStrategy = common.DryRunNone
 	ch := s.Applier.Run(ctx, inv, manifests, options)
-	err = s.UpdateApplyStatus(ctx, id, svc.Name, svc.Namespace, ch, false, vcache)
+	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
 }

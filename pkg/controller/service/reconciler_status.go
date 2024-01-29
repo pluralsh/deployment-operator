@@ -131,7 +131,7 @@ func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.Co
 	return lo.ToPtr(console.ComponentStatePending)
 }
 
-func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, id, name, namespace string, ch <-chan event.Event, toDelete int, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.ServiceDeploymentExtended, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
 	logger := log.FromContext(ctx)
 
 	var statsCollector stats.Stats
@@ -157,20 +157,20 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, id, name, nam
 		}
 	}
 
-	if err := FormatSummary(ctx, namespace, name, statsCollector); err != nil {
+	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 		return err
 	}
 
 	components := statusCollector.componentsAttributes(vcache)
 	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
-	if err := s.UpdateStatus(id, components, errorAttributes("sync", err)); err != nil {
+	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
 
 	return nil
 }
 
-func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, id, name, namespace string, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.ServiceDeploymentExtended, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
 	logger := log.FromContext(ctx)
 
 	var statsCollector stats.Stats
@@ -219,12 +219,12 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, id, name, nam
 		}
 	}
 
-	if err := FormatSummary(ctx, namespace, name, statsCollector); err != nil {
+	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 		return err
 	}
 
 	components := statusCollector.componentsAttributes(vcache)
-	if err := s.UpdateStatus(id, components, errorAttributes("sync", err)); err != nil {
+	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
 
