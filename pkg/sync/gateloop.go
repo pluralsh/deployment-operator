@@ -99,12 +99,7 @@ func (engine *Engine) processGate(item interface{}) error {
 		log.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
 		return err
 	}
-	gateCRJSON, err := json.MarshalIndent(gateCR, "", "  ")
-	if err != nil {
-		log.Error(err, "failed to marshalindent gateCR")
-	}
-	fmt.Printf("updating or creating gateCR json:\n %s\n", string(gateCRJSON))
-	updateOrCreatePipelineGate(engine.genClientset, gateCR, gate)
+	updateOrCreatePipelineGate(engine.genClientset, gateCR)
 
 	//if gate.State == console.GateStatePending || gate.State == console.GateStateClosed {
 	//	gateCR, err := engine.client.ParsePipelineGateCR(gate)
@@ -139,21 +134,28 @@ func (engine *Engine) processGate(item interface{}) error {
 	return nil
 }
 
-func updateOrCreatePipelineGate(clientset *versioned.Clientset, gateCR *pipelinesv1alpha1.PipelineGate, gate *console.PipelineGateFragment) error {
+func updateOrCreatePipelineGate(clientset *versioned.Clientset, gateCR *pipelinesv1alpha1.PipelineGate) error {
+	gateCRJSON, err := json.MarshalIndent(gateCR, "", "  ")
+	if err != nil {
+		log.Error(err, "failed to marshalindent gateCR")
+	}
+	fmt.Printf("updating or creating gateCR json:\n %s\n", string(gateCRJSON))
 	pgClient := clientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
-	_, err := pgClient.Update(context.Background(), gateCR, metav1.UpdateOptions{})
+	_, err = pgClient.Update(context.Background(), gateCR, metav1.UpdateOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// If the PipelineGate doesn't exist, create it.
 			_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
 			if err != nil {
-				log.Error(err, "failed to create gate", "Name", gate.Name, "ID", gate.ID)
+				log.Error(err, "failed to create gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 				return err
 			}
 		} else {
-			log.Error(err, "failed to update gate", "Name", gate.Name, "ID", gate.ID)
+
+			log.Error(err, "failed to update gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 			return err
 		}
 	}
+	log.Info("Updated pipeline gate", "Namespace", gateCR.Namespace, "Name", gate.Name, "ID", gate.ID)
 	return nil
 }
