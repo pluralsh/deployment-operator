@@ -136,7 +136,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.
 
 	var statsCollector stats.Stats
 	var err error
-	statusCollector := newServiceComponentsStatusCollector(s)
+	statusCollector := newServiceComponentsStatusCollector(s, svc)
 
 	for e := range ch {
 		statsCollector.Handle(e)
@@ -175,7 +175,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 
 	var statsCollector stats.Stats
 	var err error
-	statusCollector := newServiceComponentsStatusCollector(s)
+	statusCollector := newServiceComponentsStatusCollector(s, svc)
 
 	for e := range ch {
 		statsCollector.Handle(e)
@@ -187,6 +187,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 		case event.ErrorType:
 			return e.ErrorEvent.Err
 		case event.ApplyType:
+			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
 			if e.ApplyEvent.Error != nil {

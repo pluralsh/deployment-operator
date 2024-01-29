@@ -283,6 +283,15 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	options.DryRunStrategy = common.DryRunNone
+	dryRun := false
+	if svc.DryRun != nil {
+		dryRun = *svc.DryRun
+	}
+	svc.DryRun = lo.ToPtr(dryRun)
+	if dryRun {
+		options.DryRunStrategy = common.DryRunServer
+	}
+
 	ch := s.Applier.Run(ctx, inv, manifests, options)
 	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
