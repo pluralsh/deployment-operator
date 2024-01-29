@@ -280,6 +280,10 @@ func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger
 	if !justCreated && CopyJobFields(job, foundJob, log) {
 		log.Info("Updating Job", "namespace", job.Namespace, "name", job.Name)
 		if err := r.Update(ctx, foundJob); err != nil {
+			if apierrs.IsConflict(err) {
+				return foundJob, nil
+			}
+
 			log.Error(err, "Unable to update Job")
 			return foundJob, err
 		}
