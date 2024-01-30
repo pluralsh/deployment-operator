@@ -100,5 +100,5 @@ jobs:
         body: Automated Pull Request to release ${{github.ref_name}}
         commit-message: Updated chart to release ${{github.ref_name}}
         labels: release
-        base: master
+        base: main
         branch: release-${{github.ref_name}}
