@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -19,16 +20,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var restoreStatusMap = map[velerov1.RestorePhase]console.RestoreStatus{
-	velerov1.RestorePhaseNew:                                       console.RestoreStatusCreated,
-	velerov1.RestorePhaseInProgress:                                console.RestoreStatusPending,
-	velerov1.RestorePhaseWaitingForPluginOperations:                console.RestoreStatusPending,
-	velerov1.RestorePhaseFailedValidation:                          console.RestoreStatusFailed,
-	velerov1.RestorePhasePartiallyFailed:                           console.RestoreStatusFailed,
-	velerov1.RestorePhaseWaitingForPluginOperationsPartiallyFailed: console.RestoreStatusFailed,
-	velerov1.RestorePhaseFailed:                                    console.RestoreStatusFailed,
-	velerov1.RestorePhaseCompleted:                                 console.RestoreStatusSuccessful,
-}
+var (
+	restoreStatusMap = map[velerov1.RestorePhase]console.RestoreStatus{
+		velerov1.RestorePhaseNew:                                       console.RestoreStatusCreated,
+		velerov1.RestorePhaseInProgress:                                console.RestoreStatusPending,
+		velerov1.RestorePhaseWaitingForPluginOperations:                console.RestoreStatusPending,
+		velerov1.RestorePhaseFailedValidation:                          console.RestoreStatusFailed,
+		velerov1.RestorePhasePartiallyFailed:                           console.RestoreStatusFailed,
+		velerov1.RestorePhaseWaitingForPluginOperationsPartiallyFailed: console.RestoreStatusFailed,
+		velerov1.RestorePhaseFailed:                                    console.RestoreStatusFailed,
+		velerov1.RestorePhaseCompleted:                                 console.RestoreStatusSuccessful,
+	}
+
+	excludedResources = []string{
+		"nodes",
+		"events",
+		"events.events.k8s.io",
+		"backups.velero.io",
+		"restores.velero.io",
+		"resticrepositories.velero.io",
+		"csinodes.storage.k8s.io",
+		"volumeattachments.storage.k8s.io",
+		"backuprepositories.velero.io",
+	}
+)
 
 type RestoreReconciler struct {
 	ConsoleClient *client.Client
@@ -38,20 +53,15 @@ type RestoreReconciler struct {
 	Namespace     string
 }
 
-func NewRestoreReconciler(consoleClient *client.Client, k8sClient ctrlclient.Client, refresh time.Duration) (*RestoreReconciler, error) {
-	restoreCache := client.NewCache[console.ClusterRestoreFragment](refresh, func(id string) (*console.ClusterRestoreFragment, error) {
-		return consoleClient.GetClusterRestore(id)
-	})
-
-	restoreQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
+func NewRestoreReconciler(consoleClient *client.Client, k8sClient ctrlclient.Client, refresh time.Duration) *RestoreReconciler {
 	return &RestoreReconciler{
 		ConsoleClient: consoleClient,
-		RestoreQueue:  restoreQueue,
-		RestoreCache:  restoreCache,
 		K8sClient:     k8sClient,
-	}, nil
-
+		RestoreQueue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		RestoreCache: client.NewCache[console.ClusterRestoreFragment](refresh, func(id string) (*console.ClusterRestoreFragment, error) {
+			return consoleClient.GetClusterRestore(id)
+		}),
+	}
 }
 
 func (s *RestoreReconciler) GetPublisher() (string, websocket.Publisher) {
@@ -59,7 +69,6 @@ func (s *RestoreReconciler) GetPublisher() (string, websocket.Publisher) {
 		restoreQueue: s.RestoreQueue,
 		restoreCache: s.RestoreCache,
 	}
-
 }
 
 func (s *RestoreReconciler) WipeCache() {
@@ -147,19 +156,8 @@ func (s *RestoreReconciler) genVeleroRestore(id, backupName string) *velerov1.Re
 			Namespace: s.Namespace,
 		},
 		Spec: velerov1.RestoreSpec{
-			BackupName: backupName,
-			ExcludedResources: []string{
-				"nodes",
-				"events",
-				"events.events.k8s.io",
-				"backups.velero.io",
-				"restores.velero.io",
-				"resticrepositories.velero.io",
-				"csinodes.storage.k8s.io",
-				"volumeattachments.storage.k8s.io",
-				"backuprepositories.velero.io",
-			},
-			Hooks: velerov1.RestoreHooks{},
+			BackupName:        backupName,
+			ExcludedResources: excludedResources,
 		},
 	}
 }
