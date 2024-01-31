@@ -21,3 +21,12 @@ func (c *Client) UpdateClusterRestore(id string, attrs console.RestoreAttributes
 
 	return restore.UpdateClusterRestore, nil
 }
+
+func (c *Client) CreateClusterBackup(attrs console.BackupAttributes) (*console.ClusterBackupFragment, error) {
+	backup, err := c.consoleClient.CreateClusterBackup(c.ctx, attrs)
+	if err != nil {
+		return nil, err
+	}
+
+	return backup.CreateClusterBackup, nil
+}
