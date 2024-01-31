@@ -8,7 +8,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
 	"github.com/pluralsh/deployment-operator/generated/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

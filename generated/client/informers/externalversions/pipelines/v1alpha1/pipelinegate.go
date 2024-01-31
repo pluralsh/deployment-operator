@@ -21,7 +21,7 @@ import (
 	"context"
 	time "time"
 
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
 	versioned "github.com/pluralsh/deployment-operator/generated/client/clientset/versioned"
 	internalinterfaces "github.com/pluralsh/deployment-operator/generated/client/informers/externalversions/internalinterfaces"
 	v1alpha1 "github.com/pluralsh/deployment-operator/generated/client/listers/pipelines/v1alpha1"
