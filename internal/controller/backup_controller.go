@@ -55,7 +55,7 @@ func (r *ClusterBackupReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	// todo check already exists error
 	backupApi, err := r.ConsoleClient.CreateClusterBackup(console.BackupAttributes{Name: backup.Name})
-	if err != nil {
+	if err == nil {
 		logger.Info("cluster backup created", "ID", backupApi.ID)
 	}
 
