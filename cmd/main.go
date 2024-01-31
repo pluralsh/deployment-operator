@@ -31,8 +31,6 @@ func main() {
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
 
-	_, serviceReconciler := runAgent(opt, config, ctx)
-
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
 		LeaderElection:         opt.enableLeaderElection,
@@ -43,7 +41,7 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
-
+	_, serviceReconciler := runAgent(opt, config, ctx, mgr.GetClient())
 	/*
 		if err = (&controller.BackupReconciler{
 			Client:        mgr.GetClient(),

@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/samber/lo"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/rest"
-
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func runAgent(opt *options, config *rest.Config, ctx context.Context) (*controller.ControllerManager, *service.ServiceReconciler) {
+func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler) {
 	r, err := time.ParseDuration(opt.refreshInterval)
 	if err != nil {
 		setupLog.Error(err, "unable to get refresh interval")
@@ -41,6 +41,13 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context) (*controll
 		Do:    sr,
 		Queue: sr.SvcQueue,
 	})
+
+	/*	restore := restore.NewRestoreReconciler(mgr.GetClient(), k8sClient, r, "velero")
+		mgr.AddController(&controller.Controller{
+			Name:  "Restore Controller",
+			Do:    restore,
+			Queue: restore.RestoreQueue,
+		})*/
 
 	if err := mgr.Start(); err != nil {
 		setupLog.Error(err, "unable to start controller manager")

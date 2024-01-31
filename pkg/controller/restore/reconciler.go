@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"time"
 
+	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var (
@@ -53,7 +52,7 @@ type RestoreReconciler struct {
 	Namespace     string
 }
 
-func NewRestoreReconciler(consoleClient *client.Client, k8sClient ctrlclient.Client, refresh time.Duration) *RestoreReconciler {
+func NewRestoreReconciler(consoleClient *client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace string) *RestoreReconciler {
 	return &RestoreReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
@@ -61,6 +60,7 @@ func NewRestoreReconciler(consoleClient *client.Client, k8sClient ctrlclient.Cli
 		RestoreCache: client.NewCache[console.ClusterRestoreFragment](refresh, func(id string) (*console.ClusterRestoreFragment, error) {
 			return consoleClient.GetClusterRestore(id)
 		}),
+		Namespace: namespace,
 	}
 }
 
