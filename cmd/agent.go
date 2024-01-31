@@ -31,7 +31,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context) (*controll
 		os.Exit(1)
 	}
 
-	sr, err := service.NewServiceReconciler(mgr.GetClient(), config, r, opt.clusterId)
+	sr, err := service.NewServiceReconciler(mgr.GetClient(), config, r)
 	if err != nil {
 		setupLog.Error(err, "unable to create service reconciler")
 		os.Exit(1)

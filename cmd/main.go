@@ -31,7 +31,7 @@ func main() {
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
 
-	ctrlMgr, serviceReconciler := runAgent(opt, config, ctx)
+	_, serviceReconciler := runAgent(opt, config, ctx)
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
@@ -44,20 +44,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.RestoreReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Restore")
-	}
-	if err = (&controller.ClusterBackupReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Backup")
-	}
+	/*	if err = (&controller.RestoreReconciler{
+			Client:        mgr.GetClient(),
+			Scheme:        mgr.GetScheme(),
+			ConsoleClient: ctrlMgr.GetClient(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Restore")
+		}
+		if err = (&controller.BackupReconciler{
+			Client:        mgr.GetClient(),
+			Scheme:        mgr.GetScheme(),
+			ConsoleClient: ctrlMgr.GetClient(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Backup")
+		}*/
 
 	if err = (&controller.CustomHealthReconciler{
 		Client:            mgr.GetClient(),

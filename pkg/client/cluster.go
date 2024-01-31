@@ -25,3 +25,7 @@ func (c *Client) RegisterRuntimeServices(svcs map[string]string, serviceId *stri
 	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, serviceId)
 	return err
 }
+
+func (c *Client) MyCluster() (*console.MyCluster, error) {
+	return c.consoleClient.MyCluster(c.ctx)
+}

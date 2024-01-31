@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// ClusterBackupReconciler reconciles a ClusterBackup object
-type ClusterBackupReconciler struct {
+// BackupReconciler reconciles a ClusterBackup object
+type BackupReconciler struct {
 	k8sClient.Client
 	Scheme        *runtime.Scheme
 	ConsoleClient *client.Client
@@ -40,7 +40,7 @@ type ClusterBackupReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
-func (r *ClusterBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	// Read resource from Kubernetes cluster.
 	backup := &velerov1.Backup{}
@@ -63,7 +63,7 @@ func (r *ClusterBackupReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ClusterBackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&velerov1.Backup{}).
 		Complete(r)
