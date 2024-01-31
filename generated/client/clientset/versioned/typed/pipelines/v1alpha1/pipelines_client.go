@@ -20,7 +20,7 @@ package v1alpha1
 import (
 	"net/http"
 
-	v1alpha1 "github.com/pluralsh/deployment-operator/apis/pipelines/v1alpha1"
+	v1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
 	"github.com/pluralsh/deployment-operator/generated/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
