@@ -9,6 +9,10 @@ IMG ?= deployment-agent:latest
 
 ENVTEST ?= $(shell which setup-envtest)
 
+VELERO_CHART_VERSION := 5.2.2
+VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
+
+
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
@@ -61,6 +65,12 @@ docker-build: ## build image
 
 docker-push: ## push image
 	docker push ${IMG}
+
+velero-crds:
+	@curl -L $(VELERO_CHART_URL) --output velero.tgz
+	@tar zxvf velero.tgz velero/crds
+	@mv velero/crds/* charts/deployment-operator/crds
+	@rm -r velero.tgz velero
 
 ##@ Tests
 
