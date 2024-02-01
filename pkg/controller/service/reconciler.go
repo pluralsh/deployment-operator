@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
@@ -51,7 +51,7 @@ const (
 )
 
 type ServiceReconciler struct {
-	ConsoleClient *client.Client
+	ConsoleClient client.Client
 	Config        *rest.Config
 	Clientset     *kubernetes.Clientset
 	Applier       *applier.Applier
@@ -66,7 +66,7 @@ type ServiceReconciler struct {
 	pinger          *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, refresh time.Duration) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration) (*ServiceReconciler, error) {
 	disableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()

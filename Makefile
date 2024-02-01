@@ -20,7 +20,7 @@ $(LOCALBIN):
 
 ENVTEST_K8S_VERSION := 1.28.3
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
-
+MOCKERY ?= $(shell which mockery)
 include tools.mk
 
 ifndef GOPATH
@@ -47,6 +47,10 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+.PHONY: genmock
+genmock: mockery ## generates mocks before running tests
+	$(MOCKERY)
 
 ##@ Run
 

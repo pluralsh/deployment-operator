@@ -31,7 +31,7 @@ type ControllerManager struct {
 
 	ctx context.Context
 
-	client *client.Client
+	client client.Client
 
 	Socket *websocket.Socket
 }
@@ -60,7 +60,7 @@ func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cach
 	}, nil
 }
 
-func (cm *ControllerManager) GetClient() *client.Client {
+func (cm *ControllerManager) GetClient() client.Client {
 	return cm.client
 }
 

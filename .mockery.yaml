@@ -1,0 +1,8 @@
+filename: "{{.InterfaceName}}_mock.go"
+dir: "pkg/test/mocks"
+mockname: "{{.InterfaceName}}Mock"
+outpkg: "mocks"
+packages:
+  github.com/pluralsh/deployment-operator/pkg/client:
+    interfaces:
+      Client:
