@@ -4,17 +4,17 @@ import (
 	console "github.com/pluralsh/console-client-go"
 )
 
-func (c *Client) PingCluster(attributes console.ClusterPing) error {
+func (c *client) PingCluster(attributes console.ClusterPing) error {
 	_, err := c.consoleClient.PingCluster(c.ctx, attributes)
 	return err
 }
 
-func (c *Client) Ping(vsn string) error {
+func (c *client) Ping(vsn string) error {
 	_, err := c.consoleClient.PingCluster(c.ctx, console.ClusterPing{CurrentVersion: vsn})
 	return err
 }
 
-func (c *Client) RegisterRuntimeServices(svcs map[string]string, serviceId *string) error {
+func (c *client) RegisterRuntimeServices(svcs map[string]string, serviceId *string) error {
 	inputs := make([]*console.RuntimeServiceAttributes, 0)
 	for name, version := range svcs {
 		inputs = append(inputs, &console.RuntimeServiceAttributes{
@@ -26,6 +26,6 @@ func (c *Client) RegisterRuntimeServices(svcs map[string]string, serviceId *stri
 	return err
 }
 
-func (c *Client) MyCluster() (*console.MyCluster, error) {
+func (c *client) MyCluster() (*console.MyCluster, error) {
 	return c.consoleClient.MyCluster(c.ctx)
 }

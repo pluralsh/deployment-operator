@@ -19,20 +19,20 @@ func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 var lock = &sync.Mutex{}
-var singleInstance *Client
+var singleInstance Client
 
-type Client struct {
+type client struct {
 	ctx           context.Context
 	consoleClient *console.Client
 	url           string
 	token         string
 }
 
-func (c *Client) GetCredentials() (url, token string) {
+func (c *client) GetCredentials() (url, token string) {
 	return c.url, c.token
 }
 
-func New(url, token string) *Client {
+func New(url, token string) Client {
 	if singleInstance == nil {
 		lock.Lock()
 		defer lock.Unlock()
@@ -44,7 +44,7 @@ func New(url, token string) *Client {
 				},
 			}
 
-			singleInstance = &Client{
+			singleInstance = &client{
 				consoleClient: console.NewClient(&httpClient, url),
 				ctx:           context.Background(),
 				url:           url,
@@ -54,4 +54,20 @@ func New(url, token string) *Client {
 	}
 
 	return singleInstance
+}
+
+type Client interface {
+	GetCredentials() (url, token string)
+	PingCluster(attributes console.ClusterPing) error
+	Ping(vsn string) error
+	RegisterRuntimeServices(svcs map[string]string, serviceId *string) error
+	MyCluster() (*console.MyCluster, error)
+	GetClusterRestore(id string) (*console.ClusterRestoreFragment, error)
+	UpdateClusterRestore(id string, attrs console.RestoreAttributes) (*console.ClusterRestoreFragment, error)
+	CreateClusterBackup(attrs console.BackupAttributes) (*console.ClusterBackupFragment, error)
+	GetClusterBackup(clusterID, namespace, name string) (*console.ClusterBackupFragment, error)
+	GetServices() ([]*console.ServiceDeploymentBaseFragment, error)
+	GetService(id string) (*console.ServiceDeploymentExtended, error)
+	UpdateComponents(id string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
+	AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error
 }

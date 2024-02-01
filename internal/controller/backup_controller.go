@@ -34,7 +34,7 @@ import (
 type BackupReconciler struct {
 	k8sClient.Client
 	Scheme        *runtime.Scheme
-	ConsoleClient *client.Client
+	ConsoleClient client.Client
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
