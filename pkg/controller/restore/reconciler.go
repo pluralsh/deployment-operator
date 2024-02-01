@@ -45,14 +45,14 @@ var (
 )
 
 type RestoreReconciler struct {
-	ConsoleClient *client.Client
+	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
 	RestoreQueue  workqueue.RateLimitingInterface
 	RestoreCache  *client.Cache[console.ClusterRestoreFragment]
 	Namespace     string
 }
 
-func NewRestoreReconciler(consoleClient *client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace string) *RestoreReconciler {
+func NewRestoreReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace string) *RestoreReconciler {
 	return &RestoreReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
