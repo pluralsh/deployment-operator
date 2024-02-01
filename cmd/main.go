@@ -41,15 +41,17 @@ func main() {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
+
+	setupLog.Info("starting agent")
 	_, serviceReconciler := runAgent(opt, config, ctx, mgr.GetClient())
 
-	/*	if err = (&controller.BackupReconciler{
-			Client:        mgr.GetClient(),
-			Scheme:        mgr.GetScheme(),
-			ConsoleClient: ctrlMgr.GetClient(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Backup")
-		}*/
+	//if err = (&controller.BackupReconciler{
+	//	Client:        mgr.GetClient(),
+	//	Scheme:        mgr.GetScheme(),
+	//	ConsoleClient: ctrlMgr.GetClient(),
+	//}).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create controller", "controller", "Backup")
+	//}
 
 	if err = (&controller.CustomHealthReconciler{
 		Client:            mgr.GetClient(),
