@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
+	github.com/Yamashou/gqlgenc v0.14.0
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fluxcd/flagger v1.35.0
 	github.com/gin-gonic/gin v1.7.7
@@ -15,7 +16,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.2
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console-client-go v0.0.84
+	github.com/pluralsh/console-client-go v0.0.85
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.1.4
 	github.com/samber/lo v1.39.0
@@ -48,7 +49,6 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/squirrel v1.5.3 // indirect
-	github.com/Yamashou/gqlgenc v0.14.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

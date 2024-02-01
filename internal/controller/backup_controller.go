@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/internal/errors"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -51,13 +53,24 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// Skip reconcile if resource is being deleted.
 	if backup.DeletionTimestamp != nil {
+		// Add garbage
 		return ctrl.Result{}, nil
 	}
-	// todo check already exists error
-	backupApi, err := r.ConsoleClient.CreateClusterBackup(console.BackupAttributes{Name: backup.Name})
-	if err == nil {
-		logger.Info("cluster backup created", "ID", backupApi.ID)
+	cluster, err := r.ConsoleClient.MyCluster()
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+
+	existingBackup, err := r.ConsoleClient.GetClusterBackup(cluster.MyCluster.ID, backup.Namespace, backup.Name)
+	if err != nil && errors.IsNotFound(err) {
+		backupApi, err := r.ConsoleClient.CreateClusterBackup(console.BackupAttributes{Name: backup.Name, Namespace: backup.Namespace})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		logger.Info("cluster backup created", "ID", backupApi.ID)
+		return ctrl.Result{}, nil
+	}
+	logger.Info("cluster backup already exists", "ID", existingBackup.ID)
 
 	return ctrl.Result{}, nil
 }

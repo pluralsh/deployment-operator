@@ -30,3 +30,12 @@ func (c *Client) CreateClusterBackup(attrs console.BackupAttributes) (*console.C
 
 	return backup.CreateClusterBackup, nil
 }
+
+func (c *Client) GetClusterBackup(clusterID, namespace, name string) (*console.ClusterBackupFragment, error) {
+	backup, err := c.consoleClient.GetClusterBackup(c.ctx, nil, &clusterID, &namespace, &name)
+	if err != nil {
+		return nil, err
+	}
+
+	return backup.ClusterBackup, nil
+}

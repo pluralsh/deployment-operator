@@ -42,8 +42,8 @@ func main() {
 		os.Exit(1)
 	}
 	_, serviceReconciler := runAgent(opt, config, ctx, mgr.GetClient())
-	/*
-		if err = (&controller.BackupReconciler{
+
+	/*	if err = (&controller.BackupReconciler{
 			Client:        mgr.GetClient(),
 			Scheme:        mgr.GetScheme(),
 			ConsoleClient: ctrlMgr.GetClient(),
