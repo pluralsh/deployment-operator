@@ -1,4 +1,4 @@
-package sync
+package service
 
 import (
 	"encoding/json"
@@ -40,6 +40,11 @@ const (
 	HorizontalPodAutoscalerKind  = "HorizontalPodAutoscaler"
 	CanaryKind                   = "Canary"
 )
+
+type HealthStatus struct {
+	Status  HealthStatusCode `json:"status,omitempty"`
+	Message string           `json:"message,omitempty"`
+}
 
 var (
 	progressingStatus = &HealthStatus{
@@ -758,8 +763,8 @@ func getOtherHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	return nil, nil
 }
 
-func (engine *Engine) getLuaHealthConvert(obj *unstructured.Unstructured) (*HealthStatus, error) {
-	out, err := lua.ExecuteLua(obj.Object, engine.luaScript)
+func (s *ServiceReconciler) getLuaHealthConvert(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	out, err := lua.ExecuteLua(obj.Object, s.LuaScript)
 	if err != nil {
 		return nil, err
 	}

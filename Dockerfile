@@ -11,13 +11,13 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY /cmd/main.go main.go
+COPY /cmd cmd/
 COPY /pkg pkg/
 COPY /api api/
 COPY /internal internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent cmd/*
 
 FROM alpine:3.18
 WORKDIR /workspace

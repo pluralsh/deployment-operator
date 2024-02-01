@@ -6,28 +6,28 @@ import (
 	"net/url"
 
 	phx "github.com/pluralsh/gophoenix"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 )
 
 var (
-	log = klogr.New()
+	log = textlogger.NewLogger(textlogger.NewConfig())
 )
 
 type Publisher interface {
-	PublishService(id string)
+	Publish(id string)
 }
 
 type Socket struct {
-	clusterId string
-	client    *phx.Client
-	publisher Publisher
-	channel   *phx.Channel
-	connected bool
-	joined    bool
+	clusterId  string
+	client     *phx.Client
+	publishers map[string]Publisher
+	channel    *phx.Channel
+	connected  bool
+	joined     bool
 }
 
-func New(clusterId, consoleUrl, deployToken string, publisher Publisher) (*Socket, error) {
-	socket := &Socket{clusterId: clusterId, publisher: publisher}
+func New(clusterId, consoleUrl, deployToken string) (*Socket, error) {
+	socket := &Socket{clusterId: clusterId, publishers: make(map[string]Publisher)}
 	client := phx.NewClient(socket)
 
 	uri, err := wssUri(consoleUrl, deployToken)
@@ -38,6 +38,19 @@ func New(clusterId, consoleUrl, deployToken string, publisher Publisher) (*Socke
 	err = client.Connect(*uri, http.Header{})
 
 	return socket, err
+}
+
+func (s *Socket) AddPublisher(event string, publisher Publisher) {
+	if event == "" {
+		log.Info("cannot register publisher without event type")
+		return
+	}
+
+	if _, ok := s.publishers[event]; !ok {
+		s.publishers[event] = publisher
+	} else {
+		log.Info("publisher for this event type is already registered", "event", event)
+	}
 }
 
 func (s *Socket) Join() error {
@@ -75,7 +88,7 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 
 func (s *Socket) NotifyConnect() {
 	s.connected = true
-	s.Join()
+	_ = s.Join()
 }
 
 func (s *Socket) NotifyDisconnect() {
@@ -99,12 +112,14 @@ func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {
 }
 
 func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
-	if event == "service.event" {
+	if publisher, ok := s.publishers[event]; ok {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
-				log.Info("got new service update from websocket", "id", id)
-				s.publisher.PublishService(id)
+				log.Info("got new update from websocket", "id", id)
+				publisher.Publish(id)
 			}
 		}
+	} else {
+		log.Info("could not find publisher for event", "event", event)
 	}
 }

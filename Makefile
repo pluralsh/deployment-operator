@@ -9,6 +9,10 @@ IMG ?= deployment-agent:latest
 
 ENVTEST ?= $(shell which setup-envtest)
 
+VELERO_CHART_VERSION := 5.2.2
+VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
+
+
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
@@ -16,7 +20,7 @@ $(LOCALBIN):
 
 ENVTEST_K8S_VERSION := 1.28.3
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
-
+MOCKERY ?= $(shell which mockery)
 include tools.mk
 
 ifndef GOPATH
@@ -44,23 +48,33 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+.PHONY: genmock
+genmock: mockery ## generates mocks before running tests
+	$(MOCKERY)
+
 ##@ Run
 
 .PHONY: run
 run: ## run
-	go run cmd/main.go
+	go run cmd/*
 
 ##@ Build
 
 .PHONY: build
 build: ## build
-	go build -o bin/deployment-agent cmd/main.go
+	go build -o bin/deployment-agent cmd/*
 
 docker-build: ## build image
 	docker build -t ${IMG} .
 
 docker-push: ## push image
 	docker push ${IMG}
+
+velero-crds:
+	@curl -L $(VELERO_CHART_URL) --output velero.tgz
+	@tar zxvf velero.tgz velero/crds
+	@mv velero/crds/* charts/deployment-operator/crds
+	@rm -r velero.tgz velero
 
 ##@ Tests
 

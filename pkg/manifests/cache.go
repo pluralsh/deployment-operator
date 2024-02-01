@@ -9,12 +9,12 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	"k8s.io/kubectl/pkg/cmd/util"
 )
 
 var (
-	log = klogr.New()
+	log = textlogger.NewLogger(textlogger.NewConfig())
 )
 
 type cacheLine struct {
