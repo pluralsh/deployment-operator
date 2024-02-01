@@ -26,6 +26,31 @@ func (c *Client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
 	return resp.ClusterGates, nil
 }
 
+// TODO: this is a hack to get the gate fragment from the graphql api per ID
+// we should probably add a new endpoint to the console api to get a single gate
+func (c *Client) GetClusterGate(id string) (*console.PipelineGateFragment, error) {
+	gates, err := c.GetClusterGates()
+	if err != nil {
+		return nil, err
+	}
+
+	//gateMap := make(map[string]*console.PipelineGateFragment)
+	for _, gate := range gates {
+		if gate.ID == id {
+			return gate, nil
+		}
+		//gateMap[gate.ID] = gate
+	}
+
+	//gate, ok := gateMap[id]
+	//if !ok {
+	//	return nil, fmt.Errorf("gate with id %s not found", id)
+	//}
+
+	return nil, fmt.Errorf("gate with id %s not found", id)
+
+}
+
 func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
 
 	gateJSON, err := json.MarshalIndent(pgFragment, "", "  ")
