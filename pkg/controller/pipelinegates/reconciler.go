@@ -12,6 +12,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -239,4 +240,11 @@ func (s *GateReconciler) CheckNamespace(namespace string) error {
 		}
 	}
 	return nil
+}
+
+func (s *GateReconciler) GetPublisher() (string, websocket.Publisher) {
+	return "gate.event", &socketPublisher{
+		gateQueue: s.GateQueue,
+		gateCache: s.GateCache,
+	}
 }
