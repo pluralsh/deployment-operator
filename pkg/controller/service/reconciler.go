@@ -67,7 +67,7 @@ type ServiceReconciler struct {
 }
 
 func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, refresh time.Duration, clusterId string) (*ServiceReconciler, error) {
-	disableClientLimits(config)
+	DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
 
@@ -84,7 +84,7 @@ func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, ref
 
 	manifestCache := manifests.NewCache(refresh, deployToken)
 
-	f := newFactory(config)
+	f := NewFactory(config)
 
 	cs, err := f.KubernetesClientSet()
 	if err != nil {
@@ -346,7 +346,7 @@ func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) (*unstructure
 	}, nil
 }
 
-func newFactory(cfg *rest.Config) util.Factory {
+func NewFactory(cfg *rest.Config) util.Factory {
 	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
 	kubeConfigFlags.WithDiscoveryQPS(cfg.QPS).WithDiscoveryBurst(cfg.Burst)
 	cfgPtrCopy := cfg
@@ -403,7 +403,7 @@ func deepCopyRESTConfig(from, to *rest.Config) {
 	to.Proxy = from.Proxy
 }
 
-func disableClientLimits(config *rest.Config) {
+func DisableClientLimits(config *rest.Config) {
 	enabled, err := flowcontrol.IsEnabled(context.Background(), config)
 	if err != nil {
 		klog.Error(err, "could not determine if flowcontrol was enabled")
