@@ -63,7 +63,7 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 	pipelineGate := &pipelinesv1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PipelineGate",
-			APIVersion: "pipelines/v1alpha1",
+			APIVersion: pipelinesv1alpha1.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pgFragment.Name, // + "-" + pgFragment.ID,
