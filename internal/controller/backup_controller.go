@@ -29,18 +29,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// BackupReconciler reconciles a ClusterBackup object
+// BackupReconciler reconciles a Velero Backup custom resource.
 type BackupReconciler struct {
 	k8sClient.Client
 	Scheme        *runtime.Scheme
 	ConsoleClient client.Client
 }
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
+// Reconcile Velero Backup custom resources to ensure that Console stays in sync with Kubernetes cluster.
 func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
@@ -52,7 +48,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// Upsert backup data to the Console.
-	logger.Info("cluster backup saved", "name", backup.Name, "namespace", backup.Namespace)
+	logger.Info("Cluster backup saved", "name", backup.Name, "namespace", backup.Namespace)
 	_, err := r.ConsoleClient.SaveClusterBackup(console.BackupAttributes{
 		Name:             backup.Name,
 		Namespace:        backup.Namespace,
