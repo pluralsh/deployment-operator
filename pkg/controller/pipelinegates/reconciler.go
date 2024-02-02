@@ -18,6 +18,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -205,7 +206,10 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 	//TODO: DEBUG
 
 	pgClient := s.GenClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
-	_, err = pgClient.Update(context.Background(), gateCR, metav1.UpdateOptions{})
+	//scope, err := gatectrl.NewPipelineGateScope(ctx, pgClient, pipeline)
+	patchData, _ := json.Marshal(gateCR)
+	_, err = pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	//_, err = pgClient.Patch(context.Background(), gateCR.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the PipelineGate doesn't exist, create it.
@@ -215,12 +219,11 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 				return reconcile.Result{}, err
 			}
 		} else {
-			logger.Error(err, "failed to update gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+			logger.Error(err, "failed to patch gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 			return reconcile.Result{}, err
 		}
 	}
-	logger.Info("Updated pipeline gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-
+	logger.Info("Patched pipeline gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 	return
 }
 
