@@ -43,7 +43,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Queue: sr.SvcQueue,
 	})
 
-	rr := restore.NewRestoreReconciler(mgr.GetClient(), k8sClient, r, "velero")
+	rr := restore.NewRestoreReconciler(mgr.GetClient(), k8sClient, r, opt.restoreNamespace)
 	mgr.AddController(&controller.Controller{
 		Name:  "Restore Controller",
 		Do:    rr,
