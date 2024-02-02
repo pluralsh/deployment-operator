@@ -20,9 +20,8 @@ import (
 	"context"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/internal/errors"
-
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/samber/lo"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -44,6 +43,7 @@ type BackupReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+
 	// Read resource from Kubernetes cluster.
 	backup := &velerov1.Backup{}
 	if err := r.Get(ctx, req.NamespacedName, backup); err != nil {
@@ -51,28 +51,14 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
-	// Skip reconcile if resource is being deleted.
-	if backup.DeletionTimestamp != nil {
-		// Add garbage
-		return ctrl.Result{}, nil
-	}
-	cluster, err := r.ConsoleClient.MyCluster()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	existingBackup, err := r.ConsoleClient.GetClusterBackup(cluster.MyCluster.ID, backup.Namespace, backup.Name)
-	if err != nil && errors.IsNotFound(err) {
-		backupApi, err := r.ConsoleClient.CreateClusterBackup(console.BackupAttributes{Name: backup.Name, Namespace: backup.Namespace})
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		logger.Info("cluster backup created", "ID", backupApi.ID)
-		return ctrl.Result{}, nil
-	}
-	logger.Info("cluster backup already exists", "ID", existingBackup.ID)
-
-	return ctrl.Result{}, nil
+	// Upsert backup data to the Console.
+	logger.Info("cluster backup saved", "name", backup.Name, "namespace", backup.Namespace)
+	_, err := r.ConsoleClient.SaveClusterBackup(console.BackupAttributes{
+		Name:             backup.Name,
+		Namespace:        backup.Namespace,
+		GarbageCollected: lo.ToPtr(!backup.DeletionTimestamp.IsZero()),
+	})
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
