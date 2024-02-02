@@ -20,12 +20,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -38,6 +39,8 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var testEnv *envtest.Environment
+var cfg *rest.Config
+var kclient ctrlruntimeclient.Client
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -65,6 +68,14 @@ var _ = BeforeSuite(func() {
 	var err error
 	err = deploymentsv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
+
+	// cfg is defined in this file globally.
+	cfg, err = testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+	kclient, err := ctrlruntimeclient.New(cfg, ctrlruntimeclient.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(kclient).NotTo(BeNil())
 
 	//+kubebuilder:scaffold:scheme
 
