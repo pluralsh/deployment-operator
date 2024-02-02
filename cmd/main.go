@@ -5,7 +5,7 @@ import (
 
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-	pipelinecontroller "github.com/pluralsh/deployment-operator/controllers/pipelines"
+	pipelinecontroller "github.com/pluralsh/deployment-operator/controllers/pipelinegates"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
