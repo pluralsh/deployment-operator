@@ -206,9 +206,9 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 	//TODO: DEBUG
 
 	pgClient := s.GenClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
-	//scope, err := gatectrl.NewPipelineGateScope(ctx, pgClient, pipeline)
 	patchData, _ := json.Marshal(gateCR)
-	_, err = pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	_, err = pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{}, "status")
+	//pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{}, "status")
 	//_, err = pgClient.Patch(context.Background(), gateCR.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {

@@ -78,6 +78,11 @@ func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			LastSyncedAt: &now,
 		},
 	}
+	gateState := pipelinesv1alpha1.GateState(pgFragment.State)
+	pipelineGate.Status.State = &gateState
+	if gateState == pipelinesv1alpha1.GateState(console.GateStatePending) {
+		pipelineGate.Status.JobRef = &console.NamespacedName{}
+	}
 	gateCRJSON, err := json.MarshalIndent(pipelineGate, "", "  ")
 	if err != nil {
 		fmt.Printf("failed to parse gate cr in ParsePipelineGateCR")
