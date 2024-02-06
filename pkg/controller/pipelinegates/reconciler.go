@@ -8,27 +8,23 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	generated "github.com/pluralsh/deployment-operator/generated/client/clientset/versioned"
-	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
-	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubectl/pkg/cmd/util"
-	"sigs.k8s.io/cli-utils/pkg/apply"
-	"sigs.k8s.io/cli-utils/pkg/common"
-	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
 func init() {
@@ -46,7 +42,7 @@ const (
 )
 
 type GateReconciler struct {
-	ConsoleClient   *client.Client
+	ConsoleClient   client.Client
 	Config          *rest.Config
 	Clientset       *kubernetes.Clientset
 	GenClientset    *generated.Clientset
@@ -57,7 +53,7 @@ type GateReconciler struct {
 	pinger          *ping.Pinger
 }
 
-func NewGateReconciler(consoleClient *client.Client, config *rest.Config, refresh time.Duration, clusterId string) (*GateReconciler, error) {
+func NewGateReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration, clusterId string) (*GateReconciler, error) {
 	service.DisableClientLimits(config)
 
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
@@ -70,7 +66,8 @@ func NewGateReconciler(consoleClient *client.Client, config *rest.Config, refres
 	})
 
 	gateQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	f := service.NewFactory(config)
+
+	f := utils.NewFactory(config)
 
 	cs, err := f.KubernetesClientSet()
 	if err != nil {
@@ -78,6 +75,9 @@ func NewGateReconciler(consoleClient *client.Client, config *rest.Config, refres
 	}
 
 	genClientset, err := generated.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
 	return &GateReconciler{
 		ConsoleClient:   consoleClient,
 		Config:          config,
@@ -89,46 +89,6 @@ func NewGateReconciler(consoleClient *client.Client, config *rest.Config, refres
 		discoveryClient: discoveryClient,
 		pinger:          ping.New(consoleClient, discoveryClient, f),
 	}, nil
-}
-
-func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*applier.Applier, error) {
-	invClient, err := invFactory.NewClient(f)
-	if err != nil {
-		return nil, err
-	}
-
-	return applier.NewApplierBuilder().
-		WithFactory(f).
-		WithInventoryClient(invClient).
-		Build()
-}
-
-func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.Destroyer, error) {
-	invClient, err := invFactory.NewClient(f)
-	if err != nil {
-		return nil, err
-	}
-
-	return apply.NewDestroyerBuilder().
-		WithFactory(f).
-		WithInventoryClient(invClient).
-		Build()
-}
-
-func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
-	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
-		if man.GetKind() != "CustomResourceDefinition" {
-			return man
-		}
-
-		annotations := man.GetAnnotations()
-		if annotations == nil {
-			annotations = map[string]string{}
-		}
-		annotations[common.LifecycleDeleteAnnotation] = common.PreventDeletion
-		man.SetAnnotations(annotations)
-		return man
-	})
 }
 
 func (s *GateReconciler) WipeCache() {
@@ -208,8 +168,6 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 	pgClient := s.GenClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
 	patchData, _ := json.Marshal(gateCR)
 	_, err = pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{}, "status")
-	//pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{}, "status")
-	//_, err = pgClient.Patch(context.Background(), gateCR.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the PipelineGate doesn't exist, create it.

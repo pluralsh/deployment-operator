@@ -24,13 +24,9 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(pipelinesv1alpha1.AddToScheme(scheme))
-}
-
-func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(deploymentsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(velerov1.AddToScheme(scheme))
+	utilruntime.Must(pipelinesv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -38,8 +34,6 @@ func main() {
 	opt := newOptions()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
-
-	_, serviceReconciler := runAgent(opt, config, ctx)
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
@@ -52,14 +46,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	//if err = (&controller.RestoreReconciler{
-	//	Client:        mgr.GetClient(),
-	//	Scheme:        mgr.GetScheme(),
-	//	ConsoleClient: ctrlMgr.GetClient(),
-	//}).SetupWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create controller", "controller", "Restore")
-	//}
-	//if err = (&controller.ClusterBackupReconciler{
+	setupLog.Info("starting agent")
+	_, serviceReconciler := runAgent(opt, config, ctx, mgr.GetClient())
+
+	//if err = (&controller.BackupReconciler{
 	//	Client:        mgr.GetClient(),
 	//	Scheme:        mgr.GetScheme(),
 	//	ConsoleClient: ctrlMgr.GetClient(),

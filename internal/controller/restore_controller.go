@@ -46,7 +46,7 @@ var restoreStatusMap = map[velerov1.RestorePhase]gqlclient.RestoreStatus{
 // RestoreReconciler reconciles a Restore object
 type RestoreReconciler struct {
 	k8sClient.Client
-	ConsoleClient *client.Client
+	ConsoleClient client.Client
 	Scheme        *runtime.Scheme
 }
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
@@ -19,7 +20,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -51,7 +51,7 @@ const (
 )
 
 type ServiceReconciler struct {
-	ConsoleClient *client.Client
+	ConsoleClient client.Client
 	Config        *rest.Config
 	Clientset     *kubernetes.Clientset
 	Applier       *applier.Applier
@@ -66,7 +66,7 @@ type ServiceReconciler struct {
 	pinger          *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, refresh time.Duration, clusterId string) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration) (*ServiceReconciler, error) {
 	DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -84,7 +84,7 @@ func NewServiceReconciler(consoleClient *client.Client, config *rest.Config, ref
 
 	manifestCache := manifests.NewCache(refresh, deployToken)
 
-	f := NewFactory(config)
+	f := utils.NewFactory(config)
 
 	cs, err := f.KubernetesClientSet()
 	if err != nil {
@@ -278,7 +278,15 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		InventoryPolicy:        inventory.PolicyAdoptAll,
 	}
 
-	options.DryRunStrategy = common.DryRunNone
+	dryRun := false
+	if svc.DryRun != nil {
+		dryRun = *svc.DryRun
+	}
+	svc.DryRun = &dryRun
+	if dryRun {
+		options.DryRunStrategy = common.DryRunServer
+	}
+
 	ch := s.Applier.Run(ctx, inv, manifests, options)
 	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
@@ -344,63 +352,6 @@ func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) (*unstructure
 			},
 		},
 	}, nil
-}
-
-func NewFactory(cfg *rest.Config) util.Factory {
-	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
-	kubeConfigFlags.WithDiscoveryQPS(cfg.QPS).WithDiscoveryBurst(cfg.Burst)
-	cfgPtrCopy := cfg
-	kubeConfigFlags.WrapConfigFn = func(c *rest.Config) *rest.Config {
-		// update rest.Config to pick up QPS & timeout changes
-		deepCopyRESTConfig(cfgPtrCopy, c)
-		return c
-	}
-	matchVersionKubeConfigFlags := util.NewMatchVersionFlags(kubeConfigFlags)
-	return util.NewFactory(matchVersionKubeConfigFlags)
-}
-
-func deepCopyRESTConfig(from, to *rest.Config) {
-	to.Host = from.Host
-	to.APIPath = from.APIPath
-	to.ContentConfig = from.ContentConfig
-	to.Username = from.Username
-	to.Password = from.Password
-	to.BearerToken = from.BearerToken
-	to.BearerTokenFile = from.BearerTokenFile
-	to.Impersonate = rest.ImpersonationConfig{
-		UserName: from.Impersonate.UserName,
-		UID:      from.Impersonate.UID,
-		Groups:   from.Impersonate.Groups,
-		Extra:    from.Impersonate.Extra,
-	}
-	to.AuthProvider = from.AuthProvider
-	to.AuthConfigPersister = from.AuthConfigPersister
-	to.ExecProvider = from.ExecProvider
-	if from.ExecProvider != nil && from.ExecProvider.Config != nil {
-		to.ExecProvider.Config = from.ExecProvider.Config.DeepCopyObject()
-	}
-	to.TLSClientConfig = rest.TLSClientConfig{
-		Insecure:   from.TLSClientConfig.Insecure,
-		ServerName: from.TLSClientConfig.ServerName,
-		CertFile:   from.TLSClientConfig.CertFile,
-		KeyFile:    from.TLSClientConfig.KeyFile,
-		CAFile:     from.TLSClientConfig.CAFile,
-		CertData:   from.TLSClientConfig.CertData,
-		KeyData:    from.TLSClientConfig.KeyData,
-		CAData:     from.TLSClientConfig.CAData,
-		NextProtos: from.TLSClientConfig.NextProtos,
-	}
-	to.UserAgent = from.UserAgent
-	to.DisableCompression = from.DisableCompression
-	to.Transport = from.Transport
-	to.WrapTransport = from.WrapTransport
-	to.QPS = from.QPS
-	to.Burst = from.Burst
-	to.RateLimiter = from.RateLimiter
-	to.WarningHandler = from.WarningHandler
-	to.Timeout = from.Timeout
-	to.Dial = from.Dial
-	to.Proxy = from.Proxy
 }
 
 func DisableClientLimits(config *rest.Config) {

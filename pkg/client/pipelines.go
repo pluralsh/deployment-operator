@@ -12,12 +12,12 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
-func (c *Client) UpdateGate(id string, attributes console.GateUpdateAttributes) error {
+func (c *client) UpdateGate(id string, attributes console.GateUpdateAttributes) error {
 	_, err := c.consoleClient.UpdateGate(c.ctx, id, attributes)
 	return err
 }
 
-func (c *Client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
+func (c *client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
 	resp, err := c.consoleClient.GetClusterGates(c.ctx)
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func (c *Client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
 
 // TODO: this is a hack to get the gate fragment from the graphql api per ID
 // we should probably add a new endpoint to the console api to get a single gate
-func (c *Client) GetClusterGate(id string) (*console.PipelineGateFragment, error) {
+func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error) {
 	gates, err := c.GetClusterGates()
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func (c *Client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 
 }
 
-func (c *Client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
+func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
 
 	gateJSON, err := json.MarshalIndent(pgFragment, "", "  ")
 	if err != nil {

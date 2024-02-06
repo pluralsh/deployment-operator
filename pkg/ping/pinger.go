@@ -12,12 +12,12 @@ import (
 )
 
 type Pinger struct {
-	consoleClient   *client.Client
+	consoleClient   client.Client
 	discoveryClient *discovery.DiscoveryClient
 	factory         util.Factory
 }
 
-func New(console *client.Client, discovery *discovery.DiscoveryClient, factory util.Factory) *Pinger {
+func New(console client.Client, discovery *discovery.DiscoveryClient, factory util.Factory) *Pinger {
 	return &Pinger{
 		consoleClient:   console,
 		discoveryClient: discovery,
