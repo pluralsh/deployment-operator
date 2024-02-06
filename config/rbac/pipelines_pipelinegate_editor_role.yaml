@@ -14,7 +14,7 @@ rules:
 - apiGroups:
   - pipelines.plural.sh
   resources:
-  - pipelinegateees
+  - pipelinegates
   verbs:
   - create
   - delete
@@ -26,6 +26,6 @@ rules:
 - apiGroups:
   - pipelines.plural.sh
   resources:
-  - pipelinegateees/status
+  - pipelinegates/status
   verbs:
   - get
