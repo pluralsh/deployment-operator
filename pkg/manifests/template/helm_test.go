@@ -60,7 +60,7 @@ var _ = Describe("Helm template", func() {
 		It("should successfully render the helm template", func() {
 			resp, err := NewHelm(dir).Render(svc, utilFactory)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(resp)).To(Equal(20))
+			Expect(len(resp)).To(Equal(33))
 		})
 
 	})
