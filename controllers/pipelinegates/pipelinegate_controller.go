@@ -114,6 +114,13 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				return ctrl.Result{}, err
 			}
 
+			// try to update gate at console
+			attributeState := console.GateStatePending
+			updateAttributes := console.GateUpdateAttributes{State: &attributeState, Status: &console.GateStatusAttributes{JobRef: gate.Status.JobRef}}
+			if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, updateAttributes); err != nil {
+				log.Error(err, "Failed to update PipelineGate status to console")
+			}
+
 			log.V(1).Info("Created new job for gate and updated status.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
 			return ctrl.Result{}, nil
 		} else {
