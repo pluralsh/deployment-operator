@@ -84,10 +84,10 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// PENDING ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	if gate.Status.State != nil && *gate.Status.State == pipelinesv1alpha1.GateState(console.GateStatePending) {
-		log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
+		log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 
 		if (gate.Status.JobRef == nil || *gate.Status.JobRef == console.NamespacedName{}) {
-			log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
+			log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 
 			jobName := fmt.Sprintf("%s-%s", gate.Name, uuid.New().String())
 			jobRef := console.NamespacedName{Name: jobName, Namespace: gate.Namespace}
@@ -99,7 +99,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 			// reconcile job
 
-			log.V(2).Info("Creating new job for gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
+			log.V(2).Info("Creating new job for gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", jobRef)
 			_, err := Job(ctx, r.Client, job, log)
 			if err != nil {
 				log.Error(err, "Error reconciling Job.", "JobName", job.Name, "Namespace", job.Namespace)
@@ -163,7 +163,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			(*gate.Status.LastReportedAt).Before(gate.Spec.LastSyncedAt))) &&
 		(*gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateOpen) || *gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateClosed)) {
 
-		log.V(1).Info(fmt.Sprintf("Reconciling %s gate.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "LastReportedAt", *gate.Status.LastReportedAt, "LastSyncedAt", gate.Spec.LastSyncedAt, "jobRef", *gate.Status.JobRef)
+		log.V(1).Info(fmt.Sprintf("Reconciling %s gate.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "LastSyncedAt", gate.Spec.LastSyncedAt, "jobRef", *gate.Status.JobRef)
 
 		// def state var for update
 		var gateState console.GateState
@@ -181,12 +181,12 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, err
 		}
 
-		log.V(1).Info(fmt.Sprintf("Updated gate state to %s console.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "LastReportedAt", *gate.Status.LastReportedAt, "LastSyncedAt", gate.Spec.LastSyncedAt, "jobRef", *gate.Status.JobRef)
+		lastReportedAt := metav1.Now()
+		lastReported := pipelinesv1alpha1.GateState(gateState)
+		log.V(2).Info(fmt.Sprintf("Updated gate state to %s console.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "lastReported", lastReported, "LastReportedAt", lastReportedAt, "LastSyncedAt", gate.Spec.LastSyncedAt, "jobRef", *gate.Status.JobRef)
 
 		// update CR state
-		lastReportedAt := metav1.Now()
 		gate.Status.LastReportedAt = &lastReportedAt
-		lastReported := pipelinesv1alpha1.GateState(gateState)
 		gate.Status.LastReported = &lastReported
 		if err := r.Status().Update(ctx, gate); err != nil {
 			log.Error(err, "Failed to update PipelineGate status at CR")
