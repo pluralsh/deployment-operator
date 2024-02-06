@@ -34,18 +34,11 @@ func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 		return nil, err
 	}
 
-	//gateMap := make(map[string]*console.PipelineGateFragment)
 	for _, gate := range gates {
 		if gate.ID == id {
 			return gate, nil
 		}
-		//gateMap[gate.ID] = gate
 	}
-
-	//gate, ok := gateMap[id]
-	//if !ok {
-	//	return nil, fmt.Errorf("gate with id %s not found", id)
-	//}
 
 	return nil, fmt.Errorf("gate with id %s not found", id)
 
@@ -126,16 +119,9 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	if jsFragment.Raw != nil && *jsFragment.Raw != "null" {
 		fmt.Printf("existing raw job spec\n %s\n", *jsFragment.Raw)
 		job, err := jobFromYaml(*jsFragment.Raw)
-		// TODO: handle error
 		if err != nil {
 			return nil
 		}
-		jobspecJSON, err := json.MarshalIndent(job, "", "  ")
-		if err != nil {
-			fmt.Printf("failed to marshall raw jobspecJSON")
-		}
-		fmt.Printf("parsed raw jobspec: \n %s\n", string(jobspecJSON))
-
 		return &job.Spec
 	}
 	jobSpec := &batchv1.JobSpec{
@@ -159,12 +145,6 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	}
 	gateNameAnnotationKey := pipelinesv1alpha1.GroupVersion.Group + "/gatename"
 	jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
-
-	jobspecJSON, err := json.MarshalIndent(jobSpec, "", "  ")
-	if err != nil {
-		fmt.Printf("failed to marshall jobspecJSON")
-	}
-	fmt.Printf("parsed jobspec: \n %s\n", string(jobspecJSON))
 
 	return jobSpec
 }
