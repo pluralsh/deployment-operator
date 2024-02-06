@@ -205,7 +205,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	logger.Info("attempting to sync service", "id", id)
 	svc, err := s.SvcCache.Get(id)
 	if err != nil {
-		fmt.Printf("failed to fetch service: %s, ignoring for now", err)
+		logger.Error(err, fmt.Sprintf("failed to fetch service: %s, ignoring for now", id))
 		return
 	}
 

@@ -127,7 +127,7 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 	logger.Info("attempting to sync gate", "id", id)
 	gate, err := s.GateCache.Get(id)
 	if err != nil {
-		fmt.Printf("failed to fetch gate: %s, ignoring for now", err)
+		logger.Error(err, "failed to fetch gate: %s, ignoring for now")
 		return
 	}
 
