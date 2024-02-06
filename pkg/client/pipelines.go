@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/json"
 	"fmt"
 
 	console "github.com/pluralsh/console-client-go"
@@ -46,12 +45,6 @@ func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 
 func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
 
-	gateJSON, err := json.MarshalIndent(pgFragment, "", "  ")
-	if err != nil {
-		fmt.Printf("failed to parse gate fragment in ParsePipelineGateCR")
-	}
-	fmt.Printf("gate fragment to parse: \n %s\n", string(gateJSON))
-
 	now := metav1.Now()
 	pipelineGate := &pipelinesv1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
@@ -76,12 +69,6 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 	if gateState == pipelinesv1alpha1.GateState(console.GateStatePending) {
 		pipelineGate.Status.JobRef = &console.NamespacedName{}
 	}
-	gateCRJSON, err := json.MarshalIndent(pipelineGate, "", "  ")
-	if err != nil {
-		fmt.Printf("failed to parse gate cr in ParsePipelineGateCR")
-	}
-	fmt.Printf("parsed gate CR in ParsePipelineGateCR: \n %s\n", string(gateCRJSON))
-
 	return pipelineGate, nil
 }
 
@@ -117,7 +104,6 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 		return nil
 	}
 	if jsFragment.Raw != nil && *jsFragment.Raw != "null" {
-		fmt.Printf("existing raw job spec\n %s\n", *jsFragment.Raw)
 		job, err := jobFromYaml(*jsFragment.Raw)
 		if err != nil {
 			return nil
