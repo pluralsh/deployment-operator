@@ -123,8 +123,7 @@ func (s *RestoreReconciler) Reconcile(ctx context.Context, id string) (result re
 		if !apierrors.IsNotFound(err) {
 			return
 		}
-		newVeleroRestore := s.genVeleroRestore(restore.ID, restore.Backup.Name)
-		err = s.K8sClient.Create(ctx, newVeleroRestore)
+		err = s.K8sClient.Create(ctx, s.genVeleroRestore(restore.ID, restore.Backup.Name))
 		if err != nil {
 			return
 		}
@@ -140,10 +139,10 @@ func (s *RestoreReconciler) Reconcile(ctx context.Context, id string) (result re
 
 func (s *RestoreReconciler) UpdateErrorStatus(ctx context.Context, id string) {
 	logger := log.FromContext(ctx)
-	_, err := s.ConsoleClient.UpdateClusterRestore(id, console.RestoreAttributes{
+
+	if _, err := s.ConsoleClient.UpdateClusterRestore(id, console.RestoreAttributes{
 		Status: console.RestoreStatusFailed,
-	})
-	if err != nil {
+	}); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
 }
