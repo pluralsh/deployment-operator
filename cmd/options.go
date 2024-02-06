@@ -23,6 +23,7 @@ type options struct {
 	consoleUrl           string
 	deployToken          string
 	clusterId            string
+	restoreNamespace     string
 }
 
 func newOptions() *options {
@@ -43,6 +44,7 @@ func newOptions() *options {
 	flag.StringVar(&o.consoleUrl, "console-url", "", "The URL of the console api to fetch services from.")
 	flag.StringVar(&o.deployToken, "deploy-token", "", "The deploy token to auth to Console API with.")
 	flag.StringVar(&o.clusterId, "cluster-id", "", "The ID of the cluster being connected to.")
+	flag.StringVar(&o.restoreNamespace, "restore-namespace", "velero", "The namespace where Velero restores are located.")
 	flag.BoolVar(&service.Local, "local", false, "Whether you're running the operator locally.")
 	flag.BoolVar(&template.EnableHelmDependencyUpdate, "enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
 	flag.Parse()

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/samber/lo"
 	"golang.org/x/net/context"
@@ -42,12 +43,12 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Queue: sr.SvcQueue,
 	})
 
-	/*	restore := restore.NewRestoreReconciler(mgr.GetClient(), k8sClient, r, "velero")
-		mgr.AddController(&controller.Controller{
-			Name:  "Restore Controller",
-			Do:    restore,
-			Queue: restore.RestoreQueue,
-		})*/
+	rr := restore.NewRestoreReconciler(mgr.GetClient(), k8sClient, r, opt.restoreNamespace)
+	mgr.AddController(&controller.Controller{
+		Name:  "Restore Controller",
+		Do:    rr,
+		Queue: rr.RestoreQueue,
+	})
 
 	if err := mgr.Start(); err != nil {
 		setupLog.Error(err, "unable to start controller manager")
