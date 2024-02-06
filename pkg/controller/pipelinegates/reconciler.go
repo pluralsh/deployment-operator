@@ -139,14 +139,6 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 
 	logger.Info("attempting to sync gate", "Name", gate.Name, "ID", gate.ID)
 
-	//TODO: DEBUG
-	gateJSON, err := json.MarshalIndent(gate, "", "  ")
-	if err != nil {
-		logger.Error(err, "failed to marshalindent gate")
-	}
-	fmt.Printf("gate json from API: \n %s\n", string(gateJSON))
-	//TODO: DEBUG
-
 	if gate.Type != console.GateTypeJob {
 		logger.Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
 	}
@@ -156,14 +148,6 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		logger.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
 		return reconcile.Result{}, err
 	}
-
-	//TODO: DEBUG
-	gateCRJSON, err := json.MarshalIndent(gateCR, "", "  ")
-	if err != nil {
-		logger.Error(err, "failed to marshalindent gateCR")
-	}
-	fmt.Printf("updating or creating gateCR json:\n %s\n", string(gateCRJSON))
-	//TODO: DEBUG
 
 	pgClient := s.GenClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
 	patchData, _ := json.Marshal(gateCR)
