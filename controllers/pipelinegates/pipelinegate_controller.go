@@ -69,7 +69,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	// INITIAL STATE /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// INITIAL STATE
 	// on initial reconcile we set the state to pending
 	if gate.Status.State == nil {
 		// update CR state
@@ -82,7 +82,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// PENDING ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// PENDING
 	if gate.Status.State != nil && *gate.Status.State == pipelinesv1alpha1.GateState(console.GateStatePending) {
 		log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 
@@ -161,7 +161,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	// PUSH SYNC ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// PUSH SYNC
 	if gate.Status.State != nil &&
 		(gate.Status.LastReported == nil || ( // never reportedd
 		// the last sync from console happened AFTER we last reported the state, meaning we have not already reported the new state to the console, we do this check to avoid spamming the console with updates

@@ -35,12 +35,6 @@ var (
 	Local = false
 )
 
-const (
-	// The field manager name for the ones agentk owns, see
-	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
-	fieldManager = "application/apply-patch"
-)
-
 type GateReconciler struct {
 	ConsoleClient   client.Client
 	Config          *rest.Config
