@@ -157,7 +157,7 @@ func (h *helm) values(svc *console.ServiceDeploymentExtended) (map[string]interf
 			if err != nil {
 				return currentMap, err
 			}
-			currentMap = lo.Assign(currentMap, nextMap)
+			currentMap = merge(currentMap, nextMap)
 		}
 	}
 
@@ -166,7 +166,28 @@ func (h *helm) values(svc *console.ServiceDeploymentExtended) (map[string]interf
 		return currentMap, nil
 	}
 
-	return lo.Assign(currentMap, overrides), nil
+	return merge(currentMap, overrides), nil
+}
+
+func merge(m1, m2 map[string]interface{}) map[string]interface{} {
+	// lifted from helm's merge code
+	out := make(map[string]interface{}, len(m1))
+	for k, v := range m1 {
+		out[k] = v
+	}
+
+	for k, v := range m2 {
+		if v, ok := v.(map[string]interface{}); ok {
+			if bv, ok := out[k]; ok {
+				if bv, ok := bv.(map[string]interface{}); ok {
+					out[k] = merge(bv, v)
+					continue
+				}
+			}
+		}
+		out[k] = v
+	}
+	return out
 }
 
 func (h *helm) valuesFile(svc *console.ServiceDeploymentExtended, filename string) (map[string]interface{}, error) {
