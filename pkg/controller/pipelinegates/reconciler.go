@@ -6,7 +6,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
-	generated "github.com/pluralsh/deployment-operator/generated/client/clientset/versioned"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
@@ -36,11 +35,11 @@ var (
 )
 
 type GateReconciler struct {
-	K8sClient       ctrlclient.Client
-	ConsoleClient   client.Client
-	Config          *rest.Config
-	Clientset       *kubernetes.Clientset
-	GenClientset    *generated.Clientset
+	K8sClient     ctrlclient.Client
+	ConsoleClient client.Client
+	Config        *rest.Config
+	Clientset     *kubernetes.Clientset
+	//GenClientset    *generated.Clientset
 	GateCache       *client.Cache[console.PipelineGateFragment]
 	GateQueue       workqueue.RateLimitingInterface
 	UtilFactory     util.Factory
@@ -69,16 +68,16 @@ func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client,
 		return nil, err
 	}
 
-	genClientset, err := generated.NewForConfig(config)
+	//genClientset, err := generated.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
 	return &GateReconciler{
-		K8sClient:       k8sClient,
-		ConsoleClient:   consoleClient,
-		Config:          config,
-		Clientset:       cs,
-		GenClientset:    genClientset,
+		K8sClient:     k8sClient,
+		ConsoleClient: consoleClient,
+		Config:        config,
+		Clientset:     cs,
+		//GenClientset:    genClientset,
 		GateQueue:       gateQueue,
 		GateCache:       gateCache,
 		UtilFactory:     f,
