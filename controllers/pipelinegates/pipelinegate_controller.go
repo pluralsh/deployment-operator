@@ -34,7 +34,6 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
 
-	//job "k8s.io/api/batch/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
