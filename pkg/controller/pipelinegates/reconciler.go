@@ -2,7 +2,6 @@ package pipelinegates
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -24,7 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	pgctrl "github.com/pluralsh/deployment-operator/controllers/pipelinegates"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func init() {
@@ -36,6 +36,7 @@ var (
 )
 
 type GateReconciler struct {
+	K8sClient       ctrlclient.Client
 	ConsoleClient   client.Client
 	Config          *rest.Config
 	Clientset       *kubernetes.Clientset
@@ -47,7 +48,7 @@ type GateReconciler struct {
 	pinger          *ping.Pinger
 }
 
-func NewGateReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration, clusterId string) (*GateReconciler, error) {
+func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, config *rest.Config, refresh time.Duration, clusterId string) (*GateReconciler, error) {
 	service.DisableClientLimits(config)
 
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
@@ -73,6 +74,7 @@ func NewGateReconciler(consoleClient client.Client, config *rest.Config, refresh
 		return nil, err
 	}
 	return &GateReconciler{
+		K8sClient:       k8sClient,
 		ConsoleClient:   consoleClient,
 		Config:          config,
 		Clientset:       cs,
@@ -143,13 +145,17 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		return reconcile.Result{}, err
 	}
 
-	pgClient := s.GenClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
-	patchData, _ := json.Marshal(gateCR)
-	_, err = pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{}, "status")
+	//pgClient := s.GenClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
+	//patchData, _ := json.Marshal(gateCR)
+	scope, err := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, gateCR)
+
+	//_, err = pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{}, "status")
+	err = scope.PatchObject()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the PipelineGate doesn't exist, create it.
-			_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
+			//_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
+			err = s.K8sClient.Create(context.Background(), gateCR)
 			if err != nil {
 				logger.Error(err, "failed to create gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 				return reconcile.Result{}, err
@@ -173,8 +179,8 @@ func (s *GateReconciler) CheckNamespace(namespace string) error {
 		},
 	}, metav1.CreateOptions{})
 
-	if apierrors.IsAlreadyExists(err){
-			return nil
+	if apierrors.IsAlreadyExists(err) {
+		return nil
 	}
 	return err
 }

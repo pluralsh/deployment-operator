@@ -44,7 +44,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Do:    sr,
 		Queue: sr.SvcQueue,
 	})
-	gr, err := pipelinegates.NewGateReconciler(mgr.GetClient(), config, r, opt.clusterId)
+	gr, err := pipelinegates.NewGateReconciler(mgr.GetClient(), k8sClient, config, r, opt.clusterId)
 	if err != nil {
 		setupLog.Error(err, "unable to create gate reconciler")
 		os.Exit(1)
