@@ -173,12 +173,10 @@ func (s *GateReconciler) CheckNamespace(namespace string) error {
 		},
 	}, metav1.CreateOptions{})
 
-	if err != nil {
-		if !apierrors.IsAlreadyExists(err) {
-			return err
-		}
+	if apierrors.IsAlreadyExists(err){
+			return nil
 	}
-	return nil
+	return err
 }
 
 func (s *GateReconciler) GetPublisher() (string, websocket.Publisher) {
