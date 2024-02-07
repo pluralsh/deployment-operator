@@ -126,12 +126,6 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		return
 	}
 
-	defer func() {
-		if err != nil {
-			logger.Error(err, "failed to reconcile gate", "Name", gate.Name, "Id", gate.ID)
-		}
-	}()
-
 	logger.Info("attempting to sync gate", "Name", gate.Name, "ID", gate.ID)
 
 	if gate.Type != console.GateTypeJob {
