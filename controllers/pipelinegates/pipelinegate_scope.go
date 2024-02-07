@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/pluralsh/controller-reconcile-helper/pkg/patch"
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

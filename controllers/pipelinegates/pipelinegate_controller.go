@@ -32,7 +32,7 @@ import (
 
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console-client-go"
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 
 	batchv1 "k8s.io/api/batch/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"

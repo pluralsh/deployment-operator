@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	console "github.com/pluralsh/console-client-go"
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
 type authedTransport struct {

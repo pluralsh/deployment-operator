@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console-client-go"
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/pipelines/v1alpha1"
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
