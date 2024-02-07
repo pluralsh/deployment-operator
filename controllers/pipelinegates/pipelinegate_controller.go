@@ -47,9 +47,9 @@ type PipelineGateReconciler struct {
 	Log           logr.Logger
 }
 
-//+kubebuilder:rbac:groups=pipelines.plural.sh,resources=pipelinegates,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=pipelines.plural.sh,resources=pipelinegates/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=pipelines.plural.sh,resources=pipelinegates/finalizers,verbs=update
+//+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
 func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
