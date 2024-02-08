@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -21,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	pgctrl "github.com/pluralsh/deployment-operator/controllers/pipelinegates"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -138,16 +140,33 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		return reconcile.Result{}, err
 	}
 
-	//pgClient := s.GenClientset.PipelinesV1alpha1().PipelineGates(gateCR.Namespace)
-	//patchData, _ := json.Marshal(gateCR)
-	scope, err := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, gateCR)
+	nsName := types.NamespacedName{
+		Name:      gateCR.Name,
+		Namespace: gateCR.Namespace,
+	}
+	currentGate := &pipelinesv1alpha1.PipelineGate{}
 
-	//_, err = pgClient.Patch(context.Background(), gateCR.Name, types.MergePatchType, patchData, metav1.PatchOptions{}, "status")
+	// get pipelinegate
+	if err := s.K8sClient.Get(ctx, nsName, currentGate); err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("This gate doesn't yet have a corresponding CR on this cluster yet.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+		}
+		logger.Info("Could not get gate.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+	} else {
+		// if the gate already has a corresponding CR on the cluster, we check if we need to reset the state
+		// if the gate is in a terminal state, i.e. open or closed, and that state has been reported, we reset the state to pending
+		if (currentGate.Status.IsClosed() || currentGate.Status.IsOpen()) && !currentGate.Status.HasNotReported() {
+			logger.Info(fmt.Sprintf("Resetting gate to %s.", gateCR.Status.SyncedState), "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+			gateCR.Status.State = &gateCR.Status.SyncedState
+		} else {
+			logger.Info(fmt.Sprintf("Gate is already in a non-terminal state %s.", *gateCR.Status.State), "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+		}
+	}
+	scope, _ := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, gateCR)
 	err = scope.PatchObject()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the PipelineGate doesn't exist, create it.
-			//_, err = pgClient.Create(context.Background(), gateCR, metav1.CreateOptions{})
 			err = s.K8sClient.Create(context.Background(), gateCR)
 			if err != nil {
 				logger.Error(err, "failed to create gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
