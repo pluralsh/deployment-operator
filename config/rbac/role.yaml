@@ -45,7 +45,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - pipelines.plural.sh
+  - deployments.plural.sh
   resources:
   - pipelinegates
   verbs:
@@ -57,13 +57,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - pipelines.plural.sh
+  - deployments.plural.sh
   resources:
   - pipelinegates/finalizers
   verbs:
   - update
 - apiGroups:
-  - pipelines.plural.sh
+  - deployments.plural.sh
   resources:
   - pipelinegates/status
   verbs:
