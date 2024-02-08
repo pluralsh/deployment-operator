@@ -46,6 +46,8 @@ type PipelineGate struct {
 // PipelineGateStatus defines the observed state of the PipelineGate
 type PipelineGateStatus struct {
 	State          *GateState              `json:"state,omitempty"`
+	SyncedState    GateState               `json:"syncedState"`
+	LastSyncedAt   metav1.Time             `json:"lastSyncedAt,omitempty"`
 	LastReported   *GateState              `json:"lastReported,omitempty"`
 	LastReportedAt *metav1.Time            `json:"lastReportedAt,omitempty"`
 	JobRef         *console.NamespacedName `json:"jobRef,omitempty"`
@@ -53,12 +55,10 @@ type PipelineGateStatus struct {
 
 // PipelineGateSpec defines the detailed gate specifications
 type PipelineGateSpec struct {
-	ID           string       `json:"id"`
-	Name         string       `json:"name"`
-	Type         GateType     `json:"type"`
-	SyncedState  GateState    `json:"syncedState"`
-	LastSyncedAt *metav1.Time `json:"lastSyncedAt,omitempty"`
-	GateSpec     *GateSpec    `json:"gateSpec,omitempty"`
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Type     GateType  `json:"type"`
+	GateSpec *GateSpec `json:"gateSpec,omitempty"`
 }
 
 // GateSpec defines the detailed gate specifications
@@ -77,4 +77,28 @@ type PipelineGateList struct {
 
 func init() {
 	SchemeBuilder.Register(&PipelineGate{}, &PipelineGateList{})
+}
+
+func (pgs *PipelineGateStatus) IsInitialized() bool {
+	return pgs.State != nil
+}
+
+func (pgs *PipelineGateStatus) IsPending() bool {
+	return pgs.State != nil && *pgs.State == GateState(console.GateStatePending)
+}
+
+func (pgs *PipelineGateStatus) IsOpen() bool {
+	return pgs.State != nil && *pgs.State == GateState(console.GateStateOpen)
+}
+
+func (pgs *PipelineGateStatus) IsClosed() bool {
+	return pgs.State != nil && *pgs.State == GateState(console.GateStateClosed)
+}
+
+func (pgs *PipelineGateStatus) HasJobRef() bool {
+	return pgs.JobRef == nil || *pgs.JobRef == console.NamespacedName{}
+}
+
+func (pgs *PipelineGateStatus) HasNotReported() bool {
+	return !(pgs.LastReported == nil || (pgs.LastReportedAt != nil && pgs.LastReportedAt.Before(&pgs.LastSyncedAt)))
 }
