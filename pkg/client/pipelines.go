@@ -56,19 +56,19 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			Namespace: pgFragment.Spec.Job.Namespace,
 		},
 		Spec: pipelinesv1alpha1.PipelineGateSpec{
-			ID:           pgFragment.ID,
-			Name:         pgFragment.Name, // + "-" + pgFragment.ID,
-			Type:         pipelinesv1alpha1.GateType(pgFragment.Type),
-			GateSpec:     gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
-			SyncedState:  pipelinesv1alpha1.GateState(pgFragment.State),
-			LastSyncedAt: &now,
+			ID:       pgFragment.ID,
+			Name:     pgFragment.Name, // + "-" + pgFragment.ID,
+			Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
+			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
 		},
 	}
 	gateState := pipelinesv1alpha1.GateState(pgFragment.State)
-	pipelineGate.Status.State = &gateState
-	if gateState == pipelinesv1alpha1.GateState(console.GateStatePending) {
-		pipelineGate.Status.JobRef = &console.NamespacedName{}
-	}
+	pipelineGate.Status.SyncedState = gateState
+	pipelineGate.Status.LastSyncedAt = now
+	//pipelineGate.Status.State = &gateState
+	//if gateState == pipelinesv1alpha1.GateState(console.GateStatePending) {
+	//	pipelineGate.Status.JobRef = &console.NamespacedName{}
+	//}
 	return pipelineGate, nil
 }
 
