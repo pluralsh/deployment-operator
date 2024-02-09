@@ -25,22 +25,13 @@ func (c *client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
 	return resp.ClusterGates, nil
 }
 
-// TODO: this is a hack to get the gate fragment from the graphql api per ID
-// we should probably add a new endpoint to the console api to get a single gate
 func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error) {
-	gates, err := c.GetClusterGates()
+	resp, err := c.consoleClient.GetClusterGate(c.ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("gate with id %s not found", id)
+
 	}
-
-	for _, gate := range gates {
-		if gate.ID == id {
-			return gate, nil
-		}
-	}
-
-	return nil, fmt.Errorf("gate with id %s not found", id)
-
+	return resp.ClusterGate, nil
 }
 
 func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
@@ -65,10 +56,6 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 	gateState := pipelinesv1alpha1.GateState(pgFragment.State)
 	pipelineGate.Status.SyncedState = gateState
 	pipelineGate.Status.LastSyncedAt = now
-	//pipelineGate.Status.State = &gateState
-	//if gateState == pipelinesv1alpha1.GateState(console.GateStatePending) {
-	//	pipelineGate.Status.JobRef = &console.NamespacedName{}
-	//}
 	return pipelineGate, nil
 }
 

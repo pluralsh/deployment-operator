@@ -3,7 +3,6 @@ module github.com/pluralsh/deployment-operator
 go 1.21
 
 require (
-	dario.cat/mergo v1.0.0
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/Yamashou/gqlgenc v0.14.0
@@ -19,7 +18,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.2
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console-client-go v0.0.86
+	github.com/pluralsh/console-client-go v0.0.89
 	github.com/pluralsh/controller-reconcile-helper v0.0.4
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.1.4
