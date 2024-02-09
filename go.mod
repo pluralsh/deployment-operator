@@ -3,6 +3,7 @@ module github.com/pluralsh/deployment-operator
 go 1.21
 
 require (
+	dario.cat/mergo v1.0.0
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/Yamashou/gqlgenc v0.14.0

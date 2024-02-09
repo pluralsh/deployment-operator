@@ -36,6 +36,7 @@ serviceAccount:
 rbac:
   clusterRole: cluster-admin
 
+podLabels: {}
 podAnnotations: {}
 #  prometheus.io/scrape: "true"
 #  prometheus.io/path: "/metrics"
