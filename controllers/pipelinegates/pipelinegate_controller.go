@@ -35,6 +35,7 @@ import (
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -152,17 +153,17 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 		}
 
 		var gateState pipelinesv1alpha1.GateState
-		if failed, condition := hasFailed(reconciledJob); failed {
+		if failed := hasFailed(reconciledJob); failed {
 			// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
-			log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace, "JobCondition", condition)
+			log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
 			gateState = pipelinesv1alpha1.GateState(console.GateStateClosed)
-		} else if succeeded, condition := hasSucceeded(reconciledJob); succeeded {
+		} else if succeeded := hasSucceeded(reconciledJob); succeeded {
 			// if the job is complete, then we need to update the gate state to open, unless it's a rerun
-			log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace, "JobCondition", condition)
+			log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
 			gateState = pipelinesv1alpha1.GateState(console.GateStateOpen)
 		} else {
 			// if the job is still running, then we need to do nothing
-			log.V(1).Info("Job is still running.", "JobName", job.Name, "JobNamespace", job.Namespace, "Condition", condition)
+			log.V(1).Info("Job is still running.", "JobName", job.Name, "JobNamespace", job.Namespace)
 			gateState = pipelinesv1alpha1.GateState(console.GateStatePending)
 		}
 		gate.Status.State = &gateState
@@ -209,27 +210,32 @@ func (r *PipelineGateReconciler) syncGateStatus(ctx context.Context, gate *pipel
 	return ctrl.Result{}, nil
 }
 
-func hasFailed(job *batchv1.Job) (bool, *batchv1.JobCondition) {
-	conditions := job.Status.Conditions
-	// check if the conditions slice contains a failed condition
-	// failed means the backoff limit was reached and it is not being retried anymore!
-	for _, condition := range conditions {
-		if condition.Type == batchv1.JobFailed {
-			return true, &condition
-		}
-	}
-	return false, nil
+// IsStatusConditionTrue returns true when the conditionType is present and set to `metav1.ConditionTrue`
+func IsJobStatusConditionTrue(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType) bool {
+	return IsJobStatusConditionPresentAndEqual(conditions, conditionType, corev1.ConditionTrue)
 }
 
-func hasSucceeded(job *batchv1.Job) (bool, *batchv1.JobCondition) {
-	conditions := job.Status.Conditions
-	// check if the conditions slice contains a failed condition
+// IsStatusConditionFalse returns true when the conditionType is present and set to `metav1.ConditionFalse`
+func IsJobStatusConditionFalse(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType) bool {
+	return IsJobStatusConditionPresentAndEqual(conditions, conditionType, corev1.ConditionFalse)
+}
+
+// IsStatusConditionPresentAndEqual returns true when conditionType is present and equal to status.
+func IsJobStatusConditionPresentAndEqual(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType, status corev1.ConditionStatus) bool {
 	for _, condition := range conditions {
-		if condition.Type == batchv1.JobComplete {
-			return true, &condition
+		if condition.Type == conditionType {
+			return condition.Status == status
 		}
 	}
-	return false, nil
+	return false
+}
+
+func hasFailed(job *batchv1.Job) bool {
+	return IsJobStatusConditionTrue(job.Status.Conditions, batchv1.JobFailed)
+}
+
+func hasSucceeded(job *batchv1.Job) bool {
+	return IsJobStatusConditionFalse(job.Status.Conditions, batchv1.JobComplete)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -238,7 +244,6 @@ func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&pipelinesv1alpha1.PipelineGate{}).
 		Owns(&batchv1.Job{}).
 		Complete(r)
-
 }
 
 // Job reconciles a k8s job object.
