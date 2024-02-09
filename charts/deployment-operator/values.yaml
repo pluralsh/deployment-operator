@@ -134,4 +134,3 @@ agentk:
   serviceMonitor:
     # Specifies whether to create a ServiceMonitor resource for collecting Prometheus metrics
     enabled: false
-    
