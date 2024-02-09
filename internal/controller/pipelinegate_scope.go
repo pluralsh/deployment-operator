@@ -30,7 +30,7 @@ func NewPipelineGateScope(ctx context.Context, client client.Client, gate *v1alp
 
 	helper, err := patch.NewHelper(gate, client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new pipeline scope, go error: %s", err)
+		return nil, fmt.Errorf("failed to create new pipeline scope, go error: %w", err)
 	}
 
 	return &PipelineGateScope{

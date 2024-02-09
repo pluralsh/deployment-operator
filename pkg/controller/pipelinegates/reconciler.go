@@ -171,7 +171,7 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		// if the gate is in a terminal state, i.e. open or closed, and that state has been reported, we reset the state to pending
 		if (currentGate.Status.IsClosed() || currentGate.Status.IsOpen()) && !currentGate.Status.HasNotReported() {
 			logger.Info(fmt.Sprintf("Resetting gate to %s.", gateCR.Status.SyncedState), "Namespace", currentGate.Namespace, "Name", currentGate.Name, "ID", currentGate.Spec.ID)
-			currentGate.Spec = gateCR.Spec // this should stay the same, but in case it changes (because we recreated the pipeline alltogether), we need to update it, because the ID would have changed
+			currentGate.Spec = gateCR.Spec // this should stay the same, but in case it changes (because we recreated the pipeline altogether), we need to update it, because the ID would have changed
 			currentGate.Status.State = &preserveStatus.SyncedState
 			currentGate.Status.SyncedState = preserveStatus.SyncedState
 			currentGate.Status.LastSyncedAt = preserveStatus.LastSyncedAt
