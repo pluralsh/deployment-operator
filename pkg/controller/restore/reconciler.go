@@ -3,7 +3,6 @@ package restore
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
@@ -103,7 +102,7 @@ func (s *RestoreReconciler) Reconcile(ctx context.Context, id string) (result re
 	logger.Info("attempting to sync restore", "id", id)
 	restore, err := s.RestoreCache.Get(id)
 	if err != nil {
-		fmt.Printf("failed to fetch restore: %s, ignoring for now", err)
+		logger.Error(err, "failed to fetch restore, ignoring for now")
 		return
 	}
 

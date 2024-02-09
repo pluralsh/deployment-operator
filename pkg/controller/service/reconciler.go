@@ -24,11 +24,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
-	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -67,7 +65,7 @@ type ServiceReconciler struct {
 }
 
 func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration) (*ServiceReconciler, error) {
-	disableClientLimits(config)
+	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
 
@@ -205,7 +203,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	logger.Info("attempting to sync service", "id", id)
 	svc, err := s.SvcCache.Get(id)
 	if err != nil {
-		fmt.Printf("failed to fetch service: %s, ignoring for now", err)
+		logger.Error(err, fmt.Sprintf("failed to fetch service: %s, ignoring for now", id))
 		return
 	}
 
@@ -352,18 +350,6 @@ func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) (*unstructure
 			},
 		},
 	}, nil
-}
-
-func disableClientLimits(config *rest.Config) {
-	enabled, err := flowcontrol.IsEnabled(context.Background(), config)
-	if err != nil {
-		klog.Error(err, "could not determine if flowcontrol was enabled")
-	} else if enabled {
-		klog.Info("flow control enabled, disabling client side throttling")
-		config.QPS = -1
-		config.Burst = -1
-		config.RateLimiter = nil
-	}
 }
 
 func (s *ServiceReconciler) GetLuaScript() string {

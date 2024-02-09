@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -8,6 +9,9 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/cmd/util"
+
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 )
 
 func MarkCondition(set func(condition metav1.Condition), conditionType v1alpha1.ConditionType, conditionStatus metav1.ConditionStatus, conditionReason v1alpha1.ConditionReason, message string, messageArgs ...interface{}) {
@@ -74,4 +78,16 @@ func deepCopyRESTConfig(from, to *rest.Config) {
 	to.Timeout = from.Timeout
 	to.Dial = from.Dial
 	to.Proxy = from.Proxy
+}
+
+func DisableClientLimits(config *rest.Config) {
+	enabled, err := flowcontrol.IsEnabled(context.Background(), config)
+	if err != nil {
+		klog.Error(err, "could not determine if flowcontrol was enabled")
+	} else if enabled {
+		klog.Info("flow control enabled, disabling client side throttling")
+		config.QPS = -1
+		config.Burst = -1
+		config.RateLimiter = nil
+	}
 }
