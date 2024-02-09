@@ -7,7 +7,6 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	v1 "k8s.io/api/core/v1"
@@ -49,7 +48,7 @@ type GateReconciler struct {
 }
 
 func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, config *rest.Config, refresh time.Duration, clusterId string) (*GateReconciler, error) {
-	service.DisableClientLimits(config)
+	utils.DisableClientLimits(config)
 
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
