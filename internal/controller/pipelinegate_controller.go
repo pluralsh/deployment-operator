@@ -32,7 +32,7 @@ import (
 
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console-client-go"
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +56,7 @@ type PipelineGateReconciler struct {
 func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx).WithValues("PipelineGate", req.NamespacedName)
 
-	gate := &pipelinesv1alpha1.PipelineGate{}
+	gate := &v1alpha1.PipelineGate{}
 
 	// get pipelinegate
 	if err := r.Get(ctx, req.NamespacedName, gate); err != nil {
@@ -85,7 +85,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-func (r *PipelineGateReconciler) initializeGateState(ctx context.Context, gate *pipelinesv1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
+func (r *PipelineGateReconciler) initializeGateState(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
 	if gate.Status.State == nil {
 		// update CR state
 		gate.Status.State = &gate.Status.SyncedState
@@ -99,7 +99,7 @@ func (r *PipelineGateReconciler) initializeGateState(ctx context.Context, gate *
 	return ctrl.Result{}, nil
 }
 
-func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate *pipelinesv1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
+func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
 	log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 	if !gate.Status.HasJobRef() {
 		log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
@@ -121,7 +121,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 			return ctrl.Result{}, err
 		}
 
-		gateState := pipelinesv1alpha1.GateState(console.GateStatePending)
+		gateState := v1alpha1.GateState(console.GateStatePending)
 		gate.Status.State = &gateState
 		gate.Status.JobRef = &jobRef
 		if err := r.Status().Update(ctx, gate); err != nil {
@@ -152,19 +152,19 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 			return ctrl.Result{}, err
 		}
 
-		var gateState pipelinesv1alpha1.GateState
+		var gateState v1alpha1.GateState
 		if failed := hasFailed(reconciledJob); failed {
 			// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
 			log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
-			gateState = pipelinesv1alpha1.GateState(console.GateStateClosed)
+			gateState = v1alpha1.GateState(console.GateStateClosed)
 		} else if succeeded := hasSucceeded(reconciledJob); succeeded {
 			// if the job is complete, then we need to update the gate state to open, unless it's a rerun
 			log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
-			gateState = pipelinesv1alpha1.GateState(console.GateStateOpen)
+			gateState = v1alpha1.GateState(console.GateStateOpen)
 		} else {
 			// if the job is still running, then we need to do nothing
 			log.V(1).Info("Job is still running.", "JobName", job.Name, "JobNamespace", job.Namespace)
-			gateState = pipelinesv1alpha1.GateState(console.GateStatePending)
+			gateState = v1alpha1.GateState(console.GateStatePending)
 		}
 		gate.Status.State = &gateState
 		if err := r.Status().Update(ctx, gate); err != nil {
@@ -176,12 +176,12 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 	}
 }
 
-func (r *PipelineGateReconciler) syncGateStatus(ctx context.Context, gate *pipelinesv1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
+func (r *PipelineGateReconciler) syncGateStatus(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
 
 	log.V(1).Info(fmt.Sprintf("Reconciling %s gate.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "LastSyncedAt", gate.Status.LastSyncedAt, "jobRef", *gate.Status.JobRef)
 
 	var gateState console.GateState
-	if *gate.Status.State == pipelinesv1alpha1.GateState(console.GateStateOpen) {
+	if *gate.Status.State == v1alpha1.GateState(console.GateStateOpen) {
 		gateState = console.GateStateOpen
 	} else {
 		gateState = console.GateStateClosed
@@ -195,7 +195,7 @@ func (r *PipelineGateReconciler) syncGateStatus(ctx context.Context, gate *pipel
 	}
 
 	lastReportedAt := metav1.Now()
-	lastReported := pipelinesv1alpha1.GateState(gateState)
+	lastReported := v1alpha1.GateState(gateState)
 	log.V(2).Info(fmt.Sprintf("Updated gate state to %s console.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "lastReported", lastReported, "LastReportedAt", lastReportedAt, "LastSyncedAt", gate.Status.LastSyncedAt, "jobRef", *gate.Status.JobRef)
 
 	gate.Status.LastReportedAt = &lastReportedAt
@@ -241,7 +241,7 @@ func hasSucceeded(job *batchv1.Job) bool {
 // SetupWithManager sets up the controller with the Manager.
 func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&pipelinesv1alpha1.PipelineGate{}).
+		For(&v1alpha1.PipelineGate{}).
 		Owns(&batchv1.Job{}).
 		Complete(r)
 }

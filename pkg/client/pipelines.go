@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console-client-go"
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,26 +34,26 @@ func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 	return resp.ClusterGate, nil
 }
 
-func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*pipelinesv1alpha1.PipelineGate, error) {
+func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*v1alpha1.PipelineGate, error) {
 
 	now := metav1.Now()
-	pipelineGate := &pipelinesv1alpha1.PipelineGate{
+	pipelineGate := &v1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PipelineGate",
-			APIVersion: pipelinesv1alpha1.GroupVersion.String(),
+			APIVersion: v1alpha1.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pgFragment.Name, // + "-" + pgFragment.ID,
 			Namespace: pgFragment.Spec.Job.Namespace,
 		},
-		Spec: pipelinesv1alpha1.PipelineGateSpec{
+		Spec: v1alpha1.PipelineGateSpec{
 			ID:       pgFragment.ID,
 			Name:     pgFragment.Name, // + "-" + pgFragment.ID,
-			Type:     pipelinesv1alpha1.GateType(pgFragment.Type),
+			Type:     v1alpha1.GateType(pgFragment.Type),
 			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
 		},
 	}
-	gateState := pipelinesv1alpha1.GateState(pgFragment.State)
+	gateState := v1alpha1.GateState(pgFragment.State)
 	pipelineGate.Status.SyncedState = gateState
 	pipelineGate.Status.LastSyncedAt = now
 	return pipelineGate, nil
@@ -77,11 +77,11 @@ func jobFromYaml(yamlString string) (*batchv1.Job, error) {
 	return nil, fmt.Errorf("parsed object is not of type Job")
 }
 
-func gateSpecFromGateSpecFragment(gateName string, gsFragment *console.GateSpecFragment) *pipelinesv1alpha1.GateSpec {
+func gateSpecFromGateSpecFragment(gateName string, gsFragment *console.GateSpecFragment) *v1alpha1.GateSpec {
 	if gsFragment == nil {
 		return nil
 	}
-	return &pipelinesv1alpha1.GateSpec{
+	return &v1alpha1.GateSpec{
 		JobSpec: jobSpecFromJobSpecFragment(gateName, gsFragment.Job),
 	}
 }
@@ -116,7 +116,7 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	if jobSpec.Template.ObjectMeta.Annotations == nil {
 		jobSpec.Template.ObjectMeta.Annotations = make(map[string]string)
 	}
-	gateNameAnnotationKey := pipelinesv1alpha1.GroupVersion.Group + "/gatename"
+	gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
 	jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
 
 	return jobSpec

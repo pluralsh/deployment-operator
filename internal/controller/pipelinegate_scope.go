@@ -6,14 +6,14 @@ import (
 	"fmt"
 
 	"github.com/pluralsh/controller-reconcile-helper/pkg/patch"
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type PipelineGateScope struct {
 	Client       client.Client
-	PipelineGate *pipelinesv1alpha1.PipelineGate
+	PipelineGate *v1alpha1.PipelineGate
 
 	ctx         context.Context
 	patchHelper *patch.Helper
@@ -23,7 +23,7 @@ func (p *PipelineGateScope) PatchObject() error {
 	return p.patchHelper.Patch(p.ctx, p.PipelineGate)
 }
 
-func NewPipelineGateScope(ctx context.Context, client client.Client, gate *pipelinesv1alpha1.PipelineGate) (*PipelineGateScope, error) {
+func NewPipelineGateScope(ctx context.Context, client client.Client, gate *v1alpha1.PipelineGate) (*PipelineGateScope, error) {
 	if gate == nil {
 		return nil, errors.New("failed to create new pipeline scope, got nil pipeline")
 	}

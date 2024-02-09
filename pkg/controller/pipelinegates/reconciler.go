@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	pgctrl "github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -142,7 +142,7 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		Name:      gateCR.Name,
 		Namespace: gateCR.Namespace,
 	}
-	currentGate := &pipelinesv1alpha1.PipelineGate{}
+	currentGate := &v1alpha1.PipelineGate{}
 
 	// get pipelinegate
 	if err := s.K8sClient.Get(ctx, nsName, currentGate); err != nil {
