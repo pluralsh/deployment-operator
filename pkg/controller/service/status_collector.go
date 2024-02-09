@@ -140,34 +140,3 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 
 	return components
 }
-
-func getComponentContent(svc *client.ServiceDeployment) map[object.ObjMetadata]console.ComponentContentAttributes {
-	result := make(map[object.ObjMetadata]console.ComponentContentAttributes)
-
-	//for _, comp := range svc.Components {
-	//	namespace := ""
-	//	group := ""
-	//	if comp.Namespace != nil {
-	//		namespace = *comp.Namespace
-	//	}
-	//	if comp.Group != nil {
-	//		group = *comp.Group
-	//	}
-	//	gn := object.ObjMetadata{
-	//		Namespace: namespace,
-	//		Name:      comp.Name,
-	//		GroupKind: schema.GroupKind{
-	//			Group: group,
-	//			Kind:  comp.Kind,
-	//		},
-	//	}
-	//	if comp.Content != nil {
-	//		result[gn] = console.ComponentContentAttributes{
-	//			Desired: comp.Content.Desired,
-	//			Live:    comp.Content.Live,
-	//		}
-	//	}
-	//}
-
-	return result
-}
