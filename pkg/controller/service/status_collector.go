@@ -1,6 +1,9 @@
 package service
 
 import (
+	"context"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
 	console "github.com/pluralsh/console-client-go"
@@ -17,7 +20,6 @@ type serviceComponentsStatusCollector struct {
 	latestStatus     map[object.ObjMetadata]event.StatusEvent
 	reconciler       *ServiceReconciler
 	applyStatus      map[object.ObjMetadata]event.ApplyEvent
-	//componentContent map[object.ObjMetadata]console.ComponentContentAttributes
 	DryRun           bool
 }
 
@@ -29,7 +31,6 @@ func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *cli
 		latestStatus:     make(map[object.ObjMetadata]event.StatusEvent),
 		applyStatus:      make(map[object.ObjMetadata]event.ApplyEvent),
 		reconciler:       reconciler,
-		//componentContent: getComponentContent(svc),
 		DryRun:           *svc.DryRun,
 	}
 }
@@ -40,6 +41,20 @@ func (sc *serviceComponentsStatusCollector) updateStatus(id object.ObjMetadata, 
 
 func (sc *serviceComponentsStatusCollector) updateApplyStatus(id object.ObjMetadata, se event.ApplyEvent) {
 	sc.applyStatus[id] = se
+}
+
+func (sc *serviceComponentsStatusCollector) refetch(resource *unstructured.Unstructured) *unstructured.Unstructured {
+	if sc.reconciler.Clientset == nil || resource == nil {
+		return nil
+	}
+
+	response := new(unstructured.Unstructured)
+	err := sc.reconciler.Clientset.RESTClient().Get().AbsPath(toAPIPath(resource)).Do(context.Background()).Into(response)
+	if err != nil {
+		return nil
+	}
+
+	return response
 }
 
 func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
@@ -59,18 +74,10 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 	}
 
 	live := "# n/a"
-	//if compCont != nil {
-	//	compName := object.ObjMetadata{
-	//		Namespace: e.Resource.GetNamespace(),
-	//		Name:      e.Resource.GetName(),
-	//		GroupKind: gvk.GroupKind(),
-	//	}
-	//	if r, ok := compCont[compName]; ok {
-	//		if r.Live != nil {
-	//			live = *r.Live
-	//		}
-	//	}
-	//}
+	liveResource := sc.refetch(e.Resource)
+	if liveResource != nil {
+		live = asJSON(liveResource)
+	}
 
 	desiredData, _ := yaml.Marshal(e.Resource.Object)
 	desired := string(desiredData)
@@ -106,23 +113,6 @@ func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, 
 		version = v
 	}
 
-	desired := "# n/a"
-	//if compCont != nil {
-	//	compName := object.ObjMetadata{
-	//		Namespace: e.Resource.GetNamespace(),
-	//		Name:      e.Resource.GetName(),
-	//		GroupKind: gvk.GroupKind(),
-	//	}
-	//	if r, ok := compCont[compName]; ok {
-	//		if r.Desired != nil {
-	//			desired = *r.Desired
-	//		}
-	//	}
-	//}
-
-	liveData, _ := yaml.Marshal(e.Resource.Object)
-	live := string(liveData)
-
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,
 		Kind:      gvk.Kind,
@@ -131,10 +121,6 @@ func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, 
 		Version:   version,
 		Synced:    e.PollResourceInfo.Status == status.CurrentStatus,
 		State:     sc.reconciler.toStatus(e.Resource),
-		Content: &console.ComponentContentAttributes{
-			Live:    &live,
-			Desired: &desired,
-		},
 	}
 }
 
