@@ -37,6 +37,39 @@ help: ## Display this help.
 controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.3)
 
+
+run-client-gen: client-gen
+	$(CLIENT_GEN) --clientset-name versioned --input-base ./api/v1alpha1 --input v1alpha1 --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/clientset --go-header-file hack/boilerplate.go.txt
+#	$(CLIENT_GEN) --clientset-name versioned --input-base ./api --input pipelines/v1alpha1,v1alpha1 --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/clientset --go-header-file hack/boilerplate.go.txt
+#	$(CLIENT_GEN) --clientset-name versioned --input-base ./api --input pipelines/v1alpha1,v1alpha1 --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/clientset --go-header-file hack/boilerplate.go.txt
+
+run-lister-gen: lister-gen
+#	$(LISTER_GEN) --input-dirs github.com/pluralsh/deployment-operator/api --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/listers --go-header-file hack/boilerplate.go.txt
+	$(LISTER_GEN) --input-dirs ./api/v1alpha1 --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/listers --go-header-file hack/boilerplate.go.txt
+#	$(LISTER_GEN) --input-dirs github.com/pluralsh/deployment-operator/apis/platform/v1alpha1,github.com/pluralsh/deployment-operator/apis/vpn/v1alpha1 --output-package github.com/pluralsh/deployment-operator/generated/client/listers --go-header-file hack/boilerplate.go.txt
+
+run-informer-gen: informer-gen
+	$(INFORMER_GEN) --input-dirs ./api/v1alpha1 --versioned-clientset-package github.com/pluralsh/deployment-operator/generated/client/clientset/versioned --listers-package github.com/pluralsh/deployment-operator/generated/client/listers --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/informers --go-header-file hack/boilerplate.go.txt
+#	$(INFORMER_GEN) --input-dirs github.com/pluralsh/deployment-operator/api/v1alpha1 --versioned-clientset-package github.com/pluralsh/deployment-operator/generated/client/clientset/versioned --listers-package github.com/pluralsh/deployment-operator/generated/client/listers --output-base ./ --output-package github.com/pluralsh/deployment-operator/generated/client/informers --go-header-file hack/boilerplate.go.txt
+#	$(INFORMER_GEN) --input-dirs github.com/pluralsh/deployment-operator/apis/platform/v1alpha1,github.com/pluralsh/deployment-operator/apis/vpn/v1alpha1 --versioned-clientset-package github.com/pluralsh/deployment-operator/generated/client/clientset/versioned --listers-package github.com/pluralsh/deployment-operator/generated/client/listers --output-package github.com/pluralsh/deployment-operator/generated/client/informers --go-header-file hack/boilerplate.go.txt
+
+generate-client: run-client-gen run-lister-gen run-informer-gen
+#	rm -rf generated
+#	mv github.com/pluralsh/deployment-operator/generated generated
+#	rm -rf github.com
+
+CLIENT_GEN = $(shell pwd)/bin/client-gen
+client-gen: ## Download client-gen locally if necessary.
+	$(call go-get-tool,$(CLIENT_GEN),k8s.io/code-generator/cmd/client-gen@v0.25.3)
+
+LISTER_GEN = $(shell pwd)/bin/lister-gen
+lister-gen: ## Download lister-gen locally if necessary.
+	$(call go-get-tool,$(LISTER_GEN),k8s.io/code-generator/cmd/lister-gen@v0.25.3)
+
+INFORMER_GEN = $(shell pwd)/bin/informer-gen
+informer-gen: ## Download informer-gen locally if necessary.
+	$(call go-get-tool,$(INFORMER_GEN),k8s.io/code-generator/cmd/informer-gen@v0.25.3)
+
 ##@ Development
 
 .PHONY: manifests

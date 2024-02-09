@@ -37,11 +37,10 @@ var (
 )
 
 type GateReconciler struct {
-	K8sClient     ctrlclient.Client
-	ConsoleClient client.Client
-	Config        *rest.Config
-	Clientset     *kubernetes.Clientset
-	//GenClientset    *generated.Clientset
+	K8sClient       ctrlclient.Client
+	ConsoleClient   client.Client
+	Config          *rest.Config
+	Clientset       *kubernetes.Clientset
 	GateCache       *client.Cache[console.PipelineGateFragment]
 	GateQueue       workqueue.RateLimitingInterface
 	UtilFactory     util.Factory
@@ -70,16 +69,14 @@ func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client,
 		return nil, err
 	}
 
-	//genClientset, err := generated.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
 	return &GateReconciler{
-		K8sClient:     k8sClient,
-		ConsoleClient: consoleClient,
-		Config:        config,
-		Clientset:     cs,
-		//GenClientset:    genClientset,
+		K8sClient:       k8sClient,
+		ConsoleClient:   consoleClient,
+		Config:          config,
+		Clientset:       cs,
 		GateQueue:       gateQueue,
 		GateCache:       gateCache,
 		UtilFactory:     f,
@@ -140,6 +137,8 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		return reconcile.Result{}, err
 	}
 
+	preserveStatus := gateCR.Status.DeepCopy()
+
 	nsName := types.NamespacedName{
 		Name:      gateCR.Name,
 		Namespace: gateCR.Namespace,
@@ -150,34 +149,49 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 	if err := s.K8sClient.Get(ctx, nsName, currentGate); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("This gate doesn't yet have a corresponding CR on this cluster yet.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-		}
-		logger.Info("Could not get gate.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-	} else {
-		// if the gate already has a corresponding CR on the cluster, we check if we need to reset the state
-		// if the gate is in a terminal state, i.e. open or closed, and that state has been reported, we reset the state to pending
-		if (currentGate.Status.IsClosed() || currentGate.Status.IsOpen()) && !currentGate.Status.HasNotReported() {
-			logger.Info(fmt.Sprintf("Resetting gate to %s.", gateCR.Status.SyncedState), "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-			gateCR.Status.State = &gateCR.Status.SyncedState
-		} else {
-			logger.Info(fmt.Sprintf("Gate is already in a non-terminal state %s.", *gateCR.Status.State), "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-		}
-	}
-	scope, _ := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, gateCR)
-	err = scope.PatchObject()
-	if err != nil {
-		if apierrors.IsNotFound(err) {
 			// If the PipelineGate doesn't exist, create it.
 			err = s.K8sClient.Create(context.Background(), gateCR)
 			if err != nil {
 				logger.Error(err, "failed to create gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 				return reconcile.Result{}, err
 			}
+			gateCR.Status = *preserveStatus
+
+			err = s.K8sClient.Status().Update(context.Background(), gateCR)
+			if err != nil {
+				logger.Error(err, "failed to create gate status", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+				return reconcile.Result{}, err
+			}
+		}
+		logger.Info("Could not get gate.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+	} else {
+		logger.Info("Gate exists.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+		scope, _ := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, currentGate)
+
+		// if the gate already has a corresponding CR on the cluster, we check if we need to reset the state
+		// if the gate is in a terminal state, i.e. open or closed, and that state has been reported, we reset the state to pending
+		if (currentGate.Status.IsClosed() || currentGate.Status.IsOpen()) && !currentGate.Status.HasNotReported() {
+			logger.Info(fmt.Sprintf("Resetting gate to %s.", gateCR.Status.SyncedState), "Namespace", currentGate.Namespace, "Name", currentGate.Name, "ID", currentGate.Spec.ID)
+			currentGate.Spec = gateCR.Spec // this should stay the same, but in case it changes (because we recreated the pipeline alltogether), we need to update it, because the ID would have changed
+			currentGate.Status.State = &preserveStatus.SyncedState
+			currentGate.Status.SyncedState = preserveStatus.SyncedState
+			currentGate.Status.LastSyncedAt = preserveStatus.LastSyncedAt
+			currentGate.Status.JobRef = nil
+
+			err = scope.PatchObject()
+			if err != nil {
+				logger.Error(err, "failed to patch gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+				return reconcile.Result{}, err
+			}
 		} else {
-			logger.Error(err, "failed to patch gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-			return reconcile.Result{}, err
+			if gateCR.Status.IsInitialized() {
+				logger.Info(fmt.Sprintf("Gate is in a non-terminal state %s.", *currentGate.Status.State), "Namespace", currentGate.Namespace, "Name", currentGate.Name, "ID", currentGate.Spec.ID)
+			} else {
+				logger.Info("Gate is not yet initialized.", "Namespace", currentGate.Namespace, "Name", currentGate.Name, "ID", currentGate.Spec.ID)
+			}
 		}
 	}
-	logger.Info("Patched pipeline gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+
 	return
 }
 
