@@ -96,9 +96,9 @@ func (pgs *PipelineGateStatus) IsClosed() bool {
 }
 
 func (pgs *PipelineGateStatus) HasJobRef() bool {
-	return pgs.JobRef == nil || *pgs.JobRef == console.NamespacedName{}
+	return !(pgs.JobRef == nil || *pgs.JobRef == console.NamespacedName{})
 }
 
 func (pgs *PipelineGateStatus) HasNotReported() bool {
-	return !(pgs.LastReported == nil || (pgs.LastReportedAt != nil && pgs.LastReportedAt.Before(&pgs.LastSyncedAt)))
+	return pgs.LastReported == nil || (pgs.LastReportedAt != nil && pgs.LastReportedAt.Before(&pgs.LastSyncedAt))
 }
