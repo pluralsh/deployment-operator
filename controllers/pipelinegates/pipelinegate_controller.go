@@ -235,7 +235,7 @@ func hasFailed(job *batchv1.Job) bool {
 }
 
 func hasSucceeded(job *batchv1.Job) bool {
-	return IsJobStatusConditionFalse(job.Status.Conditions, batchv1.JobComplete)
+	return IsJobStatusConditionTrue(job.Status.Conditions, batchv1.JobComplete)
 }
 
 // SetupWithManager sets up the controller with the Manager.
