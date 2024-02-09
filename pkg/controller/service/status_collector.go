@@ -3,11 +3,9 @@ package service
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/yaml"
-
 	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
@@ -73,14 +71,12 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 		version = v
 	}
 
+	desired := asJSON(e.Resource)
 	live := "# n/a"
 	liveResource := sc.refetch(e.Resource)
 	if liveResource != nil {
 		live = asJSON(liveResource)
 	}
-
-	desiredData, _ := yaml.Marshal(e.Resource.Object)
-	desired := string(desiredData)
 
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,
