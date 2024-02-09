@@ -4,9 +4,10 @@ import (
 	"os"
 	"path/filepath"
 
-	console "github.com/pluralsh/console-client-go"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type Renderer string
@@ -19,10 +20,10 @@ const (
 )
 
 type Template interface {
-	Render(svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error)
+	Render(svc *client.ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error)
 }
 
-func Render(dir string, svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func Render(dir string, svc *client.ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	renderer := RendererRaw
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

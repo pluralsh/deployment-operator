@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -131,7 +133,7 @@ func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.Co
 	return lo.ToPtr(console.ComponentStatePending)
 }
 
-func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.ServiceDeploymentExtended, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *client.ServiceDeployment, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
 	logger := log.FromContext(ctx)
 
 	var statsCollector stats.Stats
@@ -170,7 +172,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.
 	return nil
 }
 
-func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.ServiceDeploymentExtended, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *client.ServiceDeployment, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
 	logger := log.FromContext(ctx)
 
 	var statsCollector stats.Stats

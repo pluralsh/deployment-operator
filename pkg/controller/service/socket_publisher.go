@@ -1,7 +1,6 @@
 package service
 
 import (
-	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 
@@ -10,7 +9,7 @@ import (
 
 type socketPublisher struct {
 	svcQueue workqueue.RateLimitingInterface
-	svcCache *client.Cache[console.ServiceDeploymentExtended]
+	svcCache *client.Cache[client.ServiceDeployment]
 	manCache *manifests.ManifestCache
 }
 

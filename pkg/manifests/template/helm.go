@@ -14,7 +14,6 @@ import (
 
 	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
-	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/fs"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -31,6 +30,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/samber/lo"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const (
@@ -71,7 +72,7 @@ type helm struct {
 	dir string
 }
 
-func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (h *helm) Render(svc *client.ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	// TODO: add some configured values file convention, perhaps using our lua templating from plural-cli
 	values, err := h.values(svc)
 	if err != nil {
@@ -146,7 +147,7 @@ func (h *helm) Render(svc *console.ServiceDeploymentExtended, utilFactory util.F
 	return manifests, nil
 }
 
-func (h *helm) values(svc *console.ServiceDeploymentExtended) (map[string]interface{}, error) {
+func (h *helm) values(svc *client.ServiceDeployment) (map[string]interface{}, error) {
 	currentMap, err := h.valuesFile(svc, "values.yaml.liquid")
 	if err != nil {
 		return currentMap, err
@@ -190,7 +191,7 @@ func merge(m1, m2 map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-func (h *helm) valuesFile(svc *console.ServiceDeploymentExtended, filename string) (map[string]interface{}, error) {
+func (h *helm) valuesFile(svc *client.ServiceDeployment, filename string) (map[string]interface{}, error) {
 	filename = filepath.Join(h.dir, filename)
 	currentMap := map[string]interface{}{}
 	if fs.Exists(filename) {

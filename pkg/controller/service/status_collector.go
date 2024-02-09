@@ -4,23 +4,24 @@ import (
 	"sigs.k8s.io/yaml"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
 type serviceComponentsStatusCollector struct {
 	latestStatus     map[object.ObjMetadata]event.StatusEvent
 	reconciler       *ServiceReconciler
 	applyStatus      map[object.ObjMetadata]event.ApplyEvent
-	componentContent map[object.ObjMetadata]console.ComponentContentAttributes
+	//componentContent map[object.ObjMetadata]console.ComponentContentAttributes
 	DryRun           bool
 }
 
-func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *console.ServiceDeploymentExtended) *serviceComponentsStatusCollector {
+func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *client.ServiceDeployment) *serviceComponentsStatusCollector {
 	if svc.DryRun == nil {
 		svc.DryRun = lo.ToPtr(false)
 	}
@@ -28,7 +29,7 @@ func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *con
 		latestStatus:     make(map[object.ObjMetadata]event.StatusEvent),
 		applyStatus:      make(map[object.ObjMetadata]event.ApplyEvent),
 		reconciler:       reconciler,
-		componentContent: getComponentContent(svc),
+		//componentContent: getComponentContent(svc),
 		DryRun:           *svc.DryRun,
 	}
 }
@@ -41,7 +42,7 @@ func (sc *serviceComponentsStatusCollector) updateApplyStatus(id object.ObjMetad
 	sc.applyStatus[id] = se
 }
 
-func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, vcache map[manifests.GroupName]string, compCont map[object.ObjMetadata]console.ComponentContentAttributes) *console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
@@ -58,18 +59,18 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 	}
 
 	live := "# n/a"
-	if compCont != nil {
-		compName := object.ObjMetadata{
-			Namespace: e.Resource.GetNamespace(),
-			Name:      e.Resource.GetName(),
-			GroupKind: gvk.GroupKind(),
-		}
-		if r, ok := compCont[compName]; ok {
-			if r.Live != nil {
-				live = *r.Live
-			}
-		}
-	}
+	//if compCont != nil {
+	//	compName := object.ObjMetadata{
+	//		Namespace: e.Resource.GetNamespace(),
+	//		Name:      e.Resource.GetName(),
+	//		GroupKind: gvk.GroupKind(),
+	//	}
+	//	if r, ok := compCont[compName]; ok {
+	//		if r.Live != nil {
+	//			live = *r.Live
+	//		}
+	//	}
+	//}
 
 	desiredData, _ := yaml.Marshal(e.Resource.Object)
 	desired := string(desiredData)
@@ -89,7 +90,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 	}
 }
 
-func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string, compCont map[object.ObjMetadata]console.ComponentContentAttributes) *console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
@@ -106,18 +107,18 @@ func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, 
 	}
 
 	desired := "# n/a"
-	if compCont != nil {
-		compName := object.ObjMetadata{
-			Namespace: e.Resource.GetNamespace(),
-			Name:      e.Resource.GetName(),
-			GroupKind: gvk.GroupKind(),
-		}
-		if r, ok := compCont[compName]; ok {
-			if r.Desired != nil {
-				desired = *r.Desired
-			}
-		}
-	}
+	//if compCont != nil {
+	//	compName := object.ObjMetadata{
+	//		Namespace: e.Resource.GetNamespace(),
+	//		Name:      e.Resource.GetName(),
+	//		GroupKind: gvk.GroupKind(),
+	//	}
+	//	if r, ok := compCont[compName]; ok {
+	//		if r.Desired != nil {
+	//			desired = *r.Desired
+	//		}
+	//	}
+	//}
 
 	liveData, _ := yaml.Marshal(e.Resource.Object)
 	live := string(liveData)
@@ -142,7 +143,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 
 	if sc.DryRun {
 		for _, v := range sc.applyStatus {
-			if consoleAttr := sc.fromApplyResult(v, vcache, sc.componentContent); consoleAttr != nil {
+			if consoleAttr := sc.fromApplyResult(v, vcache); consoleAttr != nil {
 				components = append(components, consoleAttr)
 			}
 		}
@@ -150,7 +151,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 	}
 
 	for _, v := range sc.latestStatus {
-		if attrs := sc.fromSyncResult(v, vcache, sc.componentContent); attrs != nil {
+		if attrs := sc.fromSyncResult(v, vcache); attrs != nil {
 			components = append(components, attrs)
 		}
 	}
@@ -158,33 +159,33 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 	return components
 }
 
-func getComponentContent(svc *console.ServiceDeploymentExtended) map[object.ObjMetadata]console.ComponentContentAttributes {
+func getComponentContent(svc *client.ServiceDeployment) map[object.ObjMetadata]console.ComponentContentAttributes {
 	result := make(map[object.ObjMetadata]console.ComponentContentAttributes)
 
-	for _, comp := range svc.Components {
-		namespace := ""
-		group := ""
-		if comp.Namespace != nil {
-			namespace = *comp.Namespace
-		}
-		if comp.Group != nil {
-			group = *comp.Group
-		}
-		gn := object.ObjMetadata{
-			Namespace: namespace,
-			Name:      comp.Name,
-			GroupKind: schema.GroupKind{
-				Group: group,
-				Kind:  comp.Kind,
-			},
-		}
-		if comp.Content != nil {
-			result[gn] = console.ComponentContentAttributes{
-				Desired: comp.Content.Desired,
-				Live:    comp.Content.Live,
-			}
-		}
-	}
+	//for _, comp := range svc.Components {
+	//	namespace := ""
+	//	group := ""
+	//	if comp.Namespace != nil {
+	//		namespace = *comp.Namespace
+	//	}
+	//	if comp.Group != nil {
+	//		group = *comp.Group
+	//	}
+	//	gn := object.ObjMetadata{
+	//		Namespace: namespace,
+	//		Name:      comp.Name,
+	//		GroupKind: schema.GroupKind{
+	//			Group: group,
+	//			Kind:  comp.Kind,
+	//		},
+	//	}
+	//	if comp.Content != nil {
+	//		result[gn] = console.ComponentContentAttributes{
+	//			Desired: comp.Content.Desired,
+	//			Live:    comp.Content.Live,
+	//		}
+	//	}
+	//}
 
 	return result
 }
