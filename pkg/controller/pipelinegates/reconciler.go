@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-	pgctrl "github.com/pluralsh/deployment-operator/controllers/pipelinegates"
+	pgctrl "github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )

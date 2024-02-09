@@ -5,7 +5,6 @@ import (
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	pipelinesv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-	pipelinecontroller "github.com/pluralsh/deployment-operator/controllers/pipelinegates"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -66,7 +65,7 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
-	if err = (&pipelinecontroller.PipelineGateReconciler{
+	if err = (&controller.PipelineGateReconciler{
 		Client:        mgr.GetClient(),
 		ConsoleClient: client.New(opt.consoleUrl, opt.deployToken),
 		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),

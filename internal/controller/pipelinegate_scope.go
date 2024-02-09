@@ -1,4 +1,4 @@
-package pipelinegates
+package controller
 
 import (
 	"context"
