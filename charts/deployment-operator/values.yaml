@@ -111,14 +111,14 @@ agentk:
         enabled: false
         # cert: "Public key for the TLS certificate"
         # key: "Private key for the TLS certificate"
-        secret: { }
+        secret: {}
         # create: false # when true, creates a certificate with values cert and key from above
         # name: "agentk-observability"
   # Add additional environment settings to the pod. Can be useful in proxy
   # environments
-  extraEnv: [ ]
+  extraEnv: []
   # Add additional args settings to the pod.
-  extraArgs: [ ]
+  extraArgs: []
   # Show the last 80 lines or 2048 bytes (whichever is smaller) of pod logs in kubectl describe output when container exits with non-zero exit code
   # Useful for when pod logs are cycled out of a node post-crash before an operator can capture the logs
   # Valid values are 'File' which is the Kubernetes API default, or 'FallbackToLogsOnError'
@@ -134,3 +134,4 @@ agentk:
   serviceMonitor:
     # Specifies whether to create a ServiceMonitor resource for collecting Prometheus metrics
     enabled: false
+    
