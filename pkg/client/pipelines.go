@@ -5,6 +5,7 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +44,7 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			APIVersion: v1alpha1.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pgFragment.Name, // + "-" + pgFragment.ID,
+			Name:      utils.AsName(pgFragment.Name), // + "-" + pgFragment.ID,
 			Namespace: pgFragment.Spec.Job.Namespace,
 		},
 		Spec: v1alpha1.PipelineGateSpec{
@@ -97,17 +98,18 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 		}
 		return &job.Spec
 	}
+	name := utils.AsName(gateName)
 	jobSpec := &batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      gateName,
+				Name:      name,
 				Namespace: jsFragment.Namespace,
 				// convert map[string]interface{} to map[string]string
 				Labels:      stringMapFromInterfaceMap(jsFragment.Labels),
 				Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
 			},
 			Spec: corev1.PodSpec{
-				Containers:    containersFromContainerSpecFragments(gateName, jsFragment.Containers),
+				Containers:    containersFromContainerSpecFragments(name, jsFragment.Containers),
 				RestartPolicy: corev1.RestartPolicyOnFailure,
 			},
 		},
@@ -132,7 +134,7 @@ func containersFromContainerSpecFragments(gateName string, containerSpecFragment
 
 		container := corev1.Container{
 			// todo: maybe add a name to the graphql api too? for now let's use the gate name plus the container fragment index
-			Name:  gateName + "-" + fmt.Sprintf("%d", i),
+			Name:  fmt.Sprintf("%s-%d", utils.AsName(gateName), i),
 			Image: csFragment.Image,
 			Args:  make([]string, 0),
 		}
