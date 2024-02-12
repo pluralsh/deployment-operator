@@ -83,7 +83,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 		Namespace: e.Resource.GetNamespace(),
 		Name:      e.Resource.GetName(),
 		Version:   version,
-		Synced:    true,
+		Synced:    false,
 		State:     sc.reconciler.toStatus(e.Resource),
 		Content: &console.ComponentContentAttributes{
 			Desired: &desired,
