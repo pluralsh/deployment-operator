@@ -177,17 +177,25 @@ func (s *ServiceReconciler) ShutdownQueue() {
 
 func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 	logger := log.FromContext(ctx)
-
 	logger.Info("fetching services for cluster")
-	svcs, err := s.ConsoleClient.GetServices()
-	if err != nil {
-		logger.Error(err, "failed to fetch service list from deployments service")
-		return false, nil
-	}
+	var after *string
+	var pageSize int64
+	pageSize = 100
+	hasNextPage := true
 
-	for _, svc := range svcs {
-		logger.Info("sending update for", "service", svc.ID)
-		s.SvcQueue.Add(svc.ID)
+	for hasNextPage {
+		resp, err := s.ConsoleClient.GetServices(after, &pageSize)
+		if err != nil {
+			logger.Error(err, "failed to fetch service list from deployments service")
+			return false, nil
+		}
+
+		hasNextPage = resp.PagedClusterServices.PageInfo.HasNextPage
+		after = resp.PagedClusterServices.PageInfo.EndCursor
+		for _, svc := range resp.PagedClusterServices.Edges {
+			logger.Info("sending update for", "service", svc.Node.ID)
+			s.SvcQueue.Add(svc.Node.ID)
+		}
 	}
 
 	if err := s.pinger.Ping(); err != nil {
