@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"path/filepath"
 
+	console "github.com/pluralsh/console-client-go"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/i18n"
@@ -11,8 +12,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/kustomize/kustomize/v4/commands/build"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
-
-	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type kustomize struct {
@@ -23,7 +22,7 @@ func NewKustomize(dir string) Template {
 	return &kustomize{dir}
 }
 
-func (k *kustomize) Render(svc *client.ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (k *kustomize) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	out := &bytes.Buffer{}
 	h := build.MakeHelp("plural", "kustomize")
 	help := &build.Help{

@@ -10,7 +10,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
@@ -21,7 +20,7 @@ type serviceComponentsStatusCollector struct {
 	DryRun           bool
 }
 
-func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *client.ServiceDeployment) *serviceComponentsStatusCollector {
+func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) *serviceComponentsStatusCollector {
 	if svc.DryRun == nil {
 		svc.DryRun = lo.ToPtr(false)
 	}

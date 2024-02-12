@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
 
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
@@ -133,7 +132,7 @@ func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.Co
 	return lo.ToPtr(console.ComponentStatePending)
 }
 
-func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *client.ServiceDeployment, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.GetServiceDeploymentForAgent_ServiceDeployment, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
 	logger := log.FromContext(ctx)
 
 	var statsCollector stats.Stats
@@ -172,7 +171,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *client.S
 	return nil
 }
 
-func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *client.ServiceDeployment, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.GetServiceDeploymentForAgent_ServiceDeployment, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
 	logger := log.FromContext(ctx)
 
 	var statsCollector stats.Stats

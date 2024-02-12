@@ -23,7 +23,7 @@ var singleInstance Client
 
 type client struct {
 	ctx           context.Context
-	consoleClient *console.Client
+	consoleClient console.ConsoleClient
 	url           string
 	token         string
 }
@@ -45,7 +45,7 @@ func New(url, token string) Client {
 			}
 
 			singleInstance = &client{
-				consoleClient: console.NewClient(&httpClient, url),
+				consoleClient: console.NewClient(&httpClient, url, nil),
 				ctx:           context.Background(),
 				url:           url,
 				token:         token,
@@ -67,8 +67,7 @@ type Client interface {
 	SaveClusterBackup(attrs console.BackupAttributes) (*console.ClusterBackupFragment, error)
 	GetClusterBackup(clusterID, namespace, name string) (*console.ClusterBackupFragment, error)
 	GetServices() ([]*console.ServiceDeploymentBaseFragment, error)
-	GetService(id string) (*ServiceDeployment, error)
-	//GetServiceComponents(id string) ([]*console.ServiceComponent, error)
+	GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error)
 	UpdateComponents(id string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
 	AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +58,7 @@ type ServiceReconciler struct {
 	Applier       *applier.Applier
 	Destroyer     *apply.Destroyer
 	SvcQueue      workqueue.RateLimitingInterface
-	SvcCache      *client.Cache[client.ServiceDeployment]
+	SvcCache      *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
 	ManifestCache *manifests.ManifestCache
 	UtilFactory   util.Factory
 	LuaScript     string
@@ -76,7 +77,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		return nil, err
 	}
 
-	svcCache := client.NewCache[client.ServiceDeployment](refresh, func(id string) (*client.ServiceDeployment, error) {
+	svcCache := client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
 		return consoleClient.GetService(id)
 	})
 

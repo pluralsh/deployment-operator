@@ -9,12 +9,11 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/osteele/liquid"
+	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
-
-	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 var (
@@ -45,7 +44,7 @@ func NewRaw(dir string) *raw {
 	return &raw{dir}
 }
 
-func renderLiquid(input []byte, svc *client.ServiceDeployment) ([]byte, error) {
+func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]byte, error) {
 	bindings := map[string]interface{}{
 		"configuration": configMap(svc),
 		"cluster":       svc.Cluster,
@@ -53,7 +52,7 @@ func renderLiquid(input []byte, svc *client.ServiceDeployment) ([]byte, error) {
 	return liquidEngine.ParseAndRender(input, bindings)
 }
 
-func (r *raw) Render(svc *client.ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	res := make([]*unstructured.Unstructured, 0)
 	mapper, err := utilFactory.ToRESTMapper()
 	if err != nil {

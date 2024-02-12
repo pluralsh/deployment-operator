@@ -1,10 +1,10 @@
 package template
 
 import (
-	"github.com/pluralsh/deployment-operator/pkg/client"
+	console "github.com/pluralsh/console-client-go"
 )
 
-func configMap(svc *client.ServiceDeployment) map[string]string {
+func configMap(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[string]string {
 	res := map[string]string{}
 	for _, config := range svc.Configuration {
 		res[config.Name] = config.Value
