@@ -15,7 +15,7 @@ import (
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler) {
+func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {
 	r, err := time.ParseDuration(opt.refreshInterval)
 	if err != nil {
 		setupLog.Error(err, "unable to get refresh interval")
@@ -67,5 +67,5 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		os.Exit(1)
 	}
 
-	return mgr, sr
+	return mgr, sr, gr
 }

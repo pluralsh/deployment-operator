@@ -23,16 +23,15 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/go-logr/logr"
+	console "github.com/pluralsh/console-client-go"
+	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/go-logr/logr"
-	console "github.com/pluralsh/console-client-go"
-	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,6 +43,7 @@ import (
 type PipelineGateReconciler struct {
 	client.Client
 	ConsoleClient consoleclient.Client
+	GateCache     *consoleclient.Cache[console.PipelineGateFragment]
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
 }

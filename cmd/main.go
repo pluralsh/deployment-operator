@@ -44,7 +44,7 @@ func main() {
 	}
 
 	setupLog.Info("starting agent")
-	ctrlMgr, serviceReconciler := runAgent(opt, config, ctx, mgr.GetClient())
+	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
 
 	if err = (&controller.BackupReconciler{
 		Client:        mgr.GetClient(),
@@ -65,6 +65,7 @@ func main() {
 
 	if err = (&controller.PipelineGateReconciler{
 		Client:        mgr.GetClient(),
+		GateCache:     gateReconciler.GateCache,
 		ConsoleClient: client.New(opt.consoleUrl, opt.deployToken),
 		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
 		Scheme:        mgr.GetScheme(),
