@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	console "github.com/pluralsh/console-client-go"
+	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
 type authedTransport struct {
@@ -70,4 +71,8 @@ type Client interface {
 	GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error)
 	UpdateComponents(id string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
 	AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error
+	ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*v1alpha1.PipelineGate, error)
+	GetClusterGate(id string) (*console.PipelineGateFragment, error)
+	GetClusterGates() ([]*console.PipelineGateFragment, error)
+	UpdateGate(id string, attributes console.GateUpdateAttributes) error
 }

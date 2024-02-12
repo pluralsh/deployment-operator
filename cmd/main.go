@@ -5,6 +5,7 @@ import (
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,6 +62,16 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "HealthConvert")
 	}
 	//+kubebuilder:scaffold:builder
+
+	if err = (&controller.PipelineGateReconciler{
+		Client:        mgr.GetClient(),
+		ConsoleClient: client.New(opt.consoleUrl, opt.deployToken),
+		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
+		Scheme:        mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Group")
+		os.Exit(1)
+	}
 
 	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to create health check")
