@@ -11,20 +11,14 @@ import (
 var _ = Describe("Raw template", func() {
 
 	dir := filepath.Join("..", "..", "..", "test", "raw")
-	svc := &console.ServiceDeploymentExtended{
-		Namespace: "default",
-		Configuration: make([]*struct {
-			Name  string "json:\"name\" graphql:\"name\""
-			Value string "json:\"value\" graphql:\"value\""
-		}, 0),
+	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
+		Namespace:     "default",
+		Configuration: make([]*console.GetServiceDeploymentForAgent_ServiceDeployment_Configuration, 0),
 	}
 	Context("Render raw template", func() {
 		const name = "nginx"
 		It("should successfully render the raw template", func() {
-			svc.Configuration = []*struct {
-				Name  string "json:\"name\" graphql:\"name\""
-				Value string "json:\"value\" graphql:\"value\""
-			}{
+			svc.Configuration = []*console.GetServiceDeploymentForAgent_ServiceDeployment_Configuration{
 				{
 					Name:  "name",
 					Value: name,

@@ -14,10 +14,10 @@ import (
 )
 
 type serviceComponentsStatusCollector struct {
-	latestStatus     map[object.ObjMetadata]event.StatusEvent
-	reconciler       *ServiceReconciler
-	applyStatus      map[object.ObjMetadata]event.ApplyEvent
-	DryRun           bool
+	latestStatus map[object.ObjMetadata]event.StatusEvent
+	reconciler   *ServiceReconciler
+	applyStatus  map[object.ObjMetadata]event.ApplyEvent
+	DryRun       bool
 }
 
 func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) *serviceComponentsStatusCollector {
@@ -25,10 +25,10 @@ func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *con
 		svc.DryRun = lo.ToPtr(false)
 	}
 	return &serviceComponentsStatusCollector{
-		latestStatus:     make(map[object.ObjMetadata]event.StatusEvent),
-		applyStatus:      make(map[object.ObjMetadata]event.ApplyEvent),
-		reconciler:       reconciler,
-		DryRun:           *svc.DryRun,
+		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
+		applyStatus:  make(map[object.ObjMetadata]event.ApplyEvent),
+		reconciler:   reconciler,
+		DryRun:       *svc.DryRun,
 	}
 }
 
@@ -83,7 +83,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 		Namespace: e.Resource.GetNamespace(),
 		Name:      e.Resource.GetName(),
 		Version:   version,
-		Synced:    false,
+		Synced:    live == desired,
 		State:     sc.reconciler.toStatus(e.Resource),
 		Content: &console.ComponentContentAttributes{
 			Desired: &desired,

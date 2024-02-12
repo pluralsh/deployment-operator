@@ -49,4 +49,3 @@ func toAPIPath(resource *unstructured.Unstructured) string {
 func toPlural(kind string) string {
 	return fmt.Sprintf("%ss/", strings.ToLower(kind))
 }
-

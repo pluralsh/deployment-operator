@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
 type LuaScriptScope struct {
@@ -24,7 +25,7 @@ func (p *LuaScriptScope) PatchObject() error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		oldScript := &v1alpha1.CustomHealth{}
 		if err := p.Client.Get(p.ctx, key, oldScript); err != nil {
-			return fmt.Errorf("could not fetch current %s/%s state, got error: %+v", oldScript.GetName(), oldScript.GetNamespace(), err)
+			return fmt.Errorf("could not fetch current %s/%s state, got error: %w", oldScript.GetName(), oldScript.GetNamespace(), err)
 		}
 
 		if reflect.DeepEqual(oldScript.Status, p.HealthConvert.Status) {
