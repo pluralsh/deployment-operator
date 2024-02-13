@@ -5,6 +5,7 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +34,17 @@ func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 
 	}
 	return resp.ClusterGate, nil
+}
+
+func (c *client) GateExists(id string) bool {
+	pgf, err := c.GetClusterGate(id)
+	if pgf != nil {
+		return true
+	}
+	if errors.IsNotFound(err) {
+		return false
+	}
+	return err == nil
 }
 
 func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*v1alpha1.PipelineGate, error) {

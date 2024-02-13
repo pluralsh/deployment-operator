@@ -72,6 +72,7 @@ type Client interface {
 	UpdateComponents(id string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
 	AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error
 	ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*v1alpha1.PipelineGate, error)
+	GateExists(id string) bool
 	GetClusterGate(id string) (*console.PipelineGateFragment, error)
 	GetClusterGates() ([]*console.PipelineGateFragment, error)
 	UpdateGate(id string, attributes console.GateUpdateAttributes) error
