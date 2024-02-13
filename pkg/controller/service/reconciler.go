@@ -7,14 +7,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/applier"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
-	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
-	"github.com/pluralsh/deployment-operator/pkg/ping"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +22,15 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/applier"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
+	"github.com/pluralsh/deployment-operator/pkg/ping"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
 func init() {
@@ -55,7 +56,7 @@ type ServiceReconciler struct {
 	Applier       *applier.Applier
 	Destroyer     *apply.Destroyer
 	SvcQueue      workqueue.RateLimitingInterface
-	SvcCache      *client.Cache[console.ServiceDeploymentExtended]
+	SvcCache      *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
 	ManifestCache *manifests.ManifestCache
 	UtilFactory   util.Factory
 	LuaScript     string
@@ -74,7 +75,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		return nil, err
 	}
 
-	svcCache := client.NewCache[console.ServiceDeploymentExtended](refresh, func(id string) (*console.ServiceDeploymentExtended, error) {
+	svcCache := client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
 		return consoleClient.GetService(id)
 	})
 

@@ -2,6 +2,7 @@ package applier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -254,8 +255,9 @@ func handleError(eventChannel chan event.Event, err error) {
 }
 
 func handleValidationError(eventChannel chan<- event.Event, err error) {
-	switch tErr := err.(type) {
-	case *validation.Error:
+	var tErr *validation.Error
+	switch {
+	case errors.As(err, &tErr):
 		// handle validation error about one or more specific objects
 		eventChannel <- event.Event{
 			Type: event.ValidationType,
@@ -269,7 +271,7 @@ func handleValidationError(eventChannel chan<- event.Event, err error) {
 		eventChannel <- event.Event{
 			Type: event.ValidationType,
 			ValidationEvent: event.ValidationEvent{
-				Error: tErr,
+				Error: err,
 			},
 		}
 	}

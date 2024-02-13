@@ -7,10 +7,11 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2/textlogger"
 	"k8s.io/kubectl/pkg/cmd/util"
+
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 )
 
 var (
@@ -36,7 +37,7 @@ func NewCache(expiry time.Duration, token string) *ManifestCache {
 	}
 }
 
-func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDeploymentExtended) ([]*unstructured.Unstructured, error) {
+func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]*unstructured.Unstructured, error) {
 	if line, ok := c.cache.Get(svc.ID); ok {
 		if line.live(c.expiry) {
 			return template.Render(line.dir, svc, utilFactory)

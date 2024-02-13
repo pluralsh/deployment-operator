@@ -22,7 +22,7 @@ func NewKustomize(dir string) Template {
 	return &kustomize{dir}
 }
 
-func (k *kustomize) Render(svc *console.ServiceDeploymentExtended, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (k *kustomize) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	out := &bytes.Buffer{}
 	h := build.MakeHelp("plural", "kustomize")
 	help := &build.Help{

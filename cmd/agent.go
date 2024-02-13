@@ -4,15 +4,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/samber/lo"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/rest"
 
 	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler) {
@@ -28,7 +29,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		os.Exit(1)
 	}
 
-	mgr, err := controller.NewControllerManager(ctx, opt.maxCurrentReconciles, t, r, lo.ToPtr(true), opt.consoleUrl, opt.deployToken, opt.clusterId)
+	mgr, err := controller.NewControllerManager(ctx, opt.maxConcurrentReconciles, t, r, lo.ToPtr(true), opt.consoleUrl, opt.deployToken, opt.clusterId)
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
