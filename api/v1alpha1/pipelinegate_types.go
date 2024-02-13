@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,4 +103,12 @@ func (pgs *PipelineGateStatus) HasJobRef() bool {
 
 func (pgs *PipelineGateStatus) HasNotReported() bool {
 	return pgs.LastReported == nil || (pgs.LastReportedAt != nil && pgs.LastReportedAt.Before(&pgs.LastSyncedAt))
+}
+
+func (pgs *PipelineGateStatus) GetConsoleGateState() (*console.GateState, error) {
+	if pgs.State == nil {
+		return nil, fmt.Errorf("gate state is not initialized")
+	}
+	state := console.GateState(*pgs.State)
+	return &state, nil
 }
