@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console-client-go"
 	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +38,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	PipelineGateFinalizer = "deployments.plural.sh/pipelinegate-protection"
 )
 
 // PipelineGateReconciler reconciles a PipelineGate object
@@ -53,7 +58,47 @@ type PipelineGateReconciler struct {
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
-func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+/*
+cases:
+- k8s: pending with no job ref
+	- cache: console pending with no job ref
+		-> hash is the same
+			-> reconcile:
+				k8s: create job, set job ref (this has to be atomic, can't set job ref on job event, because there might be multiple jobs running for the same gate, and we can't easily know which is the latest)
+				console: do nothing
+- k8s: pending with job ref
+	- k8s: job is running
+		- cache: console pending with job ref and job ref is the same
+			-> hash is the same
+				-> no reconcile
+		- cache: console pending with no job ref
+			-> hash is different
+			-> reconcile:
+				k8s: do nothing
+				console: update job ref at console, should show up in hash
+		- cache: console pending with job ref -> hash is different (probably a rerun, it was reset to pending at the console and a new job was already created at k8s, but the console doesn't know about it yet)
+			-> reconcile:
+				k8s: do nothing
+				console: update job ref at console, should show up in hash
+	- k8s: job has succeeded
+		- cache: console pending with job ref -> hash is different
+			-> reoconcile
+		- cache: console open with job ref
+			-> reconcile:
+
+	- job has failed
+- k8s open with job ref
+- k8s closed with job ref
+- console pending with no job ref
+	- k8s pending with job ref (job has been created, but not reported yet)
+	- k8s open with job ref (if job is complete, but has not been reported yet)
+- console pending with job ref
+- console open with job ref
+- console closed with job ref
+
+*/
+
+func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := log.FromContext(ctx).WithValues("PipelineGate", req.NamespacedName)
 
 	gate := &v1alpha1.PipelineGate{}
@@ -65,6 +110,21 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Unable to fetch PipelineGate.")
+		return ctrl.Result{}, err
+	}
+
+	scope, _ := NewPipelineGateScope(ctx, r.Client, gate)
+	defer func() {
+		if err := scope.PatchObject(); err != nil && reterr == nil {
+			reterr = err
+		}
+	}()
+
+	attrs, err := r.pipelineGateUpdateAttributes(ctx, gate)
+
+	// Calculate SHA to detect changes that should be applied in the Console API.
+	sha, err := utils.HashObject(*attrs)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -82,7 +142,59 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if gate.Status.IsInitialized() && gate.Status.HasNotReported() && (gate.Status.IsOpen() || gate.Status.IsClosed()) {
 		return r.syncGateStatus(ctx, gate, log)
 	}
+
+	apiPipeline, err := r.sync(ctx, pipeline, *attrs, sha)
 	return ctrl.Result{}, nil
+}
+
+//func (r *PipelineGateReconciler) addOrRemoveFinalizer(pg *v1alpha1.PipelineGate) *ctrl.Result {
+//	/// If object is not being deleted and if it does not have our finalizer,
+//	// then lets add the finalizer. This is equivalent to registering our finalizer.
+//	if pg.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(pg, PipelineGateFinalizer) {
+//		controllerutil.AddFinalizer(pg, PipelineGateFinalizer)
+//	}
+//
+//	// If object is being deleted cleanup and remove the finalizer.
+//	if !pg.ObjectMeta.DeletionTimestamp.IsZero() {
+//		// Remove PipelineGate from Console API if it exists.
+//		if r.ConsoleClient.GateExists(pg.Spec.ID) {
+//			if _, err := r.ConsoleClient.DeletePipeline(*pipeline.Status.ID); err != nil {
+//				// If it fails to delete the external dependency here, return with error
+//				// so that it can be retried.
+//				utils.MarkCondition(pipeline.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+//				return &ctrl.Result{}
+//			}
+//
+//			// If deletion process started requeue so that we can make sure provider
+//			// has been deleted from Console API before removing the finalizer.
+//			return &requeue
+//		}
+//
+//		// If our finalizer is present, remove it.
+//		controllerutil.RemoveFinalizer(pipeline, PipelineFinalizer)
+//
+//		// Stop reconciliation as the item is being deleted.
+//		return &ctrl.Result{}
+//	}
+//
+//	return nil
+//}
+
+func (r *PipelineGateReconciler) sync(ctx context.Context, pipeline *v1alpha1.Pipeline, attrs console.PipelineAttributes, sha string) (*console.PipelineFragment, error) {
+	exists := r.ConsoleClient.IsPipelineExisting(pipeline.Status.GetID())
+	logger := log.FromContext(ctx)
+
+	if exists && pipeline.Status.IsSHAEqual(sha) {
+		logger.V(9).Info(fmt.Sprintf("No changes detected for %s pipeline", pipeline.Name))
+		return r.ConsoleClient.GetPipeline(pipeline.Status.GetID())
+	}
+
+	if exists {
+		logger.Info(fmt.Sprintf("Detected changes, saving %s pipeline", pipeline.Name))
+	} else {
+		logger.Info(fmt.Sprintf("%s pipeline does not exist, saving it", pipeline.Name))
+	}
+	return r.ConsoleClient.SavePipeline(pipeline.Name, attrs)
 }
 
 func (r *PipelineGateReconciler) initializeGateState(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
@@ -101,6 +213,7 @@ func (r *PipelineGateReconciler) initializeGateState(ctx context.Context, gate *
 
 func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
 	log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
+	consoleGate := r.GateCache.Get(gate.Spec.ID)
 	if !gate.Status.HasJobRef() {
 		log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 
@@ -378,4 +491,30 @@ func CopyJobFields(from, to *batchv1.Job, log logr.Logger) bool {
 	to.Spec.Template.Spec.Containers[0].VolumeMounts = from.Spec.Template.Spec.Containers[0].VolumeMounts
 
 	return requireUpdate
+}
+
+func (r *PipelineGateReconciler) pipelineGateUpdateAttributes(ctx context.Context, pg *v1alpha1.PipelineGate) (*console.GateUpdateAttributes, error) {
+	state, err := pg.Status.GetConsoleGateState()
+	if err != nil {
+		return nil, err
+	}
+	updateAttributes := console.GateUpdateAttributes{State: state, Status: &console.GateStatusAttributes{JobRef: pg.Status.JobRef}}
+	return &updateAttributes, nil
+}
+
+func (r *PipelineGateReconciler) sync(ctx context.Context, pg *v1alpha1.PipelineGate, attrs console.GateUpdateAttributes, sha string) (*console.PipelineFragment, error) {
+	exists := r.ConsoleClient.GateExists(pg.Spec.ID)
+	logger := log.FromContext(ctx)
+
+	if exists && pg.Status.IsSHAEqual(sha) {
+		logger.V(9).Info(fmt.Sprintf("No changes detected for %s pipeline", pipeline.Name))
+		return r.ConsoleClient.GetPipeline(pipeline.Status.GetID())
+	}
+
+	if exists {
+		logger.Info(fmt.Sprintf("Detected changes, saving %s pipeline", pipeline.Name))
+	} else {
+		logger.Info(fmt.Sprintf("%s pipeline does not exist, saving it", pipeline.Name))
+	}
+	return r.ConsoleClient.SavePipeline(pipeline.Name, attrs)
 }
