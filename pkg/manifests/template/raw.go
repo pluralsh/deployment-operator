@@ -48,7 +48,7 @@ func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_Servic
 	bindings := map[string]interface{}{
 		"configuration": configMap(svc),
 		"cluster":       svc.Cluster,
-		"contexts":      map[string]map[string]interface{}{},
+		"contexts":      contexts(svc),
 	}
 	return liquidEngine.ParseAndRender(input, bindings)
 }
