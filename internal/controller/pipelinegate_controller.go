@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/google/uuid"
 
 	"github.com/go-logr/logr"
@@ -60,77 +58,6 @@ type PipelineGateReconciler struct {
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
-/*
-cases:
-- k8s: pending with no job ref
-	- cache: console pending with no job ref
-		-> hash is the same
-			-> reconcile:
-				k8s: create job, set job ref (this has to be atomic, can't set job ref on job event, because there might be multiple jobs running for the same gate, and we can't easily know which is the latest)
-				console: do nothing
-- k8s: pending with job ref
-	- k8s: job is running
-		- cache: console pending with job ref and job ref is the same
-			-> hash is the same
-				-> no reconcile
-		- cache: console pending with no job ref
-			-> hash is different
-			-> reconcile:
-				k8s: do nothing
-				console: update job ref at console, should show up in hash
-		- cache: console pending with job ref -> hash is different (probably a rerun, it was reset to pending at the console and a new job was already created at k8s, but the console doesn't know about it yet)
-			-> reconcile:
-				k8s: do nothing
-				console: update job ref at console, should show up in hash
-	- k8s: job has succeeded
-		- cache: console pending with job ref -> hash is different
-			-> reoconcile
-		- cache: console open with job ref
-			-> reconcile:
-
-	- job has failed
-- k8s open with job ref
-- k8s closed with job ref
-- console pending with no job ref
-	- k8s pending with job ref (job has been created, but not reported yet)
-	- k8s open with job ref (if job is complete, but has not been reported yet)
-- console pending with job ref
-- console open with job ref
-- console closed with job ref
-
-linear issue:
-
-1) have the poller/reconciler against the console api only create the PipelineGate cr and should share it's gate cache w/ the CRD reconciler (this can help reduce concerns over read pressure).
-Currently it's also doing some stuff to control writes to the console that is likely too complex to pair w/ the main reconciliation loop.
-
-2) The CRD reconciler loop should fetch the current gate by id, see its state, and if it requires a new job to be created, create it, otherwise update it in case a new spec has been issued.
- 	If a created job has a new status, it should report it.  This should be pretty easy to determine by comparing upstream versus current gate statuses.  Generally the transitions should be
-
-// i think this is not possible:
-3) if upstream gate is pending and no job is running, start one if upstream gate is closed/open and job is running, cancel it if possible, otherwise nothing needs to be done
-how to determine "no job is running":
-- has no jobref in status
-- has a jobref in status, but job is not running (failed or succeeded, or crashed)
-scenario:
-- k8s: pending with jobref of failed job (reconcile trigger was change of job status to completed)
-- console as per cache: pending with jobref of now failed job (but no change in sha of status, so no console update)
-- if I know check the job status, it's failed, so I need to set the status to closed
-- on the next reconcile, I will see that the status is closed, and the sha is different, so I will update the console
-- I have now chance to recreate the job, when the console gate is pending, because it might be just
-
-basically the console might just be waiting for a the crd reconciler to report back the failure of the job or it might not have gotten the jobref yet
-
-how do I know if the gate at the console was reset to pending?
-- just being in the pending state is not enough!
-- I cannot rely on the status of the referenced job in the cluster because it might not have been reported yet!
-- I
-
-We should use the same strategy as with the console controller to determine whether status should be reported back to the api,
-eg keep a sha of the last applied status and if the current one we built diverged, apply it.
-This will ensure we only issue write requests once whenever necessary, and we can attempt an update to the console on any reconcile loop safely w/ it.
-
-*/
-
 func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := log.FromContext(ctx).WithValues("PipelineGate", req.NamespacedName)
 
@@ -150,8 +77,6 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.sync(ctx, crGate, *cachedGate)
-
 	scope, _ := NewPipelineGateScope(ctx, r.Client, crGate)
 	defer func() {
 		// culculate sha and update status
@@ -160,28 +85,28 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		crGate.Status.SHA = &sha
 		if err := scope.PatchObject(); err != nil && reterr == nil {
 			reterr = err
+			return
+		}
+		if _, err = r.sync(ctx, crGate, *cachedGate); err != nil && reterr == nil {
+			reterr = err
 		}
 	}()
 
 	// INITIAL STATE
-	//if !crGate.Status.IsInitialized() {
-	//	return r.initializeGateState(ctx, crGate, log)
-	//}
+	if !crGate.Status.IsInitialized() {
+		crGate.Status.SetState(console.GateStatePending)
+		log.V(1).Info("Updated state of CR on first reconcile.", "Namespace", crGate.Namespace, "Name", crGate.Name, "ID", crGate.Spec.ID)
+		return ctrl.Result{}, nil
+	}
 
 	// PENDING
 	if crGate.Status.IsPending() {
-		result, err := r.reconcilePendingGate(ctx, crGate, cachedGate)
-		return result, err
+		return r.reconcilePendingGate(ctx, crGate, cachedGate)
 	}
 
 	// RERUN
-	if (crGate.Status.IsOpen() || crGate.Status.IsClosed()) && !crGate.Status.HasJobRef() {
-		// if it's open or closed, yet has no job ref, then it's a rerun if the cached gate is also pending
-		var gateState v1alpha1.GateState
-		if IsPending(cachedGate) {
-			gateState = v1alpha1.GateState(console.GateStatePending)
-			crGate.Status.State = &gateState
-		}
+	if (crGate.Status.IsOpen() || crGate.Status.IsClosed()) && !crGate.Status.HasJobRef() && IsPending(cachedGate) {
+		crGate.Status.SetState(console.GateStatePending)
 	}
 
 	return ctrl.Result{}, nil
@@ -246,20 +171,6 @@ func (r *PipelineGateReconciler) gateUpdateAttributesFromPipelineGateCR(ctx cont
 	return &updateAttributes, nil
 }
 
-func (r *PipelineGateReconciler) initializeGateState(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
-	if gate.Status.State == nil {
-		// update CR state
-		gate.Status.State = &gate.Status.SyncedState
-		if err := r.Status().Update(ctx, gate); err != nil {
-			log.Error(err, "Failed to update PipelineGate status at CR")
-			return ctrl.Result{}, err
-		}
-		log.V(1).Info("Updated state of CR on first reconcile.", "Namespace", gate.Namespace, "Name", gate.Name, "ID", gate.Spec.ID, "SyncedState", gate.Status.SyncedState, "LastSyncedAt", gate.Status.LastSyncedAt, "State", gate.Status.State)
-		return ctrl.Result{}, nil
-	}
-	return ctrl.Result{}, nil
-}
-
 func killJob(ctx context.Context, c client.Client, job *batchv1.Job) error {
 	log := log.FromContext(ctx)
 	deletePolicy := metav1.DeletePropagationBackground // kill the job and its pods asap
@@ -275,7 +186,6 @@ func killJob(ctx context.Context, c client.Client, job *batchv1.Job) error {
 func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate *v1alpha1.PipelineGate, cachedGate *console.PipelineGateFragment) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
-	//consoleGate := r.GateCache.Get(gate.Spec.ID)
 	if !gate.Status.HasJobRef() {
 		log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 
@@ -299,19 +209,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 		gateState := v1alpha1.GateState(console.GateStatePending)
 		gate.Status.State = &gateState
 		gate.Status.JobRef = &jobRef
-		//if err := r.Status().Update(ctx, gate); err != nil {
-		//	log.Error(err, "Failed to update PipelineGate status at CR.")
-		//	return ctrl.Result{}, err
-		//}
 
-		// try to update gate at console
-		//attributeState := console.GateStatePending
-		//updateAttributes := console.GateUpdateAttributes{State: &attributeState, Status: &console.GateStatusAttributes{JobRef: gate.Status.JobRef}}
-		//if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, updateAttributes); err != nil {
-		//	log.Error(err, "Failed to update PipelineGate status to console")
-		//}
-
-		//log.V(1).Info("Created new job for gate and updated status.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
 		return ctrl.Result{}, nil
 	} else {
 		log.V(2).Info("Gate has a JobRef, checking Job status.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
@@ -327,25 +225,12 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 			return ctrl.Result{}, err
 		}
 
-		var gateState v1alpha1.GateState
 		if IsClosed(cachedGate) {
-			// ABORT:
-			// I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
-			/*
-				- assumption: abort means "closing the gate manually"
-				- 1) at the console, the gate is pending reflecting the fact that the job is running, so the status of the gate CR in the cluster is pending and has a job ref to a running job
-				- 2) meanwhile in the gatecache, the gate is pending until it is updated from the poller the next time
-				- 3) abort the gate at the console manually setting it to closed
-				- 4) it can happen that as we are reconciling the gate, the job has already succeeded, so we update the gate status at the console to open, resetting the abortion and opening the gate
-				- 5) solution: the API needs to implement a lock on the gate, so that the gate cannot be updated by CRD reconciler by after a manual override
-				- the problem is essentially that the state can not be thruthful at both the console and the cluster at the same time, one has to have priority
-				- obviously this also only works if not only pending gates are returned by the API which I believe is the case
-			*/
+			// ABORT: I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
 			// try to kill the job
 			err = killJob(ctx, r.Client, job)
 			// even if the killing of the job fails, we better update the gate status to closed asap, so we don't report a gate CR transition from pending to closed
-			gateState = v1alpha1.GateState(console.GateStateClosed)
-			gate.Status.State = &gateState
+			gate.Status.SetState(console.GateStateClosed)
 			if err != nil {
 				log.Error(err, "Failed to kill Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
 				return ctrl.Result{}, err
@@ -354,61 +239,20 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 			if failed := hasFailed(reconciledJob); failed {
 				// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
 				log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
-				gateState = v1alpha1.GateState(console.GateStateClosed)
+				gate.Status.SetState(console.GateStateClosed)
 			} else if succeeded := hasSucceeded(reconciledJob); succeeded {
 				// if the job is complete, then we need to update the gate state to open, unless it's a rerun
 				log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
-				gateState = v1alpha1.GateState(console.GateStateOpen)
+				gate.Status.SetState(console.GateStateOpen)
 			} else {
 				// if the job is still running, then we need to do nothing
 				log.V(1).Info("Job is still running.", "JobName", job.Name, "JobNamespace", job.Namespace)
-				gateState = v1alpha1.GateState(console.GateStatePending)
+				gate.Status.SetState(console.GateStatePending)
 			}
-
-			gate.Status.State = &gateState
 		}
-		//if err := r.Status().Update(ctx, gate); err != nil {
-		//	log.Error(err, "Failed to update PipelineGate status at CR")
-		//	return ctrl.Result{}, err
-		//}
-		//log.V(1).Info("Updated gate status after reconciling job.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
 		return ctrl.Result{}, nil
 	}
 }
-
-//func (r *PipelineGateReconciler) syncGateStatus(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
-//
-//	log.V(1).Info(fmt.Sprintf("Reconciling %s gate.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "LastSyncedAt", gate.Status.LastSyncedAt, "jobRef", *gate.Status.JobRef)
-//
-//	var gateState console.GateState
-//	if *gate.Status.State == v1alpha1.GateState(console.GateStateOpen) {
-//		gateState = console.GateStateOpen
-//	} else {
-//		gateState = console.GateStateClosed
-//	}
-//
-//	updateAttributes := console.GateUpdateAttributes{State: &gateState, Status: &console.GateStatusAttributes{JobRef: gate.Status.JobRef}}
-//
-//	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, updateAttributes); err != nil {
-//		log.Error(err, "Failed to update PipelineGate status to console")
-//		return ctrl.Result{}, err
-//	}
-//
-//	lastReportedAt := metav1.Now()
-//	lastReported := v1alpha1.GateState(gateState)
-//	log.V(2).Info(fmt.Sprintf("Updated gate state to %s console.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "lastReported", lastReported, "LastReportedAt", lastReportedAt, "LastSyncedAt", gate.Status.LastSyncedAt, "jobRef", *gate.Status.JobRef)
-//
-//	gate.Status.LastReportedAt = &lastReportedAt
-//	gate.Status.LastReported = &lastReported
-//	if err := r.Status().Update(ctx, gate); err != nil {
-//		log.Error(err, "Failed to update PipelineGate status at CR")
-//		return ctrl.Result{}, err
-//	}
-//
-//	log.V(2).Info(fmt.Sprintf("Updated gate state lastReported to %s.", string(lastReported)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "LastReportedAt", *gate.Status.LastReportedAt, "LastSyncedAt", gate.Status.LastSyncedAt, "jobRef", *gate.Status.JobRef)
-//
-//	return ctrl.Result{}, nil
-//}
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to `metav1.ConditionTrue`
 func IsJobStatusConditionTrue(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType) bool {
@@ -579,39 +423,6 @@ func CopyJobFields(from, to *batchv1.Job, log logr.Logger) bool {
 
 	return requireUpdate
 }
-
-//func (r *PipelineGateReconciler) addOrRemoveFinalizer(pg *v1alpha1.PipelineGate) *ctrl.Result {
-//	/// If object is not being deleted and if it does not have our finalizer,
-//	// then lets add the finalizer. This is equivalent to registering our finalizer.
-//	if pg.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(pg, PipelineGateFinalizer) {
-//		controllerutil.AddFinalizer(pg, PipelineGateFinalizer)
-//	}
-//
-//	// If object is being deleted cleanup and remove the finalizer.
-//	if !pg.ObjectMeta.DeletionTimestamp.IsZero() {
-//		// Remove PipelineGate from Console API if it exists.
-//		if r.ConsoleClient.GateExists(pg.Spec.ID) {
-//			if _, err := r.ConsoleClient.DeletePipeline(*pipeline.Status.ID); err != nil {
-//				// If it fails to delete the external dependency here, return with error
-//				// so that it can be retried.
-//				utils.MarkCondition(pipeline.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
-//				return &ctrl.Result{}
-//			}
-//
-//			// If deletion process started requeue so that we can make sure provider
-//			// has been deleted from Console API before removing the finalizer.
-//			return &requeue
-//		}
-//
-//		// If our finalizer is present, remove it.
-//		controllerutil.RemoveFinalizer(pipeline, PipelineFinalizer)
-//
-//		// Stop reconciliation as the item is being deleted.
-//		return &ctrl.Result{}
-//	}
-//
-//	return nil
-//}
 
 func IsPending(pgFragment *console.PipelineGateFragment) bool {
 	return pgFragment != nil && pgFragment.State == console.GateStatePending
