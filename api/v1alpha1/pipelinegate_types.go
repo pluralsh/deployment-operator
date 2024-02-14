@@ -131,3 +131,18 @@ func (p *PipelineGateStatus) IsSHAEqual(sha string) bool {
 	}
 	return p.GetSHA() == sha
 }
+
+func (p *PipelineGateStatus) SetState(state console.GateState) *PipelineGateStatus {
+	gateState := GateState(state)
+	p.State = &gateState
+	return p
+}
+
+func (p *PipelineGateStatus) SetJobRef(name string, namespace string) *PipelineGateStatus {
+	nsn := console.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+	p.JobRef = &nsn
+	return p
+}
