@@ -48,8 +48,6 @@ func (c *client) GateExists(id string) bool {
 }
 
 func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*v1alpha1.PipelineGate, error) {
-
-	now := metav1.Now()
 	pipelineGate := &v1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PipelineGate",
@@ -66,9 +64,6 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (
 			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
 		},
 	}
-	gateState := v1alpha1.GateState(pgFragment.State)
-	pipelineGate.Status.SyncedState = gateState
-	pipelineGate.Status.LastSyncedAt = now
 	return pipelineGate, nil
 }
 
@@ -195,4 +190,24 @@ func stringMapFromInterfaceMap(labels map[string]interface{}) map[string]string 
 		}
 	}
 	return result
+}
+
+func IsPending(pgFragment *console.PipelineGateFragment) bool {
+	return pgFragment != nil && pgFragment.State == console.GateStatePending
+}
+
+func IsClosed(pgFragment *console.PipelineGateFragment) bool {
+	return pgFragment != nil && pgFragment.State == console.GateStateClosed
+}
+
+func IsOpen(pgFragment *console.PipelineGateFragment) bool {
+	return pgFragment != nil && pgFragment.State == console.GateStateOpen
+}
+
+func IsJobType(pgFragment *console.PipelineGateFragment) bool {
+	return pgFragment != nil && pgFragment.Type == console.GateTypeJob
+}
+
+func HasJobRef(pgFragment *console.PipelineGateFragment) bool {
+	return !(pgFragment.Job == nil || pgFragment.Job.Metadata.Namespace == nil || pgFragment.Job.Metadata.Name == "" || *pgFragment.Job.Metadata.Namespace == "")
 }
