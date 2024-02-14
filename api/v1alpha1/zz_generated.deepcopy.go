@@ -231,19 +231,14 @@ func (in *PipelineGateStatus) DeepCopyInto(out *PipelineGateStatus) {
 		*out = new(GateState)
 		**out = **in
 	}
-	in.LastSyncedAt.DeepCopyInto(&out.LastSyncedAt)
-	if in.LastReported != nil {
-		in, out := &in.LastReported, &out.LastReported
-		*out = new(GateState)
-		**out = **in
-	}
-	if in.LastReportedAt != nil {
-		in, out := &in.LastReportedAt, &out.LastReportedAt
-		*out = (*in).DeepCopy()
-	}
 	if in.JobRef != nil {
 		in, out := &in.JobRef, &out.JobRef
 		*out = new(console_client_go.NamespacedName)
+		**out = **in
+	}
+	if in.SHA != nil {
+		in, out := &in.SHA, &out.SHA
+		*out = new(string)
 		**out = **in
 	}
 }
