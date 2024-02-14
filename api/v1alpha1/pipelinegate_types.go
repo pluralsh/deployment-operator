@@ -53,6 +53,7 @@ type PipelineGateStatus struct {
 	LastReported   *GateState              `json:"lastReported,omitempty"`
 	LastReportedAt *metav1.Time            `json:"lastReportedAt,omitempty"`
 	JobRef         *console.NamespacedName `json:"jobRef,omitempty"`
+	SHA            *string                 `json:"sha,omitempty"`
 }
 
 // PipelineGateSpec defines the detailed gate specifications
@@ -111,4 +112,22 @@ func (pgs *PipelineGateStatus) GetConsoleGateState() (*console.GateState, error)
 	}
 	state := console.GateState(*pgs.State)
 	return &state, nil
+}
+
+func (p *PipelineGateStatus) GetSHA() string {
+	if !p.HasSHA() {
+		return ""
+	}
+	return *p.SHA
+}
+
+func (p *PipelineGateStatus) HasSHA() bool {
+	return p.SHA != nil && len(*p.SHA) > 0
+}
+
+func (p *PipelineGateStatus) IsSHAEqual(sha string) bool {
+	if !p.HasSHA() {
+		return false
+	}
+	return p.GetSHA() == sha
 }
