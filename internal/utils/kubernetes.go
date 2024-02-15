@@ -100,9 +100,14 @@ func DisableClientLimits(config *rest.Config) {
 }
 
 func GetOperatorNamespace() (string, error) {
-	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
-		return "", err
+		// get from env
+		namespace := os.Getenv("OPERATOR_NAMESPACE")
+		if namespace != "" {
+			return namespace, nil
+		}
+		return "", fmt.Errorf("unable to get operator namespace: %w", err)
 	}
-	return string(namespace), nil
+	return string(ns), nil
 }
