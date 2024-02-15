@@ -24,7 +24,7 @@ var singleInstance Client
 
 type client struct {
 	ctx           context.Context
-	consoleClient *console.Client
+	consoleClient console.ConsoleClient
 	url           string
 	token         string
 }
@@ -46,7 +46,7 @@ func New(url, token string) Client {
 			}
 
 			singleInstance = &client{
-				consoleClient: console.NewClient(&httpClient, url),
+				consoleClient: console.NewClient(&httpClient, url, nil),
 				ctx:           context.Background(),
 				url:           url,
 				token:         token,
@@ -67,13 +67,13 @@ type Client interface {
 	UpdateClusterRestore(id string, attrs console.RestoreAttributes) (*console.ClusterRestoreFragment, error)
 	SaveClusterBackup(attrs console.BackupAttributes) (*console.ClusterBackupFragment, error)
 	GetClusterBackup(clusterID, namespace, name string) (*console.ClusterBackupFragment, error)
-	GetServices() ([]*console.ServiceDeploymentBaseFragment, error)
-	GetService(id string) (*console.ServiceDeploymentExtended, error)
+	GetServices(after *string, first *int64) (*console.PagedClusterServices, error)
+	GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error)
 	UpdateComponents(id string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
 	AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error
 	ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*v1alpha1.PipelineGate, error)
 	GateExists(id string) bool
 	GetClusterGate(id string) (*console.PipelineGateFragment, error)
-	GetClusterGates() ([]*console.PipelineGateFragment, error)
+	GetClusterGates(after *string, first *int64) (*console.PagedClusterGates, error)
 	UpdateGate(id string, attributes console.GateUpdateAttributes) error
 }

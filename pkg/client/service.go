@@ -1,20 +1,24 @@
 package client
 
 import (
+	"fmt"
 	console "github.com/pluralsh/console-client-go"
 )
 
-func (c *client) GetServices() ([]*console.ServiceDeploymentBaseFragment, error) {
-	resp, err := c.consoleClient.ListClusterServices(c.ctx)
+func (c *client) GetServices(after *string, first *int64) (*console.PagedClusterServices, error) {
+
+	resp, err := c.consoleClient.PagedClusterServices(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	return resp.ClusterServices, nil
+	if resp.GetPagedClusterServices() == nil {
+		return nil, fmt.Errorf("the response from PagedClusterServices is nil")
+	}
+	return resp, nil
 }
 
-func (c *client) GetService(id string) (*console.ServiceDeploymentExtended, error) {
-	resp, err := c.consoleClient.GetServiceDeployment(c.ctx, id)
+func (c *client) GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
+	resp, err := c.consoleClient.GetServiceDeploymentForAgent(c.ctx, id)
 	if err != nil {
 		return nil, err
 	}

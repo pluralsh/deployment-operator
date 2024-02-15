@@ -16,7 +16,7 @@ import (
 var _ = Describe("Helm template", func() {
 
 	dir := filepath.Join("..", "..", "..", "charts", "deployment-operator")
-	svc := &console.ServiceDeploymentExtended{
+	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
 		Namespace: "default",
 		Name:      "test",
 	}

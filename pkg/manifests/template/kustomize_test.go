@@ -13,9 +13,9 @@ import (
 var _ = Describe("Kustomize template", func() {
 
 	dir := filepath.Join("..", "..", "..", "test", "kustomize", "overlays")
-	svc := &console.ServiceDeploymentExtended{
+	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
 		Namespace: "default",
-		Kustomize: &console.KustomizeFragment{
+		Kustomize: &console.GetServiceDeploymentForAgent_ServiceDeployment_Kustomize{
 			Path: "",
 		},
 	}

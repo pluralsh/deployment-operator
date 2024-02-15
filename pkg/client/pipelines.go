@@ -18,13 +18,15 @@ func (c *client) UpdateGate(id string, attributes console.GateUpdateAttributes) 
 	return err
 }
 
-func (c *client) GetClusterGates() ([]*console.PipelineGateFragment, error) {
-	resp, err := c.consoleClient.GetClusterGates(c.ctx)
+func (c *client) GetClusterGates(after *string, first *int64) (*console.PagedClusterGates, error) {
+	resp, err := c.consoleClient.PagedClusterGates(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	return resp.ClusterGates, nil
+	if resp.PagedClusterGates == nil {
+		return nil, fmt.Errorf("the response from PagedClusterGates is nil")
+	}
+	return resp, nil
 }
 
 func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error) {

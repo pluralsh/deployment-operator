@@ -1,35 +1,34 @@
 package service
 
 import (
-	"sigs.k8s.io/yaml"
+	"context"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
+
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
 type serviceComponentsStatusCollector struct {
-	latestStatus     map[object.ObjMetadata]event.StatusEvent
-	reconciler       *ServiceReconciler
-	applyStatus      map[object.ObjMetadata]event.ApplyEvent
-	componentContent map[object.ObjMetadata]console.ComponentContentAttributes
-	DryRun           bool
+	latestStatus map[object.ObjMetadata]event.StatusEvent
+	reconciler   *ServiceReconciler
+	applyStatus  map[object.ObjMetadata]event.ApplyEvent
+	DryRun       bool
 }
 
-func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *console.ServiceDeploymentExtended) *serviceComponentsStatusCollector {
+func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) *serviceComponentsStatusCollector {
 	if svc.DryRun == nil {
 		svc.DryRun = lo.ToPtr(false)
 	}
 	return &serviceComponentsStatusCollector{
-		latestStatus:     make(map[object.ObjMetadata]event.StatusEvent),
-		applyStatus:      make(map[object.ObjMetadata]event.ApplyEvent),
-		reconciler:       reconciler,
-		componentContent: getComponentContent(svc),
-		DryRun:           *svc.DryRun,
+		latestStatus: make(map[object.ObjMetadata]event.StatusEvent),
+		applyStatus:  make(map[object.ObjMetadata]event.ApplyEvent),
+		reconciler:   reconciler,
+		DryRun:       *svc.DryRun,
 	}
 }
 
@@ -41,7 +40,21 @@ func (sc *serviceComponentsStatusCollector) updateApplyStatus(id object.ObjMetad
 	sc.applyStatus[id] = se
 }
 
-func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, vcache map[manifests.GroupName]string, compCont map[object.ObjMetadata]console.ComponentContentAttributes) *console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) refetch(resource *unstructured.Unstructured) *unstructured.Unstructured {
+	if sc.reconciler.Clientset == nil || resource == nil {
+		return nil
+	}
+
+	response := new(unstructured.Unstructured)
+	err := sc.reconciler.Clientset.RESTClient().Get().AbsPath(toAPIPath(resource)).Do(context.Background()).Into(response)
+	if err != nil {
+		return nil
+	}
+
+	return response
+}
+
+func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
@@ -57,22 +70,12 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 		version = v
 	}
 
+	desired := asJSON(e.Resource)
 	live := "# n/a"
-	if compCont != nil {
-		compName := object.ObjMetadata{
-			Namespace: e.Resource.GetNamespace(),
-			Name:      e.Resource.GetName(),
-			GroupKind: gvk.GroupKind(),
-		}
-		if r, ok := compCont[compName]; ok {
-			if r.Live != nil {
-				live = *r.Live
-			}
-		}
+	liveResource := sc.refetch(e.Resource)
+	if liveResource != nil {
+		live = asJSON(liveResource)
 	}
-
-	desiredData, _ := yaml.Marshal(e.Resource.Object)
-	desired := string(desiredData)
 
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,
@@ -80,7 +83,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 		Namespace: e.Resource.GetNamespace(),
 		Name:      e.Resource.GetName(),
 		Version:   version,
-		Synced:    true,
+		Synced:    live == desired,
 		State:     sc.reconciler.toStatus(e.Resource),
 		Content: &console.ComponentContentAttributes{
 			Desired: &desired,
@@ -89,7 +92,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 	}
 }
 
-func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string, compCont map[object.ObjMetadata]console.ComponentContentAttributes) *console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
@@ -104,23 +107,6 @@ func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, 
 	if v, ok := vcache[gname]; ok {
 		version = v
 	}
-
-	desired := "# n/a"
-	if compCont != nil {
-		compName := object.ObjMetadata{
-			Namespace: e.Resource.GetNamespace(),
-			Name:      e.Resource.GetName(),
-			GroupKind: gvk.GroupKind(),
-		}
-		if r, ok := compCont[compName]; ok {
-			if r.Desired != nil {
-				desired = *r.Desired
-			}
-		}
-	}
-
-	liveData, _ := yaml.Marshal(e.Resource.Object)
-	live := string(liveData)
 
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,
@@ -130,10 +116,6 @@ func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, 
 		Version:   version,
 		Synced:    e.PollResourceInfo.Status == status.CurrentStatus,
 		State:     sc.reconciler.toStatus(e.Resource),
-		Content: &console.ComponentContentAttributes{
-			Live:    &live,
-			Desired: &desired,
-		},
 	}
 }
 
@@ -142,7 +124,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 
 	if sc.DryRun {
 		for _, v := range sc.applyStatus {
-			if consoleAttr := sc.fromApplyResult(v, vcache, sc.componentContent); consoleAttr != nil {
+			if consoleAttr := sc.fromApplyResult(v, vcache); consoleAttr != nil {
 				components = append(components, consoleAttr)
 			}
 		}
@@ -150,41 +132,10 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 	}
 
 	for _, v := range sc.latestStatus {
-		if attrs := sc.fromSyncResult(v, vcache, sc.componentContent); attrs != nil {
+		if attrs := sc.fromSyncResult(v, vcache); attrs != nil {
 			components = append(components, attrs)
 		}
 	}
 
 	return components
-}
-
-func getComponentContent(svc *console.ServiceDeploymentExtended) map[object.ObjMetadata]console.ComponentContentAttributes {
-	result := make(map[object.ObjMetadata]console.ComponentContentAttributes)
-
-	for _, comp := range svc.Components {
-		namespace := ""
-		group := ""
-		if comp.Namespace != nil {
-			namespace = *comp.Namespace
-		}
-		if comp.Group != nil {
-			group = *comp.Group
-		}
-		gn := object.ObjMetadata{
-			Namespace: namespace,
-			Name:      comp.Name,
-			GroupKind: schema.GroupKind{
-				Group: group,
-				Kind:  comp.Kind,
-			},
-		}
-		if comp.Content != nil {
-			result[gn] = console.ComponentContentAttributes{
-				Desired: comp.Content.Desired,
-				Live:    comp.Content.Live,
-			}
-		}
-	}
-
-	return result
 }

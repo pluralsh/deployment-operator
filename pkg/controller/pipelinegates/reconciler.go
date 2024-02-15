@@ -94,17 +94,27 @@ func (s *GateReconciler) ShutdownQueue() {
 
 func (s *GateReconciler) Poll(ctx context.Context) (done bool, err error) {
 	logger := log.FromContext(ctx)
-
 	logger.Info("fetching gates for cluster")
-	gates, err := s.ConsoleClient.GetClusterGates()
-	if err != nil {
-		logger.Error(err, "failed to fetch gates list")
-		return false, nil
-	}
 
-	for _, gate := range gates {
-		logger.Info("sending update for", "gate", gate.ID)
-		s.GateQueue.Add(gate.ID)
+	var after *string
+	var pageSize int64
+	pageSize = 100
+	hasNextPage := true
+
+	for hasNextPage {
+		resp, err := s.ConsoleClient.GetClusterGates(after, &pageSize)
+		if err != nil {
+			logger.Error(err, "failed to fetch gates list")
+			return false, nil
+		}
+
+		hasNextPage = resp.PagedClusterGates.PageInfo.HasNextPage
+		after = resp.PagedClusterGates.PageInfo.EndCursor
+
+		for _, gate := range resp.PagedClusterGates.Edges {
+			logger.Info("sending update for", "gate", gate.Node.ID)
+			s.GateQueue.Add(gate.Node.ID)
+		}
 	}
 
 	if err := s.pinger.Ping(); err != nil {
