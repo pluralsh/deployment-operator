@@ -118,7 +118,8 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 	logger := log.FromContext(ctx)
 
 	logger.Info("attempting to sync gate", "id", id)
-	gate, err := s.GateCache.Get(id)
+	var gate *console.PipelineGateFragment
+	gate, err = s.GateCache.Get(id)
 	if err != nil {
 		logger.Error(err, "failed to fetch gate: %s, ignoring for now")
 		return
@@ -136,8 +137,6 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		return reconcile.Result{}, err
 	}
 
-	preserveStatus := gateCR.Status.DeepCopy()
-
 	nsName := types.NamespacedName{
 		Name:      gateCR.Name,
 		Namespace: gateCR.Namespace,
@@ -154,40 +153,22 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 				logger.Error(err, "failed to create gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 				return reconcile.Result{}, err
 			}
-			gateCR.Status = *preserveStatus
-
-			err = s.K8sClient.Status().Update(context.Background(), gateCR)
-			if err != nil {
-				logger.Error(err, "failed to create gate status", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-				return reconcile.Result{}, err
-			}
 		}
 		logger.Info("Could not get gate.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 	} else {
 		logger.Info("Gate exists.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 		scope, _ := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, currentGate)
 
-		// if the gate already has a corresponding CR on the cluster, we check if we need to reset the state
-		// if the gate is in a terminal state, i.e. open or closed, and that state has been reported, we reset the state to pending
-		if (currentGate.Status.IsClosed() || currentGate.Status.IsOpen()) && !currentGate.Status.HasNotReported() {
-			logger.Info(fmt.Sprintf("Resetting gate to %s.", gateCR.Status.SyncedState), "Namespace", currentGate.Namespace, "Name", currentGate.Name, "ID", currentGate.Spec.ID)
-			currentGate.Spec = gateCR.Spec // this should stay the same, but in case it changes (because we recreated the pipeline altogether), we need to update it, because the ID would have changed
-			currentGate.Status.State = &preserveStatus.SyncedState
-			currentGate.Status.SyncedState = preserveStatus.SyncedState
-			currentGate.Status.LastSyncedAt = preserveStatus.LastSyncedAt
-			currentGate.Status.JobRef = nil
+		// reset job ref to trigger a rerun
+		// do NOT reset state to pending, as this will happen in the reconciler to make sure we transition from open/closed to pending
+		if (currentGate.Status.IsClosed() || currentGate.Status.IsOpen()) && client.IsPending(gate) && !client.HasJobRef(gate) {
+			currentGate.Status.SetJobRef("", "")
+		}
 
-			err = scope.PatchObject()
-			if err != nil {
-				logger.Error(err, "failed to patch gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-				return reconcile.Result{}, err
-			}
-		} else {
-			if gateCR.Status.IsInitialized() {
-				logger.Info(fmt.Sprintf("Gate is in a non-terminal state %s.", *currentGate.Status.State), "Namespace", currentGate.Namespace, "Name", currentGate.Name, "ID", currentGate.Spec.ID)
-			} else {
-				logger.Info("Gate is not yet initialized.", "Namespace", currentGate.Namespace, "Name", currentGate.Name, "ID", currentGate.Spec.ID)
-			}
+		err = scope.PatchObject()
+		if err != nil {
+			logger.Error(err, "failed to patch gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+			return reconcile.Result{}, err
 		}
 	}
 
