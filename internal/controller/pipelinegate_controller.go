@@ -79,10 +79,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	scope, _ := NewPipelineGateScope(ctx, r.Client, crGate)
 	defer func() {
-		// culculate sha and update status
-		attrs, _ := r.gateUpdateAttributesFromPipelineGateCR(ctx, crGate)
-		sha, _ := utils.HashObject(attrs)
-		crGate.Status.SHA = &sha
+		crGate.Status.ResetSHA()
 		if err := scope.PatchObject(); err != nil && reterr == nil {
 			reterr = err
 			return
@@ -105,7 +102,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// RERUN
-	if (crGate.Status.IsOpen() || crGate.Status.IsClosed()) && !crGate.Status.HasJobRef() && IsPending(cachedGate) {
+	if (crGate.Status.IsOpen() || crGate.Status.IsClosed()) && !crGate.Status.HasJobRef() && consoleclient.IsPending(cachedGate) {
 		crGate.Status.SetState(console.GateStatePending)
 	}
 
@@ -114,7 +111,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 func (r *PipelineGateReconciler) sync(ctx context.Context, crGate *v1alpha1.PipelineGate, cachedGate console.PipelineGateFragment) (bool, error) {
 	logger := log.FromContext(ctx)
-	cachedSha, err := utils.HashObject(gateUpdateAttributesFromPipelineGateFragment(cachedGate))
+	cachedSha, err := utils.HashObject(consoleclient.GateUpdateAttributes(cachedGate))
 	if err != nil {
 		return false, err
 	}
@@ -126,7 +123,7 @@ func (r *PipelineGateReconciler) sync(ctx context.Context, crGate *v1alpha1.Pipe
 
 	// something changed!
 
-	updateAttrs, err := r.gateUpdateAttributesFromPipelineGateCR(ctx, crGate)
+	updateAttrs, err := crGate.Status.GateUpdateAttributes()
 
 	if err := r.ConsoleClient.UpdateGate(crGate.Spec.ID, *updateAttrs); err != nil {
 		logger.Error(err, "Failed to update PipelineGate status to console")
@@ -136,39 +133,6 @@ func (r *PipelineGateReconciler) sync(ctx context.Context, crGate *v1alpha1.Pipe
 		logger.Error(err, "Failed to update GateCache immediately")
 	}
 	return true, nil
-}
-
-func gateUpdateAttributesFromPipelineGateFragment(fragment console.PipelineGateFragment) console.GateUpdateAttributes {
-	var jobRef *console.NamespacedName
-	if fragment.Job != nil && fragment.Job.Metadata.Namespace != nil {
-		jobRef = &console.NamespacedName{
-			Name:      fragment.Job.Metadata.Name,
-			Namespace: *fragment.Job.Metadata.Namespace,
-		}
-	} else if fragment.Job != nil {
-		jobRef = &console.NamespacedName{
-			Name:      fragment.Job.Metadata.Name,
-			Namespace: "",
-		}
-	} else {
-		jobRef = &console.NamespacedName{}
-	}
-
-	return console.GateUpdateAttributes{
-		State: &fragment.State,
-		Status: &console.GateStatusAttributes{
-			JobRef: jobRef,
-		},
-	}
-}
-
-func (r *PipelineGateReconciler) gateUpdateAttributesFromPipelineGateCR(ctx context.Context, pg *v1alpha1.PipelineGate) (*console.GateUpdateAttributes, error) {
-	state, err := pg.Status.GetConsoleGateState()
-	if err != nil {
-		return nil, err
-	}
-	updateAttributes := console.GateUpdateAttributes{State: state, Status: &console.GateStatusAttributes{JobRef: pg.Status.JobRef}}
-	return &updateAttributes, nil
 }
 
 func killJob(ctx context.Context, c client.Client, job *batchv1.Job) error {
@@ -225,7 +189,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 			return ctrl.Result{}, err
 		}
 
-		if IsClosed(cachedGate) {
+		if consoleclient.IsClosed(cachedGate) {
 			// ABORT: I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
 			// try to kill the job
 			err = killJob(ctx, r.Client, job)
@@ -422,16 +386,4 @@ func CopyJobFields(from, to *batchv1.Job, log logr.Logger) bool {
 	to.Spec.Template.Spec.Containers[0].VolumeMounts = from.Spec.Template.Spec.Containers[0].VolumeMounts
 
 	return requireUpdate
-}
-
-func IsPending(pgFragment *console.PipelineGateFragment) bool {
-	return pgFragment != nil && pgFragment.State == console.GateStatePending
-}
-
-func IsClosed(pgFragment *console.PipelineGateFragment) bool {
-	return pgFragment != nil && pgFragment.State == console.GateStateClosed
-}
-
-func IsOpen(pgFragment *console.PipelineGateFragment) bool {
-	return pgFragment != nil && pgFragment.State == console.GateStateOpen
 }

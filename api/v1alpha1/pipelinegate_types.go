@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -144,5 +145,27 @@ func (p *PipelineGateStatus) SetJobRef(name string, namespace string) *PipelineG
 		Namespace: namespace,
 	}
 	p.JobRef = &nsn
+	return p
+}
+
+func (p *PipelineGateStatus) GateUpdateAttributes() (*console.GateUpdateAttributes, error) {
+	state, err := p.GetConsoleGateState()
+	if err != nil {
+		return nil, err
+	}
+	updateAttributes := console.GateUpdateAttributes{State: state, Status: &console.GateStatusAttributes{JobRef: p.JobRef}}
+	return &updateAttributes, nil
+}
+
+func (p *PipelineGateStatus) GateUpdateAttributesSHA() string {
+	attrs, _ := p.GateUpdateAttributes()
+	sha, _ := utils.HashObject(attrs)
+	return sha
+
+}
+
+func (p *PipelineGateStatus) ResetSHA() *PipelineGateStatus {
+	sha := p.GateUpdateAttributesSHA()
+	p.SHA = &sha
 	return p
 }
