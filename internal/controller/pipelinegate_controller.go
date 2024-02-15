@@ -79,7 +79,9 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	scope, _ := NewPipelineGateScope(ctx, r.Client, crGate)
 	defer func() {
-		crGate.Status.ResetSHA()
+		attrs, _ := crGate.Status.GateUpdateAttributes()
+		sha, _ := utils.HashObject(attrs)
+		crGate.Status.SetSHA(sha)
 		if err := scope.PatchObject(); err != nil && reterr == nil {
 			reterr = err
 			return
@@ -123,7 +125,7 @@ func (r *PipelineGateReconciler) sync(ctx context.Context, crGate *v1alpha1.Pipe
 
 	// something changed!
 
-	updateAttrs, err := crGate.Status.GateUpdateAttributes()
+	updateAttrs, _ := crGate.Status.GateUpdateAttributes()
 
 	if err := r.ConsoleClient.UpdateGate(crGate.Spec.ID, *updateAttrs); err != nil {
 		logger.Error(err, "Failed to update PipelineGate status to console")

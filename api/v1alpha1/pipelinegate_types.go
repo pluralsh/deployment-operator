@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -157,15 +156,7 @@ func (p *PipelineGateStatus) GateUpdateAttributes() (*console.GateUpdateAttribut
 	return &updateAttributes, nil
 }
 
-func (p *PipelineGateStatus) GateUpdateAttributesSHA() string {
-	attrs, _ := p.GateUpdateAttributes()
-	sha, _ := utils.HashObject(attrs)
-	return sha
-
-}
-
-func (p *PipelineGateStatus) ResetSHA() *PipelineGateStatus {
-	sha := p.GateUpdateAttributesSHA()
+func (p *PipelineGateStatus) SetSHA(sha string) *PipelineGateStatus {
 	p.SHA = &sha
 	return p
 }
