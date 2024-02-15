@@ -171,6 +171,7 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		// do NOT reset state to pending, as this will happen in the reconciler to make sure we transition from open/closed to pending
 		if (currentGate.Status.IsClosed() || currentGate.Status.IsOpen()) && client.IsPending(gate) && !client.HasJobRef(gate) {
 			currentGate.Status.SetJobRef("", "")
+			currentGate.Spec = gateCR.Spec
 		}
 
 		err = scope.PatchObject()
