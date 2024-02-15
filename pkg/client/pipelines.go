@@ -49,19 +49,20 @@ func (c *client) GateExists(id string) bool {
 	return err == nil
 }
 
-func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*v1alpha1.PipelineGate, error) {
+func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, operatorNamespace string) (*v1alpha1.PipelineGate, error) {
+	name := utils.AsName(pgFragment.Name) + "-" + pgFragment.ID[:8]
 	pipelineGate := &v1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PipelineGate",
 			APIVersion: v1alpha1.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.AsName(pgFragment.Name), // + "-" + pgFragment.ID,
-			Namespace: pgFragment.Spec.Job.Namespace,
+			Name:      name,
+			Namespace: operatorNamespace + "-pipelines",
 		},
 		Spec: v1alpha1.PipelineGateSpec{
 			ID:       pgFragment.ID,
-			Name:     pgFragment.Name, // + "-" + pgFragment.ID,
+			Name:     pgFragment.Name,
 			Type:     v1alpha1.GateType(pgFragment.Type),
 			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
 		},

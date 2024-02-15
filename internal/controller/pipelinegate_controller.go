@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/uuid"
-
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console-client-go"
 	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -106,6 +104,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// RERUN
 	if (crGate.Status.IsOpen() || crGate.Status.IsClosed()) && !crGate.Status.HasJobRef() && consoleclient.IsPending(cachedGate) {
 		crGate.Status.SetState(console.GateStatePending)
+		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -155,8 +154,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 	if !gate.Status.HasJobRef() {
 		log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 
-		jobName := fmt.Sprintf("%s-%s", gate.Name, uuid.New().String())
-		jobRef := console.NamespacedName{Name: jobName, Namespace: gate.Namespace}
+		jobRef := gate.CreateNewJobRef()
 		job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, jobRef)
 		if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
 			log.Error(err, "Error setting ControllerReference for Job.")
@@ -191,8 +189,9 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 			return ctrl.Result{}, err
 		}
 
+		// ABORT:
 		if consoleclient.IsClosed(cachedGate) {
-			// ABORT: I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
+			// I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
 			// try to kill the job
 			err = killJob(ctx, r.Client, job)
 			// even if the killing of the job fails, we better update the gate status to closed asap, so we don't report a gate CR transition from pending to closed

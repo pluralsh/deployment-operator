@@ -36,15 +36,16 @@ var (
 )
 
 type GateReconciler struct {
-	K8sClient       ctrlclient.Client
-	ConsoleClient   client.Client
-	Config          *rest.Config
-	Clientset       *kubernetes.Clientset
-	GateCache       *client.Cache[console.PipelineGateFragment]
-	GateQueue       workqueue.RateLimitingInterface
-	UtilFactory     util.Factory
-	discoveryClient *discovery.DiscoveryClient
-	pinger          *ping.Pinger
+	K8sClient         ctrlclient.Client
+	ConsoleClient     client.Client
+	Config            *rest.Config
+	Clientset         *kubernetes.Clientset
+	GateCache         *client.Cache[console.PipelineGateFragment]
+	GateQueue         workqueue.RateLimitingInterface
+	UtilFactory       util.Factory
+	discoveryClient   *discovery.DiscoveryClient
+	pinger            *ping.Pinger
+	operatorNamespace string
 }
 
 func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, config *rest.Config, refresh time.Duration, clusterId string) (*GateReconciler, error) {
@@ -68,19 +69,21 @@ func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client,
 		return nil, err
 	}
 
+	namespace, err := utils.GetOperatorNamespace()
 	if err != nil {
 		return nil, err
 	}
 	return &GateReconciler{
-		K8sClient:       k8sClient,
-		ConsoleClient:   consoleClient,
-		Config:          config,
-		Clientset:       cs,
-		GateQueue:       gateQueue,
-		GateCache:       gateCache,
-		UtilFactory:     f,
-		discoveryClient: discoveryClient,
-		pinger:          ping.New(consoleClient, discoveryClient, f),
+		K8sClient:         k8sClient,
+		ConsoleClient:     consoleClient,
+		Config:            config,
+		Clientset:         cs,
+		GateQueue:         gateQueue,
+		GateCache:         gateCache,
+		UtilFactory:       f,
+		discoveryClient:   discoveryClient,
+		pinger:            ping.New(consoleClient, discoveryClient, f),
+		operatorNamespace: namespace,
 	}, nil
 }
 
@@ -141,20 +144,15 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		logger.Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
 	}
 
-	gateCR, err := s.ConsoleClient.ParsePipelineGateCR(gate)
+	gateCR, err := s.ConsoleClient.ParsePipelineGateCR(gate, s.operatorNamespace)
 	if err != nil {
 		logger.Error(err, "failed to parse gate CR", "Name", gate.Name, "ID", gate.ID)
 		return reconcile.Result{}, err
 	}
 
-	nsName := types.NamespacedName{
-		Name:      gateCR.Name,
-		Namespace: gateCR.Namespace,
-	}
-	currentGate := &v1alpha1.PipelineGate{}
-
 	// get pipelinegate
-	if err := s.K8sClient.Get(ctx, nsName, currentGate); err != nil {
+	currentGate := &v1alpha1.PipelineGate{}
+	if err := s.K8sClient.Get(ctx, types.NamespacedName{Name: gateCR.Name, Namespace: gateCR.Namespace}, currentGate); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("This gate doesn't yet have a corresponding CR on this cluster yet.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 			// If the PipelineGate doesn't exist, create it.

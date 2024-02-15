@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,4 +97,12 @@ func DisableClientLimits(config *rest.Config) {
 		config.Burst = -1
 		config.RateLimiter = nil
 	}
+}
+
+func GetOperatorNamespace() (string, error) {
+	namespace, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		return "", err
+	}
+	return string(namespace), nil
 }

@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 
+	"github.com/google/uuid"
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,49 +115,62 @@ func (pgs *PipelineGateStatus) GetConsoleGateState() (*console.GateState, error)
 	return &state, nil
 }
 
-func (p *PipelineGateStatus) GetSHA() string {
-	if !p.HasSHA() {
+func (pgs *PipelineGateStatus) GetSHA() string {
+	if !pgs.HasSHA() {
 		return ""
 	}
-	return *p.SHA
+	return *pgs.SHA
 }
 
-func (p *PipelineGateStatus) HasSHA() bool {
-	return p.SHA != nil && len(*p.SHA) > 0
+func (pgs *PipelineGateStatus) HasSHA() bool {
+	return pgs.SHA != nil && len(*pgs.SHA) > 0
 }
 
-func (p *PipelineGateStatus) IsSHAEqual(sha string) bool {
-	if !p.HasSHA() {
+func (pgs *PipelineGateStatus) IsSHAEqual(sha string) bool {
+	if !pgs.HasSHA() {
 		return false
 	}
-	return p.GetSHA() == sha
+	return pgs.GetSHA() == sha
 }
 
-func (p *PipelineGateStatus) SetState(state console.GateState) *PipelineGateStatus {
+func (pgs *PipelineGateStatus) SetState(state console.GateState) *PipelineGateStatus {
 	gateState := GateState(state)
-	p.State = &gateState
-	return p
+	pgs.State = &gateState
+	return pgs
 }
 
-func (p *PipelineGateStatus) SetJobRef(name string, namespace string) *PipelineGateStatus {
+func (pgs *PipelineGateStatus) SetJobRef(name string, namespace string) *PipelineGateStatus {
 	nsn := console.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}
-	p.JobRef = &nsn
-	return p
+	pgs.JobRef = &nsn
+	return pgs
 }
 
-func (p *PipelineGateStatus) GateUpdateAttributes() (*console.GateUpdateAttributes, error) {
-	state, err := p.GetConsoleGateState()
+func (pgs *PipelineGateStatus) GateUpdateAttributes() (*console.GateUpdateAttributes, error) {
+	state, err := pgs.GetConsoleGateState()
 	if err != nil {
 		return nil, err
 	}
-	updateAttributes := console.GateUpdateAttributes{State: state, Status: &console.GateStatusAttributes{JobRef: p.JobRef}}
+	updateAttributes := console.GateUpdateAttributes{State: state, Status: &console.GateStatusAttributes{JobRef: pgs.JobRef}}
 	return &updateAttributes, nil
 }
 
-func (p *PipelineGateStatus) SetSHA(sha string) *PipelineGateStatus {
-	p.SHA = &sha
-	return p
+func (pgs *PipelineGateStatus) SetSHA(sha string) *PipelineGateStatus {
+	pgs.SHA = &sha
+	return pgs
+}
+
+func (pg *PipelineGate) CreateNewJobName() string {
+	jobName := fmt.Sprintf("%s-%s", pg.Name, uuid.New().String()[:8])
+	return jobName
+}
+
+func (pg *PipelineGate) CreateNewJobRef() console.NamespacedName {
+	jobRef := console.NamespacedName{Name: pg.CreateNewJobName(), Namespace: pg.Namespace}
+	if pg.Spec.GateSpec != nil && pg.Spec.GateSpec.JobSpec != nil && pg.Spec.GateSpec.JobSpec.Template.Namespace != "" {
+		pg.Namespace = pg.Spec.GateSpec.JobSpec.Template.Namespace
+	}
+	return jobRef
 }
