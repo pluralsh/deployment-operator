@@ -9,9 +9,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
@@ -150,6 +148,11 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		return reconcile.Result{}, err
 	}
 
+	if err = s.CheckNamespace(gateCR.Namespace); err != nil {
+		logger.Error(err, "failed to check namespace")
+		return reconcile.Result{}, err
+	}
+
 	// get pipelinegate
 	currentGate := &v1alpha1.PipelineGate{}
 	if err := s.K8sClient.Get(ctx, types.NamespacedName{Name: gateCR.Name, Namespace: gateCR.Namespace}, currentGate); err != nil {
@@ -185,19 +188,7 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 }
 
 func (s *GateReconciler) CheckNamespace(namespace string) error {
-	if namespace == "" {
-		return nil
-	}
-	_, err := s.Clientset.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	}, metav1.CreateOptions{})
-
-	if apierrors.IsAlreadyExists(err) {
-		return nil
-	}
-	return err
+	return utils.CheckNamespace(*s.Clientset, namespace)
 }
 
 func (s *GateReconciler) GetPublisher() (string, websocket.Publisher) {

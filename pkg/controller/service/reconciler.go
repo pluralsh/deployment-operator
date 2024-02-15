@@ -8,8 +8,6 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
@@ -301,21 +299,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 }
 
 func (s *ServiceReconciler) CheckNamespace(namespace string) error {
-	if namespace == "" {
-		return nil
-	}
-	_, err := s.Clientset.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	}, metav1.CreateOptions{})
-
-	if err != nil {
-		if !apierrors.IsAlreadyExists(err) {
-			return err
-		}
-	}
-	return nil
+	return utils.CheckNamespace(*s.Clientset, namespace)
 }
 
 func (s *ServiceReconciler) SplitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
