@@ -8643,10 +8643,6 @@ spec:
             description: PipelineGateStatus defines the observed state of the PipelineGate
             properties:
               jobRef:
-                description: SyncedState    GateState               `json:"syncedState"`
-                  LastSyncedAt   metav1.Time             `json:"lastSyncedAt,omitempty"`
-                  LastReported   *GateState              `json:"lastReported,omitempty"`
-                  LastReportedAt *metav1.Time            `json:"lastReportedAt,omitempty"`
                 properties:
                   name:
                     type: string
