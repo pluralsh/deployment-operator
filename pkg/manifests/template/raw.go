@@ -44,7 +44,18 @@ func NewRaw(dir string) *raw {
 	return &raw{dir}
 }
 
+func isTemplated(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) bool {
+	if svc.Templated != nil {
+		return *svc.Templated
+	}
+	// default true
+	return true
+}
+
 func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]byte, error) {
+	if !isTemplated(svc) {
+		return input, nil
+	}
 	bindings := map[string]interface{}{
 		"configuration": configMap(svc),
 		"cluster":       svc.Cluster,
