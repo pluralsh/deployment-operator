@@ -101,35 +101,39 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	if jsFragment == nil {
 		return nil
 	}
+	var jobSpec *batchv1.JobSpec
 	if jsFragment.Raw != nil && *jsFragment.Raw != "null" {
 		job, err := jobFromYaml(*jsFragment.Raw)
 		if err != nil {
 			return nil
 		}
-		return &job.Spec
-	}
-	name := utils.AsName(gateName)
-	jobSpec := &batchv1.JobSpec{
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: jsFragment.Namespace,
-				// convert map[string]interface{} to map[string]string
-				Labels:      stringMapFromInterfaceMap(jsFragment.Labels),
-				Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
+		jobSpec = &job.Spec
+	} else {
+		name := utils.AsName(gateName)
+		jobSpec = &batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: jsFragment.Namespace,
+					// convert map[string]interface{} to map[string]string
+					Labels:      stringMapFromInterfaceMap(jsFragment.Labels),
+					Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
+				},
+				Spec: corev1.PodSpec{
+					Containers:    containersFromContainerSpecFragments(name, jsFragment.Containers),
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+				},
 			},
-			Spec: corev1.PodSpec{
-				Containers:    containersFromContainerSpecFragments(name, jsFragment.Containers),
-				RestartPolicy: corev1.RestartPolicyOnFailure,
-			},
-		},
+		}
+		// Add the gatename annotation
+		if jobSpec.Template.ObjectMeta.Annotations == nil {
+			jobSpec.Template.ObjectMeta.Annotations = make(map[string]string)
+		}
+		gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
+		jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
 	}
-	// Add the gatename annotation
-	if jobSpec.Template.ObjectMeta.Annotations == nil {
-		jobSpec.Template.ObjectMeta.Annotations = make(map[string]string)
-	}
-	gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
-	jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
+	ttlSeconds := int32(7200)
+	jobSpec.TTLSecondsAfterFinished = &ttlSeconds
 
 	return jobSpec
 }
