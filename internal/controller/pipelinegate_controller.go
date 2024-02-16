@@ -77,8 +77,18 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	scope, _ := NewPipelineGateScope(ctx, r.Client, crGate)
 	defer func() {
-		attrs, _ := crGate.Status.GateUpdateAttributes()
-		sha, _ := utils.HashObject(attrs)
+		attrs, err := crGate.Status.GateUpdateAttributes()
+		if err != nil {
+			log.Error(err, "Couldn't comopute the gate attributes for update, was the Status initialized?")
+			reterr = err
+			return
+		}
+		sha, err := utils.HashObject(attrs)
+		if err != nil {
+			log.Error(err, "Failed to compute a sha for the gate status update.")
+			reterr = err
+			return
+		}
 		crGate.Status.SetSHA(sha)
 		if err := scope.PatchObject(); err != nil && reterr == nil {
 			reterr = err
