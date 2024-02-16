@@ -50,12 +50,12 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.GetServiceD
 		return nil, fmt.Errorf("could not fetch tarball url for service")
 	}
 
-	log.Info("fetching tarball", "url", *svc.Tarball)
+	log.V(1).Info("fetching tarball", "url", *svc.Tarball)
 	dir, err := fetch(*svc.Tarball, c.token)
 	if err != nil {
 		return nil, err
 	}
-	log.Info("using cache dir", "dir", dir)
+	log.V(1).Info("using cache dir", "dir", dir)
 
 	c.cache.Set(svc.ID, &cacheLine{dir: dir, created: time.Now()})
 	return template.Render(dir, svc, utilFactory)

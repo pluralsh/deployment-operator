@@ -95,7 +95,7 @@ func DisableClientLimits(config *rest.Config) {
 	if err != nil {
 		klog.Error(err, "could not determine if flowcontrol was enabled")
 	} else if enabled {
-		klog.Info("flow control enabled, disabling client side throttling")
+		klog.V(1).Info("flow control enabled, disabling client side throttling")
 		config.QPS = -1
 		config.Burst = -1
 		config.RateLimiter = nil

@@ -42,14 +42,14 @@ func New(clusterId, consoleUrl, deployToken string) (*Socket, error) {
 
 func (s *Socket) AddPublisher(event string, publisher Publisher) {
 	if event == "" {
-		log.Info("cannot register publisher without event type")
+		log.V(1).Info("cannot register publisher without event type")
 		return
 	}
 
 	if _, ok := s.publishers[event]; !ok {
 		s.publishers[event] = publisher
 	} else {
-		log.Info("publisher for this event type is already registered", "event", event)
+		log.V(1).Info("publisher for this event type is already registered", "event", event)
 	}
 }
 
@@ -57,7 +57,7 @@ func (s *Socket) Join() error {
 	if s.connected && !s.joined {
 		channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
 		if err == nil {
-			log.Info("connecting to channel", "channel", fmt.Sprintf("cluster:%s", s.clusterId))
+			log.V(1).Info("connecting to channel", "channel", fmt.Sprintf("cluster:%s", s.clusterId))
 			s.channel = channel
 			s.joined = true
 		}
@@ -66,7 +66,7 @@ func (s *Socket) Join() error {
 		return nil
 	}
 
-	log.Info("socket not yet connected, waiting...")
+	log.V(1).Info("socket not yet connected, waiting...")
 	return nil
 }
 
@@ -98,16 +98,16 @@ func (s *Socket) NotifyDisconnect() {
 
 // implement ChannelReceiver
 func (s *Socket) OnJoin(payload interface{}) {
-	log.Info("Joined websocket channel, listening for service updates")
+	log.V(1).Info("Joined websocket channel, listening for service updates")
 }
 
 func (s *Socket) OnJoinError(payload interface{}) {
-	log.Info("failed to join channel, retrying")
+	log.V(1).Info("failed to join channel, retrying")
 	s.joined = false
 }
 
 func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {
-	log.Info("left websocket channel")
+	log.V(1).Info("left websocket channel")
 	s.joined = false
 }
 
@@ -115,11 +115,11 @@ func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
 	if publisher, ok := s.publishers[event]; ok {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
-				log.Info("got new update from websocket", "id", id)
+				log.V(1).Info("got new update from websocket", "id", id)
 				publisher.Publish(id)
 			}
 		}
 	} else {
-		log.Info("could not find publisher for event", "event", event)
+		log.V(1).Info("could not find publisher for event", "event", event)
 	}
 }
