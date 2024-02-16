@@ -48,11 +48,7 @@ type PipelineGate struct {
 
 // PipelineGateStatus defines the observed state of the PipelineGate
 type PipelineGateStatus struct {
-	State *GateState `json:"state,omitempty"`
-	//SyncedState    GateState               `json:"syncedState"`
-	//LastSyncedAt   metav1.Time             `json:"lastSyncedAt,omitempty"`
-	//LastReported   *GateState              `json:"lastReported,omitempty"`
-	//LastReportedAt *metav1.Time            `json:"lastReportedAt,omitempty"`
+	State  *GateState              `json:"state,omitempty"`
 	JobRef *console.NamespacedName `json:"jobRef,omitempty"`
 	SHA    *string                 `json:"sha,omitempty"`
 }
@@ -102,10 +98,6 @@ func (pgs *PipelineGateStatus) IsClosed() bool {
 func (pgs *PipelineGateStatus) HasJobRef() bool {
 	return !(pgs.JobRef == nil || *pgs.JobRef == console.NamespacedName{})
 }
-
-//func (pgs *PipelineGateStatus) HasNotReported() bool {
-//	return pgs.LastReported == nil || (pgs.LastReportedAt != nil && pgs.LastReportedAt.Before(&pgs.LastSyncedAt))
-//}
 
 func (pgs *PipelineGateStatus) GetConsoleGateState() (*console.GateState, error) {
 	if pgs.State == nil {
