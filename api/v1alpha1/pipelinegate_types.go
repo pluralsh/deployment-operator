@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 
+	import  "k8s.io/apimachinery/pkg/util/rand"
 	"github.com/google/uuid"
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
@@ -163,8 +164,7 @@ func (pgs *PipelineGateStatus) SetSHA(sha string) *PipelineGateStatus {
 }
 
 func (pg *PipelineGate) CreateNewJobName() string {
-	jobName := fmt.Sprintf("%s-%s", pg.Name, uuid.New().String()[:8])
-	return jobName
+	return fmt.Sprintf("%s-%s", pg.Name, rand.String(8))
 }
 
 func (pg *PipelineGate) CreateNewJobRef() console.NamespacedName {
