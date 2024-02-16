@@ -151,6 +151,7 @@ func killJob(ctx context.Context, c client.Client, job *batchv1.Job) error {
 func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate *v1alpha1.PipelineGate, cachedGate *console.PipelineGateFragment) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
+
 	if !gate.Status.HasJobRef() {
 		log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 
@@ -175,49 +176,52 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 		gate.Status.JobRef = &jobRef
 
 		return ctrl.Result{}, nil
-	} else {
-		log.V(2).Info("Gate has a JobRef, checking Job status.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
-		job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, *gate.Status.JobRef)
-		if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
-			log.Error(err, "Error setting ControllerReference for Job.")
-			return ctrl.Result{}, err
-		}
-		// reconcile job, creates a new one or gets the old one
-		reconciledJob, err := Job(ctx, r.Client, job, log)
-		if err != nil {
-			log.Error(err, "Error reconciling Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
-			return ctrl.Result{}, err
-		}
-
-		// ABORT:
-		if consoleclient.IsClosed(cachedGate) {
-			// I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
-			// try to kill the job
-			err = killJob(ctx, r.Client, job)
-			// even if the killing of the job fails, we better update the gate status to closed asap, so we don't report a gate CR transition from pending to closed
-			gate.Status.SetState(console.GateStateClosed)
-			if err != nil {
-				log.Error(err, "Failed to kill Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
-				return ctrl.Result{}, err
-			}
-			log.V(1).Info("Job aborted.", "JobName", job.Name, "JobNamespace", job.Namespace)
-		} else {
-			if failed := hasFailed(reconciledJob); failed {
-				// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
-				log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
-				gate.Status.SetState(console.GateStateClosed)
-			} else if succeeded := hasSucceeded(reconciledJob); succeeded {
-				// if the job is complete, then we need to update the gate state to open, unless it's a rerun
-				log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
-				gate.Status.SetState(console.GateStateOpen)
-			} else {
-				// if the job is still running, then we need to do nothing
-				log.V(1).Info("Job is still running.", "JobName", job.Name, "JobNamespace", job.Namespace)
-				gate.Status.SetState(console.GateStatePending)
-			}
-		}
-		return ctrl.Result{}, nil
 	}
+
+	log.V(2).Info("Gate has a JobRef, checking Job status.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
+	job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, *gate.Status.JobRef)
+	if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
+		log.Error(err, "Error setting ControllerReference for Job.")
+		return ctrl.Result{}, err
+	}
+	// reconcile job, creates a new one or gets the old one
+	reconciledJob, err := Job(ctx, r.Client, job, log)
+	if err != nil {
+		log.Error(err, "Error reconciling Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		return ctrl.Result{}, err
+	}
+
+	// ABORT:
+	if consoleclient.IsClosed(cachedGate) {
+		// I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
+		// try to kill the job
+		err = killJob(ctx, r.Client, job)
+		// even if the killing of the job fails, we better update the gate status to closed asap, so we don't report a gate CR transition from pending to closed
+		gate.Status.SetState(console.GateStateClosed)
+		if err != nil {
+			log.Error(err, "Failed to kill Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
+			return ctrl.Result{}, err
+		}
+		log.V(1).Info("Job aborted.", "JobName", job.Name, "JobNamespace", job.Namespace)
+
+		return ctrl.Result{}, err
+	}
+
+	// check job status
+	if failed := hasFailed(reconciledJob); failed {
+		// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
+		log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		gate.Status.SetState(console.GateStateClosed)
+	} else if succeeded := hasSucceeded(reconciledJob); succeeded {
+		// if the job is complete, then we need to update the gate state to open, unless it's a rerun
+		log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		gate.Status.SetState(console.GateStateOpen)
+	} else {
+		// if the job is still running, then we need to do nothing
+		log.V(1).Info("Job is still running.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		gate.Status.SetState(console.GateStatePending)
+	}
+	return ctrl.Result{}, nil
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to `metav1.ConditionTrue`
