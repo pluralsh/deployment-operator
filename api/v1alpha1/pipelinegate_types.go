@@ -19,11 +19,10 @@ package v1alpha1
 import (
 	"fmt"
 
-	import  "k8s.io/apimachinery/pkg/util/rand"
-	"github.com/google/uuid"
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // +kubebuilder:validation:Enum=PENDING;OPEN;CLOSED
