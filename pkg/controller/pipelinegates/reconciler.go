@@ -95,7 +95,7 @@ func (s *GateReconciler) ShutdownQueue() {
 
 func (s *GateReconciler) Poll(ctx context.Context) (done bool, err error) {
 	logger := log.FromContext(ctx)
-	logger.Info("fetching gates for cluster")
+	logger.V(1).Info("fetching gates for cluster")
 
 	var after *string
 	var pageSize int64
@@ -113,7 +113,7 @@ func (s *GateReconciler) Poll(ctx context.Context) (done bool, err error) {
 		after = resp.PagedClusterGates.PageInfo.EndCursor
 
 		for _, gate := range resp.PagedClusterGates.Edges {
-			logger.Info("sending update for", "gate", gate.Node.ID)
+			logger.V(1).Info("sending update for", "gate", gate.Node.ID)
 			s.GateQueue.Add(gate.Node.ID)
 		}
 	}
@@ -128,7 +128,7 @@ func (s *GateReconciler) Poll(ctx context.Context) (done bool, err error) {
 func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
 	logger := log.FromContext(ctx)
 
-	logger.Info("attempting to sync gate", "id", id)
+	logger.V(1).Info("attempting to sync gate", "id", id)
 	var gate *console.PipelineGateFragment
 	gate, err = s.GateCache.Get(id)
 	if err != nil {
@@ -136,10 +136,10 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		return
 	}
 
-	logger.Info("attempting to sync gate", "Name", gate.Name, "ID", gate.ID)
+	logger.V(1).Info("attempting to sync gate", "Name", gate.Name, "ID", gate.ID)
 
 	if gate.Type != console.GateTypeJob {
-		logger.Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
+		logger.V(1).Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
 	}
 
 	gateCR, err := s.ConsoleClient.ParsePipelineGateCR(gate, s.operatorNamespace)
@@ -157,7 +157,7 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 	currentGate := &v1alpha1.PipelineGate{}
 	if err := s.K8sClient.Get(ctx, types.NamespacedName{Name: gateCR.Name, Namespace: gateCR.Namespace}, currentGate); err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Info("This gate doesn't yet have a corresponding CR on this cluster yet.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+			logger.V(1).Info("This gate doesn't yet have a corresponding CR on this cluster yet.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 			// If the PipelineGate doesn't exist, create it.
 			err = s.K8sClient.Create(context.Background(), gateCR)
 			if err != nil {
@@ -165,9 +165,9 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 				return reconcile.Result{}, err
 			}
 		}
-		logger.Info("Could not get gate.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+		logger.V(1).Info("Could not get gate.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 	} else {
-		logger.Info("Gate exists.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+		logger.V(1).Info("Gate exists.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 		scope, _ := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, currentGate)
 
 		// reset job ref to trigger a rerun
