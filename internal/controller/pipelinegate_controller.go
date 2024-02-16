@@ -200,6 +200,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 				log.Error(err, "Failed to kill Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
 				return ctrl.Result{}, err
 			}
+			log.V(1).Info("Job aborted.", "JobName", job.Name, "JobNamespace", job.Namespace)
 		} else {
 			if failed := hasFailed(reconciledJob); failed {
 				// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
