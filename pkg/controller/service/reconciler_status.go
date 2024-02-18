@@ -264,15 +264,15 @@ func FormatActionGroupEvent(ctx context.Context, age event.ActionGroupEvent) err
 
 	switch age.Action {
 	case event.ApplyAction:
-		logger.Info("apply phase", "status", strings.ToLower(age.Status.String()))
+		logger.V(2).Info("apply phase", "status", strings.ToLower(age.Status.String()))
 	case event.PruneAction:
-		logger.Info("prune phase ", "status", strings.ToLower(age.Status.String()))
+		logger.V(2).Info("prune phase ", "status", strings.ToLower(age.Status.String()))
 	case event.DeleteAction:
-		logger.Info("delete phase", "status", strings.ToLower(age.Status.String()))
+		logger.V(2).Info("delete phase", "status", strings.ToLower(age.Status.String()))
 	case event.WaitAction:
-		logger.Info("reconcile phase", "status", strings.ToLower(age.Status.String()))
+		logger.V(2).Info("reconcile phase", "status", strings.ToLower(age.Status.String()))
 	case event.InventoryAction:
-		logger.Info("inventory update", "status", strings.ToLower(age.Status.String()))
+		logger.V(2).Info("inventory update", "status", strings.ToLower(age.Status.String()))
 	default:
 		return fmt.Errorf("invalid action group action: %+v", age)
 	}

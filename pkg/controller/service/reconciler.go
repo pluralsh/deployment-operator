@@ -225,7 +225,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		}
 	}()
 
-	logger.Info("local", "flag", Local)
+	logger.V(2).Info("local", "flag", Local)
 	if Local && svc.Name == OperatorService {
 		return
 	}
