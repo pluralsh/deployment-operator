@@ -112,7 +112,7 @@ func (s *GateReconciler) Poll(ctx context.Context) (done bool, err error) {
 		after = resp.PagedClusterGates.PageInfo.EndCursor
 
 		for _, gate := range resp.PagedClusterGates.Edges {
-			logger.Info("sending update for", "gate", gate.Node.ID)
+			logger.V(2).Info("sending update for", "gate", gate.Node.ID)
 			s.GateQueue.Add(gate.Node.ID)
 		}
 	}
