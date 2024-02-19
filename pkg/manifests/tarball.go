@@ -44,7 +44,7 @@ func fetch(url, token string) (string, error) {
 		return dir, fmt.Errorf("could not fetch manifest, error code %d", resp.StatusCode)
 	}
 
-	log.Info("finished request to", "url", url)
+	log.V(1).Info("finished request to", "url", url)
 
 	if err := fs.Untar(dir, resp.Body); err != nil {
 		return dir, err

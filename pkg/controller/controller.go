@@ -80,7 +80,7 @@ func (c *Controller) Reconcile(ctx context.Context, req string) (_ reconcile.Res
 			}
 
 			log := logf.FromContext(ctx)
-			log.Info(fmt.Sprintf("Observed a panic in reconciler: %v", r))
+			log.V(1).Info(fmt.Sprintf("Observed a panic in reconciler: %v", r))
 			panic(r)
 		}
 	}()
@@ -169,7 +169,7 @@ func (c *Controller) reconcileHandler(ctx context.Context, obj interface{}) {
 		c.Queue.AddRateLimited(req)
 
 		if !result.IsZero() {
-			log.Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
+			log.V(1).Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
 		}
 		log.Error(err, "Reconciler error")
 	case result.RequeueAfter > 0:

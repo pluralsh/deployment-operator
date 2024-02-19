@@ -17,9 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // +kubebuilder:validation:Enum=PENDING;OPEN;CLOSED
@@ -45,12 +48,9 @@ type PipelineGate struct {
 
 // PipelineGateStatus defines the observed state of the PipelineGate
 type PipelineGateStatus struct {
-	State          *GateState              `json:"state,omitempty"`
-	SyncedState    GateState               `json:"syncedState"`
-	LastSyncedAt   metav1.Time             `json:"lastSyncedAt,omitempty"`
-	LastReported   *GateState              `json:"lastReported,omitempty"`
-	LastReportedAt *metav1.Time            `json:"lastReportedAt,omitempty"`
-	JobRef         *console.NamespacedName `json:"jobRef,omitempty"`
+	State  *GateState              `json:"state,omitempty"`
+	JobRef *console.NamespacedName `json:"jobRef,omitempty"`
+	SHA    *string                 `json:"sha,omitempty"`
 }
 
 // PipelineGateSpec defines the detailed gate specifications
@@ -99,6 +99,69 @@ func (pgs *PipelineGateStatus) HasJobRef() bool {
 	return !(pgs.JobRef == nil || *pgs.JobRef == console.NamespacedName{})
 }
 
-func (pgs *PipelineGateStatus) HasNotReported() bool {
-	return pgs.LastReported == nil || (pgs.LastReportedAt != nil && pgs.LastReportedAt.Before(&pgs.LastSyncedAt))
+func (pgs *PipelineGateStatus) GetConsoleGateState() (*console.GateState, error) {
+	if pgs.State == nil {
+		return nil, fmt.Errorf("gate state is not initialized")
+	}
+	state := console.GateState(*pgs.State)
+	return &state, nil
+}
+
+func (pgs *PipelineGateStatus) GetSHA() string {
+	if !pgs.HasSHA() {
+		return ""
+	}
+	return *pgs.SHA
+}
+
+func (pgs *PipelineGateStatus) HasSHA() bool {
+	return pgs.SHA != nil && len(*pgs.SHA) > 0
+}
+
+func (pgs *PipelineGateStatus) IsSHAEqual(sha string) bool {
+	if !pgs.HasSHA() {
+		return false
+	}
+	return pgs.GetSHA() == sha
+}
+
+func (pgs *PipelineGateStatus) SetState(state console.GateState) *PipelineGateStatus {
+	gateState := GateState(state)
+	pgs.State = &gateState
+	return pgs
+}
+
+func (pgs *PipelineGateStatus) SetJobRef(name string, namespace string) *PipelineGateStatus {
+	nsn := console.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+	pgs.JobRef = &nsn
+	return pgs
+}
+
+func (pgs *PipelineGateStatus) GateUpdateAttributes() (*console.GateUpdateAttributes, error) {
+	state, err := pgs.GetConsoleGateState()
+	if err != nil {
+		return nil, err
+	}
+	updateAttributes := console.GateUpdateAttributes{State: state, Status: &console.GateStatusAttributes{JobRef: pgs.JobRef}}
+	return &updateAttributes, nil
+}
+
+func (pgs *PipelineGateStatus) SetSHA(sha string) *PipelineGateStatus {
+	pgs.SHA = &sha
+	return pgs
+}
+
+func (pg *PipelineGate) CreateNewJobName() string {
+	return fmt.Sprintf("%s-%s", pg.Name, rand.String(8))
+}
+
+func (pg *PipelineGate) CreateNewJobRef() console.NamespacedName {
+	jobRef := console.NamespacedName{Name: pg.CreateNewJobName(), Namespace: pg.Namespace}
+	if pg.Spec.GateSpec != nil && pg.Spec.GateSpec.JobSpec != nil && pg.Spec.GateSpec.JobSpec.Template.Namespace != "" {
+		pg.Namespace = pg.Spec.GateSpec.JobSpec.Template.Namespace
+	}
+	return jobRef
 }

@@ -5,6 +5,7 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,28 +38,35 @@ func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 	return resp.ClusterGate, nil
 }
 
-func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment) (*v1alpha1.PipelineGate, error) {
+func (c *client) GateExists(id string) bool {
+	pgf, err := c.GetClusterGate(id)
+	if pgf != nil {
+		return true
+	}
+	if errors.IsNotFound(err) {
+		return false
+	}
+	return err == nil
+}
 
-	now := metav1.Now()
+func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, operatorNamespace string) (*v1alpha1.PipelineGate, error) {
+	name := utils.AsName(pgFragment.Name) + "-" + pgFragment.ID[:8]
 	pipelineGate := &v1alpha1.PipelineGate{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PipelineGate",
 			APIVersion: v1alpha1.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.AsName(pgFragment.Name), // + "-" + pgFragment.ID,
-			Namespace: pgFragment.Spec.Job.Namespace,
+			Name:      name,
+			Namespace: operatorNamespace + "-pipelines",
 		},
 		Spec: v1alpha1.PipelineGateSpec{
 			ID:       pgFragment.ID,
-			Name:     pgFragment.Name, // + "-" + pgFragment.ID,
+			Name:     pgFragment.Name,
 			Type:     v1alpha1.GateType(pgFragment.Type),
 			GateSpec: gateSpecFromGateSpecFragment(pgFragment.Name, pgFragment.Spec),
 		},
 	}
-	gateState := v1alpha1.GateState(pgFragment.State)
-	pipelineGate.Status.SyncedState = gateState
-	pipelineGate.Status.LastSyncedAt = now
 	return pipelineGate, nil
 }
 
@@ -93,35 +101,39 @@ func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	if jsFragment == nil {
 		return nil
 	}
+	var jobSpec *batchv1.JobSpec
 	if jsFragment.Raw != nil && *jsFragment.Raw != "null" {
 		job, err := jobFromYaml(*jsFragment.Raw)
 		if err != nil {
 			return nil
 		}
-		return &job.Spec
-	}
-	name := utils.AsName(gateName)
-	jobSpec := &batchv1.JobSpec{
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: jsFragment.Namespace,
-				// convert map[string]interface{} to map[string]string
-				Labels:      stringMapFromInterfaceMap(jsFragment.Labels),
-				Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
+		jobSpec = &job.Spec
+	} else {
+		name := utils.AsName(gateName)
+		jobSpec = &batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: jsFragment.Namespace,
+					// convert map[string]interface{} to map[string]string
+					Labels:      stringMapFromInterfaceMap(jsFragment.Labels),
+					Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
+				},
+				Spec: corev1.PodSpec{
+					Containers:    containersFromContainerSpecFragments(name, jsFragment.Containers),
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+				},
 			},
-			Spec: corev1.PodSpec{
-				Containers:    containersFromContainerSpecFragments(name, jsFragment.Containers),
-				RestartPolicy: corev1.RestartPolicyOnFailure,
-			},
-		},
+		}
+		// Add the gatename annotation
+		if jobSpec.Template.ObjectMeta.Annotations == nil {
+			jobSpec.Template.ObjectMeta.Annotations = make(map[string]string)
+		}
+		gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
+		jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
 	}
-	// Add the gatename annotation
-	if jobSpec.Template.ObjectMeta.Annotations == nil {
-		jobSpec.Template.ObjectMeta.Annotations = make(map[string]string)
-	}
-	gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
-	jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
+	ttlSeconds := int32(7200)
+	jobSpec.TTLSecondsAfterFinished = &ttlSeconds
 
 	return jobSpec
 }
@@ -185,4 +197,48 @@ func stringMapFromInterfaceMap(labels map[string]interface{}) map[string]string 
 		}
 	}
 	return result
+}
+
+func IsPending(pgFragment *console.PipelineGateFragment) bool {
+	return pgFragment != nil && pgFragment.State == console.GateStatePending
+}
+
+func IsClosed(pgFragment *console.PipelineGateFragment) bool {
+	return pgFragment != nil && pgFragment.State == console.GateStateClosed
+}
+
+func IsOpen(pgFragment *console.PipelineGateFragment) bool {
+	return pgFragment != nil && pgFragment.State == console.GateStateOpen
+}
+
+func IsJobType(pgFragment *console.PipelineGateFragment) bool {
+	return pgFragment != nil && pgFragment.Type == console.GateTypeJob
+}
+
+func HasJobRef(pgFragment *console.PipelineGateFragment) bool {
+	return !(pgFragment.Job == nil || pgFragment.Job.Metadata.Namespace == nil || pgFragment.Job.Metadata.Name == "" || *pgFragment.Job.Metadata.Namespace == "")
+}
+
+func GateUpdateAttributes(fragment console.PipelineGateFragment) console.GateUpdateAttributes {
+	var jobRef *console.NamespacedName
+	if fragment.Job != nil && fragment.Job.Metadata.Namespace != nil {
+		jobRef = &console.NamespacedName{
+			Name:      fragment.Job.Metadata.Name,
+			Namespace: *fragment.Job.Metadata.Namespace,
+		}
+	} else if fragment.Job != nil {
+		jobRef = &console.NamespacedName{
+			Name:      fragment.Job.Metadata.Name,
+			Namespace: "",
+		}
+	} else {
+		jobRef = &console.NamespacedName{}
+	}
+
+	return console.GateUpdateAttributes{
+		State: &fragment.State,
+		Status: &console.GateStatusAttributes{
+			JobRef: jobRef,
+		},
+	}
 }

@@ -47,6 +47,10 @@ require (
 
 )
 
+//replace (
+//	github.com/pluralsh/console-client-go => github.com/pluralsh/console-client-go v0.0.0-20240502174638-39d7000e7b52
+//)
+
 require (
 	github.com/99designs/gqlgen v0.17.43 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

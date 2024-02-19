@@ -3,10 +3,14 @@ package utils
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/cmd/util"
 
@@ -91,9 +95,40 @@ func DisableClientLimits(config *rest.Config) {
 	if err != nil {
 		klog.Error(err, "could not determine if flowcontrol was enabled")
 	} else if enabled {
-		klog.Info("flow control enabled, disabling client side throttling")
+		klog.V(1).Info("flow control enabled, disabling client side throttling")
 		config.QPS = -1
 		config.Burst = -1
 		config.RateLimiter = nil
 	}
+}
+
+func GetOperatorNamespace() (string, error) {
+	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		// get from env
+		namespace := os.Getenv("OPERATOR_NAMESPACE")
+		if namespace != "" {
+			return namespace, nil
+		}
+		return "", fmt.Errorf("unable to get operator namespace: %w", err)
+	}
+	return string(ns), nil
+}
+
+func CheckNamespace(clientset kubernetes.Clientset, namespace string) error {
+	if namespace == "" {
+		return nil
+	}
+	_, err := clientset.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}, metav1.CreateOptions{})
+
+	if err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+	return nil
 }

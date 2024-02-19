@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/uuid"
-
+	"github.com/go-logr/logr"
+	console "github.com/pluralsh/console-client-go"
+	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,20 +32,21 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/go-logr/logr"
-	console "github.com/pluralsh/console-client-go"
-	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	PipelineGateFinalizer = "deployments.plural.sh/pipelinegate-protection"
+)
+
 // PipelineGateReconciler reconciles a PipelineGate object
 type PipelineGateReconciler struct {
 	client.Client
 	ConsoleClient consoleclient.Client
+	GateCache     *consoleclient.Cache[console.PipelineGateFragment]
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
 }
@@ -53,59 +56,116 @@ type PipelineGateReconciler struct {
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
-func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := log.FromContext(ctx).WithValues("PipelineGate", req.NamespacedName)
 
-	gate := &v1alpha1.PipelineGate{}
-
-	// get pipelinegate
-	if err := r.Get(ctx, req.NamespacedName, gate); err != nil {
+	crGate := &v1alpha1.PipelineGate{}
+	if err := r.Get(ctx, req.NamespacedName, crGate); err != nil {
 		if apierrs.IsNotFound(err) {
-			log.V(1).Info("PipelineGate CR not found - skipping.", "Namespace", gate.Namespace, "Name", gate.Name)
+			log.V(1).Info("PipelineGate CR not found - skipping.", "Namespace", crGate.Namespace, "Name", crGate.Name)
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Unable to fetch PipelineGate.")
 		return ctrl.Result{}, err
 	}
 
+	cachedGate, err := r.GateCache.Get(crGate.Spec.ID)
+	if err != nil {
+		log.Error(err, "Unable to fetch PipelineGate from cache, this gate probably doesn't exist in the console.")
+		return ctrl.Result{}, err
+	}
+
+	scope, _ := NewPipelineGateScope(ctx, r.Client, crGate)
+	defer func() {
+		attrs, err := crGate.Status.GateUpdateAttributes()
+		if err != nil {
+			log.Error(err, "Couldn't comopute the gate attributes for update, was the Status initialized?")
+			reterr = err
+			return
+		}
+		sha, err := utils.HashObject(attrs)
+		if err != nil {
+			log.Error(err, "Failed to compute a sha for the gate status update.")
+			reterr = err
+			return
+		}
+		crGate.Status.SetSHA(sha)
+		if err := scope.PatchObject(); err != nil && reterr == nil {
+			reterr = err
+			return
+		}
+		if _, err = r.sync(ctx, crGate, *cachedGate); err != nil && reterr == nil {
+			reterr = err
+		}
+	}()
+
 	// INITIAL STATE
-	if !gate.Status.IsInitialized() {
-		return r.initializeGateState(ctx, gate, log)
+	if !crGate.Status.IsInitialized() {
+		crGate.Status.SetState(console.GateStatePending)
+		log.V(1).Info("Updated state of CR on first reconcile.", "Namespace", crGate.Namespace, "Name", crGate.Name, "ID", crGate.Spec.ID)
+		return ctrl.Result{}, nil
 	}
 
 	// PENDING
-	if gate.Status.IsPending() {
-		return r.reconcilePendingGate(ctx, gate, log)
+	if crGate.Status.IsPending() {
+		return r.reconcilePendingGate(ctx, crGate, cachedGate)
 	}
 
-	// PUSH SYNC
-	if gate.Status.IsInitialized() && gate.Status.HasNotReported() && (gate.Status.IsOpen() || gate.Status.IsClosed()) {
-		return r.syncGateStatus(ctx, gate, log)
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *PipelineGateReconciler) initializeGateState(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
-	if gate.Status.State == nil {
-		// update CR state
-		gate.Status.State = &gate.Status.SyncedState
-		if err := r.Status().Update(ctx, gate); err != nil {
-			log.Error(err, "Failed to update PipelineGate status at CR")
-			return ctrl.Result{}, err
-		}
-		log.V(1).Info("Updated state of CR on first reconcile.", "Namespace", gate.Namespace, "Name", gate.Name, "ID", gate.Spec.ID, "SyncedState", gate.Status.SyncedState, "LastSyncedAt", gate.Status.LastSyncedAt, "State", gate.Status.State)
+	// RERUN
+	if (crGate.Status.IsOpen() || crGate.Status.IsClosed()) && !crGate.Status.HasJobRef() && consoleclient.IsPending(cachedGate) {
+		crGate.Status.SetState(console.GateStatePending)
 		return ctrl.Result{}, nil
 	}
+
 	return ctrl.Result{}, nil
 }
 
-func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
+func (r *PipelineGateReconciler) sync(ctx context.Context, crGate *v1alpha1.PipelineGate, cachedGate console.PipelineGateFragment) (bool, error) {
+	logger := log.FromContext(ctx)
+	cachedSha, err := utils.HashObject(consoleclient.GateUpdateAttributes(cachedGate))
+	if err != nil {
+		return false, err
+	}
+
+	if crGate.Status.IsSHAEqual(cachedSha) {
+		logger.V(2).Info(fmt.Sprintf("No changes detected for gate %s ", crGate.Name))
+		return false, nil
+	}
+
+	// something changed!
+
+	updateAttrs, _ := crGate.Status.GateUpdateAttributes()
+
+	if err := r.ConsoleClient.UpdateGate(crGate.Spec.ID, *updateAttrs); err != nil {
+		logger.Error(err, "Failed to update PipelineGate status to console")
+		return true, err
+	}
+	if _, err = r.GateCache.Set(crGate.Spec.ID); err != nil {
+		logger.Error(err, "Failed to update GateCache immediately")
+	}
+	return true, nil
+}
+
+func killJob(ctx context.Context, c client.Client, job *batchv1.Job) error {
+	log := log.FromContext(ctx)
+	deletePolicy := metav1.DeletePropagationBackground // kill the job and its pods asap
+	if err := c.Delete(ctx, job, &client.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	}); err != nil {
+		return err
+	}
+	log.V(2).Info("Job killed successfully.", "JobName", job.Name, "Namespace", job.Namespace)
+	return nil
+}
+
+func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate *v1alpha1.PipelineGate, cachedGate *console.PipelineGateFragment) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
 	log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
+
 	if !gate.Status.HasJobRef() {
 		log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
 
-		jobName := fmt.Sprintf("%s-%s", gate.Name, uuid.New().String())
-		jobRef := console.NamespacedName{Name: jobName, Namespace: gate.Namespace}
+		jobRef := gate.CreateNewJobRef()
 		job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, jobRef)
 		if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
 			log.Error(err, "Error setting ControllerReference for Job.")
@@ -124,89 +184,53 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 		gateState := v1alpha1.GateState(console.GateStatePending)
 		gate.Status.State = &gateState
 		gate.Status.JobRef = &jobRef
-		if err := r.Status().Update(ctx, gate); err != nil {
-			log.Error(err, "Failed to update PipelineGate status at CR.")
-			return ctrl.Result{}, err
-		}
 
-		// try to update gate at console
-		attributeState := console.GateStatePending
-		updateAttributes := console.GateUpdateAttributes{State: &attributeState, Status: &console.GateStatusAttributes{JobRef: gate.Status.JobRef}}
-		if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, updateAttributes); err != nil {
-			log.Error(err, "Failed to update PipelineGate status to console")
-		}
-
-		log.V(1).Info("Created new job for gate and updated status.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
 		return ctrl.Result{}, nil
-	} else {
-		log.V(2).Info("Gate has a JobRef, checking Job status.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
-		job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, *gate.Status.JobRef)
-		if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
-			log.Error(err, "Error setting ControllerReference for Job.")
-			return ctrl.Result{}, err
-		}
-		// reconcile job, creates a new one or gets the old one
-		reconciledJob, err := Job(ctx, r.Client, job, log)
+	}
+
+	log.V(2).Info("Gate has a JobRef, checking Job status.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
+	job := r.generateJob(ctx, log, *gate.Spec.GateSpec.JobSpec, *gate.Status.JobRef)
+	if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
+		log.Error(err, "Error setting ControllerReference for Job.")
+		return ctrl.Result{}, err
+	}
+	// reconcile job, creates a new one or gets the old one
+	reconciledJob, err := Job(ctx, r.Client, job, log)
+	if err != nil {
+		log.Error(err, "Error reconciling Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		return ctrl.Result{}, err
+	}
+
+	// ABORT:
+	if consoleclient.IsClosed(cachedGate) {
+		// I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
+		// try to kill the job
+		err = killJob(ctx, r.Client, job)
+		// even if the killing of the job fails, we better update the gate status to closed asap, so we don't report a gate CR transition from pending to closed
+		gate.Status.SetState(console.GateStateClosed)
 		if err != nil {
-			log.Error(err, "Error reconciling Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
+			log.Error(err, "Failed to kill Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
 			return ctrl.Result{}, err
 		}
+		log.V(1).Info("Job aborted.", "JobName", job.Name, "JobNamespace", job.Namespace)
 
-		var gateState v1alpha1.GateState
-		if failed := hasFailed(reconciledJob); failed {
-			// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
-			log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
-			gateState = v1alpha1.GateState(console.GateStateClosed)
-		} else if succeeded := hasSucceeded(reconciledJob); succeeded {
-			// if the job is complete, then we need to update the gate state to open, unless it's a rerun
-			log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
-			gateState = v1alpha1.GateState(console.GateStateOpen)
-		} else {
-			// if the job is still running, then we need to do nothing
-			log.V(1).Info("Job is still running.", "JobName", job.Name, "JobNamespace", job.Namespace)
-			gateState = v1alpha1.GateState(console.GateStatePending)
-		}
-		gate.Status.State = &gateState
-		if err := r.Status().Update(ctx, gate); err != nil {
-			log.Error(err, "Failed to update PipelineGate status at CR")
-			return ctrl.Result{}, err
-		}
-		log.V(1).Info("Updated gate status after reconciling job.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "jobRef", *gate.Status.JobRef)
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
-}
 
-func (r *PipelineGateReconciler) syncGateStatus(ctx context.Context, gate *v1alpha1.PipelineGate, log logr.Logger) (ctrl.Result, error) {
-
-	log.V(1).Info(fmt.Sprintf("Reconciling %s gate.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "LastSyncedAt", gate.Status.LastSyncedAt, "jobRef", *gate.Status.JobRef)
-
-	var gateState console.GateState
-	if *gate.Status.State == v1alpha1.GateState(console.GateStateOpen) {
-		gateState = console.GateStateOpen
+	// check job status
+	if failed := hasFailed(reconciledJob); failed {
+		// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
+		log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		gate.Status.SetState(console.GateStateClosed)
+	} else if succeeded := hasSucceeded(reconciledJob); succeeded {
+		// if the job is complete, then we need to update the gate state to open, unless it's a rerun
+		log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		gate.Status.SetState(console.GateStateOpen)
 	} else {
-		gateState = console.GateStateClosed
+		// if the job is still running, then we need to do nothing
+		log.V(1).Info("Job is still running.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		gate.Status.SetState(console.GateStatePending)
 	}
-
-	updateAttributes := console.GateUpdateAttributes{State: &gateState, Status: &console.GateStatusAttributes{JobRef: gate.Status.JobRef}}
-
-	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, updateAttributes); err != nil {
-		log.Error(err, "Failed to update PipelineGate status to console")
-		return ctrl.Result{}, err
-	}
-
-	lastReportedAt := metav1.Now()
-	lastReported := v1alpha1.GateState(gateState)
-	log.V(2).Info(fmt.Sprintf("Updated gate state to %s console.", string(*gate.Status.State)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "lastReported", lastReported, "LastReportedAt", lastReportedAt, "LastSyncedAt", gate.Status.LastSyncedAt, "jobRef", *gate.Status.JobRef)
-
-	gate.Status.LastReportedAt = &lastReportedAt
-	gate.Status.LastReported = &lastReported
-	if err := r.Status().Update(ctx, gate); err != nil {
-		log.Error(err, "Failed to update PipelineGate status at CR")
-		return ctrl.Result{}, err
-	}
-
-	log.V(2).Info(fmt.Sprintf("Updated gate state lastReported to %s.", string(lastReported)), "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State, "LastReportedAt", *gate.Status.LastReportedAt, "LastSyncedAt", gate.Status.LastSyncedAt, "jobRef", *gate.Status.JobRef)
-
 	return ctrl.Result{}, nil
 }
 

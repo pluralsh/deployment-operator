@@ -8652,19 +8652,7 @@ spec:
                 - name
                 - namespace
                 type: object
-              lastReported:
-                description: GateState represents the state of a gate, reused from
-                  console client
-                enum:
-                - PENDING
-                - OPEN
-                - CLOSED
-                type: string
-              lastReportedAt:
-                format: date-time
-                type: string
-              lastSyncedAt:
-                format: date-time
+              sha:
                 type: string
               state:
                 description: GateState represents the state of a gate, reused from
@@ -8674,16 +8662,6 @@ spec:
                 - OPEN
                 - CLOSED
                 type: string
-              syncedState:
-                description: GateState represents the state of a gate, reused from
-                  console client
-                enum:
-                - PENDING
-                - OPEN
-                - CLOSED
-                type: string
-            required:
-            - syncedState
             type: object
         type: object
     served: true
