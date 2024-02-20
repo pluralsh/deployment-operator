@@ -7,6 +7,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -210,6 +211,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	logger.Info("attempting to sync service", "id", id)
 	svc, err := s.SvcCache.Get(id)
 	if err != nil {
+		if clienterrors.IsNotFound(err) {
+			logger.Info("service already deleted", "id", id)
+			return reconcile.Result{}, nil
+		}
 		logger.Error(err, fmt.Sprintf("failed to fetch service: %s, ignoring for now", id))
 		return
 	}
