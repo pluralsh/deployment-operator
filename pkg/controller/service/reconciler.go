@@ -7,6 +7,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -210,6 +211,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	logger.Info("attempting to sync service", "id", id)
 	svc, err := s.SvcCache.Get(id)
 	if err != nil {
+		if clienterrors.IsNotFound(err) {
+			logger.Info("service already deleted", "id", id)
+			return reconcile.Result{}, nil
+		}
 		logger.Error(err, fmt.Sprintf("failed to fetch service: %s, ignoring for now", id))
 		return
 	}
@@ -230,12 +235,26 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	logger.Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 
+	if svc.DeletedAt != nil {
+		logger.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		ch := s.Destroyer.Run(ctx, inventory.WrapInventoryInfoObj(s.defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
+			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
+			DryRunStrategy:          common.DryRunNone,
+			DeleteTimeout:           20 * time.Second,
+			DeletePropagationPolicy: metav1.DeletePropagationBackground,
+			EmitStatusEvents:        true,
+			ValidationPolicy:        1,
+		})
+
+		err = s.UpdatePruneStatus(ctx, svc, ch, map[manis.GroupName]string{})
+		return
+	}
+
 	manifests, err := s.ManifestCache.Fetch(s.UtilFactory, svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests")
 		return
 	}
-
 	manifests = postProcess(manifests)
 
 	logger.Info("Syncing manifests", "count", len(manifests))
@@ -314,11 +333,7 @@ func (s *ServiceReconciler) SplitObjects(id string, objs []*unstructured.Unstruc
 	}
 	switch len(invs) {
 	case 0:
-		invObj, err := s.defaultInventoryObjTemplate(id)
-		if err != nil {
-			return nil, nil, err
-		}
-		return invObj, resources, nil
+		return s.defaultInventoryObjTemplate(id), resources, nil
 	case 1:
 		return invs[0], resources, nil
 	default:
@@ -326,7 +341,7 @@ func (s *ServiceReconciler) SplitObjects(id string, objs []*unstructured.Unstruc
 	}
 }
 
-func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) (*unstructured.Unstructured, error) {
+func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) *unstructured.Unstructured {
 	name := "inventory-" + id
 	namespace := "plrl-deploy-operator"
 
@@ -342,7 +357,7 @@ func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) (*unstructure
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func (s *ServiceReconciler) GetLuaScript() string {
