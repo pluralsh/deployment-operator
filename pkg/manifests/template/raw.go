@@ -26,6 +26,11 @@ var (
 		"b64dec":        "b64dec",
 		"semverCompare": "semver_compare",
 		"sha256sum":     "sha26sum",
+		"quote":         "quote",
+		"squote":        "squote",
+		"indent":        "indent",
+		"nindent":       "nindent",
+		"replace":       "replace",
 	}
 )
 
