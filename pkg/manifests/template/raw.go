@@ -58,9 +58,6 @@ func isTemplated(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) bo
 }
 
 func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]byte, error) {
-	if !isTemplated(svc) {
-		return input, nil
-	}
 	bindings := map[string]interface{}{
 		"configuration": configMap(svc),
 		"cluster":       svc.Cluster,
@@ -100,13 +97,14 @@ func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment
 		if err != nil {
 			return err
 		}
-
-		rendered, err := renderLiquid(data, svc)
-		if err != nil {
-			return fmt.Errorf("templating error in %s: %w", rpath, err)
+		if isTemplated(svc) {
+			data, err = renderLiquid(data, svc)
+			if err != nil {
+				return fmt.Errorf("templating error in %s: %w", rpath, err)
+			}
 		}
 
-		r := bytes.NewReader(rendered)
+		r := bytes.NewReader(data)
 
 		mReader := &StreamManifestReader{
 			ReaderName:    "raw",
