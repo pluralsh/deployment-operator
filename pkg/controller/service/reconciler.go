@@ -377,8 +377,5 @@ func (s *ServiceReconciler) SetLuaScript(script string) {
 
 func (s *ServiceReconciler) isClusterRestore(ctx context.Context) bool {
 	_, err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Get(ctx, RestoreConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
