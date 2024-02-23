@@ -390,6 +390,7 @@ func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) 
 		if err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Delete(ctx, RestoreConfigMapName, metav1.DeleteOptions{}); err != nil {
 			return true, err
 		}
+		return false, nil
 	}
 	return true, nil
 }
