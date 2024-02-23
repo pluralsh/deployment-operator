@@ -154,8 +154,9 @@ func (s *RestoreReconciler) genVeleroRestore(id, backupName string) *velerov1.Re
 			Namespace: s.Namespace,
 		},
 		Spec: velerov1.RestoreSpec{
-			BackupName:        backupName,
-			ExcludedResources: excludedResources,
+			BackupName:           backupName,
+			ExcludedResources:    excludedResources,
+			ItemOperationTimeout: metav1.Duration{Duration: time.Hour},
 		},
 	}
 }
