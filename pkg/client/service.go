@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+
 	console "github.com/pluralsh/console-client-go"
 )
 

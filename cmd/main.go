@@ -54,6 +54,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Backup")
 	}
 
+	if err = (&controller.RestoreReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ConsoleClient: ctrlMgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Restore")
+	}
+
 	if err = (&controller.CustomHealthReconciler{
 		Client:            mgr.GetClient(),
 		Scheme:            mgr.GetScheme(),

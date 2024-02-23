@@ -41,30 +41,31 @@ var (
 )
 
 const (
-	OperatorService = "deploy-operator"
-
+	OperatorService      = "deploy-operator"
+	RestoreConfigMapName = "restore-config-map"
 	// The field manager name for the ones agentk owns, see
 	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
 	fieldManager = "application/apply-patch"
 )
 
 type ServiceReconciler struct {
-	ConsoleClient client.Client
-	Config        *rest.Config
-	Clientset     *kubernetes.Clientset
-	Applier       *applier.Applier
-	Destroyer     *apply.Destroyer
-	SvcQueue      workqueue.RateLimitingInterface
-	SvcCache      *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
-	ManifestCache *manifests.ManifestCache
-	UtilFactory   util.Factory
-	LuaScript     string
+	ConsoleClient    client.Client
+	Config           *rest.Config
+	Clientset        *kubernetes.Clientset
+	Applier          *applier.Applier
+	Destroyer        *apply.Destroyer
+	SvcQueue         workqueue.RateLimitingInterface
+	SvcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
+	ManifestCache    *manifests.ManifestCache
+	UtilFactory      util.Factory
+	LuaScript        string
+	RestoreNamespace string
 
 	discoveryClient *discovery.DiscoveryClient
 	pinger          *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -102,17 +103,18 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 	}
 
 	return &ServiceReconciler{
-		ConsoleClient:   consoleClient,
-		Config:          config,
-		Clientset:       cs,
-		SvcQueue:        svcQueue,
-		SvcCache:        svcCache,
-		ManifestCache:   manifestCache,
-		UtilFactory:     f,
-		Applier:         a,
-		Destroyer:       d,
-		discoveryClient: discoveryClient,
-		pinger:          ping.New(consoleClient, discoveryClient, f),
+		ConsoleClient:    consoleClient,
+		Config:           config,
+		Clientset:        cs,
+		SvcQueue:         svcQueue,
+		SvcCache:         svcCache,
+		ManifestCache:    manifestCache,
+		UtilFactory:      f,
+		Applier:          a,
+		Destroyer:        d,
+		discoveryClient:  discoveryClient,
+		pinger:           ping.New(consoleClient, discoveryClient, f),
+		RestoreNamespace: restoreNamespace,
 	}, nil
 }
 
@@ -182,6 +184,16 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 	pageSize = 100
 	hasNextPage := true
 
+	restore, err := s.isClusterRestore(ctx)
+	if err != nil {
+		logger.Error(err, "failed to check restore config map")
+		return false, nil
+	}
+	if restore {
+		logger.Info("restoring cluster from backup")
+		return false, nil
+	}
+
 	for hasNextPage {
 		resp, err := s.ConsoleClient.GetServices(after, &pageSize)
 		if err != nil {
@@ -207,8 +219,8 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
 	logger := log.FromContext(ctx)
-
 	logger.Info("attempting to sync service", "id", id)
+
 	svc, err := s.SvcCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
@@ -366,4 +378,19 @@ func (s *ServiceReconciler) GetLuaScript() string {
 
 func (s *ServiceReconciler) SetLuaScript(script string) {
 	s.LuaScript = script
+}
+
+func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) {
+	cmr, err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Get(ctx, RestoreConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return false, nil
+	}
+	timeout := cmr.CreationTimestamp.Add(time.Hour)
+	if time.Now().After(timeout) {
+		if err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Delete(ctx, RestoreConfigMapName, metav1.DeleteOptions{}); err != nil {
+			return true, err
+		}
+		return false, nil
+	}
+	return true, nil
 }
