@@ -184,7 +184,12 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 	pageSize = 100
 	hasNextPage := true
 
-	if s.isClusterRestore(ctx) {
+	restore, err := s.isClusterRestore(ctx)
+	if err != nil {
+		logger.Error(err, "failed to check restore config map")
+		return false, nil
+	}
+	if restore {
 		logger.Info("restoring cluster from backup")
 		return false, nil
 	}
@@ -375,7 +380,16 @@ func (s *ServiceReconciler) SetLuaScript(script string) {
 	s.LuaScript = script
 }
 
-func (s *ServiceReconciler) isClusterRestore(ctx context.Context) bool {
-	_, err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Get(ctx, RestoreConfigMapName, metav1.GetOptions{})
-	return err == nil
+func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) {
+	cmr, err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Get(ctx, RestoreConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return false, nil
+	}
+	timeout := cmr.CreationTimestamp.Add(time.Hour)
+	if time.Now().After(timeout) {
+		if err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Delete(ctx, RestoreConfigMapName, metav1.DeleteOptions{}); err != nil {
+			return true, err
+		}
+	}
+	return true, nil
 }
