@@ -216,20 +216,23 @@ func IsJobType(pgFragment *console.PipelineGateFragment) bool {
 }
 
 func HasJobRef(pgFragment *console.PipelineGateFragment) bool {
-	return !(pgFragment.Job == nil || pgFragment.Job.Metadata.Namespace == nil || pgFragment.Job.Metadata.Name == "" || *pgFragment.Job.Metadata.Namespace == "")
+	if pgFragment.Status == nil {
+		return false
+	}
+
+	if pgFragment.Status.JobRef == nil {
+		return false
+	}
+
+	return pgFragment.Status.JobRef.Name != "" && pgFragment.Status.JobRef.Namespace != ""
 }
 
 func GateUpdateAttributes(fragment console.PipelineGateFragment) console.GateUpdateAttributes {
 	var jobRef *console.NamespacedName
-	if fragment.Job != nil && fragment.Job.Metadata.Namespace != nil {
+	if fragment.Status != nil && fragment.Status.JobRef != nil {
 		jobRef = &console.NamespacedName{
-			Name:      fragment.Job.Metadata.Name,
-			Namespace: *fragment.Job.Metadata.Namespace,
-		}
-	} else if fragment.Job != nil {
-		jobRef = &console.NamespacedName{
-			Name:      fragment.Job.Metadata.Name,
-			Namespace: "",
+			Name:      fragment.Status.JobRef.Namespace,
+			Namespace: fragment.Status.JobRef.Name,
 		}
 	} else {
 		jobRef = &console.NamespacedName{}
