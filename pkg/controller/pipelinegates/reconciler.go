@@ -6,6 +6,9 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	pgctrl "github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
@@ -16,21 +19,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubectl/pkg/cmd/util"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-	pgctrl "github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-func init() {
-	Local = false
-}
-
-var (
-	Local = false
 )
 
 type GateReconciler struct {
@@ -125,21 +116,22 @@ func (s *GateReconciler) Poll(ctx context.Context) (done bool, err error) {
 	return false, nil
 }
 
-func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
+func (s *GateReconciler) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
 
 	logger.V(1).Info("attempting to sync gate", "id", id)
 	var gate *console.PipelineGateFragment
-	gate, err = s.GateCache.Get(id)
+	gate, err := s.GateCache.Get(id)
 	if err != nil {
 		logger.Error(err, "failed to fetch gate: %s, ignoring for now")
-		return
+		return reconcile.Result{}, err
 	}
 
 	logger.V(1).Info("attempting to sync gate", "Name", gate.Name, "ID", gate.ID)
 
 	if gate.Type != console.GateTypeJob {
 		logger.V(1).Info(fmt.Sprintf("gate is of type %s, we only reconcile gates of type %s skipping", gate.Type, console.GateTypeJob), "Name", gate.Name, "ID", gate.ID)
+		return reconcile.Result{}, nil
 	}
 
 	gateCR, err := s.ConsoleClient.ParsePipelineGateCR(gate, s.operatorNamespace)
@@ -148,47 +140,37 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (result recon
 		return reconcile.Result{}, err
 	}
 
-	if err = s.CheckNamespace(gateCR.Namespace); err != nil {
-		logger.Error(err, "failed to check namespace")
-		return reconcile.Result{}, err
-	}
-
 	// get pipelinegate
 	currentGate := &v1alpha1.PipelineGate{}
 	if err := s.K8sClient.Get(ctx, types.NamespacedName{Name: gateCR.Name, Namespace: gateCR.Namespace}, currentGate); err != nil {
-		if apierrors.IsNotFound(err) {
-			logger.V(1).Info("This gate doesn't yet have a corresponding CR on this cluster yet.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-			// If the PipelineGate doesn't exist, create it.
-			err = s.K8sClient.Create(context.Background(), gateCR)
-			if err != nil {
-				logger.Error(err, "failed to create gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-				return reconcile.Result{}, err
-			}
-		}
-		logger.V(1).Info("Could not get gate.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-	} else {
-		logger.V(1).Info("Gate exists.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-		scope, _ := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, currentGate)
-
-		// reset job ref to trigger a rerun
-		// do NOT reset state to pending, as this will happen in the reconciler to make sure we transition from open/closed to pending
-		if (currentGate.Status.IsClosed() || currentGate.Status.IsOpen()) && client.IsPending(gate) && !client.HasJobRef(gate) {
-			currentGate.Status.SetJobRef("", "")
-			currentGate.Spec = gateCR.Spec
-		}
-
-		err = scope.PatchObject()
-		if err != nil {
-			logger.Error(err, "failed to patch gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+		if !apierrors.IsNotFound(err) {
+			logger.V(1).Info("Could not get gate.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 			return reconcile.Result{}, err
 		}
+
+		logger.V(1).Info("This gate doesn't yet have a corresponding CR on this cluster yet.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+		// If the PipelineGate doesn't exist, create it.
+		if err = s.K8sClient.Create(context.Background(), gateCR); err != nil {
+			logger.Error(err, "failed to create gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
 	}
 
-	return
-}
+	logger.V(1).Info("Gate exists.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+	scope, err := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, currentGate)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
-func (s *GateReconciler) CheckNamespace(namespace string) error {
-	return utils.CheckNamespace(*s.Clientset, namespace)
+	currentGate.Spec = gateCR.Spec
+	err = scope.PatchObject()
+	if err != nil {
+		logger.Error(err, "failed to patch gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
 }
 
 func (s *GateReconciler) GetPublisher() (string, websocket.Publisher) {

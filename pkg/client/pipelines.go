@@ -58,7 +58,7 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, o
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: operatorNamespace + "-pipelines",
+			Namespace: operatorNamespace,
 		},
 		Spec: v1alpha1.PipelineGateSpec{
 			ID:       pgFragment.ID,
@@ -93,11 +93,11 @@ func gateSpecFromGateSpecFragment(gateName string, gsFragment *console.GateSpecF
 		return nil
 	}
 	return &v1alpha1.GateSpec{
-		JobSpec: jobSpecFromJobSpecFragment(gateName, gsFragment.Job),
+		JobSpec: JobSpecFromJobSpecFragment(gateName, gsFragment.Job),
 	}
 }
 
-func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFragment) *batchv1.JobSpec {
+func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFragment) *batchv1.JobSpec {
 	if jsFragment == nil {
 		return nil
 	}
@@ -231,8 +231,8 @@ func GateUpdateAttributes(fragment console.PipelineGateFragment) console.GateUpd
 	var jobRef *console.NamespacedName
 	if fragment.Status != nil && fragment.Status.JobRef != nil {
 		jobRef = &console.NamespacedName{
-			Name:      fragment.Status.JobRef.Namespace,
-			Namespace: fragment.Status.JobRef.Name,
+			Name:      fragment.Status.JobRef.Name,
+			Namespace: fragment.Status.JobRef.Namespace,
 		}
 	} else {
 		jobRef = &console.NamespacedName{}

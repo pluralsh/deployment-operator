@@ -22,7 +22,6 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // +kubebuilder:validation:Enum=PENDING;OPEN;CLOSED
@@ -119,9 +118,6 @@ func (pgs *PipelineGateStatus) HasSHA() bool {
 }
 
 func (pgs *PipelineGateStatus) IsSHAEqual(sha string) bool {
-	if !pgs.HasSHA() {
-		return false
-	}
 	return pgs.GetSHA() == sha
 }
 
@@ -155,7 +151,7 @@ func (pgs *PipelineGateStatus) SetSHA(sha string) *PipelineGateStatus {
 }
 
 func (pg *PipelineGate) CreateNewJobName() string {
-	return fmt.Sprintf("%s-%s", pg.Name, rand.String(8))
+	return pg.Name
 }
 
 func (pg *PipelineGate) CreateNewJobRef() console.NamespacedName {
