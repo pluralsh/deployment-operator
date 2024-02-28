@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	batchv1 "k8s.io/api/batch/v1"
-
 	"github.com/pluralsh/controller-reconcile-helper/pkg/patch"
-
+	batchv1 "k8s.io/api/batch/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
