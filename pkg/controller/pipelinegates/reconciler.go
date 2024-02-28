@@ -7,7 +7,6 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	pgctrl "github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
@@ -154,20 +153,6 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (reconcile.Re
 			logger.Error(err, "failed to create gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{}, nil
-	}
-
-	logger.V(1).Info("Gate exists.", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-	scope, err := pgctrl.NewPipelineGateScope(ctx, s.K8sClient, currentGate)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	currentGate.Spec = gateCR.Spec
-	err = scope.PatchObject()
-	if err != nil {
-		logger.Error(err, "failed to patch gate", "Namespace", gateCR.Namespace, "Name", gateCR.Name, "ID", gateCR.Spec.ID)
-		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
