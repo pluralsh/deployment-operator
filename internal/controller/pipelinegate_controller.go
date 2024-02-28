@@ -18,14 +18,13 @@ package controller
 
 import (
 	"context"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/samber/lo"
-	"time"
 
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -139,7 +138,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 	jobSpec := consoleclient.JobSpecFromJobSpecFragment(cachedGate.Name, cachedGate.Spec.Job)
 	jobRef := gate.CreateNewJobRef()
 	job := generateJob(*jobSpec, jobRef)
-	sha, err := utils.HashObject(job.Spec.Template.Spec)
+	sha, err := utils.HashObject(job.Spec.Template)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -164,14 +163,10 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 		return ctrl.Result{}, nil
 	}
 
-	// update when job is in progress
-	if !gate.Status.IsSHAEqual(sha) {
-		//reconciledJob.Spec.Template.Spec.Containers = job.Spec.Template.Spec.Containers
-		if err := r.Client.Update(ctx, reconciledJob); err != nil {
-			if apierrs.IsConflict(err) {
-				return ctrl.Result{RequeueAfter: time.Second}, nil
-			}
-			return ctrl.Result{}, err
+	// UPDATE
+	if !gate.Status.IsSHAEqual(sha) && !hasFailed(reconciledJob) && !hasSucceeded(reconciledJob) {
+		if err := r.updateJob(ctx, reconciledJob, job); err != nil {
+			return ctrl.Result{}, nil
 		}
 		gate.Status.SetSHA(sha)
 	}
@@ -209,6 +204,31 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 	}
 
 	return requeue, nil
+}
+
+func (r *PipelineGateReconciler) updateJob(ctx context.Context, reconciledJob *batchv1.Job, newJob *batchv1.Job) error {
+	reconciledJob.Spec.Template.Spec.Containers = newJob.Spec.Template.Spec.Containers
+	if reconciledJob.Spec.Template.Labels == nil {
+		reconciledJob.Spec.Template.Labels = map[string]string{}
+	}
+	if reconciledJob.Spec.Template.Annotations == nil {
+		reconciledJob.Spec.Template.Annotations = map[string]string{}
+	}
+	for k, v := range newJob.Spec.Template.Labels {
+		reconciledJob.Spec.Template.Labels[k] = v
+	}
+	for k, v := range newJob.Spec.Template.Annotations {
+		reconciledJob.Spec.Template.Annotations[k] = v
+	}
+
+	jobScope, err := NewJobScope(ctx, r.Client, reconciledJob)
+	if err != nil {
+		return err
+	}
+	if err := jobScope.PatchObject(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // IsStatusConditionTrue returns true when the conditionType is present and set to `metav1.ConditionTrue`
