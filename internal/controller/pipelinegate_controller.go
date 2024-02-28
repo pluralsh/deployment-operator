@@ -69,7 +69,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	cachedGate, err := r.GateCache.Get(crGate.Spec.ID)
 	if err != nil {
 		log.Info("Unable to fetch PipelineGate from cache, this gate probably doesn't exist in the console.")
-		if err := r.Delete(ctx, crGate); err != nil {
+		if err := r.cleanUpGate(ctx, crGate); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -101,13 +101,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// RERUN
 	if (crGate.Status.IsOpen() || crGate.Status.IsClosed()) && crGate.Status.HasJobRef() && consoleclient.IsPending(cachedGate) {
 		crGate.Status.SetState(console.GateStatePending)
-		job := &batchv1.Job{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cachedGate.Status.JobRef.Name,
-				Namespace: cachedGate.Status.JobRef.Namespace,
-			},
-		}
-		if err := killJob(ctx, r.Client, job); err != nil {
+		if err := r.killJob(ctx, genJobObjectMeta(crGate)); err != nil {
 			return ctrl.Result{}, err
 		}
 		crGate.Status.JobRef = nil
@@ -117,10 +111,22 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return requeue, nil
 }
 
-func killJob(ctx context.Context, c client.Client, job *batchv1.Job) error {
+func (r *PipelineGateReconciler) cleanUpGate(ctx context.Context, crGate *v1alpha1.PipelineGate) error {
+	if err := r.killJob(ctx, genJobObjectMeta(crGate)); err != nil {
+		return err
+	}
+	if err := r.Delete(ctx, crGate); err != nil {
+		if !apierrs.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *PipelineGateReconciler) killJob(ctx context.Context, job *batchv1.Job) error {
 	log := log.FromContext(ctx)
 	deletePolicy := metav1.DeletePropagationBackground // kill the job and its pods asap
-	if err := c.Delete(ctx, job, &client.DeleteOptions{
+	if err := r.Delete(ctx, job, &client.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}); err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -175,7 +181,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 	if consoleclient.IsClosed(cachedGate) {
 		// I don't think a guarantee for aborting a job is possible, unless we change the console api to allow for it
 		// try to kill the job
-		if err := killJob(ctx, r.Client, job); err != nil {
+		if err := r.killJob(ctx, job); err != nil {
 			return ctrl.Result{}, err
 		}
 		// even if the killing of the job fails, we better update the gate status to closed asap, so we don't report a gate CR transition from pending to closed
@@ -231,12 +237,34 @@ func (r *PipelineGateReconciler) updateJob(ctx context.Context, reconciledJob *b
 	return nil
 }
 
-// IsStatusConditionTrue returns true when the conditionType is present and set to `metav1.ConditionTrue`
+func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate) error {
+	updateAttrs, err := gate.Status.GateUpdateAttributes()
+	if err != nil {
+		return err
+	}
+	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, *updateAttrs); err != nil {
+		return err
+	}
+	if _, err = r.GateCache.Set(gate.Spec.ID); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1.PipelineGate{}).
+		Owns(&batchv1.Job{}).
+		Complete(r)
+}
+
+// IsJobStatusConditionTrue returns true when the conditionType is present and set to `metav1.ConditionTrue`
 func IsJobStatusConditionTrue(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType) bool {
 	return IsJobStatusConditionPresentAndEqual(conditions, conditionType, corev1.ConditionTrue)
 }
 
-// IsStatusConditionPresentAndEqual returns true when conditionType is present and equal to status.
+// IsJobStatusConditionPresentAndEqual returns true when conditionType is present and equal to status.
 func IsJobStatusConditionPresentAndEqual(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType, status corev1.ConditionStatus) bool {
 	for _, condition := range conditions {
 		if condition.Type == conditionType {
@@ -252,14 +280,6 @@ func hasFailed(job *batchv1.Job) bool {
 
 func hasSucceeded(job *batchv1.Job) bool {
 	return IsJobStatusConditionTrue(job.Status.Conditions, batchv1.JobComplete)
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.PipelineGate{}).
-		Owns(&batchv1.Job{}).
-		Complete(r)
 }
 
 // Job reconciles a k8s job object.
@@ -290,16 +310,11 @@ func generateJob(jobSpec batchv1.JobSpec, jobRef console.NamespacedName) *batchv
 	}
 }
 
-func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate) error {
-	updateAttrs, err := gate.Status.GateUpdateAttributes()
-	if err != nil {
-		return err
+func genJobObjectMeta(gate *v1alpha1.PipelineGate) *batchv1.Job {
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gate.Status.JobRef.Name,
+			Namespace: gate.Status.JobRef.Namespace,
+		},
 	}
-	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, *updateAttrs); err != nil {
-		return err
-	}
-	if _, err = r.GateCache.Set(gate.Spec.ID); err != nil {
-		return err
-	}
-	return nil
 }
