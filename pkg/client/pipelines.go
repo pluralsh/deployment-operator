@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console-client-go"
-	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	batchv1 "k8s.io/api/batch/v1"
@@ -58,7 +58,7 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, o
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: operatorNamespace + "-pipelines",
+			Namespace: operatorNamespace,
 		},
 		Spec: v1alpha1.PipelineGateSpec{
 			ID:       pgFragment.ID,
@@ -93,11 +93,11 @@ func gateSpecFromGateSpecFragment(gateName string, gsFragment *console.GateSpecF
 		return nil
 	}
 	return &v1alpha1.GateSpec{
-		JobSpec: jobSpecFromJobSpecFragment(gateName, gsFragment.Job),
+		JobSpec: JobSpecFromJobSpecFragment(gateName, gsFragment.Job),
 	}
 }
 
-func jobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFragment) *batchv1.JobSpec {
+func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFragment) *batchv1.JobSpec {
 	if jsFragment == nil {
 		return nil
 	}
@@ -205,43 +205,4 @@ func IsPending(pgFragment *console.PipelineGateFragment) bool {
 
 func IsClosed(pgFragment *console.PipelineGateFragment) bool {
 	return pgFragment != nil && pgFragment.State == console.GateStateClosed
-}
-
-func IsOpen(pgFragment *console.PipelineGateFragment) bool {
-	return pgFragment != nil && pgFragment.State == console.GateStateOpen
-}
-
-func IsJobType(pgFragment *console.PipelineGateFragment) bool {
-	return pgFragment != nil && pgFragment.Type == console.GateTypeJob
-}
-
-func HasJobRef(pgFragment *console.PipelineGateFragment) bool {
-	if pgFragment.Status == nil {
-		return false
-	}
-
-	if pgFragment.Status.JobRef == nil {
-		return false
-	}
-
-	return pgFragment.Status.JobRef.Name != "" && pgFragment.Status.JobRef.Namespace != ""
-}
-
-func GateUpdateAttributes(fragment console.PipelineGateFragment) console.GateUpdateAttributes {
-	var jobRef *console.NamespacedName
-	if fragment.Status != nil && fragment.Status.JobRef != nil {
-		jobRef = &console.NamespacedName{
-			Name:      fragment.Status.JobRef.Namespace,
-			Namespace: fragment.Status.JobRef.Name,
-		}
-	} else {
-		jobRef = &console.NamespacedName{}
-	}
-
-	return console.GateUpdateAttributes{
-		State: &fragment.State,
-		Status: &console.GateStatusAttributes{
-			JobRef: jobRef,
-		},
-	}
 }

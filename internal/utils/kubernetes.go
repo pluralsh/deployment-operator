@@ -4,21 +4,51 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/kubectl/pkg/cmd/util"
-
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+func TryAddControllerRef(ctx context.Context, client ctrlruntimeclient.Client, owner ctrlruntimeclient.Object, controlled ctrlruntimeclient.Object, scheme *runtime.Scheme) error {
+	key := ctrlruntimeclient.ObjectKeyFromObject(controlled)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := client.Get(ctx, key, controlled); err != nil {
+			return err
+		}
+
+		if owner.GetDeletionTimestamp() != nil || controlled.GetDeletionTimestamp() != nil {
+			return nil
+		}
+
+		original := controlled.DeepCopyObject().(ctrlruntimeclient.Object)
+
+		err := controllerutil.SetControllerReference(owner, controlled, scheme)
+		if err != nil {
+			return err
+		}
+
+		if reflect.DeepEqual(original.GetOwnerReferences(), controlled.GetOwnerReferences()) {
+			return nil
+		}
+
+		return client.Patch(ctx, controlled, ctrlruntimeclient.MergeFromWithOptions(original, ctrlruntimeclient.MergeFromWithOptimisticLock{}))
+	})
+}
 
 func AsName(val string) string {
 	return strings.ReplaceAll(val, " ", "-")
