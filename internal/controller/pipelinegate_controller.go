@@ -167,7 +167,8 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 
 	if !gate.Status.HasJobRef() {
 		log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
-		if err := ctrl.SetControllerReference(gate, job, r.Scheme); err != nil {
+
+		if err := utils.TryAddControllerRef(ctx, r.Client, gate, job, r.Scheme); err != nil {
 			log.Error(err, "Error setting ControllerReference for Job.")
 			return ctrl.Result{}, err
 		}
@@ -206,7 +207,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 	}
 
 	if err := r.updateJob(ctx, reconciledJob, job); err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
 	return requeue, nil
