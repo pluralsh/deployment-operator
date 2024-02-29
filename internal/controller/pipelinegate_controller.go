@@ -80,7 +80,20 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 	defer func() {
+		updateAttr := crGate.Status.GateUpdateAttributes()
+		sha, err := utils.HashObject(updateAttr)
+		if err != nil {
+			log.Error(err, "Failed to compute a sha for the gate status update.")
+			reterr = err
+			return
+		}
+		crGate.Status.SetSHA(sha)
+
 		if err := scope.PatchObject(); err != nil && reterr == nil {
+			reterr = err
+			return
+		}
+		if err := r.updateConsoleGate(crGate, cachedGate); err != nil {
 			reterr = err
 			return
 		}
@@ -144,10 +157,6 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 	jobSpec := consoleclient.JobSpecFromJobSpecFragment(cachedGate.Name, cachedGate.Spec.Job)
 	jobRef := gate.CreateNewJobRef()
 	job := generateJob(*jobSpec, jobRef)
-	sha, err := utils.HashObject(job.Spec.Template)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
 	gate.Spec.GateSpec.JobSpec = lo.ToPtr(job.Spec)
 	reconciledJob, err := Job(ctx, r.Client, job, log)
@@ -165,16 +174,7 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 
 		gate.Status.SetState(console.GateStatePending)
 		gate.Status.JobRef = lo.ToPtr(jobRef)
-		gate.Status.SetSHA(sha)
 		return ctrl.Result{}, nil
-	}
-
-	// UPDATE
-	if !gate.Status.IsSHAEqual(sha) && !hasFailed(reconciledJob) && !hasSucceeded(reconciledJob) {
-		if err := r.updateJob(ctx, reconciledJob, job); err != nil {
-			return ctrl.Result{}, nil
-		}
-		gate.Status.SetSHA(sha)
 	}
 
 	// ABORT:
@@ -196,17 +196,17 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 		// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
 		log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
 		gate.Status.SetState(console.GateStateClosed)
-		if err := r.updateConsoleGate(gate); err != nil {
-			return ctrl.Result{}, err
-		}
+		return requeue, nil
 	}
 	if hasSucceeded(reconciledJob) {
 		// if the job is complete, then we need to update the gate state to open, unless it's a rerun
 		log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
 		gate.Status.SetState(console.GateStateOpen)
-		if err := r.updateConsoleGate(gate); err != nil {
-			return ctrl.Result{}, err
-		}
+		return requeue, nil
+	}
+
+	if err := r.updateJob(ctx, reconciledJob, job); err != nil {
+		return ctrl.Result{}, nil
 	}
 
 	return requeue, nil
@@ -237,15 +237,20 @@ func (r *PipelineGateReconciler) updateJob(ctx context.Context, reconciledJob *b
 	return nil
 }
 
-func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate) error {
-	updateAttrs, err := gate.Status.GateUpdateAttributes()
+func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate, cachedGate *console.PipelineGateFragment) error {
+	sha, err := utils.HashObject(gateUpdateAttributes(cachedGate))
 	if err != nil {
 		return err
 	}
-	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, *updateAttrs); err != nil {
+
+	if gate.Status.IsSHAEqual(sha) {
+		return nil
+	}
+
+	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, gate.Status.GateUpdateAttributes()); err != nil {
 		return err
 	}
-	if _, err = r.GateCache.Set(gate.Spec.ID); err != nil {
+	if _, err := r.GateCache.Set(gate.Spec.ID); err != nil {
 		return err
 	}
 	return nil
@@ -315,6 +320,25 @@ func genJobObjectMeta(gate *v1alpha1.PipelineGate) *batchv1.Job {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gate.Status.JobRef.Name,
 			Namespace: gate.Status.JobRef.Namespace,
+		},
+	}
+}
+
+func gateUpdateAttributes(fragment *console.PipelineGateFragment) console.GateUpdateAttributes {
+	var jobRef *console.NamespacedName
+	if fragment.Status != nil && fragment.Status.JobRef != nil {
+		jobRef = &console.NamespacedName{
+			Name:      fragment.Status.JobRef.Name,
+			Namespace: fragment.Status.JobRef.Namespace,
+		}
+	} else {
+		jobRef = &console.NamespacedName{}
+	}
+
+	return console.GateUpdateAttributes{
+		State: &fragment.State,
+		Status: &console.GateStatusAttributes{
+			JobRef: jobRef,
 		},
 	}
 }

@@ -17,9 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	console "github.com/pluralsh/console-client-go"
+	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -98,12 +97,11 @@ func (pgs *PipelineGateStatus) HasJobRef() bool {
 	return !(pgs.JobRef == nil || *pgs.JobRef == console.NamespacedName{})
 }
 
-func (pgs *PipelineGateStatus) GetConsoleGateState() (*console.GateState, error) {
-	if pgs.State == nil {
-		return nil, fmt.Errorf("gate state is not initialized")
+func (pgs *PipelineGateStatus) GetConsoleGateState() *console.GateState {
+	if pgs.State != nil {
+		return lo.ToPtr(console.GateState(*pgs.State))
 	}
-	state := console.GateState(*pgs.State)
-	return &state, nil
+	return nil
 }
 
 func (pgs *PipelineGateStatus) GetSHA() string {
@@ -136,13 +134,8 @@ func (pgs *PipelineGateStatus) SetJobRef(name string, namespace string) *Pipelin
 	return pgs
 }
 
-func (pgs *PipelineGateStatus) GateUpdateAttributes() (*console.GateUpdateAttributes, error) {
-	state, err := pgs.GetConsoleGateState()
-	if err != nil {
-		return nil, err
-	}
-	updateAttributes := console.GateUpdateAttributes{State: state, Status: &console.GateStatusAttributes{JobRef: pgs.JobRef}}
-	return &updateAttributes, nil
+func (pgs *PipelineGateStatus) GateUpdateAttributes() console.GateUpdateAttributes {
+	return console.GateUpdateAttributes{State: pgs.GetConsoleGateState(), Status: &console.GateStatusAttributes{JobRef: pgs.JobRef}}
 }
 
 func (pgs *PipelineGateStatus) SetSHA(sha string) *PipelineGateStatus {
