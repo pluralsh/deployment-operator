@@ -7,6 +7,7 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -132,7 +133,8 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 		gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
 		jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
 	}
-	
+	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(int32(86400))
+
 	return jobSpec
 }
 
