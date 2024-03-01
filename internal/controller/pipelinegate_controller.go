@@ -80,23 +80,16 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 	defer func() {
-		updateAttr := crGate.Status.GateUpdateAttributes()
-		sha, err := utils.HashObject(updateAttr)
-		if err != nil {
-			log.Error(err, "Failed to compute a sha for the gate status update.")
+		if err := r.updateConsoleGate(crGate); err != nil {
 			reterr = err
 			return
 		}
-		crGate.Status.SetSHA(sha)
 
 		if err := scope.PatchObject(); err != nil && reterr == nil {
 			reterr = err
 			return
 		}
-		if err := r.updateConsoleGate(crGate, cachedGate); err != nil {
-			reterr = err
-			return
-		}
+
 	}()
 
 	// INITIAL STATE
@@ -238,8 +231,8 @@ func (r *PipelineGateReconciler) updateJob(ctx context.Context, reconciledJob *b
 	return nil
 }
 
-func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate, cachedGate *console.PipelineGateFragment) error {
-	sha, err := utils.HashObject(gateUpdateAttributes(cachedGate))
+func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate) error {
+	sha, err := utils.HashObject(gate.Status.GateUpdateAttributes())
 	if err != nil {
 		return err
 	}
@@ -248,6 +241,7 @@ func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate, 
 		return nil
 	}
 
+	gate.Status.SHA = &sha
 	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, gate.Status.GateUpdateAttributes()); err != nil {
 		return err
 	}
