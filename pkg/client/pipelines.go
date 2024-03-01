@@ -132,9 +132,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 		gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
 		jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
 	}
-	ttlSeconds := int32(7200)
-	jobSpec.TTLSecondsAfterFinished = &ttlSeconds
-
+	
 	return jobSpec
 }
 
