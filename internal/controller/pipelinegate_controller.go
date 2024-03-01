@@ -255,7 +255,6 @@ func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate) 
 func (r *PipelineGateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.PipelineGate{}).
-		Owns(&batchv1.Job{}).
 		Complete(r)
 }
 
