@@ -7,11 +7,14 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 )
+
+const twentyFourHours = int32(86400)
 
 func (c *client) UpdateGate(id string, attributes console.GateUpdateAttributes) error {
 	_, err := c.consoleClient.UpdateGate(c.ctx, id, attributes)
@@ -132,8 +135,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 		gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
 		jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
 	}
-	ttlSeconds := int32(7200)
-	jobSpec.TTLSecondsAfterFinished = &ttlSeconds
+	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(twentyFourHours)
 
 	return jobSpec
 }
