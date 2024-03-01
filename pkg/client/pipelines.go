@@ -14,6 +14,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
+const twentyFourHours = int32(86400)
+
 func (c *client) UpdateGate(id string, attributes console.GateUpdateAttributes) error {
 	_, err := c.consoleClient.UpdateGate(c.ctx, id, attributes)
 	return err
@@ -133,7 +135,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 		gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
 		jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
 	}
-	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(int32(86400))
+	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(twentyFourHours)
 
 	return jobSpec
 }
