@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/pluralsh/polly/algorithms"
 	"log"
 	"os"
 	"path"
@@ -157,7 +158,7 @@ func (h *helm) values(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 			if err != nil {
 				return currentMap, err
 			}
-			currentMap = merge(currentMap, nextMap)
+			currentMap = algorithms.Merge(currentMap, nextMap)
 		}
 	}
 
@@ -166,28 +167,7 @@ func (h *helm) values(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 		return currentMap, nil
 	}
 
-	return merge(currentMap, overrides), nil
-}
-
-func merge(m1, m2 map[string]interface{}) map[string]interface{} {
-	// lifted from helm's merge code
-	out := make(map[string]interface{}, len(m1))
-	for k, v := range m1 {
-		out[k] = v
-	}
-
-	for k, v := range m2 {
-		if v, ok := v.(map[string]interface{}); ok {
-			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = merge(bv, v)
-					continue
-				}
-			}
-		}
-		out[k] = v
-	}
-	return out
+	return algorithms.Merge(currentMap, overrides), nil
 }
 
 func (h *helm) valuesFile(svc *console.GetServiceDeploymentForAgent_ServiceDeployment, filename string) (map[string]interface{}, error) {

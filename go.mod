@@ -11,7 +11,6 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-logr/logr v1.3.0
 	github.com/gofrs/flock v0.8.1
-	github.com/google/uuid v1.6.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.27.10
@@ -21,7 +20,7 @@ require (
 	github.com/pluralsh/console-client-go v0.1.0
 	github.com/pluralsh/controller-reconcile-helper v0.0.4
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
-	github.com/pluralsh/polly v0.1.4
+	github.com/pluralsh/polly v0.1.6
 	github.com/samber/lo v1.39.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
@@ -60,6 +59,7 @@ require (
 	github.com/Masterminds/squirrel v1.5.3 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/chigopher/pathlib v0.19.1 // indirect
@@ -101,6 +101,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
