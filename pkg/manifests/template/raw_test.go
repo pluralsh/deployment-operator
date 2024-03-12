@@ -1,12 +1,12 @@
 package template
 
 import (
-	"github.com/samber/lo"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/samber/lo"
 )
 
 var _ = Describe("Raw template", func() {
