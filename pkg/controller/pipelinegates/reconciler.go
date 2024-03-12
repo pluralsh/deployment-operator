@@ -3,16 +3,16 @@ package pipelinegates
 import (
 	"context"
 	"fmt"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/polly/algorithms"
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
+	"github.com/pluralsh/polly/algorithms"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
