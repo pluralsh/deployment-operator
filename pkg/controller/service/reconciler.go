@@ -8,6 +8,8 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -176,13 +178,28 @@ func (s *ServiceReconciler) ShutdownQueue() {
 	s.SvcQueue.ShutDown()
 }
 
+func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentEdgeFragment] {
+	logger := log.FromContext(ctx)
+	logger.Info("create service pager")
+	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentEdgeFragment, *algorithms.PageInfo, error) {
+		resp, err := s.ConsoleClient.GetServices(page, &size)
+		if err != nil {
+			logger.Error(err, "failed to fetch service list from deployments service")
+			return nil, nil, err
+		}
+		pageInfo := &algorithms.PageInfo{
+			HasNext:  resp.PagedClusterServices.PageInfo.HasNextPage,
+			After:    resp.PagedClusterServices.PageInfo.EndCursor,
+			PageSize: size,
+		}
+		return resp.PagedClusterServices.Edges, pageInfo, nil
+	}
+	return algorithms.NewPager[*console.ServiceDeploymentEdgeFragment](controller.DefaultPageSize, fetch)
+}
+
 func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 	logger := log.FromContext(ctx)
 	logger.Info("fetching services for cluster")
-	var after *string
-	var pageSize int64
-	pageSize = 100
-	hasNextPage := true
 
 	restore, err := s.isClusterRestore(ctx)
 	if err != nil {
@@ -194,16 +211,15 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 		return false, nil
 	}
 
-	for hasNextPage {
-		resp, err := s.ConsoleClient.GetServices(after, &pageSize)
+	pager := s.ListServices(ctx)
+
+	for pager.HasNext() {
+		services, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch service list from deployments service")
 			return false, nil
 		}
-
-		hasNextPage = resp.PagedClusterServices.PageInfo.HasNextPage
-		after = resp.PagedClusterServices.PageInfo.EndCursor
-		for _, svc := range resp.PagedClusterServices.Edges {
+		for _, svc := range services {
 			logger.Info("sending update for", "service", svc.Node.ID)
 			s.SvcQueue.Add(svc.Node.ID)
 		}

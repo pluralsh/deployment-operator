@@ -317,22 +317,3 @@ func genJobObjectMeta(gate *v1alpha1.PipelineGate) *batchv1.Job {
 		},
 	}
 }
-
-func gateUpdateAttributes(fragment *console.PipelineGateFragment) console.GateUpdateAttributes {
-	var jobRef *console.NamespacedName
-	if fragment.Status != nil && fragment.Status.JobRef != nil {
-		jobRef = &console.NamespacedName{
-			Name:      fragment.Status.JobRef.Name,
-			Namespace: fragment.Status.JobRef.Namespace,
-		}
-	} else {
-		jobRef = &console.NamespacedName{}
-	}
-
-	return console.GateUpdateAttributes{
-		State: &fragment.State,
-		Status: &console.GateStatusAttributes{
-			JobRef: jobRef,
-		},
-	}
-}

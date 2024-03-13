@@ -9,8 +9,10 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
+	"github.com/pluralsh/polly/algorithms"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
@@ -83,26 +85,39 @@ func (s *GateReconciler) ShutdownQueue() {
 	s.GateQueue.ShutDown()
 }
 
+func (s *GateReconciler) ListGates(ctx context.Context) *algorithms.Pager[*console.PipelineGateEdgeFragment] {
+	logger := log.FromContext(ctx)
+	logger.Info("create pipeline gate pager")
+	fetch := func(page *string, size int64) ([]*console.PipelineGateEdgeFragment, *algorithms.PageInfo, error) {
+		resp, err := s.ConsoleClient.GetClusterGates(page, &size)
+		if err != nil {
+			logger.Error(err, "failed to fetch gates")
+			return nil, nil, err
+		}
+		pageInfo := &algorithms.PageInfo{
+			HasNext:  resp.PagedClusterGates.PageInfo.HasNextPage,
+			After:    resp.PagedClusterGates.PageInfo.EndCursor,
+			PageSize: size,
+		}
+		return resp.PagedClusterGates.Edges, pageInfo, nil
+	}
+	return algorithms.NewPager[*console.PipelineGateEdgeFragment](controller.DefaultPageSize, fetch)
+}
+
 func (s *GateReconciler) Poll(ctx context.Context) (done bool, err error) {
 	logger := log.FromContext(ctx)
 	logger.V(1).Info("fetching gates for cluster")
 
-	var after *string
-	var pageSize int64
-	pageSize = 100
-	hasNextPage := true
+	pager := s.ListGates(ctx)
 
-	for hasNextPage {
-		resp, err := s.ConsoleClient.GetClusterGates(after, &pageSize)
+	for pager.HasNext() {
+		gates, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch gates list")
 			return false, nil
 		}
 
-		hasNextPage = resp.PagedClusterGates.PageInfo.HasNextPage
-		after = resp.PagedClusterGates.PageInfo.EndCursor
-
-		for _, gate := range resp.PagedClusterGates.Edges {
+		for _, gate := range gates {
 			logger.V(2).Info("sending update for", "gate", gate.Node.ID)
 			s.GateQueue.Add(gate.Node.ID)
 		}
