@@ -6,14 +6,15 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/Yamashou/gqlgenc v0.18.1
-	github.com/evanphx/json-patch v5.6.0+incompatible
+	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/fluxcd/flagger v1.35.0
 	github.com/gin-gonic/gin v1.7.7
-	github.com/go-logr/logr v1.3.0
+	github.com/go-logr/logr v1.4.1
 	github.com/gofrs/flock v0.8.1
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/onsi/ginkgo/v2 v2.12.1
-	github.com/onsi/gomega v1.27.10
+	github.com/onsi/ginkgo/v2 v2.14.0
+	github.com/onsi/gomega v1.30.0
+	github.com/open-policy-agent/gatekeeper/v3 v3.15.1
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/osteele/liquid v1.3.2
 	github.com/pkg/errors v0.9.1
@@ -28,22 +29,21 @@ require (
 	github.com/vmware-tanzu/velero v1.13.0
 	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.26.0
-	golang.org/x/net v0.18.0
-	helm.sh/helm/v3 v3.11.2
-	k8s.io/api v0.27.7
-	k8s.io/apiextensions-apiserver v0.27.7
-	k8s.io/apimachinery v0.27.7
-	k8s.io/cli-runtime v0.26.0
-	k8s.io/client-go v0.27.7
+	golang.org/x/net v0.19.0
+	helm.sh/helm/v3 v3.14.3
+	k8s.io/api v0.29.2
+	k8s.io/apimachinery v0.29.2
+	k8s.io/cli-runtime v0.29.2
+	k8s.io/client-go v0.29.2
 	k8s.io/klog/v2 v2.110.1
-	k8s.io/kubectl v0.26.0
+	k8s.io/kubectl v0.29.2
 	layeh.com/gopher-luar v1.0.11
-	sigs.k8s.io/cli-utils v0.35.0
-	sigs.k8s.io/controller-runtime v0.15.3
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20231215020716-1b80b9629af8
-	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
-	sigs.k8s.io/kustomize/kyaml v0.13.9
-	sigs.k8s.io/yaml v1.3.0
+	sigs.k8s.io/cli-utils v0.35.1-0.20240103002740-7928dbf3d402
+	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20240313184151-cb5107b36b64
+	sigs.k8s.io/kustomize/kustomize/v5 v5.0.4-0.20230601165947-6ce0bf390ce3
+	sigs.k8s.io/kustomize/kyaml v0.16.0
+	sigs.k8s.io/yaml v1.4.0
 
 )
 
@@ -198,6 +198,7 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/apiextensions-apiserver v0.27.7 // indirect
 	k8s.io/apiserver v0.27.7 // indirect
 	k8s.io/component-base v0.27.7 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
