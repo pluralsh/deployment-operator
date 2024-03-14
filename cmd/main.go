@@ -8,7 +8,9 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,6 +26,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(deploymentsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(velerov1.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -46,20 +49,37 @@ func main() {
 	setupLog.Info("starting agent")
 	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
 
-	if err = (&controller.BackupReconciler{
+	backupController := &controller.BackupReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		ConsoleClient: ctrlMgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Backup")
+	}
+	restoreController := &controller.RestoreReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ConsoleClient: ctrlMgr.GetClient(),
 	}
 
-	if err = (&controller.RestoreReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
+	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
+		{
+			Group:   velerov1.SchemeGroupVersion.Group,
+			Version: velerov1.SchemeGroupVersion.Version,
+			Kind:    "Backup",
+		}: backupController.SetupWithManager,
+		{
+			Group:   velerov1.SchemeGroupVersion.Group,
+			Version: velerov1.SchemeGroupVersion.Version,
+			Kind:    "Restore",
+		}: restoreController.SetupWithManager,
+	}
+
+	if err = (&controller.CrdRegisterControllerReconciler{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		ReconcilerGroups: reconcileGroups,
+		Mgr:              mgr,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Restore")
+		setupLog.Error(err, "unable to create controller", "controller", "CRDRegisterController")
 	}
 
 	if err = (&controller.CustomHealthReconciler{
