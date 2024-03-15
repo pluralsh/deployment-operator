@@ -3,10 +3,12 @@ package controller
 import (
 	"context"
 	"fmt"
-
+	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	"github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
+	console "github.com/pluralsh/console-client-go"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,34 +20,52 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const missingLabelError = "missing label while attempting to map a constraint status resource"
+
 type ConstraintReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
 	ConsoleClient consoleclient.Client
 	Reader        client.Reader
+	Constrains    map[string]*console.PolicyConstraintAttributes
 }
 
 func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
+	if r.Constrains == nil {
+		r.Constrains = map[string]*console.PolicyConstraintAttributes{}
+	}
 
 	cps := new(constraintstatusv1beta1.ConstraintPodStatus)
 	if err := r.Get(ctx, req.NamespacedName, cps); err != nil {
-		logger.Error(err, "Unable to fetch ConstraintPodStatus")
+		logger.Info("Unable to fetch ConstraintPodStatus")
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 	if !cps.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
-	instance, err := ConstraintPodStatusToUnstructured(ctx, cps)
+	instance, template, err := r.ConstraintPodStatusToUnstructured(ctx, cps)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if err := r.Reader.Get(ctx, types.NamespacedName{Name: instance.GetName()}, instance); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
+	pca, err := GenerateAPIConstraint(instance, template)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	r.Constrains[pca.Name] = pca
+	mapToSlice[string, *console.PolicyConstraintAttributes](r.Constrains)
+	/*	res, err := r.ConsoleClient.UpsertConstraints(r.Constrains.List())
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		logger.Info("upsert constraint", "number", *res.UpsertPolicyConstraints)*/
+	logger.Info("!!!!!!!!!!!!!!!!!!!!!!!", "n:", len(mapToSlice[string, *console.PolicyConstraintAttributes](r.Constrains)))
 	return ctrl.Result{}, nil
 
 }
@@ -57,24 +77,102 @@ func (r *ConstraintReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func ConstraintPodStatusToUnstructured(ctx context.Context, cps *constraintstatusv1beta1.ConstraintPodStatus) (*unstructured.Unstructured, error) {
+func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templatesv1.ConstraintTemplate) (*console.PolicyConstraintAttributes, error) {
+	var description *string
+	var violationCount *int64
+
+	pca := &console.PolicyConstraintAttributes{
+		Name:           instance.GetName(),
+		Description:    description,
+		Recommendation: nil,
+		ViolationCount: violationCount,
+		Ref:            nil,
+	}
+
+	if template.Annotations != nil {
+		d, ok := template.Annotations["description"]
+		if ok {
+			description = lo.ToPtr(d)
+		}
+	}
+	violations, found, err := unstructured.NestedSlice(instance.Object, "status", "violations")
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		pca.Violations = make([]*console.ViolationAttributes, 0)
+		violationCount = lo.ToPtr(int64(len(violations)))
+		for _, v := range violations {
+			statusViolationObject := StatusViolation{}
+			statusViolation, ok := v.(map[string]interface{})
+			if ok {
+				err = runtime.DefaultUnstructuredConverter.
+					FromUnstructured(statusViolation, &statusViolationObject)
+				if err != nil {
+					return nil, err
+				}
+				pca.Violations = append(pca.Violations, &console.ViolationAttributes{
+					Group:     lo.ToPtr(statusViolationObject.Group),
+					Version:   lo.ToPtr(statusViolationObject.Version),
+					Kind:      lo.ToPtr(statusViolationObject.Kind),
+					Namespace: lo.ToPtr(statusViolationObject.Namespace),
+					Name:      lo.ToPtr(statusViolationObject.Name),
+					Message:   lo.ToPtr(statusViolationObject.Message),
+				})
+			}
+		}
+	}
+
+	return pca, nil
+}
+
+func (r *ConstraintReconciler) ConstraintPodStatusToUnstructured(ctx context.Context, cps *constraintstatusv1beta1.ConstraintPodStatus) (*unstructured.Unstructured, *templatesv1.ConstraintTemplate, error) {
 	logger := log.FromContext(ctx)
 	labels := cps.GetLabels()
 	name, ok := labels[v1beta1.ConstraintNameLabel]
 	if !ok {
 		err := fmt.Errorf("constraint status resource with no name label: %s", cps.GetName())
-		logger.Error(err, "missing label while attempting to map a constraint status resource")
-		return nil, err
+		logger.Error(err, missingLabelError)
+		return nil, nil, err
 	}
 	kind, ok := labels[v1beta1.ConstraintKindLabel]
 	if !ok {
 		err := fmt.Errorf("constraint status resource with no kind label: %s", cps.GetName())
-		logger.Error(err, "missing label while attempting to map a constraint status resource")
-		return nil, err
+		logger.Error(err, missingLabelError)
+		return nil, nil, err
+	}
+
+	templateName, ok := labels[v1beta1.ConstraintTemplateNameLabel]
+	if !ok {
+		err := fmt.Errorf("constraint status resource with no template label: %s", cps.GetName())
+		logger.Error(err, missingLabelError)
+		return nil, nil, err
+	}
+
+	template := new(templatesv1.ConstraintTemplate)
+	if err := r.Get(ctx, types.NamespacedName{Name: templateName}, template); err != nil {
+		return nil, nil, err
 	}
 
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(schema.GroupVersionKind{Group: v1beta1.ConstraintsGroup, Version: "v1beta1", Kind: kind})
 	u.SetName(name)
-	return u, nil
+	return u, template, nil
+}
+
+func mapToSlice[K comparable, V any](m map[K]V) []V {
+	s := make([]V, 0, len(m))
+	for _, v := range m {
+		s = append(s, v)
+	}
+	return s
+}
+
+type StatusViolation struct {
+	Group     string `json:"group"`
+	Version   string `json:"version"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Message   string `json:"message"`
 }
