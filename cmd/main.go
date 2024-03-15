@@ -1,6 +1,7 @@
 package main
 
 import (
+	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	"os"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -27,6 +28,7 @@ func init() {
 	utilruntime.Must(deploymentsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(velerov1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
+	utilruntime.Must(constraintstatusv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -59,6 +61,12 @@ func main() {
 		Scheme:        mgr.GetScheme(),
 		ConsoleClient: ctrlMgr.GetClient(),
 	}
+	constraintController := &controller.ConstraintReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ConsoleClient: ctrlMgr.GetClient(),
+		Reader:        mgr.GetCache(),
+	}
 
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
 		{
@@ -71,6 +79,11 @@ func main() {
 			Version: velerov1.SchemeGroupVersion.Version,
 			Kind:    "Restore",
 		}: restoreController.SetupWithManager,
+		{
+			Group:   "status.gatekeeper.sh",
+			Version: "v1beta1",
+			Kind:    "ConstraintPodStatus",
+		}: constraintController.SetupWithManager,
 	}
 
 	if err = (&controller.CrdRegisterControllerReconciler{

@@ -2,17 +2,18 @@ package controller
 
 import (
 	"context"
-	"sigs.k8s.io/controller-runtime/pkg/source"
+	"fmt"
 
+	"github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
-	"github.com/open-policy-agent/gatekeeper/v3/pkg/controller/constraintstatus"
-	"github.com/open-policy-agent/gatekeeper/v3/pkg/util"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
+	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -24,25 +25,24 @@ type ConstraintReconciler struct {
 	Reader        client.Reader
 }
 
-func (r *ConstraintReconciler) Reconcile(ctx context.Context, request ctrl.Request) (reconcile.Result, error) {
+func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
-	gvk, unpackedRequest, err := util.UnpackRequest(request)
+
+	cps := new(constraintstatusv1beta1.ConstraintPodStatus)
+	if err := r.Get(ctx, req.NamespacedName, cps); err != nil {
+		logger.Error(err, "Unable to fetch ConstraintPodStatus")
+		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
+	}
+	if !cps.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
+	instance, err := ConstraintPodStatusToUnstructured(ctx, cps)
 	if err != nil {
-		// Unrecoverable, do not retry.
-		logger.Error(err, "unpacking request", "request", request)
-		return reconcile.Result{}, nil
-	}
-	// Sanity - make sure it is a constraint resource.
-	if gvk.Group != constraintstatusv1beta1.ConstraintsGroup {
-		// Unrecoverable, do not retry.
-		logger.Error(err, "invalid constraint GroupVersion", "gvk", gvk)
-		return reconcile.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
-	instance := &unstructured.Unstructured{}
-	instance.SetGroupVersionKind(gvk)
-
-	if err := r.Reader.Get(ctx, unpackedRequest.NamespacedName, instance); err != nil {
+	if err := r.Reader.Get(ctx, types.NamespacedName{Name: instance.GetName()}, instance); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -52,12 +52,29 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, request ctrl.Reque
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConstraintReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	c, err := ctrl.NewControllerManagedBy(mgr).Build(r)
-	if err != nil {
-		return err
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&constraintstatusv1beta1.ConstraintPodStatus{}).
+		Complete(r)
+}
+
+func ConstraintPodStatusToUnstructured(ctx context.Context, cps *constraintstatusv1beta1.ConstraintPodStatus) (*unstructured.Unstructured, error) {
+	logger := log.FromContext(ctx)
+	labels := cps.GetLabels()
+	name, ok := labels[v1beta1.ConstraintNameLabel]
+	if !ok {
+		err := fmt.Errorf("constraint status resource with no name label: %s", cps.GetName())
+		logger.Error(err, "missing label while attempting to map a constraint status resource")
+		return nil, err
 	}
-	if err := c.Watch(source.Kind(mgr.GetCache(), &constraintstatusv1beta1.ConstraintPodStatus{}), handler.EnqueueRequestsFromMapFunc(constraintstatus.PodStatusToConstraintMapper(true, util.EventPackerMapFunc()))); err != nil {
-		return err
+	kind, ok := labels[v1beta1.ConstraintKindLabel]
+	if !ok {
+		err := fmt.Errorf("constraint status resource with no kind label: %s", cps.GetName())
+		logger.Error(err, "missing label while attempting to map a constraint status resource")
+		return nil, err
 	}
-	return nil
+
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{Group: v1beta1.ConstraintsGroup, Version: "v1beta1", Kind: kind})
+	u.SetName(name)
+	return u, nil
 }
