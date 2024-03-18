@@ -83,7 +83,8 @@ func (cm *ControllerManager) Start() error {
 		go func() {
 			defer controller.Do.ShutdownQueue()
 			defer controller.Do.WipeCache()
-			_ = wait.PollUntilContextTimeout(cm.ctx, cm.Refresh, time.Minute, true, func(ctx context.Context) (done bool, err error) {
+			//nolint:all
+			_ = wait.PollImmediateInfinite(cm.Refresh, func() (done bool, err error) {
 				return controller.Do.Poll(cm.ctx)
 			})
 		}()
@@ -94,7 +95,8 @@ func (cm *ControllerManager) Start() error {
 	}
 
 	go func() {
-		_ = wait.PollUntilContextTimeout(cm.ctx, cm.Refresh, time.Minute, true, func(ctx context.Context) (done bool, err error) {
+		//nolint:all
+		_ = wait.PollImmediateInfinite(cm.Refresh, func() (done bool, err error) {
 			return false, cm.Socket.Join()
 		})
 	}()

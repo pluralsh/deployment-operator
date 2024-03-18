@@ -25,6 +25,10 @@ var _ = Describe("Raw template", func() {
 					Value: name,
 				},
 			}
+			svc.Cluster = &console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster{
+				ID:   "123",
+				Name: "test",
+			}
 			resp, err := NewRaw(dir).Render(svc, utilFactory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
