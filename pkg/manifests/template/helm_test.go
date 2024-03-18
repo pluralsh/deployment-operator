@@ -19,6 +19,10 @@ var _ = Describe("Helm template", func() {
 	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
 		Namespace: "default",
 		Name:      "test",
+		Cluster: &console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster{
+			ID:   "123",
+			Name: "test",
+		},
 	}
 
 	r := gin.Default()
