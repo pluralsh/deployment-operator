@@ -60,7 +60,7 @@ func isTemplated(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) bo
 func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]byte, error) {
 	bindings := map[string]interface{}{
 		"configuration": configMap(svc),
-		"cluster":       svc.Cluster,
+		"cluster":       clusterConfiguration(svc.Cluster),
 		"contexts":      contexts(svc),
 	}
 	return liquidEngine.ParseAndRender(input, bindings)
@@ -124,4 +124,24 @@ func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment
 	newSet := containers.ToSet[*unstructured.Unstructured](res)
 	res = newSet.List()
 	return res, nil
+}
+
+func clusterConfiguration(cluster *console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster) map[string]interface{} {
+	res := map[string]interface{}{
+		"ID":             cluster.ID,
+		"Self":           cluster.Self,
+		"Handle":         cluster.Handle,
+		"Name":           cluster.Name,
+		"Version":        cluster.Version,
+		"CurrentVersion": cluster.CurrentVersion,
+		"KasUrl":         cluster.KasURL,
+	}
+
+	for k, v := range res {
+		res[strings.ToLower(k)] = v
+	}
+	res["kasUrl"] = cluster.KasURL
+	res["currentVersion"] = cluster.CurrentVersion
+
+	return res
 }
