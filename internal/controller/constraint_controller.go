@@ -9,6 +9,7 @@ import (
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	console "github.com/pluralsh/console-client-go"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,7 +66,7 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 	r.Constrains[pca.Name] = pca
-	res, err := r.ConsoleClient.UpsertConstraints(mapToSlice[string, *console.PolicyConstraintAttributes](r.Constrains))
+	res, err := r.ConsoleClient.UpsertConstraints(algorithms.MapValues[string, *console.PolicyConstraintAttributes](r.Constrains))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -161,14 +162,6 @@ func (r *ConstraintReconciler) ConstraintPodStatusToUnstructured(ctx context.Con
 	u.SetGroupVersionKind(schema.GroupVersionKind{Group: v1beta1.ConstraintsGroup, Version: "v1beta1", Kind: kind})
 	u.SetName(name)
 	return u, template, nil
-}
-
-func mapToSlice[K comparable, V any](m map[K]V) []V {
-	s := make([]V, 0, len(m))
-	for _, v := range m {
-		s = append(s, v)
-	}
-	return s
 }
 
 type StatusViolation struct {
