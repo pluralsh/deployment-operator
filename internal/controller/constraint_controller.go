@@ -42,6 +42,11 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 	if !cps.DeletionTimestamp.IsZero() {
+		labels := cps.GetLabels()
+		name, ok := labels[v1beta1.ConstraintNameLabel]
+		if ok {
+			delete(r.Constrains, name)
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -59,13 +64,11 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 	r.Constrains[pca.Name] = pca
-	mapToSlice[string, *console.PolicyConstraintAttributes](r.Constrains)
-	/*	res, err := r.ConsoleClient.UpsertConstraints(r.Constrains.List())
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		logger.Info("upsert constraint", "number", *res.UpsertPolicyConstraints)*/
-	logger.Info("!!!!!!!!!!!!!!!!!!!!!!!", "n:", len(mapToSlice[string, *console.PolicyConstraintAttributes](r.Constrains)))
+	res, err := r.ConsoleClient.UpsertConstraints(mapToSlice[string, *console.PolicyConstraintAttributes](r.Constrains))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	logger.Info("upsert constraint", "number", *res.UpsertPolicyConstraints)
 	return ctrl.Result{}, nil
 
 }
@@ -78,21 +81,20 @@ func (r *ConstraintReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templatesv1.ConstraintTemplate) (*console.PolicyConstraintAttributes, error) {
-	var description *string
-	var violationCount *int64
-
 	pca := &console.PolicyConstraintAttributes{
 		Name:           instance.GetName(),
-		Description:    description,
-		Recommendation: nil,
-		ViolationCount: violationCount,
-		Ref:            nil,
+		ViolationCount: lo.ToPtr(int64(0)),
+		Recommendation: lo.ToPtr(""),
+		Ref: &console.ConstraintRefAttributes{
+			Kind: instance.GetKind(),
+			Name: instance.GetName(),
+		},
 	}
 
 	if template.Annotations != nil {
 		d, ok := template.Annotations["description"]
 		if ok {
-			description = lo.ToPtr(d)
+			pca.Description = lo.ToPtr(d)
 		}
 	}
 	violations, found, err := unstructured.NestedSlice(instance.Object, "status", "violations")
@@ -101,7 +103,7 @@ func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templa
 	}
 	if found {
 		pca.Violations = make([]*console.ViolationAttributes, 0)
-		violationCount = lo.ToPtr(int64(len(violations)))
+		pca.ViolationCount = lo.ToPtr(int64(len(violations)))
 		for _, v := range violations {
 			statusViolationObject := StatusViolation{}
 			statusViolation, ok := v.(map[string]interface{})
