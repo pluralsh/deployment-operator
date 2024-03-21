@@ -149,7 +149,15 @@ func CheckNamespace(clientset kubernetes.Clientset, namespace string) error {
 	if namespace == "" {
 		return nil
 	}
-	_, err := clientset.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
+
+	ctx := context.Background()
+	nsClient := clientset.CoreV1().Namespaces()
+	_, err := nsClient.Get(ctx, namespace, metav1.GetOptions{})
+	if err == nil {
+		return nil
+	}
+
+	_, err = nsClient.Create(ctx, &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
