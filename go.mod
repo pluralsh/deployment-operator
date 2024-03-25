@@ -42,7 +42,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.15.3
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20231215020716-1b80b9629af8
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
-	sigs.k8s.io/kustomize/kyaml v0.13.9
+	sigs.k8s.io/kustomize/kyaml v0.13.10
 	sigs.k8s.io/yaml v1.3.0
 
 )
