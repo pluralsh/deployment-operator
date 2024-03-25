@@ -26,7 +26,7 @@ require (
 	github.com/samber/lo v1.39.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
-	github.com/vektra/mockery/v2 v2.39.0
+	github.com/vektra/mockery/v2 v2.39.2
 	github.com/vmware-tanzu/velero v1.13.0
 	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.26.0
