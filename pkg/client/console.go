@@ -76,5 +76,5 @@ type Client interface {
 	GetClusterGate(id string) (*console.PipelineGateFragment, error)
 	GetClusterGates(after *string, first *int64) (*console.PagedClusterGates, error)
 	UpdateGate(id string, attributes console.GateUpdateAttributes) error
-	UpsertConstraints(constrains []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
+	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 }

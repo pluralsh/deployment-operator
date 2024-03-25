@@ -29,13 +29,13 @@ type ConstraintReconciler struct {
 	Scheme        *runtime.Scheme
 	ConsoleClient consoleclient.Client
 	Reader        client.Reader
-	Constrains    map[string]*console.PolicyConstraintAttributes
+	Constraints   map[string]*console.PolicyConstraintAttributes
 }
 
 func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
-	if r.Constrains == nil {
-		r.Constrains = map[string]*console.PolicyConstraintAttributes{}
+	if r.Constraints == nil {
+		r.Constraints = map[string]*console.PolicyConstraintAttributes{}
 	}
 
 	cps := new(constraintstatusv1beta1.ConstraintPodStatus)
@@ -47,7 +47,7 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		labels := cps.GetLabels()
 		name, ok := labels[v1beta1.ConstraintNameLabel]
 		if ok {
-			delete(r.Constrains, name)
+			delete(r.Constraints, name)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -65,8 +65,8 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	r.Constrains[pca.Name] = pca
-	res, err := r.ConsoleClient.UpsertConstraints(algorithms.MapValues[string, *console.PolicyConstraintAttributes](r.Constrains))
+	r.Constraints[pca.Name] = pca
+	res, err := r.ConsoleClient.UpsertConstraints(algorithms.MapValues[string, *console.PolicyConstraintAttributes](r.Constraints))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
