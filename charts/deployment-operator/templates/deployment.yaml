@@ -58,6 +58,10 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{ if .Values.additionalVolumeMounts }}
+          volumeMounts:
+            {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}
+          {{ end }}
         - name: {{ .Chart.Name }}-agentk
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -125,6 +129,9 @@ spec:
               mountPath: /etc/agentk/config
               readOnly: true
             {{- end }}
+            {{ if .Values.additionalVolumeMounts }}
+            {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}
+            {{ end }}
       volumes:
         - name: service-account-token-volume
           projected:
@@ -156,6 +163,9 @@ spec:
             defaultMode: 0444
             name: {{ include "deployment-operator.fullname" . }}
         {{- end }}
+        {{ if .Values.additioanlVolumes }}
+        {{ toYaml .Values.additionalVolumes | nindent 8 }}
+        {{ end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
