@@ -64,9 +64,10 @@ spec:
           image: {{ .Values.agentk.image.repository }}:{{ .Values.agentk.image.tag }}
           imagePullPolicy: {{ .Values.agentk.image.pullPolicy }}
           terminationMessagePolicy: {{ .Values.agentk.terminationMessagePolicy }}
+          {{ $kasAddress := replace "gql" "kas" (default "" .Values.consoleUrl) | replace "https" "wss" }}
           args:
             - --token-file=/etc/agentk/secrets/token
-            - --kas-address={{ .Values.agentk.config.kasAddress }}
+            - --kas-address={{ $kasAddress }}
             - --observability-listen-address=:8081
             {{- if .Values.agentk.config.caCert }}
             - --ca-cert-file=/etc/agentk/config/ca.crt
