@@ -69,6 +69,52 @@ func (_c *ClientMock_AddServiceErrors_Call) RunAndReturn(run func(string, []*gql
 	return _c
 }
 
+// GateExists provides a mock function with given fields: id
+func (_m *ClientMock) GateExists(id string) bool {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GateExists")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(string) bool); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// ClientMock_GateExists_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GateExists'
+type ClientMock_GateExists_Call struct {
+	*mock.Call
+}
+
+// GateExists is a helper method to define mock.On call
+//   - id string
+func (_e *ClientMock_Expecter) GateExists(id interface{}) *ClientMock_GateExists_Call {
+	return &ClientMock_GateExists_Call{Call: _e.mock.On("GateExists", id)}
+}
+
+func (_c *ClientMock_GateExists_Call) Run(run func(id string)) *ClientMock_GateExists_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GateExists_Call) Return(_a0 bool) *ClientMock_GateExists_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ClientMock_GateExists_Call) RunAndReturn(run func(string) bool) *ClientMock_GateExists_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetClusterBackup provides a mock function with given fields: clusterID, namespace, name
 func (_m *ClientMock) GetClusterBackup(clusterID string, namespace string, name string) (*gqlclient.ClusterBackupFragment, error) {
 	ret := _m.Called(clusterID, namespace, name)
@@ -533,9 +579,9 @@ func (_c *ClientMock_MyCluster_Call) RunAndReturn(run func() (*gqlclient.MyClust
 	return _c
 }
 
-// ParsePipelineGateCR provides a mock function with given fields: pgFragment
-func (_m *ClientMock) ParsePipelineGateCR(pgFragment *gqlclient.PipelineGateFragment) (*v1alpha1.PipelineGate, error) {
-	ret := _m.Called(pgFragment)
+// ParsePipelineGateCR provides a mock function with given fields: pgFragment, operatorNamespace
+func (_m *ClientMock) ParsePipelineGateCR(pgFragment *gqlclient.PipelineGateFragment, operatorNamespace string) (*v1alpha1.PipelineGate, error) {
+	ret := _m.Called(pgFragment, operatorNamespace)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParsePipelineGateCR")
@@ -543,19 +589,19 @@ func (_m *ClientMock) ParsePipelineGateCR(pgFragment *gqlclient.PipelineGateFrag
 
 	var r0 *v1alpha1.PipelineGate
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*gqlclient.PipelineGateFragment) (*v1alpha1.PipelineGate, error)); ok {
-		return rf(pgFragment)
+	if rf, ok := ret.Get(0).(func(*gqlclient.PipelineGateFragment, string) (*v1alpha1.PipelineGate, error)); ok {
+		return rf(pgFragment, operatorNamespace)
 	}
-	if rf, ok := ret.Get(0).(func(*gqlclient.PipelineGateFragment) *v1alpha1.PipelineGate); ok {
-		r0 = rf(pgFragment)
+	if rf, ok := ret.Get(0).(func(*gqlclient.PipelineGateFragment, string) *v1alpha1.PipelineGate); ok {
+		r0 = rf(pgFragment, operatorNamespace)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.PipelineGate)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*gqlclient.PipelineGateFragment) error); ok {
-		r1 = rf(pgFragment)
+	if rf, ok := ret.Get(1).(func(*gqlclient.PipelineGateFragment, string) error); ok {
+		r1 = rf(pgFragment, operatorNamespace)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -570,13 +616,14 @@ type ClientMock_ParsePipelineGateCR_Call struct {
 
 // ParsePipelineGateCR is a helper method to define mock.On call
 //   - pgFragment *gqlclient.PipelineGateFragment
-func (_e *ClientMock_Expecter) ParsePipelineGateCR(pgFragment interface{}) *ClientMock_ParsePipelineGateCR_Call {
-	return &ClientMock_ParsePipelineGateCR_Call{Call: _e.mock.On("ParsePipelineGateCR", pgFragment)}
+//   - operatorNamespace string
+func (_e *ClientMock_Expecter) ParsePipelineGateCR(pgFragment interface{}, operatorNamespace interface{}) *ClientMock_ParsePipelineGateCR_Call {
+	return &ClientMock_ParsePipelineGateCR_Call{Call: _e.mock.On("ParsePipelineGateCR", pgFragment, operatorNamespace)}
 }
 
-func (_c *ClientMock_ParsePipelineGateCR_Call) Run(run func(pgFragment *gqlclient.PipelineGateFragment)) *ClientMock_ParsePipelineGateCR_Call {
+func (_c *ClientMock_ParsePipelineGateCR_Call) Run(run func(pgFragment *gqlclient.PipelineGateFragment, operatorNamespace string)) *ClientMock_ParsePipelineGateCR_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*gqlclient.PipelineGateFragment))
+		run(args[0].(*gqlclient.PipelineGateFragment), args[1].(string))
 	})
 	return _c
 }
@@ -586,7 +633,7 @@ func (_c *ClientMock_ParsePipelineGateCR_Call) Return(_a0 *v1alpha1.PipelineGate
 	return _c
 }
 
-func (_c *ClientMock_ParsePipelineGateCR_Call) RunAndReturn(run func(*gqlclient.PipelineGateFragment) (*v1alpha1.PipelineGate, error)) *ClientMock_ParsePipelineGateCR_Call {
+func (_c *ClientMock_ParsePipelineGateCR_Call) RunAndReturn(run func(*gqlclient.PipelineGateFragment, string) (*v1alpha1.PipelineGate, error)) *ClientMock_ParsePipelineGateCR_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -938,6 +985,64 @@ func (_c *ClientMock_UpdateGate_Call) Return(_a0 error) *ClientMock_UpdateGate_C
 }
 
 func (_c *ClientMock_UpdateGate_Call) RunAndReturn(run func(string, gqlclient.GateUpdateAttributes) error) *ClientMock_UpdateGate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpsertConstraints provides a mock function with given fields: constraints
+func (_m *ClientMock) UpsertConstraints(constraints []*gqlclient.PolicyConstraintAttributes) (*gqlclient.UpsertPolicyConstraints, error) {
+	ret := _m.Called(constraints)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertConstraints")
+	}
+
+	var r0 *gqlclient.UpsertPolicyConstraints
+	var r1 error
+	if rf, ok := ret.Get(0).(func([]*gqlclient.PolicyConstraintAttributes) (*gqlclient.UpsertPolicyConstraints, error)); ok {
+		return rf(constraints)
+	}
+	if rf, ok := ret.Get(0).(func([]*gqlclient.PolicyConstraintAttributes) *gqlclient.UpsertPolicyConstraints); ok {
+		r0 = rf(constraints)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gqlclient.UpsertPolicyConstraints)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func([]*gqlclient.PolicyConstraintAttributes) error); ok {
+		r1 = rf(constraints)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_UpsertConstraints_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertConstraints'
+type ClientMock_UpsertConstraints_Call struct {
+	*mock.Call
+}
+
+// UpsertConstraints is a helper method to define mock.On call
+//   - constraints []*gqlclient.PolicyConstraintAttributes
+func (_e *ClientMock_Expecter) UpsertConstraints(constraints interface{}) *ClientMock_UpsertConstraints_Call {
+	return &ClientMock_UpsertConstraints_Call{Call: _e.mock.On("UpsertConstraints", constraints)}
+}
+
+func (_c *ClientMock_UpsertConstraints_Call) Run(run func(constraints []*gqlclient.PolicyConstraintAttributes)) *ClientMock_UpsertConstraints_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]*gqlclient.PolicyConstraintAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_UpsertConstraints_Call) Return(_a0 *gqlclient.UpsertPolicyConstraints, _a1 error) *ClientMock_UpsertConstraints_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_UpsertConstraints_Call) RunAndReturn(run func([]*gqlclient.PolicyConstraintAttributes) (*gqlclient.UpsertPolicyConstraints, error)) *ClientMock_UpsertConstraints_Call {
 	_c.Call.Return(run)
 	return _c
 }
