@@ -152,11 +152,13 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 	job := generateJob(*jobSpec, jobRef)
 
 	gate.Spec.GateSpec.JobSpec = lo.ToPtr(job.Spec)
+	// create or get existing job
 	reconciledJob, err := Job(ctx, r.Client, job, log)
 	if err != nil {
 		log.Error(err, "Error reconciling Job.", "JobName", job.Name, "JobNamespace", job.Namespace)
 		return ctrl.Result{}, err
 	}
+	gate.Status.SetState(console.GateStateRunning)
 
 	if !gate.Status.HasJobRef() {
 		log.V(2).Info("Gate doesn't have a JobRef, this is a new gate or a re-run.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
@@ -165,8 +167,6 @@ func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate 
 			log.Error(err, "Error setting ControllerReference for Job.")
 			return ctrl.Result{}, err
 		}
-
-		gate.Status.SetState(console.GateStatePending)
 		gate.Status.JobRef = lo.ToPtr(jobRef)
 		return ctrl.Result{}, nil
 	}
