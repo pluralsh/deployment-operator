@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console-client-go"
@@ -100,8 +101,8 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// PENDING
-	if crGate.Status.IsPending() {
-		return r.reconcilePendingGate(ctx, crGate, cachedGate)
+	if crGate.Status.IsPending() || crGate.Status.IsRunning() {
+		return r.reconcilePendingRunningGate(ctx, crGate, cachedGate)
 	}
 
 	// RERUN
@@ -144,9 +145,9 @@ func (r *PipelineGateReconciler) killJob(ctx context.Context, job *batchv1.Job) 
 	return nil
 }
 
-func (r *PipelineGateReconciler) reconcilePendingGate(ctx context.Context, gate *v1alpha1.PipelineGate, cachedGate *console.PipelineGateFragment) (ctrl.Result, error) {
+func (r *PipelineGateReconciler) reconcilePendingRunningGate(ctx context.Context, gate *v1alpha1.PipelineGate, cachedGate *console.PipelineGateFragment) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.V(2).Info("Reconciling PENDING gate.", "Name", gate.Name, "ID", gate.Spec.ID, "State", *gate.Status.State)
+	log.V(2).Info(fmt.Sprintf("Reconciling %s gate.", gate.Status.GetConsoleGateState().String()), "Name", gate.Name, "ID", gate.Spec.ID)
 	jobSpec := consoleclient.JobSpecFromJobSpecFragment(cachedGate.Name, cachedGate.Spec.Job)
 	jobRef := gate.CreateNewJobRef()
 	job := generateJob(*jobSpec, jobRef)

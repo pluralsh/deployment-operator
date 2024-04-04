@@ -85,6 +85,10 @@ func (pgs *PipelineGateStatus) IsPending() bool {
 	return pgs.State != nil && *pgs.State == GateState(console.GateStatePending)
 }
 
+func (pgs *PipelineGateStatus) IsRunning() bool {
+	return pgs.State != nil && *pgs.State == GateState(console.GateStateRunning)
+}
+
 func (pgs *PipelineGateStatus) IsOpen() bool {
 	return pgs.State != nil && *pgs.State == GateState(console.GateStateOpen)
 }
