@@ -163,7 +163,7 @@ spec:
             defaultMode: 0444
             name: {{ include "deployment-operator.fullname" . }}
         {{- end }}
-        {{ if .Values.additioanlVolumes }}
+        {{ if .Values.additionalVolumes }}
         {{ toYaml .Values.additionalVolumes | nindent 8 }}
         {{ end }}
       {{- with .Values.nodeSelector }}
