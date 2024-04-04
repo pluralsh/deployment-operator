@@ -4,6 +4,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
+
 	"github.com/samber/lo"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/rest"
@@ -61,6 +63,13 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Name:  "Restore Controller",
 		Do:    rr,
 		Queue: rr.RestoreQueue,
+	})
+
+	ns := namespaces.NewNamespaceReconciler(mgr.GetClient(), k8sClient, r)
+	mgr.AddController(&controller.Controller{
+		Name:  "Managed Namespace Controller",
+		Do:    ns,
+		Queue: ns.NamespaceQueue,
 	})
 
 	if err := mgr.Start(); err != nil {

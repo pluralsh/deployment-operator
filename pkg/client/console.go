@@ -77,4 +77,6 @@ type Client interface {
 	GetClusterGates(after *string, first *int64) (*console.PagedClusterGates, error)
 	UpdateGate(id string, attributes console.GateUpdateAttributes) error
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
+	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
+	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
 }
