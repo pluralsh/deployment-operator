@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:validation:Enum=PENDING;OPEN;CLOSED
+// +kubebuilder:validation:Enum=PENDING;OPEN;CLOSED;RUNNING
 // GateState represents the state of a gate, reused from console client
 type GateState console.GateState
 
