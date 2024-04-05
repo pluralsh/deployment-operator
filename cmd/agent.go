@@ -4,16 +4,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
+	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
+	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/samber/lo"
 	"golang.org/x/net/context"
 	"k8s.io/client-go/rest"
-
-	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {
@@ -61,6 +60,13 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Name:  "Restore Controller",
 		Do:    rr,
 		Queue: rr.RestoreQueue,
+	})
+
+	ns := namespaces.NewNamespaceReconciler(mgr.GetClient(), k8sClient, r)
+	mgr.AddController(&controller.Controller{
+		Name:  "Managed Namespace Controller",
+		Do:    ns,
+		Queue: ns.NamespaceQueue,
 	})
 
 	if err := mgr.Start(); err != nil {
