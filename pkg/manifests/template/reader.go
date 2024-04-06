@@ -66,7 +66,6 @@ func (r *StreamManifestReader) Read(objs []*unstructured.Unstructured) ([]*unstr
 	}
 
 	objs = manifestreader.FilterLocalConfig(objs)
-
 	err = setNamespaces(r.Mapper, objs, r.Namespace, r.EnforceNamespace)
 	return objs, err
 }

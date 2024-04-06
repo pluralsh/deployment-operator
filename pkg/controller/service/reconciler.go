@@ -278,9 +278,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
+	logger.Info("Fetching manifests", "service", svc.Name)
 	manifests, err := s.ManifestCache.Fetch(s.UtilFactory, svc)
 	if err != nil {
-		logger.Error(err, "failed to parse manifests")
+		logger.Error(err, "failed to parse manifests", "service", svc.Name)
 		return
 	}
 	manifests = postProcess(manifests)
@@ -293,21 +294,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	inv := inventory.WrapInventoryInfoObj(invObj)
 
 	vcache := manis.VersionCache(manifests)
-
-	if svc.DeletedAt != nil {
-		logger.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := s.Destroyer.Run(ctx, inv, apply.DestroyerOptions{
-			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
-			DryRunStrategy:          common.DryRunNone,
-			DeleteTimeout:           20 * time.Second,
-			DeletePropagationPolicy: metav1.DeletePropagationBackground,
-			EmitStatusEvents:        true,
-			ValidationPolicy:        1,
-		})
-
-		err = s.UpdatePruneStatus(ctx, svc, ch, vcache)
-		return
-	}
 
 	logger.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
 	if err = s.CheckNamespace(svc.Namespace); err != nil {
