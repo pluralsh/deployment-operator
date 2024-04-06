@@ -31,6 +31,18 @@ func setNamespaces(mapper meta.RESTMapper, objs []*unstructured.Unstructured,
 			continue
 		}
 
+		gvk := obj.GroupVersionKind()
+		if namespacedCache.Present(gvk) {
+			if namespacedCache.Namespaced(gvk) && obj.GetNamespace() == "" {
+				obj.SetNamespace(defaultNamespace)
+			}
+
+			if !namespacedCache.Namespaced(gvk) && obj.GetNamespace() != "" {
+				obj.SetNamespace("")
+			}
+			continue
+		}
+
 		// Look up the scope of the resource so we know if the resource
 		// should have a namespace set or not.
 		scope, err := object.LookupResourceScope(obj, crdObjs, mapper)
@@ -60,11 +72,13 @@ func setNamespaces(mapper meta.RESTMapper, objs []*unstructured.Unstructured,
 					}
 				}
 			}
+			namespacedCache.Store(gvk, true)
 		case meta.RESTScopeRoot:
 			if ns := obj.GetNamespace(); ns != "" {
 				obj.SetNamespace("")
 				fmt.Printf("Found cluster scoped resource %s with namespace %s, coerced to un-namespaced\n", obj.GetName(), ns)
 			}
+			namespacedCache.Store(gvk, false)
 		default:
 			return fmt.Errorf("unknown RESTScope %q", scope.Name())
 		}

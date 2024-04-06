@@ -85,6 +85,7 @@ func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment
 		if info.IsDir() {
 			return nil
 		}
+
 		if ext := strings.ToLower(filepath.Ext(info.Name())); !lo.Contains(extensions, ext) {
 			return nil
 		}
@@ -111,7 +112,8 @@ func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment
 			Reader:        r,
 			ReaderOptions: readerOptions,
 		}
-		items, err := mReader.Read(res)
+		items, err := mReader.Read([]*unstructured.Unstructured{})
+
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", rpath, err)
 		}
