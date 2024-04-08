@@ -3,6 +3,7 @@ package namespaces
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"time"
 
@@ -123,6 +124,11 @@ func (n *NamespaceReconciler) UpsertNamespace(ctx context.Context, fragment *con
 	if fragment.Annotations != nil {
 		annotations = convertMap(fragment.Annotations)
 	}
+	if fragment.Service != nil && fragment.Service.SyncConfig != nil && fragment.Service.SyncConfig.NamespaceMetadata != nil{
+			maps.Copy(labels, convertMap(fragment.Service.SyncConfig.NamespaceMetadata.Labels))
+			maps.Copy(annotations, convertMap(fragment.Service.SyncConfig.NamespaceMetadata.Annotations))
+	}
+
 	existing := &v1.Namespace{}
 	err := n.K8sClient.Get(ctx, ctrlclient.ObjectKey{Name: fragment.Name}, existing)
 	if err != nil {
@@ -141,6 +147,7 @@ func (n *NamespaceReconciler) UpsertNamespace(ctx context.Context, fragment *con
 		return err
 	}
 
+	// update labels and annotations
 	if !reflect.DeepEqual(labels, existing.Labels) || !reflect.DeepEqual(annotations, existing.Annotations) {
 		existing.Labels = labels
 		existing.Annotations = annotations
