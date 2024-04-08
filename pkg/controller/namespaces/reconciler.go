@@ -124,9 +124,9 @@ func (n *NamespaceReconciler) UpsertNamespace(ctx context.Context, fragment *con
 	if fragment.Annotations != nil {
 		annotations = convertMap(fragment.Annotations)
 	}
-	if fragment.Service != nil && fragment.Service.SyncConfig != nil && fragment.Service.SyncConfig.NamespaceMetadata != nil{
-			maps.Copy(labels, convertMap(fragment.Service.SyncConfig.NamespaceMetadata.Labels))
-			maps.Copy(annotations, convertMap(fragment.Service.SyncConfig.NamespaceMetadata.Annotations))
+	if fragment.Service != nil && fragment.Service.SyncConfig != nil && fragment.Service.SyncConfig.NamespaceMetadata != nil {
+		maps.Copy(labels, convertMap(fragment.Service.SyncConfig.NamespaceMetadata.Labels))
+		maps.Copy(annotations, convertMap(fragment.Service.SyncConfig.NamespaceMetadata.Annotations))
 	}
 
 	existing := &v1.Namespace{}
