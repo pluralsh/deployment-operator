@@ -202,6 +202,7 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 
 	client := action.NewInstall(conf)
 	client.DryRun = true
+	client.DryRunOption = "server"
 	client.ReleaseName = name
 	client.Replace = true // Skip the name check
 	client.ClientOnly = true
