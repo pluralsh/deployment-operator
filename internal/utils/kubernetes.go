@@ -171,7 +171,7 @@ func CheckNamespace(clientset kubernetes.Clientset, namespace string, labels, an
 	}
 
 	// update labels and annotations
-	if !reflect.DeepEqual(labels, existing.Labels) || !reflect.DeepEqual(annotations, existing.Annotations) {
+	if (!reflect.DeepEqual(labels, existing.Labels) && labels != nil) || (!reflect.DeepEqual(annotations, existing.Annotations) && annotations != nil) {
 		maps.Copy(existing.Labels, labels)
 		maps.Copy(existing.Annotations, annotations)
 		if _, err := nsClient.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
