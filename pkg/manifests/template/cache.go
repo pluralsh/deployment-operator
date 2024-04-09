@@ -1,36 +1,29 @@
 package template
 
 import (
-	"sync"
-
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var (
-	namespacedCache = &gvkCache{cache: map[schema.GroupVersionKind]bool{}}
-	mapMutex        = sync.RWMutex{}
+	namespacedCache = &gvkCache{cache: cmap.NewStringer[schema.GroupVersionKind, bool]()}
 )
 
 type gvkCache struct {
-	cache map[schema.GroupVersionKind]bool
+	cache cmap.ConcurrentMap[schema.GroupVersionKind, bool]
 }
 
 func (c *gvkCache) Store(gvk schema.GroupVersionKind, namespaced bool) {
-	mapMutex.Lock()
-	c.cache[gvk] = namespaced
-	mapMutex.Unlock()
+	c.cache.Set(gvk, namespaced)
 }
 
 func (c *gvkCache) Namespaced(gvk schema.GroupVersionKind) bool {
-	mapMutex.RLock()
-	val, ok := c.cache[gvk]
-	mapMutex.RUnlock()
+
+	val, ok := c.cache.Get(gvk)
 	return ok && val
 }
 
 func (c *gvkCache) Present(gvk schema.GroupVersionKind) bool {
-	mapMutex.RLock()
-	_, ok := c.cache[gvk]
-	mapMutex.RUnlock()
+	_, ok := c.cache.Get(gvk)
 	return ok
 }
