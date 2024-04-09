@@ -3,11 +3,13 @@ package namespaces
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
@@ -116,49 +118,51 @@ func (n *NamespaceReconciler) Reconcile(ctx context.Context, id string) (reconci
 func (n *NamespaceReconciler) UpsertNamespace(ctx context.Context, fragment *console.ManagedNamespaceFragment) error {
 	var labels map[string]string
 	var annotations map[string]string
+	createNamespace := true
 
 	if fragment.Labels != nil {
-		labels = convertMap(fragment.Labels)
+		labels = utils.ConvertMap(fragment.Labels)
 	}
 	if fragment.Annotations != nil {
-		annotations = convertMap(fragment.Annotations)
+		annotations = utils.ConvertMap(fragment.Annotations)
 	}
-	existing := &v1.Namespace{}
-	err := n.K8sClient.Get(ctx, ctrlclient.ObjectKey{Name: fragment.Name}, existing)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if err := n.K8sClient.Create(ctx, &v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        fragment.Name,
-					Labels:      labels,
-					Annotations: annotations,
-				},
-			}); err != nil {
-				return err
-			}
-			return nil
+	if fragment.Service != nil && fragment.Service.SyncConfig != nil {
+		if fragment.Service.SyncConfig.NamespaceMetadata != nil {
+			maps.Copy(labels, utils.ConvertMap(fragment.Service.SyncConfig.NamespaceMetadata.Labels))
+			maps.Copy(annotations, utils.ConvertMap(fragment.Service.SyncConfig.NamespaceMetadata.Annotations))
 		}
-		return err
+		if fragment.Service.SyncConfig.CreateNamespace != nil {
+			createNamespace = *fragment.Service.SyncConfig.CreateNamespace
+		}
 	}
 
-	if !reflect.DeepEqual(labels, existing.Labels) || !reflect.DeepEqual(annotations, existing.Annotations) {
-		existing.Labels = labels
-		existing.Annotations = annotations
-		if err := n.K8sClient.Update(ctx, existing); err != nil {
+	if createNamespace {
+		existing := &v1.Namespace{}
+		err := n.K8sClient.Get(ctx, ctrlclient.ObjectKey{Name: fragment.Name}, existing)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				if err := n.K8sClient.Create(ctx, &v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        fragment.Name,
+						Labels:      labels,
+						Annotations: annotations,
+					},
+				}); err != nil {
+					return err
+				}
+				return nil
+			}
 			return err
 		}
-	}
 
-	return nil
-}
-
-func convertMap(in map[string]interface{}) map[string]string {
-	res := make(map[string]string)
-	for k, v := range in {
-		value, ok := v.(string)
-		if ok {
-			res[k] = value
+		// update labels and annotations
+		if !reflect.DeepEqual(labels, existing.Labels) || !reflect.DeepEqual(annotations, existing.Annotations) {
+			existing.Labels = labels
+			existing.Annotations = annotations
+			if err := n.K8sClient.Update(ctx, existing); err != nil {
+				return err
+			}
 		}
 	}
-	return res
+	return nil
 }
