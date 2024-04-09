@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"strings"
@@ -145,28 +146,38 @@ func GetOperatorNamespace() (string, error) {
 	return string(ns), nil
 }
 
-func CheckNamespace(clientset kubernetes.Clientset, namespace string) error {
+func CheckNamespace(clientset kubernetes.Clientset, namespace string, labels, annotations map[string]string) error {
 	if namespace == "" {
 		return nil
 	}
 
 	ctx := context.Background()
 	nsClient := clientset.CoreV1().Namespaces()
-	_, err := nsClient.Get(ctx, namespace, metav1.GetOptions{})
-	if err == nil {
-		return nil
+	existing, err := nsClient.Get(ctx, namespace, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			if _, err = nsClient.Create(ctx, &v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        namespace,
+					Annotations: annotations,
+					Labels:      labels,
+				},
+			}, metav1.CreateOptions{}); err != nil {
+				return err
+			}
+			return nil
+		}
+		return err
 	}
 
-	_, err = nsClient.Create(ctx, &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	}, metav1.CreateOptions{})
-
-	if err != nil {
-		if !apierrors.IsAlreadyExists(err) {
+	// update labels and annotations
+	if (!reflect.DeepEqual(labels, existing.Labels) && labels != nil) || (!reflect.DeepEqual(annotations, existing.Annotations) && annotations != nil) {
+		maps.Copy(existing.Labels, labels)
+		maps.Copy(existing.Annotations, annotations)
+		if _, err := nsClient.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }

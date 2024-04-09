@@ -296,7 +296,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	vcache := manis.VersionCache(manifests)
 
 	logger.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
-	if err = s.CheckNamespace(svc.Namespace); err != nil {
+
+	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
 		logger.Error(err, "failed to check namespace")
 		return
 	}
@@ -331,8 +332,24 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	return
 }
 
-func (s *ServiceReconciler) CheckNamespace(namespace string) error {
-	return utils.CheckNamespace(*s.Clientset, namespace)
+func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.GetServiceDeploymentForAgent_ServiceDeployment_SyncConfig) error {
+	createNamespace := true
+	var labels map[string]string
+	var annotations map[string]string
+
+	if syncConfig != nil {
+		if syncConfig.NamespaceMetadata != nil {
+			labels = utils.ConvertMap(syncConfig.NamespaceMetadata.Labels)
+			annotations = utils.ConvertMap(syncConfig.NamespaceMetadata.Annotations)
+		}
+		if syncConfig.CreateNamespace != nil {
+			createNamespace = *syncConfig.CreateNamespace
+		}
+	}
+	if createNamespace {
+		return utils.CheckNamespace(*s.Clientset, namespace, labels, annotations)
+	}
+	return nil
 }
 
 func (s *ServiceReconciler) SplitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
