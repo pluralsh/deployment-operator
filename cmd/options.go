@@ -48,6 +48,7 @@ func newOptions() *options {
 	flag.StringVar(&o.restoreNamespace, "restore-namespace", "velero", "The namespace where Velero restores are located.")
 	flag.BoolVar(&service.Local, "local", false, "Whether you're running the operator locally.")
 	flag.BoolVar(&template.EnableHelmDependencyUpdate, "enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
+	flag.BoolVar(&template.DisableHelmTemplateDryRunServer, "disable-helm-dry-run-server", false, "Disable helm template in dry-run=server mode.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
