@@ -46,7 +46,7 @@ const (
 
 func init() {
 	EnableHelmDependencyUpdate = false
-
+	DisableHelmTemplateDryRunServer = false
 	// setup helm cache directory.
 	dir, err := os.MkdirTemp("", "repositories")
 	if err != nil {
@@ -59,6 +59,7 @@ func init() {
 
 var settings = cli.New()
 var EnableHelmDependencyUpdate bool
+var DisableHelmTemplateDryRunServer bool
 
 func debug(format string, v ...interface{}) {
 	format = fmt.Sprintf("INFO: %s\n", format)
@@ -202,6 +203,9 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 
 	client := action.NewInstall(conf)
 	client.DryRun = true
+	if !DisableHelmTemplateDryRunServer {
+		client.DryRunOption = "server"
+	}
 	client.ReleaseName = name
 	client.Replace = true // Skip the name check
 	client.ClientOnly = true

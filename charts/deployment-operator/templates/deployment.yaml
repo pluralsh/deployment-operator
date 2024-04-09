@@ -44,6 +44,7 @@ spec:
           - -leader-elect=true
           - -processing-timeout={{ .Values.args.processingTimeout }}
           - -enable-helm-dependency-update={{ .Values.args.enableHelmDependencyUpdate }}
+          - -disable-helm-dry-run-server={{ .Values.args.disableHelmTemplateDryRunServer }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

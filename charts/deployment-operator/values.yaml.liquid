@@ -33,3 +33,8 @@ args:
 args:
   enableHelmDependencyUpdate: {{ configuration.enableHelmDependencyUpdate }}
 {% endif %}
+
+{% if configuration.disableHelmTemplateDryRunServer %}
+args:
+  disableHelmTemplateDryRunServer: {{ configuration.disableHelmTemplateDryRunServer }}
+{% endif %}
