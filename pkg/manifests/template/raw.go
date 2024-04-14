@@ -137,6 +137,7 @@ func clusterConfiguration(cluster *console.GetServiceDeploymentForAgent_ServiceD
 		"Version":        cluster.Version,
 		"CurrentVersion": cluster.CurrentVersion,
 		"KasUrl":         cluster.KasURL,
+		"Metadata":       cluster.Metadata,
 	}
 
 	for k, v := range res {
