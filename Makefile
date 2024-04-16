@@ -40,7 +40,7 @@ controller-gen: ## Download controller-gen locally if necessary.
 
 .PHONY: crd-docs
 crd-docs: ##generate docs from the CRDs
-	$(CRDDOCS) --source-path=./api --renderer=markdown --output-path=./docs --config=config.yaml
+	$(CRDDOCS) --source-path=./api --renderer=markdown --output-path=./docs/api.md --config=config.yaml
 
 ##@ Development
 
