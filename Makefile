@@ -8,6 +8,7 @@ IMAGE_REPOSITORY := plural
 IMG ?= deployment-agent:latest
 
 ENVTEST ?= $(shell which setup-envtest)
+CRDDOCS ?= $(shell which crd-ref-docs)
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
@@ -36,6 +37,10 @@ help: ## Display this help.
 
 controller-gen: ## Download controller-gen locally if necessary.
 	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.3)
+
+.PHONY: crd-docs
+crd-docs: ##generate docs from the CRDs
+	$(CRDDOCS) --source-path=./api --renderer=markdown --output-path=./docs --config=config.yaml
 
 ##@ Development
 
@@ -118,6 +123,10 @@ envtest: --tool ## Download and install setup-envtest in the $GOPATH/bin
 .PHONY: mockery
 mockery: TOOL = mockery
 mockery: --tool
+
+.PHONY: crd-ref-docs
+crd-ref-docs: TOOL = crd-ref-docs
+crd-ref-docs: --tool
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
