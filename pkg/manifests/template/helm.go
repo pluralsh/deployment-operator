@@ -182,10 +182,16 @@ func (h *helm) valuesFile(svc *console.GetServiceDeploymentForAgent_ServiceDeplo
 
 		if strings.HasSuffix(filename, ".liquid") {
 			data, err = renderLiquid(data, svc)
-			if err != nil {
-				return nil, err
-			}
 		}
+
+		if strings.HasSuffix(filename, ".tpl") {
+			data, err = renderTpl(data, svc)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
 		if err := yaml.Unmarshal(data, &currentMap); err != nil {
 			return nil, errors.Wrapf(err, "failed to parse %s", filename)
 		}
