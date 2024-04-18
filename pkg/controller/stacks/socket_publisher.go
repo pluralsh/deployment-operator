@@ -8,7 +8,7 @@ import (
 
 type socketPublisher struct {
 	restoreQueue workqueue.RateLimitingInterface
-	restoreCache *client.Cache[console.InfrastructureStackFragment]
+	restoreCache *client.Cache[console.StackRunFragment]
 }
 
 func (sp *socketPublisher) Publish(id string) {

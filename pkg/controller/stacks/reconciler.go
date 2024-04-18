@@ -21,7 +21,7 @@ type StackReconciler struct {
 	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
 	StackQueue    workqueue.RateLimitingInterface
-	StackCache    *client.Cache[console.InfrastructureStackFragment]
+	StackCache    *client.Cache[console.StackRunFragment]
 }
 
 func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration) *StackReconciler {
@@ -29,8 +29,8 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
 		StackQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		StackCache: client.NewCache[console.InfrastructureStackFragment](refresh, func(id string) (*console.InfrastructureStackFragment, error) {
-			return consoleClient.GetInfrastructureStack(id)
+		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
+			return consoleClient.GetStuckRun(id)
 		}),
 	}
 }
@@ -50,13 +50,13 @@ func (n *StackReconciler) ShutdownQueue() {
 	n.StackQueue.ShutDown()
 }
 
-func (n *StackReconciler) ListNamespaces(ctx context.Context) *algorithms.Pager[*console.InfrastructureStackEdgeFragment] {
+func (n *StackReconciler) ListNamespaces(ctx context.Context) *algorithms.Pager[*console.StackRunEdgeFragment] {
 	logger := log.FromContext(ctx)
-	logger.Info("create namespace pager")
-	fetch := func(page *string, size int64) ([]*console.InfrastructureStackEdgeFragment, *algorithms.PageInfo, error) {
-		resp, err := n.ConsoleClient.ListInfrastructureStacks(page, &size)
+	logger.Info("create stack run pager")
+	fetch := func(page *string, size int64) ([]*console.StackRunEdgeFragment, *algorithms.PageInfo, error) {
+		resp, err := n.ConsoleClient.ListClusterStackRuns(page, &size)
 		if err != nil {
-			logger.Error(err, "failed to fetch namespaces")
+			logger.Error(err, "failed to fetch stack run")
 			return nil, nil, err
 		}
 		pageInfo := &algorithms.PageInfo{
@@ -66,7 +66,7 @@ func (n *StackReconciler) ListNamespaces(ctx context.Context) *algorithms.Pager[
 		}
 		return resp.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.InfrastructureStackEdgeFragment](controller.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.StackRunEdgeFragment](controller.DefaultPageSize, fetch)
 }
 
 func (n *StackReconciler) Poll(ctx context.Context) (done bool, err error) {
@@ -77,11 +77,11 @@ func (n *StackReconciler) Poll(ctx context.Context) (done bool, err error) {
 	for pager.HasNext() {
 		namespaces, err := pager.NextPage()
 		if err != nil {
-			logger.Error(err, "failed to fetch stack list")
+			logger.Error(err, "failed to fetch stack run list")
 			return false, nil
 		}
 		for _, namespace := range namespaces {
-			logger.Info("sending update for", "stack", namespace.Node.ID)
+			logger.Info("sending update for", "stack run", namespace.Node.ID)
 			n.StackQueue.Add(namespace.Node.ID)
 		}
 	}
@@ -91,14 +91,14 @@ func (n *StackReconciler) Poll(ctx context.Context) (done bool, err error) {
 
 func (n *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.Info("attempting to sync stack", "id", id)
+	logger.Info("attempting to sync stack run", "id", id)
 	_, err := n.StackCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
-			logger.Info("namespace already deleted", "id", id)
+			logger.Info("stack run already deleted", "id", id)
 			return reconcile.Result{}, nil
 		}
-		logger.Error(err, fmt.Sprintf("failed to fetch namespace: %s, ignoring for now", id))
+		logger.Error(err, fmt.Sprintf("failed to fetch stack run: %s, ignoring for now", id))
 		return reconcile.Result{}, err
 	}
 
