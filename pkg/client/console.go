@@ -79,4 +79,6 @@ type Client interface {
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
+	GetInfrastructureStack(id string) (*console.InfrastructureStackFragment, error)
+	ListInfrastructureStacks(after *string, first *int64) (*console.ListInfrastructureStacks_InfrastructureStacks, error)
 }
