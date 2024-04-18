@@ -7,11 +7,11 @@ import (
 )
 
 type socketPublisher struct {
-	restoreQueue workqueue.RateLimitingInterface
-	restoreCache *client.Cache[console.StackRunFragment]
+	stackRunQueue workqueue.RateLimitingInterface
+	stackRunCache *client.Cache[console.StackRunFragment]
 }
 
 func (sp *socketPublisher) Publish(id string) {
-	sp.restoreCache.Expire(id)
-	sp.restoreQueue.Add(id)
+	sp.stackRunCache.Expire(id)
+	sp.stackRunQueue.Add(id)
 }

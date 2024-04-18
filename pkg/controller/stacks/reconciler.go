@@ -37,8 +37,8 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 
 func (n *StackReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "stack.event", &socketPublisher{
-		restoreQueue: n.StackQueue,
-		restoreCache: n.StackCache,
+		stackRunQueue: n.StackQueue,
+		stackRunCache: n.StackCache,
 	}
 }
 
