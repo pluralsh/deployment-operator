@@ -6,7 +6,9 @@ import (
 	"sync"
 
 	console "github.com/pluralsh/console-client-go"
-	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 )
 
 type authedTransport struct {
@@ -34,27 +36,22 @@ func (c *client) GetCredentials() (url, token string) {
 }
 
 func New(url, token string) Client {
-	if singleInstance == nil {
-		lock.Lock()
-		defer lock.Unlock()
-		if singleInstance == nil {
-			httpClient := http.Client{
-				Transport: &authedTransport{
-					token:   token,
-					wrapped: http.DefaultTransport,
-				},
-			}
-
-			singleInstance = &client{
-				consoleClient: console.NewClient(&httpClient, url, nil),
-				ctx:           context.Background(),
-				url:           url,
-				token:         token,
-			}
-		}
+	if singleInstance != nil {
+		return singleInstance
 	}
 
-	return singleInstance
+	lock.Lock()
+	defer lock.Unlock()
+	httpClient := http.Client{
+		Transport: helpers.NewAuthorizationTokenTransport(token),
+	}
+
+	return &client{
+		consoleClient: console.NewClient(&httpClient, url, nil),
+		ctx:           context.Background(),
+		url:           url,
+		token:         token,
+	}
 }
 
 type Client interface {
@@ -79,4 +76,5 @@ type Client interface {
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
+	GetStackRun(id string) (*console.StackRunFragment, error)
 }

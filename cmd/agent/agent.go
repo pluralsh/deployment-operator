@@ -4,15 +4,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/samber/lo"
+	"golang.org/x/net/context"
+	"k8s.io/client-go/rest"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
 	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
-	"github.com/samber/lo"
-	"golang.org/x/net/context"
-	"k8s.io/client-go/rest"
-	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {

@@ -58,15 +58,19 @@ genmock: mockery ## generates mocks before running tests
 
 ##@ Run
 
-.PHONY: run
-run: ## run
+.PHONY: agent-run
+agent-run: ## run agent
 	go run cmd/*
 
 ##@ Build
 
-.PHONY: build
-build: ## build
-	go build -o bin/deployment-agent cmd/*
+.PHONY: agent
+agent: ## build agent
+	go build -o bin/deployment-agent cmd/agent/*
+
+.PHONY: harness
+harness: ## build stack run harness
+	go build -o bin/stack-run-harness cmd/harness/main.go
 
 docker-build: ## build image
 	docker build -t ${IMG} .
