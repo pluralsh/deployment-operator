@@ -13,20 +13,24 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-var (
-	fetch FetchClient = &fetchClient{}
-)
+func Fetch(options ...FetchOption) FetchClient {
+	client := &fetchClient{}
 
-func Fetch() FetchClient {
-	return fetch
-}
-
-func (in *fetchClient) Tarball(url string, options ...FetchOption) (string, error) {
-	if err := in.init(append(options, fetchWithURL(url))...); err != nil {
-		return "", err
+	for _, option := range options {
+		option(client)
 	}
 
-	req, err := in.request()
+	client.init()
+
+	return client
+}
+
+func (in *fetchClient) Tarball(url string, destination *string) (string, error) {
+	if destination != nil && len(*destination) > 0 {
+		in.destination = *destination
+	}
+
+	req, err := in.request(url)
 	if err != nil {
 		return "", err
 	}
@@ -46,6 +50,7 @@ func (in *fetchClient) Tarball(url string, options ...FetchOption) (string, erro
 }
 
 func (in *fetchClient) untar(resp *http.Response) (string, error) {
+	klog.V(log.LogLevelExtended).InfoS("unpacking tarball", "destination", in.destination)
 	return in.destination, fs.Untar(in.destination, resp.Body)
 }
 
@@ -71,8 +76,8 @@ func (in *fetchClient) handleCloseResponseBody(resp *http.Response) {
 	}
 }
 
-func (in *fetchClient) request() (*http.Request, error) {
-	req, err := http.NewRequest("GET", in.url, nil)
+func (in *fetchClient) request(url string) (*http.Request, error) {
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -80,11 +85,7 @@ func (in *fetchClient) request() (*http.Request, error) {
 	return req, nil
 }
 
-func (in *fetchClient) init(options ...FetchOption) error {
-	for _, option := range options {
-		option(in)
-	}
-
+func (in *fetchClient) init() {
 	if len(in.destination) == 0 {
 		in.destination = CreateTempDirOrDie("", defaultFetchTmpDirPattern)
 	}
@@ -103,8 +104,6 @@ func (in *fetchClient) init(options ...FetchOption) error {
 			Timeout:   *in.timeout,
 		}
 	}
-
-	return nil
 }
 
 func FetchWithToken(token string) FetchOption {
@@ -128,11 +127,5 @@ func FetchToDir(destination string) FetchOption {
 func FetchWithTimeout(timeout time.Duration) FetchOption {
 	return func(client *fetchClient) {
 		client.timeout = &timeout
-	}
-}
-
-func fetchWithURL(url string) FetchOption {
-	return func(client *fetchClient) {
-		client.url = url
 	}
 }

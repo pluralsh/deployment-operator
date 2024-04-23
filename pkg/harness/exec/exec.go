@@ -1,9 +1,34 @@
 package exec
 
 import (
+	"context"
+	"io"
 	"os"
 	"os/exec"
 )
+
+func (in *Executable) Run(args ...string) (err error) {
+	cmd := exec.CommandContext(in.context, string(in.command), args...)
+
+	// Configure additional writers so that we can simultaneously write output
+	// to multiple destinations
+	cmd.Stderr = io.MultiWriter(os.Stderr, in.errorLogSink)
+	cmd.Stdout = io.MultiWriter(os.Stdout, in.standardLogSink)
+
+	if len(in.workingDirectory) > 0 {
+		cmd.Dir = in.workingDirectory
+	}
+
+	return cmd.Run()
+}
+
+func (in *Executable) defaults() *Executable {
+	if in.context == nil {
+		in.context = context.Background()
+	}
+
+	return in
+}
 
 func WithDir(workingDirectory string) ExecutableOption {
 	return func(t *Executable) {
@@ -11,16 +36,22 @@ func WithDir(workingDirectory string) ExecutableOption {
 	}
 }
 
-func (this *Executable) Run(args ...string) (output []byte, err error) {
-	cmd := exec.Command(string(this.command), args...)
-	cmd.Stderr = os.Stderr
-
-	if len(this.workingDirectory) > 0 {
-		cmd.Dir = this.workingDirectory
+func WithCancelableContext(signals ...Signal) ExecutableOption {
+	return func(t *Executable) {
+		t.context = WithCancel(nil, signals...)
 	}
+}
 
-	output, err = cmd.Output()
-	return
+func WithCustomOutputSink(sink io.Writer) ExecutableOption {
+	return func(e *Executable) {
+		e.standardLogSink = sink
+	}
+}
+
+func WithCustomErrorSink(sink io.Writer) ExecutableOption {
+	return func(e *Executable) {
+		e.errorLogSink = sink
+	}
 }
 
 func NewExecutable(command Command, options ...ExecutableOption) *Executable {
@@ -30,5 +61,5 @@ func NewExecutable(command Command, options ...ExecutableOption) *Executable {
 		o(executable)
 	}
 
-	return executable
+	return executable.defaults()
 }

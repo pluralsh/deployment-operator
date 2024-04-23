@@ -9,6 +9,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/harness"
 )
 
 type authedTransport struct {
@@ -46,12 +47,14 @@ func New(url, token string) Client {
 		Transport: helpers.NewAuthorizationTokenTransport(token),
 	}
 
-	return &client{
+	singleInstance = &client{
 		consoleClient: console.NewClient(&httpClient, url, nil),
 		ctx:           context.Background(),
 		url:           url,
 		token:         token,
 	}
+
+	return singleInstance
 }
 
 type Client interface {
@@ -76,5 +79,5 @@ type Client interface {
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
-	GetStackRun(id string) (*console.StackRunFragment, error)
+	GetStackRun(id string) (*harness.StackRun, error)
 }

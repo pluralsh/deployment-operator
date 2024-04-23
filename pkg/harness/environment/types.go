@@ -1,20 +1,25 @@
 package environment
 
 import (
-	gqlclient "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/harness"
 )
 
 type Environment interface {
 	Prepare() error
+	WorkingDir() string
 }
 
 type environment struct {
 	// stackRun ...
 	// TODO: doc
-	stackRun *gqlclient.StackRunFragment
+	stackRun *harness.StackRun
 	// dir ...
 	// TODO: doc
 	dir string
+	// fetchClient
+	// TODO: doc
+	fetchClient helpers.FetchClient
 }
 
 type Option func(*environment)

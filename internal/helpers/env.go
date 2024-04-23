@@ -43,10 +43,10 @@ func CreateTempDirOrDie(dir, pattern string) string {
 // EnsureDirOrDie
 // TODO: doc
 func EnsureDirOrDie(dir string) {
-	err := os.Mkdir(dir, os.ModeDir)
+	err := os.Mkdir(dir, 0755)
 	if err != nil && !os.IsExist(err) {
-		panic(fmt.Errorf("could not create temporary directory: %s", err))
+		panic(fmt.Errorf("could not create directory: %s", err))
 	}
 
-	klog.V(log.LogLevelDebug).Infof("created temporary directory: %s", dir)
+	klog.V(log.LogLevelDebug).Infof("created directory: %s", dir)
 }
