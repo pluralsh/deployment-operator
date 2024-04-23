@@ -9,6 +9,7 @@ import (
 
 type ExitCode uint8
 
+// TODO: Figure out how to enforce these exit codes
 const (
 	// ExitCodeOK - successful termination
 	ExitCodeOK     ExitCode = 0
@@ -34,7 +35,7 @@ type Executable struct {
 	// If workingDirectory is empty then runs the command in the calling process's current workingDirectory.
 	workingDirectory string
 
-	// command specifies root a command that will be executed
+	// command specifies root command that will be executed
 	command Command
 
 	// context

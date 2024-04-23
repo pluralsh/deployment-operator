@@ -36,9 +36,9 @@ func WithDir(workingDirectory string) ExecutableOption {
 	}
 }
 
-func WithCancelableContext(signals ...Signal) ExecutableOption {
+func WithCancelableContext(ctx context.Context, signals ...Signal) ExecutableOption {
 	return func(t *Executable) {
-		t.context = WithCancel(nil, signals...)
+		t.context = NewCancelableContext(ctx, signals...)
 	}
 }
 

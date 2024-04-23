@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/cmd/harness/args"
@@ -30,10 +32,14 @@ func main() {
 		klog.Fatal(err)
 	}
 
+	// TODO: Catch stop/kill signal and attempt to do a proper cleanup/logs flush
 	cmd := exec.NewExecutable(
 		"sleep",
 		exec.WithDir(env.WorkingDir()),
-		exec.WithCancelableContext(exec.NewTimeoutCancelSignal(args.Timeout())),
+		exec.WithCancelableContext(
+			context.Background(),
+			exec.NewTimeoutSignal(args.Timeout()),
+		),
 	)
 	err = cmd.Run("5")
 	if err != nil {
