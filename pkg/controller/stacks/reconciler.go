@@ -127,7 +127,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 			}
 		}
 
-		job, err := r.generateJob(stackRun)
+		job, err := r.GenerateJob(stackRun)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -139,14 +139,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 	return reconcile.Result{}, nil
 }
 
-func (r *StackReconciler) generateJob(run *console.StackRunFragment) (*batchv1.Job, error) {
+func (r *StackReconciler) GenerateJob(run *console.StackRunFragment) (*batchv1.Job, error) {
 	name := fmt.Sprintf("stack-%s", run.ID)
 
 	defaultJobSpec := defaultJobSpec(r.Namespace, name)
-	defaultVals, err := runtime.DefaultUnstructuredConverter.ToUnstructured(defaultJobSpec)
-	if err != nil {
-		return nil, err
-	}
 	if run.JobSpec != nil {
 		jsFragment := &console.JobSpecFragment{
 			Namespace:      r.Namespace,
@@ -161,6 +157,10 @@ func (r *StackReconciler) generateJob(run *console.StackRunFragment) (*batchv1.J
 		if err != nil {
 			return nil, err
 		}
+		defaultVals, err := runtime.DefaultUnstructuredConverter.ToUnstructured(defaultJobSpec)
+		if err != nil {
+			return nil, err
+		}
 		algorithms.Merge(defaultVals, jobSpecVals)
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(defaultVals, &defaultJobSpec); err != nil {
 			return nil, err
@@ -172,7 +172,7 @@ func (r *StackReconciler) generateJob(run *console.StackRunFragment) (*batchv1.J
 			Name:      name,
 			Namespace: r.Namespace,
 		},
-		Spec: batchv1.JobSpec{},
+		Spec: defaultJobSpec,
 	}
 
 	return result, nil
@@ -185,7 +185,7 @@ func defaultJobSpec(namespace, name string) batchv1.JobSpec {
 				Name:      name,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					"globalservices.deployments.plural.sh": name,
+					"stackrun.deployments.plural.sh": name,
 				},
 			},
 			Spec: corev1.PodSpec{
@@ -236,27 +236,4 @@ func (r *StackReconciler) reconciledJob(ctx context.Context, job *batchv1.Job) (
 	}
 	return foundJob, nil
 
-}
-
-func hasFailed(job *batchv1.Job) bool {
-	return isJobStatusConditionTrue(job.Status.Conditions, batchv1.JobFailed)
-}
-
-func hasSucceeded(job *batchv1.Job) bool {
-	return isJobStatusConditionTrue(job.Status.Conditions, batchv1.JobComplete)
-}
-
-// isJobStatusConditionTrue returns true when the conditionType is present and set to `metav1.ConditionTrue`
-func isJobStatusConditionTrue(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType) bool {
-	return isJobStatusConditionPresentAndEqual(conditions, conditionType, corev1.ConditionTrue)
-}
-
-// isJobStatusConditionPresentAndEqual returns true when conditionType is present and equal to status.
-func isJobStatusConditionPresentAndEqual(conditions []batchv1.JobCondition, conditionType batchv1.JobConditionType, status corev1.ConditionStatus) bool {
-	for _, condition := range conditions {
-		if condition.Type == conditionType {
-			return condition.Status == status
-		}
-	}
-	return false
 }
