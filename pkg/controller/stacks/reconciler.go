@@ -139,15 +139,7 @@ func (r *StackReconciler) GenerateJob(run *console.StackRunFragment, name string
 	defaultJobSpec := defaultJobSpec(r.Namespace, name)
 
 	if run.JobSpec != nil {
-		jsFragment := &console.JobSpecFragment{
-			Namespace:      r.Namespace,
-			Raw:            run.JobSpec.Raw,
-			Containers:     run.JobSpec.Containers,
-			Labels:         run.JobSpec.Labels,
-			Annotations:    run.JobSpec.Annotations,
-			ServiceAccount: run.JobSpec.ServiceAccount,
-		}
-		jobSpec := consoleclient.JobSpecFromJobSpecFragment(name, jsFragment)
+		jobSpec := consoleclient.JobSpecFromJobSpecFragment(name, run.JobSpec)
 		jobSpecVals, err := runtime.DefaultUnstructuredConverter.ToUnstructured(jobSpec)
 		if err != nil {
 			return nil, err
