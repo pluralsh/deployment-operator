@@ -1,4 +1,4 @@
-package namespaces
+package stacks
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func (n *StackReconciler) ShutdownQueue() {
 	n.StackQueue.ShutDown()
 }
 
-func (n *StackReconciler) ListNamespaces(ctx context.Context) *algorithms.Pager[*console.StackRunEdgeFragment] {
+func (n *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*console.StackRunEdgeFragment] {
 	logger := log.FromContext(ctx)
 	logger.Info("create stack run pager")
 	fetch := func(page *string, size int64) ([]*console.StackRunEdgeFragment, *algorithms.PageInfo, error) {
@@ -72,17 +72,17 @@ func (n *StackReconciler) ListNamespaces(ctx context.Context) *algorithms.Pager[
 func (n *StackReconciler) Poll(ctx context.Context) (done bool, err error) {
 	logger := log.FromContext(ctx)
 	logger.Info("fetching stacks")
-	pager := n.ListNamespaces(ctx)
+	pager := n.ListStacks(ctx)
 
 	for pager.HasNext() {
-		namespaces, err := pager.NextPage()
+		stacks, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch stack run list")
 			return false, nil
 		}
-		for _, namespace := range namespaces {
-			logger.Info("sending update for", "stack run", namespace.Node.ID)
-			n.StackQueue.Add(namespace.Node.ID)
+		for _, stack := range stacks {
+			logger.Info("sending update for", "stack run", stack.Node.ID)
+			n.StackQueue.Add(stack.Node.ID)
 		}
 	}
 

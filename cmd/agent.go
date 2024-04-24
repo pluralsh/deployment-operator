@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"os"
 	"time"
 
@@ -69,6 +70,12 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Queue: ns.NamespaceQueue,
 	})
 
+	s := stacks.NewStackReconciler(mgr.GetClient(), k8sClient, r)
+	mgr.AddController(&controller.Controller{
+		Name:  "Stack Controller",
+		Do:    s,
+		Queue: s.StackQueue,
+	})
 	if err := mgr.Start(); err != nil {
 		setupLog.Error(err, "unable to start controller manager")
 		os.Exit(1)

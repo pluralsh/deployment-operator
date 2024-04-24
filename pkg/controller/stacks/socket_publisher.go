@@ -1,4 +1,4 @@
-package namespaces
+package stacks
 
 import (
 	console "github.com/pluralsh/console-client-go"
