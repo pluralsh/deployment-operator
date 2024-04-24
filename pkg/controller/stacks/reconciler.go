@@ -96,7 +96,7 @@ func (r *StackReconciler) Poll(ctx context.Context) (done bool, err error) {
 func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to sync stack run", "id", id)
-	_, err := r.StackCache.Get(id)
+	stackRun, err := r.StackCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
 			logger.Info("stack run already deleted", "id", id)
@@ -106,9 +106,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	job := &batchv1.Job{}
-
-	reconciledJob, err := r.Job(ctx, job)
+	job := generateJob(stackRun)
+	reconciledJob, err := r.reconciledJob(ctx, job)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -124,8 +123,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 	return reconcile.Result{}, nil
 }
 
+func generateJob(run *console.StackRunFragment) *batchv1.Job {
+	result := &batchv1.Job{}
+
+	return result
+}
+
 // Job reconciles a k8s job object.
-func (r *StackReconciler) Job(ctx context.Context, job *batchv1.Job) (*batchv1.Job, error) {
+func (r *StackReconciler) reconciledJob(ctx context.Context, job *batchv1.Job) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
 	foundJob := &batchv1.Job{}
 	if err := r.K8sClient.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, foundJob); err != nil {
