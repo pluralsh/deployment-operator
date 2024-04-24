@@ -23,6 +23,8 @@ import (
 	"time"
 )
 
+const stackLabelAnnotationSelector = "stackrun.deployments.plural.sh"
+
 type StackReconciler struct {
 	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
@@ -185,7 +187,10 @@ func defaultJobSpec(namespace, name string) batchv1.JobSpec {
 				Name:      name,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					"stackrun.deployments.plural.sh": name,
+					stackLabelAnnotationSelector: name,
+				},
+				Labels: map[string]string{
+					stackLabelAnnotationSelector: name,
 				},
 			},
 			Spec: corev1.PodSpec{
