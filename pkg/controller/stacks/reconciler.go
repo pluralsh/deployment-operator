@@ -92,7 +92,7 @@ func (n *StackReconciler) Poll(ctx context.Context) (done bool, err error) {
 func (n *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to sync stack run", "id", id)
-	_, err := n.StackCache.Get(id)
+	stackRun, err := n.StackCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
 			logger.Info("stack run already deleted", "id", id)
@@ -101,6 +101,8 @@ func (n *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 		logger.Error(err, fmt.Sprintf("failed to fetch stack run: %s, ignoring for now", id))
 		return reconcile.Result{}, err
 	}
+
+	fmt.Printf(stackRun.ID)
 
 	return reconcile.Result{}, nil
 }
