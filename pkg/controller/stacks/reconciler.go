@@ -173,6 +173,12 @@ func (r *StackReconciler) GenerateJob(run *console.StackRunFragment) (*batchv1.J
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: r.Namespace,
+			Annotations: map[string]string{
+				stackLabelAnnotationSelector: name,
+			},
+			Labels: map[string]string{
+				stackLabelAnnotationSelector: name,
+			},
 		},
 		Spec: defaultJobSpec,
 	}
@@ -186,12 +192,6 @@ func defaultJobSpec(namespace, name string) batchv1.JobSpec {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
-				Annotations: map[string]string{
-					stackLabelAnnotationSelector: name,
-				},
-				Labels: map[string]string{
-					stackLabelAnnotationSelector: name,
-				},
 			},
 			Spec: corev1.PodSpec{
 				Volumes: nil,
