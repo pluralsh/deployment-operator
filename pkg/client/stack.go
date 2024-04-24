@@ -15,6 +15,15 @@ func (c *client) GetStuckRun(id string) (*console.StackRunFragment, error) {
 	return restore.StackRun, nil
 }
 
+func (c *client) UpdateStuckRun(id string, attr console.StackRunAttributes) (*console.StackRunFragment, error) {
+	restore, err := c.consoleClient.UpdateStackRun(c.ctx, id, attr)
+	if err != nil {
+		return nil, err
+	}
+
+	return restore.UpdateStackRun, nil
+}
+
 func (c *client) ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStacks_ClusterStackRuns, error) {
 	resp, err := c.consoleClient.ListClusterStacks(c.ctx, after, first, nil, nil)
 	if err != nil {

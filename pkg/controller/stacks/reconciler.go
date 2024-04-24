@@ -3,22 +3,23 @@ package stacks
 import (
 	"context"
 	"fmt"
-	"time"
-
 	console "github.com/pluralsh/console-client-go"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 )
 
 type StackReconciler struct {
@@ -26,9 +27,12 @@ type StackReconciler struct {
 	K8sClient     ctrlclient.Client
 	StackQueue    workqueue.RateLimitingInterface
 	StackCache    *client.Cache[console.StackRunFragment]
+	Namespace     string
+	ConsoleURL    string
+	DeployToken   string
 }
 
-func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration) *StackReconciler {
+func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace, consoleURL, deployToken string) *StackReconciler {
 	return &StackReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
@@ -36,6 +40,9 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
 			return consoleClient.GetStuckRun(id)
 		}),
+		Namespace:   namespace,
+		ConsoleURL:  consoleURL,
+		DeployToken: deployToken,
 	}
 }
 
@@ -105,28 +112,98 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 		logger.Error(err, fmt.Sprintf("failed to fetch stack run: %s, ignoring for now", id))
 		return reconcile.Result{}, err
 	}
-
-	job := generateJob(stackRun)
-	reconciledJob, err := r.reconciledJob(ctx, job)
-	if err != nil {
-		return reconcile.Result{}, err
+	approved := true
+	if stackRun.Approval != nil && stackRun.ApprovedAt == nil {
+		approved = false
 	}
 
-	// check job status
-	if hasFailed(reconciledJob) {
+	if approved {
+		if stackRun.Status == console.StackStatusQueued {
+			if _, err := r.ConsoleClient.UpdateStuckRun(stackRun.ID, console.StackRunAttributes{
+				Status: console.StackStatusPending,
+			}); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
 
-	}
-	if hasSucceeded(reconciledJob) {
-
+		job, err := r.generateJob(stackRun)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if _, err := r.reconciledJob(ctx, job); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func generateJob(run *console.StackRunFragment) *batchv1.Job {
-	result := &batchv1.Job{}
+func (r *StackReconciler) generateJob(run *console.StackRunFragment) (*batchv1.Job, error) {
+	name := fmt.Sprintf("stack-%s", run.ID)
 
-	return result
+	defaultJobSpec := defaultJobSpec(r.Namespace, name)
+	if run.JobSpec != nil {
+		jsFragment := &console.JobSpecFragment{
+			Namespace:      r.Namespace,
+			Raw:            run.JobSpec.Raw,
+			Containers:     run.JobSpec.Containers,
+			Labels:         run.JobSpec.Labels,
+			Annotations:    run.JobSpec.Annotations,
+			ServiceAccount: run.JobSpec.ServiceAccount,
+		}
+		jobSpec := consoleclient.JobSpecFromJobSpecFragment(name, jsFragment)
+	}
+
+	result := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.Namespace,
+		},
+		Spec: batchv1.JobSpec{},
+	}
+
+	return result, nil
+}
+
+func defaultJobSpec(namespace, name string) batchv1.JobSpec {
+	return batchv1.JobSpec{
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+				Annotations: map[string]string{
+					"globalservices.deployments.plural.sh": name,
+				},
+			},
+			Spec: corev1.PodSpec{
+				Volumes: nil,
+				Containers: []corev1.Container{
+					{
+						Name:                     "",
+						Image:                    "",
+						Command:                  nil,
+						Args:                     nil,
+						WorkingDir:               "",
+						Ports:                    nil,
+						EnvFrom:                  nil,
+						Env:                      nil,
+						Resources:                corev1.ResourceRequirements{},
+						ResizePolicy:             nil,
+						RestartPolicy:            nil,
+						VolumeMounts:             nil,
+						VolumeDevices:            nil,
+						LivenessProbe:            nil,
+						ReadinessProbe:           nil,
+						StartupProbe:             nil,
+						Lifecycle:                nil,
+						TerminationMessagePath:   "",
+						TerminationMessagePolicy: "",
+						ImagePullPolicy:          "",
+					},
+				},
+			},
+		},
+	}
 }
 
 // Job reconciles a k8s job object.
