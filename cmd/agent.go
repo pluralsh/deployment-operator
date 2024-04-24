@@ -78,7 +78,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		os.Exit(1)
 	}
 
-	s := stacks.NewStackReconciler(mgr.GetClient(), k8sClient, r, namespace, opt.consoleUrl, opt.deployToken)
+	s := stacks.NewStackReconciler(mgr.GetClient(), k8sClient, r, namespace, opt.consoleUrl, opt.deployToken, opt.defaultStackHarnessImage)
 	mgr.AddController(&controller.Controller{
 		Name:  "Stack Controller",
 		Do:    s,

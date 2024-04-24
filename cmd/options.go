@@ -14,17 +14,18 @@ import (
 )
 
 type options struct {
-	enableLeaderElection    bool
-	metricsAddr             string
-	probeAddr               string
-	refreshInterval         string
-	processingTimeout       string
-	resyncSeconds           int
-	maxConcurrentReconciles int
-	consoleUrl              string
-	deployToken             string
-	clusterId               string
-	restoreNamespace        string
+	enableLeaderElection     bool
+	metricsAddr              string
+	probeAddr                string
+	refreshInterval          string
+	processingTimeout        string
+	resyncSeconds            int
+	maxConcurrentReconciles  int
+	consoleUrl               string
+	deployToken              string
+	clusterId                string
+	restoreNamespace         string
+	defaultStackHarnessImage string
 }
 
 func newOptions() *options {
@@ -46,6 +47,7 @@ func newOptions() *options {
 	flag.StringVar(&o.deployToken, "deploy-token", "", "The deploy token to auth to Console API with.")
 	flag.StringVar(&o.clusterId, "cluster-id", "", "The ID of the cluster being connected to.")
 	flag.StringVar(&o.restoreNamespace, "restore-namespace", "velero", "The namespace where Velero restores are located.")
+	flag.StringVar(&o.defaultStackHarnessImage, "default-stack-harness-image", "", "") // TODO
 	flag.BoolVar(&service.Local, "local", false, "Whether you're running the operator locally.")
 	flag.BoolVar(&template.EnableHelmDependencyUpdate, "enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
 	flag.BoolVar(&template.DisableHelmTemplateDryRunServer, "disable-helm-dry-run-server", false, "Disable helm template in dry-run=server mode.")

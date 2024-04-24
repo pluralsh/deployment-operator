@@ -13,7 +13,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,19 +23,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const stackLabelAnnotationSelector = "stackrun.deployments.plural.sh"
+const (
+	stackLabelAnnotationSelector = "stackrun.deployments.plural.sh"
+)
 
 type StackReconciler struct {
-	ConsoleClient client.Client
-	K8sClient     ctrlclient.Client
-	StackQueue    workqueue.RateLimitingInterface
-	StackCache    *client.Cache[console.StackRunFragment]
-	Namespace     string
-	ConsoleURL    string
-	DeployToken   string
+	ConsoleClient            client.Client
+	K8sClient                ctrlclient.Client
+	StackQueue               workqueue.RateLimitingInterface
+	StackCache               *client.Cache[console.StackRunFragment]
+	Namespace                string
+	ConsoleURL               string
+	DeployToken              string
+	DefaultStackHarnessImage string
 }
 
-func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace, consoleURL, deployToken string) *StackReconciler {
+func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace, consoleURL, deployToken, defaultStackHarnessImage string) *StackReconciler {
 	return &StackReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
@@ -44,9 +46,10 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
 			return consoleClient.GetStuckRun(id)
 		}),
-		Namespace:   namespace,
-		ConsoleURL:  consoleURL,
-		DeployToken: deployToken,
+		Namespace:                namespace,
+		ConsoleURL:               consoleURL,
+		DeployToken:              deployToken,
+		DefaultStackHarnessImage: defaultStackHarnessImage,
 	}
 }
 
@@ -136,7 +139,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 }
 
 func (r *StackReconciler) GenerateJob(run *console.StackRunFragment, name string) (*batchv1.Job, error) {
-	defaultJobSpec := defaultJobSpec(r.Namespace, name)
+	defaultJobSpec := r.defaultJob(name, run)
 
 	if run.JobSpec != nil {
 		jobSpec := consoleclient.JobSpecFromJobSpecFragment(name, run.JobSpec)
@@ -169,45 +172,6 @@ func (r *StackReconciler) GenerateJob(run *console.StackRunFragment, name string
 	}
 
 	return result, nil
-}
-
-func defaultJobSpec(namespace, name string) batchv1.JobSpec {
-	return batchv1.JobSpec{
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Spec: corev1.PodSpec{
-				Volumes:        nil,
-				InitContainers: nil,
-				Containers: []corev1.Container{
-					{
-						Name:                     "",
-						Image:                    "",
-						Command:                  nil,
-						Args:                     nil,
-						WorkingDir:               "",
-						Ports:                    nil,
-						EnvFrom:                  nil,
-						Env:                      nil,
-						Resources:                corev1.ResourceRequirements{},
-						ResizePolicy:             nil,
-						RestartPolicy:            nil,
-						VolumeMounts:             nil,
-						VolumeDevices:            nil,
-						LivenessProbe:            nil,
-						ReadinessProbe:           nil,
-						StartupProbe:             nil,
-						Lifecycle:                nil,
-						TerminationMessagePath:   "",
-						TerminationMessagePolicy: "",
-						ImagePullPolicy:          "",
-					},
-				},
-			},
-		},
-	}
 }
 
 // Job reconciles a k8s job object.
