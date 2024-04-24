@@ -3,6 +3,8 @@ package stacks
 import (
 	"context"
 	"fmt"
+	"time"
+
 	console "github.com/pluralsh/console-client-go"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -20,7 +22,6 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 )
 
 const stackLabelAnnotationSelector = "stackrun.deployments.plural.sh"
@@ -115,11 +116,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 		logger.Error(err, fmt.Sprintf("failed to fetch stack run: %s, ignoring for now", id))
 		return reconcile.Result{}, err
 	}
-	approved := true
-	if stackRun.Approval != nil && stackRun.ApprovedAt == nil {
-		approved = false
-	}
 
+	approved := stackRun.Approval == nil || (*stackRun.Approval == true && stackRun.ApprovedAt != nil)
 	if approved {
 		if stackRun.Status == console.StackStatusQueued {
 			if _, err := r.ConsoleClient.UpdateStuckRun(stackRun.ID, console.StackRunAttributes{
@@ -129,11 +127,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 			}
 		}
 
-		job, err := r.GenerateJob(stackRun)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if _, err := r.reconciledJob(ctx, job); err != nil {
+		if _, err := r.reconcileJob(ctx, stackRun); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -141,10 +135,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 	return reconcile.Result{}, nil
 }
 
-func (r *StackReconciler) GenerateJob(run *console.StackRunFragment) (*batchv1.Job, error) {
-	name := fmt.Sprintf("stack-%s", run.ID)
-
+func (r *StackReconciler) GenerateJob(run *console.StackRunFragment, name string) (*batchv1.Job, error) {
 	defaultJobSpec := defaultJobSpec(r.Namespace, name)
+
 	if run.JobSpec != nil {
 		jsFragment := &console.JobSpecFragment{
 			Namespace:      r.Namespace,
@@ -194,7 +187,8 @@ func defaultJobSpec(namespace, name string) batchv1.JobSpec {
 				Namespace: namespace,
 			},
 			Spec: corev1.PodSpec{
-				Volumes: nil,
+				Volumes:        nil,
+				InitContainers: nil,
 				Containers: []corev1.Container{
 					{
 						Name:                     "",
@@ -225,14 +219,22 @@ func defaultJobSpec(namespace, name string) batchv1.JobSpec {
 }
 
 // Job reconciles a k8s job object.
-func (r *StackReconciler) reconciledJob(ctx context.Context, job *batchv1.Job) (*batchv1.Job, error) {
+func (r *StackReconciler) reconcileJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
+	jobName := fmt.Sprintf("stack-%s", run.ID)
 	foundJob := &batchv1.Job{}
-	if err := r.K8sClient.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, foundJob); err != nil {
+	if err := r.K8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.Namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
-		logger.V(2).Info("Creating Job.", "Namespace", job.Namespace, "Name", job.Name)
+
+		logger.V(2).Info("generating job", "Namespace", r.Namespace, "Name", jobName)
+		job, err := r.GenerateJob(run, jobName)
+		if err != nil {
+			return nil, err
+		}
+
+		logger.V(2).Info("creating job", "Namespace", job.Namespace, "Name", job.Name)
 		if err := r.K8sClient.Create(ctx, job); err != nil {
 			logger.Error(err, "Unable to create Job.")
 			return nil, err
