@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -142,6 +143,10 @@ func (r *StackReconciler) generateJob(run *console.StackRunFragment) (*batchv1.J
 	name := fmt.Sprintf("stack-%s", run.ID)
 
 	defaultJobSpec := defaultJobSpec(r.Namespace, name)
+	defaultVals, err := runtime.DefaultUnstructuredConverter.ToUnstructured(defaultJobSpec)
+	if err != nil {
+		return nil, err
+	}
 	if run.JobSpec != nil {
 		jsFragment := &console.JobSpecFragment{
 			Namespace:      r.Namespace,
@@ -152,6 +157,14 @@ func (r *StackReconciler) generateJob(run *console.StackRunFragment) (*batchv1.J
 			ServiceAccount: run.JobSpec.ServiceAccount,
 		}
 		jobSpec := consoleclient.JobSpecFromJobSpecFragment(name, jsFragment)
+		jobSpecVals, err := runtime.DefaultUnstructuredConverter.ToUnstructured(jobSpec)
+		if err != nil {
+			return nil, err
+		}
+		algorithms.Merge(defaultVals, jobSpecVals)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(defaultVals, &defaultJobSpec); err != nil {
+			return nil, err
+		}
 	}
 
 	result := &batchv1.Job{
