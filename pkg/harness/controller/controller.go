@@ -11,9 +11,11 @@ import (
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/pkg/harness"
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
 // Start takes care of few things:
@@ -124,6 +126,9 @@ func (in *stackRunController) executables() []exec.Executable {
 		return cmp.Compare(s1.Index, s2.Index)
 	})
 
+	// Initialize a single console writer for all executables
+	consoleWriter := sink.NewConsoleLogWriter(in.consoleClient, in.sinkOptions...)
+
 	return algorithms.Map(in.stackRun.Steps, func(step *gqlclient.RunStepFragment) exec.Executable {
 		return exec.NewExecutable(
 			step.Cmd,
@@ -131,6 +136,8 @@ func (in *stackRunController) executables() []exec.Executable {
 			exec.WithEnv(in.stackRun.Env()),
 			exec.WithArgs(step.Args),
 			exec.WithID(step.ID),
+			exec.WithCustomOutputSink(consoleWriter),
+			exec.WithCustomErrorSink(consoleWriter),
 		)
 	})
 }
@@ -155,6 +162,16 @@ func (in *stackRunController) prepare() error {
 	)
 
 	return env.Setup()
+}
+
+func (in *stackRunController) defaultExecutableFactory(_ *harness.StackRun, step *gqlclient.RunStepFragment) exec.Executable {
+	return exec.NewExecutable(
+		step.Cmd,
+		exec.WithDir(in.dir),
+		exec.WithEnv(in.stackRun.Env()),
+		exec.WithArgs(step.Args),
+		exec.WithID(step.ID),
+	)
 }
 
 func (in *stackRunController) init() (Controller, error) {
@@ -182,6 +199,7 @@ func NewStackRunController(options ...Option) (Controller, error) {
 	runner := &stackRunController{
 		errChan:      errChan,
 		finishedChan: finishedChan,
+		sinkOptions: make([]sink.Option, 0),
 	}
 
 	runner.executor = newExecutor(

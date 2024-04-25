@@ -7,6 +7,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness"
+	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
 type Controller interface {
@@ -39,15 +40,11 @@ type stackRunController struct {
 
 	// dir
 	dir string
-}
 
-type Informer interface {
-}
-
-type terraformInformer struct {
-}
-
-type ansibleInformer struct {
+	// sinkOptions allows providing custom options to
+	// sink.ConsoleWriter. By default, every command output
+	// is being forwarded both to the os.Stdout and sink.ConsoleWriter.
+	sinkOptions []sink.Option
 }
 
 type Option func(*stackRunController)

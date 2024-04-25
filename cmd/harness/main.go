@@ -12,6 +12,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/controller"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/signals"
+	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
 func main() {
@@ -21,7 +22,7 @@ func main() {
 		helpers.FetchToDir(args.WorkingDir()),
 	)
 	ctx := signals.NewCancelableContext(
-		signals.SetupSignalHandler(signals.ExitCodeOther),
+		signals.SetupSignalHandler(signals.ExitCodeTerminated),
 		signals.NewTimeoutSignal(args.Timeout()),
 		signals.NewConsoleSignal(consoleClient),
 	)
@@ -31,6 +32,10 @@ func main() {
 		controller.WithConsoleClient(consoleClient),
 		controller.WithFetchClient(fetchClient),
 		controller.WithWorkingDir(args.WorkingDir()),
+		controller.WithSinkOptions(
+			sink.WithThrottle(args.LogFlushFrequency()),
+			sink.WithBufferSizeLimit(args.LogFlushBufferSize()),
+		),
 	)
 	if err != nil {
 		handleFatalError(err)
@@ -42,6 +47,8 @@ func main() {
 }
 
 func handleFatalError(err error) {
+	// TODO: initiate a graceful shutdown procedure
+
 	switch {
 	case errors.Is(err, internalerrors.ErrTimeout):
 		klog.ErrorS(err, "timed out waiting for stack run to complete", "timeout", args.Timeout())
@@ -49,6 +56,9 @@ func handleFatalError(err error) {
 	case errors.Is(err, internalerrors.ErrRemoteCancel):
 		klog.ErrorS(err, "stack run has been cancelled")
 		os.Exit(signals.ExitCodeCancel.Int())
+	case errors.Is(err, internalerrors.ErrTerminated):
+		klog.ErrorS(err, "stack run has been terminated")
+		os.Exit(signals.ExitCodeTerminated.Int())
 	}
 
 	klog.ErrorS(err, "stack run failed")

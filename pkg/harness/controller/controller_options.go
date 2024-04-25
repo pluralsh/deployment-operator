@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
 func WithStackRun(id string) Option {
@@ -26,5 +27,11 @@ func WithFetchClient(client helpers.FetchClient) Option {
 func WithWorkingDir(dir string) Option {
 	return func(s *stackRunController) {
 		s.dir = dir
+	}
+}
+
+func WithSinkOptions(options ...sink.Option) Option {
+	return func(s *stackRunController) {
+		s.sinkOptions = options
 	}
 }

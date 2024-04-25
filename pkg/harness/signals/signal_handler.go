@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 )
 
 var (
@@ -19,13 +21,13 @@ var (
 func SetupSignalHandler(code ExitCode) context.Context {
 	close(onlyOneSignalHandler) // panics when called twice
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancelCause(context.Background())
 
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, shutdownSignals...)
 	go func() {
 		<-c
-		cancel()
+		cancel(internalerrors.ErrTerminated)
 		<-c
 		os.Exit(code.Int()) // second signal. Exit directly.
 	}()
