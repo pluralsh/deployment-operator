@@ -22,6 +22,7 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -74,7 +75,12 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if hasFailed(job) {
 		logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
-		// TODO: Check container status.
+
+		podList := &corev1.PodList{}
+		if err := r.List(ctx, podList, k8sClient.ListOptions{LabelSelector: job.Spec.Selector}); err != nil {
+			logger.Error(err, "unable to fetch job")
+			return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
+		}
 	}
 
 	return ctrl.Result{}, nil
