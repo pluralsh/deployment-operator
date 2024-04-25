@@ -77,7 +77,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
 
 		podList := &corev1.PodList{}
-		if err := r.List(ctx, podList, k8sClient.ListOptions{LabelSelector: job.Spec.Selector}); err != nil {
+		if err := r.List(ctx, podList, &k8sClient.ListOptions{LabelSelector: job.Spec.Selector}); err != nil {
 			logger.Error(err, "unable to fetch job")
 			return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 		}
