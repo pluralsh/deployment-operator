@@ -95,11 +95,9 @@ func getStackRunID(job *batchv1.Job) string {
 // SetupWithManager sets up the controller with the Manager.
 func (r *StackRunJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	byAnnotation := predicate.NewPredicateFuncs(func(object k8sClient.Object) bool {
-		annotations := object.GetAnnotations()
-		if annotations != nil {
-			if _, ok := annotations[jobSelector]; ok {
-				return true
-			}
+		if annotations := object.GetAnnotations(); annotations != nil {
+			_, ok := annotations[jobSelector]
+			return ok
 		}
 
 		return false
