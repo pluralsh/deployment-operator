@@ -13,7 +13,7 @@ const (
 type FetchOption func(*fetchClient)
 
 type FetchClient interface {
-	Tarball(url string, destination *string) (string, error)
+	Tarball(url string) (string, error)
 }
 
 type fetchClient struct {

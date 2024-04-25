@@ -2,64 +2,69 @@ package exec
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
+
+	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func (in *Executable) Run(args ...string) (err error) {
-	cmd := exec.CommandContext(in.context, string(in.command), args...)
+func (in *executable) Run(ctx context.Context) (err error) {
+	cmd := exec.CommandContext(ctx, in.command, in.args...)
 
 	// Configure additional writers so that we can simultaneously write output
 	// to multiple destinations
-	cmd.Stderr = io.MultiWriter(os.Stderr, in.errorLogSink)
-	cmd.Stdout = io.MultiWriter(os.Stdout, in.standardLogSink)
+	cmd.Stdout = in.stdout()
+	cmd.Stderr = in.stderr()
+
+	// Configure environment of the executable.
+	// Root process environment is used as a base and passed in env vars
+	// are added on top of that. In case of duplicate keys, custom env
+	// vars passed to the executable will override root process env vars.
+	cmd.Env = append(os.Environ(), in.env...)
 
 	if len(in.workingDirectory) > 0 {
 		cmd.Dir = in.workingDirectory
 	}
 
+	klog.V(log.LogLevelInfo).InfoS("executing", "command", in.Command())
 	return cmd.Run()
 }
 
-func (in *Executable) defaults() *Executable {
-	if in.context == nil {
-		in.context = context.Background()
-	}
-
-	return in
+func (in *executable) Command() string {
+	return fmt.Sprintf("%s %s", in.command, strings.Join(in.args, " "))
 }
 
-func WithDir(workingDirectory string) ExecutableOption {
-	return func(t *Executable) {
-		t.workingDirectory = workingDirectory
+func (in *executable) stderr() io.Writer {
+	if in.errorLogSink != nil {
+		return io.MultiWriter(os.Stderr, in.errorLogSink)
 	}
+
+	return os.Stderr
 }
 
-func WithCancelableContext(ctx context.Context, signals ...Signal) ExecutableOption {
-	return func(t *Executable) {
-		t.context = NewCancelableContext(ctx, signals...)
+func (in *executable) stdout() io.Writer {
+	if in.standardLogSink != nil {
+		return io.MultiWriter(os.Stdout, in.standardLogSink)
 	}
+
+	return os.Stdout
 }
 
-func WithCustomOutputSink(sink io.Writer) ExecutableOption {
-	return func(e *Executable) {
-		e.standardLogSink = sink
+func NewExecutable(command string, options ...Option) Executable {
+	result := &executable{
+		command: command,
+		args: make([]string, 0),
+		env: make([]string, 0),
 	}
-}
-
-func WithCustomErrorSink(sink io.Writer) ExecutableOption {
-	return func(e *Executable) {
-		e.errorLogSink = sink
-	}
-}
-
-func NewExecutable(command Command, options ...ExecutableOption) *Executable {
-	executable := &Executable{command: command}
 
 	for _, o := range options {
-		o(executable)
+		o(result)
 	}
 
-	return executable.defaults()
+	return result
 }

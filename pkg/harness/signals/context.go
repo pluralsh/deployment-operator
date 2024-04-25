@@ -1,7 +1,7 @@
-package exec
+package signals
 
 import (
-	"golang.org/x/net/context"
+	"context"
 )
 
 type cancelableContext struct {
@@ -13,7 +13,7 @@ func NewCancelableContext(parent context.Context, signals ...Signal) context.Con
 		parent = context.Background()
 	}
 
-	ctx, cancel := context.WithCancel(parent)
+	ctx, cancel := context.WithCancelCause(parent)
 	for _, signal := range signals {
 		signal.Listen(cancel)
 	}

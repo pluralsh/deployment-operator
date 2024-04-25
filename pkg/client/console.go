@@ -80,4 +80,8 @@ type Client interface {
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
 	GetStackRun(id string) (*harness.StackRun, error)
+	AddStackRunLogs(id, logs string) error
+	CompleteStackRun(id string, attributes console.StackRunAttributes) error
+	UpdateStackRun(id string, attributes console.StackRunAttributes) error
+	UpdateStackRunStep(id string, attributes console.RunStepAttributes) error
 }

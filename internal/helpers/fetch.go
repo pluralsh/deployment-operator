@@ -25,11 +25,7 @@ func Fetch(options ...FetchOption) FetchClient {
 	return client
 }
 
-func (in *fetchClient) Tarball(url string, destination *string) (string, error) {
-	if destination != nil && len(*destination) > 0 {
-		in.destination = *destination
-	}
-
+func (in *fetchClient) Tarball(url string) (string, error) {
 	req, err := in.request(url)
 	if err != nil {
 		return "", err

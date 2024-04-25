@@ -31,7 +31,7 @@ const (
 	// Log related defaults
 	defaultLogFlushFrequency = "5s"
 	defaultLogFlushFrequencyDuration = 5 * time.Second
-	defaultLogFlushBufferSize = 4096
+	defaultLogFlushBufferSize = "4096"
 )
 
 var (
@@ -41,7 +41,7 @@ var (
 	argWorkingDir   = pflag.String("working-dir", helpers.GetPluralEnv(EnvWorkingDir, defaultWorkingDir), "Working directory used to prepare the environment")
 	argTimeout      = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout after which run will be cancelled")
 	argLogFlushFrequency = pflag.String("log-flush-frequency", helpers.GetPluralEnv(EnvLogFlushFrequency, defaultLogFlushFrequency), "")
-	argLogFlushBufferSize = pflag.Int("log-flush-buffer-size", defaultLogFlushBufferSize, "")
+	argLogFlushBufferSize = pflag.Int("log-flush-buffer-size", helpers.ParseIntOrDie(helpers.GetPluralEnv(EnvLogFlushBufferSize, defaultLogFlushBufferSize)), "")
 )
 
 func init() {

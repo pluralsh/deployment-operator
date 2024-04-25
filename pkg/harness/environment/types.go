@@ -6,7 +6,7 @@ import (
 )
 
 type Environment interface {
-	Prepare() error
+	Setup() error
 	WorkingDir() string
 }
 

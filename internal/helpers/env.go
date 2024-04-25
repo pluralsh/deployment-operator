@@ -3,6 +3,7 @@ package helpers
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"k8s.io/klog/v2"
 
@@ -26,6 +27,15 @@ func GetEnv(key, fallback string) string {
 // with the provided key is not found, fallback will be used.
 func GetPluralEnv(key, fallback string) string {
 	return GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), fallback)
+}
+
+func ParseIntOrDie(value string) int {
+	result, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		klog.Fatalf("failed to parse %s as integer: %s", value, err)
+	}
+
+	return int(result)
 }
 
 // CreateTempDirOrDie ...

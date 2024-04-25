@@ -6,11 +6,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/harness"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func (in *environment) Prepare() error {
+func (in *environment) Setup() error {
 	if err := in.prepareTarball(); err != nil {
 		return err
 	}
@@ -27,7 +26,7 @@ func (in *environment) WorkingDir() string {
 }
 
 func (in *environment) prepareTarball() error {
-	if _, err := in.fetchClient.Tarball(in.stackRun.Tarball, &in.dir); err != nil {
+	if _, err := in.fetchClient.Tarball(in.stackRun.Tarball); err != nil {
 		klog.ErrorS(err, "failed preparing tarball", "path", in.dir)
 		return err
 	}
@@ -56,6 +55,10 @@ func (in *environment) prepareFiles() error {
 
 // defaults ensures that all required values are initialized
 func (in *environment) defaults() Environment {
+	if in.stackRun == nil {
+		klog.Fatal("could not initialize environment: stackRun is nil")
+	}
+
 	if len(in.dir) != 0 {
 		helpers.EnsureDirOrDie(in.dir)
 	}
@@ -63,27 +66,8 @@ func (in *environment) defaults() Environment {
 	return in
 }
 
-func WithWorkingDir(dir string) Option {
-	return func(e *environment) {
-		e.dir = dir
-	}
-}
-
-func WithFetchClient(client helpers.FetchClient) Option {
-	return func(e *environment) {
-		e.fetchClient = client
-	}
-}
-
-func New(stackRun *harness.StackRun, options ...Option) Environment {
-	if stackRun == nil {
-		klog.Fatal("could not initialize environment: stackRun is nil")
-		return nil
-	}
-
-	result := &environment{
-		stackRun: stackRun,
-	}
+func New(options ...Option) Environment {
+	result := new(environment)
 
 	for _, opt := range options {
 		opt(result)
