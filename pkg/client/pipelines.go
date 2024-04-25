@@ -73,7 +73,7 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, o
 	return pipelineGate, nil
 }
 
-func jobFromYaml(yamlString string) (*batchv1.Job, error) {
+func JobFromYaml(yamlString string) (*batchv1.Job, error) {
 	job := &batchv1.Job{}
 
 	// unmarshal the YAML string into the Job rep
@@ -106,7 +106,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	}
 	var jobSpec *batchv1.JobSpec
 	if jsFragment.Raw != nil && *jsFragment.Raw != "null" {
-		job, err := jobFromYaml(*jsFragment.Raw)
+		job, err := JobFromYaml(*jsFragment.Raw)
 		if err != nil {
 			return nil
 		}
@@ -119,11 +119,11 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 					Name:      name,
 					Namespace: jsFragment.Namespace,
 					// convert map[string]interface{} to map[string]string
-					Labels:      stringMapFromInterfaceMap(jsFragment.Labels),
-					Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
+					Labels:      StringMapFromInterfaceMap(jsFragment.Labels),
+					Annotations: StringMapFromInterfaceMap(jsFragment.Annotations),
 				},
 				Spec: corev1.PodSpec{
-					Containers:    containersFromContainerSpecFragments(name, jsFragment.Containers),
+					Containers:    ContainersFromContainerSpecFragments(name, jsFragment.Containers),
 					RestartPolicy: corev1.RestartPolicyOnFailure,
 				},
 			},
@@ -140,7 +140,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	return jobSpec
 }
 
-func containersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment) []corev1.Container {
+func ContainersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment) []corev1.Container {
 	var containers []corev1.Container
 
 	for i, csFragment := range containerSpecFragments {
@@ -188,7 +188,7 @@ func containersFromContainerSpecFragments(gateName string, containerSpecFragment
 	return containers
 }
 
-func stringMapFromInterfaceMap(labels map[string]interface{}) map[string]string {
+func StringMapFromInterfaceMap(labels map[string]interface{}) map[string]string {
 	result := make(map[string]string)
 
 	for key, value := range labels {

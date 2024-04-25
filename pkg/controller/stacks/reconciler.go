@@ -8,14 +8,11 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
 	batchv1 "k8s.io/api/batch/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,9 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	stackLabelAnnotationSelector = "stackrun.deployments.plural.sh"
-)
+const ()
 
 type StackReconciler struct {
 	ConsoleClient            client.Client
@@ -129,42 +124,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 	return reconcile.Result{}, nil
 }
 
-func (r *StackReconciler) GenerateJob(run *console.StackRunFragment, name string) (*batchv1.Job, error) {
-	defaultJobSpec := r.defaultJob(name, run)
-
-	if run.JobSpec != nil {
-		jobSpec := consoleclient.JobSpecFromJobSpecFragment(name, run.JobSpec)
-		jobSpecVals, err := runtime.DefaultUnstructuredConverter.ToUnstructured(jobSpec)
-		if err != nil {
-			return nil, err
-		}
-		defaultVals, err := runtime.DefaultUnstructuredConverter.ToUnstructured(defaultJobSpec)
-		if err != nil {
-			return nil, err
-		}
-		algorithms.Merge(defaultVals, jobSpecVals)
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(defaultVals, &defaultJobSpec); err != nil {
-			return nil, err
-		}
-	}
-
-	result := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: r.Namespace,
-			Annotations: map[string]string{
-				stackLabelAnnotationSelector: name,
-			},
-			Labels: map[string]string{
-				stackLabelAnnotationSelector: name,
-			},
-		},
-		Spec: defaultJobSpec,
-	}
-
-	return result, nil
-}
-
 // Job reconciles a k8s job object.
 func (r *StackReconciler) reconcileJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
@@ -176,10 +135,7 @@ func (r *StackReconciler) reconcileJob(ctx context.Context, run *console.StackRu
 		}
 
 		logger.V(2).Info("generating job", "Namespace", r.Namespace, "Name", jobName)
-		job, err := r.GenerateJob(run, jobName)
-		if err != nil {
-			return nil, err
-		}
+		job := r.GenerateRunJob(run, jobName)
 
 		logger.V(2).Info("creating job", "Namespace", job.Namespace, "Name", job.Name)
 		if err := r.K8sClient.Create(ctx, job); err != nil {
