@@ -18,10 +18,11 @@ package controller
 
 import (
 	"context"
+	"strings"
+
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"strings"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +47,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Read resource from Kubernetes cluster.
 	job := &batchv1.Job{}
 	if err := r.Get(ctx, req.NamespacedName, job); err != nil {
-		logger.Error(err, "Unable to fetch job")
+		logger.Error(err, "unable to fetch job")
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 	stackRunID := getStackRunID(job)
@@ -55,16 +56,14 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	// ignore job if:
-	// - StackRun is not running
-	// - Job is still running
+	// Exit if stack run is not in running state (run status already updated),
+	// or if the job is still running (harness controls run status).
 	if stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
-	// check job status
 	if hasSucceeded(job) {
-		logger.V(2).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		logger.V(2).Info("stack run job succeeded", "name", job.Name, "namespace", job.Namespace)
 		_, err := r.ConsoleClient.UpdateStuckRun(stackRunID, console.StackRunAttributes{
 			Status: console.StackStatusSuccessful,
 		})
@@ -72,8 +71,10 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 
 	}
+
 	if hasFailed(job) {
-		logger.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
+		// TODO: Check container status.
 	}
 
 	return ctrl.Result{}, nil

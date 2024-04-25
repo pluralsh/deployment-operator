@@ -43,12 +43,12 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Read resource from Kubernetes cluster.
 	backup := &velerov1.Backup{}
 	if err := r.Get(ctx, req.NamespacedName, backup); err != nil {
-		logger.Error(err, "Unable to fetch backup")
+		logger.Error(err, "unable to fetch backup")
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
 	// Upsert backup data to the Console.
-	logger.Info("Cluster backup saved", "name", backup.Name, "namespace", backup.Namespace)
+	logger.Info("cluster backup saved", "name", backup.Name, "namespace", backup.Namespace)
 	_, err := r.ConsoleClient.SaveClusterBackup(console.BackupAttributes{
 		Name:             backup.Name,
 		Namespace:        backup.Namespace,

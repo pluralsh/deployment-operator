@@ -31,12 +31,12 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 			return nil, err
 		}
 
-		logger.V(2).Info("generating job", "Namespace", r.Namespace, "Name", jobName)
+		logger.V(2).Info("generating job", "namespace", r.Namespace, "name", jobName)
 		job := r.GenerateRunJob(run, jobName)
 
-		logger.V(2).Info("creating job", "Namespace", job.Namespace, "Name", job.Name)
+		logger.V(2).Info("creating job", "namespace", job.Namespace, "name", job.Name)
 		if err := r.K8sClient.Create(ctx, job); err != nil {
-			logger.Error(err, "Unable to create Job.")
+			logger.Error(err, "unable to create job")
 			return nil, err
 		}
 		return job, nil
