@@ -1,6 +1,7 @@
 package stacks
 
 import (
+	"context"
 	"fmt"
 
 	console "github.com/pluralsh/console-client-go"
@@ -8,7 +9,10 @@ import (
 	"github.com/pluralsh/polly/algorithms"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -17,6 +21,33 @@ const (
 	defaultJobVolume     = "default"
 	defaultJobVolumePath = "/harness"
 )
+
+func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
+	logger := log.FromContext(ctx)
+	jobName := getRunJobName(run)
+	foundJob := &batchv1.Job{}
+	if err := r.K8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.Namespace}, foundJob); err != nil {
+		if !apierrs.IsNotFound(err) {
+			return nil, err
+		}
+
+		logger.V(2).Info("generating job", "Namespace", r.Namespace, "Name", jobName)
+		job := r.GenerateRunJob(run, jobName)
+
+		logger.V(2).Info("creating job", "Namespace", job.Namespace, "Name", job.Name)
+		if err := r.K8sClient.Create(ctx, job); err != nil {
+			logger.Error(err, "Unable to create Job.")
+			return nil, err
+		}
+		return job, nil
+	}
+	return foundJob, nil
+
+}
+
+func getRunJobName(run *console.StackRunFragment) string {
+	return fmt.Sprintf("stack-%s", run.ID)
+}
 
 func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name string) *batchv1.Job {
 	var jobSpec *batchv1.JobSpec

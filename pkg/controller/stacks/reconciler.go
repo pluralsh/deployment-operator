@@ -11,9 +11,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
-	batchv1 "k8s.io/api/batch/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -116,34 +113,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 	}
 
 	if stackRun.Approval == nil || (*stackRun.Approval == true && stackRun.ApprovedAt != nil) {
-		if _, err := r.reconcileJob(ctx, stackRun); err != nil {
+		if _, err := r.reconcileRunJob(ctx, stackRun); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
 	return reconcile.Result{}, nil
-}
-
-// Job reconciles a k8s job object.
-func (r *StackReconciler) reconcileJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
-	logger := log.FromContext(ctx)
-	jobName := fmt.Sprintf("stack-%s", run.ID)
-	foundJob := &batchv1.Job{}
-	if err := r.K8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.Namespace}, foundJob); err != nil {
-		if !apierrs.IsNotFound(err) {
-			return nil, err
-		}
-
-		logger.V(2).Info("generating job", "Namespace", r.Namespace, "Name", jobName)
-		job := r.GenerateRunJob(run, jobName)
-
-		logger.V(2).Info("creating job", "Namespace", job.Namespace, "Name", job.Name)
-		if err := r.K8sClient.Create(ctx, job); err != nil {
-			logger.Error(err, "Unable to create Job.")
-			return nil, err
-		}
-		return job, nil
-	}
-	return foundJob, nil
-
 }
