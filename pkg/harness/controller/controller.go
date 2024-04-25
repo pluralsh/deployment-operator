@@ -36,9 +36,6 @@ func (in *stackRunController) Start(ctx context.Context) (err error) {
 		}
 	}()
 
-	// Initialize the internal context.
-	in.internalCtx, in.internalCancel = context.WithCancel(ctx)
-
 	// Add executables to executor
 	for _, e := range in.executables() {
 		if err = in.executor.Add(e); err != nil {
@@ -46,17 +43,20 @@ func (in *stackRunController) Start(ctx context.Context) (err error) {
 		}
 	}
 
-	if err = in.executor.Start(in.internalCtx); err != nil {
+	if err = in.executor.Start(ctx); err != nil {
 		return fmt.Errorf("could not start executor: %w", err)
 	}
 
 	ready = true
 	in.Unlock()
 	select {
+	// Stop the execution if provided context is done.
 	case <-ctx.Done():
 		return context.Cause(ctx)
+	// In case of any error finish the execution and return error.
 	case err = <-in.errChan:
 		return err
+	// If execution finished successfully return.
 	case <-in.finishedChan:
 		return nil
 	}
@@ -68,8 +68,8 @@ func (in *stackRunController) executables() []exec.Executable {
 			step.Cmd,
 			exec.WithDir(in.dir),
 			exec.WithEnv(in.stackRun.Env()),
-			//exec.WithArgs([]string{"version"}),
-			exec.WithArgs(step.Args),
+			exec.WithArgs([]string{"asd"}),
+			//exec.WithArgs(step.Args),
 		)
 	})
 }

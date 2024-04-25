@@ -16,9 +16,6 @@ type Controller interface {
 type stackRunController struct {
 	sync.Mutex
 
-	internalCtx    context.Context
-	internalCancel context.CancelFunc
-
 	// errChan
 	errChan chan error
 

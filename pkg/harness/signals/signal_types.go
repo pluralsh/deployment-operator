@@ -11,15 +11,11 @@ func (e ExitCode) Int() int {
 }
 
 const (
-	// ExitCodeOK - successful termination
-	ExitCodeOK ExitCode = 0
-	// ExitCodeUsage - command line usage error
-	ExitCodeUsage ExitCode = 64
 	// ExitCodeCancel - process stopped/killed via an external signal
-	ExitCodeCancel ExitCode = 65
+	ExitCodeCancel ExitCode = 64
 	// ExitCodeTimeout - process was running for too long and timed out
-	ExitCodeTimeout ExitCode = 66
-	// ExitCodeOther - other not recognized errors
+	ExitCodeTimeout ExitCode = 65
+	// ExitCodeOther - other error
 	ExitCodeOther ExitCode = 255
 )
 
