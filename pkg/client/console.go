@@ -81,5 +81,5 @@ type Client interface {
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
 	GetStackRun(id string) (*console.StackRunFragment, error)
 	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStacks_ClusterStackRuns, error)
-	UpdateStuckRun(id string, attr console.StackRunAttributes) (*console.StackRunFragment, error)
+	UpdateStackRun(id string, attr console.StackRunAttributes) (*console.StackRunBaseFragment, error)
 }

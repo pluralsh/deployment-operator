@@ -67,7 +67,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if hasSucceeded(job) {
 		logger.V(2).Info("stack run job succeeded", "name", job.Name, "namespace", job.Namespace)
-		_, err := r.ConsoleClient.UpdateStuckRun(stackRunID, console.StackRunAttributes{
+		_, err := r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
 			Status: console.StackStatusSuccessful,
 		})
 

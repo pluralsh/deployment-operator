@@ -15,7 +15,7 @@ func (c *client) GetStackRun(id string) (*console.StackRunFragment, error) {
 	return restore.StackRun, nil
 }
 
-func (c *client) UpdateStuckRun(id string, attr console.StackRunAttributes) (*console.StackRunFragment, error) {
+func (c *client) UpdateStackRun(id string, attr console.StackRunAttributes) (*console.StackRunBaseFragment, error) {
 	restore, err := c.consoleClient.UpdateStackRun(c.ctx, id, attr)
 	if err != nil {
 		return nil, err
