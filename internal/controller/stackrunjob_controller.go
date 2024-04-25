@@ -79,7 +79,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		podList := &corev1.PodList{}
 		if err := r.List(ctx, podList, &k8sClient.ListOptions{LabelSelector: job.Spec.Selector}); err != nil {
 			logger.Error(err, "unable to fetch pods")
-			return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
+			return ctrl.Result{}, err
 		}
 	}
 
