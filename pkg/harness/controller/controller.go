@@ -127,7 +127,10 @@ func (in *stackRunController) executables() []exec.Executable {
 	})
 
 	// Initialize a single console writer for all executables
-	consoleWriter := sink.NewConsoleLogWriter(in.consoleClient, in.sinkOptions...)
+	consoleWriter := sink.NewConsoleLogWriter(
+		in.consoleClient,
+		append(in.sinkOptions, sink.WithID(in.stackRunID))...,
+	)
 
 	return algorithms.Map(in.stackRun.Steps, func(step *gqlclient.RunStepFragment) exec.Executable {
 		return exec.NewExecutable(
@@ -199,7 +202,7 @@ func NewStackRunController(options ...Option) (Controller, error) {
 	runner := &stackRunController{
 		errChan:      errChan,
 		finishedChan: finishedChan,
-		sinkOptions: make([]sink.Option, 0),
+		sinkOptions:  make([]sink.Option, 0),
 	}
 
 	runner.executor = newExecutor(

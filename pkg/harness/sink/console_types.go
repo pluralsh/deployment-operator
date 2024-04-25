@@ -7,10 +7,15 @@ import (
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
+const (
+	defaultBufferSizeLimit = 4096 // in kilobytes
+	defaultThrottleTime = 5 * time.Second
+)
+
 type ConsoleWriter struct {
 	*bytes.Buffer
-	// name ...
-	name string
+	// id is a stack run id that logs should be appended to
+	id string
 	// client ...
 	client console.Client
 	// throttle controls how frequently logs will be flushed to its destination
@@ -20,7 +25,7 @@ type ConsoleWriter struct {
 	// bufferSizeChan
 	bufferSizeChan chan int
 	// ticker
-	ticker time.Ticker
+	ticker *time.Ticker
 }
 
 

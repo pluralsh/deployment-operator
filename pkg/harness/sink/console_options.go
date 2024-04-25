@@ -16,8 +16,8 @@ func WithBufferSizeLimit(limit int) Option {
 	}
 }
 
-func WithName(name string) Option {
+func WithID(id string) Option {
 	return func(writer *ConsoleWriter) {
-		writer.name = name
+		writer.id = id
 	}
 }
