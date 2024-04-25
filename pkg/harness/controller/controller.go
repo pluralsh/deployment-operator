@@ -1,13 +1,18 @@
 package controller
 
 import (
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 
 	gqlclient "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/algorithms"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
+	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
@@ -24,7 +29,7 @@ import (
 //   - all commands have finished their execution
 //   - it was running for too long and timed out
 //   - remote cancellation signal was received and stopped the execution
-func (in *stackRunController) Start(ctx context.Context) (err error) {
+func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	in.Lock()
 
 	ready := false
@@ -38,12 +43,14 @@ func (in *stackRunController) Start(ctx context.Context) (err error) {
 
 	// Add executables to executor
 	for _, e := range in.executables() {
-		if err = in.executor.Add(e); err != nil {
+		if err := in.executor.Add(e); err != nil {
 			return err
 		}
 	}
 
-	if err = in.executor.Start(ctx); err != nil {
+	in.preStart()
+
+	if err := in.executor.Start(ctx); err != nil {
 		return fmt.Errorf("could not start executor: %w", err)
 	}
 
@@ -52,39 +59,93 @@ func (in *stackRunController) Start(ctx context.Context) (err error) {
 	select {
 	// Stop the execution if provided context is done.
 	case <-ctx.Done():
-		return context.Cause(ctx)
+		retErr = context.Cause(ctx)
 	// In case of any error finish the execution and return error.
-	case err = <-in.errChan:
-		return err
+	case err := <-in.errChan:
+		retErr = err
 	// If execution finished successfully return.
 	case <-in.finishedChan:
-		return nil
+		retErr = nil
+	}
+
+	return in.postStart(retErr)
+}
+
+func (in *stackRunController) preStart() {
+	if err := in.markStackRun(gqlclient.StackStatusRunning); err != nil {
+		klog.ErrorS(err, "could not update stack run status")
+	}
+}
+
+func (in *stackRunController) postStart(err error) error {
+	var status gqlclient.StackStatus
+
+	switch {
+	case err == nil:
+		status = gqlclient.StackStatusSuccessful
+	case errors.Is(err, internalerrors.ErrRemoteCancel):
+		status = gqlclient.StackStatusCancelled
+	default:
+		status = gqlclient.StackStatusFailed
+	}
+
+	// TODO: should complete stack run
+	if err := in.markStackRun(status); err != nil {
+		klog.ErrorS(err, "could not update stack run status")
+	}
+
+	return err
+}
+
+func (in *stackRunController) postStepRun(id string, err error) {
+	var status gqlclient.StepStatus
+
+	switch {
+	case err == nil:
+		status = gqlclient.StepStatusSuccessful
+	default:
+		status = gqlclient.StepStatusFailed
+	}
+
+	if err := in.markStackRunStep(id, status); err != nil {
+		klog.ErrorS(err, "could not update stack run step status")
+	}
+}
+
+func (in *stackRunController) preStepRun(id string) {
+	if err := in.markStackRunStep(id, gqlclient.StepStatusRunning); err != nil {
+		klog.ErrorS(err, "could not update stack run status")
 	}
 }
 
 func (in *stackRunController) executables() []exec.Executable {
+	// Ensure that steps are sorted in the correct order
+	slices.SortFunc(in.stackRun.Steps, func(s1, s2 *gqlclient.RunStepFragment) int {
+		return cmp.Compare(s1.Index, s2.Index)
+	})
+
 	return algorithms.Map(in.stackRun.Steps, func(step *gqlclient.RunStepFragment) exec.Executable {
 		return exec.NewExecutable(
 			step.Cmd,
 			exec.WithDir(in.dir),
 			exec.WithEnv(in.stackRun.Env()),
-			exec.WithArgs([]string{"asd"}),
-			//exec.WithArgs(step.Args),
+			exec.WithArgs(step.Args),
+			exec.WithID(step.ID),
 		)
 	})
 }
 
-//func (in *stackRunController) markStackRun(status gqlclient.StackStatus) error {
-//	return in.consoleClient.UpdateStackRun(in.stackRun().ID, gqlclient.StackRunAttributes{
-//		Status: status,
-//	})
-//}
-//
-//func (in *stackRunController) markStackRunStep(status gqlclient.StepStatus) error {
-//	return in.consoleClient.UpdateStackRunStep(in.stackRun().ID, gqlclient.RunStepAttributes{
-//		Status: status,
-//	})
-//}
+func (in *stackRunController) markStackRun(status gqlclient.StackStatus) error {
+	return in.consoleClient.UpdateStackRun(in.stackRunID, gqlclient.StackRunAttributes{
+		Status: status,
+	})
+}
+
+func (in *stackRunController) markStackRunStep(id string, status gqlclient.StepStatus) error {
+	return in.consoleClient.UpdateStackRunStep(id, gqlclient.RunStepAttributes{
+		Status: status,
+	})
+}
 
 func (in *stackRunController) prepare() error {
 	env := environment.New(
@@ -119,10 +180,16 @@ func NewStackRunController(options ...Option) (Controller, error) {
 	finishedChan := make(chan struct{})
 	errChan := make(chan error, 1)
 	runner := &stackRunController{
-		errChan:  errChan,
+		errChan:      errChan,
 		finishedChan: finishedChan,
-		executor: newExecutor(errChan, finishedChan),
 	}
+
+	runner.executor = newExecutor(
+		errChan,
+		finishedChan,
+		WithPreRunFunc(runner.preStepRun),
+		WithPostRunFunc(runner.postStepRun),
+	)
 
 	for _, option := range options {
 		option(runner)

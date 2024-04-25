@@ -33,3 +33,9 @@ func WithArgs(args []string) Option {
 		e.args = args
 	}
 }
+
+func WithID(id string) Option {
+	return func(e *executable) {
+		e.id = id
+	}
+}

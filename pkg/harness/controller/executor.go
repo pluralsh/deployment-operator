@@ -108,12 +108,28 @@ func (in *executor) parallel(ctx context.Context) {
 	}()
 }
 
-func (in *executor) run(ctx context.Context, executable exec.Executable) error {
+func (in *executor) run(ctx context.Context, executable exec.Executable) (retErr error) {
+	in.preRun(executable.ID())
+
 	if err := executable.Run(ctx); err != nil {
-		return fmt.Errorf("command execution failed: %s: err: %s", executable.Command(), err)
+		retErr = fmt.Errorf("command execution failed: %s: err: %s", executable.Command(), err)
 	}
 
-	return nil
+	return in.postRun(executable.ID(), retErr)
+}
+
+func (in *executor) preRun(id string) {
+	if in.preRunFunc != nil {
+		in.preRunFunc(id)
+	}
+}
+
+func (in *executor) postRun(id string, err error) error {
+	if in.postRunFunc != nil {
+		in.postRunFunc(id, err)
+	}
+
+	return err
 }
 
 func (in *executor) dequeue(executable exec.Executable) (empty bool) {

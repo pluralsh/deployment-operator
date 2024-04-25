@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -37,6 +38,14 @@ func (in *executable) Run(ctx context.Context) (err error) {
 
 func (in *executable) Command() string {
 	return fmt.Sprintf("%s %s", in.command, strings.Join(in.args, " "))
+}
+
+func (in *executable) ID() string {
+	if len(in.id) == 0 {
+		in.id = string(uuid.NewUUID())
+	}
+
+	return in.id
 }
 
 func (in *executable) stderr() io.Writer {

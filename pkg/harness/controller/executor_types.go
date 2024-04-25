@@ -22,6 +22,13 @@ type executor struct {
 	// it will be closed to signal successful completion.
 	finishedChan chan struct{}
 
+	// preRunFunc is executed before every command.
+	preRunFunc func(id string)
+
+	// postRunFunc is executed after every command.
+	// It provides information about execution status: nil or error.
+	postRunFunc func(id string, err error)
+
 	// strategy
 	strategy ExecutionStrategy
 
