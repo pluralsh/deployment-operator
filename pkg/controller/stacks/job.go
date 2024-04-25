@@ -135,8 +135,8 @@ func getDefaultContainerVolumeMount() corev1.VolumeMount {
 }
 
 func ensureDefaultVolumeMount(mounts []corev1.VolumeMount) {
-	if index := algorithms.Index(mounts, func(volume corev1.VolumeMount) bool {
-		return volume.Name == defaultJobVolume
+	if index := algorithms.Index(mounts, func(mount corev1.VolumeMount) bool {
+		return mount.Name == defaultJobVolume
 	}); index == -1 {
 		mounts = append(mounts, getDefaultContainerVolumeMount())
 	} else {
