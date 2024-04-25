@@ -120,16 +120,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	approved := stackRun.Approval == nil || (*stackRun.Approval == true && stackRun.ApprovedAt != nil)
-	if approved {
-		if stackRun.Status == console.StackStatusQueued {
-			if _, err := r.ConsoleClient.UpdateStuckRun(stackRun.ID, console.StackRunAttributes{
-				Status: console.StackStatusPending,
-			}); err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-
+	if stackRun.Approval == nil || (*stackRun.Approval == true && stackRun.ApprovedAt != nil) {
 		if _, err := r.reconcileJob(ctx, stackRun); err != nil {
 			return reconcile.Result{}, err
 		}
