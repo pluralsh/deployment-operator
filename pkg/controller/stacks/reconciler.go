@@ -20,14 +20,13 @@ import (
 const ()
 
 type StackReconciler struct {
-	ConsoleClient            client.Client
-	K8sClient                ctrlclient.Client
-	StackQueue               workqueue.RateLimitingInterface
-	StackCache               *client.Cache[console.StackRunFragment]
-	Namespace                string
-	ConsoleURL               string
-	DeployToken              string
-	DefaultStackHarnessImage string
+	ConsoleClient client.Client
+	K8sClient     ctrlclient.Client
+	StackQueue    workqueue.RateLimitingInterface
+	StackCache    *client.Cache[console.StackRunFragment]
+	Namespace     string
+	ConsoleURL    string
+	DeployToken   string
 }
 
 func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace, consoleURL, deployToken, defaultStackHarnessImage string) *StackReconciler {
@@ -38,10 +37,9 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
 			return consoleClient.GetStackRun(id)
 		}),
-		Namespace:                namespace,
-		ConsoleURL:               consoleURL,
-		DeployToken:              deployToken,
-		DefaultStackHarnessImage: defaultStackHarnessImage,
+		Namespace:   namespace,
+		ConsoleURL:  consoleURL,
+		DeployToken: deployToken,
 	}
 }
 

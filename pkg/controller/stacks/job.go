@@ -23,6 +23,18 @@ const (
 	defaultJobVolumePath = "/harness"
 )
 
+var (
+	defaultContainerImages = map[console.StackType]string{
+		console.StackTypeTerraform: "",
+		console.StackTypeAnsible:   "",
+	}
+
+	defaultContainerVersions = map[console.StackType]string{
+		console.StackTypeTerraform: "",
+		console.StackTypeAnsible:   "",
+	}
+)
+
 func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
 	jobName := getRunJobName(run)
@@ -128,7 +140,7 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 		containers = append(containers, r.getDefaultContainer(run))
 	} else {
 		if containers[index].Image == "" {
-			containers[index].Image = r.getDefaultContainerImage(run.Configuration)
+			containers[index].Image = r.getDefaultContainerImage(run)
 		}
 
 		containers[index].Args = r.getDefaultContainerArgs(run.ID)
@@ -140,19 +152,24 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) corev1.Container {
 	return corev1.Container{
 		Name:         defaultJobContainer,
-		Image:        r.getDefaultContainerImage(run.Configuration),
+		Image:        r.getDefaultContainerImage(run),
 		Args:         r.getDefaultContainerArgs(run.ID),
 		VolumeMounts: []corev1.VolumeMount{getDefaultContainerVolumeMount()},
 	}
 }
 
-func (r *StackReconciler) getDefaultContainerImage(configuration *console.StackConfigurationFragment) string {
-	image := r.DefaultStackHarnessImage
-	if configuration.Image != nil {
-		image = *configuration.Image
+func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment) string {
+	image := defaultContainerImages[run.Type]
+	if run.Configuration.Image != nil && *run.Configuration.Image != "" {
+		image = *run.Configuration.Image
 	}
 
-	return fmt.Sprintf("%s:%s", image, configuration.Version)
+	version := defaultContainerVersions[run.Type]
+	if run.Configuration.Version != "" {
+		version = run.Configuration.Version
+	}
+
+	return fmt.Sprintf("%s:%s", image, version)
 }
 
 func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
