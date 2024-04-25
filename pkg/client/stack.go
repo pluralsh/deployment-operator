@@ -6,7 +6,7 @@ import (
 	console "github.com/pluralsh/console-client-go"
 )
 
-func (c *client) GetStuckRun(id string) (*console.StackRunFragment, error) {
+func (c *client) GetStackRun(id string) (*console.StackRunFragment, error) {
 	restore, err := c.consoleClient.GetStackRun(c.ctx, id)
 	if err != nil {
 		return nil, err

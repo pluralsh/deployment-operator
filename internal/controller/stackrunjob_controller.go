@@ -18,8 +18,10 @@ package controller
 
 import (
 	"context"
+	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"strings"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,8 +49,38 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		logger.Error(err, "Unable to fetch job")
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
+	stackRunID := getStackRunID(job)
+	stackRun, err := r.ConsoleClient.GetStackRun(stackRunID)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// ignore job if:
+	// - StackRun is not running
+	// - Job is still running
+	if stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
+	// check job status
+	if hasSucceeded(job) {
+		logger.V(2).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
+		_, err := r.ConsoleClient.UpdateStuckRun(stackRunID, console.StackRunAttributes{
+			Status: console.StackStatusSuccessful,
+		})
+
+		return ctrl.Result{}, err
+
+	}
+	if hasFailed(job) {
+		logger.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
+	}
 
 	return ctrl.Result{}, nil
+}
+
+func getStackRunID(job *batchv1.Job) string {
+	return strings.TrimPrefix("stack-", job.Name)
 }
 
 // SetupWithManager sets up the controller with the Manager.

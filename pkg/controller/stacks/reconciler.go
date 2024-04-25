@@ -39,7 +39,7 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		K8sClient:     k8sClient,
 		StackQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
-			return consoleClient.GetStuckRun(id)
+			return consoleClient.GetStackRun(id)
 		}),
 		Namespace:                namespace,
 		ConsoleURL:               consoleURL,

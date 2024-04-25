@@ -79,7 +79,7 @@ type Client interface {
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
-	GetStuckRun(id string) (*console.StackRunFragment, error)
+	GetStackRun(id string) (*console.StackRunFragment, error)
 	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStacks_ClusterStackRuns, error)
 	UpdateStuckRun(id string, attr console.StackRunAttributes) (*console.StackRunFragment, error)
 }
