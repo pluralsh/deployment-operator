@@ -7,6 +7,7 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -68,6 +69,10 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 	if jobSpec.Template.ObjectMeta.Namespace == "" {
 		jobSpec.Template.ObjectMeta.Namespace = r.Namespace
 	}
+
+	jobSpec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
+
+	jobSpec.BackoffLimit = lo.ToPtr(int32(0))
 
 	r.ensureDefaultContainer(jobSpec.Template.Spec.Containers, run)
 
