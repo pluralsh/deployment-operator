@@ -131,14 +131,16 @@ func (r *StackRunJobReconciler) getPodStatus(pod *corev1.Pod) (console.StackStat
 	return getExitCodeStatus(containerStatus.State.Terminated.ExitCode), nil
 }
 
-// TODO
 func getExitCodeStatus(exitCode int32) console.StackStatus {
 	switch exitCode {
-	case 1:
-		return console.StackStatusFailed
-	default:
+	case 64:
+	case 66:
+		return console.StackStatusCancelled
+	case 65:
 		return console.StackStatusFailed
 	}
+
+	return console.StackStatusFailed
 }
 
 func getStackRunID(job *batchv1.Job) string {
