@@ -31,6 +31,8 @@ var (
 		"indent":        "indent",
 		"nindent":       "nindent",
 		"replace":       "replace",
+		"default":       "default",
+		"ternary":       "ternary",
 	}
 )
 
