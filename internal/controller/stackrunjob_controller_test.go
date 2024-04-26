@@ -7,8 +7,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +42,18 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 						Name:      completedName,
 						Namespace: namespace,
 					},
+					Spec: batchv1.JobSpec{
+						Template: corev1.PodTemplateSpec{
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Name:  stacks.DefaultJobContainer,
+									Image: "image:v1.0.0",
+									Args:  []string{},
+								}},
+								RestartPolicy: corev1.RestartPolicyNever,
+							},
+						},
+					},
 					Status: batchv1.JobStatus{}, // TODO: Mark as completed.
 				}
 				Expect(kClient.Create(ctx, resource)).To(Succeed())
@@ -52,6 +66,18 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      runningName,
 						Namespace: namespace,
+					},
+					Spec: batchv1.JobSpec{
+						Template: corev1.PodTemplateSpec{
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Name:  stacks.DefaultJobContainer,
+									Image: "image:v1.0.0",
+									Args:  []string{},
+								}},
+								RestartPolicy: corev1.RestartPolicyNever,
+							},
+						},
 					},
 				}
 				Expect(kClient.Create(ctx, resource)).To(Succeed())
@@ -74,7 +100,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			runId := strings.TrimPrefix("stack-", runningName)
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRun{
+			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRunFragment{
 				ID:     runId,
 				Status: console.StackStatusFailed,
 			}, nil)
@@ -92,7 +118,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			runId := strings.TrimPrefix("stack-", runningName)
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRun{
+			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRunFragment{
 				ID:     runId,
 				Status: console.StackStatusRunning,
 			}, nil)
