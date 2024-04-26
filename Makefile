@@ -78,6 +78,21 @@ docker-build: ## build image
 docker-push: ## push image
 	docker push ${IMG}
 
+.PHONY: docker-build-harness
+docker-build-harness: ## build docker harness image
+	docker build \
+    	  	-t harness \
+    		-f hack/harness.Dockerfile \
+    		.
+
+.PHONY: docker-run-harness
+docker-run-harness: docker-build-harness ## build and run docker harness image
+	docker run \
+			harness:latest \
+			--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
+			--console-token=${PLURAL_DEPLOY_TOKEN} \
+			--stack-run-id=${PLURAL_STACK_RUN_ID}
+
 velero-crds:
 	@curl -L $(VELERO_CHART_URL) --output velero.tgz
 	@tar zxvf velero.tgz velero/crds
