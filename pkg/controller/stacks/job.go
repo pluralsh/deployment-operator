@@ -18,7 +18,7 @@ import (
 
 const (
 	jobSelector          = "stackrun.deployments.plural.sh"
-	defaultJobContainer  = "default"
+	DefaultJobContainer  = "default"
 	defaultJobVolume     = "default"
 	defaultJobVolumePath = "/harness"
 )

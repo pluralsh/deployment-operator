@@ -18,8 +18,11 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
+	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/labels"
 
 	console "github.com/pluralsh/console-client-go"
@@ -77,15 +80,65 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if hasFailed(job) {
 		logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
-
-		podList := &corev1.PodList{}
-		if err := r.List(ctx, podList, &k8sClient.ListOptions{LabelSelector: labels.SelectorFromSet(job.Spec.Selector.MatchLabels)}); err != nil {
-			logger.Error(err, "unable to fetch pods")
-			return ctrl.Result{}, err
+		status, err := r.getJobPodStatus(ctx, job.Spec.Selector.MatchLabels)
+		if err != nil {
+			logger.Error(err, "unable to get job pod status")
 		}
+		_, err = r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
+			Status: status,
+		})
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *StackRunJobReconciler) getJobPodStatus(ctx context.Context, selector map[string]string) (console.StackStatus, error) {
+	pod, err := r.getJobPod(ctx, selector)
+	if err != nil {
+		return console.StackStatusFailed, err
+	}
+
+	return r.getPodStatus(pod)
+}
+
+func (r *StackRunJobReconciler) getJobPod(ctx context.Context, selector map[string]string) (*corev1.Pod, error) {
+	podList := &corev1.PodList{}
+	if err := r.List(ctx, podList, &k8sClient.ListOptions{LabelSelector: labels.SelectorFromSet(selector)}); err != nil {
+		return nil, err
+	}
+
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("no pods found")
+	}
+
+	return &podList.Items[0], nil
+}
+
+func (r *StackRunJobReconciler) getPodStatus(pod *corev1.Pod) (console.StackStatus, error) {
+	statusIndex := algorithms.Index(pod.Status.ContainerStatuses, func(status corev1.ContainerStatus) bool {
+		return status.Name == stacks.DefaultJobContainer
+	})
+	if statusIndex == -1 {
+		return console.StackStatusFailed, fmt.Errorf("no job container with name %s found", stacks.DefaultJobContainer)
+	}
+
+	containerStatus := pod.Status.ContainerStatuses[statusIndex]
+	if containerStatus.State.Terminated == nil {
+		return console.StackStatusFailed, fmt.Errorf("job container is not in terminated state")
+	}
+
+	return getExitCodeStatus(containerStatus.State.Terminated.ExitCode), nil
+}
+
+// TODO
+func getExitCodeStatus(exitCode int32) console.StackStatus {
+	switch exitCode {
+	case 1:
+		return console.StackStatusFailed
+	default:
+		return console.StackStatusFailed
+	}
 }
 
 func getStackRunID(job *batchv1.Job) string {
