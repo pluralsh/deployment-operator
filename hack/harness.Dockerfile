@@ -1,8 +1,3 @@
-FROM alpine:3.19 as environment
-
-RUN mkdir /plural
-RUN mkdir /tmp/plural
-
 FROM golang:1.22-alpine3.19 as builder
 
 ARG TARGETARCH
@@ -31,9 +26,12 @@ RUN CGO_ENABLED=0 \
     -o /plural/harness \
     cmd/harness/main.go
 
-FROM hashicorp/terraform:1.8.2 as terraform
+FROM busybox:1.35.0-uclibc as environment
 
-FROM busybox:1.35.0-uclibc as busybox
+RUN mkdir /plural
+RUN mkdir /tmp/plural
+
+FROM hashicorp/terraform:1.8.2 as terraform
 
 FROM gcr.io/distroless/base-debian12 as final
 
@@ -47,7 +45,7 @@ USER nonroot:nonroot
 # 4. copy terraform binary
 COPY --chown=nonroot --from=environment /plural /plural
 COPY --chown=nonroot --from=environment /tmp/plural /tmp
-COPY --chown=nonroot --from=busybox /bin/sh /bin/sh
+COPY --chown=nonroot --from=environment /bin/sh /bin/sh
 COPY --from=builder /plural/harness /harness
 COPY --from=terraform /bin/terraform /bin/terraform
 
