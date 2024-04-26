@@ -1,8 +1,8 @@
 apiVersion: v2
 name: deployment-operator
 description: creates a new instance of the plural deployment operator
-appVersion: 0.4.21
-version: 0.4.21
+appVersion: 0.4.22
+version: 0.4.22
 maintainers:
   - name: Plural
     url: https://www.plural.sh
