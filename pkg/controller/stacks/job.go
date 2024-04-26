@@ -135,7 +135,7 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 
 func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, run *console.StackRunFragment) {
 	if index := algorithms.Index(containers, func(container corev1.Container) bool {
-		return container.Name == defaultJobContainer
+		return container.Name == DefaultJobContainer
 	}); index == -1 {
 		containers = append(containers, r.getDefaultContainer(run))
 	} else {
@@ -151,7 +151,7 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 
 func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) corev1.Container {
 	return corev1.Container{
-		Name:         defaultJobContainer,
+		Name:         DefaultJobContainer,
 		Image:        r.getDefaultContainerImage(run),
 		Args:         r.getDefaultContainerArgs(run.ID),
 		VolumeMounts: []corev1.VolumeMount{getDefaultContainerVolumeMount()},
