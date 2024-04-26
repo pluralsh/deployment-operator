@@ -3,12 +3,15 @@ package controller
 import (
 	"context"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
+	"github.com/samber/lo"
+	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -54,7 +57,13 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 							},
 						},
 					},
-					Status: batchv1.JobStatus{}, // TODO: Mark as completed.
+					Status: batchv1.JobStatus{
+						CompletionTime: lo.ToPtr(metav1.NewTime(time.Now())),
+						Conditions: []batchv1.JobCondition{{
+							Type:   batchv1.JobComplete,
+							Status: corev1.ConditionTrue,
+						}},
+					},
 				}
 				Expect(kClient.Create(ctx, resource)).To(Succeed())
 			}
@@ -94,6 +103,43 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			completedJob := &batchv1.Job{}
 			Expect(kClient.Get(ctx, completedJobNamespacedName, completedJob)).NotTo(HaveOccurred())
 			Expect(kClient.Delete(ctx, completedJob)).To(Succeed())
+		})
+
+		It("should exit without errors and try to update stack run status", func() {
+			runId := strings.TrimPrefix("stack-", completedName)
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRunFragment{
+				ID:     runId,
+				Status: console.StackStatusSuccessful,
+			}, nil)
+			fakeConsoleClient.On("UpdateStackRun", runId, mock.Anything).Return(&console.StackRunFragment{}, nil)
+
+			reconciler := &StackRunJobReconciler{
+				Client:        kClient,
+				Scheme:        kClient.Scheme(),
+				ConsoleClient: fakeConsoleClient,
+			}
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: completedJobNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should exit without errors as stack run was already updated", func() {
+			runId := strings.TrimPrefix("stack-", completedName)
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRunFragment{
+				ID:     runId,
+				Status: console.StackStatusSuccessful,
+			}, nil)
+
+			reconciler := &StackRunJobReconciler{
+				Client:        kClient,
+				Scheme:        kClient.Scheme(),
+				ConsoleClient: fakeConsoleClient,
+			}
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: completedJobNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should exit without errors as stack run status was already updated", func() {
