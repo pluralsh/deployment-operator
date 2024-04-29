@@ -1,12 +1,12 @@
 package errors
 
 import (
-"errors"
+	"errors"
 )
 
 var (
-	ErrTimeout = errors.New("timed out")
+	ErrTimeout      = errors.New("timed out")
 	ErrRemoteCancel = errors.New("cancelled remotely")
-	ErrNotFound = errors.New("resource not found")
-	ErrTerminated = errors.New("process has been terminated")
+	ErrNotFound     = errors.New("resource not found")
+	ErrTerminated   = errors.New("process has been terminated")
 )

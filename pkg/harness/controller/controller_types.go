@@ -15,6 +15,8 @@ type Controller interface {
 }
 
 type stackRunController struct {
+	ctx context.Context
+
 	sync.Mutex
 
 	// errChan

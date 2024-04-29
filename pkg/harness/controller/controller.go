@@ -126,13 +126,12 @@ func (in *stackRunController) executables() []exec.Executable {
 		return cmp.Compare(s1.Index, s2.Index)
 	})
 
-	// Initialize a single console writer for all executables
-	consoleWriter := sink.NewConsoleLogWriter(
-		in.consoleClient,
-		append(in.sinkOptions, sink.WithID(in.stackRunID))...,
-	)
-
 	return algorithms.Map(in.stackRun.Steps, func(step *gqlclient.RunStepFragment) exec.Executable {
+		consoleWriter := sink.NewConsoleLogWriter(
+			in.ctx,
+			in.consoleClient,
+			append(in.sinkOptions, sink.WithID(step.ID))...,
+		)
 		return exec.NewExecutable(
 			step.Cmd,
 			exec.WithDir(in.dir),

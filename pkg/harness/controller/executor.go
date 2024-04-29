@@ -112,7 +112,7 @@ func (in *executor) run(ctx context.Context, executable exec.Executable) (retErr
 	in.preRun(executable.ID())
 
 	if err := executable.Run(ctx); err != nil {
-		retErr = fmt.Errorf("command execution failed: %s: err: %s", executable.Command(), err)
+		retErr = fmt.Errorf("command execution failed: %s: err: %w", executable.Command(), err)
 	}
 
 	return in.postRun(executable.ID(), retErr)

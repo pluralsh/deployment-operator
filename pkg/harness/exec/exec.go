@@ -67,8 +67,8 @@ func (in *executable) stdout() io.Writer {
 func NewExecutable(command string, options ...Option) Executable {
 	result := &executable{
 		command: command,
-		args: make([]string, 0),
-		env: make([]string, 0),
+		args:    make([]string, 0),
+		env:     make([]string, 0),
 	}
 
 	for _, o := range options {

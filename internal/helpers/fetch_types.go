@@ -7,7 +7,7 @@ import (
 
 const (
 	defaultFetchTmpDirPattern = "fetch"
-	defaultFetchTimeout = 15 * time.Second
+	defaultFetchTimeout       = 15 * time.Second
 )
 
 type FetchOption func(*fetchClient)

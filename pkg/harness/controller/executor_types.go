@@ -8,8 +8,8 @@ import (
 
 type executor struct {
 	startQueue []exec.Executable
-	start sync.Mutex
-	started bool
+	start      sync.Mutex
+	started    bool
 
 	// errChan is the error channel passed by the caller
 	// when the executor is created.

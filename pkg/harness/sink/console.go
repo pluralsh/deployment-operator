@@ -2,6 +2,7 @@ package sink
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"time"
 
@@ -12,36 +13,45 @@ import (
 )
 
 func (in *ConsoleWriter) Write(p []byte) (n int, err error) {
-	n, err = in.Buffer.Write(p)
-	in.bufferSizeChan <- in.Buffer.Len()
+	n, err = in.buffer.Write(p)
+	in.bufferSizeChan <- in.buffer.Len()
 	return
 }
 
 // bufferedFlush sends logs to the console only when available
 // logs size is greater or equal to bufferSizeLimit.
 func (in *ConsoleWriter) bufferedFlush() {
-	n := in.Buffer.Len()
+	n := in.buffer.Len()
 	if n < in.bufferSizeLimit {
 		return
 	}
 
 	klog.V(log.LogLevelTrace).InfoS("flushing logs", "buffer_size", n, "limit", in.bufferSizeLimit)
 	// flush logs
+	read := n
+	if read > in.bufferSizeLimit {
+		read = in.bufferSizeLimit
+	}
+	if err := in.client.AddStackRunLogs(in.id, string(in.buffer.Next(read))); err != nil {
+		klog.Error(err)
+	}
 }
 
 // flush sends logs to the console.
 // When ignoreLimit is true it send all available logs to the console,
 // otherwise it sends logs up to the bufferSizeLimit.
 func (in *ConsoleWriter) flush(ignoreLimit bool) {
-	n := in.Buffer.Len()
+	n := in.buffer.Len()
 	if n <= 0 {
 		return
 	}
 
 	if ignoreLimit {
 		klog.V(log.LogLevelTrace).InfoS("flushing all remaining logs", "buffer_size", n)
-
 		// flush all logs
+		if err := in.client.AddStackRunLogs(in.id, in.buffer.String()); err != nil {
+			klog.Error(err)
+		}
 		return
 	}
 
@@ -51,16 +61,21 @@ func (in *ConsoleWriter) flush(ignoreLimit bool) {
 	if read > in.bufferSizeLimit {
 		read = in.bufferSizeLimit
 	}
-
-	_ = string(in.Buffer.Next(read))
+	if err := in.client.AddStackRunLogs(in.id, string(in.buffer.Next(read))); err != nil {
+		klog.Error(err)
+	}
 }
 
 func (in *ConsoleWriter) readAsync() {
+	if in.ticker == nil {
+		return
+	}
 	defer in.ticker.Stop()
 
 	for {
-		// TODO: add case for graceful shutdown and try to flush remaining logs before exit
 		select {
+		case <-in.ctx.Done():
+			in.flush(true)
 		case <-in.bufferSizeChan:
 			in.bufferedFlush()
 		case <-in.ticker.C:
@@ -84,9 +99,10 @@ func (in *ConsoleWriter) init() io.Writer {
 	return in
 }
 
-func NewConsoleLogWriter(client console.Client, options ...Option) io.Writer {
+func NewConsoleLogWriter(ctx context.Context, client console.Client, options ...Option) io.Writer {
 	result := &ConsoleWriter{
-		Buffer:         bytes.NewBuffer([]byte{}),
+		ctx:            ctx,
+		buffer:         bytes.NewBuffer([]byte{}),
 		client:         client,
 		bufferSizeChan: make(chan int),
 	}

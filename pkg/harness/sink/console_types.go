@@ -2,6 +2,7 @@ package sink
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	console "github.com/pluralsh/deployment-operator/pkg/client"
@@ -9,11 +10,12 @@ import (
 
 const (
 	defaultBufferSizeLimit = 4096 // in kilobytes
-	defaultThrottleTime = 5 * time.Second
+	defaultThrottleTime    = 5 * time.Second
 )
 
 type ConsoleWriter struct {
-	*bytes.Buffer
+	ctx    context.Context
+	buffer *bytes.Buffer
 	// id is a stack run id that logs should be appended to
 	id string
 	// client ...
@@ -27,6 +29,5 @@ type ConsoleWriter struct {
 	// ticker
 	ticker *time.Ticker
 }
-
 
 type Option func(*ConsoleWriter)
