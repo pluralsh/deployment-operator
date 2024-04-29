@@ -1,6 +1,8 @@
 package template
 
 import (
+	"strings"
+
 	console "github.com/pluralsh/console-client-go"
 )
 
@@ -19,4 +21,13 @@ func contexts(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[s
 		res[context.Name] = context.Configuration
 	}
 	return res
+}
+
+func indent(v string, spaces int) string {
+	pad := strings.Repeat(" ", spaces)
+	return pad + strings.ReplaceAll(v, "\n", "\n"+pad)
+}
+
+func nindent(v string, spaces int) string {
+	return "\n" + indent(v, spaces)
 }
