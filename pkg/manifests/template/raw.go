@@ -42,15 +42,8 @@ func init() {
 	liquidEngine.RegisterFilter("nindent", nindent)
 	liquidEngine.RegisterFilter("replace", strings.ReplaceAll)
 
-	liquidEngine.RegisterFilter("default", func(a, b interface{}) interface{} {
-		fun := fncs["default"].(func(interface{}, interface{}) interface{})
-		return fun(b, a)
-	})
-
-	liquidEngine.RegisterFilter("ternary", func(a, b, c interface{}) interface{} {
-		fun := fncs["ternary"].(func(interface{}, interface{}, interface{}) interface{})
-		return fun(c, a, b)
-	})
+	liquidEngine.RegisterFilter("default", dfault)
+	liquidEngine.RegisterFilter("ternary", ternary)
 }
 
 type raw struct {
