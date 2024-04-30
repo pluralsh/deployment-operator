@@ -29,7 +29,7 @@ type StackReconciler struct {
 	DeployToken   string
 }
 
-func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace, consoleURL, deployToken, defaultStackHarnessImage string) *StackReconciler {
+func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace, consoleURL, deployToken string) *StackReconciler {
 	return &StackReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,

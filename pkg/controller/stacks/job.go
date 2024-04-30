@@ -86,9 +86,9 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 
 	jobSpec.BackoffLimit = lo.ToPtr(int32(0))
 
-	r.ensureDefaultContainer(jobSpec.Template.Spec.Containers, run)
+	jobSpec.Template.Spec.Containers = r.ensureDefaultContainer(jobSpec.Template.Spec.Containers, run)
 
-	ensureDefaultVolume(jobSpec.Template.Spec.Volumes)
+	jobSpec.Template.Spec.Volumes = ensureDefaultVolume(jobSpec.Template.Spec.Volumes)
 
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -133,7 +133,7 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 	return jobSpec
 }
 
-func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, run *console.StackRunFragment) {
+func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, run *console.StackRunFragment) []corev1.Container {
 	if index := algorithms.Index(containers, func(container corev1.Container) bool {
 		return container.Name == DefaultJobContainer
 	}); index == -1 {
@@ -145,8 +145,9 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 
 		containers[index].Args = r.getDefaultContainerArgs(run.ID)
 
-		ensureDefaultVolumeMount(containers[index].VolumeMounts)
+		containers[index].VolumeMounts = ensureDefaultVolumeMount(containers[index].VolumeMounts)
 	}
+	return containers
 }
 
 func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) corev1.Container {
@@ -187,7 +188,7 @@ func getDefaultContainerVolumeMount() corev1.VolumeMount {
 	}
 }
 
-func ensureDefaultVolumeMount(mounts []corev1.VolumeMount) {
+func ensureDefaultVolumeMount(mounts []corev1.VolumeMount) []corev1.VolumeMount {
 	if index := algorithms.Index(mounts, func(mount corev1.VolumeMount) bool {
 		return mount.Name == defaultJobVolume
 	}); index == -1 {
@@ -195,9 +196,10 @@ func ensureDefaultVolumeMount(mounts []corev1.VolumeMount) {
 	} else {
 		mounts[index] = getDefaultContainerVolumeMount()
 	}
+	return mounts
 }
 
-func ensureDefaultVolume(volumes []corev1.Volume) {
+func ensureDefaultVolume(volumes []corev1.Volume) []corev1.Volume {
 	if index := algorithms.Index(volumes, func(volume corev1.Volume) bool {
 		return volume.Name == defaultJobVolume
 	}); index == -1 {
@@ -205,6 +207,7 @@ func ensureDefaultVolume(volumes []corev1.Volume) {
 	} else {
 		volumes[index] = getDefaultVolume()
 	}
+	return volumes
 }
 
 func getDefaultVolume() corev1.Volume {
