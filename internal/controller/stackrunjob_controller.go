@@ -144,7 +144,7 @@ func getExitCodeStatus(exitCode int32) console.StackStatus {
 }
 
 func getStackRunID(job *batchv1.Job) string {
-	return strings.TrimPrefix("stack-", job.Name)
+	return strings.TrimPrefix(job.Name, "stack-")
 }
 
 // SetupWithManager sets up the controller with the Manager.
