@@ -33,15 +33,6 @@ func nindent(v string, spaces int) string {
 	return "\n" + indent(v, spaces)
 }
 
-func coalesce(v ...interface{}) interface{} {
-	for _, val := range v {
-		if !empty(val) {
-			return val
-		}
-	}
-	return nil
-}
-
 func ternary(v bool, vt interface{}, vf interface{}) interface{} {
 	if v {
 		return vt
