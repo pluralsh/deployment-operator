@@ -95,7 +95,12 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 		}
 	}
 
-	rel, err := h.templateHelm(config, svc.Name, svc.Namespace, values)
+	release := svc.Name
+	if svc.Helm != nil && svc.Helm.Release != nil {
+		release = *svc.Helm.Release
+	}
+
+	rel, err := h.templateHelm(config, release, svc.Namespace, values)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +205,7 @@ func (h *helm) valuesFile(svc *console.GetServiceDeploymentForAgent_ServiceDeplo
 	return currentMap, nil
 }
 
-func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, values map[string]interface{}) (*release.Release, error) {
+func (h *helm) templateHelm(conf *action.Configuration, release, namespace string, values map[string]interface{}) (*release.Release, error) {
 	// load chart from the path
 	chart, err := loader.Load(h.dir)
 	if err != nil {
@@ -212,7 +217,7 @@ func (h *helm) templateHelm(conf *action.Configuration, name, namespace string, 
 	if !DisableHelmTemplateDryRunServer {
 		client.DryRunOption = "server"
 	}
-	client.ReleaseName = name
+	client.ReleaseName = release
 	client.Replace = true // Skip the name check
 	client.ClientOnly = true
 	client.Namespace = namespace

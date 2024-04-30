@@ -28,9 +28,8 @@ var (
 		"sha256sum":     "sha26sum",
 		"quote":         "quote",
 		"squote":        "squote",
-		"indent":        "indent",
-		"nindent":       "nindent",
 		"replace":       "replace",
+		"coalesce":      "coalesce",
 	}
 )
 
@@ -39,6 +38,12 @@ func init() {
 	for key, name := range sprigFunctions {
 		liquidEngine.RegisterFilter(name, fncs[key])
 	}
+	liquidEngine.RegisterFilter("indent", indent)
+	liquidEngine.RegisterFilter("nindent", nindent)
+	liquidEngine.RegisterFilter("replace", strings.ReplaceAll)
+
+	liquidEngine.RegisterFilter("default", dfault)
+	liquidEngine.RegisterFilter("ternary", ternary)
 }
 
 type raw struct {
