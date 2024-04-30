@@ -106,10 +106,10 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 		})
 
 		It("should exit without errors and try to update stack run status", func() {
-			runId := strings.TrimPrefix("stack-", completedName)
+			runId := strings.TrimPrefix(completedName, "stack-")
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
 				ID:     runId,
 				Status: console.StackStatusSuccessful,
 			}, nil)
@@ -125,10 +125,10 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 		})
 
 		It("should exit without errors as stack run was already updated", func() {
-			runId := strings.TrimPrefix("stack-", completedName)
+			runId := strings.TrimPrefix(completedName, "stack-")
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
 				ID:     runId,
 				Status: console.StackStatusSuccessful,
 			}, nil)
@@ -143,11 +143,9 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 		})
 
 		It("should exit without errors as stack run status was already updated", func() {
-			runId := strings.TrimPrefix("stack-", runningName)
-
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRunFragment{
-				ID:     runId,
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
+				ID:     "2",
 				Status: console.StackStatusFailed,
 			}, nil)
 
@@ -161,10 +159,10 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 		})
 
 		It("should exit without errors as stack run job is still running", func() {
-			runId := strings.TrimPrefix("stack-", runningName)
+			runId := strings.TrimPrefix(runningName, "stack-")
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", runId).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
 				ID:     runId,
 				Status: console.StackStatusRunning,
 			}, nil)

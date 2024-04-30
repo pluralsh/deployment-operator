@@ -17,8 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const ()
-
 type StackReconciler struct {
 	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
