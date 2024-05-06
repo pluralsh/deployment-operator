@@ -23,6 +23,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/labels"
 
 	console "github.com/pluralsh/console-client-go"
@@ -62,22 +63,11 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	// Update step statuses, i.e., when stack run was successful or failed.
 	for _, step := range stackRun.Steps {
-		if stackRun.Status == console.StackStatusFailed || stackRun.Status == console.StackStatusCancelled {
-			if step.Status == console.StepStatusPending || step.Status == console.StepStatusRunning {
-				_, err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{
-					Status: console.StepStatusFailed,
-				})
-				return ctrl.Result{}, err
-			}
-		}
-		if stackRun.Status == console.StackStatusSuccessful {
-			if step.Status == console.StepStatusPending || step.Status == console.StepStatusRunning {
-				_, err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{
-					Status: console.StepStatusSuccessful,
-				})
-				return ctrl.Result{}, err
-			}
+		if update := r.getStepStatusUpdate(stackRun.Status, step.Status); update != nil {
+			_, err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{Status: *update})
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -110,6 +100,22 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *StackRunJobReconciler) getStepStatusUpdate(stackStatus console.StackStatus, stepStatus console.StepStatus) *console.StepStatus {
+	if stepStatus != console.StepStatusPending && stepStatus != console.StepStatusRunning {
+		return nil
+	}
+
+	if stackStatus == console.StackStatusSuccessful {
+		return lo.ToPtr(console.StepStatusSuccessful)
+	}
+
+	if stackStatus == console.StackStatusFailed || stackStatus == console.StackStatusCancelled {
+		return lo.ToPtr(console.StepStatusSuccessful)
+	}
+
+	return nil
 }
 
 func (r *StackRunJobReconciler) getJobPodStatus(ctx context.Context, selector map[string]string) (console.StackStatus, error) {
