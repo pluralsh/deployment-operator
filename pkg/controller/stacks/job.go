@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	jobSelector          = "stackrun.deployments.plural.sh"
-	DefaultJobContainer  = "default"
-	defaultJobVolume     = "default"
-	defaultJobVolumePath = "/plural"
+	podDefaultContainerAnnotation = "kubectl.kubernetes.io/default-container"
+	jobSelector                   = "stackrun.deployments.plural.sh"
+	DefaultJobContainer           = "default"
+	defaultJobVolume              = "default"
+	defaultJobVolumePath          = "/plural"
 )
 
 var (
@@ -77,6 +78,8 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 
 	// Set requirements like name, namespace, container and volume.
 	jobSpec.Template.ObjectMeta.Name = name
+
+	jobSpec.Template.Annotations = map[string]string{podDefaultContainerAnnotation: DefaultJobContainer}
 
 	if jobSpec.Template.ObjectMeta.Namespace == "" {
 		jobSpec.Template.ObjectMeta.Namespace = r.Namespace
