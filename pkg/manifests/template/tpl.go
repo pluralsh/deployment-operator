@@ -1,11 +1,8 @@
 package template
 
 import (
-	"bytes"
-	"text/template"
-
-	"github.com/Masterminds/sprig/v3"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/polly/template"
 )
 
 func renderTpl(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]byte, error) {
@@ -15,12 +12,5 @@ func renderTpl(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDe
 		"Contexts":      contexts(svc),
 	}
 
-	tpl, err := template.New("gotpl").Funcs(sprig.TxtFuncMap()).Parse(string(input))
-	if err != nil {
-		return nil, err
-	}
-
-	var buffer bytes.Buffer
-	err = tpl.Execute(&buffer, bindings)
-	return buffer.Bytes(), err
+	return template.RenderTpl(input, bindings)
 }
