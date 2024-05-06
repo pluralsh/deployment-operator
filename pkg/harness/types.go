@@ -8,6 +8,7 @@ import (
 
 type StackRun struct {
 	ID          string
+	Status      gqlclient.StackStatus
 	Type        gqlclient.StackType
 	Tarball     string
 	Steps       []*gqlclient.RunStepFragment
@@ -18,6 +19,7 @@ type StackRun struct {
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
 	return &StackRun{
 		ID:          fragment.ID,
+		Status:      fragment.Status,
 		Type:        fragment.Type,
 		Tarball:     fragment.Tarball,
 		Steps:       fragment.Steps,

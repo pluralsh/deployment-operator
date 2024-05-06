@@ -34,6 +34,12 @@ func WithArgs(args []string) Option {
 	}
 }
 
+func WithArgsModifier(f ArgsModifier) Option {
+	return func(e *executable) {
+		e.argsModifier = f
+	}
+}
+
 func WithID(id string) Option {
 	return func(e *executable) {
 		e.id = id

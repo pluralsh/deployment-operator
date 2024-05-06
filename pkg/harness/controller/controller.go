@@ -11,19 +11,11 @@ import (
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/pkg/harness"
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
-
-// Start takes care of few things:
-// 1. Marks gqlclient.StackRun status as gqlclient.StackStatusRunning
-// 2. Prepares all commands and ensures env vars are passed to them
-// 3. Executes gqlclient.RunStepFragment commands and marks their status accordingly
-// 4. During the execution forwards command output the Console
-// 5. Once all steps finished or run failed updates gqlclient.StackRun status accordingly
 
 // Start starts the manager and waits indefinitely.
 // There are a couple of ways to have start return:
@@ -74,6 +66,10 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 }
 
 func (in *stackRunController) preStart() {
+	if in.stackRun.Status != gqlclient.StackStatusPending {
+		//klog.Fatalf("could not start stack run: invalid status: %s", in.stackRun.Status)
+	}
+
 	if err := in.markStackRun(gqlclient.StackStatusRunning); err != nil {
 		klog.ErrorS(err, "could not update stack run status")
 	}
@@ -91,9 +87,8 @@ func (in *stackRunController) postStart(err error) error {
 		status = gqlclient.StackStatusFailed
 	}
 
-	// TODO: should complete stack run
-	if err := in.markStackRun(status); err != nil {
-		klog.ErrorS(err, "could not update stack run status")
+	if err := in.completeStackRun(status, err); err != nil {
+		klog.ErrorS(err, "could not complete stack run")
 	}
 
 	return err
@@ -132,11 +127,13 @@ func (in *stackRunController) executables() []exec.Executable {
 			in.consoleClient,
 			append(in.sinkOptions, sink.WithID(step.ID))...,
 		)
+
 		return exec.NewExecutable(
 			step.Cmd,
 			exec.WithDir(in.dir),
 			exec.WithEnv(in.stackRun.Env()),
 			exec.WithArgs(step.Args),
+			exec.WithArgsModifier(in.env.Args(step.Stage)),
 			exec.WithID(step.ID),
 			exec.WithCustomOutputSink(consoleWriter),
 			exec.WithCustomErrorSink(consoleWriter),
@@ -156,24 +153,40 @@ func (in *stackRunController) markStackRunStep(id string, status gqlclient.StepS
 	})
 }
 
+func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, stackRunErr error) error {
+	state, err := in.env.State()
+	if err != nil {
+		klog.ErrorS(err, "could not prepare state attributes")
+	}
+
+	output, err := in.env.Output()
+	if err != nil {
+		klog.ErrorS(err, "could not prepare output attributes")
+	}
+
+	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
+	if stackRunErr != nil {
+		serviceErrorAttributes = append(serviceErrorAttributes, &gqlclient.ServiceErrorAttributes{
+			Message: stackRunErr.Error(),
+		})
+	}
+
+	return in.consoleClient.CompleteStackRun(in.stackRunID, gqlclient.StackRunAttributes{
+		Errors: serviceErrorAttributes,
+		Output: output,
+		State:  state,
+		Status: status,
+	})
+}
+
 func (in *stackRunController) prepare() error {
-	env := environment.New(
+	in.env = environment.New(
 		environment.WithStackRun(in.stackRun),
 		environment.WithWorkingDir(in.dir),
 		environment.WithFetchClient(in.fetchClient),
 	)
 
-	return env.Setup()
-}
-
-func (in *stackRunController) defaultExecutableFactory(_ *harness.StackRun, step *gqlclient.RunStepFragment) exec.Executable {
-	return exec.NewExecutable(
-		step.Cmd,
-		exec.WithDir(in.dir),
-		exec.WithEnv(in.stackRun.Env()),
-		exec.WithArgs(step.Args),
-		exec.WithID(step.ID),
-	)
+	return in.env.Setup()
 }
 
 func (in *stackRunController) init() (Controller, error) {
@@ -198,22 +211,22 @@ func (in *stackRunController) init() (Controller, error) {
 func NewStackRunController(options ...Option) (Controller, error) {
 	finishedChan := make(chan struct{})
 	errChan := make(chan error, 1)
-	runner := &stackRunController{
+	ctrl := &stackRunController{
 		errChan:      errChan,
 		finishedChan: finishedChan,
 		sinkOptions:  make([]sink.Option, 0),
 	}
 
-	runner.executor = newExecutor(
+	ctrl.executor = newExecutor(
 		errChan,
 		finishedChan,
-		WithPreRunFunc(runner.preStepRun),
-		WithPostRunFunc(runner.postStepRun),
+		WithPreRunFunc(ctrl.preStepRun),
+		WithPostRunFunc(ctrl.postStepRun),
 	)
 
 	for _, option := range options {
-		option(runner)
+		option(ctrl)
 	}
 
-	return runner.init()
+	return ctrl.init()
 }

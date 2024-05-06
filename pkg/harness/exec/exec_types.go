@@ -8,6 +8,7 @@ import (
 type Executable interface {
 	ID() string
 	Run(ctx context.Context) error
+	RunWithOutput(ctx context.Context) ([]byte, error)
 	Command() string
 }
 
@@ -32,6 +33,9 @@ type executable struct {
 	// args
 	args []string
 
+	// argsModifier
+	argsModifier ArgsModifier
+
 	// standardLogSink
 	standardLogSink io.Writer
 
@@ -40,3 +44,5 @@ type executable struct {
 }
 
 type Option func(*executable)
+
+type ArgsModifier func([]string) []string

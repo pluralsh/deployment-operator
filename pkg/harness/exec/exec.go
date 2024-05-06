@@ -14,8 +14,8 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func (in *executable) Run(ctx context.Context) (err error) {
-	cmd := exec.CommandContext(ctx, in.command, in.args...)
+func (in *executable) Run(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, in.command, in.arguments()...)
 
 	// Configure additional writers so that we can simultaneously write output
 	// to multiple destinations
@@ -36,8 +36,29 @@ func (in *executable) Run(ctx context.Context) (err error) {
 	return cmd.Run()
 }
 
+func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, in.command, in.arguments()...)
+
+	// Configure additional writers so that we can simultaneously write output
+	// to multiple destinations
+	cmd.Stderr = os.Stdout
+
+	// Configure environment of the executable.
+	// Root process environment is used as a base and passed in env vars
+	// are added on top of that. In case of duplicate keys, custom env
+	// vars passed to the executable will override root process env vars.
+	cmd.Env = append(os.Environ(), in.env...)
+
+	if len(in.workingDirectory) > 0 {
+		cmd.Dir = in.workingDirectory
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("executing", "command", in.Command())
+	return cmd.Output()
+}
+
 func (in *executable) Command() string {
-	return fmt.Sprintf("%s %s", in.command, strings.Join(in.args, " "))
+	return fmt.Sprintf("%s %s", in.command, strings.Join(in.arguments(), " "))
 }
 
 func (in *executable) ID() string {
@@ -46,6 +67,14 @@ func (in *executable) ID() string {
 	}
 
 	return in.id
+}
+
+func (in *executable) arguments() []string {
+	if in.argsModifier != nil {
+		return in.argsModifier(in.args)
+	}
+
+	return in.args
 }
 
 func (in *executable) stderr() io.Writer {

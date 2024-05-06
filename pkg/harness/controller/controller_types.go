@@ -7,6 +7,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness"
+	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
@@ -47,6 +48,9 @@ type stackRunController struct {
 	// sink.ConsoleWriter. By default, every command output
 	// is being forwarded both to the os.Stdout and sink.ConsoleWriter.
 	sinkOptions []sink.Option
+
+	// env
+	env environment.Environment
 }
 
 type Option func(*stackRunController)

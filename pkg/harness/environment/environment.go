@@ -3,9 +3,11 @@ package environment
 import (
 	"path"
 
+	console "github.com/pluralsh/console-client-go"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -21,8 +23,18 @@ func (in *environment) Setup() error {
 	return nil
 }
 
-func (in *environment) WorkingDir() string {
-	return in.dir
+func (in *environment) State() (*console.StackStateAttributes, error) {
+	return in.runner.State()
+}
+
+func (in *environment) Output() ([]*console.StackOutputAttributes, error) {
+	return in.runner.Output()
+}
+
+// Args ...
+// TODO: can we find a better place for this?
+func (in *environment) Args(stage console.StepStage) exec.ArgsModifier {
+	return in.runner.Args(stage)
 }
 
 func (in *environment) prepareTarball() error {
@@ -53,8 +65,8 @@ func (in *environment) prepareFiles() error {
 	return nil
 }
 
-// defaults ensures that all required values are initialized
-func (in *environment) defaults() Environment {
+// init ensures that all required values are initialized
+func (in *environment) init() Environment {
 	if in.stackRun == nil {
 		klog.Fatal("could not initialize environment: stackRun is nil")
 	}
@@ -62,6 +74,8 @@ func (in *environment) defaults() Environment {
 	if len(in.dir) != 0 {
 		helpers.EnsureDirOrDie(in.dir)
 	}
+
+	in.runner = newRunner(in.stackRun.Type, in.dir)
 
 	return in
 }
@@ -73,5 +87,5 @@ func New(options ...Option) Environment {
 		opt(result)
 	}
 
-	return result.defaults()
+	return result.init()
 }

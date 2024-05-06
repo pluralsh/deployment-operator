@@ -60,3 +60,13 @@ func EnsureDirOrDie(dir string) {
 
 	klog.V(log.LogLevelDebug).Infof("created directory: %s", dir)
 }
+
+func EnsureFileOrDie(file string) string {
+	f, err := os.Create(file)
+	if err != nil && !os.IsExist(err) {
+		panic(fmt.Errorf("could not create file: %s", err))
+	}
+
+	klog.V(log.LogLevelDebug).Infof("created file: %s", file)
+	return f.Name()
+}
