@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
@@ -22,7 +23,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const missingLabelError = "missing label while attempting to map a constraint status resource"
+const (
+	missingLabelError    = "missing label while attempting to map a constraint status resource"
+	bundleDataAnnotation = "policy.plural.sh/constraintData"
+)
+
+type BundleData struct {
+	Description       string `json:"description"`
+	Severity          string `json:"severity"`
+	BundleName        string `json:"bundleName"`
+	BundleDisplayName string `json:"bundleDisplayName"`
+	Remediation       string `json:"remediation"`
+}
 
 type ConstraintReconciler struct {
 	client.Client
@@ -94,11 +106,15 @@ func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templa
 	}
 
 	if template.Annotations != nil {
-		d, ok := template.Annotations["description"]
-		if ok {
-			pca.Description = lo.ToPtr(d)
+		var bundleData BundleData
+		if d, ok := template.Annotations[bundleDataAnnotation]; ok {
+			if err := json.Unmarshal([]byte(d), &bundleData); err != nil {
+				pca.Description = lo.ToPtr(bundleData.Description)
+				pca.Recommendation = lo.ToPtr(bundleData.Remediation)
+			}
 		}
 	}
+
 	violations, found, err := unstructured.NestedSlice(instance.Object, "status", "violations")
 	if err != nil {
 		return nil, err
