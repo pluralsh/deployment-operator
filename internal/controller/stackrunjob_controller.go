@@ -62,6 +62,25 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	for _, step := range stackRun.Steps {
+		if stackRun.Status == console.StackStatusFailed || stackRun.Status == console.StackStatusCancelled {
+			if step.Status == console.StepStatusPending || step.Status == console.StepStatusRunning {
+				_, err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{
+					Status: console.StepStatusFailed,
+				})
+				return ctrl.Result{}, err
+			}
+		}
+		if stackRun.Status == console.StackStatusSuccessful {
+			if step.Status == console.StepStatusPending || step.Status == console.StepStatusRunning {
+				_, err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{
+					Status: console.StepStatusSuccessful,
+				})
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
 	// Exit if stack run is not in running state (run status already updated),
 	// or if the job is still running (harness controls run status).
 	if stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero() {

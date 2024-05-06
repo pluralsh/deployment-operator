@@ -6,6 +6,15 @@ import (
 	console "github.com/pluralsh/console-client-go"
 )
 
+func (c *client) UpdateStackRunStep(stepID string, attr console.RunStepAttributes) (*console.RunStepFragment, error) {
+	update, err := c.consoleClient.UpdateStackRunStep(c.ctx, stepID, attr)
+	if err != nil {
+		return nil, err
+	}
+
+	return update.UpdateRunStep, nil
+}
+
 func (c *client) GetStackRun(id string) (*console.StackRunFragment, error) {
 	restore, err := c.consoleClient.GetStackRun(c.ctx, id)
 	if err != nil {

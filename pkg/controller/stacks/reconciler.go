@@ -108,7 +108,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	if stackRun.Approval == nil || (*stackRun.Approval == true && stackRun.ApprovedAt != nil) {
+	if stackRun.Approval == nil || (*stackRun.Approval && stackRun.ApprovedAt != nil) {
 		if _, err := r.reconcileRunJob(ctx, stackRun); err != nil {
 			return reconcile.Result{}, err
 		}

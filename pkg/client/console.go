@@ -82,4 +82,5 @@ type Client interface {
 	GetStackRun(id string) (*console.StackRunFragment, error)
 	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStacks_ClusterStackRuns, error)
 	UpdateStackRun(id string, attr console.StackRunAttributes) (*console.StackRunBaseFragment, error)
+	UpdateStackRunStep(stepID string, attr console.RunStepAttributes) (*console.RunStepFragment, error)
 }
