@@ -1282,6 +1282,65 @@ func (_c *ClientMock_UpdateStackRun_Call) RunAndReturn(run func(string, gqlclien
 	return _c
 }
 
+// UpdateStackRunStep provides a mock function with given fields: stepID, attr
+func (_m *ClientMock) UpdateStackRunStep(stepID string, attr gqlclient.RunStepAttributes) (*gqlclient.RunStepFragment, error) {
+	ret := _m.Called(stepID, attr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateStackRunStep")
+	}
+
+	var r0 *gqlclient.RunStepFragment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string, gqlclient.RunStepAttributes) (*gqlclient.RunStepFragment, error)); ok {
+		return rf(stepID, attr)
+	}
+	if rf, ok := ret.Get(0).(func(string, gqlclient.RunStepAttributes) *gqlclient.RunStepFragment); ok {
+		r0 = rf(stepID, attr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gqlclient.RunStepFragment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string, gqlclient.RunStepAttributes) error); ok {
+		r1 = rf(stepID, attr)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_UpdateStackRunStep_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateStackRunStep'
+type ClientMock_UpdateStackRunStep_Call struct {
+	*mock.Call
+}
+
+// UpdateStackRunStep is a helper method to define mock.On call
+//   - stepID string
+//   - attr gqlclient.RunStepAttributes
+func (_e *ClientMock_Expecter) UpdateStackRunStep(stepID interface{}, attr interface{}) *ClientMock_UpdateStackRunStep_Call {
+	return &ClientMock_UpdateStackRunStep_Call{Call: _e.mock.On("UpdateStackRunStep", stepID, attr)}
+}
+
+func (_c *ClientMock_UpdateStackRunStep_Call) Run(run func(stepID string, attr gqlclient.RunStepAttributes)) *ClientMock_UpdateStackRunStep_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(gqlclient.RunStepAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_UpdateStackRunStep_Call) Return(_a0 *gqlclient.RunStepFragment, _a1 error) *ClientMock_UpdateStackRunStep_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_UpdateStackRunStep_Call) RunAndReturn(run func(string, gqlclient.RunStepAttributes) (*gqlclient.RunStepFragment, error)) *ClientMock_UpdateStackRunStep_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpsertConstraints provides a mock function with given fields: constraints
 func (_m *ClientMock) UpsertConstraints(constraints []*gqlclient.PolicyConstraintAttributes) (*gqlclient.UpsertPolicyConstraints, error) {
 	ret := _m.Called(constraints)
