@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
@@ -60,6 +61,9 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	stackRunID := getStackRunID(job)
 	stackRun, err := r.ConsoleClient.GetStackRun(stackRunID)
 	if err != nil {
+		if clienterrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
 
