@@ -105,15 +105,13 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 	if jobSpecFragment == nil {
 		return nil
 	}
-
 	var jobSpec *batchv1.JobSpec
+	var err error
 	if jobSpecFragment.Raw != nil && *jobSpecFragment.Raw != "null" {
-		job, err := consoleclient.JobFromYaml(*jobSpecFragment.Raw)
+		jobSpec, err = consoleclient.JobSpecFromYaml(*jobSpecFragment.Raw)
 		if err != nil {
 			return nil
 		}
-
-		jobSpec = &job.Spec
 	} else {
 		jobSpec = &batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{

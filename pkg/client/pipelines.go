@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"sigs.k8s.io/yaml"
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -11,7 +12,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 const twentyFourHours = int32(86400)
@@ -73,22 +73,10 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, o
 	return pipelineGate, nil
 }
 
-func JobFromYaml(yamlString string) (*batchv1.Job, error) {
-	job := &batchv1.Job{}
-
-	// unmarshal the YAML string into the Job rep
-	decoder := scheme.Codecs.UniversalDeserializer()
-	obj, _, err := decoder.Decode([]byte(yamlString), nil, job)
-	if err != nil {
-		return nil, err
-	}
-
-	// ensure decoded object is actually of type Job after using universal deserializer
-	if obj, ok := obj.(*batchv1.Job); ok {
-		return obj, nil
-	}
-
-	return nil, fmt.Errorf("parsed object is not of type Job")
+func JobSpecFromYaml(yamlString string) (*batchv1.JobSpec, error) {
+	jobSpec := &batchv1.JobSpec{}
+	err := yaml.Unmarshal([]byte(yamlString), jobSpec)
+	return jobSpec, err
 }
 
 func gateSpecFromGateSpecFragment(gateName string, gsFragment *console.GateSpecFragment) *v1alpha1.GateSpec {
@@ -105,12 +93,12 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 		return nil
 	}
 	var jobSpec *batchv1.JobSpec
+	var err error
 	if jsFragment.Raw != nil && *jsFragment.Raw != "null" {
-		job, err := JobFromYaml(*jsFragment.Raw)
+		jobSpec, err = JobSpecFromYaml(*jsFragment.Raw)
 		if err != nil {
 			return nil
 		}
-		jobSpec = &job.Spec
 	} else {
 		name := utils.AsName(gateName)
 		jobSpec = &batchv1.JobSpec{
