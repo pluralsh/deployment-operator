@@ -15,6 +15,7 @@ import (
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
+	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
 )
 
 // Start starts the manager and waits indefinitely.
@@ -133,7 +134,7 @@ func (in *stackRunController) executables() []exec.Executable {
 			exec.WithDir(in.dir),
 			exec.WithEnv(in.stackRun.Env()),
 			exec.WithArgs(step.Args),
-			exec.WithArgsModifier(in.env.Args(step.Stage)),
+			exec.WithArgsModifier(in.tool.Modifier(step.Stage).Args),
 			exec.WithID(step.ID),
 			exec.WithCustomOutputSink(consoleWriter),
 			exec.WithCustomErrorSink(consoleWriter),
@@ -154,12 +155,12 @@ func (in *stackRunController) markStackRunStep(id string, status gqlclient.StepS
 }
 
 func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, stackRunErr error) error {
-	state, err := in.env.State()
+	_, err := in.tool.State()
 	if err != nil {
 		klog.ErrorS(err, "could not prepare state attributes")
 	}
 
-	output, err := in.env.Output()
+	_, err = in.tool.Output()
 	if err != nil {
 		klog.ErrorS(err, "could not prepare output attributes")
 	}
@@ -172,21 +173,23 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	}
 
 	return in.consoleClient.CompleteStackRun(in.stackRunID, gqlclient.StackRunAttributes{
-		Errors: serviceErrorAttributes,
-		Output: output,
-		State:  state,
+		//Errors: serviceErrorAttributes,
+		//Output: output,
+		//State:  state,
 		Status: status,
 	})
 }
 
 func (in *stackRunController) prepare() error {
-	in.env = environment.New(
+	env := environment.New(
 		environment.WithStackRun(in.stackRun),
 		environment.WithWorkingDir(in.dir),
 		environment.WithFetchClient(in.fetchClient),
 	)
 
-	return in.env.Setup()
+	in.tool = tool.New(in.stackRun.Type, in.dir)
+
+	return env.Setup()
 }
 
 func (in *stackRunController) init() (Controller, error) {
@@ -198,7 +201,6 @@ func (in *stackRunController) init() (Controller, error) {
 		return nil, fmt.Errorf("could not initialize controller: consoleClient is nil")
 	}
 
-	// TODO: should retry?
 	if stackRun, err := in.consoleClient.GetStackRun(in.stackRunID); err != nil {
 		return nil, err
 	} else {

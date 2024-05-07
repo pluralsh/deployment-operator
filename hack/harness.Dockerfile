@@ -42,7 +42,7 @@ USER nonroot:nonroot
 # 1. copy plural and tmp directories with proper permissions for the nonroot user
 # 2. copy the static shell into base image <- TODO: shell should not be required for prod image
 # 3. copy the harness binary
-# 4. copy terraform binary
+# 4. copy the terraform binary
 COPY --chown=nonroot --from=environment /plural /plural
 COPY --chown=nonroot --from=environment /tmp/plural /tmp
 COPY --chown=nonroot --from=environment /bin/sh /bin/sh

@@ -3,14 +3,13 @@ package environment
 import (
 	"path"
 
-	console "github.com/pluralsh/console-client-go"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
+// Setup implements Environment interface.
 func (in *environment) Setup() error {
 	if err := in.prepareTarball(); err != nil {
 		return err
@@ -21,20 +20,6 @@ func (in *environment) Setup() error {
 	}
 
 	return nil
-}
-
-func (in *environment) State() (*console.StackStateAttributes, error) {
-	return in.runner.State()
-}
-
-func (in *environment) Output() ([]*console.StackOutputAttributes, error) {
-	return in.runner.Output()
-}
-
-// Args ...
-// TODO: can we find a better place for this?
-func (in *environment) Args(stage console.StepStage) exec.ArgsModifier {
-	return in.runner.Args(stage)
 }
 
 func (in *environment) prepareTarball() error {
@@ -75,11 +60,10 @@ func (in *environment) init() Environment {
 		helpers.EnsureDirOrDie(in.dir)
 	}
 
-	in.runner = newRunner(in.stackRun.Type, in.dir)
-
 	return in
 }
 
+// New creates a new Environment.
 func New(options ...Option) Environment {
 	result := new(environment)
 

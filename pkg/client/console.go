@@ -9,7 +9,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/harness"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 )
 
 type authedTransport struct {
@@ -79,7 +79,7 @@ type Client interface {
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
-	GetStackRun(id string) (*harness.StackRun, error)
+	GetStackRun(id string) (*stackrun.StackRun, error)
 	AddStackRunLogs(id, logs string) error
 	CompleteStackRun(id string, attributes console.StackRunAttributes) error
 	UpdateStackRun(id string, attributes console.StackRunAttributes) error

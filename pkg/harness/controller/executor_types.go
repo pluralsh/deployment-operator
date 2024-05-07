@@ -29,7 +29,12 @@ type executor struct {
 	// It provides information about execution status: nil or error.
 	postRunFunc func(id string, err error)
 
-	// strategy
+	// strategy defines how executables queue should be processed internally.
+	// ExecutionStrategyParallel - will run all executables at the same time
+	//							   without waiting for the previous one to finish
+	// 							   its execution.
+	// ExecutionStrategyOrdered  - will run executables one by one and wait
+	// 							   for the previous one to finish first.
 	strategy ExecutionStrategy
 
 	// ch is the internal channel where the executables are read off from.

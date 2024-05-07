@@ -5,12 +5,12 @@ import (
 	"k8s.io/klog/v2"
 
 	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/pkg/harness"
 	"github.com/pluralsh/deployment-operator/pkg/harness/errors"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func (c *client) GetStackRun(id string) (result *harness.StackRun, err error) {
+func (c *client) GetStackRun(id string) (result *stackrun.StackRun, err error) {
 	stackRun, err := c.consoleClient.GetStackRunBase(c.ctx, id)
 	if err != nil && !internalerrors.IsNotFound(err) {
 		return nil, err
