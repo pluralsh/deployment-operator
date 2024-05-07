@@ -101,6 +101,7 @@ jobs:
       contents: write
       discussions: write
       pull-requests: write
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
