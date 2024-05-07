@@ -129,6 +129,10 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 				},
 			},
 		}
+
+		if jobSpecFragment.ServiceAccount != nil {
+			jobSpec.Template.Spec.ServiceAccountName = *jobSpecFragment.ServiceAccount
+		}
 	}
 
 	return jobSpec
