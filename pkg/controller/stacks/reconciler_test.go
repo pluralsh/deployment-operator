@@ -24,20 +24,18 @@ import (
 var _ = Describe("Stack Run Job Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
-			namespace       = "default"
-			stackRunId      = "1"
-			stackRunJobName = "stack-1"
+			namespace            = "default"
+			stackRunId           = "1"
+			stackRunJobName      = "stack-1"
+			stackRunWithoutJobId = "2"
 		)
 
 		ctx := context.Background()
 
-		jobNamespacedName := types.NamespacedName{Name: stackRunJobName, Namespace: namespace}
-
-		job := &batchv1.Job{}
-
 		BeforeAll(func() {
 			By("Creating stack run job")
-			err := kClient.Get(ctx, jobNamespacedName, job)
+			job := &batchv1.Job{}
+			err := kClient.Get(ctx, types.NamespacedName{Name: stackRunJobName, Namespace: namespace}, job)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &batchv1.Job{
 					ObjectMeta: metav1.ObjectMeta{
@@ -64,7 +62,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 		AfterAll(func() {
 			By("Cleanup stack run job")
 			job := &batchv1.Job{}
-			Expect(kClient.Get(ctx, jobNamespacedName, job)).NotTo(HaveOccurred())
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stackRunJobName, Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(kClient.Delete(ctx, job)).To(Succeed())
 		})
 
@@ -117,6 +115,28 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should exit without errors and create new job", func() {
+			stackRun := &console.StackRunFragment{
+				ID:       stackRunWithoutJobId,
+				Approval: lo.ToPtr(false),
+			}
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
+
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+
+			_, err := reconciler.Reconcile(ctx, stackRunWithoutJobId)
+			Expect(err).NotTo(HaveOccurred())
+
+			job := &batchv1.Job{}
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0)))
+			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
+			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(kClient.Delete(ctx, job)).To(Succeed())
 		})
 	})
 })

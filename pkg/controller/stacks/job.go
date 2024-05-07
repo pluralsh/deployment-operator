@@ -38,7 +38,7 @@ var (
 
 func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
-	jobName := getRunJobName(run)
+	jobName := GetRunJobName(run)
 	foundJob := &batchv1.Job{}
 	if err := r.K8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.Namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -59,7 +59,7 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 
 }
 
-func getRunJobName(run *console.StackRunFragment) string {
+func GetRunJobName(run *console.StackRunFragment) string {
 	return fmt.Sprintf("stack-%s", run.ID)
 }
 
