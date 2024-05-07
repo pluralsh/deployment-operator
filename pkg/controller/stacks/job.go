@@ -79,7 +79,10 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 	// Set requirements like name, namespace, container and volume.
 	jobSpec.Template.ObjectMeta.Name = name
 
-	jobSpec.Template.Annotations = map[string]string{podDefaultContainerAnnotation: DefaultJobContainer}
+	if jobSpec.Template.Annotations == nil {
+		jobSpec.Template.Annotations = map[string]string{}
+	}
+	jobSpec.Template.Annotations[podDefaultContainerAnnotation] = DefaultJobContainer
 
 	if jobSpec.Template.ObjectMeta.Namespace == "" {
 		jobSpec.Template.ObjectMeta.Namespace = r.Namespace
