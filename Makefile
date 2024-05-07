@@ -89,6 +89,7 @@ docker-build-harness: ## build docker harness image
 docker-run-harness: docker-build-harness ## build and run docker harness image
 	docker run \
 			harness:latest \
+			--v=5 \
 			--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
 			--console-token=${PLURAL_DEPLOY_TOKEN} \
 			--stack-run-id=${PLURAL_STACK_RUN_ID}

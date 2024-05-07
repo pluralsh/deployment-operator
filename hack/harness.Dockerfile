@@ -33,7 +33,7 @@ RUN mkdir /tmp/plural
 
 FROM hashicorp/terraform:1.8.2 as terraform
 
-FROM gcr.io/distroless/base-debian12 as final
+FROM gcr.io/distroless/base-debian12:nonroot as final
 
 # Switch to the nonroot user
 USER nonroot:nonroot
