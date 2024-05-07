@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var _ = Describe("Stack Run Job Controller", Ordered, func() {
+var _ = Describe("Reconciler", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
 			namespace       = "default"
@@ -33,7 +33,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 		ctx := context.Background()
 
 		BeforeAll(func() {
-			By("Creating stack run job")
+			By("creating stack run job")
 			job := &batchv1.Job{}
 			err := kClient.Get(ctx, types.NamespacedName{Name: stackRunJobName, Namespace: namespace}, job)
 			if err != nil && errors.IsNotFound(err) {
@@ -60,7 +60,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 		})
 
 		AfterAll(func() {
-			By("Cleanup stack run job")
+			By("cleanup stack run job")
 			job := &batchv1.Job{}
 			Expect(kClient.Get(ctx, types.NamespacedName{Name: stackRunJobName, Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(kClient.Delete(ctx, job)).To(Succeed())
