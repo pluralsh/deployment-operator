@@ -32,8 +32,13 @@ func (k *kustomize) Render(svc *console.GetServiceDeploymentForAgent_ServiceDepl
 		Example: templates.Examples(i18n.T(h.Example)),
 	}
 
+	subdir := ""
+	if svc.Kustomize != nil {
+		subdir = svc.Kustomize.Path
+	}
+
 	command := build.NewCmdBuild(filesys.MakeFsOnDisk(), help, out)
-	path := filepath.Join(k.dir, svc.Kustomize.Path)
+	path := filepath.Join(k.dir, subdir)
 	command.SetArgs([]string{path})
 	if err := command.Execute(); err != nil {
 		return nil, err
