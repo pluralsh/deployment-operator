@@ -159,12 +159,12 @@ func (in *stackRunController) markStackRunStep(id string, status gqlclient.StepS
 }
 
 func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, stackRunErr error) error {
-	_, err := in.tool.State()
+	state, err := in.tool.State()
 	if err != nil {
 		klog.ErrorS(err, "could not prepare state attributes")
 	}
 
-	_, err = in.tool.Output()
+	output, err := in.tool.Output()
 	if err != nil {
 		klog.ErrorS(err, "could not prepare output attributes")
 	}
@@ -177,10 +177,9 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	}
 
 	return in.consoleClient.CompleteStackRun(in.stackRunID, gqlclient.StackRunAttributes{
-		// TODO: Uncomment once API is fixed.
-		//Errors: serviceErrorAttributes,
-		//Output: output,
-		//State:  state,
+		Errors: serviceErrorAttributes,
+		Output: output,
+		State:  state,
 		Status: status,
 	})
 }

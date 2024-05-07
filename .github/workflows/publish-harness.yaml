@@ -147,5 +147,5 @@ jobs:
           build-args: |
             TERRAFORM_IMAGE_TAG=${{ env.TERRAFORM_VERSION }}
             HARNESS_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-            HARNESS_IMAGE_VERSION=${{ steps.meta.outputs.version }}
+            HARNESS_IMAGE_TAG=${{ steps.meta.outputs.version }}
             
