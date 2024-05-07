@@ -70,8 +70,7 @@ jobs:
       with:
         context: "."
         file: "./hack/harness/base.Dockerfile"
-        # TODO: Enable once tags are properly formatted
-        push: false
+        push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         platforms: linux/amd64,linux/arm64
@@ -111,8 +110,8 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            ghcr.io/pluralsh/stackrun-harness-terraform
-            docker.io/pluralsh/stackrun-harness-terraform
+            ghcr.io/pluralsh/stackrun-harness
+            docker.io/pluralsh/stackrun-harness
           tags: |
             type=semver,pattern={{version}},suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=1000
             type=sha,suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=800
@@ -137,8 +136,7 @@ jobs:
         with:
           context: "."
           file: "./hack/harness/terraform.Dockerfile"
-          # TODO: Enable once tags are properly formatted
-          push: false
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64

@@ -16,6 +16,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 // Start starts the manager and waits indefinitely.
@@ -164,10 +165,14 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 		klog.ErrorS(err, "could not prepare state attributes")
 	}
 
+	klog.V(log.LogLevelDebug).InfoS("generated console state", "state", state)
+
 	output, err := in.tool.Output()
 	if err != nil {
 		klog.ErrorS(err, "could not prepare output attributes")
 	}
+
+	klog.V(log.LogLevelDebug).InfoS("generated console output", "output", output)
 
 	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
 	if stackRunErr != nil {
