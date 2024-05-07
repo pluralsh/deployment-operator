@@ -45,6 +45,7 @@ type executor struct {
 
 type ExecutorOption func(*executor)
 
+// ExecutionStrategy defines how executables queue should be processed.
 type ExecutionStrategy string
 
 const (
