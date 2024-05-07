@@ -94,6 +94,8 @@ jobs:
     name: Build and push harness terraform container
     runs-on: ubuntu-20.04
     needs: [publish-harness-base]
+    env:
+      TERRAFORM_VERSION: 1.8.2
     permissions:
       contents: write
       discussions: write
@@ -112,7 +114,9 @@ jobs:
             ghcr.io/pluralsh/stackrun-harness-terraform
             docker.io/pluralsh/stackrun-harness-terraform
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=1000
+            type=sha,suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=800
+            type=ref,event=pr,suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -141,6 +145,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
+            TERRAFORM_IMAGE_TAG=${{ env.TERRAFORM_VERSION }}
             HARNESS_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
             HARNESS_IMAGE_VERSION=${{ steps.meta.outputs.version }}
             
