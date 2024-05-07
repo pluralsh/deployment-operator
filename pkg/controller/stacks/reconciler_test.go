@@ -24,10 +24,9 @@ import (
 var _ = Describe("Stack Run Job Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
-			namespace            = "default"
-			stackRunId           = "1"
-			stackRunJobName      = "stack-1"
-			stackRunWithoutJobId = "2"
+			namespace       = "default"
+			stackRunId      = "1"
+			stackRunJobName = "stack-1"
 		)
 
 		ctx := context.Background()
@@ -117,9 +116,10 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should exit without errors and create new job", func() {
+		It("should create new job with default values", func() {
+			stackRunId := "default-values"
 			stackRun := &console.StackRunFragment{
-				ID:       stackRunWithoutJobId,
+				ID:       stackRunId,
 				Approval: lo.ToPtr(false),
 			}
 
@@ -128,7 +128,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 
 			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
 
-			_, err := reconciler.Reconcile(ctx, stackRunWithoutJobId)
+			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
 
 			job := &batchv1.Job{}
@@ -136,6 +136,70 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0)))
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
 			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(kClient.Delete(ctx, job)).To(Succeed())
+		})
+
+		It("should create new job based on user-defined spec", func() {
+			labelsValue := "labels-123"
+			annotationsValue := "annotations-123"
+			stackRunId := "user-defined-spec"
+			stackRun := &console.StackRunFragment{
+				ID: stackRunId,
+				JobSpec: &console.JobSpecFragment{
+					Namespace: namespace,
+					Containers: []*console.ContainerSpecFragment{{
+						Image: "test",
+						Args:  []*string{lo.ToPtr("arg1"), lo.ToPtr("arg2")},
+					}, {
+						Image: "test2",
+						Args:  []*string{lo.ToPtr("arg1")},
+					}},
+					Labels:         map[string]any{"test": labelsValue},
+					Annotations:    map[string]any{"test": annotationsValue},
+					ServiceAccount: lo.ToPtr("test-sa"),
+				},
+			}
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
+
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+
+			_, err := reconciler.Reconcile(ctx, stackRunId)
+			Expect(err).NotTo(HaveOccurred())
+
+			job := &batchv1.Job{}
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0)))
+			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(3))
+			Expect(job.Spec.Template.ObjectMeta.Labels).To(ContainElement(labelsValue))
+			Expect(job.Spec.Template.ObjectMeta.Annotations).To(ContainElement(annotationsValue))
+			Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(*stackRun.JobSpec.ServiceAccount))
+			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(kClient.Delete(ctx, job)).To(Succeed())
+		})
+
+		It("should create new job based on user-defined raw spec", func() {
+			stackRunId := "user-defined-raw-spec"
+			stackRun := &console.StackRunFragment{
+				ID: stackRunId,
+				JobSpec: &console.JobSpecFragment{
+					Namespace: "",
+					Raw:       lo.ToPtr(""),
+				},
+			}
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
+
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+
+			_, err := reconciler.Reconcile(ctx, stackRunId)
+			Expect(err).NotTo(HaveOccurred())
+
+			job := &batchv1.Job{}
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			// Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(*stackRun.JobSpec.ServiceAccount))
 			Expect(kClient.Delete(ctx, job)).To(Succeed())
 		})
 	})
