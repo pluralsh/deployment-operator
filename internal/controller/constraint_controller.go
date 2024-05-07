@@ -36,6 +36,15 @@ type BundleData struct {
 	Remediation       string `json:"remediation"`
 }
 
+type StatusViolation struct {
+	Group     string `json:"group"`
+	Version   string `json:"version"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Message   string `json:"message"`
+}
+
 type ConstraintReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
@@ -115,6 +124,11 @@ func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templa
 		}
 	}
 
+	enforcement, found, _ := unstructured.NestedString(instance.Object, "spec", "enforcementAction")
+	if found {
+		pca.Enforcement = toEnforcement(enforcement)
+	}
+
 	violations, found, err := unstructured.NestedSlice(instance.Object, "status", "violations")
 	if err != nil {
 		return nil, err
@@ -180,11 +194,16 @@ func (r *ConstraintReconciler) ConstraintPodStatusToUnstructured(ctx context.Con
 	return u, template, nil
 }
 
-type StatusViolation struct {
-	Group     string `json:"group"`
-	Version   string `json:"version"`
-	Kind      string `json:"kind"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace,omitempty"`
-	Message   string `json:"message"`
+func toEnforcement(val string) *console.ConstraintEnforcement {
+	if val == "dryrun" {
+		return lo.ToPtr(console.ConstraintEnforcementDryRun)
+	}
+	if val == "warn" {
+		return lo.ToPtr(console.ConstraintEnforcementWarn)
+	}
+	if val == "deny" {
+		return lo.ToPtr(console.ConstraintEnforcementDeny)
+	}
+
+	return nil
 }
