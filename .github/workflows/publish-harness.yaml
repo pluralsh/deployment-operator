@@ -46,6 +46,10 @@ jobs:
         images: |
           ghcr.io/pluralsh/stackrun-harness-base
           docker.io/pluralsh/stackrun-harness-base
+        tags: |
+          type=semver,pattern={{version}},priority=1000
+          type=sha,priority=800
+          type=ref,event=pr,priority=600
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx

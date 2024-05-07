@@ -22,4 +22,4 @@ bin/
 notes.md
 
 # Harness
-stackrun/
+stackrun/**
