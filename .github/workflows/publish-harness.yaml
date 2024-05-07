@@ -46,9 +46,6 @@ jobs:
         images: |
           ghcr.io/pluralsh/stackrun-harness-base
           docker.io/pluralsh/stackrun-harness-base
-        # generate Docker tags based on the following events/attributes
-        tags: |
-          type=semver,pattern={{version}}
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
@@ -110,7 +107,6 @@ jobs:
           images: |
             ghcr.io/pluralsh/stackrun-harness-terraform
             docker.io/pluralsh/stackrun-harness-terraform
-          # generate Docker tags based on the following events/attributes
           tags: |
             type=semver,pattern={{version}}
       - name: Set up QEMU
