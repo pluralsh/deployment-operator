@@ -40,7 +40,7 @@ func (c *client) CompleteStackRun(id string, attributes gqlclient.StackRunAttrib
 		return err
 	}
 
-	klog.V(log.LogLevelInfo).InfoS("completed stack run", "id", id, "attributes", attributes)
+	klog.V(log.LogLevelVerbose).InfoS("completed stack run", "id", id, "attributes", attributes)
 	return nil
 }
 

@@ -146,6 +146,6 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             TERRAFORM_IMAGE_TAG=${{ env.TERRAFORM_VERSION }}
-            HARNESS_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-            HARNESS_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
+            HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
+            HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
             
