@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	gqlclient "github.com/pluralsh/console-client-go"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	console "github.com/pluralsh/deployment-operator/pkg/client"
@@ -13,16 +15,33 @@ import (
 
 type consoleSignal struct {
 	client console.Client
+	id     string
 }
 
 func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
-	// TODO: subscribe to console and wait for cancel event
 	klog.V(log.LogLevelDebug).InfoS("starting console signal listener")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	resyncPeriod := 5 * time.Second
+
+	go wait.Until(func() {
+		stackRun, err := in.client.GetStackRun(in.id)
+		if err != nil {
+			klog.ErrorS(err, "could not resync stack run", "id", in.id)
+			return
+		}
+
+		if stackRun != nil && stackRun.Status == gqlclient.StackStatusCancelled {
+			cancelFunc(errors.ErrRemoteCancel)
+			cancel()
+		}
+	}, resyncPeriod, ctx.Done())
 }
 
-func NewConsoleSignal(client console.Client) Signal {
+func NewConsoleSignal(client console.Client, id string) Signal {
 	return &consoleSignal{
 		client,
+		id,
 	}
 }
 

@@ -24,7 +24,7 @@ func main() {
 	ctx := signals.NewCancelableContext(
 		signals.SetupSignalHandler(signals.ExitCodeTerminated),
 		signals.NewTimeoutSignal(args.Timeout()),
-		signals.NewConsoleSignal(consoleClient),
+		signals.NewConsoleSignal(consoleClient, args.StackRunID()),
 	)
 
 	ctrl, err := controller.NewStackRunController(
