@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 \
     GOARCH=${TARGETARCH} \
     go build \
     -trimpath \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X github.com/pluralsh/deployment-operator/pkg/harness/environment.Version=${VERSION}" \
     -o /plural/harness \
     cmd/harness/main.go
 

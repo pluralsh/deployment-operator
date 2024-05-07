@@ -81,6 +81,7 @@ docker-push: ## push image
 .PHONY: docker-build-harness
 docker-build-harness: ## build docker harness image
 	docker build \
+			--build-arg=VERSION="0.0.0-prod" \
     	  	-t harness \
     		-f hack/harness.Dockerfile \
     		.

@@ -36,14 +36,18 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 		}
 	}()
 
+	in.preStart()
+
+	if err := in.prepare(); err != nil {
+		return err
+	}
+
 	// Add executables to executor
 	for _, e := range in.executables() {
 		if err := in.executor.Add(e); err != nil {
 			return err
 		}
 	}
-
-	in.preStart()
 
 	if err := in.executor.Start(ctx); err != nil {
 		return fmt.Errorf("could not start executor: %w", err)
@@ -67,8 +71,8 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 }
 
 func (in *stackRunController) preStart() {
-	if in.stackRun.Status != gqlclient.StackStatusPending {
-		//klog.Fatalf("could not start stack run: invalid status: %s", in.stackRun.Status)
+	if in.stackRun.Status != gqlclient.StackStatusPending && !environment.IsDev() {
+		klog.Fatalf("could not start stack run: invalid status: %s", in.stackRun.Status)
 	}
 
 	if err := in.markStackRun(gqlclient.StackStatusRunning); err != nil {
@@ -173,6 +177,7 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	}
 
 	return in.consoleClient.CompleteStackRun(in.stackRunID, gqlclient.StackRunAttributes{
+		// TODO: Uncomment once API is fixed.
 		//Errors: serviceErrorAttributes,
 		//Output: output,
 		//State:  state,
@@ -207,7 +212,7 @@ func (in *stackRunController) init() (Controller, error) {
 		in.stackRun = stackRun
 	}
 
-	return in, in.prepare()
+	return in, nil
 }
 
 func NewStackRunController(options ...Option) (Controller, error) {
