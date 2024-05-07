@@ -11,6 +11,7 @@ import (
 	errors2 "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 	batchv1 "k8s.io/api/batch/v1"
@@ -24,9 +25,8 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
 			namespace       = "default"
-			stackName       = "test-stack"
 			stackRunId      = "1"
-			stackRunJobName = "test-stack-1"
+			stackRunJobName = "stack-1"
 		)
 
 		ctx := context.Background()
@@ -93,12 +93,24 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			Expect(err.Error()).To(ContainSubstring("unknown error"))
 		})
 
-		It("should exit without errors as ...", func() {
+		It("should exit without errors as approval is required to be able to reconcile job", func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
-				ID:            stackRunId,
-				Configuration: &console.StackConfigurationFragment{Version: "v1.0.0"},
-				Status:        console.StackStatusSuccessful,
+				ID:       stackRunId,
+				Approval: lo.ToPtr(true),
+			}, nil)
+
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+
+			_, err := reconciler.Reconcile(ctx, stackRunId)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should exit without errors as job is already created", func() {
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
+				ID:       stackRunId,
+				Approval: lo.ToPtr(false),
 			}, nil)
 
 			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
