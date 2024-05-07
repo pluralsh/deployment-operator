@@ -33,6 +33,8 @@ jobs:
       contents: 'read'
       id-token: 'write'
       packages: 'write'
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -145,5 +147,5 @@ jobs:
           build-args: |
             TERRAFORM_IMAGE_TAG=${{ env.TERRAFORM_VERSION }}
             HARNESS_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-            HARNESS_IMAGE_TAG=${{ steps.meta.outputs.version }}
+            HARNESS_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
             
