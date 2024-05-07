@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 )
 
 var _ = Describe("Stack Run Job Controller", Ordered, func() {
@@ -180,12 +181,37 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 		})
 
 		It("should create new job based on user-defined raw spec", func() {
+			jobSpec := batchv1.JobSpec{
+				ActiveDeadlineSeconds: lo.ToPtr(int64(60)),
+				BackoffLimit:          lo.ToPtr(int32(3)),
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{},
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "test",
+								VolumeSource: corev1.VolumeSource{
+									EmptyDir: &corev1.EmptyDirVolumeSource{},
+								},
+							},
+						},
+						Containers: []corev1.Container{{
+							Name:  stacks.DefaultJobContainer,
+							Image: "image:v1.0.0",
+						}},
+						ServiceAccountName: "test-sa",
+					},
+				},
+			}
+			marshalledJobSpec, err := yaml.Marshal(jobSpec)
+			Expect(err).NotTo(HaveOccurred())
+
 			stackRunId := "user-defined-raw-spec"
 			stackRun := &console.StackRunFragment{
 				ID: stackRunId,
 				JobSpec: &console.JobSpecFragment{
 					Namespace: "",
-					Raw:       lo.ToPtr(""),
+					Raw:       lo.ToPtr(string(marshalledJobSpec)),
 				},
 			}
 
@@ -194,12 +220,16 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 
 			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
 
-			_, err := reconciler.Reconcile(ctx, stackRunId)
+			_, err = reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
 
 			job := &batchv1.Job{}
 			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
-			// Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(*stackRun.JobSpec.ServiceAccount))
+			Expect(*job.Spec.ActiveDeadlineSeconds).To(Equal(*jobSpec.ActiveDeadlineSeconds))
+			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0))) // Overridden by controller.
+			Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(jobSpec.Template.Spec.ServiceAccountName))
+			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1)) // Merged by controller as default container was specified.
+			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(2))
 			Expect(kClient.Delete(ctx, job)).To(Succeed())
 		})
 	})
