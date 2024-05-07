@@ -174,12 +174,12 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) cor
 
 func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment) string {
 	image := defaultContainerImages[run.Type]
-	if run.Configuration.Image != nil && *run.Configuration.Image != "" {
+	if run.Configuration != nil && run.Configuration.Image != nil && *run.Configuration.Image != "" {
 		image = *run.Configuration.Image
 	}
 
 	version := defaultContainerVersions[run.Type]
-	if run.Configuration.Version != "" {
+	if run.Configuration != nil && run.Configuration.Version != "" {
 		version = run.Configuration.Version
 	}
 
