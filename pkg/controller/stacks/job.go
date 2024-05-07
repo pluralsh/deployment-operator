@@ -31,8 +31,8 @@ var (
 	}
 
 	defaultContainerVersions = map[console.StackType]string{
-		console.StackTypeTerraform: "",
-		console.StackTypeAnsible:   "",
+		console.StackTypeTerraform: "latest",
+		console.StackTypeAnsible:   "latest",
 	}
 )
 
