@@ -12,8 +12,9 @@ import (
 type Renderer string
 
 const (
-	RendererHelm Renderer = "helm"
-	RendererRaw  Renderer = "raw"
+	RendererHelm      Renderer = "helm"
+	RendererRaw       Renderer = "raw"
+	RendererKustomize Renderer = "kustomize"
 
 	ChartFileName = "Chart.yaml"
 )
@@ -33,10 +34,14 @@ func Render(dir string, svc *console.GetServiceDeploymentForAgent_ServiceDeploym
 			}
 		}
 
+		if info.Name() == "kustomization.yaml" {
+			renderer = RendererKustomize
+		}
+
 		return nil
 	})
 
-	if svc.Kustomize != nil {
+	if svc.Kustomize != nil || renderer == RendererKustomize {
 		return NewKustomize(dir).Render(svc, utilFactory)
 	}
 

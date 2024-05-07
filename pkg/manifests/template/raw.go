@@ -7,44 +7,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Masterminds/sprig/v3"
-	"github.com/osteele/liquid"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/polly/template"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
 )
 
 var (
-	extensions     = []string{".json", ".yaml", ".yml", ".yaml.liquid", ".yml.liquid", ".json.liquid"}
-	liquidEngine   = liquid.NewEngine()
-	sprigFunctions = map[string]string{
-		"toJson":        "to_json",
-		"fromJson":      "from_json",
-		"b64enc":        "b64enc",
-		"b64dec":        "b64dec",
-		"semverCompare": "semver_compare",
-		"sha256sum":     "sha26sum",
-		"quote":         "quote",
-		"squote":        "squote",
-		"replace":       "replace",
-		"coalesce":      "coalesce",
-	}
+	extensions = []string{".json", ".yaml", ".yml", ".yaml.liquid", ".yml.liquid", ".json.liquid"}
 )
-
-func init() {
-	fncs := sprig.TxtFuncMap()
-	for key, name := range sprigFunctions {
-		liquidEngine.RegisterFilter(name, fncs[key])
-	}
-	liquidEngine.RegisterFilter("indent", indent)
-	liquidEngine.RegisterFilter("nindent", nindent)
-	liquidEngine.RegisterFilter("replace", strings.ReplaceAll)
-
-	liquidEngine.RegisterFilter("default", dfault)
-	liquidEngine.RegisterFilter("ternary", ternary)
-}
 
 type raw struct {
 	dir string
@@ -54,21 +27,13 @@ func NewRaw(dir string) *raw {
 	return &raw{dir}
 }
 
-func isTemplated(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) bool {
-	if svc.Templated != nil {
-		return *svc.Templated
-	}
-	// default true
-	return true
-}
-
 func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]byte, error) {
 	bindings := map[string]interface{}{
 		"configuration": configMap(svc),
 		"cluster":       clusterConfiguration(svc.Cluster),
 		"contexts":      contexts(svc),
 	}
-	return liquidEngine.ParseAndRender(input, bindings)
+	return template.RenderLiquid(input, bindings)
 }
 
 func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
@@ -131,25 +96,4 @@ func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment
 	newSet := containers.ToSet[*unstructured.Unstructured](res)
 	res = newSet.List()
 	return res, nil
-}
-
-func clusterConfiguration(cluster *console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster) map[string]interface{} {
-	res := map[string]interface{}{
-		"ID":             cluster.ID,
-		"Self":           cluster.Self,
-		"Handle":         cluster.Handle,
-		"Name":           cluster.Name,
-		"Version":        cluster.Version,
-		"CurrentVersion": cluster.CurrentVersion,
-		"KasUrl":         cluster.KasURL,
-		"Metadata":       cluster.Metadata,
-	}
-
-	for k, v := range res {
-		res[strings.ToLower(k)] = v
-	}
-	res["kasUrl"] = cluster.KasURL
-	res["currentVersion"] = cluster.CurrentVersion
-
-	return res
 }

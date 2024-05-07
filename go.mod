@@ -18,12 +18,11 @@ require (
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20240110234408-18fa1fc7dc06
 	github.com/open-policy-agent/gatekeeper/v3 v3.15.1
 	github.com/orcaman/concurrent-map/v2 v2.0.1
-	github.com/osteele/liquid v1.3.2
 	github.com/pkg/errors v0.9.1
 	github.com/pluralsh/console-client-go v0.5.6
 	github.com/pluralsh/controller-reconcile-helper v0.0.4
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
-	github.com/pluralsh/polly v0.1.7
+	github.com/pluralsh/polly v0.1.8
 	github.com/samber/lo v1.39.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
@@ -31,7 +30,7 @@ require (
 	github.com/vmware-tanzu/velero v1.13.0
 	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.23.0
 	helm.sh/helm/v3 v3.14.3
 	k8s.io/api v0.29.2
 	k8s.io/apiextensions-apiserver v0.29.0
@@ -165,6 +164,7 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
+	github.com/osteele/liquid v1.4.0 // indirect
 	github.com/osteele/tuesday v1.0.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
