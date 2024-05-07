@@ -78,16 +78,24 @@ docker-build: ## build image
 docker-push: ## push image
 	docker push ${IMG}
 
-.PHONY: docker-build-harness
-docker-build-harness: ## build docker harness image
+.PHONY: docker-build-harness-base
+docker-build-harness-base: ## build base docker harness image
 	docker build \
-			--build-arg=VERSION="0.0.0-prod" \
+			--build-arg=VERSION="0.0.0-dev" \
+    	  	-t harness-base \
+    		-f hack/harness/base.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-terraform
+docker-build-harness-terraform: docker-build-harness-base ## build terraform docker harness image
+	docker build \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
     	  	-t harness \
-    		-f hack/harness.Dockerfile \
+    		-f hack/harness/terraform.Dockerfile \
     		.
 
 .PHONY: docker-run-harness
-docker-run-harness: docker-build-harness ## build and run docker harness image
+docker-run-harness: docker-build-harness-terraform ## build and run terraform docker harness image
 	docker run \
 			harness:latest \
 			--v=5 \

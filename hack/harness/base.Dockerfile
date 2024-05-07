@@ -31,8 +31,6 @@ FROM busybox:1.35.0-uclibc as environment
 RUN mkdir /plural
 RUN mkdir /tmp/plural
 
-FROM hashicorp/terraform:1.8.2 as terraform
-
 FROM gcr.io/distroless/base-debian12:nonroot as final
 
 # Switch to the nonroot user
@@ -47,6 +45,5 @@ COPY --chown=nonroot --from=environment /plural /plural
 COPY --chown=nonroot --from=environment /tmp/plural /tmp
 COPY --chown=nonroot --from=environment /bin/sh /bin/sh
 COPY --from=builder /plural/harness /harness
-COPY --from=terraform /bin/terraform /bin/terraform
 
 ENTRYPOINT ["/harness", "--working-dir=plural"]
