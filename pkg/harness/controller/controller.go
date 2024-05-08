@@ -213,6 +213,7 @@ func (in *stackRunController) init() (Controller, error) {
 	if stackRun, err := in.consoleClient.GetStackRun(in.stackRunID); err != nil {
 		return nil, err
 	} else {
+		klog.V(log.LogLevelInfo).InfoS("found stack run", "id", stackRun.ID, "status", stackRun.Status, "type", stackRun.Type)
 		in.stackRun = stackRun
 	}
 

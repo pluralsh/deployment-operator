@@ -7,6 +7,15 @@ import (
 )
 
 // Args implements exec.ArgsModifier type.
+func (in *InitModifier) Args(args []string) []string {
+	return args
+}
+
+func NewInitModifier() *InitModifier {
+	return &InitModifier{}
+}
+
+// Args implements exec.ArgsModifier type.
 func (in *PlanModifier) Args(args []string) []string {
 	if algorithms.Index(args, func(a string) bool {
 		return a == "plan"

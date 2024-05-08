@@ -20,7 +20,6 @@ func (c *client) GetStackRun(id string) (result *stackrun.StackRun, err error) {
 		return nil, errors.ErrNotFound
 	}
 
-	klog.V(log.LogLevelInfo).InfoS("found stack run", "id", id, "status", stackRun.StackRun.Status, "type", stackRun.StackRun.Type)
 	return result.FromStackRunBaseFragment(stackRun.StackRun), nil
 }
 

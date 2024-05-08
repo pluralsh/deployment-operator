@@ -63,13 +63,15 @@ func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 // Modifier implements v1.Tool interface.
 func (in *Terraform) Modifier(stage console.StepStage) v1.Modifier {
 	switch stage {
+	case console.StepStageInit:
+		return NewInitModifier()
 	case console.StepStagePlan:
 		return NewPlanModifier(in.planFileName)
 	case console.StepStageApply:
 		return NewApplyModifier(in.planFileName)
 	}
 
-	return nil
+	return v1.NewProxyModifier()
 }
 
 func (in *Terraform) resource(r v4.Resource) *console.StackStateResourceAttributes {
