@@ -26,8 +26,8 @@ const (
 
 var (
 	defaultContainerImages = map[console.StackType]string{
-		console.StackTypeTerraform: "pluralsh/stackrun-harness-terraform",
-		console.StackTypeAnsible:   "pluralsh/stackrun-harness-ansible",
+		console.StackTypeTerraform: "ghcr.io/pluralsh/stackrun-harness",
+		console.StackTypeAnsible:   "ghcr.io/pluralsh/stackrun-harness",
 	}
 
 	defaultContainerVersions = map[console.StackType]string{
