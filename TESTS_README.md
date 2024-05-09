@@ -49,7 +49,12 @@ I'm creating a test for  ./pkg/manifests/template/tpl.go
 cd ./pkg/manifests/template
 ginkgo generate tpl
 ```
-It generates
+example output
+```sh
+Generating ginkgo test for Tpl in:
+  tpl_test.go
+```
+It generates: `./pkg/manifests/template/tpl_test.go`
 ```sh
 # ./pkg/manifests/template/tpl_test.go
 package template_test
@@ -68,6 +73,7 @@ var _ = Describe("Tpl", func() {
 ```
 ### From here you can begin adding `specs` (test) to your generated file
 ```sh
+# ./pkg/manifests/template/tpl_test.go
 var _ = Describe("Tpl", func() {
 
 	Context("Example Test", func() {
@@ -86,8 +92,9 @@ var _ = Describe("Tpl", func() {
 ```
 
 ### Run the Suite with your New Test
+ I'm doing this here just for an example and to check that my tests are bing added to the Suite
 ```sh
-# I'm doing this here just for an example and to check that my tests are bing added to the Suite
+
 make test
 # ... other output
 
