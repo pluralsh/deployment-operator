@@ -47,7 +47,7 @@ ginkgo bootstrap
 I'm creating a test for  ./pkg/manifests/template/tpl.go 
 ```sh
 cd ./pkg/manifests/template
-ginkgo generate book
+ginkgo generate tpl
 ```
 It generates
 ```sh
