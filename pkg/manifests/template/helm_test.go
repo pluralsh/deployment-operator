@@ -68,10 +68,4 @@ var _ = Describe("Helm template", func() {
 		})
 	})
 
-	Context("Example Test", func() {
-		It("Should Add This Example Test ", func() {
-			Expect(1).To(Equal(1))
-		})
-	})
-
 })
