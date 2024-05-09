@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -120,7 +121,9 @@ func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templa
 	if annotations := instance.GetAnnotations(); annotations != nil {
 		var bundleData BundleData
 		if d, ok := annotations[bundleDataAnnotation]; ok {
-			if err := yaml.Unmarshal([]byte(d), &bundleData); err != nil {
+			d = strings.TrimSpace(d)
+			d = strings.Trim(d, "\"")
+			if err := yaml.Unmarshal([]byte(d), &bundleData); err == nil {
 				pca.Description = lo.ToPtr(bundleData.Description)
 				pca.Recommendation = lo.ToPtr(bundleData.Remediation)
 			} else {
