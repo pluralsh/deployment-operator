@@ -8,9 +8,12 @@ You can test with:
 ```sh
 kubectl cluster-info
 ```
-### Setup Environment
 Set the KUBEBUILDER_ASSETS directory
-
+### Install dependencies with make
+```sh
+make tools
+```
+### Setup Environment
 ```sh
 # Mac
 export KUBEBUILDER_ASSETS=${GOBIN}/k8s/1.28.3-darwin-arm64
@@ -19,7 +22,7 @@ export KUBEBUILDER_ASSETS=${GOBIN}/k8s/1.28.3-darwin-arm64
 export KUBEBUILDER_ASSETS=${GOBIN}/k8s/1.28.3-linux-amd64
 ```
 
-### Install make
+
 
 ## Running Unit Tests
 ```sh
