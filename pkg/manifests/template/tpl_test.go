@@ -7,10 +7,10 @@ import (
 
 var _ = Describe("Test .tpl Rendering", func() {
 
-	Context("When rendering a template", func() {
+	Context("When rendering a .tpl template", func() {
 
 		It("Should render the template correctly", func() {
-			// Add your test here
+			// simple test to check if the test is running
 			Expect(1).To(Equal(1))
 		})
 	})
