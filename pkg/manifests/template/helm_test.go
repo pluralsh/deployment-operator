@@ -66,6 +66,12 @@ var _ = Describe("Helm template", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(10))
 		})
-
 	})
+
+	Context("Example Test", func() {
+		It("Should Add This Example Test ", func() {
+			Expect(1).To(Equal(1))
+		})
+	})
+
 })
