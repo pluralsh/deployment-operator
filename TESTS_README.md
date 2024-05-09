@@ -83,7 +83,7 @@ var _ = Describe("Tpl", func() {
 	})
 
     Context("Test Should Fail for example output", func() {
-		It("Should always Pass", func() {
+		It("Should always fail", func() {
 			Expect(1).To(Equal(2))
 		})
 	})
@@ -98,33 +98,39 @@ var _ = Describe("Tpl", func() {
 make test
 # ... other output
 
+[GIN-debug] GET    /version                  --> github.com/pluralsh/deployment-operator/pkg/manifests/template.init.func1.1 (3 handlers)
+Running Suite: Controller Suite - /Users/kjj/git/plrl/deployment-operator/pkg/manifests/template
+================================================================================================
+Random Seed: 1715288079
+
 Will run 6 of 6 specs
-••# Warning: 'bases' is deprecated. Please use 'resources' instead. Run 'kustomize edit fix' to update your Kustomization automatically.
+# Warning: 'bases' is deprecated. Please use 'resources' instead. Run 'kustomize edit fix' to update your Kustomization automatically.
 # Warning: 'patchesStrategicMerge' is deprecated. Please use 'patches' instead. Run 'kustomize edit fix' to update your Kustomization automatically.
-•2024/05/09 16:47:43 render helm templates: enable dependency update= false dependencies= 0
-Found unknown types unknown resource types: apiextensions.k8s.io/v1/CustomResourceDefinition,apiextensions.k8s.io/v1/CustomResourceDefinition, ignoring for now2024/05/09 16:47:44 Server exiting
 ••
 ------------------------------
 • [FAILED] [0.000 seconds]
-Tpl Test Should Fail for example output [It] Should always Pass
+Tpl Test Should Fail for example output [It] Should always Fail
 /Users/kjj/git/plrl/deployment-operator/pkg/manifests/template/tpl_test.go:17
 
   [FAILED] Expected
       <int>: 1
   to equal
       <int>: 2
-  In [It] at: /Users/kjj/git/plrl/deployment-operator/pkg/manifests/template/tpl_test.go:18 @ 05/09/24 16:47:44.489
+  In [It] at: /Users/kjj/git/plrl/deployment-operator/pkg/manifests/template/tpl_test.go:18 @ 05/09/24 16:54:41.29
 ------------------------------
+2024/05/09 16:54:41 render helm templates: enable dependency update= false dependencies= 0
+Found unknown types unknown resource types: apiextensions.k8s.io/v1/CustomResourceDefinition,apiextensions.k8s.io/v1/CustomResourceDefinition, ignoring for now2024/05/09 16:54:41 Server exiting
+•••
 
 Summarizing 1 Failure:
-  [FAIL] Tpl Test Should Fail for example output [It] Should always Pass
+  [FAIL] Tpl Test Should Fail for example output [It] Should always Fail
   /Users/kjj/git/plrl/deployment-operator/pkg/manifests/template/tpl_test.go:18
 
-Ran 6 of 6 Specs in 4.158 seconds
+Ran 6 of 6 Specs in 2.810 seconds
 FAIL! -- 5 Passed | 1 Failed | 0 Pending | 0 Skipped
---- FAIL: TestControllers (4.16s)
+--- FAIL: TestControllers (2.81s)
 FAIL
-FAIL    github.com/pluralsh/deployment-operator/pkg/manifests/template  4.769s
+FAIL    github.com/pluralsh/deployment-operator/pkg/manifests/template  3.421s
 FAIL
 make: *** [test] Error 1
 

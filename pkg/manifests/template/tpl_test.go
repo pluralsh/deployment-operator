@@ -14,7 +14,7 @@ var _ = Describe("Tpl", func() {
 	})
 
 	Context("Test Should Fail for example output", func() {
-		It("Should always Pass", func() {
+		It("Should always Fail", func() {
 			Expect(1).To(Equal(2))
 		})
 	})
