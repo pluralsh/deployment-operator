@@ -29,3 +29,6 @@ export KUBEBUILDER_ASSETS=${GOBIN}/k8s/1.28.3-linux-amd64
 ```sh
 make test
 ```
+
+## Adding Tests
+Reference the [Ginkgo Getting Started](https://onsi.github.io/ginkgo/#getting-started) to see the expected structure
