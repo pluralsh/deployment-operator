@@ -1,0 +1,3 @@
+favorite:
+  language: "Golang"
+  serialization-format: "YAML"
