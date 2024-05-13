@@ -1,6 +1,7 @@
 package template
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -9,7 +10,7 @@ import (
 	console "github.com/pluralsh/console-client-go"
 )
 
-var _ = Describe("Template Rendering", func() {
+var _ = Describe(".tpl Template Rendering", func() {
 	var svc *console.GetServiceDeploymentForAgent_ServiceDeployment
 
 	BeforeEach(func() {
@@ -17,12 +18,28 @@ var _ = Describe("Template Rendering", func() {
 		svc = mockServiceDeployment()
 	})
 
-	Describe("Render template with valid data", func() {
+	Describe("Render .tpl with valid data", func() {
 		It("should render correctly", func() {
-			tplData, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "tpl", "_favorites.tpl"))
+			tplData, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "tpl", "_simpleConfigMap.tpl"))
 			Expect(err).NotTo(HaveOccurred())
 
 			rendered, err := renderTpl(tplData, svc)
+			fmt.Println("ℹ️ rendered template:")
+			fmt.Println(string(rendered))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(rendered)).To(ContainSubstring("test-config-configmap"))
+			Expect(string(rendered)).To(ContainSubstring("v1"))
+		})
+	})
+
+	Describe("Render template with valid data", func() {
+		It("should render correctly", func() {
+			tplData, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "tpl", "_helpers.tpl"))
+			Expect(err).NotTo(HaveOccurred())
+
+			rendered, err := renderTpl(tplData, svc)
+			fmt.Println("ℹ️ rendered template:")
+			fmt.Println(string(rendered))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(rendered)).To(ContainSubstring("test-config-configmap"))
 			Expect(string(rendered)).To(ContainSubstring("v1"))
