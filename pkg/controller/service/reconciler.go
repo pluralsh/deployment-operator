@@ -69,7 +69,8 @@ type ServiceReconciler struct {
 	pinger          *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
+func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
+	logger := log.FromContext(ctx)
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -105,11 +106,17 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 	if err != nil {
 		return nil, err
 	}
+	if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
+		return nil, err
+	}
 
 	go func() {
 		//nolint:all
 		_ = wait.PollImmediateInfinite(time.Minute*5, func() (done bool, err error) {
-			return false, CapabilitiesAPIVersions(discoveryClient)
+			if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
+				logger.Error(err, "can't fetch API versions")
+			}
+			return false, nil
 		})
 	}()
 
