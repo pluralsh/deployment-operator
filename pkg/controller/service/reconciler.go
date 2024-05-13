@@ -8,11 +8,22 @@ import (
 
 	console "github.com/pluralsh/console-client-go"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/applier"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller"
+	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/pluralsh/deployment-operator/pkg/ping"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -23,15 +34,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/applier"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
-	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
-	"github.com/pluralsh/deployment-operator/pkg/ping"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
 func init() {
@@ -67,7 +69,8 @@ type ServiceReconciler struct {
 	pinger          *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
+func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
+	logger := log.FromContext(ctx)
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -103,6 +106,19 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 	if err != nil {
 		return nil, err
 	}
+	if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
+		return nil, err
+	}
+
+	go func() {
+		//nolint:all
+		_ = wait.PollImmediateInfinite(time.Minute*5, func() (done bool, err error) {
+			if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
+				logger.Error(err, "can't fetch API versions")
+			}
+			return false, nil
+		})
+	}()
 
 	return &ServiceReconciler{
 		ConsoleClient:    consoleClient,
@@ -118,6 +134,29 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		RestoreNamespace: restoreNamespace,
 	}, nil
+}
+
+func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
+	lists, err := discoveryClient.ServerPreferredResources()
+	if err != nil {
+		return err
+	}
+	for _, list := range lists {
+		if len(list.APIResources) == 0 {
+			continue
+		}
+		gv, err := schema.ParseGroupVersion(list.GroupVersion)
+		if err != nil {
+			continue
+		}
+		for _, resource := range list.APIResources {
+			if len(resource.Verbs) == 0 {
+				continue
+			}
+			template.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
+		}
+	}
+	return nil
 }
 
 func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
