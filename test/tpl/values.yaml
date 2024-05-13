@@ -1,3 +1,4 @@
+name: "mymap"
 favorite:
   language: "Golang"
   serialization-format: "YAML"

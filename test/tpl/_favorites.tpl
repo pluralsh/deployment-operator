@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-configmap
+  name: {{ .Configuration.name }}-configmap
   labels:
-    - foo
+    foo: "true"
 data:
   myvalue: "Hello World"
-  {{- range $key, $val := .Values.favorite }}
+  {{- range $key, $val := .Configuration }}
   {{ $key }}: {{ $val | quote }}
   {{- end }}
