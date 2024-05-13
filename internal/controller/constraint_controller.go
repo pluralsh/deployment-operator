@@ -2,8 +2,10 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	"github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
@@ -29,11 +31,11 @@ const (
 )
 
 type BundleData struct {
-	Description       string `json:"description"`
-	Severity          string `json:"severity"`
-	BundleName        string `json:"bundleName"`
-	BundleDisplayName string `json:"bundleDisplayName"`
-	Remediation       string `json:"remediation"`
+	Description       string `json:"description" yaml:"description"`
+	Severity          string `json:"severity" yaml:"severity"`
+	BundleName        string `json:"bundleName" yaml:"bundleName"`
+	BundleDisplayName string `json:"bundleDisplayName" yaml:"bundleDisplayName"`
+	Remediation       string `json:"remediation" yaml:"remediation"`
 }
 
 type StatusViolation struct {
@@ -86,6 +88,8 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	logger.Info("recording constraint", "name", pca.Name)
 	r.Constraints[pca.Name] = pca
 	res, err := r.ConsoleClient.UpsertConstraints(algorithms.MapValues[string, *console.PolicyConstraintAttributes](r.Constraints))
 	if err != nil {
@@ -114,12 +118,16 @@ func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templa
 		},
 	}
 
-	if template.Annotations != nil {
+	if annotations := instance.GetAnnotations(); annotations != nil {
 		var bundleData BundleData
-		if d, ok := template.Annotations[bundleDataAnnotation]; ok {
-			if err := json.Unmarshal([]byte(d), &bundleData); err != nil {
+		if d, ok := annotations[bundleDataAnnotation]; ok {
+			d = strings.TrimSpace(d)
+			d = strings.Trim(d, "\"")
+			if err := yaml.Unmarshal([]byte(d), &bundleData); err == nil {
 				pca.Description = lo.ToPtr(bundleData.Description)
 				pca.Recommendation = lo.ToPtr(bundleData.Remediation)
+			} else {
+				fmt.Printf("Could not parse bundle data %s\n", err.Error())
 			}
 		}
 	}

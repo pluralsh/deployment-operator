@@ -22,7 +22,7 @@ require (
 	github.com/pluralsh/console-client-go v0.5.8
 	github.com/pluralsh/controller-reconcile-helper v0.0.4
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
-	github.com/pluralsh/polly v0.1.8
+	github.com/pluralsh/polly v0.1.9
 	github.com/samber/lo v1.39.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
@@ -31,6 +31,7 @@ require (
 	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.23.0
+	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.14.3
 	k8s.io/api v0.29.2
 	k8s.io/apiextensions-apiserver v0.29.0
@@ -223,7 +224,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiserver v0.29.0 // indirect
 	k8s.io/component-base v0.29.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
