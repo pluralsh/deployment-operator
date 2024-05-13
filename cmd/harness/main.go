@@ -28,7 +28,6 @@ func main() {
 	)
 
 	ctrl, err := controller.NewStackRunController(
-		controller.WithContext(ctx),
 		controller.WithStackRun(args.StackRunID()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithFetchClient(fetchClient),

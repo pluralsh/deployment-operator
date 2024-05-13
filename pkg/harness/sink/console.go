@@ -38,7 +38,7 @@ func (in *ConsoleWriter) bufferedFlush() {
 }
 
 // flush sends logs to the console.
-// When ignoreLimit is true it send all available logs to the console,
+// When ignoreLimit is true it sends all available logs to the console,
 // otherwise it sends logs up to the bufferSizeLimit.
 func (in *ConsoleWriter) flush(ignoreLimit bool) {
 	n := in.buffer.Len()
@@ -71,17 +71,25 @@ func (in *ConsoleWriter) readAsync() {
 		return
 	}
 	defer in.ticker.Stop()
+	if in.onFinish != nil {
+		defer in.onFinish()
+	}
 
+loop:
 	for {
 		select {
+		case <-in.stopChan:
+			break loop
 		case <-in.ctx.Done():
-			in.flush(true)
+			break loop
 		case <-in.bufferSizeChan:
 			in.bufferedFlush()
 		case <-in.ticker.C:
 			in.flush(false)
 		}
 	}
+
+	in.flush(true)
 }
 
 func (in *ConsoleWriter) init() io.Writer {

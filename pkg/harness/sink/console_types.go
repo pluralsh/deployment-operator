@@ -28,6 +28,10 @@ type ConsoleWriter struct {
 	bufferSizeChan chan int
 	// ticker
 	ticker *time.Ticker
+	// onFinish
+	onFinish func()
+	// stopChan
+	stopChan chan struct{}
 }
 
 type Option func(*ConsoleWriter)

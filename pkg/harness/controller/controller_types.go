@@ -16,8 +16,6 @@ type Controller interface {
 }
 
 type stackRunController struct {
-	ctx context.Context
-
 	sync.Mutex
 
 	// errChan
@@ -54,6 +52,12 @@ type stackRunController struct {
 	// It is mainly responsible for:
 	// - gathering state
 	tool v1.Tool
+
+	// wg
+	wg sync.WaitGroup
+
+	// stopChan
+	stopChan chan struct{}
 }
 
 type Option func(*stackRunController)

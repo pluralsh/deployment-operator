@@ -32,7 +32,7 @@ func (in *executable) Run(ctx context.Context) error {
 		cmd.Dir = in.workingDirectory
 	}
 
-	klog.V(log.LogLevelVerbose).InfoS("executing", "command", in.Command())
+	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
 	return cmd.Run()
 }
 
@@ -53,7 +53,7 @@ func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
 		cmd.Dir = in.workingDirectory
 	}
 
-	klog.V(log.LogLevelVerbose).InfoS("executing", "command", in.Command())
+	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
 	return cmd.Output()
 }
 

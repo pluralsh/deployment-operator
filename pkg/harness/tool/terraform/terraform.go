@@ -96,7 +96,7 @@ func (in *Terraform) state() (*v4.State, error) {
 		return nil, err
 	}
 
-	klog.V(log.LogLevelDebug).InfoS("terraform state file parsed successfully", "file", in.stateFileName, "state", state)
+	klog.V(log.LogLevelTrace).InfoS("terraform state file parsed successfully", "file", in.stateFileName, "state", state)
 	return state, nil
 }
 
@@ -110,7 +110,7 @@ func (in *Terraform) plan() (string, error) {
 		return "", err
 	}
 
-	klog.V(log.LogLevelDebug).InfoS("terraform plan file read successfully", "file", in.planFileName, "output", string(output))
+	klog.V(log.LogLevelTrace).InfoS("terraform plan file read successfully", "file", in.planFileName, "output", string(output))
 	return string(output), nil
 }
 

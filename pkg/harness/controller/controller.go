@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 
 	gqlclient "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/algorithms"
@@ -44,7 +45,7 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	}
 
 	// Add executables to executor
-	for _, e := range in.executables() {
+	for _, e := range in.executables(ctx) {
 		if err := in.executor.Add(e); err != nil {
 			return err
 		}
@@ -67,6 +68,13 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	case <-in.finishedChan:
 		retErr = nil
 	}
+
+	// notify subroutines that we are done
+	close(in.stopChan)
+
+	// wait for all subroutines to finish
+	in.wg.Wait()
+	klog.V(log.LogLevelVerbose).InfoS("all subroutines finished")
 
 	return in.postStart(retErr)
 }
@@ -97,6 +105,7 @@ func (in *stackRunController) postStart(err error) error {
 		klog.ErrorS(err, "could not complete stack run")
 	}
 
+	klog.V(log.LogLevelInfo).InfoS("stack run completed")
 	return err
 }
 
@@ -121,17 +130,23 @@ func (in *stackRunController) preStepRun(id string) {
 	}
 }
 
-func (in *stackRunController) executables() []exec.Executable {
+func (in *stackRunController) executables(ctx context.Context) []exec.Executable {
 	// Ensure that steps are sorted in the correct order
 	slices.SortFunc(in.stackRun.Steps, func(s1, s2 *gqlclient.RunStepFragment) int {
 		return cmp.Compare(s1.Index, s2.Index)
 	})
 
 	return algorithms.Map(in.stackRun.Steps, func(step *gqlclient.RunStepFragment) exec.Executable {
+		in.wg.Add(1)
 		consoleWriter := sink.NewConsoleLogWriter(
-			in.ctx,
+			ctx,
 			in.consoleClient,
-			append(in.sinkOptions, sink.WithID(step.ID))...,
+			append(
+				in.sinkOptions,
+				sink.WithID(step.ID),
+				sink.WithOnFinish(in.onLogWriterFinish),
+				sink.WithStopChan(in.stopChan),
+			)...,
 		)
 
 		return exec.NewExecutable(
@@ -145,6 +160,11 @@ func (in *stackRunController) executables() []exec.Executable {
 			exec.WithCustomErrorSink(consoleWriter),
 		)
 	})
+}
+
+func (in *stackRunController) onLogWriterFinish() {
+	klog.V(log.LogLevelTrace).InfoS("log writer finished")
+	in.wg.Done()
 }
 
 func (in *stackRunController) markStackRun(status gqlclient.StackStatus) error {
@@ -165,14 +185,14 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 		klog.ErrorS(err, "could not prepare state attributes")
 	}
 
-	klog.V(log.LogLevelDebug).InfoS("generated console state", "state", state)
+	klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
 
 	output, err := in.tool.Output()
 	if err != nil {
 		klog.ErrorS(err, "could not prepare output attributes")
 	}
 
-	klog.V(log.LogLevelDebug).InfoS("generated console output", "output", output)
+	klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
 
 	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
 	if stackRunErr != nil {
@@ -226,6 +246,8 @@ func NewStackRunController(options ...Option) (Controller, error) {
 	ctrl := &stackRunController{
 		errChan:      errChan,
 		finishedChan: finishedChan,
+		stopChan:     make(chan struct{}),
+		wg:           sync.WaitGroup{},
 		sinkOptions:  make([]sink.Option, 0),
 	}
 

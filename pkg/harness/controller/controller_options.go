@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"context"
-
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
@@ -35,11 +33,5 @@ func WithWorkingDir(dir string) Option {
 func WithSinkOptions(options ...sink.Option) Option {
 	return func(s *stackRunController) {
 		s.sinkOptions = options
-	}
-}
-
-func WithContext(ctx context.Context) Option {
-	return func(s *stackRunController) {
-		s.ctx = ctx
 	}
 }

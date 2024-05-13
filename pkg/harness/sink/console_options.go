@@ -21,3 +21,15 @@ func WithID(id string) Option {
 		writer.id = id
 	}
 }
+
+func WithOnFinish(onFinish func()) Option {
+	return func(writer *ConsoleWriter) {
+		writer.onFinish = onFinish
+	}
+}
+
+func WithStopChan(stopChan chan struct{}) Option {
+	return func(writer *ConsoleWriter) {
+		writer.stopChan = stopChan
+	}
+}
