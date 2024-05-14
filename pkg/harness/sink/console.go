@@ -13,6 +13,8 @@ import (
 )
 
 func (in *ConsoleWriter) Write(p []byte) (n int, err error) {
+	in.Lock()
+	defer in.Unlock()
 	n, err = in.buffer.Write(p)
 	in.bufferSizeChan <- in.buffer.Len()
 	return
@@ -26,7 +28,7 @@ func (in *ConsoleWriter) bufferedFlush() {
 		return
 	}
 
-	klog.V(log.LogLevelTrace).InfoS("flushing logs", "buffer_size", n, "limit", in.bufferSizeLimit)
+	klog.V(log.LogLevelTrace).InfoS("flushing buffered logs", "buffer_size", n, "limit", in.bufferSizeLimit, "step_id", in.id)
 	// flush logs
 	read := n
 	if read > in.bufferSizeLimit {
@@ -47,7 +49,7 @@ func (in *ConsoleWriter) flush(ignoreLimit bool) {
 	}
 
 	if ignoreLimit {
-		klog.V(log.LogLevelTrace).InfoS("flushing all remaining logs", "buffer_size", n)
+		klog.V(log.LogLevelTrace).InfoS("flushing all remaining logs", "buffer_size", n, "step_id", in.id)
 		// flush all logs
 		if err := in.client.AddStackRunLogs(in.id, in.buffer.String()); err != nil {
 			klog.Error(err)
@@ -56,7 +58,7 @@ func (in *ConsoleWriter) flush(ignoreLimit bool) {
 	}
 
 	// flush logs up to the limit
-	klog.V(log.LogLevelTrace).InfoS("flushing logs", "buffer_size", n, "limit", in.bufferSizeLimit)
+	klog.V(log.LogLevelTrace).InfoS("flushing logs", "buffer_size", n, "limit", in.bufferSizeLimit, "step_id", in.id)
 	read := n
 	if read > in.bufferSizeLimit {
 		read = in.bufferSizeLimit

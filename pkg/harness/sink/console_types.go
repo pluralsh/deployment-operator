@@ -3,6 +3,7 @@ package sink
 import (
 	"bytes"
 	"context"
+	"sync"
 	"time"
 
 	console "github.com/pluralsh/deployment-operator/pkg/client"
@@ -14,6 +15,7 @@ const (
 )
 
 type ConsoleWriter struct {
+	sync.Mutex
 	ctx    context.Context
 	buffer *bytes.Buffer
 	// id is a stack run id that logs should be appended to
