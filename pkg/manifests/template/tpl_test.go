@@ -25,7 +25,7 @@ var _ = Describe(".tpl Template Rendering", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			rendered, err := renderTpl(tplData, svc)
-			fmt.Println("ℹ️ rendered template:", templateFile)
+			fmt.Println("ℹ️  rendered template:", templateFile)
 			fmt.Println(string(rendered))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(rendered)).To(ContainSubstring("test-config-configmap"))
@@ -33,19 +33,21 @@ var _ = Describe(".tpl Template Rendering", func() {
 		})
 	})
 
-	Describe("Render template with valid data", func() {
-		templateFile := "_helpers.tpl"
+	Describe("Render template with include", func() {
+		templateFile := "_templateWithInclude.tpl"
 		It(fmt.Sprintf("should render %s correctly", templateFile), func() {
 			tplData, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "tpl", templateFile))
 			Expect(err).NotTo(HaveOccurred())
 
 			rendered, err := renderTpl(tplData, svc)
-			fmt.Println("ℹ️ rendered template:", templateFile)
+			fmt.Println("ℹ️  rendered template:", templateFile)
 			fmt.Println(string(rendered))
 			Expect(err).NotTo(HaveOccurred())
+			Expect(string(rendered)).To(ContainSubstring("test-config-main"))
+			Expect(string(rendered)).To(ContainSubstring("test-config-included"))
+			Expect(string(rendered)).To(ContainSubstring("v1"))
 		})
 	})
-
 })
 
 func mockServiceDeployment() *console.GetServiceDeploymentForAgent_ServiceDeployment {
