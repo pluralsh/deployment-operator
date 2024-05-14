@@ -19,8 +19,8 @@ var _ = Describe(".tpl Template Rendering", func() {
 	})
 
 	Describe("Render .tpl with valid data", func() {
-		It("should render correctly", func() {
-			templateFile := "_simpleConfigMap.tpl"
+		templateFile := "_simpleConfigMap.tpl"
+		It(fmt.Sprintf("should render %s correctly", templateFile), func() {
 			tplData, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "tpl", templateFile))
 			Expect(err).NotTo(HaveOccurred())
 
@@ -34,14 +34,15 @@ var _ = Describe(".tpl Template Rendering", func() {
 	})
 
 	Describe("Render template with valid data", func() {
-		It("should render correctly", func() {
-			templateFile := "_helpers.tpl"
+		templateFile := "_helpers.tpl"
+		It(fmt.Sprintf("should render %s correctly", templateFile), func() {
 			tplData, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "tpl", templateFile))
 			Expect(err).NotTo(HaveOccurred())
 
 			rendered, err := renderTpl(tplData, svc)
 			fmt.Println("ℹ️ rendered template:", templateFile)
 			fmt.Println(string(rendered))
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
