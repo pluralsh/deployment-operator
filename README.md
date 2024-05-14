@@ -1,9 +1,38 @@
 # Deployment Operator
 
+# Testing Local Changes to Dependencies
+## Using [Go Work](https://go.dev/doc/tutorial/workspaces)
+I'm updating the polly for the .tpl template rendering  
+Clone the polly repo locally  
+Create a Go Workspace In the repo that has polly as a dependency 
+```sh
+cd ~/git/plrl
+git clone git@github.com:pluralsh/polly.git
+cd deployment-operator 
+go work init .
+```
+This creates a go workspace file named _go.work_ in the `deployment-operator` repo  
+Tell go to use the locally cloned version of the `polly` repo
+```sh
+go use ../polly
+```
+My _go.work_ file now looks like this
+```go
+// ./go.work
+
+go 1.22.2
+
+use (
+	.
+	../polly
+)
+
+```
+Now the Go Workspace settings will allow me to use the local version of the `polly` source code when compiling and testing  
 
 
 
-# Unit
+# Unit Tests
 ## Pre Reqs
 ### Ensure that the cluster in your current kube context is reachable  
 Helm tests will run against this cluster  

@@ -3,6 +3,9 @@
 .vscode/
 .DS_store
 
+# Go Workspace Files
+go.work
+
 # Binaries for programs and plugins
 bin/
 *.exe
