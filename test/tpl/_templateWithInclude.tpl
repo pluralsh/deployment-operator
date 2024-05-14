@@ -4,6 +4,6 @@ kind: ConfigMap
 metadata:
   name: {{ .Configuration.name }}-main
 data:
-  version: {{ .Configuration.version }}
+  version: {{ .Configuration.version | quote}}
   included: |
     {{ include "_includedTemplate.tpl" . }}
