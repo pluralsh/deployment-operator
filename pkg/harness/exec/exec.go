@@ -16,11 +16,15 @@ import (
 
 func (in *executable) Run(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, in.command, in.arguments()...)
+	writer := in.writer()
 
 	// Configure additional writers so that we can simultaneously write output
 	// to multiple destinations
-	cmd.Stdout = in.stdout()
-	cmd.Stderr = in.stderr()
+	// Note: We need to use the same writer for stdout and stderr to guarantee
+	// 		 thread-safe writing, otherwise output from stdout and stderr could be
+	//		 written concurrently and get reordered.
+	cmd.Stdout = writer
+	cmd.Stderr = writer
 
 	// Configure environment of the executable.
 	// Root process environment is used as a base and passed in env vars
@@ -39,10 +43,6 @@ func (in *executable) Run(ctx context.Context) error {
 func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, in.command, in.arguments()...)
 
-	// Configure additional writers so that we can simultaneously write output
-	// to multiple destinations
-	cmd.Stderr = os.Stdout
-
 	// Configure environment of the executable.
 	// Root process environment is used as a base and passed in env vars
 	// are added on top of that. In case of duplicate keys, custom env
@@ -54,7 +54,7 @@ func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
 	}
 
 	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
-	return cmd.Output()
+	return cmd.CombinedOutput()
 }
 
 func (in *executable) Command() string {
@@ -77,15 +77,7 @@ func (in *executable) arguments() []string {
 	return in.args
 }
 
-func (in *executable) stderr() io.Writer {
-	if in.errorLogSink != nil {
-		return io.MultiWriter(os.Stderr, in.errorLogSink)
-	}
-
-	return os.Stderr
-}
-
-func (in *executable) stdout() io.Writer {
+func (in *executable) writer() io.Writer {
 	if in.standardLogSink != nil {
 		return io.MultiWriter(os.Stdout, in.standardLogSink)
 	}

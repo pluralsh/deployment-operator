@@ -38,9 +38,6 @@ type executable struct {
 
 	// standardLogSink
 	standardLogSink io.Writer
-
-	// errorLogSink
-	errorLogSink io.Writer
 }
 
 type Option func(*executable)

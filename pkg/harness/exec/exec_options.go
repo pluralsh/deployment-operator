@@ -16,12 +16,6 @@ func WithCustomOutputSink(sink io.Writer) Option {
 	}
 }
 
-func WithCustomErrorSink(sink io.Writer) Option {
-	return func(e *executable) {
-		e.errorLogSink = sink
-	}
-}
-
 func WithEnv(env []string) Option {
 	return func(e *executable) {
 		e.env = env

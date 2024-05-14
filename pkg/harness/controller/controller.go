@@ -157,7 +157,6 @@ func (in *stackRunController) executables(ctx context.Context) []exec.Executable
 			exec.WithArgsModifier(in.tool.Modifier(step.Stage).Args),
 			exec.WithID(step.ID),
 			exec.WithCustomOutputSink(consoleWriter),
-			exec.WithCustomErrorSink(consoleWriter),
 		)
 	})
 }
