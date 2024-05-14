@@ -2,7 +2,6 @@ package template
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,25 +20,22 @@ var _ = Describe(".tpl Template Rendering", func() {
 	Describe("Render .tpl with valid data", func() {
 		templateFile := "_simpleConfigMap.tpl"
 		It(fmt.Sprintf("should render %s correctly", templateFile), func() {
-			tplData, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "tpl", templateFile))
-			Expect(err).NotTo(HaveOccurred())
-
-			rendered, err := renderTpl(tplData, svc)
+			tplFile := filepath.Join("..", "..", "..", "test", "tpl", templateFile)
+			rendered, err := renderTpl(tplFile, svc)
 			fmt.Println("ℹ️  rendered template:", templateFile)
 			fmt.Println(string(rendered))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(rendered)).To(ContainSubstring("test-config-configmap"))
-			Expect(string(rendered)).To(ContainSubstring("v1"))
+			Expect(string(rendered)).To(ContainSubstring("name: test-config-configmap"))
+			Expect(string(rendered)).To(ContainSubstring("version: \"v1\""))
 		})
 	})
 
 	Describe("Render template with include", func() {
 		templateFile := "_templateWithInclude.tpl"
 		It(fmt.Sprintf("should render %s correctly", templateFile), func() {
-			tplData, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "tpl", templateFile))
-			Expect(err).NotTo(HaveOccurred())
+			tplFile := filepath.Join("..", "..", "..", "test", "tpl", templateFile)
 
-			rendered, err := renderTpl(tplData, svc)
+			rendered, err := renderTpl(tplFile, svc)
 			fmt.Println("ℹ️  rendered template:", templateFile)
 			fmt.Println(string(rendered))
 			Expect(err).NotTo(HaveOccurred())

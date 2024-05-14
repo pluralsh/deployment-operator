@@ -190,7 +190,7 @@ func (h *helm) valuesFile(svc *console.GetServiceDeploymentForAgent_ServiceDeplo
 		}
 
 		if strings.HasSuffix(filename, ".tpl") {
-			data, err = renderTpl(data, svc)
+			data, err = renderTpl(filename, svc)
 		}
 
 		if err != nil {
