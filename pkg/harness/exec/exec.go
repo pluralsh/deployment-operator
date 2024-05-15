@@ -15,16 +15,17 @@ import (
 )
 
 func (in *executable) Run(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, in.command, in.arguments()...)
-	writer := in.writer()
+	cmd := exec.CommandContext(ctx, in.command, in.args...)
+	w := in.writer()
+	defer in.close(in.logSink)
 
 	// Configure additional writers so that we can simultaneously write output
 	// to multiple destinations
 	// Note: We need to use the same writer for stdout and stderr to guarantee
 	// 		 thread-safe writing, otherwise output from stdout and stderr could be
 	//		 written concurrently and get reordered.
-	cmd.Stdout = writer
-	cmd.Stderr = writer
+	cmd.Stdout = w
+	cmd.Stderr = w
 
 	// Configure environment of the executable.
 	// Root process environment is used as a base and passed in env vars
@@ -41,7 +42,7 @@ func (in *executable) Run(ctx context.Context) error {
 }
 
 func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, in.command, in.arguments()...)
+	cmd := exec.CommandContext(ctx, in.command, in.args...)
 
 	// Configure environment of the executable.
 	// Root process environment is used as a base and passed in env vars
@@ -58,7 +59,7 @@ func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
 }
 
 func (in *executable) Command() string {
-	return fmt.Sprintf("%s %s", in.command, strings.Join(in.arguments(), " "))
+	return fmt.Sprintf("%s %s", in.command, strings.Join(in.args, " "))
 }
 
 func (in *executable) ID() string {
@@ -69,20 +70,21 @@ func (in *executable) ID() string {
 	return in.id
 }
 
-func (in *executable) arguments() []string {
-	if in.argsModifier != nil {
-		return in.argsModifier(in.args)
+func (in *executable) writer() io.Writer {
+	if in.logSink != nil {
+		return io.MultiWriter(os.Stdout, in.logSink)
 	}
-
-	return in.args
+	return os.Stdout
 }
 
-func (in *executable) writer() io.Writer {
-	if in.standardLogSink != nil {
-		return io.MultiWriter(os.Stdout, in.standardLogSink)
+func (in *executable) close(w io.WriteCloser) {
+	if w == nil {
+		return
 	}
 
-	return os.Stdout
+	if err := w.Close(); err != nil {
+		klog.ErrorS(err, "failed to close writer")
+	}
 }
 
 func NewExecutable(command string, options ...Option) Executable {

@@ -10,9 +10,9 @@ func WithDir(workingDirectory string) Option {
 	}
 }
 
-func WithCustomOutputSink(sink io.Writer) Option {
+func WithLogSink(sink io.WriteCloser) Option {
 	return func(e *executable) {
-		e.standardLogSink = sink
+		e.logSink = sink
 	}
 }
 
@@ -25,12 +25,6 @@ func WithEnv(env []string) Option {
 func WithArgs(args []string) Option {
 	return func(e *executable) {
 		e.args = args
-	}
-}
-
-func WithArgsModifier(f ArgsModifier) Option {
-	return func(e *executable) {
-		e.argsModifier = f
 	}
 }
 

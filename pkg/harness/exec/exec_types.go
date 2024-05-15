@@ -33,11 +33,10 @@ type executable struct {
 	// args
 	args []string
 
-	// argsModifier
-	argsModifier ArgsModifier
-
-	// standardLogSink
-	standardLogSink io.Writer
+	// logSink is a custom writer that can be used to forward
+	// executable output. It does not stop output from being forwarded
+	// to the os.Stdout.
+	logSink io.WriteCloser
 }
 
 type Option func(*executable)

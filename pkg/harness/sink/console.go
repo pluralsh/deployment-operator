@@ -1,23 +1,26 @@
 package sink
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"time"
 
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func (in *ConsoleWriter) Write(p []byte) (n int, err error) {
-	in.Lock()
-	defer in.Unlock()
-	n, err = in.buffer.Write(p)
-	in.bufferSizeChan <- in.buffer.Len()
-	return
+// Write implements io.Writer interface.
+func (in *ConsoleWriter) Write(p []byte) (int, error) {
+	return in.buffer.Write(p)
+}
+
+// Close implements io.Closer interface.
+func (in *ConsoleWriter) Close() error {
+	close(in.closeChan)
+	return nil
 }
 
 // bufferedFlush sends logs to the console only when available
@@ -28,12 +31,13 @@ func (in *ConsoleWriter) bufferedFlush() {
 		return
 	}
 
-	klog.V(log.LogLevelTrace).InfoS("flushing buffered logs", "buffer_size", n, "limit", in.bufferSizeLimit, "step_id", in.id)
 	// flush logs
+	klog.V(log.LogLevelTrace).InfoS("flushing buffered logs", "buffer_size", n, "limit", in.bufferSizeLimit, "step_id", in.id)
 	read := n
 	if read > in.bufferSizeLimit {
 		read = in.bufferSizeLimit
 	}
+
 	if err := in.client.AddStackRunLogs(in.id, string(in.buffer.Next(read))); err != nil {
 		klog.Error(err)
 	}
@@ -49,8 +53,8 @@ func (in *ConsoleWriter) flush(ignoreLimit bool) {
 	}
 
 	if ignoreLimit {
-		klog.V(log.LogLevelTrace).InfoS("flushing all remaining logs", "buffer_size", n, "step_id", in.id)
 		// flush all logs
+		klog.V(log.LogLevelTrace).InfoS("flushing all remaining logs", "buffer_size", n, "step_id", in.id)
 		if err := in.client.AddStackRunLogs(in.id, in.buffer.String()); err != nil {
 			klog.Error(err)
 		}
@@ -63,12 +67,13 @@ func (in *ConsoleWriter) flush(ignoreLimit bool) {
 	if read > in.bufferSizeLimit {
 		read = in.bufferSizeLimit
 	}
+
 	if err := in.client.AddStackRunLogs(in.id, string(in.buffer.Next(read))); err != nil {
 		klog.Error(err)
 	}
 }
 
-func (in *ConsoleWriter) readAsync() {
+func (in *ConsoleWriter) startWatcher() {
 	if in.ticker == nil {
 		return
 	}
@@ -77,24 +82,28 @@ func (in *ConsoleWriter) readAsync() {
 		defer in.onFinish()
 	}
 
-loop:
-	for {
-		select {
-		case <-in.stopChan:
-			break loop
-		case <-in.ctx.Done():
-			break loop
-		case <-in.bufferSizeChan:
-			in.bufferedFlush()
-		case <-in.ticker.C:
-			in.flush(false)
+	go func() {
+	loop:
+		for {
+			select {
+			case <-in.closeChan:
+				break loop
+			case <-in.stopChan:
+				break loop
+			case <-in.ctx.Done():
+				break loop
+			case <-in.buffer.Updated():
+				in.bufferedFlush()
+			case <-in.ticker.C:
+				in.flush(false)
+			}
 		}
-	}
 
-	in.flush(true)
+		in.flush(true)
+	}()
 }
 
-func (in *ConsoleWriter) init() io.Writer {
+func (in *ConsoleWriter) init() io.WriteCloser {
 	if in.throttle == 0 {
 		klog.Warningf("throttle cannot be set to 0, defaulting to: %d", defaultThrottleTime)
 		in.throttle = defaultThrottleTime
@@ -105,22 +114,26 @@ func (in *ConsoleWriter) init() io.Writer {
 		in.bufferSizeLimit = defaultBufferSizeLimit
 	}
 
+	if in.stopChan == nil {
+		in.stopChan = make(chan struct{})
+	}
+
 	in.ticker = time.NewTicker(in.throttle)
+	in.startWatcher()
 	return in
 }
 
-func NewConsoleLogWriter(ctx context.Context, client console.Client, options ...Option) io.Writer {
+func NewConsoleLogWriter(ctx context.Context, client console.Client, options ...Option) io.WriteCloser {
 	result := &ConsoleWriter{
-		ctx:            ctx,
-		buffer:         bytes.NewBuffer([]byte{}),
-		client:         client,
-		bufferSizeChan: make(chan int),
+		ctx:    ctx,
+		buffer: helpers.NewBuffer(),
+		client: client,
+		closeChan: make(chan struct{}),
 	}
 
 	for _, option := range options {
 		option(result)
 	}
 
-	go result.readAsync()
 	return result.init()
 }

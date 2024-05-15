@@ -137,28 +137,37 @@ func (in *stackRunController) executables(ctx context.Context) []exec.Executable
 	})
 
 	return algorithms.Map(in.stackRun.Steps, func(step *gqlclient.RunStepFragment) exec.Executable {
-		in.wg.Add(1)
-		consoleWriter := sink.NewConsoleLogWriter(
-			ctx,
-			in.consoleClient,
-			append(
-				in.sinkOptions,
-				sink.WithID(step.ID),
-				sink.WithOnFinish(in.onLogWriterFinish),
-				sink.WithStopChan(in.stopChan),
-			)...,
-		)
-
-		return exec.NewExecutable(
-			step.Cmd,
-			exec.WithDir(in.dir),
-			exec.WithEnv(in.stackRun.Env()),
-			exec.WithArgs(step.Args),
-			exec.WithArgsModifier(in.tool.Modifier(step.Stage).Args),
-			exec.WithID(step.ID),
-			exec.WithCustomOutputSink(consoleWriter),
-		)
+		return in.toExecutable(ctx, step)
 	})
+}
+
+func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.RunStepFragment) exec.Executable {
+	in.wg.Add(1)
+	consoleWriter := sink.NewConsoleLogWriter(
+		ctx,
+		in.consoleClient,
+		append(
+			in.sinkOptions,
+			sink.WithID(step.ID),
+			sink.WithOnFinish(in.onLogWriterFinish),
+			sink.WithStopChan(in.stopChan),
+		)...,
+	)
+
+	argsModifier := in.tool.Modifier(step.Stage).Args
+	args := step.Args
+	if argsModifier != nil {
+		args = argsModifier(args)
+	}
+
+	return exec.NewExecutable(
+		step.Cmd,
+		exec.WithDir(in.dir),
+		exec.WithEnv(in.stackRun.Env()),
+		exec.WithArgs(args),
+		exec.WithID(step.ID),
+		exec.WithLogSink(consoleWriter),
+	)
 }
 
 func (in *stackRunController) onLogWriterFinish() {

@@ -40,8 +40,8 @@ var (
 	argStackRunID         = pflag.String("stack-run-id", helpers.GetPluralEnv(EnvStackRunID, ""), "ID of the Stack Run to execute")
 	argWorkingDir         = pflag.String("working-dir", helpers.GetPluralEnv(EnvWorkingDir, defaultWorkingDir), "Working directory used to prepare the environment")
 	argTimeout            = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout after which run will be cancelled")
-	argLogFlushFrequency  = pflag.String("log-flush-frequency", helpers.GetPluralEnv(EnvLogFlushFrequency, defaultLogFlushFrequency), "")
-	argLogFlushBufferSize = pflag.Int("log-flush-buffer-size", helpers.ParseIntOrDie(helpers.GetPluralEnv(EnvLogFlushBufferSize, defaultLogFlushBufferSize)), "")
+	argLogFlushFrequency  = pflag.String("log-flush-frequency", helpers.GetPluralEnv(EnvLogFlushFrequency, defaultLogFlushFrequency), "Frequency at which logs should be flushed if buffer is not full")
+	argLogFlushBufferSize = pflag.Int("log-flush-buffer-size", helpers.ParseIntOrDie(helpers.GetPluralEnv(EnvLogFlushBufferSize, defaultLogFlushBufferSize)), "Buffer size to use for log flushing (in kilobytes)")
 )
 
 func init() {
