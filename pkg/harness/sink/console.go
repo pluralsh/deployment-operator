@@ -123,7 +123,7 @@ func (in *ConsoleWriter) init() io.WriteCloser {
 	return in
 }
 
-func NewConsoleLogWriter(ctx context.Context, client console.Client, options ...Option) io.WriteCloser {
+func NewConsoleWriter(ctx context.Context, client console.Client, options ...Option) io.WriteCloser {
 	result := &ConsoleWriter{
 		ctx:    ctx,
 		buffer: helpers.NewBuffer(),

@@ -142,14 +142,22 @@ func (in *stackRunController) executables(ctx context.Context) []exec.Executable
 }
 
 func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.RunStepFragment) exec.Executable {
+	// synchronize executable and underlying console writer with
+	// the controller to ensure that it does not exit before
+	// ensuring they have completed all work.
 	in.wg.Add(1)
-	consoleWriter := sink.NewConsoleLogWriter(
+
+	consoleWriter := sink.NewConsoleWriter(
 		ctx,
 		in.consoleClient,
 		append(
 			in.sinkOptions,
 			sink.WithID(step.ID),
-			sink.WithOnFinish(in.onLogWriterFinish),
+			sink.WithOnFinish(func() {
+				// Notify controller that all remaining work
+				// has been completed.
+				in.wg.Done()
+			}),
 			sink.WithStopChan(in.stopChan),
 		)...,
 	)
@@ -168,11 +176,6 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithID(step.ID),
 		exec.WithLogSink(consoleWriter),
 	)
-}
-
-func (in *stackRunController) onLogWriterFinish() {
-	klog.V(log.LogLevelTrace).InfoS("log writer finished")
-	in.wg.Done()
 }
 
 func (in *stackRunController) markStackRun(status gqlclient.StackStatus) error {
