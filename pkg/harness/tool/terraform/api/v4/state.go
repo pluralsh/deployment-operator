@@ -5,6 +5,7 @@ import (
 	"maps"
 
 	"github.com/pluralsh/polly/algorithms"
+	"k8s.io/klog/v2"
 )
 
 // State represents a terraform state file structure.
@@ -18,9 +19,23 @@ type State struct {
 type Outputs map[string]Output
 
 type Output struct {
-	Value     string `json:"value"`
-	FieldType string `json:"type"`
-	Sensitive bool   `json:"sensitive"`
+	Value     interface{} `json:"value"`
+	FieldType interface{} `json:"type"`
+	Sensitive bool        `json:"sensitive"`
+}
+
+func (in *Output) ValueString() string {
+	if v, ok := in.Value.(string); ok {
+		return v
+	}
+
+	result, err := json.Marshal(in.Value)
+	if err != nil {
+		klog.ErrorS(err, "unable to marshal tf state output", "value", in.Value)
+		return ""
+	}
+
+	return string(result)
 }
 
 type Resources []Resource

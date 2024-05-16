@@ -52,8 +52,8 @@ func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 	for k, v := range state.Outputs {
 		result = append(result, &console.StackOutputAttributes{
 			Name:   k,
-			Value:  v.Value,
-			Secret: &v.Sensitive,
+			Value:  v.ValueString(),
+			Secret: lo.ToPtr(v.Sensitive),
 		})
 	}
 

@@ -74,15 +74,9 @@ func (in *ConsoleWriter) flush(ignoreLimit bool) {
 }
 
 func (in *ConsoleWriter) startWatcher() {
-	if in.ticker == nil {
-		return
-	}
-	defer in.ticker.Stop()
-	if in.onFinish != nil {
-		defer in.onFinish()
-	}
-
 	go func() {
+		defer in.stopWatcher()
+
 	loop:
 		for {
 			select {
@@ -98,9 +92,16 @@ func (in *ConsoleWriter) startWatcher() {
 				in.flush(false)
 			}
 		}
-
-		in.flush(true)
 	}()
+}
+
+func (in *ConsoleWriter) stopWatcher() {
+	in.ticker.Stop()
+	if in.onFinish != nil {
+		in.onFinish()
+	}
+
+	in.flush(true)
 }
 
 func (in *ConsoleWriter) init() io.WriteCloser {
@@ -125,9 +126,9 @@ func (in *ConsoleWriter) init() io.WriteCloser {
 
 func NewConsoleWriter(ctx context.Context, client console.Client, options ...Option) io.WriteCloser {
 	result := &ConsoleWriter{
-		ctx:    ctx,
-		buffer: helpers.NewBuffer(),
-		client: client,
+		ctx:       ctx,
+		buffer:    helpers.NewBuffer(),
+		client:    client,
 		closeChan: make(chan struct{}),
 	}
 
