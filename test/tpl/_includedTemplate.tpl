@@ -1,3 +1,3 @@
-data:
+included-data:
   version: {{ .Configuration.version }}
-moredata: {{ .Configuration.name }}-included
+  moredata: {{ .Configuration.name }}-included
