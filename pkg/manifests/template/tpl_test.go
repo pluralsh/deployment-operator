@@ -40,7 +40,7 @@ var _ = Describe(".tpl Template Rendering", func() {
 			fmt.Println(string(rendered))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(rendered)).To(ContainSubstring("name: test-config-main"))
-			Expect(string(rendered)).To(ContainSubstring("moredata: test-config-included"))
+			Expect(string(rendered)).To(ContainSubstring("more-data: test-config-included"))
 			Expect(string(rendered)).To(ContainSubstring("version: \"v1\""))
 		})
 	})
