@@ -22,7 +22,7 @@ require (
 	github.com/pluralsh/console-client-go v0.5.6
 	github.com/pluralsh/controller-reconcile-helper v0.0.4
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
-	github.com/pluralsh/polly v0.1.8
+	github.com/pluralsh/polly v0.1.10-0.20240514202929-370e32355cbc
 	github.com/samber/lo v1.39.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
