@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,7 +22,10 @@ var _ = Describe(".tpl Template Rendering", func() {
 		templateFile := "_simpleConfigMap.tpl"
 		It(fmt.Sprintf("should render %s correctly", templateFile), func() {
 			tplFile := filepath.Join("..", "..", "..", "test", "tpl", templateFile)
-			rendered, err := renderTpl(tplFile, svc)
+			tplData, err := os.ReadFile(tplFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			rendered, err := renderTpl(tplData, svc)
 			fmt.Println("ℹ️  rendered template:", templateFile)
 			fmt.Println(string(rendered))
 			Expect(err).NotTo(HaveOccurred())
@@ -34,8 +38,10 @@ var _ = Describe(".tpl Template Rendering", func() {
 		templateFile := "_templateWithInclude.tpl"
 		It(fmt.Sprintf("should render %s correctly", templateFile), func() {
 			tplFile := filepath.Join("..", "..", "..", "test", "tpl", templateFile)
+			tplData, err := os.ReadFile(tplFile)
+			Expect(err).NotTo(HaveOccurred())
 
-			rendered, err := renderTpl(tplFile, svc)
+			rendered, err := renderTpl(tplData, svc)
 			fmt.Println("ℹ️  rendered template:", templateFile)
 			fmt.Println(string(rendered))
 			Expect(err).NotTo(HaveOccurred())

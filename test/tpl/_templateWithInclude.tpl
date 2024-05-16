@@ -5,4 +5,9 @@ metadata:
   name: {{ .Configuration.name }}-main
 data:
   included:
-{{ include "_includedTemplate.tpl" . | indent 4 }}
+{{ include "more-data" . | indent 4 }}
+
+{{- define "more-data" -}}
+version: {{ .Configuration.version | quote }}
+more-data: {{ .Configuration.name }}-included
+{{- end }}

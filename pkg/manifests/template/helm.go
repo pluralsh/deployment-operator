@@ -192,7 +192,7 @@ func (h *helm) valuesFile(svc *console.GetServiceDeploymentForAgent_ServiceDeplo
 		}
 
 		if strings.HasSuffix(filename, ".tpl") {
-			data, err = renderTpl(filename, svc)
+			data, err = renderTpl(data, svc)
 		}
 
 		if err != nil {
