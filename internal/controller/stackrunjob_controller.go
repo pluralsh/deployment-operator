@@ -21,22 +21,24 @@ import (
 	"fmt"
 	"strings"
 
-	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/labels"
+
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 
 	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const jobSelector = "stackrun.deployments.plural.sh"
@@ -70,7 +72,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Update step statuses, i.e., when stack run was successful or failed.
 	for _, step := range stackRun.Steps {
 		if update := r.getStepStatusUpdate(stackRun.Status, step.Status); update != nil {
-			_, err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{Status: *update})
+			err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{Status: *update})
 			return ctrl.Result{}, err
 		}
 	}
@@ -83,7 +85,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if hasSucceeded(job) {
 		logger.V(2).Info("stack run job succeeded", "name", job.Name, "namespace", job.Namespace)
-		_, err := r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
+		err := r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
 			Status: console.StackStatusSuccessful,
 		})
 
@@ -97,7 +99,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err != nil {
 			logger.Error(err, "unable to get job pod status")
 		}
-		_, err = r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
+		err = r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
 			Status: status,
 		})
 		return ctrl.Result{}, err

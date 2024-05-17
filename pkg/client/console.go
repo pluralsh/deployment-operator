@@ -6,18 +6,11 @@ import (
 	"sync"
 
 	console "github.com/pluralsh/console-client-go"
-	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 )
-
-type authedTransport struct {
-	token   string
-	wrapped http.RoundTripper
-}
-
-func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("Authorization", "Token "+t.token)
-	return t.wrapped.RoundTrip(req)
-}
 
 var lock = &sync.Mutex{}
 var singleInstance Client
@@ -34,24 +27,21 @@ func (c *client) GetCredentials() (url, token string) {
 }
 
 func New(url, token string) Client {
-	if singleInstance == nil {
-		lock.Lock()
-		defer lock.Unlock()
-		if singleInstance == nil {
-			httpClient := http.Client{
-				Transport: &authedTransport{
-					token:   token,
-					wrapped: http.DefaultTransport,
-				},
-			}
+	if singleInstance != nil {
+		return singleInstance
+	}
 
-			singleInstance = &client{
-				consoleClient: console.NewClient(&httpClient, url, nil),
-				ctx:           context.Background(),
-				url:           url,
-				token:         token,
-			}
-		}
+	lock.Lock()
+	defer lock.Unlock()
+	httpClient := http.Client{
+		Transport: helpers.NewAuthorizationTokenTransport(token),
+	}
+
+	singleInstance = &client{
+		consoleClient: console.NewClient(&httpClient, url, nil),
+		ctx:           context.Background(),
+		url:           url,
+		token:         token,
 	}
 
 	return singleInstance
@@ -79,8 +69,11 @@ type Client interface {
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
+	GetStackRunBase(id string) (*stackrun.StackRun, error)
 	GetStackRun(id string) (*console.StackRunFragment, error)
+	AddStackRunLogs(id, logs string) error
+	CompleteStackRun(id string, attributes console.StackRunAttributes) error
+	UpdateStackRun(id string, attributes console.StackRunAttributes) error
+	UpdateStackRunStep(id string, attributes console.RunStepAttributes) error
 	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStacks_ClusterStackRuns, error)
-	UpdateStackRun(id string, attr console.StackRunAttributes) (*console.StackRunBaseFragment, error)
-	UpdateStackRunStep(stepID string, attr console.RunStepAttributes) (*console.RunStepFragment, error)
 }

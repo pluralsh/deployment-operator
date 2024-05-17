@@ -6,6 +6,8 @@ import (
 	gqlclient "github.com/pluralsh/console-client-go"
 	mock "github.com/stretchr/testify/mock"
 
+	stackrun "github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+
 	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
@@ -65,6 +67,100 @@ func (_c *ClientMock_AddServiceErrors_Call) Return(_a0 error) *ClientMock_AddSer
 }
 
 func (_c *ClientMock_AddServiceErrors_Call) RunAndReturn(run func(string, []*gqlclient.ServiceErrorAttributes) error) *ClientMock_AddServiceErrors_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// AddStackRunLogs provides a mock function with given fields: id, logs
+func (_m *ClientMock) AddStackRunLogs(id string, logs string) error {
+	ret := _m.Called(id, logs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddStackRunLogs")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(id, logs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ClientMock_AddStackRunLogs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddStackRunLogs'
+type ClientMock_AddStackRunLogs_Call struct {
+	*mock.Call
+}
+
+// AddStackRunLogs is a helper method to define mock.On call
+//   - id string
+//   - logs string
+func (_e *ClientMock_Expecter) AddStackRunLogs(id interface{}, logs interface{}) *ClientMock_AddStackRunLogs_Call {
+	return &ClientMock_AddStackRunLogs_Call{Call: _e.mock.On("AddStackRunLogs", id, logs)}
+}
+
+func (_c *ClientMock_AddStackRunLogs_Call) Run(run func(id string, logs string)) *ClientMock_AddStackRunLogs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_AddStackRunLogs_Call) Return(_a0 error) *ClientMock_AddStackRunLogs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ClientMock_AddStackRunLogs_Call) RunAndReturn(run func(string, string) error) *ClientMock_AddStackRunLogs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CompleteStackRun provides a mock function with given fields: id, attributes
+func (_m *ClientMock) CompleteStackRun(id string, attributes gqlclient.StackRunAttributes) error {
+	ret := _m.Called(id, attributes)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CompleteStackRun")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, gqlclient.StackRunAttributes) error); ok {
+		r0 = rf(id, attributes)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ClientMock_CompleteStackRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CompleteStackRun'
+type ClientMock_CompleteStackRun_Call struct {
+	*mock.Call
+}
+
+// CompleteStackRun is a helper method to define mock.On call
+//   - id string
+//   - attributes gqlclient.StackRunAttributes
+func (_e *ClientMock_Expecter) CompleteStackRun(id interface{}, attributes interface{}) *ClientMock_CompleteStackRun_Call {
+	return &ClientMock_CompleteStackRun_Call{Call: _e.mock.On("CompleteStackRun", id, attributes)}
+}
+
+func (_c *ClientMock_CompleteStackRun_Call) Run(run func(id string, attributes gqlclient.StackRunAttributes)) *ClientMock_CompleteStackRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(gqlclient.StackRunAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_CompleteStackRun_Call) Return(_a0 error) *ClientMock_CompleteStackRun_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ClientMock_CompleteStackRun_Call) RunAndReturn(run func(string, gqlclient.StackRunAttributes) error) *ClientMock_CompleteStackRun_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -634,6 +730,64 @@ func (_c *ClientMock_GetStackRun_Call) Return(_a0 *gqlclient.StackRunFragment, _
 }
 
 func (_c *ClientMock_GetStackRun_Call) RunAndReturn(run func(string) (*gqlclient.StackRunFragment, error)) *ClientMock_GetStackRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetStackRunBase provides a mock function with given fields: id
+func (_m *ClientMock) GetStackRunBase(id string) (*stackrun.StackRun, error) {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetStackRunBase")
+	}
+
+	var r0 *stackrun.StackRun
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*stackrun.StackRun, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) *stackrun.StackRun); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*stackrun.StackRun)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetStackRunBase_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStackRunBase'
+type ClientMock_GetStackRunBase_Call struct {
+	*mock.Call
+}
+
+// GetStackRunBase is a helper method to define mock.On call
+//   - id string
+func (_e *ClientMock_Expecter) GetStackRunBase(id interface{}) *ClientMock_GetStackRunBase_Call {
+	return &ClientMock_GetStackRunBase_Call{Call: _e.mock.On("GetStackRunBase", id)}
+}
+
+func (_c *ClientMock_GetStackRunBase_Call) Run(run func(id string)) *ClientMock_GetStackRunBase_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetStackRunBase_Call) Return(_a0 *stackrun.StackRun, _a1 error) *ClientMock_GetStackRunBase_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetStackRunBase_Call) RunAndReturn(run func(string) (*stackrun.StackRun, error)) *ClientMock_GetStackRunBase_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1223,34 +1377,22 @@ func (_c *ClientMock_UpdateGate_Call) RunAndReturn(run func(string, gqlclient.Ga
 	return _c
 }
 
-// UpdateStackRun provides a mock function with given fields: id, attr
-func (_m *ClientMock) UpdateStackRun(id string, attr gqlclient.StackRunAttributes) (*gqlclient.StackRunBaseFragment, error) {
-	ret := _m.Called(id, attr)
+// UpdateStackRun provides a mock function with given fields: id, attributes
+func (_m *ClientMock) UpdateStackRun(id string, attributes gqlclient.StackRunAttributes) error {
+	ret := _m.Called(id, attributes)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateStackRun")
 	}
 
-	var r0 *gqlclient.StackRunBaseFragment
-	var r1 error
-	if rf, ok := ret.Get(0).(func(string, gqlclient.StackRunAttributes) (*gqlclient.StackRunBaseFragment, error)); ok {
-		return rf(id, attr)
-	}
-	if rf, ok := ret.Get(0).(func(string, gqlclient.StackRunAttributes) *gqlclient.StackRunBaseFragment); ok {
-		r0 = rf(id, attr)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, gqlclient.StackRunAttributes) error); ok {
+		r0 = rf(id, attributes)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.StackRunBaseFragment)
-		}
+		r0 = ret.Error(0)
 	}
 
-	if rf, ok := ret.Get(1).(func(string, gqlclient.StackRunAttributes) error); ok {
-		r1 = rf(id, attr)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // ClientMock_UpdateStackRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateStackRun'
@@ -1260,56 +1402,44 @@ type ClientMock_UpdateStackRun_Call struct {
 
 // UpdateStackRun is a helper method to define mock.On call
 //   - id string
-//   - attr gqlclient.StackRunAttributes
-func (_e *ClientMock_Expecter) UpdateStackRun(id interface{}, attr interface{}) *ClientMock_UpdateStackRun_Call {
-	return &ClientMock_UpdateStackRun_Call{Call: _e.mock.On("UpdateStackRun", id, attr)}
+//   - attributes gqlclient.StackRunAttributes
+func (_e *ClientMock_Expecter) UpdateStackRun(id interface{}, attributes interface{}) *ClientMock_UpdateStackRun_Call {
+	return &ClientMock_UpdateStackRun_Call{Call: _e.mock.On("UpdateStackRun", id, attributes)}
 }
 
-func (_c *ClientMock_UpdateStackRun_Call) Run(run func(id string, attr gqlclient.StackRunAttributes)) *ClientMock_UpdateStackRun_Call {
+func (_c *ClientMock_UpdateStackRun_Call) Run(run func(id string, attributes gqlclient.StackRunAttributes)) *ClientMock_UpdateStackRun_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string), args[1].(gqlclient.StackRunAttributes))
 	})
 	return _c
 }
 
-func (_c *ClientMock_UpdateStackRun_Call) Return(_a0 *gqlclient.StackRunBaseFragment, _a1 error) *ClientMock_UpdateStackRun_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *ClientMock_UpdateStackRun_Call) Return(_a0 error) *ClientMock_UpdateStackRun_Call {
+	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *ClientMock_UpdateStackRun_Call) RunAndReturn(run func(string, gqlclient.StackRunAttributes) (*gqlclient.StackRunBaseFragment, error)) *ClientMock_UpdateStackRun_Call {
+func (_c *ClientMock_UpdateStackRun_Call) RunAndReturn(run func(string, gqlclient.StackRunAttributes) error) *ClientMock_UpdateStackRun_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// UpdateStackRunStep provides a mock function with given fields: stepID, attr
-func (_m *ClientMock) UpdateStackRunStep(stepID string, attr gqlclient.RunStepAttributes) (*gqlclient.RunStepFragment, error) {
-	ret := _m.Called(stepID, attr)
+// UpdateStackRunStep provides a mock function with given fields: id, attributes
+func (_m *ClientMock) UpdateStackRunStep(id string, attributes gqlclient.RunStepAttributes) error {
+	ret := _m.Called(id, attributes)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateStackRunStep")
 	}
 
-	var r0 *gqlclient.RunStepFragment
-	var r1 error
-	if rf, ok := ret.Get(0).(func(string, gqlclient.RunStepAttributes) (*gqlclient.RunStepFragment, error)); ok {
-		return rf(stepID, attr)
-	}
-	if rf, ok := ret.Get(0).(func(string, gqlclient.RunStepAttributes) *gqlclient.RunStepFragment); ok {
-		r0 = rf(stepID, attr)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, gqlclient.RunStepAttributes) error); ok {
+		r0 = rf(id, attributes)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.RunStepFragment)
-		}
+		r0 = ret.Error(0)
 	}
 
-	if rf, ok := ret.Get(1).(func(string, gqlclient.RunStepAttributes) error); ok {
-		r1 = rf(stepID, attr)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // ClientMock_UpdateStackRunStep_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateStackRunStep'
@@ -1318,25 +1448,25 @@ type ClientMock_UpdateStackRunStep_Call struct {
 }
 
 // UpdateStackRunStep is a helper method to define mock.On call
-//   - stepID string
-//   - attr gqlclient.RunStepAttributes
-func (_e *ClientMock_Expecter) UpdateStackRunStep(stepID interface{}, attr interface{}) *ClientMock_UpdateStackRunStep_Call {
-	return &ClientMock_UpdateStackRunStep_Call{Call: _e.mock.On("UpdateStackRunStep", stepID, attr)}
+//   - id string
+//   - attributes gqlclient.RunStepAttributes
+func (_e *ClientMock_Expecter) UpdateStackRunStep(id interface{}, attributes interface{}) *ClientMock_UpdateStackRunStep_Call {
+	return &ClientMock_UpdateStackRunStep_Call{Call: _e.mock.On("UpdateStackRunStep", id, attributes)}
 }
 
-func (_c *ClientMock_UpdateStackRunStep_Call) Run(run func(stepID string, attr gqlclient.RunStepAttributes)) *ClientMock_UpdateStackRunStep_Call {
+func (_c *ClientMock_UpdateStackRunStep_Call) Run(run func(id string, attributes gqlclient.RunStepAttributes)) *ClientMock_UpdateStackRunStep_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string), args[1].(gqlclient.RunStepAttributes))
 	})
 	return _c
 }
 
-func (_c *ClientMock_UpdateStackRunStep_Call) Return(_a0 *gqlclient.RunStepFragment, _a1 error) *ClientMock_UpdateStackRunStep_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *ClientMock_UpdateStackRunStep_Call) Return(_a0 error) *ClientMock_UpdateStackRunStep_Call {
+	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *ClientMock_UpdateStackRunStep_Call) RunAndReturn(run func(string, gqlclient.RunStepAttributes) (*gqlclient.RunStepFragment, error)) *ClientMock_UpdateStackRunStep_Call {
+func (_c *ClientMock_UpdateStackRunStep_Call) RunAndReturn(run func(string, gqlclient.RunStepAttributes) error) *ClientMock_UpdateStackRunStep_Call {
 	_c.Call.Return(run)
 	return _c
 }

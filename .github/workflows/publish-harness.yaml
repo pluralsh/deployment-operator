@@ -1,0 +1,152 @@
+name: Publish Harness
+
+on:
+  pull_request:
+    branches:
+      - "main"
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  GOPATH: /home/runner/go/
+  GOPROXY: "https://proxy.golang.org"
+
+jobs:
+# TODO: Enable once some unit tests are added for harness
+#  test:
+#    name: Unit test
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#      - uses: actions/setup-go@v4
+#        with:
+#          go-version-file: go.mod
+#          check-latest: true
+#      - run: PATH=$PATH:$GOPATH/bin make test
+
+  publish-harness-base:
+    name: Build and push harness base container
+    runs-on: ubuntu-20.04
+#    needs: [test]
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      packages: 'write'
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        # list of Docker images to use as base name for tags
+        images: |
+          ghcr.io/pluralsh/stackrun-harness-base
+          docker.io/pluralsh/stackrun-harness-base
+        tags: |
+          type=semver,pattern={{version}},priority=1000
+          type=sha,priority=800
+          type=ref,event=pr,priority=600
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Login to Docker
+      uses: docker/login-action@v3
+      with:
+        username: mjgpluralsh
+        password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: "."
+        file: "./hack/harness/base.Dockerfile"
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ steps.meta.outputs.version }}
+
+# TODO: Do we need that for harness?
+#    - name: slack webhook
+#      uses: 8398a7/action-slack@v3
+#      with:
+#        status: ${{ job.status }}
+#        fields: workflow,job,repo,message,commit,author
+#      env:
+#        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }} # required
+#      if: always()
+
+  publish-harness-terraform:
+    name: Build and push harness terraform container
+    runs-on: ubuntu-20.04
+    needs: [publish-harness-base]
+    env:
+      TERRAFORM_VERSION: 1.8.2
+    permissions:
+      contents: write
+      discussions: write
+      pull-requests: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            ghcr.io/pluralsh/stackrun-harness
+            docker.io/pluralsh/stackrun-harness
+          tags: |
+            type=semver,pattern={{version}},suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=1000
+            type=sha,suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=800
+            type=ref,event=pr,suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=600
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to Docker
+        uses: docker/login-action@v3
+        with:
+          username: mjgpluralsh
+          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: "."
+          file: "./hack/harness/terraform.Dockerfile"
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            TERRAFORM_IMAGE_TAG=${{ env.TERRAFORM_VERSION }}
+            HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
+            HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
+            

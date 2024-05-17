@@ -58,21 +58,50 @@ genmock: mockery ## generates mocks before running tests
 
 ##@ Run
 
-.PHONY: run
-run: ## run
-	go run cmd/*
+.PHONY: agent-run
+agent-run: ## run agent
+	go run cmd/agent/**
 
 ##@ Build
 
-.PHONY: build
-build: ## build
-	go build -o bin/deployment-agent cmd/*
+.PHONY: agent
+agent: ## build agent
+	go build -o bin/deployment-agent cmd/agent/**
+
+.PHONY: harness
+harness: ## build stack run harness
+	go build -o bin/stack-run-harness cmd/harness/main.go
 
 docker-build: ## build image
 	docker build -t ${IMG} .
 
 docker-push: ## push image
 	docker push ${IMG}
+
+.PHONY: docker-build-harness-base
+docker-build-harness-base: ## build base docker harness image
+	docker build \
+			--build-arg=VERSION="0.0.0-dev" \
+    	  	-t harness-base \
+    		-f hack/harness/base.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-terraform
+docker-build-harness-terraform: docker-build-harness-base ## build terraform docker harness image
+	docker build \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
+    	  	-t harness \
+    		-f hack/harness/terraform.Dockerfile \
+    		.
+
+.PHONY: docker-run-harness
+docker-run-harness: docker-build-harness-terraform ## build and run terraform docker harness image
+	docker run \
+			harness:latest \
+			--v=5 \
+			--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
+			--console-token=${PLURAL_DEPLOY_TOKEN} \
+			--stack-run-id=${PLURAL_STACK_RUN_ID}
 
 velero-crds:
 	@curl -L $(VELERO_CHART_URL) --output velero.tgz

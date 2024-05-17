@@ -3,19 +3,67 @@ package client
 import (
 	"fmt"
 
-	console "github.com/pluralsh/console-client-go"
+	gqlclient "github.com/pluralsh/console-client-go"
+	"k8s.io/klog/v2"
+
+	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/pkg/harness/errors"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func (c *client) UpdateStackRunStep(stepID string, attr console.RunStepAttributes) (*console.RunStepFragment, error) {
-	update, err := c.consoleClient.UpdateStackRunStep(c.ctx, stepID, attr)
-	if err != nil {
+func (c *client) GetStackRunBase(id string) (result *stackrun.StackRun, err error) {
+	stackRun, err := c.consoleClient.GetStackRunBase(c.ctx, id)
+	if err != nil && !internalerrors.IsNotFound(err) {
 		return nil, err
 	}
 
-	return update.UpdateRunStep, nil
+	if stackRun == nil || stackRun.StackRun == nil {
+		return nil, errors.ErrNotFound
+	}
+
+	return result.FromStackRunBaseFragment(stackRun.StackRun), nil
 }
 
-func (c *client) GetStackRun(id string) (*console.StackRunFragment, error) {
+func (c *client) AddStackRunLogs(id, logs string) error {
+	if _, err := c.consoleClient.AddStackRunLogs(c.ctx, id, gqlclient.RunLogAttributes{
+		Logs: logs,
+	}); err != nil {
+		return err
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("updated logs", "id", id)
+	return nil
+}
+
+func (c *client) CompleteStackRun(id string, attributes gqlclient.StackRunAttributes) error {
+	if _, err := c.consoleClient.CompletesStackRun(c.ctx, id, attributes); err != nil {
+		return err
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("completed stack run", "id", id, "attributes", attributes)
+	return nil
+}
+
+func (c *client) UpdateStackRun(id string, attributes gqlclient.StackRunAttributes) error {
+	if _, err := c.consoleClient.UpdateStackRun(c.ctx, id, attributes); err != nil {
+		return err
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("updated stack run", "id", id, "attributes", attributes)
+	return nil
+}
+
+func (c *client) UpdateStackRunStep(id string, attributes gqlclient.RunStepAttributes) error {
+	if _, err := c.consoleClient.UpdateStackRunStep(c.ctx, id, attributes); err != nil {
+		return err
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("updated stack run step", "id", id, "attributes", attributes)
+	return nil
+}
+
+func (c *client) GetStackRun(id string) (*gqlclient.StackRunFragment, error) {
 	restore, err := c.consoleClient.GetStackRun(c.ctx, id)
 	if err != nil {
 		return nil, err
@@ -24,16 +72,7 @@ func (c *client) GetStackRun(id string) (*console.StackRunFragment, error) {
 	return restore.StackRun, nil
 }
 
-func (c *client) UpdateStackRun(id string, attr console.StackRunAttributes) (*console.StackRunBaseFragment, error) {
-	restore, err := c.consoleClient.UpdateStackRun(c.ctx, id, attr)
-	if err != nil {
-		return nil, err
-	}
-
-	return restore.UpdateStackRun, nil
-}
-
-func (c *client) ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStacks_ClusterStackRuns, error) {
+func (c *client) ListClusterStackRuns(after *string, first *int64) (*gqlclient.ListClusterStacks_ClusterStackRuns, error) {
 	resp, err := c.consoleClient.ListClusterStacks(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
