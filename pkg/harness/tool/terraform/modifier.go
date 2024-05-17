@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/pluralsh/polly/algorithms"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 )
 
 // Args implements exec.ArgsModifier type.
@@ -31,6 +33,10 @@ func NewPlanModifier(planFileName string) *PlanModifier {
 }
 
 func (in *ApplyModifier) Args(args []string) []string {
+	if !helpers.IsExists(in.planFileName) {
+		return args
+	}
+
 	return append(args, fmt.Sprintf(in.planFileName))
 }
 

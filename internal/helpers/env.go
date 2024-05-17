@@ -70,3 +70,8 @@ func EnsureFileOrDie(file string) string {
 	klog.V(log.LogLevelDebug).Infof("created file: %s", file)
 	return f.Name()
 }
+
+func IsExists(file string) bool {
+	_, err := os.Stat(file)
+	return err == nil
+}
