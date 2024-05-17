@@ -3,6 +3,8 @@ package client
 import (
 	"fmt"
 
+	"sigs.k8s.io/yaml"
+
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/errors"
@@ -11,7 +13,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 const twentyFourHours = int32(86400)
@@ -73,22 +74,10 @@ func (c *client) ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, o
 	return pipelineGate, nil
 }
 
-func jobFromYaml(yamlString string) (*batchv1.Job, error) {
-	job := &batchv1.Job{}
-
-	// unmarshal the YAML string into the Job rep
-	decoder := scheme.Codecs.UniversalDeserializer()
-	obj, _, err := decoder.Decode([]byte(yamlString), nil, job)
-	if err != nil {
-		return nil, err
-	}
-
-	// ensure decoded object is actually of type Job after using universal deserializer
-	if obj, ok := obj.(*batchv1.Job); ok {
-		return obj, nil
-	}
-
-	return nil, fmt.Errorf("parsed object is not of type Job")
+func JobSpecFromYaml(yamlString string) (*batchv1.JobSpec, error) {
+	jobSpec := &batchv1.JobSpec{}
+	err := yaml.Unmarshal([]byte(yamlString), jobSpec)
+	return jobSpec, err
 }
 
 func gateSpecFromGateSpecFragment(gateName string, gsFragment *console.GateSpecFragment) *v1alpha1.GateSpec {
@@ -105,12 +94,12 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 		return nil
 	}
 	var jobSpec *batchv1.JobSpec
+	var err error
 	if jsFragment.Raw != nil && *jsFragment.Raw != "null" {
-		job, err := jobFromYaml(*jsFragment.Raw)
+		jobSpec, err = JobSpecFromYaml(*jsFragment.Raw)
 		if err != nil {
 			return nil
 		}
-		jobSpec = &job.Spec
 	} else {
 		name := utils.AsName(gateName)
 		jobSpec = &batchv1.JobSpec{
@@ -119,11 +108,11 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 					Name:      name,
 					Namespace: jsFragment.Namespace,
 					// convert map[string]interface{} to map[string]string
-					Labels:      stringMapFromInterfaceMap(jsFragment.Labels),
-					Annotations: stringMapFromInterfaceMap(jsFragment.Annotations),
+					Labels:      StringMapFromInterfaceMap(jsFragment.Labels),
+					Annotations: StringMapFromInterfaceMap(jsFragment.Annotations),
 				},
 				Spec: corev1.PodSpec{
-					Containers:    containersFromContainerSpecFragments(name, jsFragment.Containers),
+					Containers:    ContainersFromContainerSpecFragments(name, jsFragment.Containers),
 					RestartPolicy: corev1.RestartPolicyOnFailure,
 				},
 			},
@@ -140,7 +129,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	return jobSpec
 }
 
-func containersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment) []corev1.Container {
+func ContainersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment) []corev1.Container {
 	var containers []corev1.Container
 
 	for i, csFragment := range containerSpecFragments {
@@ -188,7 +177,7 @@ func containersFromContainerSpecFragments(gateName string, containerSpecFragment
 	return containers
 }
 
-func stringMapFromInterfaceMap(labels map[string]interface{}) map[string]string {
+func StringMapFromInterfaceMap(labels map[string]interface{}) map[string]string {
 	result := make(map[string]string)
 
 	for key, value := range labels {

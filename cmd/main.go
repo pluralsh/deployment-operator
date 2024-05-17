@@ -104,6 +104,14 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HealthConvert")
 	}
+	if err = (&controller.StackRunJobReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ConsoleClient: ctrlMgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err = (&controller.PipelineGateReconciler{
