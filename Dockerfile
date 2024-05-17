@@ -11,7 +11,7 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY /cmd/agent cmd/
+COPY /cmd/agent cmd/agent
 COPY /pkg pkg/
 COPY /api api/
 COPY /internal internal/
