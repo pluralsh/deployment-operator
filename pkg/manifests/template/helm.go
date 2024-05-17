@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pkg/errors"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/fs"
+	"github.com/samber/lo"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -30,8 +32,6 @@ import (
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/yaml"
-
-	"github.com/samber/lo"
 )
 
 const (
@@ -55,11 +55,13 @@ func init() {
 	settings.RepositoryCache = dir
 	settings.RepositoryConfig = path.Join(dir, "repositories.yaml")
 	settings.KubeInsecureSkipTLSVerify = true
+	APIVersions = cmap.New[bool]()
 }
 
 var settings = cli.New()
 var EnableHelmDependencyUpdate bool
 var DisableHelmTemplateDryRunServer bool
+var APIVersions cmap.ConcurrentMap[string, bool]
 
 func debug(format string, v ...interface{}) {
 	format = fmt.Sprintf("INFO: %s\n", format)
@@ -228,6 +230,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 		return nil, err
 	}
 	client.KubeVersion = vsn
+	client.APIVersions = algorithms.MapKeys[string, bool](APIVersions.Items())
 
 	return client.Run(chart, values)
 }
