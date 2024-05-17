@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+
 	gqlclient "github.com/pluralsh/console-client-go"
 	"k8s.io/klog/v2"
 
@@ -10,7 +12,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func (c *client) GetStackRun(id string) (result *stackrun.StackRun, err error) {
+func (c *client) GetStackRunBase(id string) (result *stackrun.StackRun, err error) {
 	stackRun, err := c.consoleClient.GetStackRunBase(c.ctx, id)
 	if err != nil && !internalerrors.IsNotFound(err) {
 		return nil, err
@@ -59,4 +61,24 @@ func (c *client) UpdateStackRunStep(id string, attributes gqlclient.RunStepAttri
 
 	klog.V(log.LogLevelExtended).InfoS("updated stack run step", "id", id, "attributes", attributes)
 	return nil
+}
+
+func (c *client) GetStackRun(id string) (*gqlclient.StackRunFragment, error) {
+	restore, err := c.consoleClient.GetStackRun(c.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return restore.StackRun, nil
+}
+
+func (c *client) ListClusterStackRuns(after *string, first *int64) (*gqlclient.ListClusterStacks_ClusterStackRuns, error) {
+	resp, err := c.consoleClient.ListClusterStacks(c.ctx, after, first, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if resp.ClusterStackRuns == nil {
+		return nil, fmt.Errorf("the response from ListInfrastructureStacks is nil")
+	}
+	return resp.ClusterStackRuns, nil
 }

@@ -241,7 +241,7 @@ func (in *stackRunController) init() (Controller, error) {
 		return nil, fmt.Errorf("could not initialize controller: consoleClient is nil")
 	}
 
-	if stackRun, err := in.consoleClient.GetStackRun(in.stackRunID); err != nil {
+	if stackRun, err := in.consoleClient.GetStackRunBase(in.stackRunID); err != nil {
 		return nil, err
 	} else {
 		klog.V(log.LogLevelInfo).InfoS("found stack run", "id", stackRun.ID, "status", stackRun.Status, "type", stackRun.Type)

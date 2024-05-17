@@ -25,7 +25,7 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 	resyncPeriod := 5 * time.Second
 
 	go wait.Until(func() {
-		stackRun, err := in.client.GetStackRun(in.id)
+		stackRun, err := in.client.GetStackRunBase(in.id)
 		if err != nil {
 			klog.ErrorS(err, "could not resync stack run", "id", in.id)
 			return

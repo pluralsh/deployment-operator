@@ -4,16 +4,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/samber/lo"
-	"golang.org/x/net/context"
-	"k8s.io/client-go/rest"
-	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 
 	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
 	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
+	"github.com/samber/lo"
+	"golang.org/x/net/context"
+	"k8s.io/client-go/rest"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {
@@ -70,6 +72,18 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Queue: ns.NamespaceQueue,
 	})
 
+	namespace, err := utils.GetOperatorNamespace()
+	if err != nil {
+		setupLog.Error(err, "unable to get operator namespace")
+		os.Exit(1)
+	}
+
+	s := stacks.NewStackReconciler(mgr.GetClient(), k8sClient, r, namespace, opt.consoleUrl, opt.deployToken)
+	mgr.AddController(&controller.Controller{
+		Name:  "Stack Controller",
+		Do:    s,
+		Queue: s.StackQueue,
+	})
 	if err := mgr.Start(); err != nil {
 		setupLog.Error(err, "unable to start controller manager")
 		os.Exit(1)
