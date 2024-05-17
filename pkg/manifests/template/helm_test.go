@@ -66,6 +66,6 @@ var _ = Describe("Helm template", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(10))
 		})
-
 	})
+
 })

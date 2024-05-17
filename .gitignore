@@ -1,6 +1,11 @@
 # IDE
 .idea/
 .vscode/
+.DS_store
+
+# Go Workspace Files
+go.work
+go.work.sum
 
 # Binaries for programs and plugins
 bin/
