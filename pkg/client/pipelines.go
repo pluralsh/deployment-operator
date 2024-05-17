@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+
 	"sigs.k8s.io/yaml"
 
 	console "github.com/pluralsh/console-client-go"
