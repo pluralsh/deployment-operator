@@ -42,7 +42,7 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
-      - run: PATH=$PATH:$GOPATH/bin make build
+      - run: PATH=$PATH:$GOPATH/bin make agent
   test:
     name: Unit test
     runs-on: ubuntu-latest

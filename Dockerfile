@@ -17,7 +17,7 @@ COPY /api api/
 COPY /internal internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent cmd/agent/*
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent cmd/agent/**
 
 FROM alpine:3.18
 WORKDIR /workspace

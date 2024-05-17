@@ -60,13 +60,13 @@ genmock: mockery ## generates mocks before running tests
 
 .PHONY: agent-run
 agent-run: ## run agent
-	go run cmd/*
+	go run cmd/agent/**
 
 ##@ Build
 
 .PHONY: agent
 agent: ## build agent
-	go build -o bin/deployment-agent cmd/agent/*
+	go build -o bin/deployment-agent cmd/agent/**
 
 .PHONY: harness
 harness: ## build stack run harness
