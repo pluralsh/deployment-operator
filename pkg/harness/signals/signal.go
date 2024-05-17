@@ -54,11 +54,9 @@ func (in *timeoutSignal) Listen(cancelFunc context.CancelCauseFunc) {
 	timer := time.NewTimer(in.timeout)
 
 	go func() {
-		select {
-		case <-timer.C:
-			timer.Stop()
-			cancelFunc(errors.ErrTimeout)
-		}
+		<-timer.C
+		timer.Stop()
+		cancelFunc(errors.ErrTimeout)
 	}()
 }
 

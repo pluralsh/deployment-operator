@@ -1,7 +1,7 @@
 package terraform
 
 // InitModifier implements v1.Modifier interface.
-type InitModifier struct {}
+type InitModifier struct{}
 
 // PlanModifier implements v1.Modifier interface.
 type PlanModifier struct {

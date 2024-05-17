@@ -13,5 +13,3 @@ type Terraform struct {
 	// Default: terraform.tfstate
 	stateFileName string
 }
-
-

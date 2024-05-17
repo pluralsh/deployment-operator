@@ -43,7 +43,7 @@ func ParseIntOrDie(value string) int {
 func CreateTempDirOrDie(dir, pattern string) string {
 	dir, err := os.MkdirTemp(dir, pattern)
 	if err != nil {
-		panic(fmt.Errorf("could not create temporary directory: %s", err))
+		panic(fmt.Errorf("could not create temporary directory: %w", err))
 	}
 
 	klog.V(log.LogLevelDebug).Infof("created temporary directory: %s", dir)
@@ -55,7 +55,7 @@ func CreateTempDirOrDie(dir, pattern string) string {
 func EnsureDirOrDie(dir string) {
 	err := os.Mkdir(dir, 0755)
 	if err != nil && !os.IsExist(err) {
-		panic(fmt.Errorf("could not create directory: %s", err))
+		panic(fmt.Errorf("could not create directory: %w", err))
 	}
 
 	klog.V(log.LogLevelDebug).Infof("created directory: %s", dir)
@@ -64,7 +64,7 @@ func EnsureDirOrDie(dir string) {
 func EnsureFileOrDie(file string) string {
 	f, err := os.Create(file)
 	if err != nil && !os.IsExist(err) {
-		panic(fmt.Errorf("could not create file: %s", err))
+		panic(fmt.Errorf("could not create file: %w", err))
 	}
 
 	klog.V(log.LogLevelDebug).Infof("created file: %s", file)

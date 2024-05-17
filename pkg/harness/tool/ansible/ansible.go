@@ -7,17 +7,17 @@ import (
 )
 
 func (in *Ansible) State() (*console.StackStateAttributes, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (in *Ansible) Output() ([]*console.StackOutputAttributes, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

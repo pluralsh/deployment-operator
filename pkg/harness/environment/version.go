@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	dev       = "0.0.0-dev"
+	dev = "0.0.0-dev"
 )
 
 // Version of this binary

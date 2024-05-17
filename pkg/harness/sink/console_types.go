@@ -21,7 +21,7 @@ type ConsoleWriter struct {
 	// ctx is a standard context used by the internal watcher. When
 	// context is canceled or done it will enforce graceful shutdown
 	// and flush all logs remaining in the buffer before exiting.
-	ctx    context.Context
+	ctx context.Context
 
 	// id is a stack run id that logs should be appended to.
 	id string

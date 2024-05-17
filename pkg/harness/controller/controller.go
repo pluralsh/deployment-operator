@@ -162,10 +162,10 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		)...,
 	)
 
-	argsModifier := in.tool.Modifier(step.Stage).Args
+	argsModifier := in.tool.Modifier(step.Stage)
 	args := step.Args
 	if argsModifier != nil {
-		args = argsModifier(args)
+		args = argsModifier.Args(args)
 	}
 
 	return exec.NewExecutable(

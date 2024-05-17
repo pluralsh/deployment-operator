@@ -7,6 +7,6 @@ import (
 )
 
 func (in *Modifier) Args(stage console.StepStage) exec.ArgsModifier {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
