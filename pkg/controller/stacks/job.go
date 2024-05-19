@@ -3,6 +3,7 @@ package stacks
 import (
 	"context"
 	"fmt"
+	"os"
 
 	console "github.com/pluralsh/console-client-go"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
@@ -34,7 +35,15 @@ var (
 		console.StackTypeTerraform: "latest",
 		console.StackTypeAnsible:   "latest",
 	}
+
+	defaultImageTag = "latest"
 )
+
+func init() {
+	if os.Getenv("IMAGE_TAG") != "" {
+		defaultImageTag = os.Getenv("IMAGE_TAG")
+	}
+}
 
 func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
@@ -190,7 +199,7 @@ func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment
 		version = run.Configuration.Version
 	}
 
-	return fmt.Sprintf("%s:%s", image, version)
+	return fmt.Sprintf("%s:%s-%s-%s", defaultImageTag, string(run.Type), image, version)
 }
 
 func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {

@@ -116,9 +116,9 @@ jobs:
             ghcr.io/pluralsh/stackrun-harness
             docker.io/pluralsh/stackrun-harness
           tags: |
-            type=semver,pattern={{version}},suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=1000
-            type=sha,suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=800
-            type=ref,event=pr,suffix=-terraform${{ env.TERRAFORM_VERSION }},priority=600
+            type=semver,pattern={{version}},suffix=-terraform-${{ env.TERRAFORM_VERSION }},priority=1000
+            type=sha,suffix=-terraform-${{ env.TERRAFORM_VERSION }},priority=800
+            type=ref,event=pr,suffix=-terraform-${{ env.TERRAFORM_VERSION }},priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
