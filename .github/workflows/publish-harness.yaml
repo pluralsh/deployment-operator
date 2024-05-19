@@ -71,7 +71,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: "."
-        file: "./hack/harness/base.Dockerfile"
+        file: "./dockerfiles/harness/base.Dockerfile"
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -113,8 +113,8 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            ghcr.io/pluralsh/stackrun-harness
-            docker.io/pluralsh/stackrun-harness
+            ghcr.io/pluralsh/harness
+            docker.io/pluralsh/harness
           tags: |
             type=semver,pattern={{version}},suffix=-terraform-${{ env.TERRAFORM_VERSION }},priority=1000
             type=sha,suffix=-terraform-${{ env.TERRAFORM_VERSION }},priority=800
@@ -138,7 +138,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: "."
-          file: "./hack/harness/terraform.Dockerfile"
+          file: "./dockerfiles/harness/terraform.Dockerfile"
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
