@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	console "github.com/pluralsh/console-client-go"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
@@ -27,8 +28,8 @@ const (
 
 var (
 	defaultContainerImages = map[console.StackType]string{
-		console.StackTypeTerraform: "ghcr.io/pluralsh/stackrun-harness",
-		console.StackTypeAnsible:   "ghcr.io/pluralsh/stackrun-harness",
+		console.StackTypeTerraform: "ghcr.io/pluralsh/harness",
+		console.StackTypeAnsible:   "ghcr.io/pluralsh/harness",
 	}
 
 	defaultContainerVersions = map[console.StackType]string{
@@ -36,7 +37,7 @@ var (
 		console.StackTypeAnsible:   "latest",
 	}
 
-	defaultImageTag = "latest"
+	defaultImageTag = "0.4.28"
 )
 
 func init() {
@@ -199,7 +200,7 @@ func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment
 		version = run.Configuration.Version
 	}
 
-	return fmt.Sprintf("%s:%s-%s-%s", defaultImageTag, string(run.Type), image, version)
+	return fmt.Sprintf("%s:%s-%s-%s", image, defaultImageTag, strings.ToLower(string(run.Type)), version)
 }
 
 func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
