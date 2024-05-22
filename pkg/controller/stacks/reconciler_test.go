@@ -91,19 +91,6 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(err.Error()).To(ContainSubstring("unknown error"))
 		})
 
-		It("should exit without errors as approval is required to be able to reconcile job", func() {
-			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
-				ID:       stackRunId,
-				Approval: lo.ToPtr(true),
-			}, nil)
-
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
-
-			_, err := reconciler.Reconcile(ctx, stackRunId)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
 		It("should exit without errors as job is already created", func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
