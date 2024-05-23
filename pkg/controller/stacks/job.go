@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console-client-go"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -16,6 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const (
@@ -33,11 +34,11 @@ var (
 	}
 
 	defaultContainerVersions = map[console.StackType]string{
-		console.StackTypeTerraform: "latest",
+		console.StackTypeTerraform: "1.8.2",
 		console.StackTypeAnsible:   "latest",
 	}
 
-	defaultImageTag = "0.4.28"
+	defaultImageTag = "0.4.29"
 )
 
 func init() {
@@ -195,11 +196,11 @@ func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment
 		image = *run.Configuration.Image
 	}
 
-	version := defaultContainerVersions[run.Type]
 	if run.Configuration != nil && run.Configuration.Version != "" {
-		version = run.Configuration.Version
+		return fmt.Sprintf("%s:%s", image, run.Configuration.Version)
 	}
 
+	version := defaultContainerVersions[run.Type]
 	return fmt.Sprintf("%s:%s-%s-%s", image, defaultImageTag, strings.ToLower(string(run.Type)), version)
 }
 
