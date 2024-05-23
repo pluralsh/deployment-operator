@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
@@ -29,6 +30,9 @@ type stackRunController struct {
 
 	// stackRunID
 	stackRunID string
+
+	// stackRunStepTimeout
+	stackRunStepTimeout time.Duration
 
 	// stackRun
 	stackRun *stackrun.StackRun

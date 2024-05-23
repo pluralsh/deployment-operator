@@ -8,6 +8,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -144,12 +145,21 @@ func (in *executor) dequeue(executable exec.Executable) (empty bool) {
 	return len(in.startQueue) == 0
 }
 
+func (in *executor) runLifecycleFunction(lifecycle stackrun.Lifecycle) error {
+	if fn, exists := in.hookFunctions[lifecycle]; exists {
+		return fn()
+	}
+
+	return nil
+}
+
 func newExecutor(errChan chan error, finishedChan chan struct{}, options ...ExecutorOption) *executor {
 	result := &executor{
-		errChan:      errChan,
-		finishedChan: finishedChan,
-		strategy:     ExecutionStrategyOrdered,
-		ch:           make(chan exec.Executable),
+		errChan:       errChan,
+		finishedChan:  finishedChan,
+		strategy:      ExecutionStrategyOrdered,
+		ch:            make(chan exec.Executable),
+		hookFunctions: make(map[stackrun.Lifecycle]stackrun.HookFunction),
 	}
 
 	for _, option := range options {

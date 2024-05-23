@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"time"
+
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
@@ -33,5 +35,11 @@ func WithWorkingDir(dir string) Option {
 func WithSinkOptions(options ...sink.Option) Option {
 	return func(s *stackRunController) {
 		s.sinkOptions = options
+	}
+}
+
+func WithStackRunStepTimeout(timeout time.Duration) Option {
+	return func(s *stackRunController) {
+		s.stackRunStepTimeout = timeout
 	}
 }

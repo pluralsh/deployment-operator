@@ -3,6 +3,8 @@ package exec
 import (
 	"context"
 	"io"
+
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 )
 
 type Executable interface {
@@ -37,6 +39,9 @@ type executable struct {
 	// executable output. It does not stop output from being forwarded
 	// to the os.Stdout.
 	logSink io.WriteCloser
+
+	// hookFunctions ...
+	hookFunctions map[stackrun.Lifecycle]stackrun.HookFunction
 }
 
 type Option func(*executable)

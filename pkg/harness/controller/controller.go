@@ -3,7 +3,6 @@ package controller
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -13,9 +12,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
-	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -64,7 +63,7 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	// In case of any error finish the execution and return error.
 	case err := <-in.errChan:
 		retErr = err
-	// If execution finished successfully return.
+	// If execution finished successfully return without error.
 	case <-in.finishedChan:
 		retErr = nil
 	}
@@ -77,57 +76,6 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	klog.V(log.LogLevelVerbose).InfoS("all subroutines finished")
 
 	return in.postStart(retErr)
-}
-
-func (in *stackRunController) preStart() {
-	if in.stackRun.Status != gqlclient.StackStatusPending && !environment.IsDev() {
-		klog.Fatalf("could not start stack run: invalid status: %s", in.stackRun.Status)
-	}
-
-	if err := in.markStackRun(gqlclient.StackStatusRunning); err != nil {
-		klog.ErrorS(err, "could not update stack run status")
-	}
-}
-
-func (in *stackRunController) postStart(err error) error {
-	var status gqlclient.StackStatus
-
-	switch {
-	case err == nil:
-		status = gqlclient.StackStatusSuccessful
-	case errors.Is(err, internalerrors.ErrRemoteCancel):
-		status = gqlclient.StackStatusCancelled
-	default:
-		status = gqlclient.StackStatusFailed
-	}
-
-	if err := in.completeStackRun(status, err); err != nil {
-		klog.ErrorS(err, "could not complete stack run")
-	}
-
-	klog.V(log.LogLevelInfo).InfoS("stack run completed")
-	return err
-}
-
-func (in *stackRunController) postStepRun(id string, err error) {
-	var status gqlclient.StepStatus
-
-	switch {
-	case err == nil:
-		status = gqlclient.StepStatusSuccessful
-	default:
-		status = gqlclient.StepStatusFailed
-	}
-
-	if err := in.markStackRunStep(id, status); err != nil {
-		klog.ErrorS(err, "could not update stack run step status")
-	}
-}
-
-func (in *stackRunController) preStepRun(id string) {
-	if err := in.markStackRunStep(id, gqlclient.StepStatusRunning); err != nil {
-		klog.ErrorS(err, "could not update stack run status")
-	}
 }
 
 func (in *stackRunController) executables(ctx context.Context) []exec.Executable {
@@ -162,10 +110,10 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		)...,
 	)
 
-	argsModifier := in.tool.Modifier(step.Stage)
+	modifier := in.tool.Modifier(step.Stage)
 	args := step.Args
-	if argsModifier != nil {
-		args = argsModifier.Args(args)
+	if modifier != nil {
+		args = modifier.Args(args)
 	}
 
 	return exec.NewExecutable(
@@ -175,6 +123,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
 		exec.WithLogSink(consoleWriter),
+		exec.WithHook(stackrun.LifecyclePostStart, in.postExecHook(step.Stage, step.ID)),
 	)
 }
 
@@ -265,7 +214,7 @@ func NewStackRunController(options ...Option) (Controller, error) {
 	ctrl.executor = newExecutor(
 		errChan,
 		finishedChan,
-		WithPreRunFunc(ctrl.preStepRun),
+		//WithPreRunFunc(ctrl.preStepRun),
 		WithPostRunFunc(ctrl.postStepRun),
 	)
 

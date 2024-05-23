@@ -2,6 +2,8 @@ package exec
 
 import (
 	"io"
+
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 )
 
 func WithDir(workingDirectory string) Option {
@@ -31,5 +33,11 @@ func WithArgs(args []string) Option {
 func WithID(id string) Option {
 	return func(e *executable) {
 		e.id = id
+	}
+}
+
+func WithHook(lifecycle stackrun.Lifecycle, fn stackrun.HookFunction) Option {
+	return func(e *executable) {
+		e.hookFunctions[lifecycle] = fn
 	}
 }

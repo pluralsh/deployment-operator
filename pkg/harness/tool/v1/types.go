@@ -11,6 +11,8 @@ import (
 // - gathering any available outputs from local files
 // - providing runtime modifiers to alter step command execution arguments, etc.
 type Tool interface {
+	// Plan ...
+	Plan() (*console.StackStateAttributes, error)
 	// State tries to assemble state/plan information based on local files
 	// created by specific tool after all steps are finished running. It then
 	// transforms this information into gqlclient.StackStateAttributes.

@@ -20,23 +20,28 @@ import (
 
 // State implements v1.Tool interface.
 func (in *Terraform) State() (*console.StackStateAttributes, error) {
-	plan, err := in.plan()
-	if err != nil {
-		return nil, err
-	}
-
 	state, err := in.state()
 	if err != nil {
 		return nil, err
 	}
 
 	return &console.StackStateAttributes{
-		Plan: &plan,
 		State: algorithms.Map(
 			state.Resources,
 			func(r v4.Resource) *console.StackStateResourceAttributes {
 				return in.resource(r)
 			}),
+	}, nil
+}
+
+func (in *Terraform) Plan() (*console.StackStateAttributes, error) {
+	plan, err := in.plan()
+	if err != nil {
+		return nil, err
+	}
+
+	return &console.StackStateAttributes{
+		Plan: &plan,
 	}, nil
 }
 
@@ -103,7 +108,7 @@ func (in *Terraform) state() (*v4.State, error) {
 func (in *Terraform) plan() (string, error) {
 	output, err := exec.NewExecutable(
 		"terraform",
-		exec.WithArgs([]string{"show", "-json", in.planFileName}),
+		exec.WithArgs([]string{"show", in.planFileName}),
 		exec.WithDir(in.dir),
 	).RunWithOutput(context.Background())
 	if err != nil {
