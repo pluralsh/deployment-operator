@@ -113,6 +113,7 @@ func (in *stackRunController) uploadPlan() error {
 	}
 
 	return in.consoleClient.UpdateStackRun(in.stackRunID, gqlclient.StackRunAttributes{
-		State: state,
+		State:  state,
+		Status: gqlclient.StackStatusSuccessful,
 	})
 }
