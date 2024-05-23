@@ -106,9 +106,10 @@ func (in *executable) runLifecycleFunction(lifecycle stackrun.Lifecycle) error {
 
 func NewExecutable(command string, options ...Option) Executable {
 	result := &executable{
-		command: command,
-		args:    make([]string, 0),
-		env:     make([]string, 0),
+		command:       command,
+		args:          make([]string, 0),
+		env:           make([]string, 0),
+		hookFunctions: make(map[stackrun.Lifecycle]stackrun.HookFunction),
 	}
 
 	for _, o := range options {
