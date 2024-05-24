@@ -15,6 +15,10 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
+var (
+	runApproved = false
+)
+
 func (in *stackRunController) preStart() {
 	if in.stackRun.Status != gqlclient.StackStatusPending && !environment.IsDev() {
 		klog.Fatalf("could not start stack run: invalid status: %s", in.stackRun.Status)
@@ -78,31 +82,37 @@ func (in *stackRunController) postExecHook(stage gqlclient.StepStage, id string)
 
 func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) stackrun.HookFunction {
 	return func() error {
+		if stage == gqlclient.StepStageApply {
+			if err := in.approvalCheck(); err != nil {
+				return err
+			}
+		}
+
 		if err := in.markStackRunStep(id, gqlclient.StepStatusRunning); err != nil {
 			klog.ErrorS(err, "could not update stack run status")
 		}
-
-		if stage != gqlclient.StepStageApply {
-			return nil
-		}
-
-		return in.approvalCheck()
+		return nil
 	}
 }
 
 func (in *stackRunController) approvalCheck() error {
-	if !in.stackRun.Approval {
+	if !in.stackRun.Approval || runApproved {
 		return nil
 	}
 
 	return wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(_ context.Context) (done bool, err error) {
+		if runApproved {
+			return true, nil
+		}
+
 		stack, err := in.consoleClient.GetStackRun(in.stackRunID)
 		if err != nil {
 			klog.ErrorS(err, "could not check stack run approval")
 			return false, nil
 		}
 
-		return stack.ApprovedAt != nil, nil
+		runApproved = stack.ApprovedAt != nil
+		return runApproved, nil
 	})
 }
 
@@ -114,6 +124,6 @@ func (in *stackRunController) uploadPlan() error {
 
 	return in.consoleClient.UpdateStackRun(in.stackRunID, gqlclient.StackRunAttributes{
 		State:  state,
-		Status: gqlclient.StackStatusSuccessful,
+		Status: gqlclient.StackStatusRunning,
 	})
 }

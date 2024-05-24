@@ -123,6 +123,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
 		exec.WithLogSink(consoleWriter),
+		exec.WithHook(stackrun.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
 		exec.WithHook(stackrun.LifecyclePostStart, in.postExecHook(step.Stage, step.ID)),
 	)
 }
