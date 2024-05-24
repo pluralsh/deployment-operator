@@ -5,9 +5,10 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 func TestGetDefaultContainerImage(t *testing.T) {
@@ -23,5 +24,5 @@ func TestGetDefaultContainerImage(t *testing.T) {
 	}
 
 	img := reconciler.getDefaultContainerImage(run)
-	assert.Equal(t, img, "ghcr.io/pluralsh/harness:0.4.28-terraform-1.8.4")
+	assert.Equal(t, img, "ghcr.io/pluralsh/harness:0.4.29-terraform-1.8.4")
 }
