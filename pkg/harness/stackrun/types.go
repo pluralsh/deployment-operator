@@ -14,6 +14,8 @@ type StackRun struct {
 	Steps       []*gqlclient.RunStepFragment
 	Files       []*gqlclient.StackFileFragment
 	Environment []*gqlclient.StackEnvironmentFragment
+	Approval    bool
+	ApprovedAt  *string
 }
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
@@ -25,6 +27,8 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		Steps:       fragment.Steps,
 		Files:       fragment.Files,
 		Environment: fragment.Environment,
+		Approval:    fragment.Approval != nil && *fragment.Approval,
+		ApprovedAt:  fragment.ApprovedAt,
 	}
 }
 
@@ -39,3 +43,12 @@ func (in *StackRun) Env() []string {
 
 	return result
 }
+
+type Lifecycle string
+
+const (
+	LifecyclePreStart  Lifecycle = "pre-start"
+	LifecyclePostStart Lifecycle = "post-start"
+)
+
+type HookFunction func() error

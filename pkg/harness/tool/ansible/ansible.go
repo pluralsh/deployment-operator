@@ -6,6 +6,11 @@ import (
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 )
 
+func (in *Ansible) Plan() (*console.StackStateAttributes, error) {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (in *Ansible) State() (*console.StackStateAttributes, error) {
 	// TODO implement me
 	panic("implement me")

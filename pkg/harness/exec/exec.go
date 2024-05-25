@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -37,8 +38,16 @@ func (in *executable) Run(ctx context.Context) error {
 		cmd.Dir = in.workingDirectory
 	}
 
+	if err := in.runLifecycleFunction(stackrun.LifecyclePreStart); err != nil {
+		return err
+	}
+
 	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return in.runLifecycleFunction(stackrun.LifecyclePostStart)
 }
 
 func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
@@ -87,11 +96,20 @@ func (in *executable) close(w io.WriteCloser) {
 	}
 }
 
+func (in *executable) runLifecycleFunction(lifecycle stackrun.Lifecycle) error {
+	if fn, exists := in.hookFunctions[lifecycle]; exists {
+		return fn()
+	}
+
+	return nil
+}
+
 func NewExecutable(command string, options ...Option) Executable {
 	result := &executable{
-		command: command,
-		args:    make([]string, 0),
-		env:     make([]string, 0),
+		command:       command,
+		args:          make([]string, 0),
+		env:           make([]string, 0),
+		hookFunctions: make(map[stackrun.Lifecycle]stackrun.HookFunction),
 	}
 
 	for _, o := range options {

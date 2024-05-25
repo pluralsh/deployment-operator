@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 )
 
 type executor struct {
@@ -41,6 +42,9 @@ type executor struct {
 	// It is used only by the ExecutionStrategyOrdered to ensure ordered
 	// run of the executables.
 	ch chan exec.Executable
+
+	// hookFunctions ...
+	hookFunctions map[stackrun.Lifecycle]stackrun.HookFunction
 }
 
 type ExecutorOption func(*executor)
