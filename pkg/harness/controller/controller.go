@@ -78,6 +78,14 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	return in.postStart(retErr)
 }
 
+func (in *stackRunController) Finish(stackRunErr error) error {
+	if stackRunErr == nil {
+		return nil
+	}
+
+	return in.completeStackRun(gqlclient.StackStatusFailed, stackRunErr)
+}
+
 func (in *stackRunController) executables(ctx context.Context) []exec.Executable {
 	// Ensure that steps are sorted in the correct order
 	slices.SortFunc(in.stackRun.Steps, func(s1, s2 *gqlclient.RunStepFragment) int {

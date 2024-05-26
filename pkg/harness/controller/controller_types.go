@@ -14,6 +14,7 @@ import (
 
 type Controller interface {
 	Start(ctx context.Context) error
+	Finish(err error) error
 }
 
 type stackRunController struct {
