@@ -67,7 +67,7 @@ func (in *executor) ordered(ctx context.Context) {
 			// Run the executable and wait for it to finish
 			if err := in.run(ctx, executable); err != nil {
 				in.errChan <- err
-				break
+				return
 			}
 
 			if empty := in.dequeue(executable); empty {
@@ -116,21 +116,17 @@ func (in *executor) run(ctx context.Context, executable exec.Executable) (retErr
 		retErr = fmt.Errorf("command execution failed: %s: err: %w", executable.Command(), err)
 	}
 
-	return in.postRun(executable.ID(), retErr)
+	if in.postRunFunc != nil {
+		in.postRunFunc(executable.ID(), retErr)
+	}
+
+	return retErr
 }
 
 func (in *executor) preRun(id string) {
 	if in.preRunFunc != nil {
 		in.preRunFunc(id)
 	}
-}
-
-func (in *executor) postRun(id string, err error) error {
-	if in.postRunFunc != nil {
-		in.postRunFunc(id, err)
-	}
-
-	return err
 }
 
 func (in *executor) dequeue(executable exec.Executable) (empty bool) {

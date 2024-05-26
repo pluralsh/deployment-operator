@@ -31,10 +31,12 @@ FROM busybox:1.35.0-uclibc as environment
 RUN mkdir /plural
 RUN mkdir /tmp/plural
 
-FROM gcr.io/distroless/base-debian12:nonroot as final
+FROM cgr.dev/chainguard/wolfi-base:latest as final
 
-# Switch to the nonroot user
-USER nonroot:nonroot
+RUN apk update --no-cache && apk add git
+
+# # Switch to the nonroot user
+USER nonroot
 
 # Set up the environment
 # 1. copy plural and tmp directories with proper permissions for the nonroot user
