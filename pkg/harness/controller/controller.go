@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"sync"
 
@@ -126,7 +127,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 
 	return exec.NewExecutable(
 		step.Cmd,
-		exec.WithDir(in.dir),
+		exec.WithDir(in.workdir()),
 		exec.WithEnv(in.stackRun.Env()),
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
@@ -134,6 +135,14 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithHook(stackrun.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
 		exec.WithHook(stackrun.LifecyclePostStart, in.postExecHook(step.Stage, step.ID)),
 	)
+}
+
+func (in *stackRunController) workdir() string {
+	if in.stackRun.Workdir != nil {
+		return filepath.Join(in.dir, *in.stackRun.Workdir)
+	}
+
+	return in.dir
 }
 
 func (in *stackRunController) markStackRun(status gqlclient.StackStatus) error {

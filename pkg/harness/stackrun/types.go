@@ -16,6 +16,7 @@ type StackRun struct {
 	Environment []*gqlclient.StackEnvironmentFragment
 	Approval    bool
 	ApprovedAt  *string
+	Workdir     *string
 }
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
@@ -27,6 +28,7 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		Steps:       fragment.Steps,
 		Files:       fragment.Files,
 		Environment: fragment.Environment,
+		Workdir:     fragment.Workdir,
 		Approval:    fragment.Approval != nil && *fragment.Approval,
 		ApprovedAt:  fragment.ApprovedAt,
 	}
