@@ -118,7 +118,7 @@ func (r *StackRunJobReconciler) getStepStatusUpdate(stackStatus console.StackSta
 	}
 
 	if stackStatus == console.StackStatusFailed || stackStatus == console.StackStatusCancelled {
-		return lo.ToPtr(console.StepStatusSuccessful)
+		return lo.ToPtr(console.StepStatusFailed)
 	}
 
 	return nil
