@@ -84,8 +84,8 @@ func (in *stackRunController) postExecHook(stage gqlclient.StepStage) v1.HookFun
 
 func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) v1.HookFunction {
 	return func() error {
-		if stage == gqlclient.StepStageApply {
-			in.approvalCheck()
+		if stage == gqlclient.StepStageApply && in.requiresApproval() {
+			in.waitForApproval()
 		}
 
 		if err := stackrun.StartStackRunStep(in.consoleClient, id); err != nil {
@@ -96,11 +96,11 @@ func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) 
 	}
 }
 
-func (in *stackRunController) approvalCheck() {
-	if !in.stackRun.Approval || runApproved {
-		return
-	}
+func (in *stackRunController) requiresApproval() bool {
+	return in.stackRun.Approval && !runApproved
+}
 
+func (in *stackRunController) waitForApproval() {
 	// Retry here to make sure that the pending approval status will be set before we start waiting.
 	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusPendingApproval, 5 * time.Second)
 
