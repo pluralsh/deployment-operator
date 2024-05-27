@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"path"
 	"slices"
 	"sync"
 
@@ -40,18 +41,18 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	in.preStart()
 
 	if err := in.prepare(); err != nil {
-		return in.postStart(err)
+		return err
 	}
 
 	// Add executables to executor
 	for _, e := range in.executables(ctx) {
 		if err := in.executor.Add(e); err != nil {
-			return in.postStart(err)
+			return err
 		}
 	}
 
 	if err := in.executor.Start(ctx); err != nil {
-		return in.postStart(fmt.Errorf("could not start executor: %w", err))
+		return fmt.Errorf("could not start executor: %w", err)
 	}
 
 	ready = true
@@ -76,6 +77,14 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	klog.V(log.LogLevelVerbose).InfoS("all subroutines finished")
 
 	return in.postStart(retErr)
+}
+
+func (in *stackRunController) Finish(stackRunErr error) error {
+	if stackRunErr == nil {
+		return nil
+	}
+
+	return in.completeStackRun(gqlclient.StackStatusFailed, stackRunErr)
 }
 
 func (in *stackRunController) executables(ctx context.Context) []exec.Executable {
@@ -118,7 +127,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 
 	return exec.NewExecutable(
 		step.Cmd,
-		exec.WithDir(in.dir),
+		exec.WithDir(in.execWorkDir()),
 		exec.WithEnv(in.stackRun.Env()),
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
@@ -129,19 +138,25 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 }
 
 func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, stackRunErr error) error {
-	state, err := in.tool.State()
-	if err != nil {
-		klog.ErrorS(err, "could not prepare state attributes")
+	var state *gqlclient.StackStateAttributes
+	var output []*gqlclient.StackOutputAttributes
+	var err error
+
+	if in.tool != nil {
+		state, err = in.tool.State()
+		if err != nil {
+			klog.ErrorS(err, "could not prepare state attributes")
+		}
+
+		klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
+
+		output, err = in.tool.Output()
+		if err != nil {
+			klog.ErrorS(err, "could not prepare output attributes")
+		}
+
+		klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
 	}
-
-	klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
-
-	output, err := in.tool.Output()
-	if err != nil {
-		klog.ErrorS(err, "could not prepare output attributes")
-	}
-
-	klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
 
 	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
 	if stackRunErr != nil {
@@ -158,6 +173,14 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	})
 }
 
+func (in *stackRunController) execWorkDir() string {
+	if in.stackRun.ExecWorkDir != nil && len(*in.stackRun.ExecWorkDir) > 0 {
+		return path.Join(in.dir, *in.stackRun.ExecWorkDir)
+	}
+
+	return in.dir
+}
+
 func (in *stackRunController) prepare() error {
 	env := environment.New(
 		environment.WithStackRun(in.stackRun),
@@ -165,9 +188,13 @@ func (in *stackRunController) prepare() error {
 		environment.WithFetchClient(in.fetchClient),
 	)
 
-	in.tool = tool.New(in.stackRun.Type, in.dir)
+	if err := env.Setup(); err != nil {
+		return err
+	}
 
-	return env.Setup()
+	in.tool = tool.New(in.stackRun.Type, in.execWorkDir())
+
+	return nil
 }
 
 func (in *stackRunController) init() (Controller, error) {

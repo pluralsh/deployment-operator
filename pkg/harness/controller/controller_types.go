@@ -8,12 +8,13 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
-	v12 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
-	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
+	stackrunv1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 )
 
 type Controller interface {
 	Start(ctx context.Context) error
+	Finish(stackRunErr error) error
 }
 
 type stackRunController struct {
@@ -35,7 +36,7 @@ type stackRunController struct {
 	stackRunStepTimeout time.Duration
 
 	// stackRun
-	stackRun *v12.StackRun
+	stackRun *stackrunv1.StackRun
 
 	// consoleClient
 	consoleClient console.Client
@@ -55,7 +56,7 @@ type stackRunController struct {
 	// List of supported tools is based on the gqlclient.StackType.
 	// It is mainly responsible for:
 	// - gathering state
-	tool v1.Tool
+	tool toolv1.Tool
 
 	// wg
 	wg sync.WaitGroup

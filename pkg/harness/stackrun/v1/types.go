@@ -14,6 +14,7 @@ type StackRun struct {
 	Steps       []*gqlclient.RunStepFragment
 	Files       []*gqlclient.StackFileFragment
 	Environment []*gqlclient.StackEnvironmentFragment
+	ExecWorkDir *string
 	Approval    bool
 	ApprovedAt  *string
 }
@@ -29,6 +30,7 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		Environment: fragment.Environment,
 		Approval:    fragment.Approval != nil && *fragment.Approval,
 		ApprovedAt:  fragment.ApprovedAt,
+		ExecWorkDir: fragment.Workdir,
 	}
 }
 

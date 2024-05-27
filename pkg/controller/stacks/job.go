@@ -213,10 +213,6 @@ func (r *StackReconciler) getDefaultContainerArgs(run *console.StackRunFragment)
 		fmt.Sprintf("--stack-run-id=%s", run.ID),
 	}
 
-	if run.Workdir != nil && len(*run.Workdir) > 0 {
-		args = append(args, fmt.Sprintf("--working-dir=%s", *run.Workdir))
-	}
-
 	return args
 }
 
