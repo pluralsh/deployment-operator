@@ -163,7 +163,7 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 			containers[index].Image = r.getDefaultContainerImage(run)
 		}
 
-		containers[index].Args = r.getDefaultContainerArgs(run)
+		containers[index].Args = r.getDefaultContainerArgs(run.ID)
 
 		containers[index].VolumeMounts = ensureDefaultVolumeMount(containers[index].VolumeMounts)
 	}
@@ -174,7 +174,7 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) cor
 	dc := corev1.Container{
 		Name:         DefaultJobContainer,
 		Image:        r.getDefaultContainerImage(run),
-		Args:         r.getDefaultContainerArgs(run),
+		Args:         r.getDefaultContainerArgs(run.ID),
 		VolumeMounts: []corev1.VolumeMount{getDefaultContainerVolumeMount()},
 	}
 
@@ -206,14 +206,12 @@ func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment
 	return fmt.Sprintf("%s:%s-%s-%s", image, defaultImageTag, strings.ToLower(string(run.Type)), version)
 }
 
-func (r *StackReconciler) getDefaultContainerArgs(run *console.StackRunFragment) []string {
-	args := []string{
+func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
+	return []string{
 		fmt.Sprintf("--console-url=%s", r.ConsoleURL),
 		fmt.Sprintf("--console-token=%s", r.DeployToken),
-		fmt.Sprintf("--stack-run-id=%s", run.ID),
+		fmt.Sprintf("--stack-run-id=%s", runID),
 	}
-
-	return args
 }
 
 func getDefaultContainerVolumeMount() corev1.VolumeMount {
