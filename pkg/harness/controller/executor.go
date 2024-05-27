@@ -51,32 +51,15 @@ func (in *executor) ordered(ctx context.Context) {
 
 	klog.V(log.LogLevelDebug).InfoS("starting executables in order", "queue", len(in.startQueue))
 
-	go func() {
-		// Queue up all executables for execution
-		for _, executable := range in.startQueue {
-			in.ch <- executable
-		}
-	}()
-
 	// Read executables and run them in order
 	go func() {
-		for {
-			// Get executable from the queue
-			executable := <-in.ch
-
-			// Run the executable and wait for it to finish
+		for _, executable := range in.startQueue {
 			if err := in.run(ctx, executable); err != nil {
 				in.errChan <- err
 				return
 			}
-
-			if empty := in.dequeue(executable); empty {
-				// We are finished when execution queue is empty.
-				// Send finish signal and return.
-				close(in.finishedChan)
-				return
-			}
 		}
+		close(in.finishedChan)
 	}()
 }
 
