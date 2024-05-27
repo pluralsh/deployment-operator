@@ -2,7 +2,7 @@ package environment
 
 import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
 // WithWorkingDir allows changing the default working directory of the Environment.
@@ -22,7 +22,7 @@ func WithFetchClient(client helpers.FetchClient) Option {
 
 // WithStackRun provides information about stack run used to initialize
 // the Environment.
-func WithStackRun(stackRun *stackrun.StackRun) Option {
+func WithStackRun(stackRun *v1.StackRun) Option {
 	return func(e *environment) {
 		e.stackRun = stackRun
 	}

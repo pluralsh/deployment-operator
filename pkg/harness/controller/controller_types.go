@@ -8,7 +8,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	v12 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 )
 
@@ -35,7 +35,7 @@ type stackRunController struct {
 	stackRunStepTimeout time.Duration
 
 	// stackRun
-	stackRun *stackrun.StackRun
+	stackRun *v12.StackRun
 
 	// consoleClient
 	consoleClient console.Client

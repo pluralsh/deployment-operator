@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
 type Executable interface {
@@ -41,7 +41,7 @@ type executable struct {
 	logSink io.WriteCloser
 
 	// hookFunctions ...
-	hookFunctions map[stackrun.Lifecycle]stackrun.HookFunction
+	hookFunctions map[v1.Lifecycle]v1.HookFunction
 }
 
 type Option func(*executable)

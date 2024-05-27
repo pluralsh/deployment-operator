@@ -12,6 +12,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -71,7 +72,7 @@ func (in *stackRunController) postStepRun(id string, err error) {
 
 // postExecHook is a callback function started by the exec.Executable after it finishes.
 // It differs from the
-func (in *stackRunController) postExecHook(stage gqlclient.StepStage) stackrun.HookFunction {
+func (in *stackRunController) postExecHook(stage gqlclient.StepStage) v1.HookFunction {
 	return func() error {
 		if stage != gqlclient.StepStagePlan {
 			return nil
@@ -81,7 +82,7 @@ func (in *stackRunController) postExecHook(stage gqlclient.StepStage) stackrun.H
 	}
 }
 
-func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) stackrun.HookFunction {
+func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) v1.HookFunction {
 	return func() error {
 		if stage == gqlclient.StepStageApply {
 			if err := in.approvalCheck(); err != nil {

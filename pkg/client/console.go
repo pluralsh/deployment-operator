@@ -9,7 +9,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
 var lock = &sync.Mutex{}
@@ -69,7 +69,7 @@ type Client interface {
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
-	GetStackRunBase(id string) (*stackrun.StackRun, error)
+	GetStackRunBase(id string) (*v1.StackRun, error)
 	GetStackRun(id string) (*console.StackRunFragment, error)
 	AddStackRunLogs(id, logs string) error
 	CompleteStackRun(id string, attributes console.StackRunAttributes) error

@@ -1,4 +1,4 @@
-package stackrun
+package v1
 
 import (
 	"fmt"

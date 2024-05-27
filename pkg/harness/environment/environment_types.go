@@ -2,7 +2,7 @@ package environment
 
 import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
 // Environment is responsible for handling harness working directory.
@@ -23,7 +23,7 @@ type environment struct {
 	// execution of the stack run. For example, it provides
 	// URL of the tarball with mandatory files needed to run
 	// stack run step commands.
-	stackRun *stackrun.StackRun
+	stackRun *v1.StackRun
 	// dir is a working directory where all files/directories
 	// are being created.
 	dir string

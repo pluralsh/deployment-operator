@@ -14,7 +14,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -123,8 +123,8 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
 		exec.WithLogSink(consoleWriter),
-		exec.WithHook(stackrun.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
-		exec.WithHook(stackrun.LifecyclePostStart, in.postExecHook(step.Stage)),
+		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
+		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
 	)
 }
 
