@@ -38,7 +38,7 @@ func (in *environment) prepareFiles() error {
 	}
 
 	for _, fragment := range in.stackRun.Files {
-		destination := path.Join(in.dir, fragment.Path)
+		destination := path.Join(in.filesDir, fragment.Path)
 		if err := helpers.File().Create(destination, fragment.Content); err != nil {
 			klog.ErrorS(err, "failed preparing files", "path", destination)
 			return err
@@ -58,6 +58,10 @@ func (in *environment) init() Environment {
 
 	if len(in.dir) != 0 {
 		helpers.EnsureDirOrDie(in.dir)
+	}
+
+	if len(in.filesDir) == 0 {
+		in.filesDir = in.dir
 	}
 
 	return in

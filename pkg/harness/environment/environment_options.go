@@ -12,6 +12,13 @@ func WithWorkingDir(dir string) Option {
 	}
 }
 
+// WithFilesDir allow changing the default path where all additional files are being created.
+func WithFilesDir(dir string) Option {
+	return func(e *environment) {
+		e.filesDir = dir
+	}
+}
+
 // WithFetchClient allows configuring helpers.FetchClient used by the Environment
 // to download files.
 func WithFetchClient(client helpers.FetchClient) Option {

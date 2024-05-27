@@ -185,6 +185,7 @@ func (in *stackRunController) prepare() error {
 	env := environment.New(
 		environment.WithStackRun(in.stackRun),
 		environment.WithWorkingDir(in.dir),
+		environment.WithFilesDir(in.execWorkDir()),
 		environment.WithFetchClient(in.fetchClient),
 	)
 
