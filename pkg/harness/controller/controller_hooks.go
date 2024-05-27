@@ -64,12 +64,6 @@ func (in *stackRunController) postStepRun(id string, err error) {
 	}
 }
 
-func (in *stackRunController) preStepRun(id string) {
-	if err := in.markStackRunStep(id, gqlclient.StepStatusRunning); err != nil {
-		klog.ErrorS(err, "could not update stack run status")
-	}
-}
-
 func (in *stackRunController) postExecHook(stage gqlclient.StepStage, id string) stackrun.HookFunction {
 	return func() error {
 		if stage != gqlclient.StepStagePlan {

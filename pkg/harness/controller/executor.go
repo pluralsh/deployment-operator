@@ -109,9 +109,9 @@ func (in *executor) run(ctx context.Context, executable exec.Executable) (retErr
 
 func newExecutor(errChan chan error, finishedChan chan struct{}, options ...ExecutorOption) *executor {
 	result := &executor{
-		errChan:       errChan,
-		finishedChan:  finishedChan,
-		strategy:      ExecutionStrategyOrdered,
+		errChan:      errChan,
+		finishedChan: finishedChan,
+		strategy:     ExecutionStrategyOrdered,
 	}
 
 	for _, option := range options {
