@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"sync"
 
@@ -41,18 +40,18 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	in.preStart()
 
 	if err := in.prepare(); err != nil {
-		return err
+		return in.postStart(err)
 	}
 
 	// Add executables to executor
 	for _, e := range in.executables(ctx) {
 		if err := in.executor.Add(e); err != nil {
-			return err
+			return in.postStart(err)
 		}
 	}
 
 	if err := in.executor.Start(ctx); err != nil {
-		return fmt.Errorf("could not start executor: %w", err)
+		return in.postStart(fmt.Errorf("could not start executor: %w", err))
 	}
 
 	ready = true
@@ -77,14 +76,6 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	klog.V(log.LogLevelVerbose).InfoS("all subroutines finished")
 
 	return in.postStart(retErr)
-}
-
-func (in *stackRunController) Finish(stackRunErr error) error {
-	if stackRunErr == nil {
-		return nil
-	}
-
-	return in.completeStackRun(gqlclient.StackStatusFailed, stackRunErr)
 }
 
 func (in *stackRunController) executables(ctx context.Context) []exec.Executable {
@@ -127,7 +118,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 
 	return exec.NewExecutable(
 		step.Cmd,
-		exec.WithDir(in.workdir()),
+		exec.WithDir(in.dir),
 		exec.WithEnv(in.stackRun.Env()),
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
@@ -135,14 +126,6 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithHook(stackrun.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
 		exec.WithHook(stackrun.LifecyclePostStart, in.postExecHook(step.Stage, step.ID)),
 	)
-}
-
-func (in *stackRunController) workdir() string {
-	if in.stackRun.Workdir != nil {
-		return filepath.Join(in.dir, *in.stackRun.Workdir)
-	}
-
-	return in.dir
 }
 
 func (in *stackRunController) markStackRun(status gqlclient.StackStatus) error {
@@ -232,7 +215,6 @@ func NewStackRunController(options ...Option) (Controller, error) {
 	ctrl.executor = newExecutor(
 		errChan,
 		finishedChan,
-		//WithPreRunFunc(ctrl.preStepRun),
 		WithPostRunFunc(ctrl.postStepRun),
 	)
 

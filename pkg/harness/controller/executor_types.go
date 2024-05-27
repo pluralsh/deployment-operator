@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 )
 
 type executor struct {
@@ -37,14 +36,6 @@ type executor struct {
 	// ExecutionStrategyOrdered  - will run executables one by one and wait
 	// 							   for the previous one to finish first.
 	strategy ExecutionStrategy
-
-	// ch is the internal channel where the executables are read off from.
-	// It is used only by the ExecutionStrategyOrdered to ensure ordered
-	// run of the executables.
-	ch chan exec.Executable
-
-	// hookFunctions ...
-	hookFunctions map[stackrun.Lifecycle]stackrun.HookFunction
 }
 
 type ExecutorOption func(*executor)

@@ -43,14 +43,11 @@ func main() {
 	}
 
 	if err = ctrl.Start(ctx); err != nil {
-		ctrl.Finish(err)
 		handleFatalError(err)
 	}
 }
 
 func handleFatalError(err error) {
-	// TODO: initiate a graceful shutdown procedure
-
 	switch {
 	case errors.Is(err, internalerrors.ErrTimeout):
 		klog.ErrorS(err, "timed out waiting for stack run to complete", "timeout", args.Timeout())
