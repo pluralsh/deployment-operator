@@ -103,6 +103,10 @@ func (in *stackRunController) approvalCheck() error {
 		return nil
 	}
 
+	if err := stackrun.MarkStackRun(in.consoleClient, in.stackRunID, gqlclient.StackStatusPendingApproval); err != nil {
+		klog.ErrorS(err, "could not update stack run status")
+	}
+
 	klog.V(log.LogLevelInfo).InfoS("waiting for approval to proceed")
 	return wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(_ context.Context) (done bool, err error) {
 		if runApproved {
