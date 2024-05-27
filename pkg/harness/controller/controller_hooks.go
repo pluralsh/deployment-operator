@@ -102,7 +102,7 @@ func (in *stackRunController) requiresApproval() bool {
 
 func (in *stackRunController) waitForApproval() {
 	// Retry here to make sure that the pending approval status will be set before we start waiting.
-	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusPendingApproval, 5 * time.Second)
+	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusPendingApproval, 5*time.Second)
 
 	klog.V(log.LogLevelInfo).InfoS("waiting for approval to proceed")
 	// Condition function never returns error. We can ignore it.
@@ -122,7 +122,7 @@ func (in *stackRunController) waitForApproval() {
 	})
 
 	// Retry here to make sure that we resume the stack run status to running after it has been approved.
-	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusRunning, 5 * time.Second)
+	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusRunning, 5*time.Second)
 }
 
 func (in *stackRunController) uploadPlan() error {
