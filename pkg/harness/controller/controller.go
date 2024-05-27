@@ -124,20 +124,8 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithID(step.ID),
 		exec.WithLogSink(consoleWriter),
 		exec.WithHook(stackrun.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
-		exec.WithHook(stackrun.LifecyclePostStart, in.postExecHook(step.Stage, step.ID)),
+		exec.WithHook(stackrun.LifecyclePostStart, in.postExecHook(step.Stage)),
 	)
-}
-
-func (in *stackRunController) markStackRun(status gqlclient.StackStatus) error {
-	return in.consoleClient.UpdateStackRun(in.stackRunID, gqlclient.StackRunAttributes{
-		Status: status,
-	})
-}
-
-func (in *stackRunController) markStackRunStep(id string, status gqlclient.StepStatus) error {
-	return in.consoleClient.UpdateStackRunStep(id, gqlclient.RunStepAttributes{
-		Status: status,
-	})
 }
 
 func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, stackRunErr error) error {
@@ -215,7 +203,6 @@ func NewStackRunController(options ...Option) (Controller, error) {
 	ctrl.executor = newExecutor(
 		errChan,
 		finishedChan,
-		//WithPreRunFunc(ctrl.preStepRun),
 		WithPostRunFunc(ctrl.postStepRun),
 	)
 
