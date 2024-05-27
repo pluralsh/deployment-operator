@@ -8,11 +8,11 @@ import (
 
 	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/errors"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func (c *client) GetStackRunBase(id string) (result *stackrun.StackRun, err error) {
+func (c *client) GetStackRunBase(id string) (result *v1.StackRun, err error) {
 	stackRun, err := c.consoleClient.GetStackRunBase(c.ctx, id)
 	if err != nil && !internalerrors.IsNotFound(err) {
 		return nil, err

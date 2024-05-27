@@ -2,6 +2,7 @@ package terraform
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/pluralsh/polly/algorithms"
 
@@ -33,13 +34,17 @@ func NewPlanModifier(planFileName string) *PlanModifier {
 }
 
 func (in *ApplyModifier) Args(args []string) []string {
-	if !helpers.IsExists(in.planFileName) {
+	if !helpers.IsExists(path.Join(in.dir, in.planFileName)) ||
+		// This is to avoid doubling plan file arg if API already adds it
+		algorithms.Index(args, func(a string) bool {
+			return a == in.planFileName
+		}) >= 0 {
 		return args
 	}
 
-	return append(args, fmt.Sprintf(in.planFileName))
+	return append(args, in.planFileName)
 }
 
-func NewApplyModifier(planFileName string) *ApplyModifier {
-	return &ApplyModifier{planFileName}
+func NewApplyModifier(dir, planFileName string) *ApplyModifier {
+	return &ApplyModifier{planFileName, dir}
 }

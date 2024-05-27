@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"path"
 	"slices"
 	"sync"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -78,6 +79,14 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	return in.postStart(retErr)
 }
 
+func (in *stackRunController) Finish(stackRunErr error) error {
+	if stackRunErr == nil {
+		return nil
+	}
+
+	return in.postStart(stackRunErr)
+}
+
 func (in *stackRunController) executables(ctx context.Context) []exec.Executable {
 	// Ensure that steps are sorted in the correct order
 	slices.SortFunc(in.stackRun.Steps, func(s1, s2 *gqlclient.RunStepFragment) int {
@@ -118,42 +127,36 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 
 	return exec.NewExecutable(
 		step.Cmd,
-		exec.WithDir(in.dir),
+		exec.WithDir(in.execWorkDir()),
 		exec.WithEnv(in.stackRun.Env()),
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
 		exec.WithLogSink(consoleWriter),
-		exec.WithHook(stackrun.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
-		exec.WithHook(stackrun.LifecyclePostStart, in.postExecHook(step.Stage, step.ID)),
+		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
+		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
 	)
 }
 
-func (in *stackRunController) markStackRun(status gqlclient.StackStatus) error {
-	return in.consoleClient.UpdateStackRun(in.stackRunID, gqlclient.StackRunAttributes{
-		Status: status,
-	})
-}
-
-func (in *stackRunController) markStackRunStep(id string, status gqlclient.StepStatus) error {
-	return in.consoleClient.UpdateStackRunStep(id, gqlclient.RunStepAttributes{
-		Status: status,
-	})
-}
-
 func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, stackRunErr error) error {
-	state, err := in.tool.State()
-	if err != nil {
-		klog.ErrorS(err, "could not prepare state attributes")
+	var state *gqlclient.StackStateAttributes
+	var output []*gqlclient.StackOutputAttributes
+	var err error
+
+	if in.tool != nil {
+		state, err = in.tool.State()
+		if err != nil {
+			klog.ErrorS(err, "could not prepare state attributes")
+		}
+
+		klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
+
+		output, err = in.tool.Output()
+		if err != nil {
+			klog.ErrorS(err, "could not prepare output attributes")
+		}
+
+		klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
 	}
-
-	klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
-
-	output, err := in.tool.Output()
-	if err != nil {
-		klog.ErrorS(err, "could not prepare output attributes")
-	}
-
-	klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
 
 	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
 	if stackRunErr != nil {
@@ -170,16 +173,29 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	})
 }
 
+func (in *stackRunController) execWorkDir() string {
+	if in.stackRun.ExecWorkDir != nil && len(*in.stackRun.ExecWorkDir) > 0 {
+		return path.Join(in.dir, *in.stackRun.ExecWorkDir)
+	}
+
+	return in.dir
+}
+
 func (in *stackRunController) prepare() error {
 	env := environment.New(
 		environment.WithStackRun(in.stackRun),
 		environment.WithWorkingDir(in.dir),
+		environment.WithFilesDir(in.execWorkDir()),
 		environment.WithFetchClient(in.fetchClient),
 	)
 
-	in.tool = tool.New(in.stackRun.Type, in.dir)
+	if err := env.Setup(); err != nil {
+		return err
+	}
 
-	return env.Setup()
+	in.tool = tool.New(in.stackRun.Type, in.execWorkDir())
+
+	return nil
 }
 
 func (in *stackRunController) init() (Controller, error) {
@@ -215,7 +231,6 @@ func NewStackRunController(options ...Option) (Controller, error) {
 	ctrl.executor = newExecutor(
 		errChan,
 		finishedChan,
-		//WithPreRunFunc(ctrl.preStepRun),
 		WithPostRunFunc(ctrl.postStepRun),
 	)
 

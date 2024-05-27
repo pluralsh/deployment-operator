@@ -3,7 +3,7 @@ package exec
 import (
 	"io"
 
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
 func WithDir(workingDirectory string) Option {
@@ -36,7 +36,7 @@ func WithID(id string) Option {
 	}
 }
 
-func WithHook(lifecycle stackrun.Lifecycle, fn stackrun.HookFunction) Option {
+func WithHook(lifecycle v1.Lifecycle, fn v1.HookFunction) Option {
 	return func(e *executable) {
 		e.hookFunctions[lifecycle] = fn
 	}

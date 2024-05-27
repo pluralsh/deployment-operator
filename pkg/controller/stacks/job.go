@@ -102,6 +102,7 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 	jobSpec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 
 	jobSpec.BackoffLimit = lo.ToPtr(int32(0))
+	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(int32(60 * 60))
 
 	jobSpec.Template.Spec.Containers = r.ensureDefaultContainer(jobSpec.Template.Spec.Containers, run)
 

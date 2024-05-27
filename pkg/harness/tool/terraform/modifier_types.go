@@ -13,4 +13,7 @@ type PlanModifier struct {
 type ApplyModifier struct {
 	// planFileName
 	planFileName string
+
+	// dir
+	dir string
 }

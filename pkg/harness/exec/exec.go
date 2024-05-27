@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -38,7 +38,7 @@ func (in *executable) Run(ctx context.Context) error {
 		cmd.Dir = in.workingDirectory
 	}
 
-	if err := in.runLifecycleFunction(stackrun.LifecyclePreStart); err != nil {
+	if err := in.runLifecycleFunction(v1.LifecyclePreStart); err != nil {
 		return err
 	}
 
@@ -47,7 +47,7 @@ func (in *executable) Run(ctx context.Context) error {
 		return err
 	}
 
-	return in.runLifecycleFunction(stackrun.LifecyclePostStart)
+	return in.runLifecycleFunction(v1.LifecyclePostStart)
 }
 
 func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
@@ -96,7 +96,7 @@ func (in *executable) close(w io.WriteCloser) {
 	}
 }
 
-func (in *executable) runLifecycleFunction(lifecycle stackrun.Lifecycle) error {
+func (in *executable) runLifecycleFunction(lifecycle v1.Lifecycle) error {
 	if fn, exists := in.hookFunctions[lifecycle]; exists {
 		return fn()
 	}
@@ -109,7 +109,7 @@ func NewExecutable(command string, options ...Option) Executable {
 		command:       command,
 		args:          make([]string, 0),
 		env:           make([]string, 0),
-		hookFunctions: make(map[stackrun.Lifecycle]stackrun.HookFunction),
+		hookFunctions: make(map[v1.Lifecycle]v1.HookFunction),
 	}
 
 	for _, o := range options {

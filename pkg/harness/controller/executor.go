@@ -8,7 +8,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -51,32 +50,15 @@ func (in *executor) ordered(ctx context.Context) {
 
 	klog.V(log.LogLevelDebug).InfoS("starting executables in order", "queue", len(in.startQueue))
 
-	go func() {
-		// Queue up all executables for execution
-		for _, executable := range in.startQueue {
-			in.ch <- executable
-		}
-	}()
-
 	// Read executables and run them in order
 	go func() {
-		for {
-			// Get executable from the queue
-			executable := <-in.ch
-
-			// Run the executable and wait for it to finish
+		for _, executable := range in.startQueue {
 			if err := in.run(ctx, executable); err != nil {
 				in.errChan <- err
-				break
-			}
-
-			if empty := in.dequeue(executable); empty {
-				// We are finished when execution queue is empty.
-				// Send finish signal and return.
-				close(in.finishedChan)
 				return
 			}
 		}
+		close(in.finishedChan)
 	}()
 }
 
@@ -110,56 +92,26 @@ func (in *executor) parallel(ctx context.Context) {
 }
 
 func (in *executor) run(ctx context.Context, executable exec.Executable) (retErr error) {
-	in.preRun(executable.ID())
+	if in.preRunFunc != nil {
+		in.preRunFunc(executable.ID())
+	}
 
 	if err := executable.Run(ctx); err != nil {
 		retErr = fmt.Errorf("command execution failed: %s: err: %w", executable.Command(), err)
 	}
 
-	return in.postRun(executable.ID(), retErr)
-}
-
-func (in *executor) preRun(id string) {
-	if in.preRunFunc != nil {
-		in.preRunFunc(id)
-	}
-}
-
-func (in *executor) postRun(id string, err error) error {
 	if in.postRunFunc != nil {
-		in.postRunFunc(id, err)
+		in.postRunFunc(executable.ID(), retErr)
 	}
 
-	return err
-}
-
-func (in *executor) dequeue(executable exec.Executable) (empty bool) {
-	for i, existing := range in.startQueue {
-		if existing == executable {
-			// Remove the item from the start queue.
-			in.startQueue = append(in.startQueue[:i], in.startQueue[i+1:]...)
-			break
-		}
-	}
-
-	return len(in.startQueue) == 0
-}
-
-func (in *executor) runLifecycleFunction(lifecycle stackrun.Lifecycle) error {
-	if fn, exists := in.hookFunctions[lifecycle]; exists {
-		return fn()
-	}
-
-	return nil
+	return retErr
 }
 
 func newExecutor(errChan chan error, finishedChan chan struct{}, options ...ExecutorOption) *executor {
 	result := &executor{
-		errChan:       errChan,
-		finishedChan:  finishedChan,
-		strategy:      ExecutionStrategyOrdered,
-		ch:            make(chan exec.Executable),
-		hookFunctions: make(map[stackrun.Lifecycle]stackrun.HookFunction),
+		errChan:      errChan,
+		finishedChan: finishedChan,
+		strategy:     ExecutionStrategyOrdered,
 	}
 
 	for _, option := range options {
