@@ -51,32 +51,15 @@ func (in *executor) ordered(ctx context.Context) {
 
 	klog.V(log.LogLevelDebug).InfoS("starting executables in order", "queue", len(in.startQueue))
 
-	go func() {
-		// Queue up all executables for execution
-		for _, executable := range in.startQueue {
-			in.ch <- executable
-		}
-	}()
-
 	// Read executables and run them in order
 	go func() {
-		for {
-			// Get executable from the queue
-			executable := <-in.ch
-
-			// Run the executable and wait for it to finish
+		for _, executable := range in.startQueue {
 			if err := in.run(ctx, executable); err != nil {
 				in.errChan <- err
 				return
 			}
-
-			if empty := in.dequeue(executable); empty {
-				// We are finished when execution queue is empty.
-				// Send finish signal and return.
-				close(in.finishedChan)
-				return
-			}
 		}
+		close(in.finishedChan)
 	}()
 }
 
@@ -127,18 +110,6 @@ func (in *executor) preRun(id string) {
 	if in.preRunFunc != nil {
 		in.preRunFunc(id)
 	}
-}
-
-func (in *executor) dequeue(executable exec.Executable) (empty bool) {
-	for i, existing := range in.startQueue {
-		if existing == executable {
-			// Remove the item from the start queue.
-			in.startQueue = append(in.startQueue[:i], in.startQueue[i+1:]...)
-			break
-		}
-	}
-
-	return len(in.startQueue) == 0
 }
 
 func (in *executor) runLifecycleFunction(lifecycle stackrun.Lifecycle) error {

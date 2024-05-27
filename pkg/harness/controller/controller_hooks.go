@@ -83,6 +83,7 @@ func (in *stackRunController) postExecHook(stage gqlclient.StepStage, id string)
 func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) stackrun.HookFunction {
 	return func() error {
 		if stage == gqlclient.StepStageApply {
+			in.markStackRun(gqlclient.StackStatusPendingApproval)
 			if err := in.approvalCheck(); err != nil {
 				return err
 			}
