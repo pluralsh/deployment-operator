@@ -8,7 +8,7 @@ import (
 
 	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/errors"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 

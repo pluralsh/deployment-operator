@@ -14,7 +14,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )

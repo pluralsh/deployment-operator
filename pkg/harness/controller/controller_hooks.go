@@ -12,7 +12,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
 type Executable interface {

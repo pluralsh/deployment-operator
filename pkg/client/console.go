@@ -9,7 +9,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
 var lock = &sync.Mutex{}
