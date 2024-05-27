@@ -49,4 +49,6 @@ COPY --chown=nonroot --from=environment /bin/sh /bin/sh
 COPY --chown=nonroot --from=environment /bin/sleep /bin/sleep
 COPY --from=builder /plural/harness /harness
 
-ENTRYPOINT ["/harness", "--working-dir=plural"]
+WORKDIR /plural
+
+ENTRYPOINT ["/harness", "--working-dir=/plural"]
