@@ -84,7 +84,7 @@ func (in *stackRunController) Finish(stackRunErr error) error {
 		return nil
 	}
 
-	return in.completeStackRun(gqlclient.StackStatusFailed, stackRunErr)
+	return in.postStart(stackRunErr)
 }
 
 func (in *stackRunController) executables(ctx context.Context) []exec.Executable {
