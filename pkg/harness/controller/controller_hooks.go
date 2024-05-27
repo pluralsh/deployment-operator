@@ -19,16 +19,18 @@ var (
 	runApproved = false
 )
 
+// preStart function is executed before stack run steps.
 func (in *stackRunController) preStart() {
 	if in.stackRun.Status != gqlclient.StackStatusPending && !environment.IsDev() {
 		klog.Fatalf("could not start stack run: invalid status: %s", in.stackRun.Status)
 	}
 
-	if err := in.markStackRun(gqlclient.StackStatusRunning); err != nil {
+	if err := stackrun.StartStackRun(in.consoleClient, in.stackRunID); err != nil {
 		klog.ErrorS(err, "could not update stack run status")
 	}
 }
 
+// postStart function is executed after all stack run steps.
 func (in *stackRunController) postStart(err error) error {
 	var status gqlclient.StackStatus
 
@@ -49,6 +51,9 @@ func (in *stackRunController) postStart(err error) error {
 	return err
 }
 
+// postStepRun is a callback function started by the executor after executable finishes.
+// It provides the information about run step that was executed and if it exited with error
+// or not.
 func (in *stackRunController) postStepRun(id string, err error) {
 	var status gqlclient.StepStatus
 
@@ -59,12 +64,14 @@ func (in *stackRunController) postStepRun(id string, err error) {
 		status = gqlclient.StepStatusFailed
 	}
 
-	if err := in.markStackRunStep(id, status); err != nil {
+	if err := stackrun.MarkStackRunStep(in.consoleClient, id, status); err != nil {
 		klog.ErrorS(err, "could not update stack run step status")
 	}
 }
 
-func (in *stackRunController) postExecHook(stage gqlclient.StepStage, id string) stackrun.HookFunction {
+// postExecHook is a callback function started by the exec.Executable after it finishes.
+// It differs from the
+func (in *stackRunController) postExecHook(stage gqlclient.StepStage) stackrun.HookFunction {
 	return func() error {
 		if stage != gqlclient.StepStagePlan {
 			return nil
@@ -82,9 +89,10 @@ func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) 
 			}
 		}
 
-		if err := in.markStackRunStep(id, gqlclient.StepStatusRunning); err != nil {
+		if err := stackrun.StartStackRunStep(in.consoleClient, id); err != nil {
 			klog.ErrorS(err, "could not update stack run status")
 		}
+
 		return nil
 	}
 }
@@ -94,6 +102,7 @@ func (in *stackRunController) approvalCheck() error {
 		return nil
 	}
 
+	klog.V(log.LogLevelInfo).InfoS("waiting for approval to proceed")
 	return wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(_ context.Context) (done bool, err error) {
 		if runApproved {
 			return true, nil

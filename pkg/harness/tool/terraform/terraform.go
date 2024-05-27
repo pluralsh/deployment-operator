@@ -73,7 +73,7 @@ func (in *Terraform) Modifier(stage console.StepStage) v1.Modifier {
 	case console.StepStagePlan:
 		return NewPlanModifier(in.planFileName)
 	case console.StepStageApply:
-		return NewApplyModifier(in.planFileName)
+		return NewApplyModifier(in.dir, in.planFileName)
 	}
 
 	return v1.NewProxyModifier()
