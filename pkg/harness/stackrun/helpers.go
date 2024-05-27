@@ -1,7 +1,12 @@
 package stackrun
 
 import (
+	"context"
+	"time"
+
 	gqlclient "github.com/pluralsh/console-client-go"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
@@ -9,6 +14,19 @@ import (
 func MarkStackRun(client console.Client, id string, status gqlclient.StackStatus) error {
 	return client.UpdateStackRun(id, gqlclient.StackRunAttributes{
 		Status: status,
+	})
+}
+
+func MarkStackRunWithRetry(client console.Client, id string, status gqlclient.StackStatus, interval time.Duration) {
+	// Ignore error since we never return it from the condition function.
+	_ = wait.PollUntilContextCancel(context.Background(), interval, true, func(ctx context.Context) (done bool, err error) {
+		err = MarkStackRun(client, id, status)
+		if err != nil {
+			klog.Errorf("stack run update failed: %v", err)
+			return false, nil
+		}
+
+		return true, nil
 	})
 }
 

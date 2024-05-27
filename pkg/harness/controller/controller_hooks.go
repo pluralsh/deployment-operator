@@ -85,9 +85,7 @@ func (in *stackRunController) postExecHook(stage gqlclient.StepStage) v1.HookFun
 func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) v1.HookFunction {
 	return func() error {
 		if stage == gqlclient.StepStageApply {
-			if err := in.approvalCheck(); err != nil {
-				return err
-			}
+			in.approvalCheck()
 		}
 
 		if err := stackrun.StartStackRunStep(in.consoleClient, id); err != nil {
@@ -98,17 +96,17 @@ func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) 
 	}
 }
 
-func (in *stackRunController) approvalCheck() error {
+func (in *stackRunController) approvalCheck() {
 	if !in.stackRun.Approval || runApproved {
-		return nil
+		return
 	}
 
-	if err := stackrun.MarkStackRun(in.consoleClient, in.stackRunID, gqlclient.StackStatusPendingApproval); err != nil {
-		klog.ErrorS(err, "could not update stack run status")
-	}
+	// Retry here to make sure that the pending approval status will be set before we start waiting.
+	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusPendingApproval, 5 * time.Second)
 
 	klog.V(log.LogLevelInfo).InfoS("waiting for approval to proceed")
-	return wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(_ context.Context) (done bool, err error) {
+	// Condition function never returns error. We can ignore it.
+	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(_ context.Context) (done bool, err error) {
 		if runApproved {
 			return true, nil
 		}
@@ -122,6 +120,9 @@ func (in *stackRunController) approvalCheck() error {
 		runApproved = stack.ApprovedAt != nil
 		return runApproved, nil
 	})
+
+	// Retry here to make sure that we resume the stack run status to running after it has been approved.
+	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusRunning, 5 * time.Second)
 }
 
 func (in *stackRunController) uploadPlan() error {
