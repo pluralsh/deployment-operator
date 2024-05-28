@@ -1,8 +1,6 @@
 package environment
 
 import (
-	"path"
-
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
@@ -38,7 +36,7 @@ func (in *environment) prepareFiles() error {
 	}
 
 	for _, fragment := range in.stackRun.Files {
-		destination := path.Join(in.filesDir, fragment.Path)
+		destination := fragment.Path
 		if err := helpers.File().Create(destination, fragment.Content); err != nil {
 			klog.ErrorS(err, "failed preparing files", "path", destination)
 			return err

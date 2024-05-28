@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/samber/lo"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 )
@@ -20,9 +20,7 @@ func NewInitModifier() *InitModifier {
 
 // Args implements exec.ArgsModifier type.
 func (in *PlanModifier) Args(args []string) []string {
-	if algorithms.Index(args, func(a string) bool {
-		return a == "plan"
-	}) < 0 {
+	if !lo.Contains(args, "plan") {
 		return args
 	}
 
@@ -34,11 +32,11 @@ func NewPlanModifier(planFileName string) *PlanModifier {
 }
 
 func (in *ApplyModifier) Args(args []string) []string {
-	if !helpers.IsExists(path.Join(in.dir, in.planFileName)) ||
-		// This is to avoid doubling plan file arg if API already adds it
-		algorithms.Index(args, func(a string) bool {
-			return a == in.planFileName
-		}) >= 0 {
+	if !lo.Contains(args, "apply") {
+		return args
+	}
+
+	if !helpers.Exists(path.Join(in.dir, in.planFileName)) || lo.Contains(args, in.planFileName) {
 		return args
 	}
 
