@@ -108,6 +108,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 		return reconcile.Result{}, err
 	}
 
+	if stackRun.Status != console.StackStatusPending {
+		return reconcile.Result{}, nil
+	}
 	_, err = r.reconcileRunJob(ctx, stackRun)
 	return reconcile.Result{}, err
 }
