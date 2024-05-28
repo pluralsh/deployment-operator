@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
@@ -42,6 +43,7 @@ import (
 )
 
 const jobSelector = "stackrun.deployments.plural.sh"
+const jobTimout = time.Minute * 10
 
 // StackRunJobReconciler reconciles a Job resource.
 type StackRunJobReconciler struct {
@@ -72,15 +74,24 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Update step statuses, i.e., when stack run was successful or failed.
 	for _, step := range stackRun.Steps {
 		if update := r.getStepStatusUpdate(stackRun.Status, step.Status); update != nil {
-			err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{Status: *update})
-			return ctrl.Result{}, err
+			if err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{Status: *update}); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
 	// Exit if stack run is not in running state (run status already updated),
 	// or if the job is still running (harness controls run status).
 	if stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero() {
-		return ctrl.Result{}, nil
+		if isActiveJobTimout(stackRun.Status, job) {
+			logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
+			err := r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
+				Status: console.StackStatusFailed,
+			})
+
+			return ctrl.Result{}, err
+		}
+		return requeue, nil
 	}
 
 	if hasSucceeded(job) {
@@ -176,6 +187,13 @@ func getExitCodeStatus(exitCode int32) console.StackStatus {
 
 func getStackRunID(job *batchv1.Job) string {
 	return strings.TrimPrefix(job.Name, "stack-")
+}
+
+func isActiveJobTimout(stackStatus console.StackStatus, job *batchv1.Job) bool {
+	if stackStatus == console.StackStatusPending && job.Status.CompletionTime.IsZero() && !job.Status.StartTime.IsZero() {
+		return time.Now().After(job.Status.StartTime.Add(jobTimout))
+	}
+	return false
 }
 
 // SetupWithManager sets up the controller with the Manager.
