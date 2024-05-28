@@ -22,28 +22,26 @@ import (
 	"strings"
 	"time"
 
+	console "github.com/pluralsh/console-client-go"
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/labels"
-
-	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
-
-	console "github.com/pluralsh/console-client-go"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/pluralsh/deployment-operator/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const jobSelector = "stackrun.deployments.plural.sh"
-const jobTimout = time.Minute * 10
+const jobTimout = time.Minute * 40
 
 // StackRunJobReconciler reconciles a Job resource.
 type StackRunJobReconciler struct {
@@ -71,24 +69,17 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	// Update step statuses, i.e., when stack run was successful or failed.
-	for _, step := range stackRun.Steps {
-		if update := r.getStepStatusUpdate(stackRun.Status, step.Status); update != nil {
-			if err := r.ConsoleClient.UpdateStackRunStep(step.ID, console.RunStepAttributes{Status: *update}); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
-
 	// Exit if stack run is not in running state (run status already updated),
 	// or if the job is still running (harness controls run status).
 	if stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero() {
 		if isActiveJobTimout(stackRun.Status, job) {
+			if err := r.killJob(ctx, job); err != nil {
+				return ctrl.Result{}, err
+			}
 			logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
 			err := r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
 				Status: console.StackStatusFailed,
 			})
-
 			return ctrl.Result{}, err
 		}
 		return requeue, nil
@@ -171,6 +162,21 @@ func (r *StackRunJobReconciler) getPodStatus(pod *corev1.Pod) (console.StackStat
 	}
 
 	return getExitCodeStatus(containerStatus.State.Terminated.ExitCode), nil
+}
+
+func (r *StackRunJobReconciler) killJob(ctx context.Context, job *batchv1.Job) error {
+	log := log.FromContext(ctx)
+	deletePolicy := metav1.DeletePropagationBackground // kill the job and its pods asap
+	if err := r.Delete(ctx, job, &k8sClient.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	}); err != nil {
+		if !apierrs.IsNotFound(err) {
+			return err
+		}
+		return nil
+	}
+	log.V(2).Info("Job killed successfully.", "JobName", job.Name, "Namespace", job.Namespace)
+	return nil
 }
 
 func getExitCodeStatus(exitCode int32) console.StackStatus {
