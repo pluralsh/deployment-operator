@@ -71,7 +71,7 @@ func EnsureFileOrDie(file string) string {
 	return f.Name()
 }
 
-func IsExists(file string) bool {
+func Exists(file string) bool {
 	_, err := os.Stat(file)
 	return err == nil
 }
