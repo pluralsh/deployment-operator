@@ -96,6 +96,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
 				ID:       stackRunId,
 				Approval: lo.ToPtr(false),
+				Status:   console.StackStatusPending,
 			}, nil)
 
 			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
@@ -109,6 +110,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			stackRun := &console.StackRunFragment{
 				ID:       stackRunId,
 				Approval: lo.ToPtr(false),
+				Status:   console.StackStatusPending,
 			}
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
@@ -146,6 +148,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 					Annotations:    map[string]any{"test": annotationsValue},
 					ServiceAccount: lo.ToPtr("test-sa"),
 				},
+				Status: console.StackStatusPending,
 			}
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
@@ -200,6 +203,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 					Namespace: "",
 					Raw:       lo.ToPtr(string(marshalledJobSpec)),
 				},
+				Status: console.StackStatusPending,
 			}
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)

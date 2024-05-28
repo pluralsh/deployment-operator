@@ -27,7 +27,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/polly/algorithms"
-	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -108,22 +107,6 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *StackRunJobReconciler) getStepStatusUpdate(stackStatus console.StackStatus, stepStatus console.StepStatus) *console.StepStatus {
-	if stepStatus != console.StepStatusPending && stepStatus != console.StepStatusRunning {
-		return nil
-	}
-
-	if stackStatus == console.StackStatusSuccessful {
-		return lo.ToPtr(console.StepStatusSuccessful)
-	}
-
-	if stackStatus == console.StackStatusFailed || stackStatus == console.StackStatusCancelled {
-		return lo.ToPtr(console.StepStatusFailed)
-	}
-
-	return nil
 }
 
 func (r *StackRunJobReconciler) getJobPodStatus(ctx context.Context, selector map[string]string) (console.StackStatus, error) {
