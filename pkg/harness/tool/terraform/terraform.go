@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/algorithms"
@@ -91,9 +90,13 @@ func (in *Terraform) resource(r v4.Resource) *console.StackStateResourceAttribut
 
 func (in *Terraform) state() (*v4.State, error) {
 	state := new(v4.State)
-	output, err := os.ReadFile(fmt.Sprintf("%s/%s", in.dir, in.stateFileName))
+	output, err := exec.NewExecutable(
+		"terraform",
+		exec.WithArgs([]string{"show", "-json"}),
+		exec.WithDir(in.dir),
+	).RunWithOutput(context.Background())
 	if err != nil {
-		return nil, err
+		return state, err
 	}
 
 	err = json.Unmarshal(output, state)
@@ -101,7 +104,7 @@ func (in *Terraform) state() (*v4.State, error) {
 		return nil, err
 	}
 
-	klog.V(log.LogLevelTrace).InfoS("terraform state file parsed successfully", "file", in.stateFileName, "state", state)
+	klog.V(log.LogLevelTrace).InfoS("terraform state read successfully", "state", state)
 	return state, nil
 }
 
@@ -120,9 +123,6 @@ func (in *Terraform) plan() (string, error) {
 }
 
 func (in *Terraform) init() *Terraform {
-	// TODO: Allow to override?
-	in.stateFileName = "terraform.tfstate"
-
 	// TODO: Allow to override?
 	in.planFileName = "terraform.tfplan"
 	helpers.EnsureFileOrDie(fmt.Sprintf("%s/%s", in.dir, "terraform.tfplan"))
