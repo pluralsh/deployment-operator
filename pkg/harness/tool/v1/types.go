@@ -21,6 +21,8 @@ type Tool interface {
 	// created by specific tool after all steps are finished running. It then
 	// transforms this information into gqlclient.StackOutputAttributes.
 	Output() ([]*console.StackOutputAttributes, error)
+	// ConfigureStateBackend ...
+	ConfigureStateBackend(actor, deployToken string, urls *console.StackRunBaseFragment_StateUrls) error
 	// Modifier returns specific modifier implementation based on the
 	// current step stage. Modifiers can for example alter arguments of the
 	// executable step command.

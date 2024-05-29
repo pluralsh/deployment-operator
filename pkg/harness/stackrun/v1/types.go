@@ -17,6 +17,9 @@ type StackRun struct {
 	ExecWorkDir *string
 	Approval    bool
 	ApprovedAt  *string
+	ManageState bool
+	User       *gqlclient.UserFragment
+	StateUrls   *gqlclient.StackRunBaseFragment_StateUrls
 }
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
@@ -31,6 +34,9 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		Approval:    fragment.Approval != nil && *fragment.Approval,
 		ApprovedAt:  fragment.ApprovedAt,
 		ExecWorkDir: fragment.Workdir,
+		ManageState: fragment.ManageState != nil && *fragment.ManageState,
+		User:       fragment.Actor,
+		StateUrls:   fragment.StateUrls,
 	}
 }
 
@@ -44,6 +50,14 @@ func (in *StackRun) Env() []string {
 	}
 
 	return result
+}
+
+func (in *StackRun) Actor() string {
+	if in.User == nil {
+		return ""
+	}
+
+	return in.User.Email
 }
 
 type Lifecycle string

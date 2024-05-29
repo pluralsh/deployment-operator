@@ -43,3 +43,9 @@ func WithStackRunStepTimeout(timeout time.Duration) Option {
 		s.stackRunStepTimeout = timeout
 	}
 }
+
+func WithConsoleToken(token string) Option {
+	return func(s *stackRunController) {
+		s.consoleToken = token
+	}
+}

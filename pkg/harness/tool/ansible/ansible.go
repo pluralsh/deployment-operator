@@ -26,6 +26,11 @@ func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
 	panic("implement me")
 }
 
+func (in *Ansible) ConfigureStateBackend(actor, deployToken string, urls *console.StackRunBaseFragment_StateUrls) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func New(dir string) *Ansible {
 	return &Ansible{dir: dir}
 }

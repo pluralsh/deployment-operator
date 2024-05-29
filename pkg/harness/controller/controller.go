@@ -38,11 +38,11 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 		}
 	}()
 
-	in.preStart()
-
 	if err := in.prepare(); err != nil {
 		return err
 	}
+
+	in.preStart()
 
 	// Add executables to executor
 	for _, e := range in.executables(ctx) {
