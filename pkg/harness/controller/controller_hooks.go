@@ -34,7 +34,7 @@ func (in *stackRunController) preStart() {
 		err := in.tool.ConfigureStateBackend(in.stackRun.Actor(), in.consoleToken, in.stackRun.StateUrls)
 		if err != nil {
 			// TODO: Should this be a fatal error?
-			klog.Fatalf("could not update stack run state: %v", err)
+			klog.Fatalf("could not configure state backend: %v", err)
 		}
 	}
 }
