@@ -64,6 +64,17 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 			logger.Error(err, "unable to create job")
 			return nil, err
 		}
+
+		if err := r.ConsoleClient.UpdateStackRun(run.ID, console.StackRunAttributes{
+			Status: run.Status,
+			JobRef: &console.NamespacedName{
+				Name:      job.Name,
+				Namespace: job.Namespace,
+			},
+		}); err != nil {
+			return nil, err
+		}
+
 		return job, nil
 	}
 	return foundJob, nil
