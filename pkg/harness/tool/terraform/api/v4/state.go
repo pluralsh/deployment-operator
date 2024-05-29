@@ -79,11 +79,5 @@ func (in Resource) Configuration() string {
 }
 
 func (in Resource) Links() []string {
-	links := make([]string, 0)
-
-	for _, link := range in.DependsOn {
-		links = append(links, link)
-	}
-
-	return links
+	return in.DependsOn
 }
