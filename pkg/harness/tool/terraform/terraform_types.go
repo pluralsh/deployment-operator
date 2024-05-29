@@ -8,8 +8,4 @@ type Terraform struct {
 	// planFileName is a terraform plan file name.
 	// Default: terraform.tfplan
 	planFileName string
-
-	// stateFileName is a terraform state file name.
-	// Default: terraform.tfstate
-	stateFileName string
 }
