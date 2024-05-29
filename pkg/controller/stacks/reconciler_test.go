@@ -115,6 +115,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
+			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
 			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
 
@@ -153,6 +154,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
+			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
 			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
 
@@ -208,7 +210,8 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
-
+			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
+			
 			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
 
 			_, err = reconciler.Reconcile(ctx, stackRunId)
