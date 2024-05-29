@@ -1,9 +1,5 @@
 package terraform
 
-import (
-	"embed"
-)
-
 // Terraform implements tool.Tool interface.
 type Terraform struct {
 	// dir is a working directory used by harness.
@@ -12,8 +8,5 @@ type Terraform struct {
 	// planFileName is a terraform plan file name.
 	// Default: terraform.tfplan
 	planFileName string
-
-	// overrideTemplate
-	overrideTemplate embed.FS
 }
 
