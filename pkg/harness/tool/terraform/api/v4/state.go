@@ -4,16 +4,32 @@ import (
 	"encoding/json"
 	"maps"
 
-	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/klog/v2"
 )
 
 // State represents a terraform state file structure.
 // Targets state file schema version 4.
 type State struct {
-	Version   string    `json:"terraform_version"`
-	Outputs   Outputs   `json:"outputs"`
-	Resources Resources `json:"resources"`
+	Version string `json:"terraform_version"`
+	Values  Values `json:"values"`
+}
+
+type Values struct {
+	Outputs    Outputs    `json:"outputs"`
+	RootModule RootModule `json:"root_module"`
+}
+
+type RootModule struct {
+	Resources    Resources    `json:"resources"`
+	ChildModules ChildModules `json:"child_modules"`
+}
+
+type ChildModules []ChildModule
+
+type ChildModule struct {
+	Address      string       `json:"address"`
+	Resources    Resources    `json:"resources"`
+	ChildModules ChildModules `json:"child_modules"`
 }
 
 type Outputs map[string]Output
@@ -41,25 +57,22 @@ func (in *Output) ValueString() string {
 type Resources []Resource
 
 type Resource struct {
-	Mode      string             `json:"mode"`
-	Type      string             `json:"type"`
-	Name      string             `json:"name"`
-	Provider  string             `json:"provider"`
-	Instances []ResourceInstance `json:"instances"`
+	Address         string                 `json:"address"`
+	Mode            string                 `json:"mode"`
+	Type            string                 `json:"type"`
+	Name            string                 `json:"name"`
+	Provider        string                 `json:"provider_name"`
+	SchemaVersion   int                    `json:"schema_version"`
+	Values          map[string]interface{} `json:"values"`
+	SensitiveValues map[string]interface{} `json:"sensitive_values"`
+	DependsOn       []string               `json:"depends_on"`
 }
 
 func (in Resource) Configuration() string {
 	configurationMap := make(map[string]interface{})
-	attributesList := algorithms.Map(
-		in.Instances,
-		func(i ResourceInstance) map[string]interface{} {
-			return i.Attributes
-		},
-	)
 
-	for _, attributes := range attributesList {
-		maps.Copy(configurationMap, attributes)
-	}
+	maps.Copy(configurationMap, in.Values)
+	maps.Copy(configurationMap, in.SensitiveValues)
 
 	configuration, _ := json.Marshal(configurationMap)
 	return string(configuration)
@@ -68,23 +81,9 @@ func (in Resource) Configuration() string {
 func (in Resource) Links() []string {
 	links := make([]string, 0)
 
-	for _, instance := range in.Instances {
-		links = append(links, instance.Dependencies...)
+	for _, link := range in.DependsOn {
+		links = append(links, link)
 	}
 
 	return links
-}
-
-type ResourceMode string
-
-const (
-	ResourceModeManaged ResourceMode = "managed"
-	ResourceModeData    ResourceMode = "data"
-)
-
-type ResourceInstances []ResourceInstance
-
-type ResourceInstance struct {
-	Attributes   map[string]interface{} `json:"attributes"`
-	Dependencies []string               `json:"dependencies"`
 }

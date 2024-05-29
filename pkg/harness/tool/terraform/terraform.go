@@ -26,7 +26,7 @@ func (in *Terraform) State() (*console.StackStateAttributes, error) {
 
 	return &console.StackStateAttributes{
 		State: algorithms.Map(
-			state.Resources,
+			state.Values.RootModule.Resources,
 			func(r v4.Resource) *console.StackStateResourceAttributes {
 				return in.resource(r)
 			}),
@@ -53,7 +53,7 @@ func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 		return nil, err
 	}
 
-	for k, v := range state.Outputs {
+	for k, v := range state.Values.Outputs {
 		result = append(result, &console.StackOutputAttributes{
 			Name:   k,
 			Value:  v.ValueString(),
@@ -80,7 +80,7 @@ func (in *Terraform) Modifier(stage console.StepStage) v1.Modifier {
 
 func (in *Terraform) resource(r v4.Resource) *console.StackStateResourceAttributes {
 	return &console.StackStateResourceAttributes{
-		Identifier:    r.Name,
+		Identifier:    r.Address,
 		Resource:      r.Type,
 		Name:          r.Name,
 		Configuration: lo.ToPtr(r.Configuration()),
