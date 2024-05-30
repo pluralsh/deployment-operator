@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	gqlclient "github.com/pluralsh/console-client-go"
+	"github.com/samber/lo"
 )
 
 type StackRun struct {
@@ -18,7 +19,7 @@ type StackRun struct {
 	Approval    bool
 	ApprovedAt  *string
 	ManageState bool
-	User       *gqlclient.UserFragment
+	Creds       *gqlclient.StackRunBaseFragment_PluralCreds
 	StateUrls   *gqlclient.StackRunBaseFragment_StateUrls
 }
 
@@ -35,29 +36,26 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		ApprovedAt:  fragment.ApprovedAt,
 		ExecWorkDir: fragment.Workdir,
 		ManageState: fragment.ManageState != nil && *fragment.ManageState,
-		User:       fragment.Actor,
+		Creds:       fragment.PluralCreds,
 		StateUrls:   fragment.StateUrls,
 	}
 }
 
 // Env parses the StackRun.Environment as a list of strings.
-// Each entry is of the form "key=value".
+// Each entry is of the form "key=value". Automatically adds Plural env vars if creds were configured.
 func (in *StackRun) Env() []string {
-	result := make([]string, len(in.Environment))
+	env := make([]string, len(in.Environment))
 
 	for i, e := range in.Environment {
-		result[i] = fmt.Sprintf("%s=%s", e.Name, e.Value)
+		env[i] = fmt.Sprintf("%s=%s", e.Name, e.Value)
 	}
 
-	return result
-}
-
-func (in *StackRun) Actor() string {
-	if in.User == nil {
-		return ""
+	if in.Creds != nil {
+		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_TOKEN=%s", lo.FromPtr(in.Creds.Token)))
+		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_URL=%s", lo.FromPtr(in.Creds.URL)))
 	}
 
-	return in.User.Email
+	return env
 }
 
 type Lifecycle string

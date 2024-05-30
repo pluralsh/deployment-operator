@@ -19,7 +19,7 @@ require (
 	github.com/open-policy-agent/gatekeeper/v3 v3.15.1
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console-client-go v0.5.12
+	github.com/pluralsh/console-client-go v0.5.13
 	github.com/pluralsh/controller-reconcile-helper v0.0.4
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.1.10

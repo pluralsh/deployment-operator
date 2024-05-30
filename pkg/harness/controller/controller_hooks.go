@@ -31,7 +31,7 @@ func (in *stackRunController) preStart() {
 	}
 
 	if in.stackRun.ManageState {
-		err := in.tool.ConfigureStateBackend(in.stackRun.Actor(), in.consoleToken, in.stackRun.StateUrls)
+		err := in.tool.ConfigureStateBackend("harness", in.consoleToken, in.stackRun.StateUrls)
 		if err != nil {
 			// TODO: Should this be a fatal error?
 			klog.Fatalf("could not configure state backend: %v", err)
