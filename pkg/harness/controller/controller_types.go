@@ -41,6 +41,9 @@ type stackRunController struct {
 	// consoleClient
 	consoleClient console.Client
 
+	// consoleToken
+	consoleToken string
+
 	// fetchClient
 	fetchClient helpers.FetchClient
 

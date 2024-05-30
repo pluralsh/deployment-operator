@@ -29,6 +29,14 @@ func (in *stackRunController) preStart() {
 	if err := stackrun.StartStackRun(in.consoleClient, in.stackRunID); err != nil {
 		klog.ErrorS(err, "could not update stack run status")
 	}
+
+	if in.stackRun.ManageState {
+		err := in.tool.ConfigureStateBackend("harness", in.consoleToken, in.stackRun.StateUrls)
+		if err != nil {
+			// TODO: Should this be a fatal error?
+			klog.Fatalf("could not configure state backend: %v", err)
+		}
+	}
 }
 
 // postStart function is executed after all stack run steps.

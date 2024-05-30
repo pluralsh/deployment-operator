@@ -97,6 +97,29 @@ jobs:
     needs: [publish-harness-base]
     env:
       TERRAFORM_VERSION: 1.8.2
+    strategy:
+      matrix:
+        versions:
+        - full: 1.8.2
+          tag: 1.8.2
+        - full: 1.8.2
+          tag: "1.8"
+        - full: 1.7.5
+          tag: '1.7'
+        - full: 1.6.6
+          tag: '1.6'
+        - full: 1.5.7
+          tag: '1.5'
+        - full: 1.4.7
+          tag: '1.4'
+        - full: 1.3.10
+          tag: '1.3'
+        - full: 1.2.9
+          tag: '1.2'
+        - full: 1.1.9
+          tag: '1.1'
+        - full: 1.0.11
+          tag: '1.0'
     permissions:
       contents: write
       discussions: write
@@ -116,9 +139,9 @@ jobs:
             ghcr.io/pluralsh/harness
             docker.io/pluralsh/harness
           tags: |
-            type=semver,pattern={{version}},suffix=-terraform-${{ env.TERRAFORM_VERSION }},priority=1000
-            type=sha,suffix=-terraform-${{ env.TERRAFORM_VERSION }},priority=800
-            type=ref,event=pr,suffix=-terraform-${{ env.TERRAFORM_VERSION }},priority=600
+            type=semver,pattern={{version}},suffix=-terraform-${{ matrix.versions.tag }},priority=1000
+            type=sha,suffix=-terraform-${{ matrix.versions.tag }},priority=800
+            type=ref,event=pr,suffix=-terraform-${{ matrix.versions.tag }},priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -146,7 +169,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            TERRAFORM_IMAGE_TAG=${{ env.TERRAFORM_VERSION }}
+            TERRAFORM_IMAGE_TAG=${{ matrix.versions.full }}
             HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
             HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
             

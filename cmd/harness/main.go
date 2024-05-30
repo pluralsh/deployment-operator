@@ -30,6 +30,7 @@ func main() {
 		controller.WithStackRun(args.StackRunID()),
 		controller.WithStackRunStepTimeout(args.Timeout()),
 		controller.WithConsoleClient(consoleClient),
+		controller.WithConsoleToken(args.ConsoleToken()),
 		controller.WithFetchClient(fetchClient),
 		controller.WithWorkingDir(args.WorkingDir()),
 		controller.WithSinkOptions(

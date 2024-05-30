@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/algorithms"
@@ -76,6 +77,26 @@ func (in *Terraform) Modifier(stage console.StepStage) v1.Modifier {
 	}
 
 	return v1.NewProxyModifier()
+}
+
+func (in *Terraform) ConfigureStateBackend(actor, deployToken string, urls *console.StackRunBaseFragment_StateUrls) error {
+	input := &OverrideTemplateInput{
+		Address:       lo.FromPtr(urls.Terraform.Address),
+		LockAddress:   lo.FromPtr(urls.Terraform.Lock),
+		UnlockAddress: lo.FromPtr(urls.Terraform.Unlock),
+		Actor:         actor,
+		DeployToken:   deployToken,
+	}
+	fileName, content, err := overrideTemplate(input)
+	if err != nil {
+		return err
+	}
+
+	if err = helpers.File().Create(path.Join(in.dir, fileName), content); err != nil {
+		return fmt.Errorf("failed configuring state backend file %q: %w", fileName, err)
+	}
+
+	return nil
 }
 
 func (in *Terraform) resource(r v4.Resource) *console.StackStateResourceAttributes {
