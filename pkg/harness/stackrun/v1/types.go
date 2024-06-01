@@ -51,7 +51,7 @@ func (in *StackRun) Env() []string {
 	}
 
 	if in.Creds != nil {
-		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_TOKEN=%s", lo.FromPtr(in.Creds.Token)))
+		env = append(env, fmt.Sprintf("PLURAL_ACCESS_TOKEN=%s", lo.FromPtr(in.Creds.Token)))
 		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_URL=%s", lo.FromPtr(in.Creds.URL)))
 	}
 
