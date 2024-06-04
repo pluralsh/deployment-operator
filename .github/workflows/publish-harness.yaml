@@ -183,17 +183,17 @@ jobs:
           - ansible: '4.10.0'
             python: '3.9'
           - ansible: '5.7.0'
-            python: '3.9'
+            python: '3.10'
           - ansible: '6.7.0'
-            python: '3.9'
+            python: '3.10'
           - ansible: '7.7.0'
-            python: '3.10'
+            python: '3.11'
           - ansible: '8.7.0'
-            python: '3.10'
+            python: '3.11'
           - ansible: '9.0.0'
-            python: '3.10'
+            python: '3.12'
           - ansible: '10.0.0'
-            python: '3.10'
+            python: '3.12'
     permissions:
       contents: write
       discussions: write
