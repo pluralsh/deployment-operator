@@ -180,9 +180,18 @@ jobs:
     strategy:
       matrix:
         versions:
-          - tag: '2.10'
-          - tag: '2.11'
-          - tag: '2.12'
+          - ansible: '2.12'
+            python: '3.9'
+          - ansible: '2.13'
+            python: '3.9'
+          - ansible: '2.14'
+            python: '3.9'
+          - ansible: '2.15'
+            python: '3.10'
+          - ansible: '2.16'
+            python: '3.10'
+          - ansible: '2.17'
+            python: '3.10'
     permissions:
       contents: write
       discussions: write
@@ -201,9 +210,9 @@ jobs:
             ghcr.io/pluralsh/harness
             docker.io/pluralsh/harness
           tags: |
-            type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.tag }},priority=1000
-            type=sha,suffix=-ansible-${{ matrix.versions.tag }},priority=800
-            type=ref,event=pr,suffix=-ansible-${{ matrix.versions.tag }},priority=600
+            type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.ansible }},priority=1000
+            type=sha,suffix=-ansible-${{ matrix.versions.ansible }},priority=800
+            type=ref,event=pr,suffix=-ansible-${{ matrix.versions.ansible }},priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -231,6 +240,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            ANSIBLE_IMAGE_TAG=${{ matrix.versions.tag }}
+            ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+            PYTHON_VERSION=${{ matrix.versions.python }}
             HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
             HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
