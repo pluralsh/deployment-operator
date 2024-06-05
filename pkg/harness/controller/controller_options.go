@@ -1,10 +1,9 @@
 package controller
 
 import (
-	"time"
-
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
@@ -38,9 +37,9 @@ func WithSinkOptions(options ...sink.Option) Option {
 	}
 }
 
-func WithStackRunStepTimeout(timeout time.Duration) Option {
+func WithExecOptions(options ...exec.Option) Option {
 	return func(s *stackRunController) {
-		s.stackRunStepTimeout = timeout
+		s.execOptions = options
 	}
 }
 

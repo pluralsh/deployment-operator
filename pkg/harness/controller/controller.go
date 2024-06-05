@@ -127,13 +127,16 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 
 	return exec.NewExecutable(
 		step.Cmd,
-		exec.WithDir(in.execWorkDir()),
-		exec.WithEnv(in.stackRun.Env()),
-		exec.WithArgs(args),
-		exec.WithID(step.ID),
-		exec.WithLogSink(consoleWriter),
-		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
-		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
+		append(
+			in.execOptions,
+			exec.WithDir(in.execWorkDir()),
+			exec.WithEnv(in.stackRun.Env()),
+			exec.WithArgs(args),
+			exec.WithID(step.ID),
+			exec.WithLogSink(consoleWriter),
+			exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
+			exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
+		)...,
 	)
 }
 

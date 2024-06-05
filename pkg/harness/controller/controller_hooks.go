@@ -33,7 +33,6 @@ func (in *stackRunController) preStart() {
 	if in.stackRun.ManageState {
 		err := in.tool.ConfigureStateBackend("harness", in.consoleToken, in.stackRun.StateUrls)
 		if err != nil {
-			// TODO: Should this be a fatal error?
 			klog.Fatalf("could not configure state backend: %v", err)
 		}
 	}
@@ -79,7 +78,7 @@ func (in *stackRunController) postStepRun(id string, err error) {
 }
 
 // postExecHook is a callback function started by the exec.Executable after it finishes.
-// It differs from the
+// Unlike postStepRun it does provide any additional information.
 func (in *stackRunController) postExecHook(stage gqlclient.StepStage) v1.HookFunction {
 	return func() error {
 		if stage != gqlclient.StepStagePlan {
@@ -90,6 +89,7 @@ func (in *stackRunController) postExecHook(stage gqlclient.StepStage) v1.HookFun
 	}
 }
 
+// postExecHook is a callback function started by the exec.Executable before it runs the executable.
 func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) v1.HookFunction {
 	return func() error {
 		if stage == gqlclient.StepStageApply && in.requiresApproval() {

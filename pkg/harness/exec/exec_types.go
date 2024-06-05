@@ -3,6 +3,7 @@ package exec
 import (
 	"context"
 	"io"
+	"time"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
@@ -34,6 +35,9 @@ type executable struct {
 
 	// args
 	args []string
+
+	// timeout
+	timeout time.Duration
 
 	// logSink is a custom writer that can be used to forward
 	// executable output. It does not stop output from being forwarded

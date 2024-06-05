@@ -27,7 +27,7 @@ func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
 }
 
 func (in *Ansible) ConfigureStateBackend(actor, deployToken string, urls *console.StackRunBaseFragment_StateUrls) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
