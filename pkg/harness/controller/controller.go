@@ -159,7 +159,7 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
 	if stackRunErr != nil {
 		serviceErrorAttributes = append(serviceErrorAttributes, &gqlclient.ServiceErrorAttributes{
-			Source: "harness",
+			Source:  "harness",
 			Message: stackRunErr.Error(),
 		})
 	}
