@@ -119,6 +119,8 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 
 	jobSpec.Template.Spec.Volumes = ensureDefaultVolume(jobSpec.Template.Spec.Volumes)
 
+	jobSpec.Template.Spec.SecurityContext = ensureDefaultPodSecurityContext(jobSpec.Template.Spec.SecurityContext)
+
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -183,10 +185,11 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 
 func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) corev1.Container {
 	dc := corev1.Container{
-		Name:         DefaultJobContainer,
-		Image:        r.getDefaultContainerImage(run),
-		Args:         r.getDefaultContainerArgs(run.ID),
-		VolumeMounts: []corev1.VolumeMount{getDefaultContainerVolumeMount()},
+		Name:            DefaultJobContainer,
+		Image:           r.getDefaultContainerImage(run),
+		Args:            r.getDefaultContainerArgs(run.ID),
+		VolumeMounts:    []corev1.VolumeMount{getDefaultContainerVolumeMount()},
+		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 	}
 
 	if run.Environment != nil {
@@ -252,6 +255,28 @@ func ensureDefaultVolume(volumes []corev1.Volume) []corev1.Volume {
 		volumes[index] = getDefaultVolume()
 	}
 	return volumes
+}
+
+func ensureDefaultPodSecurityContext(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
+	if psc != nil {
+		return psc
+	}
+
+	return &corev1.PodSecurityContext{
+		RunAsNonRoot: lo.ToPtr(true),
+	}
+}
+
+func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.SecurityContext {
+	if sc != nil {
+		return sc
+	}
+
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: lo.ToPtr(false),
+		ReadOnlyRootFilesystem:   lo.ToPtr(true),
+		RunAsNonRoot:             lo.ToPtr(true),
+	}
 }
 
 func getDefaultVolume() corev1.Volume {
