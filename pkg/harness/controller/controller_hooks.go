@@ -39,7 +39,7 @@ func (in *stackRunController) preStart() {
 }
 
 // postStart function is executed after all stack run steps.
-func (in *stackRunController) postStart(err error) error {
+func (in *stackRunController) postStart(err error) {
 	var status gqlclient.StackStatus
 
 	switch {
@@ -56,7 +56,6 @@ func (in *stackRunController) postStart(err error) error {
 	}
 
 	klog.V(log.LogLevelInfo).InfoS("stack run completed")
-	return err
 }
 
 // postStepRun is a callback function started by the executor after executable finishes.
@@ -105,7 +104,7 @@ func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) 
 }
 
 func (in *stackRunController) requiresApproval() bool {
-	return in.stackRun.Approval && !runApproved
+	return in.stackRun.Approval && !runApproved && in.stackRun.ApprovedAt == nil
 }
 
 func (in *stackRunController) waitForApproval() {

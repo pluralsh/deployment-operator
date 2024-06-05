@@ -46,7 +46,6 @@ func main() {
 	}
 
 	if err = ctrl.Start(ctx); err != nil {
-		_ = ctrl.Finish(err)
 		handleFatalError(err)
 	}
 }
