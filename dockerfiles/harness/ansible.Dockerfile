@@ -10,6 +10,9 @@ FROM ${HARNESS_BASE_IMAGE} as harness
 # Build Ansible from Python Image
 FROM python:${PYTHON_VERSION}-alpine as final
 
+# Create a non-root user and group
+RUN addgroup -S plural && adduser -S plural -G plural
+
 RUN mkdir /plural
 RUN mkdir /tmp/plural
 
@@ -29,6 +32,10 @@ RUN apk add --no-cache --virtual .build-deps \
     apk add --no-cache openssh-client && \
     apk del .build-deps
 
-ARG PYTHON_VERSION
+# Change ownership of directories to the non-root user
+RUN chown -R plural:plural /plural /tmp/plural /usr/local/bin/harness
+
+# Set the user to non-root
+USER plural
 
 WORKDIR /plural
