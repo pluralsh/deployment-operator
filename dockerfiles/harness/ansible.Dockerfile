@@ -10,6 +10,9 @@ FROM ${HARNESS_BASE_IMAGE} as harness
 # Build Ansible from Python Image
 FROM python:${PYTHON_VERSION}-alpine as final
 
+RUN mkdir /plural
+RUN mkdir /tmp/plural
+
 # Copy Harness bin from the Harness Image
 COPY --from=harness /harness /usr/local/bin/harness
 
@@ -27,3 +30,5 @@ RUN apk add --no-cache --virtual .build-deps \
     apk del .build-deps
 
 ARG PYTHON_VERSION
+
+WORKDIR /plural
