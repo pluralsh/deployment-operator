@@ -3,10 +3,10 @@ package controller
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	stackrunv1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
@@ -14,7 +14,6 @@ import (
 
 type Controller interface {
 	Start(ctx context.Context) error
-	Finish(stackRunErr error) error
 }
 
 type stackRunController struct {
@@ -32,9 +31,6 @@ type stackRunController struct {
 	// stackRunID
 	stackRunID string
 
-	// stackRunStepTimeout
-	stackRunStepTimeout time.Duration
-
 	// stackRun
 	stackRun *stackrunv1.StackRun
 
@@ -49,6 +45,9 @@ type stackRunController struct {
 
 	// dir
 	dir string
+
+	// execOptions
+	execOptions []exec.Option
 
 	// sinkOptions allows providing custom options to
 	// sink.ConsoleWriter. By default, every command output
