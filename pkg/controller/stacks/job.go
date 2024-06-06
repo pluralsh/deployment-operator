@@ -186,25 +186,14 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 }
 
 func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) corev1.Container {
-	dc := corev1.Container{
+	return corev1.Container{
 		Name:            DefaultJobContainer,
 		Image:           r.getDefaultContainerImage(run),
 		Args:            r.getDefaultContainerArgs(run.ID),
 		VolumeMounts:    []corev1.VolumeMount{getDefaultContainerVolumeMount()},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
+		Env:             make([]corev1.EnvVar, 0),
 	}
-
-	if run.Environment != nil {
-		dc.Env = make([]corev1.EnvVar, 0)
-	}
-	for _, stackEnv := range run.Environment {
-		dc.Env = append(dc.Env, corev1.EnvVar{
-			Name:  stackEnv.Name,
-			Value: stackEnv.Value,
-		})
-	}
-
-	return dc
 }
 
 func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment) string {
