@@ -20,16 +20,13 @@ community_rows = community_table.find_all("tr")[1:]
 for row in community_rows:
     columns = row.find_all("td")
     if len(columns) >= 3:
-        community_version = columns[0].text.strip()
+        community_version = columns[0].text.split()[
+            0
+        ]  # Extract the version number
         status = columns[1].text.strip()
         core_version = columns[2].text.strip()
         if status != "In development (unreleased)":
             community_core_versions[community_version] = core_version
-
-print("Community versions and their corresponding Core versions:")
-# pretty print the community_core_versions
-for community_version, core_version in community_core_versions.items():
-    print(f"{community_version}: {core_version}")
 
 # Parse the Core versions and corresponding Python versions
 core_python_versions = {}
@@ -38,12 +35,15 @@ core_rows = core_table.find_all("tr")[1:]
 
 for row in core_rows:
     columns = row.find_all("td")
-    if len(columns) >= 2:
+    if len(columns) >= 5:
         core_version = columns[0].text.strip()
-        python_versions = columns[1].text.strip()
-        core_python_versions[core_version] = [
-            pv.strip() for pv in python_versions.split(",")
-        ]
+        python_versions_control_node = columns[3].text.strip().split(", ")
+        last_python_version = python_versions_control_node[-1].split()[-1]
+        core_python_versions[core_version] = [last_python_version]
+
+# print("Core versions and their corresponding Python versions:")
+# for core_version, python_versions in core_python_versions.items():
+#     print(f"{core_version} : {python_versions}")
 
 # Combine the data to get Community and their corresponding Python versions
 for community_version, core_version in community_core_versions.items():
@@ -59,6 +59,9 @@ for community_version, core_version in community_core_versions.items():
             }
         )
 
+print("Combined version pairs:")
+for pair in version_pairs:
+    print(pair)
 
 # Exit for testing
 exit()

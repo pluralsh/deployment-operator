@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# This script sets up the Python environment for the update_ansible_version_matrix.py script.
+# RUN: source scripts/setup_env.sh
+
 # Exit immediately if a command exits with a non-zero status
 set -e
 
