@@ -23,8 +23,10 @@ const (
 	podDefaultContainerAnnotation = "kubectl.kubernetes.io/default-container"
 	jobSelector                   = "stackrun.deployments.plural.sh"
 	DefaultJobContainer           = "default"
-	defaultJobVolume              = "default"
+	defaultJobVolumeName          = "default"
 	defaultJobVolumePath          = "/plural"
+	defaultJobTmpVolumeName       = "default-tmp"
+	defaultJobTmpVolumePath       = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
 )
@@ -38,6 +40,30 @@ var (
 	defaultContainerVersions = map[console.StackType]string{
 		console.StackTypeTerraform: "1.8.2",
 		console.StackTypeAnsible:   "latest",
+	}
+
+	defaultJobVolume = corev1.Volume{
+		Name: defaultJobVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	defaultJobContainerVolumeMount = corev1.VolumeMount{
+		Name:      defaultJobVolumeName,
+		MountPath: defaultJobVolumePath,
+	}
+
+	defaultJobTmpVolume = corev1.Volume{
+		Name: defaultJobTmpVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	defaultJobTmpContainerVolumeMount = corev1.VolumeMount{
+		Name:      defaultJobTmpVolumeName,
+		MountPath: defaultJobTmpVolumePath,
 	}
 
 	defaultImageTag = "0.4.29"
@@ -119,7 +145,7 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 
 	jobSpec.Template.Spec.Containers = r.ensureDefaultContainer(jobSpec.Template.Spec.Containers, run)
 
-	jobSpec.Template.Spec.Volumes = ensureDefaultVolume(jobSpec.Template.Spec.Volumes)
+	jobSpec.Template.Spec.Volumes = ensureDefaultVolumes(jobSpec.Template.Spec.Volumes)
 
 	jobSpec.Template.Spec.SecurityContext = ensureDefaultPodSecurityContext(jobSpec.Template.Spec.SecurityContext)
 
@@ -180,17 +206,20 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 
 		containers[index].Args = r.getDefaultContainerArgs(run.ID)
 
-		containers[index].VolumeMounts = ensureDefaultVolumeMount(containers[index].VolumeMounts)
+		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
 	}
 	return containers
 }
 
 func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) corev1.Container {
 	return corev1.Container{
-		Name:            DefaultJobContainer,
-		Image:           r.getDefaultContainerImage(run),
-		Args:            r.getDefaultContainerArgs(run.ID),
-		VolumeMounts:    []corev1.VolumeMount{getDefaultContainerVolumeMount()},
+		Name:  DefaultJobContainer,
+		Image: r.getDefaultContainerImage(run),
+		Args:  r.getDefaultContainerArgs(run.ID),
+		VolumeMounts: []corev1.VolumeMount{
+			defaultJobContainerVolumeMount,
+			defaultJobTmpContainerVolumeMount,
+		},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		Env:             make([]corev1.EnvVar, 0),
 	}
@@ -219,33 +248,30 @@ func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
 	}
 }
 
-func getDefaultContainerVolumeMount() corev1.VolumeMount {
-	return corev1.VolumeMount{
-		Name:      defaultJobVolume,
-		MountPath: defaultJobVolumePath,
-	}
+func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount {
+	return algorithms.Map(mounts, func(v corev1.VolumeMount) corev1.VolumeMount {
+		switch v.Name {
+		case defaultJobVolumeName:
+			return defaultJobContainerVolumeMount
+		case defaultJobTmpVolumeName:
+			return defaultJobTmpContainerVolumeMount
+		}
+
+		return v
+	})
 }
 
-func ensureDefaultVolumeMount(mounts []corev1.VolumeMount) []corev1.VolumeMount {
-	if index := algorithms.Index(mounts, func(mount corev1.VolumeMount) bool {
-		return mount.Name == defaultJobVolume
-	}); index == -1 {
-		mounts = append(mounts, getDefaultContainerVolumeMount())
-	} else {
-		mounts[index] = getDefaultContainerVolumeMount()
-	}
-	return mounts
-}
+func ensureDefaultVolumes(volumes []corev1.Volume) []corev1.Volume {
+	return algorithms.Map(volumes, func(v corev1.Volume) corev1.Volume {
+		switch v.Name {
+		case defaultJobVolumeName:
+			return defaultJobVolume
+		case defaultJobTmpVolumeName:
+			return defaultJobTmpVolume
+		}
 
-func ensureDefaultVolume(volumes []corev1.Volume) []corev1.Volume {
-	if index := algorithms.Index(volumes, func(volume corev1.Volume) bool {
-		return volume.Name == defaultJobVolume
-	}); index == -1 {
-		volumes = append(volumes, getDefaultVolume())
-	} else {
-		volumes[index] = getDefaultVolume()
-	}
-	return volumes
+		return v
+	})
 }
 
 func ensureDefaultPodSecurityContext(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
@@ -271,14 +297,5 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 		RunAsNonRoot:             lo.ToPtr(true),
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
-	}
-}
-
-func getDefaultVolume() corev1.Volume {
-	return corev1.Volume{
-		Name: defaultJobVolume,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
 	}
 }
