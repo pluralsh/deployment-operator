@@ -25,6 +25,8 @@ const (
 	DefaultJobContainer           = "default"
 	defaultJobVolume              = "default"
 	defaultJobVolumePath          = "/plural"
+	nonRootUID                    = int64(65532)
+	nonRootGID                    = nonRootUID
 )
 
 var (
@@ -264,6 +266,8 @@ func ensureDefaultPodSecurityContext(psc *corev1.PodSecurityContext) *corev1.Pod
 
 	return &corev1.PodSecurityContext{
 		RunAsNonRoot: lo.ToPtr(true),
+		RunAsUser:    lo.ToPtr(nonRootUID),
+		RunAsGroup:   lo.ToPtr(nonRootGID),
 	}
 }
 
@@ -276,6 +280,8 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 		AllowPrivilegeEscalation: lo.ToPtr(false),
 		ReadOnlyRootFilesystem:   lo.ToPtr(true),
 		RunAsNonRoot:             lo.ToPtr(true),
+		RunAsUser:                lo.ToPtr(nonRootUID),
+		RunAsGroup:               lo.ToPtr(nonRootGID),
 	}
 }
 
