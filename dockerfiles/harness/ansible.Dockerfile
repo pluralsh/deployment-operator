@@ -17,6 +17,9 @@ RUN mkdir /tmp/plural && chown -R 65532:65532 /tmp/plural
 # Copy Harness bin from the Harness Image
 COPY --from=harness /harness /usr/local/bin/harness
 
+# Change ownership of the harness binary to UID/GID 65532
+RUN chown -R 65532:65532 /usr/local/bin/harness
+
 # Install build dependencies, Ansible, and openssh-client
 ARG ANSIBLE_VERSION=9.0.0
 RUN apk add --no-cache --virtual .build-deps \
@@ -29,9 +32,6 @@ RUN apk add --no-cache --virtual .build-deps \
     pip install --no-cache-dir ansible==${ANSIBLE_VERSION} && \
     apk add --no-cache openssh-client && \
     apk del .build-deps
-
-# Change ownership of the harness binary to UID/GID 65532
-RUN chown -R 65532:65532 /usr/local/bin/harness
 
 # Switch to the non-root user
 USER 65532:65532
