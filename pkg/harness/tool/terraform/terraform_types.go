@@ -9,4 +9,3 @@ type Terraform struct {
 	// Default: terraform.tfplan
 	planFileName string
 }
-
