@@ -10,9 +10,12 @@ FROM ${HARNESS_BASE_IMAGE} as harness
 # Build Ansible from Python Image
 FROM python:${PYTHON_VERSION}-alpine as final
 
+<<<<<<< HEAD
 RUN mkdir /plural
 RUN mkdir /tmp/plural
 
+=======
+>>>>>>> origin/main
 # Copy Harness bin from the Harness Image
 COPY --from=harness /harness /usr/local/bin/harness
 
