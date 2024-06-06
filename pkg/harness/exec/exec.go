@@ -87,16 +87,17 @@ func (in *executable) ID() string {
 }
 
 func (in *executable) writer() io.Writer {
-	if len(in.outputSinks) > 0 {
-		return io.MultiWriter(
-			append(
-				algorithms.Map(in.outputSinks, func(writer io.WriteCloser) io.Writer {
-					return writer
-				}),
-				os.Stdout)...,
-		)
+	if len(in.outputSinks) == 0 {
+		return os.Stdout
 	}
-	return os.Stdout
+
+	return io.MultiWriter(
+		append(
+			algorithms.Map(in.outputSinks, func(writer io.WriteCloser) io.Writer {
+				return writer
+			}),
+			os.Stdout)...,
+	)
 }
 
 func (in *executable) close(writers []io.WriteCloser) {
