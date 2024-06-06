@@ -35,8 +35,8 @@ FROM cgr.dev/chainguard/wolfi-base:latest as final
 
 RUN apk update --no-cache && apk add git
 
-# # Switch to the nonroot user
-USER nonroot
+# Switch to the nonroot user
+USER 65532:65532
 
 # Set up the environment
 # 1. copy plural and tmp directories with proper permissions for the nonroot user
