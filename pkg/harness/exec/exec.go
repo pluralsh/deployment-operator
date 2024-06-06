@@ -100,7 +100,7 @@ func (in *executable) writer() io.Writer {
 }
 
 func (in *executable) close(writers []io.WriteCloser) {
-	if len(writers) <= 0 {
+	if len(writers) == 0 {
 		return
 	}
 

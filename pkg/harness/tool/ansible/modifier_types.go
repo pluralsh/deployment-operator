@@ -5,4 +5,3 @@ type PlanModifier struct {
 	// planFile
 	planFile string
 }
-
