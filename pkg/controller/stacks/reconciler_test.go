@@ -8,9 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console-client-go"
-	errors2 "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -20,6 +17,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
+
+	errors2 "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("Reconciler", Ordered, func() {
@@ -126,7 +127,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0)))
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
-			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(2))
 			Expect(kClient.Delete(ctx, job)).To(Succeed())
 		})
 
@@ -168,7 +169,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(job.Spec.Template.ObjectMeta.Labels).To(ContainElement(labelsValue))
 			Expect(job.Spec.Template.ObjectMeta.Annotations).To(ContainElement(annotationsValue))
 			Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(*stackRun.JobSpec.ServiceAccount))
-			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(2))
 			Expect(kClient.Delete(ctx, job)).To(Succeed())
 		})
 
@@ -223,7 +224,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0))) // Overridden by controller.
 			Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(jobSpec.Template.Spec.ServiceAccountName))
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1)) // Merged by controller as default container was specified.
-			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(2))
+			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(3))
 			Expect(kClient.Delete(ctx, job)).To(Succeed())
 		})
 	})

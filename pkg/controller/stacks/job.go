@@ -249,29 +249,35 @@ func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
 }
 
 func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount {
-	return algorithms.Map(mounts, func(v corev1.VolumeMount) corev1.VolumeMount {
-		switch v.Name {
-		case defaultJobVolumeName:
-			return defaultJobContainerVolumeMount
-		case defaultJobTmpVolumeName:
-			return defaultJobTmpContainerVolumeMount
-		}
+	return append(
+		algorithms.Filter(mounts, func(v corev1.VolumeMount) bool {
+			switch v.Name {
+			case defaultJobVolumeName:
+			case defaultJobTmpVolumeName:
+				return false
+			}
 
-		return v
-	})
+			return true
+		}),
+		defaultJobContainerVolumeMount,
+		defaultJobTmpContainerVolumeMount,
+	)
 }
 
 func ensureDefaultVolumes(volumes []corev1.Volume) []corev1.Volume {
-	return algorithms.Map(volumes, func(v corev1.Volume) corev1.Volume {
-		switch v.Name {
-		case defaultJobVolumeName:
-			return defaultJobVolume
-		case defaultJobTmpVolumeName:
-			return defaultJobTmpVolume
-		}
+	return append(
+		algorithms.Filter(volumes, func(v corev1.Volume) bool {
+			switch v.Name {
+			case defaultJobVolumeName:
+			case defaultJobTmpVolumeName:
+				return false
+			}
 
-		return v
-	})
+			return true
+		}),
+		defaultJobVolume,
+		defaultJobTmpVolume,
+	)
 }
 
 func ensureDefaultPodSecurityContext(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
