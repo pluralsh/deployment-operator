@@ -41,10 +41,6 @@ for row in core_rows:
         last_python_version = python_versions_control_node[-1].split()[-1]
         core_python_versions[core_version] = [last_python_version]
 
-# print("Core versions and their corresponding Python versions:")
-# for core_version, python_versions in core_python_versions.items():
-#     print(f"{core_version} : {python_versions}")
-
 # Combine the data to get Community and their corresponding Python versions
 for community_version, core_version in community_core_versions.items():
     python_versions = core_python_versions.get(core_version, [])
@@ -81,4 +77,4 @@ github_action["jobs"]["publish-harness-ansible"]["strategy"]["matrix"][
 with open(github_action_path, "w") as file:
     yaml.safe_dump(github_action, file)
 
-print("GitHub Action YAML updated successfully!")
+print("Ansible Version Matrix Updated Successfully!")
