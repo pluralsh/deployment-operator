@@ -30,12 +30,10 @@ FROM cgr.dev/chainguard/wolfi-base:latest as final
 
 RUN apk update --no-cache && apk add git
 
-# Switch to the nonroot user
+# Switch to the nonroot user/group
 USER 65532:65532
 
-# Set up the environment
-# 3. copy the harness binary
-# 4. copy the terraform binary
+# Copy the terraform binary
 COPY --from=builder /plural/harness /harness
 
 WORKDIR /plural
