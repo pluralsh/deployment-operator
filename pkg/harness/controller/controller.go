@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"io"
 	"path"
 	"slices"
 	"sync"
@@ -119,10 +120,12 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		)...,
 	)
 
+	var toolWriter io.WriteCloser
 	modifier := in.tool.Modifier(step.Stage)
 	args := step.Args
 	if modifier != nil {
 		args = modifier.Args(args)
+		toolWriter = modifier.WriteCloser()
 	}
 
 	return exec.NewExecutable(
@@ -131,7 +134,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithEnv(in.stackRun.Env()),
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
-		exec.WithLogSink(consoleWriter),
+		exec.WithOutputSinks(consoleWriter, toolWriter),
 		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
 		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
 	)

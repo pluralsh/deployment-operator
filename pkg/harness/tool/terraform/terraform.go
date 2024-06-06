@@ -144,9 +144,8 @@ func (in *Terraform) plan() (string, error) {
 }
 
 func (in *Terraform) init() *Terraform {
-	// TODO: Allow to override?
 	in.planFileName = "terraform.tfplan"
-	helpers.EnsureFileOrDie(fmt.Sprintf("%s/%s", in.dir, "terraform.tfplan"))
+	helpers.EnsureFileOrDie(path.Join(in.dir, in.planFileName))
 
 	return in
 }

@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"io"
+
 	console "github.com/pluralsh/console-client-go"
 )
 
@@ -31,8 +33,11 @@ type Tool interface {
 
 // Modifier can do many different runtime modifications
 // of the provided stack run steps. For example, it can
-// alter arguments of the executable step command.
+// alter arguments of the executable step command or provide
+// a custom writer that can capture step command output.
 type Modifier interface {
 	// Args implements exec.ArgsModifier type.
 	Args(args []string) []string
+	// WriteCloser ...
+	WriteCloser() io.WriteCloser
 }

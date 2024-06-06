@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/klog/v2"
 
@@ -18,7 +19,7 @@ import (
 func (in *executable) Run(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, in.command, in.args...)
 	w := in.writer()
-	defer in.close(in.logSink)
+	defer in.close(in.outputSinks)
 
 	// Configure additional writers so that we can simultaneously write output
 	// to multiple destinations
@@ -80,19 +81,27 @@ func (in *executable) ID() string {
 }
 
 func (in *executable) writer() io.Writer {
-	if in.logSink != nil {
-		return io.MultiWriter(os.Stdout, in.logSink)
+	if len(in.outputSinks) > 0 {
+		return io.MultiWriter(
+			append(
+				algorithms.Map(in.outputSinks, func(writer io.WriteCloser) io.Writer {
+					return writer
+				}),
+				os.Stdout)...,
+		)
 	}
 	return os.Stdout
 }
 
-func (in *executable) close(w io.WriteCloser) {
-	if w == nil {
+func (in *executable) close(writers []io.WriteCloser) {
+	if len(writers) <= 0 {
 		return
 	}
 
-	if err := w.Close(); err != nil {
-		klog.ErrorS(err, "failed to close writer")
+	for _, w := range writers {
+		if err := w.Close(); err != nil {
+			klog.ErrorS(err, "failed to close writer")
+		}
 	}
 }
 

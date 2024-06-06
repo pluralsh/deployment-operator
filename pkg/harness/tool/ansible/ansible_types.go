@@ -4,8 +4,10 @@ package ansible
 type Ansible struct {
 	// dir
 	dir string
-}
 
-// Modifier implements tool.Modifier interface.
-type Modifier struct {
+	// planFileName
+	planFileName string
+
+	// planFilePath
+	planFilePath string
 }

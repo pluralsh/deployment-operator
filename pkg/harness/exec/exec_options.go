@@ -3,6 +3,8 @@ package exec
 import (
 	"io"
 
+	"github.com/pluralsh/polly/algorithms"
+
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
@@ -12,9 +14,9 @@ func WithDir(workingDirectory string) Option {
 	}
 }
 
-func WithLogSink(sink io.WriteCloser) Option {
+func WithOutputSinks(sinks ...io.WriteCloser) Option {
 	return func(e *executable) {
-		e.logSink = sink
+		e.outputSinks = algorithms.Filter(sinks, func(sink io.WriteCloser) bool { return sink != nil })
 	}
 }
 

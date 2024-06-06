@@ -35,15 +35,13 @@ type executable struct {
 	// args
 	args []string
 
-	// logSink is a custom writer that can be used to forward
+	// outputSinks is a custom array of [io.WriteCloser] that can be used to forward
 	// executable output. It does not stop output from being forwarded
-	// to the os.Stdout.
-	logSink io.WriteCloser
+	// to the [os.Stdout].
+	outputSinks []io.WriteCloser
 
 	// hookFunctions ...
 	hookFunctions map[v1.Lifecycle]v1.HookFunction
 }
 
 type Option func(*executable)
-
-type ArgsModifier func([]string) []string

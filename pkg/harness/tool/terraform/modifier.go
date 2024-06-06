@@ -2,6 +2,7 @@ package terraform
 
 import (
 	"fmt"
+	"io"
 	"path"
 
 	"github.com/samber/lo"
@@ -12,6 +13,10 @@ import (
 // Args implements exec.ArgsModifier type.
 func (in *InitModifier) Args(args []string) []string {
 	return args
+}
+
+func (in *InitModifier) WriteCloser() io.WriteCloser {
+	return nil
 }
 
 func NewInitModifier() *InitModifier {
@@ -25,6 +30,10 @@ func (in *PlanModifier) Args(args []string) []string {
 	}
 
 	return append(args, fmt.Sprintf("-out=%s", in.planFileName))
+}
+
+func (in *PlanModifier) WriteCloser() io.WriteCloser {
+	return nil
 }
 
 func NewPlanModifier(planFileName string) *PlanModifier {
@@ -41,6 +50,10 @@ func (in *ApplyModifier) Args(args []string) []string {
 	}
 
 	return append(args, in.planFileName)
+}
+
+func (in *ApplyModifier) WriteCloser() io.WriteCloser {
+	return nil
 }
 
 func NewApplyModifier(dir, planFileName string) *ApplyModifier {

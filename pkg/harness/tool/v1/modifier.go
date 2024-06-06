@@ -1,11 +1,20 @@
 package v1
 
-// proxyModifier implements v1.Modifier interface.
+import (
+	"io"
+)
+
+// proxyModifier implements [Modifier] interface.
 type proxyModifier struct{}
 
-// Args implements exec.ArgsModifier type.
+// Args implements [Modifier.Args] interface.
 func (m *proxyModifier) Args(args []string) []string {
 	return args
+}
+
+// WriteCloser implements [Modifier.WriteCloser] interface.
+func (m *proxyModifier) WriteCloser() io.WriteCloser {
+	return nil
 }
 
 func NewProxyModifier() Modifier {
