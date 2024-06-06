@@ -182,18 +182,25 @@ jobs:
         versions:
           - ansible: '4.10.0'
             python: '3.9'
+            tag: '4.10'
           - ansible: '5.7.0'
             python: '3.10'
+            tag: '5.7'
           - ansible: '6.7.0'
             python: '3.10'
+            tag: '6.7'
           - ansible: '7.7.0'
             python: '3.11'
+            tag: '7.7'
           - ansible: '8.7.0'
             python: '3.11'
+            tag: '8.7'
           - ansible: '9.0.0'
             python: '3.12'
+            tag: '9.0'
           - ansible: '10.0.0'
             python: '3.12'
+            tag: '10.0'
     permissions:
       contents: write
       discussions: write
@@ -212,9 +219,9 @@ jobs:
             ghcr.io/pluralsh/harness
             docker.io/pluralsh/harness
           tags: |
-            type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.ansible }},priority=1000
-            type=sha,suffix=-ansible-${{ matrix.versions.ansible }},priority=800
-            type=ref,event=pr,suffix=-ansible-${{ matrix.versions.ansible }},priority=600
+            type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.tag }},priority=1000
+            type=sha,suffix=-ansible-${{ matrix.versions.tag }},priority=800
+            type=ref,event=pr,suffix=-ansible-${{ matrix.versions.tag }},priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
