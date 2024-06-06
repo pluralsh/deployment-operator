@@ -27,7 +27,7 @@ jobs:
 
   publish-harness-base:
     name: Build and push harness base container
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 #    needs: [test]
     permissions:
       contents: 'read'
@@ -93,7 +93,7 @@ jobs:
 
   publish-harness-terraform:
     name: Build and push harness terraform container
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [publish-harness-base]
     env:
       TERRAFORM_VERSION: 1.8.2
@@ -175,7 +175,7 @@ jobs:
             
   publish-harness-ansible:
     name: Build and push harness ansible container
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [publish-harness-base]
     strategy:
       matrix:
