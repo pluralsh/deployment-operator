@@ -36,23 +36,26 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 		if !ready {
 			in.Unlock()
 		}
+
+		// Make sure to always run postStart before exiting
+		in.postStart(retErr)
 	}()
 
-	if err := in.prepare(); err != nil {
-		return err
+	if retErr = in.prepare(); retErr != nil {
+		return retErr
 	}
 
 	in.preStart()
 
 	// Add executables to executor
 	for _, e := range in.executables(ctx) {
-		if err := in.executor.Add(e); err != nil {
-			return err
+		if retErr = in.executor.Add(e); retErr != nil {
+			return retErr
 		}
 	}
 
-	if err := in.executor.Start(ctx); err != nil {
-		return fmt.Errorf("could not start executor: %w", err)
+	if retErr = in.executor.Start(ctx); retErr != nil {
+		return fmt.Errorf("could not start executor: %w", retErr)
 	}
 
 	ready = true
@@ -76,15 +79,7 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 	in.wg.Wait()
 	klog.V(log.LogLevelVerbose).InfoS("all subroutines finished")
 
-	return in.postStart(retErr)
-}
-
-func (in *stackRunController) Finish(stackRunErr error) error {
-	if stackRunErr == nil {
-		return nil
-	}
-
-	return in.postStart(stackRunErr)
+	return retErr
 }
 
 func (in *stackRunController) executables(ctx context.Context) []exec.Executable {
@@ -127,13 +122,16 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 
 	return exec.NewExecutable(
 		step.Cmd,
-		exec.WithDir(in.execWorkDir()),
-		exec.WithEnv(in.stackRun.Env()),
-		exec.WithArgs(args),
-		exec.WithID(step.ID),
-		exec.WithLogSink(consoleWriter),
-		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
-		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
+		append(
+			in.execOptions,
+			exec.WithDir(in.execWorkDir()),
+			exec.WithEnv(in.stackRun.Env()),
+			exec.WithArgs(args),
+			exec.WithID(step.ID),
+			exec.WithLogSink(consoleWriter),
+			exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
+			exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
+		)...,
 	)
 }
 
@@ -161,6 +159,7 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
 	if stackRunErr != nil {
 		serviceErrorAttributes = append(serviceErrorAttributes, &gqlclient.ServiceErrorAttributes{
+			Source:  "harness",
 			Message: stackRunErr.Error(),
 		})
 	}

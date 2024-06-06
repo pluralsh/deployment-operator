@@ -2,6 +2,7 @@ package exec
 
 import (
 	"io"
+	"time"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
@@ -39,5 +40,11 @@ func WithID(id string) Option {
 func WithHook(lifecycle v1.Lifecycle, fn v1.HookFunction) Option {
 	return func(e *executable) {
 		e.hookFunctions[lifecycle] = fn
+	}
+}
+
+func WithTimeout(timeout time.Duration) Option {
+	return func(e *executable) {
+		e.timeout = timeout
 	}
 }
