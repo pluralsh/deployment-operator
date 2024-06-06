@@ -18,6 +18,10 @@ import (
 )
 
 func (in *executable) Run(ctx context.Context) error {
+	if err := in.runLifecycleFunction(v1.LifecyclePreStart); err != nil {
+		return err
+	}
+
 	ctx = signals.NewCancelableContext(ctx, signals.NewTimeoutSignal(in.timeout))
 	cmd := exec.CommandContext(ctx, in.command, in.args...)
 	w := in.writer()
@@ -39,10 +43,6 @@ func (in *executable) Run(ctx context.Context) error {
 
 	if len(in.workingDirectory) > 0 {
 		cmd.Dir = in.workingDirectory
-	}
-
-	if err := in.runLifecycleFunction(v1.LifecyclePreStart); err != nil {
-		return err
 	}
 
 	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
