@@ -37,3 +37,5 @@ RUN apk add --no-cache --virtual .build-deps \
 USER 65532:65532
 
 WORKDIR /plural
+
+ENTRYPOINT ["harness", "--working-dir=/plural"]
