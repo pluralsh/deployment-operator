@@ -20,6 +20,9 @@ COPY --from=harness /harness /usr/local/bin/harness
 # Change ownership of the harness binary to UID/GID 65532
 RUN chown -R 65532:65532 /usr/local/bin/harness
 
+# Set ansible environment
+ENV ANSIBLE_HOME=/plural/.ansible
+
 # Install build dependencies, Ansible, and openssh-client
 ARG ANSIBLE_VERSION=9.0.0
 RUN apk add --no-cache --virtual .build-deps \
