@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	extensions = []string{".json", ".yaml", ".yml", ".yaml.liquid", ".yml.liquid", ".json.liquid"}
+	extensions = []string{".json", ".yaml", ".yml", ".liquid", ".yaml.liquid", ".yml.liquid", ".json.liquid"}
 )
 
 type raw struct {
@@ -68,7 +68,7 @@ func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment
 		if err != nil {
 			return err
 		}
-		if isTemplated(svc) {
+		if isTemplated(svc) && strings.HasSuffix(path, ".liquid") {
 			data, err = renderLiquid(data, svc)
 			if err != nil {
 				return fmt.Errorf("templating error in %s: %w", rpath, err)

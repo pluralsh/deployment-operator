@@ -83,7 +83,7 @@ docker-build-harness-base: ## build base docker harness image
 	docker build \
 			--build-arg=VERSION="0.0.0-dev" \
     	  	-t harness-base \
-    		-f hack/harness/base.Dockerfile \
+    		-f dockerfiles/harness/base.Dockerfile \
     		.
 
 .PHONY: docker-build-harness-terraform
@@ -91,7 +91,7 @@ docker-build-harness-terraform: docker-build-harness-base ## build terraform doc
 	docker build \
 		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
     	  	-t harness \
-    		-f hack/harness/terraform.Dockerfile \
+    		-f dockerfiles/harness/terraform.Dockerfile \
     		.
 
 .PHONY: docker-run-harness
