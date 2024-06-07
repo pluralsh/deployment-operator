@@ -94,8 +94,16 @@ docker-build-harness-terraform: docker-build-harness-base ## build terraform doc
     		-f dockerfiles/harness/terraform.Dockerfile \
     		.
 
+.PHONY: docker-build-harness-ansible
+docker-build-harness-ansible: docker-build-harness-base ## build terraform docker harness image
+	docker build \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
+    	  	-t harness \
+    		-f dockerfiles/harness/ansible.Dockerfile \
+    		.
+
 .PHONY: docker-run-harness
-docker-run-harness: docker-build-harness-terraform ## build and run terraform docker harness image
+docker-run-harness: docker-build-harness-terraform docker-build-harness-ansible ## build and run terraform docker harness image
 	docker run \
 			harness:latest \
 			--v=5 \
