@@ -11,11 +11,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 func (in *executable) Run(ctx context.Context) error {
+	ctx = signals.NewCancelableContext(ctx, signals.NewTimeoutSignal(in.timeout))
 	cmd := exec.CommandContext(ctx, in.command, in.args...)
 	w := in.writer()
 	defer in.close(in.logSink)
@@ -44,6 +46,10 @@ func (in *executable) Run(ctx context.Context) error {
 
 	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
 	if err := cmd.Run(); err != nil {
+		if err = context.Cause(ctx); err != nil {
+			return err
+		}
+
 		return err
 	}
 

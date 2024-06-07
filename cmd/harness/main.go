@@ -11,6 +11,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/controller"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
@@ -28,7 +29,6 @@ func main() {
 
 	ctrl, err := controller.NewStackRunController(
 		controller.WithStackRun(args.StackRunID()),
-		controller.WithStackRunStepTimeout(args.Timeout()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithConsoleToken(args.ConsoleToken()),
 		controller.WithFetchClient(fetchClient),
@@ -37,13 +37,15 @@ func main() {
 			sink.WithThrottle(args.LogFlushFrequency()),
 			sink.WithBufferSizeLimit(args.LogFlushBufferSize()),
 		),
+		controller.WithExecOptions(
+			exec.WithTimeout(args.Timeout()),
+		),
 	)
 	if err != nil {
 		handleFatalError(err)
 	}
 
 	if err = ctrl.Start(ctx); err != nil {
-		_ = ctrl.Finish(err)
 		handleFatalError(err)
 	}
 }
@@ -51,7 +53,7 @@ func main() {
 func handleFatalError(err error) {
 	switch {
 	case errors.Is(err, internalerrors.ErrTimeout):
-		klog.ErrorS(err, "timed out waiting for stack run to complete", "timeout", args.Timeout())
+		klog.ErrorS(err, "timed out waiting for stack run step to complete", "timeout", args.Timeout())
 		os.Exit(signals.ExitCodeTimeout.Int())
 	case errors.Is(err, internalerrors.ErrRemoteCancel):
 		klog.ErrorS(err, "stack run has been cancelled")

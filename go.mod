@@ -39,6 +39,7 @@ require (
 	k8s.io/apimachinery v0.29.3
 	k8s.io/cli-runtime v0.29.2
 	k8s.io/client-go v0.29.2
+	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubectl v0.29.2
 	layeh.com/gopher-luar v1.0.11

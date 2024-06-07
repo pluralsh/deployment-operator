@@ -65,6 +65,8 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           {{ if .Values.additionalVolumeMounts }}
           volumeMounts:
+            - name: temp
+              mountPath: /tmp
             {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}
           {{ end }}
         - name: {{ .Chart.Name }}-agentk
@@ -121,6 +123,8 @@ spec:
             {{- toYaml .Values.agentk.extraEnv | nindent 12 }}
           {{- end }}
           volumeMounts:
+            - name: temp
+              mountPath: /tmp
             - name: service-account-token-volume
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
@@ -138,6 +142,8 @@ spec:
             {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}
             {{ end }}
       volumes:
+        - name: temp
+          emptyDir: {}
         - name: service-account-token-volume
           projected:
             defaultMode: 0444
