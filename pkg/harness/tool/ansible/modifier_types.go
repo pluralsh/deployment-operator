@@ -21,6 +21,6 @@ type GlobalEnvModifier struct {
 }
 
 const (
-	ansibleDir = ".ansible"
+	ansibleDir    = ".ansible"
 	ansibleTmpDir = "tmp"
 )

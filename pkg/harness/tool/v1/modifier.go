@@ -35,7 +35,7 @@ func (in *multiModifier) WriteCloser() []io.WriteCloser {
 	result := make([]io.WriteCloser, 0)
 	for _, mod := range in.modifiers {
 		writers := mod.WriteCloser()
-		if writers == nil || len(writers) == 0 {
+		if len(writers) == 0 {
 			continue
 		}
 

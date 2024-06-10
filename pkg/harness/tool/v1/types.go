@@ -33,7 +33,7 @@ type Tool interface {
 }
 
 // DefaultTool implements [Tool] interface.
-type DefaultTool struct {}
+type DefaultTool struct{}
 
 // Modifier can do many different runtime modifications
 // of the provided stack run steps. For example, it can
