@@ -1,16 +1,21 @@
 package terraform
 
-// InitModifier implements v1.Modifier interface.
-type InitModifier struct{}
+import (
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
+)
 
-// PlanModifier implements v1.Modifier interface.
-type PlanModifier struct {
+// PlanArgsModifier implements [v1.ArgsModifier] interface.
+type PlanArgsModifier struct {
+	v1.DefaultModifier
+
 	// planFileName
 	planFileName string
 }
 
-// ApplyModifier implements tool.Modifier interface.
-type ApplyModifier struct {
+// ApplyArgsModifier implements [v1.ArgsModifier] interface.
+type ApplyArgsModifier struct {
+	v1.DefaultModifier
+
 	// planFileName
 	planFileName string
 

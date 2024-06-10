@@ -1,9 +1,18 @@
 package ansible
 
+import (
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
+)
+
 // Ansible implements tool.Tool interface.
 type Ansible struct {
-	// dir
-	dir string
+	v1.DefaultTool
+
+	// workDir
+	workDir string
+
+	// execDir
+	execDir string
 
 	// planFileName
 	planFileName string

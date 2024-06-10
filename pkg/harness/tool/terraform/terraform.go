@@ -18,7 +18,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-// State implements v1.Tool interface.
+// State implements [v1.Tool] interface.
 func (in *Terraform) State() (*console.StackStateAttributes, error) {
 	state, err := in.state()
 	if err != nil {
@@ -34,6 +34,7 @@ func (in *Terraform) State() (*console.StackStateAttributes, error) {
 	}, nil
 }
 
+// Plan implements [v1.Tool] interface.
 func (in *Terraform) Plan() (*console.StackStateAttributes, error) {
 	plan, err := in.plan()
 	if err != nil {
@@ -45,7 +46,7 @@ func (in *Terraform) Plan() (*console.StackStateAttributes, error) {
 	}, nil
 }
 
-// Output implements v1.Tool interface.
+// Output implements [v1.Tool] interface.
 func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 	result := make([]*console.StackOutputAttributes, 0)
 
@@ -65,20 +66,19 @@ func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 	return result, nil
 }
 
-// Modifier implements v1.Tool interface.
+// Modifier implements [v1.Tool] interface.
 func (in *Terraform) Modifier(stage console.StepStage) v1.Modifier {
 	switch stage {
-	case console.StepStageInit:
-		return NewInitModifier()
 	case console.StepStagePlan:
-		return NewPlanModifier(in.planFileName)
+		return NewPlanArgsModifier(in.planFileName)
 	case console.StepStageApply:
-		return NewApplyModifier(in.dir, in.planFileName)
+		return NewApplyArgsModifier(in.dir, in.planFileName)
 	}
 
-	return v1.NewProxyModifier()
+	return v1.NewDefaultModifier()
 }
 
+// ConfigureStateBackend implements [v1.Tool] interface.
 func (in *Terraform) ConfigureStateBackend(actor, deployToken string, urls *console.StackRunBaseFragment_StateUrls) error {
 	input := &OverrideTemplateInput{
 		Address:       lo.FromPtr(urls.Terraform.Address),

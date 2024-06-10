@@ -115,12 +115,14 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		)...,
 	)
 
-	var toolWriter io.WriteCloser
+	var toolWriters []io.WriteCloser
 	modifier := in.tool.Modifier(step.Stage)
 	args := step.Args
+	env := in.stackRun.Env()
 	if modifier != nil {
 		args = modifier.Args(args)
-		toolWriter = modifier.WriteCloser()
+		env = modifier.Env(env)
+		toolWriters = modifier.WriteCloser()
 	}
 
 	return exec.NewExecutable(
@@ -128,10 +130,10 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		append(
 			in.execOptions,
 			exec.WithDir(in.execWorkDir()),
-			exec.WithEnv(in.stackRun.Env()),
+			exec.WithEnv(env),
 			exec.WithArgs(args),
 			exec.WithID(step.ID),
-			exec.WithOutputSinks(consoleWriter, toolWriter),
+			exec.WithOutputSinks(append(toolWriters, consoleWriter)...),
 			exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
 			exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
 		)...,
@@ -195,7 +197,7 @@ func (in *stackRunController) prepare() error {
 		return err
 	}
 
-	in.tool = tool.New(in.stackRun.Type, in.execWorkDir())
+	in.tool = tool.New(in.stackRun.Type, in.dir, in.execWorkDir())
 
 	return nil
 }

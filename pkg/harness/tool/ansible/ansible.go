@@ -13,6 +13,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
+// Plan implements [v1.Tool] interface.
 func (in *Ansible) Plan() (*console.StackStateAttributes, error) {
 	output, err := os.ReadFile(in.planFilePath)
 	if err != nil {
@@ -25,40 +26,26 @@ func (in *Ansible) Plan() (*console.StackStateAttributes, error) {
 	}, nil
 }
 
-// State is not supported by ansible.
-func (in *Ansible) State() (*console.StackStateAttributes, error) {
-	return nil, nil
-}
-
-// Output is not supported by ansible.
-func (in *Ansible) Output() ([]*console.StackOutputAttributes, error) {
-	// TODO: add logic
-	return []*console.StackOutputAttributes{}, nil
-}
-
-// Modifier is not required by ansible.
+// Modifier implements [v1.Tool] interface.
 func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
+	globalEnvModifier := NewGlobalEnvModifier(in.workDir)
+
 	if stage == console.StepStagePlan {
-		return NewPlanModifier(in.planFilePath)
+		return v1.NewMultiModifier(NewPassthroughModifier(in.planFilePath), globalEnvModifier)
 	}
 
-	// TODO: add logic
-	return v1.NewProxyModifier()
-}
-
-// ConfigureStateBackend is not supported by ansible.
-func (in *Ansible) ConfigureStateBackend(_, _ string, _ *console.StackRunBaseFragment_StateUrls) error {
-	return nil
+	return globalEnvModifier
 }
 
 func (in *Ansible) init() *Ansible {
 	in.planFileName = "ansible.plan"
-	in.planFilePath = path.Join(in.dir, in.planFileName)
+	in.planFilePath = path.Join(in.execDir, in.planFileName)
 	helpers.EnsureFileOrDie(in.planFilePath)
 
 	return in
 }
 
-func New(dir string) *Ansible {
-	return (&Ansible{dir: dir}).init()
+// New creates an Ansible structure that implements v1.Tool interface.
+func New(workDir, execDir string) *Ansible {
+	return (&Ansible{workDir: workDir, execDir: execDir}).init()
 }
