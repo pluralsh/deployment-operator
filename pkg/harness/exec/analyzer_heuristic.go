@@ -41,6 +41,7 @@ func (in *keywordDetector) hasError(message string) bool {
 
 func NewKeywordDetector(keywords ...string) OutputAnalyzerHeuristic {
 	return &keywordDetector{
+		// make sure that the default keyword strings are all lower case
 		keywords: append(
 			keywords,
 			"error message: http remote state already locked",
