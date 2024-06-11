@@ -2,6 +2,7 @@ package exec
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -54,6 +55,10 @@ func (in *executable) Run(ctx context.Context) error {
 		return err
 	}
 
+	if err := in.analyze(); err != nil {
+		return err
+	}
+
 	return in.runLifecycleFunction(v1.LifecyclePostStart)
 }
 
@@ -87,17 +92,22 @@ func (in *executable) ID() string {
 }
 
 func (in *executable) writer() io.Writer {
-	if len(in.outputSinks) == 0 {
-		return os.Stdout
+	writers := []io.Writer{os.Stdout}
+
+	if len(in.outputSinks) > 0 {
+		writers = append(writers, algorithms.Map(
+			in.outputSinks,
+			func(writer io.WriteCloser) io.Writer {
+				return writer
+			})...,
+		)
 	}
 
-	return io.MultiWriter(
-		append(
-			algorithms.Map(in.outputSinks, func(writer io.WriteCloser) io.Writer {
-				return writer
-			}),
-			os.Stdout)...,
-	)
+	if in.outputAnalyzer != nil {
+		writers = append(writers, in.outputAnalyzer)
+	}
+
+	return io.MultiWriter(writers...)
 }
 
 func (in *executable) close(writers []io.WriteCloser) {
@@ -115,6 +125,18 @@ func (in *executable) close(writers []io.WriteCloser) {
 func (in *executable) runLifecycleFunction(lifecycle v1.Lifecycle) error {
 	if fn, exists := in.hookFunctions[lifecycle]; exists {
 		return fn()
+	}
+
+	return nil
+}
+
+func (in *executable) analyze() error {
+	if in.outputAnalyzer == nil {
+		return nil
+	}
+
+	if err := in.outputAnalyzer.Detect(); len(err) > 0 {
+		return errors.Join(err...)
 	}
 
 	return nil
