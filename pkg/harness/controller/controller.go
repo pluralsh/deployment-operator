@@ -126,8 +126,9 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 	}
 
 	// base executable options
-	options := append(
-		in.execOptions,
+	options := in.execOptions
+	options = append(
+		options,
 		exec.WithDir(in.execWorkDir()),
 		exec.WithEnv(env),
 		exec.WithArgs(args),
