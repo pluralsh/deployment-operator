@@ -10,10 +10,6 @@ FROM ${HARNESS_BASE_IMAGE} as harness
 # Build Ansible from Python Image
 FROM python:${PYTHON_VERSION}-alpine as final
 
-# Create necessary directories and set their ownership to UID/GID 65532
-RUN mkdir /plural && chown -R 65532:65532 /plural
-RUN mkdir /tmp/plural && chown -R 65532:65532 /tmp/plural
-
 # Copy Harness bin from the Harness Image
 COPY --from=harness /harness /usr/local/bin/harness
 
@@ -33,7 +29,11 @@ RUN apk add --no-cache --virtual .build-deps \
     apk add --no-cache openssh-client && \
     apk del .build-deps
 
+RUN addgroup --gid 65532 nonroot
+
 # Switch to the non-root user
 USER 65532:65532
 
 WORKDIR /plural
+
+ENTRYPOINT ["harness", "--working-dir=/plural"]

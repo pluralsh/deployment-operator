@@ -7,19 +7,11 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 )
 
-// Args implements exec.ArgsModifier type.
-func (in *InitModifier) Args(args []string) []string {
-	return args
-}
-
-func NewInitModifier() *InitModifier {
-	return &InitModifier{}
-}
-
-// Args implements exec.ArgsModifier type.
-func (in *PlanModifier) Args(args []string) []string {
+// Args implements [v1.ArgsModifier] type.
+func (in *PlanArgsModifier) Args(args []string) []string {
 	if !lo.Contains(args, "plan") {
 		return args
 	}
@@ -27,11 +19,12 @@ func (in *PlanModifier) Args(args []string) []string {
 	return append(args, fmt.Sprintf("-out=%s", in.planFileName))
 }
 
-func NewPlanModifier(planFileName string) *PlanModifier {
-	return &PlanModifier{planFileName}
+func NewPlanArgsModifier(planFileName string) v1.Modifier {
+	return &PlanArgsModifier{planFileName: planFileName}
 }
 
-func (in *ApplyModifier) Args(args []string) []string {
+// Args implements [v1.ArgsModifier] type.
+func (in *ApplyArgsModifier) Args(args []string) []string {
 	if !lo.Contains(args, "apply") {
 		return args
 	}
@@ -43,6 +36,6 @@ func (in *ApplyModifier) Args(args []string) []string {
 	return append(args, in.planFileName)
 }
 
-func NewApplyModifier(dir, planFileName string) *ApplyModifier {
-	return &ApplyModifier{planFileName, dir}
+func NewApplyArgsModifier(dir, planFileName string) v1.Modifier {
+	return &ApplyArgsModifier{planFileName: planFileName, dir: dir}
 }

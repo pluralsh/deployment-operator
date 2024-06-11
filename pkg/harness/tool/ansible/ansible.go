@@ -1,36 +1,51 @@
 package ansible
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	"os"
+	"path"
 
+	console "github.com/pluralsh/console-client-go"
+	"github.com/samber/lo"
+	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
+// Plan implements [v1.Tool] interface.
 func (in *Ansible) Plan() (*console.StackStateAttributes, error) {
-	// TODO implement me
-	panic("implement me")
+	output, err := os.ReadFile(in.planFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	klog.V(log.LogLevelTrace).InfoS("ansible plan file read successfully", "file", in.planFilePath, "output", string(output))
+	return &console.StackStateAttributes{
+		Plan: lo.ToPtr(string(output)),
+	}, nil
 }
 
-func (in *Ansible) State() (*console.StackStateAttributes, error) {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (in *Ansible) Output() ([]*console.StackOutputAttributes, error) {
-	// TODO implement me
-	panic("implement me")
-}
-
+// Modifier implements [v1.Tool] interface.
 func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
-	// TODO implement me
-	panic("implement me")
+	globalEnvModifier := NewGlobalEnvModifier(in.workDir)
+
+	if stage == console.StepStagePlan {
+		return v1.NewMultiModifier(NewPassthroughModifier(in.planFilePath), globalEnvModifier)
+	}
+
+	return globalEnvModifier
 }
 
-func (in *Ansible) ConfigureStateBackend(actor, deployToken string, urls *console.StackRunBaseFragment_StateUrls) error {
-	// TODO implement me
-	panic("implement me")
+func (in *Ansible) init() *Ansible {
+	in.planFileName = "ansible.plan"
+	in.planFilePath = path.Join(in.execDir, in.planFileName)
+	helpers.EnsureFileOrDie(in.planFilePath)
+
+	return in
 }
 
-func New(dir string) *Ansible {
-	return &Ansible{dir: dir}
+// New creates an Ansible structure that implements v1.Tool interface.
+func New(workDir, execDir string) *Ansible {
+	return (&Ansible{workDir: workDir, execDir: execDir}).init()
 }
