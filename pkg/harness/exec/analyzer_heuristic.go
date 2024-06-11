@@ -31,6 +31,9 @@ func (in *keywordDetector) Detect(input *bufio.Scanner) Errors {
 }
 
 func (in *keywordDetector) hasError(message string) bool {
+	// do ignore case comparison
+	message = strings.ToLower(message)
+
 	return algorithms.Index(in.keywords, func(k string) bool {
 		return strings.Contains(message, k)
 	}) >= 0
@@ -40,8 +43,8 @@ func NewKeywordDetector(keywords ...string) OutputAnalyzerHeuristic {
 	return &keywordDetector{
 		keywords: append(
 			keywords,
-			"error",
-			"fatal",
+			"error message: http remote state already locked",
+			"error acquiring the state lock",
 		),
 	}
 }
