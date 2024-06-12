@@ -143,7 +143,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 	// a chance of detecting errors during execution. On occasion executable can
 	// return exit code 0 even though there was a fatal error during execution.
 	// TODO: use destroy stage
-	//if step.Stage == gqlclient.StepStageApply {
+	// if step.Stage == gqlclient.StepStageApply {
 	//	options = append(options, exec.WithOutputAnalyzer(exec.NewKeywordDetector()))
 	//}
 
