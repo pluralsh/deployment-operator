@@ -21,10 +21,10 @@ func (in keyword) PartOf(s string) bool {
 		return strings.Contains(s, in.content)
 	}
 
-	s = strings.ToLower(s)
-	substr := strings.ToLower(in.content)
-
-	return strings.Contains(s, substr)
+	return strings.Contains(
+		strings.ToLower(s),
+		strings.ToLower(in.content),
+	)
 }
 
 // Detect implements [OutputAnalyzerHeuristic] interface.
