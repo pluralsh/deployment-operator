@@ -3,13 +3,17 @@ package exec
 import (
 	"bufio"
 	"fmt"
+	"io"
 )
 
 // OutputAnalyzer captures the command output
 // and attempts to detect potential errors.
 type OutputAnalyzer interface {
-	// Write implements [io.Writer] interface.
-	Write(p []byte) (n int, err error)
+	Stdout() io.Writer
+	Stderr() io.Writer
+
+	//// Write implements [io.Writer] interface.
+	//Write(p []byte) (n int, err error)
 
 	// Detect scans the output for potential errors.
 	// It uses a custom heuristics to detect issues.

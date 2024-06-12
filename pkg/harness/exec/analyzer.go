@@ -3,21 +3,29 @@ package exec
 import (
 	"bufio"
 	"bytes"
+	"fmt"
+	"io"
 	"strings"
 )
 
 type outputAnalyzer struct {
-	output     *bytes.Buffer
+	stdout *bytes.Buffer
+	stderr *bytes.Buffer
+
 	heuristics []OutputAnalyzerHeuristic
 }
 
-func (in *outputAnalyzer) Write(p []byte) (n int, err error) {
-	return in.output.Write(p)
+func (in *outputAnalyzer) Stdout() io.Writer {
+	return in.stdout
+}
+
+func (in *outputAnalyzer) Stderr() io.Writer {
+	return in.stderr
 }
 
 func (in *outputAnalyzer) Detect() []error {
 	errors := make([]error, 0)
-	output := in.output.String()
+	output := in.stdout.String()
 
 	for _, heuristic := range in.heuristics {
 		if potentialErrors := heuristic.Detect(bufio.NewScanner(strings.NewReader(output))); len(potentialErrors) > 0 {
@@ -25,12 +33,17 @@ func (in *outputAnalyzer) Detect() []error {
 		}
 	}
 
+	if in.stderr.Len() > 0 {
+		errors = append(errors, fmt.Errorf("%s", in.stderr.String()))
+	}
+
 	return errors
 }
 
-func NewOutputAnalyzer(heuristic ...OutputAnalyzerHeuristic) OutputAnalyzer {
+func NewOutputAnalyzer(heuristics ...OutputAnalyzerHeuristic) OutputAnalyzer {
 	return &outputAnalyzer{
-		output:     bytes.NewBuffer([]byte{}),
-		heuristics: heuristic,
+		stdout:     bytes.NewBuffer([]byte{}),
+		stderr:     bytes.NewBuffer([]byte{}),
+		heuristics: heuristics,
 	}
 }

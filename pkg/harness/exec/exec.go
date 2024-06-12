@@ -36,6 +36,10 @@ func (in *executable) Run(ctx context.Context) error {
 	cmd.Stdout = w
 	cmd.Stderr = w
 
+	if in.outputAnalyzer != nil {
+		cmd.Stderr = io.MultiWriter(w, in.outputAnalyzer.Stderr())
+	}
+
 	// Configure environment of the executable.
 	// Root process environment is used as a base and passed in env vars
 	// are added on top of that. In case of duplicate keys, custom env
@@ -104,7 +108,7 @@ func (in *executable) writer() io.Writer {
 	}
 
 	if in.outputAnalyzer != nil {
-		writers = append(writers, in.outputAnalyzer)
+		writers = append(writers, in.outputAnalyzer.Stdout())
 	}
 
 	return io.MultiWriter(writers...)

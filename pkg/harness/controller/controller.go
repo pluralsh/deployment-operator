@@ -136,15 +136,16 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithOutputSinks(append(toolWriters, consoleWriter)...),
 		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
 		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
+		exec.WithOutputAnalyzer(exec.NewKeywordDetector()),
 	)
 
 	// Add a custom run step output analyzer for the destroy stage to increase
 	// a chance of detecting errors during execution. On occasion executable can
 	// return exit code 0 even though there was a fatal error during execution.
 	// TODO: use destroy stage
-	if step.Stage == gqlclient.StepStageApply {
-		options = append(options, exec.WithOutputAnalyzer(exec.NewKeywordDetector()))
-	}
+	//if step.Stage == gqlclient.StepStageApply {
+	//	options = append(options, exec.WithOutputAnalyzer(exec.NewKeywordDetector()))
+	//}
 
 	return exec.NewExecutable(step.Cmd, options...)
 }

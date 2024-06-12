@@ -8,7 +8,23 @@ import (
 )
 
 type keywordDetector struct {
-	keywords []string
+	keywords []keyword
+}
+
+type keyword struct {
+	content    string
+	ignoreCase bool
+}
+
+func (in keyword) PartOf(s string) bool {
+	if !in.ignoreCase {
+		return strings.Contains(s, in.content)
+	}
+
+	s = strings.ToLower(s)
+	substr := strings.ToLower(in.content)
+
+	return strings.Contains(s, substr)
 }
 
 // Detect implements [OutputAnalyzerHeuristic] interface.
@@ -31,21 +47,17 @@ func (in *keywordDetector) Detect(input *bufio.Scanner) Errors {
 }
 
 func (in *keywordDetector) hasError(message string) bool {
-	// do ignore case comparison
-	message = strings.ToLower(message)
-
-	return algorithms.Index(in.keywords, func(k string) bool {
-		return strings.Contains(message, k)
+	return algorithms.Index(in.keywords, func(k keyword) bool {
+		return k.PartOf(message)
 	}) >= 0
 }
 
-func NewKeywordDetector(keywords ...string) OutputAnalyzerHeuristic {
+func NewKeywordDetector() OutputAnalyzerHeuristic {
 	return &keywordDetector{
-		// make sure that the default keyword strings are all lower case
-		keywords: append(
-			keywords,
-			"error message: http remote state already locked",
-			"error acquiring the state lock",
-		),
+		keywords: []keyword{
+			{"error message: http remote state already locked", true},
+			{"error acquiring the state lock", true},
+			{"Error:", false},
+		},
 	}
 }
