@@ -100,10 +100,12 @@ jobs:
     strategy:
       matrix:
         versions:
-        - full: 1.7.2
+        - tofu: 1.7.2
+          terraform: 1.8.2
+          tag:  '1.8'
+        - tofu: 1.6.2
+          terraform: 1.7.2
           tag:  '1.7'
-        - full: 1.6.2
-          tag:  '1.6'
     permissions:
       contents: write
       discussions: write
@@ -153,7 +155,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            TOFU_IMAGE_TAG=${{ matrix.versions.full }}
+            TOFU_IMAGE_TAG=${{ matrix.versions.tofu }}
             HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
             HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
             
