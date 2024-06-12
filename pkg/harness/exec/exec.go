@@ -52,7 +52,7 @@ func (in *executable) Run(ctx context.Context) error {
 
 	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
 	if err := cmd.Run(); err != nil {
-		if err = context.Cause(ctx); err != nil {
+		if err := context.Cause(ctx); err != nil {
 			return err
 		}
 
