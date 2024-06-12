@@ -91,7 +91,7 @@ func (in *stackRunController) postExecHook(stage gqlclient.StepStage) v1.HookFun
 // postExecHook is a callback function started by the exec.Executable before it runs the executable.
 func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) v1.HookFunction {
 	return func() error {
-		if stage == gqlclient.StepStageApply && in.requiresApproval() {
+		if (stage == gqlclient.StepStageApply || stage == gqlclient.StepStageDestroy) && in.requiresApproval() {
 			in.waitForApproval()
 		}
 
