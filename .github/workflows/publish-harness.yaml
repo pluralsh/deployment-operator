@@ -101,10 +101,8 @@ jobs:
       matrix:
         versions:
         - tofu: 1.7.2
-          terraform: 1.8.2
           tag:  '1.8'
         - tofu: 1.6.2
-          terraform: 1.7.2
           tag:  '1.7'
     permissions:
       contents: write
