@@ -1,8 +1,14 @@
 package main
 
 import (
+	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	"os"
+	"time"
 
+	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+
+	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -32,8 +38,14 @@ func init() {
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(constraintstatusv1beta1.AddToScheme(scheme))
 	utilruntime.Must(templatesv1.AddToScheme(scheme))
+	utilruntime.Must(rolloutv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
+
+const (
+	httpClientTimout    = time.Second * 5
+	httpCacheExpiryTime = time.Second * 2
+)
 
 func main() {
 	opt := newOptions()
@@ -48,6 +60,11 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
+		os.Exit(1)
+	}
+	rolloutsClient, err := roclientset.NewForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create rollouts client")
 		os.Exit(1)
 	}
 
@@ -70,6 +87,14 @@ func main() {
 		ConsoleClient: ctrlMgr.GetClient(),
 		Reader:        mgr.GetCache(),
 	}
+	argoRolloutController := &controller.ArgoRolloutReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ConsoleClient: ctrlMgr.GetClient(),
+		ConsoleURL:    opt.consoleUrl,
+		CachedClient:  utils.NewCachedClient(httpClientTimout, httpCacheExpiryTime),
+		ArgoClientSet: rolloutsClient,
+	}
 
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
 		{
@@ -87,6 +112,11 @@ func main() {
 			Version: "v1beta1",
 			Kind:    "ConstraintPodStatus",
 		}: constraintController.SetupWithManager,
+		{
+			Group:   rolloutv1alpha1.SchemeGroupVersion.Group,
+			Version: rolloutv1alpha1.SchemeGroupVersion.Version,
+			Kind:    rollouts.RolloutKind,
+		}: argoRolloutController.SetupWithManager,
 	}
 
 	if err = (&controller.CrdRegisterControllerReconciler{

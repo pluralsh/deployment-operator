@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	"strings"
 
 	console "github.com/pluralsh/console-client-go"
@@ -97,6 +98,10 @@ func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func
 	case "flagger.app":
 		if gvk.Kind == CanaryKind {
 			return getCanaryHealth
+		}
+	case rollouts.Group:
+		if gvk.Kind == rollouts.RolloutKind {
+			return getArgoRolloutHealth
 		}
 	case "autoscaling":
 		if gvk.Kind == HorizontalPodAutoscalerKind {

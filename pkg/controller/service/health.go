@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
 	"github.com/pluralsh/deployment-operator/pkg/lua"
 	appsv1 "k8s.io/api/apps/v1"
@@ -96,6 +97,39 @@ func getHPAHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	default:
 		return nil, fmt.Errorf("unsupported HPA GVK: %s", gvk)
 	}
+}
+
+func getArgoRolloutHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	var argo rolloutv1alpha1.Rollout
+	var msg string
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &argo); err != nil {
+		return nil, err
+	}
+	for _, cond := range argo.Status.Conditions {
+		if cond.Type == rolloutv1alpha1.RolloutHealthy && cond.Status == corev1.ConditionTrue {
+			return &HealthStatus{
+				Status:  HealthStatusHealthy,
+				Message: cond.Message,
+			}, nil
+		}
+		if cond.Type == rolloutv1alpha1.RolloutPaused && cond.Status == corev1.ConditionTrue {
+			return &HealthStatus{
+				Status:  HealthStatusPaused,
+				Message: cond.Message,
+			}, nil
+		}
+		if cond.Type == rolloutv1alpha1.RolloutReplicaFailure || cond.Type == rolloutv1alpha1.InvalidSpec {
+			return &HealthStatus{
+				Status:  HealthStatusDegraded,
+				Message: cond.Message,
+			}, nil
+		}
+	}
+
+	return &HealthStatus{
+		Status:  HealthStatusProgressing,
+		Message: msg,
+	}, nil
 }
 
 func getCanaryHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
