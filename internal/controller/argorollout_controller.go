@@ -65,7 +65,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if hasPausedRolloutComponent(service) {
+	if hasPausedRolloutComponent(service) && rollout.Status.ControllerPause {
 		promoteURL := fmt.Sprintf("%s/ext/v1/gate/%s", consoleURL, serviceID)
 		rollbackURL := fmt.Sprintf("%s/ext/v1/rollback/%s", consoleURL, serviceID)
 		promoteResponse, err := r.CachedClient.Get(promoteURL)
