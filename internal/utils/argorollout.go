@@ -62,7 +62,8 @@ func getPatches(rollout *v1alpha1.Rollout) ([]byte, []byte, []byte) {
 	// in case if canary rollout in inconclusive state, we want to unset controller pause , clean pause conditions and increment step index
 	// so that rollout can proceed to next step
 	// without such patch, rollout will be stuck in inconclusive state in case if next step is pause step
-	if isInconclusive(rollout) && len(rollout.Status.PauseConditions) > 0 && rollout.Status.ControllerPause {
+	switch {
+	case isInconclusive(rollout) && len(rollout.Status.PauseConditions) > 0 && rollout.Status.ControllerPause:
 		_, index := GetCurrentCanaryStep(rollout)
 		if index != nil {
 			if *index < int32(len(rollout.Spec.Strategy.Canary.Steps)) {
@@ -70,13 +71,9 @@ func getPatches(rollout *v1alpha1.Rollout) ([]byte, []byte, []byte) {
 			}
 			statusPatch = []byte(fmt.Sprintf(clearPauseConditionsAndControllerPausePatch, *index))
 		}
-	} else if len(rollout.Status.PauseConditions) > 0 {
+	case len(rollout.Status.PauseConditions) > 0:
 		statusPatch = []byte(clearPauseConditionsPatch)
-	} else if rollout.Spec.Strategy.Canary != nil {
-		// we only want to clear pause conditions, or increment step index (never both)
-		// this else block covers the case of promoting a rollout when it is in the middle of
-		// running analysis/experiment
-		// TODO: we currently do not handle promotion of two analysis steps in a row properly
+	case rollout.Spec.Strategy.Canary != nil:
 		_, index := GetCurrentCanaryStep(rollout)
 		// At this point, the controller knows that the rollout is a canary with steps and GetCurrentCanaryStep returns 0 if
 		// the index is not set in the rollout
@@ -88,7 +85,6 @@ func getPatches(rollout *v1alpha1.Rollout) ([]byte, []byte, []byte) {
 			unifiedPatch = []byte(fmt.Sprintf(unpauseAndClearPauseConditionsPatchWithStep, *index))
 		}
 	}
-
 	return specPatch, statusPatch, unifiedPatch
 }
 
