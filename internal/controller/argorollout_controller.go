@@ -6,6 +6,9 @@ import (
 	"net/url"
 	"time"
 
+	clientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned/typed/rollouts/v1alpha1"
+	"github.com/argoproj/argo-rollouts/pkg/kubectl-argo-rollouts/cmd/abort"
+
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
@@ -13,6 +16,8 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -33,6 +38,8 @@ type ArgoRolloutReconciler struct {
 	ConsoleURL    string
 	CachedClient  *utils.CachedClient
 	ArgoClientSet roclientset.Interface
+	DynamicClient dynamic.Interface
+	KubeClient    kubernetes.Interface
 }
 
 // Reconcile Argo Rollout custom resources to ensure that Console stays in sync with Kubernetes cluster.
@@ -65,9 +72,16 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if hasPausedRolloutComponent(service) && rollout.Status.ControllerPause {
+	if rollout.Status.Phase == rolloutv1alpha1.RolloutPhasePaused {
+		// wait until the agent will change component status
+		if !hasPausedRolloutComponent(service) {
+			return requeueRollout, nil
+		}
+
+		rolloutIf := r.ArgoClientSet.ArgoprojV1alpha1().Rollouts(rollout.Namespace)
 		promoteURL := fmt.Sprintf("%s/ext/v1/gate/%s", consoleURL, serviceID)
 		rollbackURL := fmt.Sprintf("%s/ext/v1/rollback/%s", consoleURL, serviceID)
+
 		promoteResponse, err := r.CachedClient.Get(promoteURL)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -78,17 +92,28 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 
 		if promoteResponse != closed {
-			rolloutIf := r.ArgoClientSet.ArgoprojV1alpha1().Rollouts(rollout.Namespace)
-			if _, err := utils.PromoteRollout(ctx, rolloutIf, rollout.Name); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-		if rollbackResponse != closed {
+			return ctrl.Result{}, r.promote(ctx, rolloutIf, rollout)
 
 		}
-		return requeueRollout, nil
+		if rollbackResponse != closed {
+			return ctrl.Result{}, r.rollback(rolloutIf, rollout)
+		}
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *ArgoRolloutReconciler) promote(ctx context.Context, rolloutIf clientset.RolloutInterface, rollout *rolloutv1alpha1.Rollout) error {
+	if _, err := utils.PromoteRollout(ctx, rolloutIf, rollout.Name); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ArgoRolloutReconciler) rollback(rolloutIf clientset.RolloutInterface, rollout *rolloutv1alpha1.Rollout) error {
+	if _, err := abort.AbortRollout(rolloutIf, rollout.Name); err != nil {
+		return err
+	}
+	return nil
 }
 
 func hasPausedRolloutComponent(service *console.GetServiceDeploymentForAgent_ServiceDeployment) bool {

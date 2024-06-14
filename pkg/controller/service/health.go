@@ -105,31 +105,30 @@ func getArgoRolloutHealth(obj *unstructured.Unstructured) (*HealthStatus, error)
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &argo); err != nil {
 		return nil, err
 	}
-	for _, cond := range argo.Status.Conditions {
-		if cond.Type == rolloutv1alpha1.RolloutHealthy && cond.Status == corev1.ConditionTrue {
-			return &HealthStatus{
-				Status:  HealthStatusHealthy,
-				Message: cond.Message,
-			}, nil
-		}
-		if cond.Type == rolloutv1alpha1.RolloutPaused && cond.Status == corev1.ConditionTrue {
-			return &HealthStatus{
-				Status:  HealthStatusPaused,
-				Message: cond.Message,
-			}, nil
-		}
-		if cond.Type == rolloutv1alpha1.RolloutReplicaFailure || cond.Type == rolloutv1alpha1.InvalidSpec {
-			return &HealthStatus{
-				Status:  HealthStatusDegraded,
-				Message: cond.Message,
-			}, nil
-		}
-	}
+	switch argo.Status.Phase {
+	case rolloutv1alpha1.RolloutPhasePaused:
+		return &HealthStatus{
+			Status:  HealthStatusPaused,
+			Message: argo.Status.Message,
+		}, nil
 
-	return &HealthStatus{
-		Status:  HealthStatusProgressing,
-		Message: msg,
-	}, nil
+	case rolloutv1alpha1.RolloutPhaseDegraded:
+		return &HealthStatus{
+			Status:  HealthStatusDegraded,
+			Message: argo.Status.Message,
+		}, nil
+
+	case rolloutv1alpha1.RolloutPhaseHealthy:
+		return &HealthStatus{
+			Status:  HealthStatusHealthy,
+			Message: argo.Status.Message,
+		}, nil
+	default:
+		return &HealthStatus{
+			Status:  HealthStatusProgressing,
+			Message: msg,
+		}, nil
+	}
 }
 
 func getCanaryHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {

@@ -15,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -66,7 +68,16 @@ func main() {
 		setupLog.Error(err, "unable to create rollouts client")
 		os.Exit(1)
 	}
-
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create dynamic client")
+		os.Exit(1)
+	}
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create kubernetes client")
+		os.Exit(1)
+	}
 	setupLog.Info("starting agent")
 	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
 
@@ -93,6 +104,8 @@ func main() {
 		ConsoleURL:    opt.consoleUrl,
 		CachedClient:  utils.NewCachedClient(httpClientTimout, httpCacheExpiryTime),
 		ArgoClientSet: rolloutsClient,
+		DynamicClient: dynamicClient,
+		KubeClient:    kubeClient,
 	}
 
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
