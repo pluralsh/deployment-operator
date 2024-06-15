@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -25,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -108,14 +108,13 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		return nil, err
 	}
 
-	go func() {
-		_ = wait.PollUntilContextCancel(ctx, time.Minute*5, true, func(_ context.Context) (done bool, err error) {
-			if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
-				logger.Error(err, "can't fetch API versions")
-			}
-			return false, nil
-		})
-	}()
+	_ = helpers.BackgroundPollUntilContextCancel(ctx, 5 * time.Minute, true, true, func(_ context.Context) (done bool, err error) {
+		if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
+			logger.Error(err, "can't fetch API versions")
+		}
+
+		return false, nil
+	})
 
 	return &ServiceReconciler{
 		ConsoleClient:    consoleClient,
