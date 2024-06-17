@@ -86,18 +86,17 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		if promoteResponse != closed {
+			return ctrl.Result{}, r.promote(ctx, rolloutIf, rollout)
+		}
 		rollbackResponse, err := r.CachedClient.Get(rollbackURL)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
-		if promoteResponse != closed {
-			return ctrl.Result{}, r.promote(ctx, rolloutIf, rollout)
-
-		}
 		if rollbackResponse != closed {
 			return ctrl.Result{}, r.rollback(rolloutIf, rollout)
 		}
+		return requeueRollout, nil
 	}
 	return ctrl.Result{}, nil
 }
