@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/cli-utils/pkg/print/stats"
-
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
-
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
+	"sigs.k8s.io/cli-utils/pkg/print/stats"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -97,6 +96,10 @@ func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func
 	case "flagger.app":
 		if gvk.Kind == CanaryKind {
 			return getCanaryHealth
+		}
+	case rollouts.Group:
+		if gvk.Kind == rollouts.RolloutKind {
+			return getArgoRolloutHealth
 		}
 	case "autoscaling":
 		if gvk.Kind == HorizontalPodAutoscalerKind {
