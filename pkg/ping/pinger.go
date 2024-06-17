@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/util"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -31,11 +32,13 @@ func New(console client.Client, discovery *discovery.DiscoveryClient, factory ut
 func (p *Pinger) Ping() error {
 	info, err := p.discoveryClient.ServerVersion()
 	if err != nil {
+		klog.ErrorS(err, "failed to get server version")
 		return err
 	}
 
 	cs, err := p.factory.KubernetesClientSet()
 	if err != nil {
+		klog.ErrorS(err, "failed to create kubernetes clientset")
 		return nil
 	}
 
@@ -64,6 +67,7 @@ func (p *Pinger) Ping() error {
 func (p *Pinger) minimumKubeletVersion(client *kubernetes.Clientset) *string {
 	nodes, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
+		klog.ErrorS(err, "failed to list nodes")
 		return nil
 	}
 
