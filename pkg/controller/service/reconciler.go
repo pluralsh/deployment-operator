@@ -108,7 +108,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		return nil, err
 	}
 
-	_ = helpers.BackgroundPollUntilContextCancel(ctx, 5 * time.Minute, true, true, func(_ context.Context) (done bool, err error) {
+	_ = helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
 		if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
 			logger.Error(err, "can't fetch API versions")
 		}
