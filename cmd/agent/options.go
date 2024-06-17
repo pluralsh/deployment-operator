@@ -38,7 +38,7 @@ func newOptions() *options {
 	flag.StringVar(&o.metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&o.probeAddr, "health-probe-bind-address", ":9001", "The address the probe endpoint binds to.")
 	flag.BoolVar(&o.enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-	flag.IntVar(&o.maxConcurrentReconciles, "max-concurrent-reconciles", 10, "Maximum number of concurrent reconciles which can be run.")
+	flag.IntVar(&o.maxConcurrentReconciles, "max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
 	flag.IntVar(&o.resyncSeconds, "resync-seconds", 300, "Resync duration in seconds.")
 	flag.StringVar(&o.refreshInterval, "refresh-interval", "2m", "Refresh interval duration.")
 	flag.StringVar(&o.processingTimeout, "processing-timeout", "1m", "Maximum amount of time to spend trying to process queue item.")
