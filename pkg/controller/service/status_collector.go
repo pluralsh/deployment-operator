@@ -108,13 +108,20 @@ func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, 
 		version = v
 	}
 
+	synced := e.PollResourceInfo.Status == status.CurrentStatus
+
+	if e.PollResourceInfo.Status == status.UnknownStatus {
+		if sc.reconciler.toStatus(e.Resource) != nil {
+			synced = *sc.reconciler.toStatus(e.Resource) == console.ComponentStateRunning
+		}
+	}
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,
 		Kind:      gvk.Kind,
 		Namespace: e.Resource.GetNamespace(),
 		Name:      e.Resource.GetName(),
 		Version:   version,
-		Synced:    e.PollResourceInfo.Status == status.CurrentStatus,
+		Synced:    synced,
 		State:     sc.reconciler.toStatus(e.Resource),
 	}
 }
