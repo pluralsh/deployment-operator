@@ -7,39 +7,40 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 
+	"github.com/samber/lo"
+	"golang.org/x/net/context"
+	"k8s.io/client-go/rest"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
 	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
-	"github.com/samber/lo"
-	"golang.org/x/net/context"
-	"k8s.io/client-go/rest"
-	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {
 	r, err := time.ParseDuration(opt.refreshInterval)
 	if err != nil {
-		setupLog.Error(err, "unable to get refresh interval")
+		setupLog.Error("unable to get refresh interval", "error", err)
 		os.Exit(1)
 	}
 
 	t, err := time.ParseDuration(opt.processingTimeout)
 	if err != nil {
-		setupLog.Error(err, "unable to get processing timeout")
+		setupLog.Errorw("unable to get processing timeout", "error", err)
 		os.Exit(1)
 	}
 
 	mgr, err := controller.NewControllerManager(ctx, opt.maxConcurrentReconciles, t, r, lo.ToPtr(true), opt.consoleUrl, opt.deployToken, opt.clusterId)
 	if err != nil {
-		setupLog.Error(err, "unable to create manager")
+		setupLog.Errorw("unable to create manager", "error", err)
 		os.Exit(1)
 	}
 
 	sr, err := service.NewServiceReconciler(ctx, mgr.GetClient(), config, r, opt.restoreNamespace)
 	if err != nil {
-		setupLog.Error(err, "unable to create service reconciler")
+		setupLog.Errorw("unable to create service reconciler", "error", err)
 		os.Exit(1)
 	}
 	mgr.AddController(&controller.Controller{
@@ -49,7 +50,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 	})
 	gr, err := pipelinegates.NewGateReconciler(mgr.GetClient(), k8sClient, config, r, opt.clusterId)
 	if err != nil {
-		setupLog.Error(err, "unable to create gate reconciler")
+		setupLog.Errorw("unable to create gate reconciler", "error", err)
 		os.Exit(1)
 	}
 	mgr.AddController(&controller.Controller{
@@ -74,7 +75,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 
 	namespace, err := utils.GetOperatorNamespace()
 	if err != nil {
-		setupLog.Error(err, "unable to get operator namespace")
+		setupLog.Errorw("unable to get operator namespace", "error", err)
 		os.Exit(1)
 	}
 
@@ -85,7 +86,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Queue: s.StackQueue,
 	})
 	if err := mgr.Start(); err != nil {
-		setupLog.Error(err, "unable to start controller manager")
+		setupLog.Errorw("unable to start controller manager", "error", err)
 		os.Exit(1)
 	}
 
