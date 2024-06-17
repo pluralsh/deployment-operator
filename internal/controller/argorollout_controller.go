@@ -16,6 +16,7 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -41,6 +42,7 @@ type ArgoRolloutReconciler struct {
 	ArgoClientSet roclientset.Interface
 	DynamicClient dynamic.Interface
 	KubeClient    kubernetes.Interface
+	SvcReconciler *service.ServiceReconciler
 }
 
 // Reconcile Argo Rollout custom resources to ensure that Console stays in sync with Kubernetes cluster.
@@ -88,7 +90,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, err
 		}
 		if promoteResponse == http.StatusOK {
-			return ctrl.Result{}, r.promote(ctx, rolloutIf, rollout)
+			return ctrl.Result{}, r.promote(ctx, rolloutIf, rollout, serviceID)
 		}
 		rollbackResponse, err := r.get(rollbackURL)
 		if err != nil {
@@ -102,9 +104,13 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func (r *ArgoRolloutReconciler) promote(ctx context.Context, rolloutIf clientset.RolloutInterface, rollout *rolloutv1alpha1.Rollout) error {
+func (r *ArgoRolloutReconciler) promote(ctx context.Context, rolloutIf clientset.RolloutInterface, rollout *rolloutv1alpha1.Rollout, svcId string) error {
 	if _, err := utils.PromoteRollout(ctx, rolloutIf, rollout.Name); err != nil {
 		return err
+	}
+
+	if r.SvcReconciler != nil {
+		r.SvcReconciler.SvcQueue.AddRateLimited(svcId)
 	}
 	return nil
 }

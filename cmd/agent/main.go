@@ -105,6 +105,7 @@ func main() {
 		HttpClient:    &http.Client{Timeout: httpClientTimout},
 		ArgoClientSet: rolloutsClient,
 		DynamicClient: dynamicClient,
+		SvcReconciler: serviceReconciler,
 		KubeClient:    kubeClient,
 	}
 
