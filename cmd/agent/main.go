@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -102,7 +102,7 @@ func main() {
 		Scheme:        mgr.GetScheme(),
 		ConsoleClient: ctrlMgr.GetClient(),
 		ConsoleURL:    opt.consoleUrl,
-		CachedClient:  utils.NewCachedClient(httpClientTimout, httpCacheExpiryTime),
+		HttpClient:    &http.Client{Timeout: httpClientTimout},
 		ArgoClientSet: rolloutsClient,
 		DynamicClient: dynamicClient,
 		KubeClient:    kubeClient,

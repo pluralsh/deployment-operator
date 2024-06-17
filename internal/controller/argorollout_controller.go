@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -36,7 +37,7 @@ type ArgoRolloutReconciler struct {
 	Scheme        *runtime.Scheme
 	ConsoleClient client.Client
 	ConsoleURL    string
-	CachedClient  *utils.CachedClient
+	HttpClient    *http.Client
 	ArgoClientSet roclientset.Interface
 	DynamicClient dynamic.Interface
 	KubeClient    kubernetes.Interface
@@ -82,18 +83,18 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		promoteURL := fmt.Sprintf("%s/ext/v1/gate/%s", consoleURL, serviceID)
 		rollbackURL := fmt.Sprintf("%s/ext/v1/rollback/%s", consoleURL, serviceID)
 
-		promoteResponse, err := r.CachedClient.Get(promoteURL)
+		promoteResponse, err := r.get(promoteURL)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if promoteResponse != closed {
+		if promoteResponse == http.StatusOK {
 			return ctrl.Result{}, r.promote(ctx, rolloutIf, rollout)
 		}
-		rollbackResponse, err := r.CachedClient.Get(rollbackURL)
+		rollbackResponse, err := r.get(rollbackURL)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if rollbackResponse != closed {
+		if rollbackResponse == http.StatusOK {
 			return ctrl.Result{}, r.rollback(rolloutIf, rollout)
 		}
 		return requeueRollout, nil
@@ -139,4 +140,15 @@ func (r *ArgoRolloutReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rolloutv1alpha1.Rollout{}).
 		Complete(r)
+}
+
+func (r *ArgoRolloutReconciler) get(url string) (int, error) {
+	// Make the HTTP request
+	resp, err := r.HttpClient.Get(url)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode, nil
 }
