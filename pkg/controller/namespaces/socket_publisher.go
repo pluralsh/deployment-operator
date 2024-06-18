@@ -2,8 +2,9 @@ package namespaces
 
 import (
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type socketPublisher struct {
