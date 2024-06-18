@@ -291,13 +291,12 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	defer func() {
 		if err != nil {
 			logger.Error(err, "process item")
-			metrics.Record().ServiceReconciliation(id, svc.Name, err)
 			if !errors.Is(err, plrlerrors.ErrExpected) {
 				s.UpdateErrorStatus(ctx, id, err)
 			}
 		}
 
-		metrics.Record().ServiceReconciliation(id, svc.Name, nil)
+		metrics.Record().ServiceReconciliation(id, svc.Name, err)
 	}()
 
 	logger.V(2).Info("local", "flag", Local)
