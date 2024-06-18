@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/pluralsh/deployment-operator/internal/metrics"
 )
 
 // BackgroundPollUntilContextCancel spawns a new goroutine that runs the condition function on interval.
