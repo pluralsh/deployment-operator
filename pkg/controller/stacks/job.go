@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
@@ -93,6 +94,7 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 			return nil, err
 		}
 
+		metrics.Record().StackRunJobCreation()
 		if err := r.ConsoleClient.UpdateStackRun(run.ID, console.StackRunAttributes{
 			Status: run.Status,
 			JobRef: &console.NamespacedName{

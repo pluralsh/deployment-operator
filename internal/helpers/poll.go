@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 )
 
 // BackgroundPollUntilContextCancel spawns a new goroutine that runs the condition function on interval.
@@ -13,6 +15,7 @@ import (
 // Background poller does not sync errors. It can be stopped externally by cancelling the provided context.
 func BackgroundPollUntilContextCancel(ctx context.Context, interval time.Duration, immediate, syncFirstRun bool, condition wait.ConditionWithContextFunc) (err error) {
 	if syncFirstRun {
+		metrics.Record().DiscoveryAPICacheRefresh()
 		_, err = condition(ctx)
 	}
 

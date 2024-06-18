@@ -25,6 +25,7 @@ import (
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -109,6 +110,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 	}
 
 	_ = helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
+		metrics.Record().DiscoveryAPICacheRefresh()
 		if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
 			logger.Error(err, "can't fetch API versions")
 		}
@@ -285,6 +287,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		logger.Error(err, fmt.Sprintf("failed to fetch service: %s, ignoring for now", id))
 		return
 	}
+
+	metrics.Record().ServiceReconciliation(id, svc.Name)
 
 	defer func() {
 		if err != nil {
