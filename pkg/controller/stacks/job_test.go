@@ -15,7 +15,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 	var kClient client.Client
 	fakeConsoleClient := mocks.NewClientMock(t)
 	namespace := "default"
-	reconciler := NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+	reconciler := NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
 	run := &console.StackRunFragment{
 		Type: console.StackTypeTerraform,
 		Configuration: &console.StackConfigurationFragment{

@@ -155,6 +155,10 @@ func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 	return nil
 }
 
+func (s *ServiceReconciler) GetPollInterval() time.Duration {
+	return 0 // use default poll interval
+}
+
 func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "service.event", &socketPublisher{
 		svcQueue: s.SvcQueue,

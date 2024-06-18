@@ -36,9 +36,10 @@ type GateReconciler struct {
 	discoveryClient   *discovery.DiscoveryClient
 	pinger            *ping.Pinger
 	operatorNamespace string
+	PollInterval      time.Duration
 }
 
-func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, config *rest.Config, refresh time.Duration, clusterId string) (*GateReconciler, error) {
+func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, config *rest.Config, refresh, pollInterval time.Duration, clusterId string) (*GateReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
@@ -74,7 +75,12 @@ func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client,
 		discoveryClient:   discoveryClient,
 		pinger:            ping.New(consoleClient, discoveryClient, f),
 		operatorNamespace: namespace,
+		PollInterval:      pollInterval,
 	}, nil
+}
+
+func (s *GateReconciler) GetPollInterval() time.Duration {
+	return s.PollInterval
 }
 
 func (s *GateReconciler) WipeCache() {

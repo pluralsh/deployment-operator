@@ -19,6 +19,8 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
+const pollInterval = time.Second * 30
+
 func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {
 	r, err := time.ParseDuration(opt.refreshInterval)
 	if err != nil {
@@ -48,7 +50,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Do:    sr,
 		Queue: sr.SvcQueue,
 	})
-	gr, err := pipelinegates.NewGateReconciler(mgr.GetClient(), k8sClient, config, r, opt.clusterId)
+	gr, err := pipelinegates.NewGateReconciler(mgr.GetClient(), k8sClient, config, r, pollInterval, opt.clusterId)
 	if err != nil {
 		setupLog.Errorw("unable to create gate reconciler", "error", err)
 		os.Exit(1)
@@ -79,7 +81,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		os.Exit(1)
 	}
 
-	s := stacks.NewStackReconciler(mgr.GetClient(), k8sClient, r, namespace, opt.consoleUrl, opt.deployToken)
+	s := stacks.NewStackReconciler(mgr.GetClient(), k8sClient, r, pollInterval, namespace, opt.consoleUrl, opt.deployToken)
 	mgr.AddController(&controller.Controller{
 		Name:  "Stack Controller",
 		Do:    s,

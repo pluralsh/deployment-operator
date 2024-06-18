@@ -41,6 +41,10 @@ func NewNamespaceReconciler(consoleClient client.Client, k8sClient ctrlclient.Cl
 	}
 }
 
+func (n *NamespaceReconciler) GetPollInterval() time.Duration {
+	return 0 // use default poll interval
+}
+
 func (n *NamespaceReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "namespace.event", &socketPublisher{
 		restoreQueue: n.NamespaceQueue,

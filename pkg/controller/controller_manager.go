@@ -83,8 +83,13 @@ func (cm *ControllerManager) Start() error {
 		go func() {
 			defer controller.Do.ShutdownQueue()
 			defer controller.Do.WipeCache()
+
+			pollInterval := cm.Refresh
+			if controllerPollInterval := controller.Do.GetPollInterval(); controllerPollInterval > 0 {
+				pollInterval = controllerPollInterval
+			}
 			//nolint:all
-			_ = wait.PollImmediateInfinite(cm.Refresh, func() (done bool, err error) {
+			_ = wait.PollImmediateInfinite(pollInterval, func() (done bool, err error) {
 				return controller.Do.Poll(cm.ctx)
 			})
 		}()

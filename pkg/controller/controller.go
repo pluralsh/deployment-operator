@@ -33,6 +33,8 @@ type Reconciler interface {
 
 	// ShutdownQueue containing Console resources.
 	ShutdownQueue()
+
+	GetPollInterval() time.Duration
 }
 
 type Controller struct {
