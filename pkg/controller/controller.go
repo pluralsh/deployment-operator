@@ -33,6 +33,9 @@ type Reconciler interface {
 
 	// ShutdownQueue containing Console resources.
 	ShutdownQueue()
+
+	// GetPollInterval returns custom poll interval. If 0 then controller manager use default from the options.
+	GetPollInterval() time.Duration
 }
 
 type Controller struct {

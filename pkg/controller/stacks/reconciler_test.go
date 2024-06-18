@@ -73,7 +73,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 				GqlErrors: &gqlerror.List{gqlerror.Errorf(errors2.ErrorNotFound.String())},
 			})
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
@@ -85,7 +85,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 				GqlErrors: &gqlerror.List{gqlerror.Errorf("unknown error")},
 			})
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).To(HaveOccurred())
@@ -100,7 +100,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 				Status:   console.StackStatusPending,
 			}, nil)
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
@@ -118,7 +118,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
 			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
@@ -157,7 +157,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
 			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
@@ -213,7 +213,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
 			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
 
 			_, err = reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())

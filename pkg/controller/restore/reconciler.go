@@ -63,6 +63,10 @@ func NewRestoreReconciler(consoleClient client.Client, k8sClient ctrlclient.Clie
 	}
 }
 
+func (s *RestoreReconciler) GetPollInterval() time.Duration {
+	return 0 // use default poll interval
+}
+
 func (s *RestoreReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "restore.event", &socketPublisher{
 		restoreQueue: s.RestoreQueue,
