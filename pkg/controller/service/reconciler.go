@@ -110,11 +110,11 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 	}
 
 	_ = helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
-		metrics.Record().DiscoveryAPICacheRefresh()
-		if err := CapabilitiesAPIVersions(discoveryClient); err != nil {
+		if err = CapabilitiesAPIVersions(discoveryClient); err != nil {
 			logger.Error(err, "can't fetch API versions")
 		}
 
+		metrics.Record().DiscoveryAPICacheRefresh(err)
 		return false, nil
 	})
 
@@ -288,15 +288,16 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	metrics.Record().ServiceReconciliation(id, svc.Name)
-
 	defer func() {
 		if err != nil {
 			logger.Error(err, "process item")
+			metrics.Record().ServiceReconciliation(id, svc.Name, err)
 			if !errors.Is(err, plrlerrors.ErrExpected) {
 				s.UpdateErrorStatus(ctx, id, err)
 			}
 		}
+
+		metrics.Record().ServiceReconciliation(id, svc.Name, nil)
 	}()
 
 	logger.V(2).Info("local", "flag", Local)

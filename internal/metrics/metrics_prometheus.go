@@ -10,16 +10,28 @@ var (
 )
 
 type prometheusRecorder struct {
-	discoveryAPICacheRefreshCounter prometheus.Counter
-	serviceReconciliationCounter    *prometheus.CounterVec
-	stackRunJobsCreatedCounter      prometheus.Counter
+	discoveryAPICacheRefreshCounter      prometheus.Counter
+	discoveryAPICacheRefreshErrorCounter prometheus.Counter
+	serviceReconciliationCounter         *prometheus.CounterVec
+	serviceReconciliationErrorCounter    *prometheus.CounterVec
+	stackRunJobsCreatedCounter           prometheus.Counter
 }
 
-func (in *prometheusRecorder) DiscoveryAPICacheRefresh() {
+func (in *prometheusRecorder) DiscoveryAPICacheRefresh(err error) {
+	if err != nil {
+		in.discoveryAPICacheRefreshErrorCounter.Inc()
+		return
+	}
+
 	in.discoveryAPICacheRefreshCounter.Inc()
 }
 
-func (in *prometheusRecorder) ServiceReconciliation(serviceID, serviceName string) {
+func (in *prometheusRecorder) ServiceReconciliation(serviceID, serviceName string, err error) {
+	if err != nil {
+		in.serviceReconciliationErrorCounter.WithLabelValues(serviceID, serviceName).Inc()
+		return
+	}
+
 	in.serviceReconciliationCounter.WithLabelValues(serviceID, serviceName).Inc()
 }
 
@@ -33,9 +45,19 @@ func (in *prometheusRecorder) init() Recorder {
 		Help: DiscoveryAPICacheRefreshMetricDescription,
 	})
 
+	in.discoveryAPICacheRefreshErrorCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: DiscoveryAPICacheRefreshErrorMetricName,
+		Help: DiscoveryAPICacheRefreshErrorMetricDescription,
+	})
+
 	in.serviceReconciliationCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: ServiceReconciliationMetricName,
 		Help: ServiceReconciliationMetricDescription,
+	}, []string{ServiceReconciliationMetricLabelServiceID, ServiceReconciliationMetricLabelServiceName})
+
+	in.serviceReconciliationErrorCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: ServiceReconciliationErrorMetricName,
+		Help: ServiceReconciliationErrorMetricDescription,
 	}, []string{ServiceReconciliationMetricLabelServiceID, ServiceReconciliationMetricLabelServiceName})
 
 	in.stackRunJobsCreatedCounter = promauto.NewCounter(prometheus.CounterOpts{
