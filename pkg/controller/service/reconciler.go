@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gobuffalo/flect"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"strings"
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
@@ -152,9 +155,22 @@ func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 				continue
 			}
 			template.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
+			cache.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), gvrFromGvk(schema.GroupVersionKind{
+				Group:   gv.Group,
+				Version: gv.Version,
+				Kind:    resource.Kind,
+			}))
 		}
 	}
 	return nil
+}
+
+func gvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    gvk.Group,
+		Version:  gvk.Version,
+		Resource: flect.Pluralize(strings.ToLower(gvk.Kind)),
+	}
 }
 
 func (s *ServiceReconciler) GetPollInterval() time.Duration {
