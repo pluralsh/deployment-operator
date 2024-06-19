@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gobuffalo/flect"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"k8s.io/client-go/dynamic"
-	"strings"
 	"time"
+
+	"k8s.io/client-go/dynamic"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/algorithms"
@@ -163,22 +163,9 @@ func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 				continue
 			}
 			template.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
-			cache.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), gvrFromGvk(schema.GroupVersionKind{
-				Group:   gv.Group,
-				Version: gv.Version,
-				Kind:    resource.Kind,
-			}))
 		}
 	}
 	return err
-}
-
-func gvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {
-	return schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: flect.Pluralize(strings.ToLower(gvk.Kind)),
-	}
 }
 
 func (s *ServiceReconciler) GetPollInterval() time.Duration {
@@ -360,7 +347,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 	inv := inventory.WrapInventoryInfoObj(invObj)
 
-	vcache := manis.VersionCache(manifests)
+	//vcache := manis.VersionCache(manifests)
 
 	logger.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
 
@@ -393,8 +380,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		options.DryRunStrategy = common.DryRunServer
 	}
 
-	ch := s.Applier.Run(ctx, inv, manifests, options)
-	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
+	s.Applier.Run(ctx, inv, manifests, options)
+	//err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
 }

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 )
 
 type ServerCache struct {
@@ -27,20 +27,20 @@ func NewServerCache(ctx context.Context, dynamicClient dynamic.Interface, expiry
 
 func (c *ServerCache) Run() error {
 	return helpers.BackgroundPollUntilContextCancel(context.TODO(), time.Second*120, true, false, func(ctx context.Context) (done bool, err error) {
-		if err != nil {
-			// TODO: Log error.
-			return false, nil
-		}
-		for _, gvr := range APIVersions.Items() {
-			w, err := c.dynamicClient.Resource(gvr).Watch(context.TODO(), metav1.ListOptions{
-				FieldSelector: fmt.Sprintf("metadata.annotations.\"config.k8s.io/owning-inventory\"!=\"\""),
-			})
-			if err != nil {
-				fmt.Printf("unexpected error establishing watch: %v\n", err)
-				continue
-			}
-			go c.Reconcile(w.ResultChan())
-		}
+		//if err != nil {
+		//	// TODO: Log error.
+		//	return false, nil
+		//}
+		//for _, gvr := range APIVersions.Items() {
+		//	w, err := c.dynamicClient.Resource(gvr).Watch(context.TODO(), metav1.ListOptions{
+		//		FieldSelector: fmt.Sprintf("metadata.annotations.\"config.k8s.io/owning-inventory\"!=\"\""),
+		//	})
+		//	if err != nil {
+		//		fmt.Printf("unexpected error establishing watch: %v\n", err)
+		//		continue
+		//	}
+		//	go c.Reconcile(w.ResultChan())
+		//}
 		return false, nil
 	})
 }
