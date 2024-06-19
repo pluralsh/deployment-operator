@@ -11,36 +11,45 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-type Controller struct {
+type ServerCache struct {
 	ctx           context.Context
-	DynamicClient dynamic.Interface
+	dynamicClient dynamic.Interface
+	Cache         *Cache
 }
 
-func (c *Controller) Run() error {
+func NewServerCache(ctx context.Context, dynamicClient dynamic.Interface, expiry time.Duration) *ServerCache {
+	return &ServerCache{
+		ctx:           ctx,
+		dynamicClient: dynamicClient,
+		Cache:         NewCache(expiry),
+	}
+}
+
+func (c *ServerCache) Run() error {
 	return helpers.BackgroundPollUntilContextCancel(context.TODO(), time.Second*120, true, false, func(ctx context.Context) (done bool, err error) {
 		if err != nil {
 			// TODO: Log error.
 			return false, nil
 		}
 		for _, gvr := range APIVersions.Items() {
-			go func() {
-				w, err := c.DynamicClient.Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
-
-				if err != nil {
-					fmt.Printf("unexpected error establishing watch: %v\n", err)
-
-				}
-
-				for event := range w.ResultChan() {
-					switch event.Type {
-					case watch.Added, watch.Modified, watch.Deleted:
-					default:
-						fmt.Printf("unexpected watch event: %#v", event)
-					}
-				}
-			}()
+			w, err := c.dynamicClient.Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				fmt.Printf("unexpected error establishing watch: %v\n", err)
+				continue
+			}
+			go c.Reconcile(w.ResultChan())
 		}
-
 		return false, nil
 	})
+}
+
+func (c *ServerCache) Reconcile(echan <-chan watch.Event) {
+	for event := range echan {
+		switch event.Type {
+		case watch.Added, watch.Modified, watch.Deleted:
+			fmt.Println("changed")
+		default:
+			fmt.Printf("unexpected watch event: %#v\n", event)
+		}
+	}
 }

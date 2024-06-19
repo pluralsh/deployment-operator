@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gobuffalo/flect"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"k8s.io/client-go/dynamic"
 	"strings"
 	"time"
 
@@ -85,6 +86,10 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		return nil, err
 	}
 
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
 	svcCache := client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
 		return consoleClient.GetService(id)
 	})
@@ -121,6 +126,11 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		return false, nil
 	})
 
+	serverCache := cache.NewServerCache(ctx, dynamicClient, time.Minute*30)
+	if err := serverCache.Run(); err != nil {
+		return nil, err
+	}
+
 	return &ServiceReconciler{
 		ConsoleClient:    consoleClient,
 		Config:           config,
@@ -139,9 +149,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 
 func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 	lists, err := discoveryClient.ServerPreferredResources()
-	if err != nil {
-		return err
-	}
+
 	for _, list := range lists {
 		if len(list.APIResources) == 0 {
 			continue
@@ -162,7 +170,7 @@ func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 			}))
 		}
 	}
-	return nil
+	return err
 }
 
 func gvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {
