@@ -32,7 +32,9 @@ func (c *ServerCache) Run() error {
 			return false, nil
 		}
 		for _, gvr := range APIVersions.Items() {
-			w, err := c.dynamicClient.Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
+			w, err := c.dynamicClient.Resource(gvr).Watch(context.TODO(), metav1.ListOptions{
+				FieldSelector: fmt.Sprintf("metadata.annotations.\"config.k8s.io/owning-inventory\"!=\"\""),
+			})
 			if err != nil {
 				fmt.Printf("unexpected error establishing watch: %v\n", err)
 				continue
