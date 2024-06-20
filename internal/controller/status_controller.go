@@ -57,6 +57,22 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 
 	logger.Info("inventory objects", "set", set)
 
+		//statusWatcher := watcher.NewDefaultStatusWatcher(dynamicClient, mapper)
+		//statusWatcher.Filters = watcher.Filters{
+		//	Labels: nil,
+		//	Fields: nil,
+		//}
+		//ctx, cancelFunc := context.WithCancel(context.Background())
+		//eventCh := statusWatcher.Watch(ctx, ids, watcher.Options{})
+		//statusWatcher.Mapper
+	//	for e := range eventCh {
+	//	   // Handle event
+	//	   if e.Type == event.ErrorEvent {
+	//	     cancelFunc()
+	//	     return e.Err
+	//	   }
+	//	}
+
 	return ctrl.Result{}, nil
 }
 

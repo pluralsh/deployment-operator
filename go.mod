@@ -44,7 +44,7 @@ require (
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubectl v0.29.2
 	layeh.com/gopher-luar v1.0.11
-	sigs.k8s.io/cli-utils v0.35.1-0.20240103002740-7928dbf3d402
+	sigs.k8s.io/cli-utils v0.36.1-0.20240525003310-87074c9799d2
 	sigs.k8s.io/controller-runtime v0.17.2
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20240313184151-cb5107b36b64
 	sigs.k8s.io/kustomize/kustomize/v5 v5.0.4-0.20230601165947-6ce0bf390ce3
