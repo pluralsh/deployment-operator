@@ -6,11 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/client-go/dynamic"
-
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	console "github.com/pluralsh/console-client-go"
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,10 +83,6 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		return nil, err
 	}
 
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
 	svcCache := client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
 		return consoleClient.GetService(id)
 	})
@@ -125,11 +118,6 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		metrics.Record().DiscoveryAPICacheRefresh(err)
 		return false, nil
 	})
-
-	serverCache := cache.NewServerCache(ctx, dynamicClient, time.Minute*30)
-	if err := serverCache.Run(); err != nil {
-		return nil, err
-	}
 
 	return &ServiceReconciler{
 		ConsoleClient:    consoleClient,

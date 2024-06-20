@@ -10,6 +10,8 @@ import (
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -78,6 +80,16 @@ func main() {
 		setupLog.Error(err, "unable to create kubernetes client")
 		os.Exit(1)
 	}
+
+	f := utils.NewFactory(config)
+	mapper, err := f.ToRESTMapper()
+	if err != nil {
+		setupLog.Error(err, "unable to create rest mapper")
+		os.Exit(1)
+	}
+
+	cache.InitServerCache(ctx, mapper, dynamicClient)
+
 	setupLog.Info("starting agent")
 	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
 

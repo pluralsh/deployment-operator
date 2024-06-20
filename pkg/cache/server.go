@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"fmt"
-	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/polly/containers"
@@ -26,14 +25,14 @@ type watcherWrapper struct {
 	cancelFunc context.CancelFunc
 }
 
-var defaultServerCache = NewServerCache()
-
 type ServerCache struct {
+	ctx               context.Context
 	dynamicClient     dynamic.Interface
 	mapper            meta.RESTMapper
 	resourceToWatcher cmap.ConcurrentMap[string, *watcherWrapper]
-	expiry            time.Duration
 }
+
+var serverCache *ServerCache
 
 func (in *ServerCache) Register(resourceMap map[string]*unstructured.Unstructured) {
 	keySet := containers.ToSet(lo.Keys(resourceMap))
@@ -101,7 +100,7 @@ func (in *ServerCache) startWatch(resourceKey string) {
 	go func() {
 		// Should retry? Check if context was cancelled or there was an error?
 		ch := wrapper.w.Watch(wrapper.ctx, []object.ObjMetadata{wrapper.id}, watcher.Options{
-			ObjectFilter:           nil,
+			ObjectFilter:          nil,
 			UseCustomObjectFilter: true,
 		})
 
@@ -123,12 +122,21 @@ func (in *ServerCache) reconcile(e event.Event, resourceKey string) {
 	}
 }
 
-func NewServerCache() *ServerCache {
-	return &ServerCache{
-		resourceToWatcher: cmap.New[*watcherWrapper](),
+func InitServerCache(ctx context.Context, mapper meta.RESTMapper, dynamicClient *dynamic.DynamicClient) {
+	if serverCache == nil {
+		serverCache = &ServerCache{
+			ctx:               ctx,
+			dynamicClient:     dynamicClient,
+			mapper:            mapper,
+			resourceToWatcher: cmap.New[*watcherWrapper](),
+		}
 	}
 }
 
-func DefaultServerCache() *ServerCache {
-	return defaultServerCache
+func GetServerCache() (*ServerCache, error) {
+	if serverCache == nil {
+		return nil, fmt.Errorf("server cache is not initialized")
+	}
+
+	return serverCache, nil
 }

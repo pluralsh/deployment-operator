@@ -71,7 +71,12 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		resourceMap[cache.ToResourceKey(obj)] = obj
 	}
 	values := slices.Concat(lo.Values(r.inventoryCache))
-	cache.DefaultServerCache().Register(lo.Assign(values...))
+
+	serverCache, err := cache.GetServerCache()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	serverCache.Register(lo.Assign(values...))
 
 	return ctrl.Result{}, nil
 }
