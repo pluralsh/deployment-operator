@@ -2,7 +2,10 @@ package controller
 
 import (
 	"context"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	"slices"
+
+	"sigs.k8s.io/cli-utils/pkg/apply/prune"
 
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -25,6 +28,7 @@ import (
 type StatusReconciler struct {
 	k8sClient.Client
 
+	pruner *prune.Pruner
 	// inventoryCache maps cli-utils inventory ID to a map of resourceKey - unstructured pairs.
 	inventoryCache map[string]map[string]*unstructured.Unstructured
 	config         *rest.Config
@@ -44,32 +48,21 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		return ctrl.Result{}, nil
 	}
 
-	f := utils.NewFactory(r.config)
-	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
-	invClient, err := invFactory.NewClient(f)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	inv, err := toUnstructured(configmap)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	set, err := invClient.GetClusterInventoryObjs(inventory.WrapInventoryInfoObj(inv))
+	set, err := r.pruner.GetPruneObjs(inventory.WrapInventoryInfoObj(inv), object.UnstructuredSet{}, prune.Options{
+		DryRunStrategy: common.DryRunServer,
+	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	invID := configmap.Labels[common.InventoryLabel]
+	r.inventoryCache[invID] = getInventoryObj(set)
 
-	resourceMap, ok := r.inventoryCache[invID]
-	if !ok {
-		resourceMap = map[string]*unstructured.Unstructured{}
-	}
-
-	for _, obj := range set {
-		resourceMap[cache.ToResourceKey(obj)] = obj
-	}
 	values := slices.Concat(lo.Values(r.inventoryCache))
 
 	serverCache, err := cache.GetServerCache()
@@ -79,6 +72,15 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	serverCache.Register(lo.Assign(values...))
 
 	return ctrl.Result{}, nil
+}
+
+func getInventoryObj(l []*unstructured.Unstructured) map[string]*unstructured.Unstructured {
+	result := map[string]*unstructured.Unstructured{}
+	for _, u := range l {
+		result[cache.ToResourceKey(u)] = u
+	}
+
+	return result
 }
 
 func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
@@ -102,9 +104,20 @@ func (r *StatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func NewStatusReconciler(c client.Client, config *rest.Config) (*StatusReconciler, error) {
+	f := utils.NewFactory(config)
+	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
+	invClient, err := invFactory.NewClient(f)
+	if err != nil {
+		return nil, err
+	}
+	prunner, err := prune.NewPruner(f, invClient)
+	if err != nil {
+		return nil, err
+	}
 	return &StatusReconciler{
 		Client:         c,
 		config:         config,
 		inventoryCache: make(map[string]map[string]*unstructured.Unstructured),
+		pruner:         prunner,
 	}, nil
 }

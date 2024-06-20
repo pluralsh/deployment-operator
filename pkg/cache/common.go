@@ -9,6 +9,11 @@ import (
 func ToResourceKey(obj *unstructured.Unstructured) string {
 	namespace := obj.GetNamespace()
 	gvk := fmt.Sprintf("%s/%s/%s", obj.GroupVersionKind().Group, obj.GroupVersionKind().Version, obj.GroupVersionKind().Kind)
+	group := obj.GroupVersionKind().Group
+	if group == "" {
+		gvk = fmt.Sprintf("%s/%s", obj.GroupVersionKind().Version, obj.GroupVersionKind().Kind)
+	}
+
 	if len(namespace) == 0 {
 		return gvk
 	}
