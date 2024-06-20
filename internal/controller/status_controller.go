@@ -54,7 +54,6 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	logger.Info("inventory objects", "set", set)
 
 		//statusWatcher := watcher.NewDefaultStatusWatcher(dynamicClient, mapper)

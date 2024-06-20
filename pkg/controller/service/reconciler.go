@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/pluralsh/deployment-operator/pkg/cache"
-
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
@@ -207,6 +207,12 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 
 func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
 	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
+		labels := man.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels[agentcommon.ManagedByLabel] = agentcommon.AgentLabelValue
+		man.SetLabels(labels)
 		if man.GetKind() != "CustomResourceDefinition" {
 			return man
 		}
