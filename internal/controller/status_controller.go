@@ -2,7 +2,12 @@ package controller
 
 import (
 	"context"
+	"maps"
+	"slices"
 
+	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/polly/containers"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,12 +22,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
 
 type StatusReconciler struct {
 	k8sClient.Client
 
-	config *rest.Config
+	// inventoryCache maps cli-utils inventory ID to a map of resourceKey - unstructured pairs.
+	inventoryCache map[string]map[string]*unstructured.Unstructured
+	config         *rest.Config
 }
 
 func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -54,23 +62,24 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	logger.Info("inventory objects", "set", set)
 
-		//statusWatcher := watcher.NewDefaultStatusWatcher(dynamicClient, mapper)
-		//statusWatcher.Filters = watcher.Filters{
-		//	Labels: nil,
-		//	Fields: nil,
-		//}
-		//ctx, cancelFunc := context.WithCancel(context.Background())
-		//eventCh := statusWatcher.Watch(ctx, ids, watcher.Options{})
-		//statusWatcher.Mapper
-	//	for e := range eventCh {
-	//	   // Handle event
-	//	   if e.Type == event.ErrorEvent {
-	//	     cancelFunc()
-	//	     return e.Err
-	//	   }
-	//	}
+	invID := configmap.Labels[common.InventoryLabel]
+
+	resourceMap, ok := r.inventoryCache[invID]
+	if !ok {
+		resourceMap = map[string]*unstructured.Unstructured{}
+	}
+
+	for _, obj := range set {
+		resourceMap[cache.ToResourceKey(obj)] = obj
+	}
+
+	lo.Assign()
+	values := slices.Concat(lo.Values(r.inventoryCache))
+	lo.Reduce(values, func(agg map[string]*unstructured.Unstructured, item map[string]*unstructured.Unstructured, _ int) map[string]*unstructured.Unstructured {
+
+	}, map[string]*unstructured.Unstructured{})
+	cache.DefaultServerCache().Register(slices.Concat(lo.Values(r.inventoryCache)))
 
 	return ctrl.Result{}, nil
 }
@@ -97,7 +106,8 @@ func (r *StatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func NewStatusReconciler(c client.Client, config *rest.Config) (*StatusReconciler, error) {
 	return &StatusReconciler{
-		Client: c,
-		config: config,
+		Client:         c,
+		config:         config,
+		inventoryCache: make(map[string][]string),
 	}, nil
 }
