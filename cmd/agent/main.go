@@ -156,6 +156,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
 	}
 
+	statusController, err := controller.NewStatusReconciler(mgr.GetClient(), config)
+	if err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "StatusController")
+	}
+	if err := statusController.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to start controller", "controller", "StatusController")
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err = (&controller.PipelineGateReconciler{

@@ -2,11 +2,8 @@ package controller
 
 import (
 	"context"
-	"maps"
 	"slices"
 
-	"github.com/pluralsh/polly/algorithms"
-	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -73,13 +70,8 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	for _, obj := range set {
 		resourceMap[cache.ToResourceKey(obj)] = obj
 	}
-
-	lo.Assign()
 	values := slices.Concat(lo.Values(r.inventoryCache))
-	lo.Reduce(values, func(agg map[string]*unstructured.Unstructured, item map[string]*unstructured.Unstructured, _ int) map[string]*unstructured.Unstructured {
-
-	}, map[string]*unstructured.Unstructured{})
-	cache.DefaultServerCache().Register(slices.Concat(lo.Values(r.inventoryCache)))
+	cache.DefaultServerCache().Register(lo.Assign(values...))
 
 	return ctrl.Result{}, nil
 }
@@ -108,6 +100,6 @@ func NewStatusReconciler(c client.Client, config *rest.Config) (*StatusReconcile
 	return &StatusReconciler{
 		Client:         c,
 		config:         config,
-		inventoryCache: make(map[string][]string),
+		inventoryCache: make(map[string]map[string]*unstructured.Unstructured),
 	}, nil
 }
