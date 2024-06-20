@@ -30,9 +30,9 @@ type Options struct {
 	// ObjectFilter is used to filter resources after getting them from the API.
 	ObjectFilter ObjectFilter
 
-	// UseDefaultObjectFilter controls whether custom ObjectFilter provided in options
-	// should be used instead of default one.
-	UseDefaultObjectFilter bool
+	// UseCustomObjectFilter controls whether custom ObjectFilter provided in options
+	// should be used instead of the default one.
+	UseCustomObjectFilter bool
 }
 
 //go:generate stringer -type=RESTScopeStrategy -linecomment

@@ -99,7 +99,7 @@ func (w *DefaultStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadata
 	}
 
 	var objectFilter ObjectFilter = &AllowListObjectFilter{AllowList: ids}
-	if !opts.useDefaultObjectFilter {
+	if opts.UseCustomObjectFilter {
 		objectFilter = opts.ObjectFilter
 	}
 
