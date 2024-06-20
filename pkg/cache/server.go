@@ -102,7 +102,7 @@ func (in *ServerCache) startWatch(resourceKey string) {
 		// Should retry? Check if context was cancelled or there was an error?
 		ch := wrapper.w.Watch(wrapper.ctx, []object.ObjMetadata{wrapper.id}, watcher.Options{
 			ObjectFilter:           nil,
-			UseDefaultObjectFilter: false,
+			UseCustomObjectFilter: true,
 		})
 
 		for e := range ch {
