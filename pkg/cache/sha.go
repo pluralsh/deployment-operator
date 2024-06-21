@@ -30,13 +30,13 @@ func (in *SHA) RequiresApply(manifestSHA string) bool {
 	return in.serverSHA != in.applySHA || manifestSHA != *in.manifestSHA
 }
 
-// shaObject is a representation of an object used to calculate SHA from.
+// shaObject is a representation of a resource used to calculate SHA from.
 type shaObject struct {
-	Name        string                 `json:"name"`
-	Namespace   string                 `json:"namespace"`
-	Labels      map[string]string      `json:"labels"`
-	Annotations map[string]string      `json:"annotations"`
-	Other       map[string]interface{} `json:"other"`
+	Name        string            `json:"name"`
+	Namespace   string            `json:"namespace"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+	Other       map[string]any    `json:"other"`
 }
 
 // HashResource calculates SHA for an unstructured object.
