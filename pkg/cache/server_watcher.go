@@ -25,16 +25,17 @@ type watcherWrapper struct {
 	cancelFunc context.CancelFunc
 }
 
-type ServerCache struct {
+type ResourceCache struct {
 	ctx               context.Context
 	dynamicClient     dynamic.Interface
 	mapper            meta.RESTMapper
 	resourceToWatcher cmap.ConcurrentMap[string, *watcherWrapper]
+	cache             Cache[SHA]
 }
 
-var serverCache *ServerCache
+var resourceCache *ResourceCache
 
-func (in *ServerCache) Register(resourceMap map[string]*unstructured.Unstructured) {
+func (in *ResourceCache) Register(resourceMap map[string]*unstructured.Unstructured) {
 	keySet := containers.ToSet(lo.Keys(resourceMap))
 	deleteSet := in.toResourceKeysSet().Difference(keySet)
 	toAdd := keySet.Difference(in.toResourceKeysSet())
@@ -48,11 +49,11 @@ func (in *ServerCache) Register(resourceMap map[string]*unstructured.Unstructure
 	}
 }
 
-func (in *ServerCache) toResourceKeysSet() containers.Set[string] {
+func (in *ResourceCache) toResourceKeysSet() containers.Set[string] {
 	return containers.ToSet(in.resourceToWatcher.Keys())
 }
 
-func (in *ServerCache) stop(resourceKey string) {
+func (in *ResourceCache) stop(resourceKey string) {
 	w, ok := in.resourceToWatcher.Get(resourceKey)
 	if !ok {
 		return
@@ -64,7 +65,7 @@ func (in *ServerCache) stop(resourceKey string) {
 	}
 }
 
-func (in *ServerCache) start(obj *unstructured.Unstructured) {
+func (in *ResourceCache) start(obj *unstructured.Unstructured) {
 	resourceKey := ToResourceKey(obj)
 	w := watcher.NewDefaultStatusWatcher(in.dynamicClient, in.mapper)
 	w.Filters = &watcher.Filters{
@@ -91,7 +92,7 @@ func (in *ServerCache) start(obj *unstructured.Unstructured) {
 	in.startWatch(resourceKey)
 }
 
-func (in *ServerCache) startWatch(resourceKey string) {
+func (in *ResourceCache) startWatch(resourceKey string) {
 	wrapper, ok := in.resourceToWatcher.Get(resourceKey)
 	if !ok {
 		return
@@ -110,7 +111,7 @@ func (in *ServerCache) startWatch(resourceKey string) {
 	}()
 }
 
-func (in *ServerCache) reconcile(e event.Event, resourceKey string) {
+func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
 		// update status and fill out the cache
@@ -122,9 +123,9 @@ func (in *ServerCache) reconcile(e event.Event, resourceKey string) {
 	}
 }
 
-func InitServerCache(ctx context.Context, mapper meta.RESTMapper, dynamicClient *dynamic.DynamicClient) {
-	if serverCache == nil {
-		serverCache = &ServerCache{
+func InitResourceCache(ctx context.Context, mapper meta.RESTMapper, dynamicClient *dynamic.DynamicClient) {
+	if resourceCache == nil {
+		resourceCache = &ResourceCache{
 			ctx:               ctx,
 			dynamicClient:     dynamicClient,
 			mapper:            mapper,
@@ -133,10 +134,10 @@ func InitServerCache(ctx context.Context, mapper meta.RESTMapper, dynamicClient 
 	}
 }
 
-func GetServerCache() (*ServerCache, error) {
-	if serverCache == nil {
-		return nil, fmt.Errorf("server cache is not initialized")
+func GetResourceCache() (*ResourceCache, error) {
+	if resourceCache == nil {
+		return nil, fmt.Errorf("server watcher is not initialized")
 	}
 
-	return serverCache, nil
+	return resourceCache, nil
 }

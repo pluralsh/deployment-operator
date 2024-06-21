@@ -88,7 +88,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cache.InitServerCache(ctx, mapper, dynamicClient)
+	cache.InitResourceCache(ctx, mapper, dynamicClient)
 
 	setupLog.Info("starting agent")
 	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())

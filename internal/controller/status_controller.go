@@ -2,8 +2,9 @@ package controller
 
 import (
 	"context"
-	"sigs.k8s.io/cli-utils/pkg/object"
 	"slices"
+
+	"sigs.k8s.io/cli-utils/pkg/object"
 
 	"sigs.k8s.io/cli-utils/pkg/apply/prune"
 
@@ -65,11 +66,11 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 
 	values := slices.Concat(lo.Values(r.inventoryCache))
 
-	serverCache, err := cache.GetServerCache()
+	resourceCache, err := cache.GetResourceCache()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	serverCache.Register(lo.Assign(values...))
+	resourceCache.Register(lo.Assign(values...))
 
 	return ctrl.Result{}, nil
 }
