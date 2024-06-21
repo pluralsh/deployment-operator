@@ -97,6 +97,7 @@ func (in *ResourceCache) startWatch(resourceKey string) {
 		ch := wrapper.w.Watch(wrapper.ctx, []object.ObjMetadata{wrapper.id}, watcher.Options{
 			ObjectFilter:          nil,
 			UseCustomObjectFilter: true,
+			RESTScopeStrategy:     watcher.RESTScopeRoot,
 		})
 
 		for e := range ch {
