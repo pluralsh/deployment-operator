@@ -30,6 +30,10 @@ type SHA struct {
 	health *string
 }
 
+func (in *SHA) SetManifestSHA(manifestSHA string) {
+	in.manifestSHA = &manifestSHA
+}
+
 func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
 	sha, err := HashResource(resource)
 	if err != nil {

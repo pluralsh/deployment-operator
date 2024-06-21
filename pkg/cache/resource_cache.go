@@ -32,6 +32,10 @@ type ResourceCache struct {
 
 var resourceCache *ResourceCache
 
+func (in *ResourceCache) NewCacheEntry(key string) {
+	in.cache.Set(key, SHA{})
+}
+
 func (in *ResourceCache) GetCacheEntry(key string) (SHA, bool) {
 	return in.cache.Get(key)
 }

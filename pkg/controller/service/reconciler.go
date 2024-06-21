@@ -402,16 +402,16 @@ func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) 
 			continue
 		}
 
-		sha, exists := c.GetCacheEntry(cache.ObjMetadataToResourceKey(object.UnstructuredToObjMetadata(m)))
+		key := cache.ObjMetadataToResourceKey(object.UnstructuredToObjMetadata(m))
+		sha, exists := c.GetCacheEntry(key)
 		if !exists {
-			//...
+			c.NewCacheEntry(key)
 		}
-
 		if exists && !sha.RequiresApply(newManifestSHA) {
 			continue
 		}
 
-		// ... sha.SetSHA(mani)
+		sha.SetManifestSHA(newManifestSHA)
 
 		manifestsToApply = append(manifestsToApply, m)
 	}
