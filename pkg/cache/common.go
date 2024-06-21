@@ -13,6 +13,11 @@ func ObjMetadataSetToResourceKeys(set object.ObjMetadataSet) containers.Set[stri
 }
 
 func ObjMetadataToResourceKey(obj object.ObjMetadata) string {
-	obj.Name = "" // TODO: Check if it is skipped.
+	// name/namespace in ObjMetadata cannot be empty in order to parse it back from the string.
+	placeholder := "*"
+
+	obj.Name = placeholder
+	obj.Namespace = placeholder
+
 	return obj.String()
 }
