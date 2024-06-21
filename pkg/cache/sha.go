@@ -22,6 +22,14 @@ type SHA struct {
 	health *string
 }
 
+// RequiresApply checks if there is any drift
+// between applySHA calculated during applying resource and serverSHA from a watch of a resource
+// or between last two manifestSHA read from the repository.
+// If any drift is detected, then server-side apply should be done.
+func (in *SHA) RequiresApply(manifestSHA string) bool {
+	return in.serverSHA != in.applySHA || manifestSHA != *in.manifestSHA
+}
+
 // shaObject is a representation of an object used to calculate SHA from.
 type shaObject struct {
 	Name        string                 `json:"name"`
@@ -31,9 +39,9 @@ type shaObject struct {
 	Other       map[string]interface{} `json:"other"`
 }
 
-// sha calculates SHA for a unstructured object.
+// HashResource calculates SHA for an unstructured object.
 // It uses object name, namespace, labels, annotations and all other top-level fields except status.
-func sha(resource unstructured.Unstructured) (string, error) {
+func HashResource(resource unstructured.Unstructured) (string, error) {
 	object := shaObject{
 		Name:        resource.GetName(),
 		Namespace:   resource.GetNamespace(),
