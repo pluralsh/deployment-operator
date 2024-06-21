@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
 	"github.com/pluralsh/deployment-operator/pkg/lua"
 	appsv1 "k8s.io/api/apps/v1"
@@ -95,6 +96,38 @@ func getHPAHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 		return getAutoScalingV2HPAHealth(&hpa)
 	default:
 		return nil, fmt.Errorf("unsupported HPA GVK: %s", gvk)
+	}
+}
+
+func getArgoRolloutHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	var argo rolloutv1alpha1.Rollout
+	var msg string
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &argo); err != nil {
+		return nil, err
+	}
+	switch argo.Status.Phase {
+	case rolloutv1alpha1.RolloutPhasePaused:
+		return &HealthStatus{
+			Status:  HealthStatusPaused,
+			Message: argo.Status.Message,
+		}, nil
+
+	case rolloutv1alpha1.RolloutPhaseDegraded:
+		return &HealthStatus{
+			Status:  HealthStatusDegraded,
+			Message: argo.Status.Message,
+		}, nil
+
+	case rolloutv1alpha1.RolloutPhaseHealthy:
+		return &HealthStatus{
+			Status:  HealthStatusHealthy,
+			Message: argo.Status.Message,
+		}, nil
+	default:
+		return &HealthStatus{
+			Status:  HealthStatusProgressing,
+			Message: msg,
+		}, nil
 	}
 }
 

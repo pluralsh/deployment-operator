@@ -100,6 +100,10 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 	// ensuring they have completed all work.
 	in.wg.Add(1)
 
+	toolWriters := make([]io.WriteCloser, 0)
+	modifier := in.tool.Modifier(step.Stage)
+	args := step.Args
+	env := in.stackRun.Env()
 	consoleWriter := sink.NewConsoleWriter(
 		ctx,
 		in.consoleClient,
@@ -115,29 +119,35 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		)...,
 	)
 
-	var toolWriters []io.WriteCloser
-	modifier := in.tool.Modifier(step.Stage)
-	args := step.Args
-	env := in.stackRun.Env()
 	if modifier != nil {
 		args = modifier.Args(args)
 		env = modifier.Env(env)
 		toolWriters = modifier.WriteCloser()
 	}
 
-	return exec.NewExecutable(
-		step.Cmd,
-		append(
-			in.execOptions,
-			exec.WithDir(in.execWorkDir()),
-			exec.WithEnv(env),
-			exec.WithArgs(args),
-			exec.WithID(step.ID),
-			exec.WithOutputSinks(append(toolWriters, consoleWriter)...),
-			exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
-			exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
-		)...,
+	// base executable options
+	options := in.execOptions
+	options = append(
+		options,
+		exec.WithDir(in.execWorkDir()),
+		exec.WithEnv(env),
+		exec.WithArgs(args),
+		exec.WithID(step.ID),
+		exec.WithOutputSinks(append(toolWriters, consoleWriter)...),
+		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
+		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
+		exec.WithOutputAnalyzer(exec.NewKeywordDetector()),
 	)
+
+	// Add a custom run step output analyzer for the destroy stage to increase
+	// a chance of detecting errors during execution. On occasion executable can
+	// return exit code 0 even though there was a fatal error during execution.
+	// TODO: use destroy stage
+	// if step.Stage == gqlclient.StepStageApply {
+	//	options = append(options, exec.WithOutputAnalyzer(exec.NewKeywordDetector()))
+	//}
+
+	return exec.NewExecutable(step.Cmd, options...)
 }
 
 func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, stackRunErr error) error {

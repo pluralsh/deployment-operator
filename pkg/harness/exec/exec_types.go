@@ -44,6 +44,9 @@ type executable struct {
 	// to the [os.Stdout].
 	outputSinks []io.WriteCloser
 
+	// outputAnalyzer
+	outputAnalyzer OutputAnalyzer
+
 	// hookFunctions ...
 	hookFunctions map[v1.Lifecycle]v1.HookFunction
 }

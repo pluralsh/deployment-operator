@@ -25,9 +25,10 @@ type StackReconciler struct {
 	Namespace     string
 	ConsoleURL    string
 	DeployToken   string
+	PollInterval  time.Duration
 }
 
-func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace, consoleURL, deployToken string) *StackReconciler {
+func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh, pollInterval time.Duration, namespace, consoleURL, deployToken string) *StackReconciler {
 	return &StackReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
@@ -35,10 +36,15 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
 			return consoleClient.GetStackRun(id)
 		}),
-		Namespace:   namespace,
-		ConsoleURL:  consoleURL,
-		DeployToken: deployToken,
+		Namespace:    namespace,
+		ConsoleURL:   consoleURL,
+		DeployToken:  deployToken,
+		PollInterval: pollInterval,
 	}
+}
+
+func (r *StackReconciler) GetPollInterval() time.Duration {
+	return r.PollInterval
 }
 
 func (r *StackReconciler) GetPublisher() (string, websocket.Publisher) {
