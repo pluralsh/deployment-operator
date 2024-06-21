@@ -1,12 +1,10 @@
 package cache
 
 import (
-	"context"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type cacheLine[T any] struct {
@@ -15,7 +13,7 @@ type cacheLine[T any] struct {
 }
 
 func (l *cacheLine[_]) alive(ttl time.Duration) bool {
-	return !l.created.After(time.Now().Add(-ttl))
+	return l.created.After(time.Now().Add(-ttl))
 }
 
 type Cache[T any] struct {
@@ -25,15 +23,14 @@ type Cache[T any] struct {
 }
 
 func NewCache[T any](ttl, expirationPollInterval time.Duration) *Cache[T] {
-	go wait.PollUntilContextCancel(
+	/*	go wait.PollUntilContextCancel(
 		context.Background(),
 		expirationPollInterval,
 		false,
 		func(ctx context.Context) (done bool, err error) {
 
-
-		return false, nil
-	})
+			return false, nil
+		})*/
 
 	return &Cache[T]{
 		cache:                  cmap.New[cacheLine[T]](),
@@ -44,7 +41,7 @@ func NewCache[T any](ttl, expirationPollInterval time.Duration) *Cache[T] {
 
 func (c *Cache[T]) Get(key string) (T, bool) {
 	data, ok := c.cache.Get(key)
-	if ok && data.alive(c.ttl)  {
+	if ok && data.alive(c.ttl) {
 		return data.resource, true
 	}
 

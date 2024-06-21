@@ -335,8 +335,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 	manifests = postProcess(manifests)
-
-	s.HandleCache(manifests)
+	manifests = s.HandleCache(manifests)
+	if len(manifests) == 0 {
+		return
+	}
 
 	logger.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
@@ -345,7 +347,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 	inv := inventory.WrapInventoryInfoObj(invObj)
 
-	//vcache := manis.VersionCache(manifests)
+	vcache := manis.VersionCache(manifests)
 
 	logger.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
 
@@ -378,8 +380,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		options.DryRunStrategy = common.DryRunServer
 	}
 
-	s.Applier.Run(ctx, inv, manifests, options)
-	//err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
+	ch := s.Applier.Run(ctx, inv, manifests, options)
+	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
 }
@@ -389,7 +391,7 @@ func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) 
 
 	c, err := cache.GetResourceCache()
 	if err != nil {
-		return manifestsToApply
+		return manifests
 	}
 
 	for _, m := range manifests {
@@ -402,16 +404,14 @@ func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) 
 			continue
 		}
 
-		key := cache.ObjMetadataToResourceKey(object.UnstructuredToObjMetadata(m))
+		obj := object.UnstructuredToObjMetadata(m)
+		key := obj.String()
 		sha, exists := c.GetCacheEntry(key)
-		if !exists {
-			c.NewCacheEntry(key)
-		}
 		if exists && !sha.RequiresApply(newManifestSHA) {
 			continue
 		}
-
 		sha.SetManifestSHA(newManifestSHA)
+		c.SetCacheEntry(key, sha)
 
 		manifestsToApply = append(manifestsToApply, m)
 	}

@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/polly/containers"
@@ -27,13 +28,13 @@ type ResourceCache struct {
 	dynamicClient     dynamic.Interface
 	mapper            meta.RESTMapper
 	resourceToWatcher cmap.ConcurrentMap[string, *watcherWrapper]
-	cache             Cache[SHA]
+	cache             *Cache[SHA]
 }
 
 var resourceCache *ResourceCache
 
-func (in *ResourceCache) NewCacheEntry(key string) {
-	in.cache.Set(key, SHA{})
+func (in *ResourceCache) SetCacheEntry(key string, value SHA) {
+	in.cache.Set(key, value)
 }
 
 func (in *ResourceCache) GetCacheEntry(key string) (SHA, bool) {
@@ -118,7 +119,12 @@ func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
 		// update status and fill out the cache
-		fmt.Printf("%+v\n", e.Resource)
+
+		fmt.Printf("update %+v\n", e.Resource)
+		key := object.UnstructuredToObjMetadata(e.Resource.Resource).String()
+		sha, _ := in.GetCacheEntry(key)
+		sha.SetSHA(*e.Resource.Resource, Server)
+		in.SetCacheEntry(key, sha)
 	case event.SyncEvent:
 	case event.ErrorEvent:
 		in.startWatch(resourceKey)
@@ -133,6 +139,7 @@ func InitResourceCache(ctx context.Context, mapper meta.RESTMapper, dynamicClien
 			dynamicClient:     dynamicClient,
 			mapper:            mapper,
 			resourceToWatcher: cmap.New[*watcherWrapper](),
+			cache:             NewCache[SHA](time.Minute*10, time.Second*30),
 		}
 	}
 }

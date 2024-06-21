@@ -57,7 +57,8 @@ func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error
 // or between last two manifestSHA read from the repository.
 // If any drift is detected, then server-side apply should be done.
 func (in *SHA) RequiresApply(manifestSHA string) bool {
-	return in.serverSHA != in.applySHA || manifestSHA != *in.manifestSHA
+	return in.serverSHA == nil || in.applySHA == nil || in.manifestSHA == nil ||
+		*in.serverSHA != *in.applySHA || manifestSHA != *in.manifestSHA
 }
 
 // shaObject is a representation of a resource used to calculate SHA from.
@@ -73,20 +74,21 @@ type shaObject struct {
 // HashResource calculates SHA for an unstructured object.
 // It uses object name, namespace, labels, annotations, deletion timestamp and all other top-level fields except status.
 func HashResource(resource unstructured.Unstructured) (string, error) {
+	copy := resource.DeepCopy()
 	object := shaObject{
-		Name:        resource.GetName(),
-		Namespace:   resource.GetNamespace(),
-		Labels:      resource.GetLabels(),
-		Annotations: resource.GetAnnotations(),
+		Name:        copy.GetName(),
+		Namespace:   copy.GetNamespace(),
+		Labels:      copy.GetLabels(),
+		Annotations: copy.GetAnnotations(),
 	}
 
-	if resource.GetDeletionTimestamp() != nil {
-		object.DeletionTimestamp = resource.GetDeletionTimestamp().String()
+	if copy.GetDeletionTimestamp() != nil {
+		object.DeletionTimestamp = copy.GetDeletionTimestamp().String()
 	}
 
-	unstructured.RemoveNestedField(resource.Object, "metadata")
-	unstructured.RemoveNestedField(resource.Object, "status")
-	object.Other = resource.Object
+	unstructured.RemoveNestedField(copy.Object, "metadata")
+	unstructured.RemoveNestedField(copy.Object, "status")
+	object.Other = copy.Object
 
 	return utils.HashObject(object)
 }

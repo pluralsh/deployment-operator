@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	"strings"
 
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
@@ -181,6 +183,10 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 	var statsCollector stats.Stats
 	var err error
 	statusCollector := newServiceComponentsStatusCollector(s, svc)
+	rc, err := cache.GetResourceCache()
+	if err != nil {
+		return err
+	}
 
 	for e := range ch {
 		statsCollector.Handle(e)
@@ -195,6 +201,13 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
+			// TODO export to method
+			key := object.UnstructuredToObjMetadata(e.ApplyEvent.Resource).String()
+			sha, _ := rc.GetCacheEntry(key)
+			err := sha.SetSHA(*e.ApplyEvent.Resource, cache.Apply)
+			if err == nil {
+				rc.SetCacheEntry(key, sha)
+			}
 			if e.ApplyEvent.Error != nil {
 				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
