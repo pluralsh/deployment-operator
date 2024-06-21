@@ -7,6 +7,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
@@ -21,6 +22,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -334,6 +336,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 	manifests = postProcess(manifests)
 
+	s.HandleCache(manifests)
+
 	logger.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
 	if err != nil {
@@ -378,6 +382,41 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	//err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
+}
+
+func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) []*unstructured.Unstructured {
+	manifestsToApply := make([]*unstructured.Unstructured, 0, len(manifests))
+
+	c, err := cache.GetResourceCache()
+	if err != nil {
+		return manifestsToApply
+	}
+
+	for _, m := range manifests {
+		if m == nil {
+			continue
+		}
+
+		newManifestSHA, err := cache.HashResource(*m)
+		if err != nil {
+			continue
+		}
+
+		sha, exists := c.GetCacheEntry(cache.ObjMetadataToResourceKey(object.UnstructuredToObjMetadata(m)))
+		if !exists {
+			//...
+		}
+
+		if exists && !sha.RequiresApply(newManifestSHA) {
+			continue
+		}
+
+		// ... sha.SetSHA(mani)
+
+		manifestsToApply = append(manifestsToApply, m)
+	}
+
+	return manifestsToApply
 }
 
 func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.GetServiceDeploymentForAgent_ServiceDeployment_SyncConfig) error {

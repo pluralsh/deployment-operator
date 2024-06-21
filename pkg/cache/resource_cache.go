@@ -32,6 +32,10 @@ type ResourceCache struct {
 
 var resourceCache *ResourceCache
 
+func (in *ResourceCache) GetCacheEntry(key string) (SHA, bool) {
+	return in.cache.Get(key)
+}
+
 func (in *ResourceCache) Register(resources object.ObjMetadataSet) {
 	keySet := ObjMetadataSetToResourceKeys(resources)
 	deleteSet := in.toResourceKeysSet().Difference(keySet)

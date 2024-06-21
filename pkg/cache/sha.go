@@ -5,6 +5,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+type SHAType string
+
+const (
+	Manifest SHAType = "MANIFEST"
+	Apply    SHAType = "APPLY"
+	Server   SHAType = "SERVER"
+)
+
 // SHA contains latest SHAs for a single resource from multiple stages.
 type SHA struct {
 	// manifestSHA is SHA of the resource manifest from the repository.
@@ -22,6 +30,24 @@ type SHA struct {
 	health *string
 }
 
+func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
+	sha, err := HashResource(resource)
+	if err != nil {
+		return err
+	}
+
+	switch shaType {
+	case Manifest:
+		in.manifestSHA = &sha
+	case Apply:
+		in.applySHA = &sha
+	case Server:
+		in.serverSHA = &sha
+	}
+
+	return nil
+}
+
 // RequiresApply checks if there is any drift
 // between applySHA calculated during applying resource and serverSHA from a watch of a resource
 // or between last two manifestSHA read from the repository.
@@ -32,21 +58,26 @@ func (in *SHA) RequiresApply(manifestSHA string) bool {
 
 // shaObject is a representation of a resource used to calculate SHA from.
 type shaObject struct {
-	Name        string            `json:"name"`
-	Namespace   string            `json:"namespace"`
-	Labels      map[string]string `json:"labels"`
-	Annotations map[string]string `json:"annotations"`
-	Other       map[string]any    `json:"other"`
+	Name              string            `json:"name"`
+	Namespace         string            `json:"namespace"`
+	Labels            map[string]string `json:"labels"`
+	Annotations       map[string]string `json:"annotations"`
+	DeletionTimestamp string            `json:"deletionTimestamp"`
+	Other             map[string]any    `json:"other"`
 }
 
 // HashResource calculates SHA for an unstructured object.
-// It uses object name, namespace, labels, annotations and all other top-level fields except status.
+// It uses object name, namespace, labels, annotations, deletion timestamp and all other top-level fields except status.
 func HashResource(resource unstructured.Unstructured) (string, error) {
 	object := shaObject{
 		Name:        resource.GetName(),
 		Namespace:   resource.GetNamespace(),
 		Labels:      resource.GetLabels(),
 		Annotations: resource.GetAnnotations(),
+	}
+
+	if resource.GetDeletionTimestamp() != nil {
+		object.DeletionTimestamp = resource.GetDeletionTimestamp().String()
 	}
 
 	unstructured.RemoveNestedField(resource.Object, "metadata")
