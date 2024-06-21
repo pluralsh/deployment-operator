@@ -6,10 +6,7 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/polly/containers"
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
@@ -35,8 +32,8 @@ type ResourceCache struct {
 
 var resourceCache *ResourceCache
 
-func (in *ResourceCache) Register(resourceMap map[string]*unstructured.Unstructured) {
-	keySet := containers.ToSet(lo.Keys(resourceMap))
+func (in *ResourceCache) Register(resources object.ObjMetadataSet) {
+	keySet := ObjMetadataSetToResourceKeys(resources)
 	deleteSet := in.toResourceKeysSet().Difference(keySet)
 	toAdd := keySet.Difference(in.toResourceKeysSet())
 
@@ -45,7 +42,12 @@ func (in *ResourceCache) Register(resourceMap map[string]*unstructured.Unstructu
 	}
 
 	for key := range toAdd {
-		in.start(resourceMap[key])
+		metadata, err := object.ParseObjMetadata(key)
+		if err != nil {
+			continue
+		}
+
+		in.start(metadata)
 	}
 }
 
@@ -65,31 +67,23 @@ func (in *ResourceCache) stop(resourceKey string) {
 	}
 }
 
-func (in *ResourceCache) start(obj *unstructured.Unstructured) {
-	resourceKey := ToResourceKey(obj)
+func (in *ResourceCache) start(id object.ObjMetadata) {
 	w := watcher.NewDefaultStatusWatcher(in.dynamicClient, in.mapper)
 	w.Filters = &watcher.Filters{
 		Labels: common.ManagedByAgentLabelSelector(),
 		Fields: nil,
 	}
 
-	id := object.ObjMetadata{
-		GroupKind: schema.GroupKind{
-			Group: obj.GroupVersionKind().Group,
-			Kind:  obj.GroupVersionKind().Kind,
-		},
-		Namespace: obj.GetNamespace(),
-	}
-
+	key := ObjMetadataToResourceKey(id)
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	in.resourceToWatcher.Set(resourceKey, &watcherWrapper{
+	in.resourceToWatcher.Set(key, &watcherWrapper{
 		w:          w,
 		id:         id,
 		ctx:        ctx,
 		cancelFunc: cancelFunc,
 	})
 
-	in.startWatch(resourceKey)
+	in.startWatch(key)
 }
 
 func (in *ResourceCache) startWatch(resourceKey string) {
