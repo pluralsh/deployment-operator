@@ -3,9 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"strings"
 
-	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/samber/lo"
@@ -18,40 +19,19 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
-const (
-	// Indicates that health assessment failed and actual health status is unknown
-	HealthStatusUnknown HealthStatusCode = "Unknown"
-	// Progressing health status means that resource is not healthy but still have a chance to reach healthy state
-	HealthStatusProgressing HealthStatusCode = "Progressing"
-	// Resource is 100% healthy
-	HealthStatusHealthy HealthStatusCode = "Healthy"
-	// Assigned to resources that are suspended or paused. The typical example is a
-	// [suspended](https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#suspend) CronJob.
-	HealthStatusSuspended HealthStatusCode = "Suspended"
-	HealthStatusPaused    HealthStatusCode = "Paused"
-	// Degrade status is used if resource status indicates failure or resource could not reach healthy state
-	// within some timeout.
-	HealthStatusDegraded HealthStatusCode = "Degraded"
-	// Indicates that resource is missing in the cluster.
-	HealthStatusMissing HealthStatusCode = "Missing"
-)
-
-// Represents resource health status
-type HealthStatusCode string
-
 // GetResourceHealth returns the health of a k8s resource
-func (s *ServiceReconciler) getResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, err error) {
+func (s *ServiceReconciler) getResourceHealth(obj *unstructured.Unstructured) (health *common.HealthStatus, err error) {
 	if obj.GetDeletionTimestamp() != nil {
-		return &HealthStatus{
-			Status:  HealthStatusProgressing,
+		return &common.HealthStatus{
+			Status:  common.HealthStatusProgressing,
 			Message: "Pending deletion",
 		}, nil
 	}
 
 	if healthCheck := s.GetHealthCheckFunc(obj.GroupVersionKind()); healthCheck != nil {
 		if health, err = healthCheck(obj); err != nil {
-			health = &HealthStatus{
-				Status:  HealthStatusUnknown,
+			health = &common.HealthStatus{
+				Status:  common.HealthStatusUnknown,
 				Message: err.Error(),
 			}
 		}
@@ -61,59 +41,17 @@ func (s *ServiceReconciler) getResourceHealth(obj *unstructured.Unstructured) (h
 }
 
 // GetHealthCheckFunc returns built-in health check function or nil if health check is not supported
-func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
-	switch gvk.Group {
-	case "apps":
-		switch gvk.Kind {
-		case DeploymentKind:
-			return getDeploymentHealth
-		case StatefulSetKind:
-			return getStatefulSetHealth
-		case ReplicaSetKind:
-			return getReplicaSetHealth
-		case DaemonSetKind:
-			return getDaemonSetHealth
-		}
-	case "extensions":
-		if gvk.Kind == IngressKind {
-			return getIngressHealth
-		}
-	case "networking.k8s.io":
-		if gvk.Kind == IngressKind {
-			return getIngressHealth
-		}
-	case "":
-		switch gvk.Kind {
-		case ServiceKind:
-			return getServiceHealth
-		case PersistentVolumeClaimKind:
-			return getPVCHealth
-		case PodKind:
-			return getPodHealth
-		}
-	case "batch":
-		if gvk.Kind == JobKind {
-			return getJobHealth
-		}
-	case "flagger.app":
-		if gvk.Kind == CanaryKind {
-			return getCanaryHealth
-		}
-	case rollouts.Group:
-		if gvk.Kind == rollouts.RolloutKind {
-			return getArgoRolloutHealth
-		}
-	case "autoscaling":
-		if gvk.Kind == HorizontalPodAutoscalerKind {
-			return getHPAHealth
-		}
+func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*common.HealthStatus, error) {
+
+	if healthFunc := common.GetHealthCheckFuncByGroupVersionKind(gvk); healthFunc != nil {
+		return healthFunc
 	}
 
 	if s.GetLuaScript() != "" {
 		return s.getLuaHealthConvert
 	}
 
-	return getOtherHealth
+	return common.GetOtherHealthStatus
 }
 
 func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.ComponentState {
@@ -122,15 +60,15 @@ func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.Co
 		return nil
 	}
 
-	if h.Status == HealthStatusDegraded {
+	if h.Status == common.HealthStatusDegraded {
 		return lo.ToPtr(console.ComponentStateFailed)
 	}
 
-	if h.Status == HealthStatusHealthy {
+	if h.Status == common.HealthStatusHealthy {
 		return lo.ToPtr(console.ComponentStateRunning)
 	}
 
-	if h.Status == HealthStatusPaused {
+	if h.Status == common.HealthStatusPaused {
 		return lo.ToPtr(console.ComponentStatePaused)
 	}
 
