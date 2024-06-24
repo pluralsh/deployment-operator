@@ -7,8 +7,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +23,9 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/object"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
@@ -335,8 +336,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 	manifests = postProcess(manifests)
-	manifests = s.HandleCache(manifests)
-	if len(manifests) == 0 {
+	if s.shouldSkipApply(manifests) {
 		return
 	}
 
@@ -386,9 +386,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	return
 }
 
-func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) []*unstructured.Unstructured {
-	manifestsToApply := make([]*unstructured.Unstructured, 0, len(manifests))
-
+func (s *ServiceReconciler) shouldSkipApply(manifests []*unstructured.Unstructured) (skip bool) {
+	skip = true
 	for _, m := range manifests {
 		if m == nil {
 			continue
@@ -404,13 +403,13 @@ func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) 
 		if exists && !sha.RequiresApply(newManifestSHA) {
 			continue
 		}
+
 		sha.SetManifestSHA(newManifestSHA)
 		cache.GetResourceCache().SetCacheEntry(key, sha)
-
-		manifestsToApply = append(manifestsToApply, m)
+		skip = false
 	}
 
-	return manifestsToApply
+	return skip
 }
 
 func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.GetServiceDeploymentForAgent_ServiceDeployment_SyncConfig) error {

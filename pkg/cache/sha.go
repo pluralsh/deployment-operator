@@ -1,11 +1,9 @@
 package cache
 
 import (
-	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
 type SHAType string
@@ -28,9 +26,6 @@ type SHA struct {
 	// serverSHA is SHA from a watch of the resource, using the same pruning function as applySHA.
 	// It is persisted only if there's a current-inventory annotation.
 	serverSHA *string
-
-	// health is health status of the object found from a watch.
-	health *console.ComponentState
 }
 
 func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
@@ -53,10 +48,6 @@ func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error
 
 func (in *SHA) SetManifestSHA(manifestSHA string) {
 	in.manifestSHA = &manifestSHA
-}
-
-func (in *SHA) SetHealth(resource *unstructured.Unstructured) {
-	in.health = getResourceHealth(resource)
 }
 
 // RequiresApply checks if there is any drift
@@ -101,30 +92,4 @@ func HashResource(resource unstructured.Unstructured) (string, error) {
 	return utils.HashObject(object)
 }
 
-// getResourceHealth returns the health of a resource.
-func getResourceHealth(obj *unstructured.Unstructured) *console.ComponentState {
-	if obj.GetDeletionTimestamp() != nil {
-		return lo.ToPtr(console.ComponentStatePending)
-	}
 
-	healthCheckFunc := common.GetHealthCheckFuncByGroupVersionKind(obj.GroupVersionKind())
-	if healthCheckFunc == nil {
-		return lo.ToPtr(console.ComponentStatePending)
-	}
-
-	health, err := healthCheckFunc(obj)
-	if err != nil {
-		return nil
-	}
-
-	switch health.Status {
-	case common.HealthStatusDegraded:
-		return lo.ToPtr(console.ComponentStateFailed)
-	case common.HealthStatusHealthy:
-		return lo.ToPtr(console.ComponentStateRunning)
-	case common.HealthStatusPaused:
-		return lo.ToPtr(console.ComponentStatePaused)
-	}
-
-	return lo.ToPtr(console.ComponentStatePending)
-}

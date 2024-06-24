@@ -3,6 +3,8 @@ package cache
 import (
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
@@ -21,4 +23,9 @@ func ObjMetadataToResourceKey(obj object.ObjMetadata) string {
 	obj.Namespace = resourceKeyPlaceholder
 
 	return obj.String()
+}
+
+func UnstructuredServiceDeploymentToID(obj *unstructured.Unstructured) string {
+	id := obj.GetAnnotations()[inventory.OwningInventoryKey]
+	return id
 }

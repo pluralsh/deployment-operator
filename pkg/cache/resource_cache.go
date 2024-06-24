@@ -6,18 +6,20 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/watcher"
 	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/watcher"
 )
 
 type ResourceCache struct {
@@ -73,13 +75,6 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	if err := sha.SetSHA(*resource, shaType); err == nil {
 		resourceCache.SetCacheEntry(key, sha)
 	}
-}
-
-func SaveResourceHealth(resource *unstructured.Unstructured) {
-	key := object.UnstructuredToObjMetadata(resource).String()
-	sha, _ := resourceCache.GetCacheEntry(key)
-	sha.SetHealth(resource)
-	resourceCache.SetCacheEntry(key, sha)
 }
 
 func (in *ResourceCache) SetCacheEntry(key string, value SHA) {
@@ -167,14 +162,33 @@ func (in *ResourceCache) startWatch(resourceKey string) {
 func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
-		if e.Resource.Resource == nil {
+		GetHealthCache().Update(e.Resource)
+
+		if !in.shouldCacheResource(e.Resource) {
+			in.deleteCacheEntry(e.Resource)
 			return
 		}
+
 		SaveResourceSHA(e.Resource.Resource, ServerSHA)
-		SaveResourceHealth(e.Resource.Resource)
 	case event.ErrorEvent:
 		in.startWatch(resourceKey)
 	default:
 		// Ignore.
 	}
+}
+
+func (in *ResourceCache) shouldCacheResource(r *event.ResourceStatus) bool {
+	if r == nil {
+		return false
+	}
+
+	return r.Resource != nil && (r.Status == status.CurrentStatus || r.Status == status.InProgressStatus)
+}
+
+func (in *ResourceCache) deleteCacheEntry(r *event.ResourceStatus) {
+	if r == nil {
+		return
+	}
+
+	in.cache.Expire(r.Identifier.String())
 }
