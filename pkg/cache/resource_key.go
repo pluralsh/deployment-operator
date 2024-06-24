@@ -41,10 +41,9 @@ func ParseResourceKeys(set object.ObjMetadataSet) ResourceKeys {
 	return algorithms.Map(set, func(obj object.ObjMetadata) ResourceKey { return ResourceKey(obj) })
 }
 
-// InventoryResourceKeys maps cli-utils inventory ID to a set of resource keys.
+// InventoryResourceKeys maps cli-utils inventory ID to ResourceKeys.
 type InventoryResourceKeys map[string]ResourceKeys
 
 func (in InventoryResourceKeys) Values() ResourceKeys {
 	return slices.Concat(lo.Values(in)...)
-
 }
