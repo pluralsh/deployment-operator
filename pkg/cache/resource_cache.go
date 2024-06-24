@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"time"
@@ -164,20 +163,20 @@ func getResourceHealth(obj *unstructured.Unstructured) *console.ComponentState {
 		return lo.ToPtr(console.ComponentStatePending)
 	}
 
-	if healthCheck := service.GetHealthCheckFuncByGroupVersionKind(obj.GroupVersionKind()); healthCheck != nil {
+	if healthCheck := common.GetHealthCheckFuncByGroupVersionKind(obj.GroupVersionKind()); healthCheck != nil {
 		health, err := healthCheck(obj)
 		if err != nil {
 			return nil
 		}
-		if health.Status == service.HealthStatusDegraded {
+		if health.Status == common.HealthStatusDegraded {
 			return lo.ToPtr(console.ComponentStateFailed)
 		}
 
-		if health.Status == service.HealthStatusHealthy {
+		if health.Status == common.HealthStatusHealthy {
 			return lo.ToPtr(console.ComponentStateRunning)
 		}
 
-		if health.Status == service.HealthStatusPaused {
+		if health.Status == common.HealthStatusPaused {
 			return lo.ToPtr(console.ComponentStatePaused)
 		}
 	}
