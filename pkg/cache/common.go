@@ -21,6 +21,11 @@ func (in ResourceKey) String() string {
 	return in.String()
 }
 
+func ParseResourceKey(key string) (ResourceKey, error) {
+	objMetadata, err := object.ParseObjMetadata(key)
+	return ResourceKey(objMetadata), err
+}
+
 func ObjMetadataSetToResourceKeys(set object.ObjMetadataSet) containers.Set[string] {
 	return containers.ToSet(algorithms.Map(set, func(obj object.ObjMetadata) string {
 		return ResourceKey(obj).String()

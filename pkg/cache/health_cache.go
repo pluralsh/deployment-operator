@@ -8,18 +8,16 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
-	"sigs.k8s.io/cli-utils/pkg/object"
-
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 var healthCache *HealthCache
@@ -65,18 +63,15 @@ func (in *HealthCache) reconcile() {
 
 func (in *HealthCache) toComponentAttributes(healthComponents []lo.Entry[string, HealthComponent]) []*console.ComponentAttributes {
 	return algorithms.Map(healthComponents, func(entry lo.Entry[string, HealthComponent]) *console.ComponentAttributes {
-		resourceKey := entry.Key
-		hCmp := entry.Value
-		objMetadata, _ := object.ParseObjMetadata(resourceKey)
-
+		key, _ := ParseResourceKey(entry.Key)
 		return &console.ComponentAttributes{
-			State:     hCmp.state,
-			Synced:    hCmp.status == status.CurrentStatus,
-			Group:     objMetadata.GroupKind.Group,
-			Version:   hCmp.version,
-			Kind:      objMetadata.GroupKind.Kind,
-			Namespace: objMetadata.Namespace,
-			Name:      objMetadata.Name,
+			State:     entry.Value.state,
+			Synced:    entry.Value.status == status.CurrentStatus,
+			Group:     key.GroupKind.Group,
+			Version:   entry.Value.version,
+			Kind:      key.GroupKind.Kind,
+			Namespace: key.Namespace,
+			Name:      key.Name,
 		}
 	})
 }
