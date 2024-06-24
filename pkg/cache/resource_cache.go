@@ -3,6 +3,10 @@ package cache
 import (
 	"context"
 	"fmt"
+	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
+	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -123,6 +127,7 @@ func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 		sha, _ := in.GetCacheEntry(key)
 		_ = sha.SetSHA(*e.Resource.Resource, ServerSHA)
 		in.SetCacheEntry(key, sha)
+
 	case event.SyncEvent:
 	case event.ErrorEvent:
 		in.startWatch(resourceKey)
@@ -148,4 +153,30 @@ func GetResourceCache() (*ResourceCache, error) {
 	}
 
 	return resourceCache, nil
+}
+
+// GetResourceHealth returns the health of a k8s resource
+func GetResourceHealth(obj *unstructured.Unstructured) *console.ComponentState {
+	if obj.GetDeletionTimestamp() != nil {
+		return lo.ToPtr(console.ComponentStatePending)
+	}
+
+	if healthCheck := service.GetHealthCheckFuncByGroupVersionKind(obj.GroupVersionKind()); healthCheck != nil {
+		health, err := healthCheck(obj)
+		if err != nil {
+			return nil
+		}
+		if health.Status == service.HealthStatusDegraded {
+			return lo.ToPtr(console.ComponentStateFailed)
+		}
+
+		if health.Status == service.HealthStatusHealthy {
+			return lo.ToPtr(console.ComponentStateRunning)
+		}
+
+		if health.Status == service.HealthStatusPaused {
+			return lo.ToPtr(console.ComponentStatePaused)
+		}
+	}
+	return lo.ToPtr(console.ComponentStatePending)
 }

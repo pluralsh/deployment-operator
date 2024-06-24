@@ -8,7 +8,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
-	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -64,58 +63,16 @@ func (s *ServiceReconciler) getResourceHealth(obj *unstructured.Unstructured) (h
 
 // GetHealthCheckFunc returns built-in health check function or nil if health check is not supported
 func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
-	switch gvk.Group {
-	case "apps":
-		switch gvk.Kind {
-		case DeploymentKind:
-			return getDeploymentHealth
-		case StatefulSetKind:
-			return getStatefulSetHealth
-		case ReplicaSetKind:
-			return getReplicaSetHealth
-		case DaemonSetKind:
-			return getDaemonSetHealth
-		}
-	case "extensions":
-		if gvk.Kind == IngressKind {
-			return getIngressHealth
-		}
-	case "networking.k8s.io":
-		if gvk.Kind == IngressKind {
-			return getIngressHealth
-		}
-	case "":
-		switch gvk.Kind {
-		case ServiceKind:
-			return getServiceHealth
-		case PersistentVolumeClaimKind:
-			return getPVCHealth
-		case PodKind:
-			return getPodHealth
-		}
-	case "batch":
-		if gvk.Kind == JobKind {
-			return getJobHealth
-		}
-	case "flagger.app":
-		if gvk.Kind == CanaryKind {
-			return getCanaryHealth
-		}
-	case rollouts.Group:
-		if gvk.Kind == rollouts.RolloutKind {
-			return getArgoRolloutHealth
-		}
-	case "autoscaling":
-		if gvk.Kind == HorizontalPodAutoscalerKind {
-			return getHPAHealth
-		}
+
+	if healthFunc := GetHealthCheckFuncByGroupVersionKind(gvk); healthFunc != nil {
+		return healthFunc
 	}
 
 	if s.GetLuaScript() != "" {
 		return s.getLuaHealthConvert
 	}
 
-	return getOtherHealth
+	return GetOtherHealthStatus
 }
 
 func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.ComponentState {

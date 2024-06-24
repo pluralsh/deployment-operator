@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
 	"github.com/pluralsh/deployment-operator/pkg/lua"
@@ -19,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubectl/pkg/util/podutils"
 )
 
@@ -772,7 +774,58 @@ type Status struct {
 
 const readyCondition = "Ready"
 
-func getOtherHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
+func GetHealthCheckFuncByGroupVersionKind(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	switch gvk.Group {
+	case "apps":
+		switch gvk.Kind {
+		case DeploymentKind:
+			return getDeploymentHealth
+		case StatefulSetKind:
+			return getStatefulSetHealth
+		case ReplicaSetKind:
+			return getReplicaSetHealth
+		case DaemonSetKind:
+			return getDaemonSetHealth
+		}
+	case "extensions":
+		if gvk.Kind == IngressKind {
+			return getIngressHealth
+		}
+	case "networking.k8s.io":
+		if gvk.Kind == IngressKind {
+			return getIngressHealth
+		}
+	case "":
+		switch gvk.Kind {
+		case ServiceKind:
+			return getServiceHealth
+		case PersistentVolumeClaimKind:
+			return getPVCHealth
+		case PodKind:
+			return getPodHealth
+		}
+	case "batch":
+		if gvk.Kind == JobKind {
+			return getJobHealth
+		}
+	case "flagger.app":
+		if gvk.Kind == CanaryKind {
+			return getCanaryHealth
+		}
+	case rollouts.Group:
+		if gvk.Kind == rollouts.RolloutKind {
+			return getArgoRolloutHealth
+		}
+	case "autoscaling":
+		if gvk.Kind == HorizontalPodAutoscalerKind {
+			return getHPAHealth
+		}
+	}
+
+	return nil
+}
+
+func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	sts := Status{}
 	status, ok := obj.Object["status"]
 	if ok {
