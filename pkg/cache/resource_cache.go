@@ -167,6 +167,9 @@ func (in *ResourceCache) startWatch(resourceKey string) {
 func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
+		if e.Resource.Resource == nil {
+			return
+		}
 		SaveResourceSHA(e.Resource.Resource, ServerSHA)
 		SaveResourceHealth(e.Resource.Resource)
 	case event.ErrorEvent:
