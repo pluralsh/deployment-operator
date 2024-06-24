@@ -119,11 +119,9 @@ func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
 		// update status and fill out the cache
-
-		fmt.Printf("update %+v\n", e.Resource)
 		key := object.UnstructuredToObjMetadata(e.Resource.Resource).String()
 		sha, _ := in.GetCacheEntry(key)
-		sha.SetSHA(*e.Resource.Resource, Server)
+		_ = sha.SetSHA(*e.Resource.Resource, ServerSHA)
 		in.SetCacheEntry(key, sha)
 	case event.SyncEvent:
 	case event.ErrorEvent:

@@ -8,9 +8,9 @@ import (
 type SHAType string
 
 const (
-	Manifest SHAType = "MANIFEST"
-	Apply    SHAType = "APPLY"
-	Server   SHAType = "SERVER"
+	ManifestSHA SHAType = "MANIFEST"
+	ApplySHA    SHAType = "APPLY"
+	ServerSHA   SHAType = "SERVER"
 )
 
 // SHA contains latest SHAs for a single resource from multiple stages.
@@ -34,6 +34,14 @@ func (in *SHA) SetManifestSHA(manifestSHA string) {
 	in.manifestSHA = &manifestSHA
 }
 
+func (in *SHA) SetApplySHA(applySHA string) {
+	in.manifestSHA = &applySHA
+}
+
+func (in *SHA) SetServerSHA(serverSHA string) {
+	in.manifestSHA = &serverSHA
+}
+
 func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
 	sha, err := HashResource(resource)
 	if err != nil {
@@ -41,11 +49,11 @@ func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error
 	}
 
 	switch shaType {
-	case Manifest:
+	case ManifestSHA:
 		in.manifestSHA = &sha
-	case Apply:
+	case ApplySHA:
 		in.applySHA = &sha
-	case Server:
+	case ServerSHA:
 		in.serverSHA = &sha
 	}
 
@@ -72,23 +80,24 @@ type shaObject struct {
 }
 
 // HashResource calculates SHA for an unstructured object.
-// It uses object name, namespace, labels, annotations, deletion timestamp and all other top-level fields except status.
+// It uses object metadata (name, namespace, labels, annotations, deletion timestamp)
+// and all other top-level fields except status.
 func HashResource(resource unstructured.Unstructured) (string, error) {
-	copy := resource.DeepCopy()
+	resourceCopy := resource.DeepCopy()
 	object := shaObject{
-		Name:        copy.GetName(),
-		Namespace:   copy.GetNamespace(),
-		Labels:      copy.GetLabels(),
-		Annotations: copy.GetAnnotations(),
+		Name:        resourceCopy.GetName(),
+		Namespace:   resourceCopy.GetNamespace(),
+		Labels:      resourceCopy.GetLabels(),
+		Annotations: resourceCopy.GetAnnotations(),
 	}
 
-	if copy.GetDeletionTimestamp() != nil {
-		object.DeletionTimestamp = copy.GetDeletionTimestamp().String()
+	if resourceCopy.GetDeletionTimestamp() != nil {
+		object.DeletionTimestamp = resourceCopy.GetDeletionTimestamp().String()
 	}
 
-	unstructured.RemoveNestedField(copy.Object, "metadata")
-	unstructured.RemoveNestedField(copy.Object, "status")
-	object.Other = copy.Object
+	unstructured.RemoveNestedField(resourceCopy.Object, "metadata")
+	unstructured.RemoveNestedField(resourceCopy.Object, "status")
+	object.Other = resourceCopy.Object
 
 	return utils.HashObject(object)
 }

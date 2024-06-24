@@ -349,7 +349,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	vcache := manis.VersionCache(manifests)
 
-	logger.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
+	logger.Info("ApplySHA service", "name", svc.Name, "namespace", svc.Namespace)
 
 	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
 		logger.Error(err, "failed to check namespace")
@@ -404,8 +404,7 @@ func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) 
 			continue
 		}
 
-		obj := object.UnstructuredToObjMetadata(m)
-		key := obj.String()
+		key := object.UnstructuredToObjMetadata(m).String()
 		sha, exists := c.GetCacheEntry(key)
 		if exists && !sha.RequiresApply(newManifestSHA) {
 			continue

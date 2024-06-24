@@ -3,9 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"sigs.k8s.io/cli-utils/pkg/object"
-	"strings"
 
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	console "github.com/pluralsh/console-client-go"
@@ -201,13 +202,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
-			// TODO export to method
-			key := object.UnstructuredToObjMetadata(e.ApplyEvent.Resource).String()
-			sha, _ := rc.GetCacheEntry(key)
-			err := sha.SetSHA(*e.ApplyEvent.Resource, cache.Apply)
-			if err == nil {
-				rc.SetCacheEntry(key, sha)
-			}
+			cacheApplySHA(rc, e.ApplyEvent.Resource)
 			if e.ApplyEvent.Error != nil {
 				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
@@ -248,6 +243,14 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 	}
 
 	return nil
+}
+
+func cacheApplySHA(resourceCache *cache.ResourceCache, resource *unstructured.Unstructured) {
+	key := object.UnstructuredToObjMetadata(resource).String()
+	sha, _ := resourceCache.GetCacheEntry(key)
+	if err := sha.SetSHA(*resource, cache.ApplySHA); err == nil {
+		resourceCache.SetCacheEntry(key, sha)
+	}
 }
 
 func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) error {
