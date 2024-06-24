@@ -91,5 +91,3 @@ func HashResource(resource unstructured.Unstructured) (string, error) {
 
 	return utils.HashObject(object)
 }
-
-
