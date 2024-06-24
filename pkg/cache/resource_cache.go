@@ -127,7 +127,7 @@ func (in *ResourceCache) start(id object.ObjMetadata) {
 		Fields: nil,
 	}
 
-	key := ObjMetadataToResourceKey(id)
+	key := ResourceKey(id).String()
 	ctx, cancelFunc := context.WithCancel(in.ctx)
 	in.resourceToWatcher.Set(key, &watcherWrapper{
 		w:          w,
