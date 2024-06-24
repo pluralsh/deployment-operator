@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"strings"
 
-	"sigs.k8s.io/cli-utils/pkg/object"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/samber/lo"
@@ -137,7 +137,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
-			cache.SaveResourceCache(e.ApplyEvent.Resource, cache.ApplySHA)
+			cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ApplySHA)
 			if e.ApplyEvent.Error != nil {
 				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())

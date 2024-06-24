@@ -2,11 +2,10 @@ package cache
 
 import (
 	"context"
-	"fmt"
-	console "github.com/pluralsh/console-client-go"
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"os"
 	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -15,7 +14,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/watcher"
 	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
@@ -69,12 +67,19 @@ func GetResourceCache() *ResourceCache {
 	return resourceCache
 }
 
-func SaveResourceCache(resource *unstructured.Unstructured, shaType SHAType) {
+func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
 	if err := sha.SetSHA(*resource, shaType); err == nil {
 		resourceCache.SetCacheEntry(key, sha)
 	}
+}
+
+func SaveResourceHealth(resource *unstructured.Unstructured) {
+	key := object.UnstructuredToObjMetadata(resource).String()
+	sha, _ := resourceCache.GetCacheEntry(key)
+	sha.SetHealth(resource)
+	resourceCache.SetCacheEntry(key, sha)
 }
 
 func (in *ResourceCache) SetCacheEntry(key string, value SHA) {
@@ -162,39 +167,11 @@ func (in *ResourceCache) startWatch(resourceKey string) {
 func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
-		SaveResourceCache(e.Resource.Resource, ServerSHA)
-		//if health := getResourceHealth(e.Resource.Resource); health != nil {
-		//			sha.health = lo.ToPtr(health.String())
-		//		}
-	case event.SyncEvent:
+		SaveResourceSHA(e.Resource.Resource, ServerSHA)
+		SaveResourceHealth(e.Resource.Resource)
 	case event.ErrorEvent:
 		in.startWatch(resourceKey)
-		// retry watch based on resourceKey
+	default:
+		// Ignore.
 	}
-}
-
-// getResourceHealth returns the health of a k8s resource
-func getResourceHealth(obj *unstructured.Unstructured) *console.ComponentState {
-	if obj.GetDeletionTimestamp() != nil {
-		return lo.ToPtr(console.ComponentStatePending)
-	}
-
-	if healthCheck := common.GetHealthCheckFuncByGroupVersionKind(obj.GroupVersionKind()); healthCheck != nil {
-		health, err := healthCheck(obj)
-		if err != nil {
-			return nil
-		}
-		if health.Status == common.HealthStatusDegraded {
-			return lo.ToPtr(console.ComponentStateFailed)
-		}
-
-		if health.Status == common.HealthStatusHealthy {
-			return lo.ToPtr(console.ComponentStateRunning)
-		}
-
-		if health.Status == common.HealthStatusPaused {
-			return lo.ToPtr(console.ComponentStatePaused)
-		}
-	}
-	return lo.ToPtr(console.ComponentStatePending)
 }
