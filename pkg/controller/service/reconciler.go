@@ -389,11 +389,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) []*unstructured.Unstructured {
 	manifestsToApply := make([]*unstructured.Unstructured, 0, len(manifests))
 
-	c, err := cache.GetResourceCache()
-	if err != nil {
-		return manifests
-	}
-
 	for _, m := range manifests {
 		if m == nil {
 			continue
@@ -405,12 +400,12 @@ func (s *ServiceReconciler) HandleCache(manifests []*unstructured.Unstructured) 
 		}
 
 		key := object.UnstructuredToObjMetadata(m).String()
-		sha, exists := c.GetCacheEntry(key)
+		sha, exists := cache.GetResourceCache().GetCacheEntry(key)
 		if exists && !sha.RequiresApply(newManifestSHA) {
 			continue
 		}
 		sha.SetManifestSHA(newManifestSHA)
-		c.SetCacheEntry(key, sha)
+		cache.GetResourceCache().SetCacheEntry(key, sha)
 
 		manifestsToApply = append(manifestsToApply, m)
 	}

@@ -2,26 +2,22 @@ package cache
 
 import (
 	"context"
-	"fmt"
+	"os"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/watcher"
 	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
-
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/watcher"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
-
-type watcherWrapper struct {
-	w          watcher.StatusWatcher
-	id         object.ObjMetadata
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-}
 
 type ResourceCache struct {
 	ctx               context.Context
@@ -31,7 +27,52 @@ type ResourceCache struct {
 	cache             *Cache[SHA]
 }
 
+type watcherWrapper struct {
+	w          watcher.StatusWatcher
+	id         object.ObjMetadata
+	ctx        context.Context
+	cancelFunc context.CancelFunc
+}
+
 var resourceCache *ResourceCache
+
+func init() {
+	ctx := context.Background()
+	config := ctrl.GetConfigOrDie()
+
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		log.Logger.Error(err, "unable to create dynamic client")
+		os.Exit(1)
+	}
+
+	f := utils.NewFactory(config)
+	mapper, err := f.ToRESTMapper()
+	if err != nil {
+		log.Logger.Error(err, "unable to create rest mapper")
+		os.Exit(1)
+	}
+
+	resourceCache = &ResourceCache{
+		ctx:               ctx,
+		dynamicClient:     dynamicClient,
+		mapper:            mapper,
+		resourceToWatcher: cmap.New[*watcherWrapper](),
+		cache:             NewCache[SHA](time.Minute*10, time.Second*30),
+	}
+}
+
+func GetResourceCache() *ResourceCache {
+	return resourceCache
+}
+
+func SaveResourceCache(resource *unstructured.Unstructured, shaType SHAType) {
+	key := object.UnstructuredToObjMetadata(resource).String()
+	sha, _ := resourceCache.GetCacheEntry(key)
+	if err := sha.SetSHA(*resource, shaType); err == nil {
+		resourceCache.SetCacheEntry(key, sha)
+	}
+}
 
 func (in *ResourceCache) SetCacheEntry(key string, value SHA) {
 	in.cache.Set(key, value)
@@ -84,7 +125,7 @@ func (in *ResourceCache) start(id object.ObjMetadata) {
 	}
 
 	key := ObjMetadataToResourceKey(id)
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx, cancelFunc := context.WithCancel(in.ctx)
 	in.resourceToWatcher.Set(key, &watcherWrapper{
 		w:          w,
 		id:         id,
@@ -118,34 +159,10 @@ func (in *ResourceCache) startWatch(resourceKey string) {
 func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
-		// update status and fill out the cache
-		key := object.UnstructuredToObjMetadata(e.Resource.Resource).String()
-		sha, _ := in.GetCacheEntry(key)
-		_ = sha.SetSHA(*e.Resource.Resource, ServerSHA)
-		in.SetCacheEntry(key, sha)
+		SaveResourceCache(e.Resource.Resource, ServerSHA)
 	case event.SyncEvent:
 	case event.ErrorEvent:
 		in.startWatch(resourceKey)
 		// retry watch based on resourceKey
 	}
-}
-
-func InitResourceCache(ctx context.Context, mapper meta.RESTMapper, dynamicClient *dynamic.DynamicClient) {
-	if resourceCache == nil {
-		resourceCache = &ResourceCache{
-			ctx:               ctx,
-			dynamicClient:     dynamicClient,
-			mapper:            mapper,
-			resourceToWatcher: cmap.New[*watcherWrapper](),
-			cache:             NewCache[SHA](time.Minute*10, time.Second*30),
-		}
-	}
-}
-
-func GetResourceCache() (*ResourceCache, error) {
-	if resourceCache == nil {
-		return nil, fmt.Errorf("server watcher is not initialized")
-	}
-
-	return resourceCache, nil
 }

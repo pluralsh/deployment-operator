@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"sigs.k8s.io/cli-utils/pkg/object"
-
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -184,7 +182,6 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 	var statsCollector stats.Stats
 	var err error
 	statusCollector := newServiceComponentsStatusCollector(s, svc)
-	rc, err := cache.GetResourceCache()
 	if err != nil {
 		return err
 	}
@@ -202,7 +199,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
-			cacheApplySHA(rc, e.ApplyEvent.Resource)
+			cache.SaveResourceCache(e.ApplyEvent.Resource, cache.ApplySHA)
 			if e.ApplyEvent.Error != nil {
 				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
@@ -243,14 +240,6 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 	}
 
 	return nil
-}
-
-func cacheApplySHA(resourceCache *cache.ResourceCache, resource *unstructured.Unstructured) {
-	key := object.UnstructuredToObjMetadata(resource).String()
-	sha, _ := resourceCache.GetCacheEntry(key)
-	if err := sha.SetSHA(*resource, cache.ApplySHA); err == nil {
-		resourceCache.SetCacheEntry(key, sha)
-	}
 }
 
 func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) error {
