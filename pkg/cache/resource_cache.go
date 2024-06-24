@@ -32,7 +32,7 @@ type ResourceCache struct {
 
 type watcherWrapper struct {
 	w          watcher.StatusWatcher
-	id         object.ObjMetadata
+	key        ResourceKey
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 }
@@ -85,22 +85,22 @@ func (in *ResourceCache) GetCacheEntry(key string) (SHA, bool) {
 	return in.cache.Get(key)
 }
 
-func (in *ResourceCache) Register(resources object.ObjMetadataSet) {
-	keySet := ObjMetadataSetToResourceKeys(resources)
-	deleteSet := in.toResourceKeysSet().Difference(keySet)
+func (in *ResourceCache) Register(keys ResourceKeys) {
+	keySet := keys.StringSet()
+	toDelete := in.toResourceKeysSet().Difference(keySet)
 	toAdd := keySet.Difference(in.toResourceKeysSet())
 
-	for key := range deleteSet {
+	for key := range toDelete {
 		in.stop(key)
 	}
 
 	for key := range toAdd {
-		metadata, err := object.ParseObjMetadata(key)
+		resourceKey, err := ParseResourceKey(key)
 		if err != nil {
 			continue
 		}
 
-		in.start(metadata)
+		in.start(resourceKey)
 	}
 }
 
@@ -120,23 +120,22 @@ func (in *ResourceCache) stop(resourceKey string) {
 	}
 }
 
-func (in *ResourceCache) start(id object.ObjMetadata) {
+func (in *ResourceCache) start(key ResourceKey) {
 	w := watcher.NewDefaultStatusWatcher(in.dynamicClient, in.mapper)
 	w.Filters = &watcher.Filters{
 		Labels: common.ManagedByAgentLabelSelector(),
 		Fields: nil,
 	}
 
-	key := ResourceKey(id).String()
 	ctx, cancelFunc := context.WithCancel(in.ctx)
-	in.resourceToWatcher.Set(key, &watcherWrapper{
+	in.resourceToWatcher.Set(key.String(), &watcherWrapper{
 		w:          w,
-		id:         id,
+		key:        key,
 		ctx:        ctx,
 		cancelFunc: cancelFunc,
 	})
 
-	in.startWatch(key)
+	in.startWatch(key.String())
 }
 
 func (in *ResourceCache) startWatch(resourceKey string) {
@@ -147,7 +146,7 @@ func (in *ResourceCache) startWatch(resourceKey string) {
 
 	go func() {
 		// Should retry? Check if context was cancelled or there was an error?
-		ch := wrapper.w.Watch(wrapper.ctx, []object.ObjMetadata{wrapper.id}, watcher.Options{
+		ch := wrapper.w.Watch(wrapper.ctx, []object.ObjMetadata{wrapper.key.ObjMetadata()}, watcher.Options{
 			ObjectFilter:          nil,
 			UseCustomObjectFilter: true,
 			RESTScopeStrategy:     watcher.RESTScopeRoot,

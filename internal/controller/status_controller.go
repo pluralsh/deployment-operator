@@ -2,16 +2,13 @@ package controller
 
 import (
 	"context"
-	"slices"
 
-	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
-	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,8 +22,7 @@ import (
 
 type StatusReconciler struct {
 	k8sClient.Client
-	// inventoryCache maps cli-utils inventory ID to a set of resource keys.
-	inventoryCache  map[string]object.ObjMetadataSet
+	inventoryCache  cache.InventoryResourceKeys
 	inventoryClient inventory.Client
 	config          *rest.Config
 }
@@ -34,18 +30,18 @@ type StatusReconciler struct {
 func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
 
-	configmap := &corev1.ConfigMap{}
-	if err := r.Get(ctx, req.NamespacedName, configmap); err != nil {
+	configMap := &corev1.ConfigMap{}
+	if err := r.Get(ctx, req.NamespacedName, configMap); err != nil {
 		logger.Error(err, "unable to fetch configmap")
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
 	// TODO: handle delete and cleanup watches
-	if !configmap.DeletionTimestamp.IsZero() {
+	if !configMap.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
-	inv, err := toUnstructured(configmap)
+	inv, err := toUnstructured(configMap)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -55,14 +51,10 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		return ctrl.Result{}, err
 	}
 
-	invID := configmap.Labels[common.InventoryLabel]
-	r.inventoryCache[invID] = set
+	invID := configMap.Labels[common.InventoryLabel]
+	r.inventoryCache[invID] = cache.ParseResourceKeys(set)
 
-	values := slices.Concat(lo.Values(r.inventoryCache))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	cache.GetResourceCache().Register(slices.Concat(values...))
+	cache.GetResourceCache().Register(r.inventoryCache.Values())
 
 	return ctrl.Result{}, nil
 }
@@ -98,7 +90,7 @@ func NewStatusReconciler(c client.Client, config *rest.Config) (*StatusReconcile
 	return &StatusReconciler{
 		Client:          c,
 		config:          config,
-		inventoryCache:  make(map[string]object.ObjMetadataSet),
+		inventoryCache:  make(cache.InventoryResourceKeys),
 		inventoryClient: inventoryClient,
 	}, nil
 }
