@@ -18,7 +18,7 @@ func (in ResourceKey) String() string {
 	in.Name = resourceKeyPlaceholder
 	in.Namespace = resourceKeyPlaceholder
 
-	return in.String()
+	return object.ObjMetadata(in).String()
 }
 
 func ParseResourceKey(key string) (ResourceKey, error) {

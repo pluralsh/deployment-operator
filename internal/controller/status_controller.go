@@ -59,9 +59,6 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	r.inventoryCache[invID] = set
 
 	values := slices.Concat(lo.Values(r.inventoryCache))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	cache.GetResourceCache().Register(slices.Concat(values...))
 
 	return ctrl.Result{}, nil
