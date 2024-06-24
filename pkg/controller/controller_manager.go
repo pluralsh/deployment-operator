@@ -89,8 +89,8 @@ func (cm *ControllerManager) Start() error {
 			if controllerPollInterval := controller.Do.GetPollInterval(); controllerPollInterval > 0 {
 				pollInterval = controllerPollInterval
 			}
-			_ = wait.PollUntilContextCancel(cm.ctx, pollInterval, true, func(ctx context.Context) (done bool, err error) {
-				return controller.Do.Poll(ctx)
+			_ = wait.PollUntilContextCancel(context.Background(), pollInterval, true, func(_ context.Context) (done bool, err error) {
+				return controller.Do.Poll(cm.ctx)
 			})
 		}()
 
@@ -100,7 +100,7 @@ func (cm *ControllerManager) Start() error {
 	}
 
 	go func() {
-		_ = wait.PollUntilContextCancel(cm.ctx, cm.Refresh, true, func(_ context.Context) (done bool, err error) {
+		_ = wait.PollUntilContextCancel(context.Background(), cm.Refresh, true, func(_ context.Context) (done bool, err error) {
 			return false, cm.Socket.Join()
 		})
 	}()

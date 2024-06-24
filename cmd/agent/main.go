@@ -84,7 +84,7 @@ func main() {
 
 	setupLog.Info("starting agent")
 	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
-	cache.InitHealthCache(ctx, ctrlMgr.GetClient())
+	cache.InitHealthCache(ctrlMgr.GetClient())
 
 	backupController := &controller.BackupReconciler{
 		Client:        mgr.GetClient(),

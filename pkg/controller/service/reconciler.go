@@ -337,6 +337,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 	manifests = postProcess(manifests)
 	if s.shouldSkipApply(manifests) {
+		logger.Info("service has not changed, skipping apply", "service", svc.Name)
 		return
 	}
 
