@@ -125,6 +125,9 @@ func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 		// update status and fill out the cache
 		key := object.UnstructuredToObjMetadata(e.Resource.Resource).String()
 		sha, _ := in.GetCacheEntry(key)
+		if health := getResourceHealth(e.Resource.Resource); health != nil {
+			sha.health = lo.ToPtr(health.String())
+		}
 		_ = sha.SetSHA(*e.Resource.Resource, ServerSHA)
 		in.SetCacheEntry(key, sha)
 
@@ -155,8 +158,8 @@ func GetResourceCache() (*ResourceCache, error) {
 	return resourceCache, nil
 }
 
-// GetResourceHealth returns the health of a k8s resource
-func GetResourceHealth(obj *unstructured.Unstructured) *console.ComponentState {
+// getResourceHealth returns the health of a k8s resource
+func getResourceHealth(obj *unstructured.Unstructured) *console.ComponentState {
 	if obj.GetDeletionTimestamp() != nil {
 		return lo.ToPtr(console.ComponentStatePending)
 	}
