@@ -53,11 +53,13 @@ func (in *HealthCache) reconcile() {
 			continue
 		}
 
-		health.SetSHA(currentSha)
-		in.cache.Set(serviceID, health)
 		if err := in.consoleClient.UpdateComponents(serviceID, in.toComponentAttributes(health.Items()), nil); err != nil {
 			log.Logger.Errorw("error during updating service components", "service_id", serviceID, "error", err)
+			return
 		}
+
+		health.SetSHA(currentSha)
+		in.cache.Set(serviceID, health)
 	}
 }
 
@@ -76,9 +78,9 @@ func (in *HealthCache) toComponentAttributes(healthComponents []lo.Entry[string,
 	})
 }
 
-func InitHealthCache(ctx context.Context, consoleClient client.Client) {
+func InitHealthCache(consoleClient client.Client) {
 	healthCache = &HealthCache{
-		ctx:           ctx,
+		ctx:           context.Background(),
 		consoleClient: consoleClient,
 		cache:         cmap.New[Health](),
 	}
