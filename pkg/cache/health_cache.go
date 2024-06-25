@@ -85,7 +85,7 @@ func InitHealthCache(consoleClient client.Client) {
 		cache:         cmap.New[Health](),
 	}
 
-	healthCache.startPoller()
+	//healthCache.startPoller()
 }
 
 func GetHealthCache() *HealthCache {

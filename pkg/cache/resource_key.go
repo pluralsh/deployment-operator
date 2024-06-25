@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"slices"
 
 	"github.com/pluralsh/polly/algorithms"
@@ -17,13 +18,25 @@ func (in ResourceKey) ObjMetadata() object.ObjMetadata {
 	return object.ObjMetadata(in)
 }
 
-// String returns string representation of ResourceKey.
+// TypeIdentifier returns string representation of ResourceKey. TODO
 // Name and namespace are replaced with placeholders as they cannot be empty to parse it back from the string.
-func (in ResourceKey) String() string {
+func (in ResourceKey) TypeIdentifier() string {
 	in.Name = resourceKeyPlaceholder
 	in.Namespace = resourceKeyPlaceholder
 
 	return in.ObjMetadata().String()
+}
+
+// ObjectIdentifier ...TODO
+func (in ResourceKey) ObjectIdentifier() string {
+	return in.ObjMetadata().String()
+}
+
+func ResourceKeyFromUnstructured(obj *unstructured.Unstructured) ResourceKey {
+	if obj == nil {
+		return ResourceKey(object.NilObjMetadata)
+	}
+	return ResourceKey(object.UnstructuredToObjMetadata(obj))
 }
 
 func ParseResourceKey(key string) (ResourceKey, error) {
@@ -34,7 +47,7 @@ func ParseResourceKey(key string) (ResourceKey, error) {
 type ResourceKeys []ResourceKey
 
 func (in ResourceKeys) StringSet() containers.Set[string] {
-	return containers.ToSet(algorithms.Map(in, func(obj ResourceKey) string { return obj.String() }))
+	return containers.ToSet(algorithms.Map(in, func(obj ResourceKey) string { return obj.TypeIdentifier() }))
 }
 
 func ParseResourceKeys(set object.ObjMetadataSet) ResourceKeys {

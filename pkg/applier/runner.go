@@ -83,6 +83,7 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects objec
 				ActuationStrategy: actuation.ActuationStrategyApply,
 				DryRunStrategy:    options.DryRunStrategy,
 			},
+			filters.CacheFilter{},
 		}
 		// Build list of prune validation filters.
 		pruneFilters := []filter.ValidationFilter{

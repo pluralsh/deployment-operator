@@ -20,11 +20,9 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
-	"sigs.k8s.io/cli-utils/pkg/object"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
@@ -336,11 +334,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 	manifests = postProcess(manifests)
-	if s.shouldSkipApply(manifests) {
-		logger.Info("service has not changed, skipping apply", "service", svc.Name)
-		return
-	}
-
 	logger.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
 	if err != nil {
@@ -385,32 +378,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
-}
-
-func (s *ServiceReconciler) shouldSkipApply(manifests []*unstructured.Unstructured) (skip bool) {
-	skip = true
-	for _, m := range manifests {
-		if m == nil {
-			continue
-		}
-
-		newManifestSHA, err := cache.HashResource(*m)
-		if err != nil {
-			continue
-		}
-
-		key := object.UnstructuredToObjMetadata(m).String()
-		sha, exists := cache.GetResourceCache().GetCacheEntry(key)
-		if exists && !sha.RequiresApply(newManifestSHA) {
-			continue
-		}
-
-		sha.SetManifestSHA(newManifestSHA)
-		cache.GetResourceCache().SetCacheEntry(key, sha)
-		skip = false
-	}
-
-	return skip
 }
 
 func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.GetServiceDeploymentForAgent_ServiceDeployment_SyncConfig) error {

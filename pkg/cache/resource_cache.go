@@ -128,14 +128,14 @@ func (in *ResourceCache) start(key ResourceKey) {
 	}
 
 	ctx, cancelFunc := context.WithCancel(in.ctx)
-	in.resourceToWatcher.Set(key.String(), &watcherWrapper{
+	in.resourceToWatcher.Set(key.TypeIdentifier(), &watcherWrapper{
 		w:          w,
 		key:        key,
 		ctx:        ctx,
 		cancelFunc: cancelFunc,
 	})
 
-	in.startWatch(key.String())
+	in.startWatch(key.TypeIdentifier())
 }
 
 func (in *ResourceCache) startWatch(resourceKey string) {
