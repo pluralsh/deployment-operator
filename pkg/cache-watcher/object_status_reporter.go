@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
@@ -13,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -737,50 +735,6 @@ func (w *ObjectStatusReporter) handleFatalError(eventCh chan<- event.Event, err 
 		Error: err,
 	}
 	w.Stop()
-}
-
-// watchErrorHandler logs errors and cancels the informer for this GroupKind
-// if the NotFound error is received, which usually means the CRD was deleted.
-// Based on DefaultWatchErrorHandler from k8s.io/client-go@v0.23.2/tools/cache/reflector.go
-func (w *ObjectStatusReporter) watchErrorHandler(gkn GroupKindNamespace, eventCh chan<- event.Event, err error) {
-	switch {
-	// Stop channel closed
-	case err == io.EOF:
-		klog.V(5).Infof("ListAndWatch error (termination expected): %v: %v", gkn, err)
-
-	// Watch connection closed
-	case err == io.ErrUnexpectedEOF:
-		klog.V(1).Infof("ListAndWatch error (retry expected): %v: %v", gkn, err)
-
-	// Context done
-	case errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded):
-		klog.V(5).Infof("ListAndWatch error (termination expected): %v: %v", gkn, err)
-
-	// resourceVersion too old
-	case apierrors.IsResourceExpired(err):
-		// Keep retrying
-		klog.V(5).Infof("ListAndWatch error (retry expected): %v: %v", gkn, err)
-
-	// Resource unregistered (DEPRECATED, see NotFound)
-	case apierrors.IsGone(err):
-		klog.V(5).Infof("ListAndWatch error (retry expected): %v: %v", gkn, err)
-
-	// Resource not registered
-	case apierrors.IsNotFound(err):
-		klog.V(3).Infof("ListAndWatch error (termination expected): %v: stopping all informers for this GroupKind: %v", gkn, err)
-		w.forEachTargetWithGroupKind(gkn.GroupKind(), func(gkn GroupKindNamespace) {
-			w.stopInformer(gkn)
-		})
-
-	// Insufficient permissions
-	case apierrors.IsForbidden(err):
-		klog.V(3).Infof("ListAndWatch error (termination expected): %v: stopping all informers: %v", gkn, err)
-		w.handleFatalError(eventCh, err)
-
-	// Unexpected error
-	default:
-		klog.Warningf("ListAndWatch error (retry expected): %v: %v", gkn, err)
-	}
 }
 
 // informerReference tracks informer lifecycle.
