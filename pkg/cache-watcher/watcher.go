@@ -2,6 +2,7 @@ package cachewatcher
 
 import (
 	"context"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"strings"
 	"sync"
 
@@ -15,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
@@ -52,8 +52,9 @@ func (w *DefaultStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadata
 			Namespace: "",
 		}
 	}
-
+	var objectFilter ObjectFilter = &AllowListObjectFilter{AllowList: ids}
 	informer := &ObjectStatusReporter{
+		ObjectFilter:  objectFilter,
 		Targets:       maps.Values(targetMap),
 		lock:          sync.Mutex{},
 		context:       ctx,
