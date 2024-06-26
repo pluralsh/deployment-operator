@@ -7,9 +7,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,10 +14,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 type taskFunc func()
@@ -154,7 +156,7 @@ func (w *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 
 	// Send start requests.
 	for _, gkn := range w.Targets {
-		go w.startWatcher(gkn)
+		go w.startWatcher(ctx, gkn)
 	}
 
 	w.started = true
@@ -174,85 +176,120 @@ func (w *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 	return w.funnel.OutputChannel()
 }
 
-func (w *ObjectStatusReporter) startWatcher(gkn GroupKindNamespace) {
+func (w *ObjectStatusReporter) startWatcher(ctx context.Context, gkn GroupKindNamespace) {
+	err := w.startWatcherNow(ctx, gkn)
+	if err != nil {
+		// Create a temporary input channel to send the error event.
+		eventCh := make(chan event.Event)
+		defer close(eventCh)
+		err := w.funnel.AddInputChannel(eventCh)
+		if err != nil {
+			// Reporter already stopped.
+			// This is fine. 🔥
+			klog.V(5).Infof("Informer failed to start: %v", err)
+			return
+		}
+		// Send error event and stop the reporter!
+		w.handleFatalError(eventCh, err)
+		return
+	}
+}
+
+func (w *ObjectStatusReporter) startWatcherNow(ctx context.Context, gkn GroupKindNamespace) error {
 	gk := schema.GroupKind{Group: gkn.Group, Kind: gkn.Kind}
 	mapping, err := w.Mapper.RESTMapping(gk)
+	if err != nil {
+		return err
+	}
+
 	gvr := gvrFromGvk(mapping.GroupVersionKind)
-	watch, err := w.DynamicClient.Resource(gvr).Watch(w.context, metav1.ListOptions{
+	eventCh := make(chan event.Event)
+
+	// Add this event channel to the output multiplexer
+	err = w.funnel.AddInputChannel(eventCh)
+	if err != nil {
+		return fmt.Errorf("informer failed to build event handler: %w", err)
+	}
+
+	// Initialize watch
+	watcher, err := w.DynamicClient.Resource(gvr).Watch(ctx, metav1.ListOptions{
 		LabelSelector: w.LabelSelector.String(),
 	})
 	if err != nil {
 		log.Logger.Errorf("unexpected error establishing watch: %v\n", err)
-		return
+		return err
 	}
-	eventCh := make(chan event.Event)
-	// Add this event channel to the output multiplexer
-	w.funnel.AddInputChannel(eventCh)
-	// Send SyncEvent immediately.
-	eventCh <- event.Event{Type: event.SyncEvent}
 
-	go w.Reconcile(watch.ResultChan(), eventCh)
+	// Start watch in background
 	go func() {
-		defer close(eventCh)
-		doneCh := w.context.Done()
-		<-doneCh
-		watch.Stop()
+		// Send SyncEvent immediately.
+		eventCh <- event.Event{Type: event.SyncEvent}
+
+		w.Reconcile(ctx.Done(), watcher.ResultChan(), eventCh)
+		close(eventCh)
 	}()
+
+	return nil
 }
 
-func (w *ObjectStatusReporter) Reconcile(echan <-chan watch.Event, eventCh chan event.Event) {
-	for e := range echan {
-		switch e.Type {
-		case watch.Added:
-			fallthrough
-		case watch.Modified:
-			un, err := common.ToUnstructured(e.Object)
-			if err != nil {
-				eventCh <- event.Event{
-					Type:  event.ErrorEvent,
-					Error: err,
+func (w *ObjectStatusReporter) Reconcile(stopCh <-chan struct{}, echan <-chan watch.Event, eventCh chan event.Event) {
+	for {
+		select {
+		case <- stopCh:
+			return
+		case e := <- echan:
+			switch e.Type {
+			case watch.Added:
+				fallthrough
+			case watch.Modified:
+				un, err := common.ToUnstructured(e.Object)
+				if err != nil {
+					eventCh <- event.Event{
+						Type:  event.ErrorEvent,
+						Error: err,
+					}
+					return
 				}
-				return
-			}
-			if w.ObjectFilter != nil && w.ObjectFilter.Filter(un) {
-				return
-			}
-			rs, err := w.readStatusFromObject(w.context, un)
-			if err != nil {
-				// Send error event and stop the reporter!
-				eventCh <- event.Event{
-					Type:  event.ErrorEvent,
-					Error: fmt.Errorf("failed to compute object status: %w", err),
+				if w.ObjectFilter != nil && w.ObjectFilter.Filter(un) {
+					return
 				}
-				return
-			}
-			eventCh <- event.Event{
-				Type:     event.ResourceUpdateEvent,
-				Resource: rs,
-			}
-		case watch.Deleted:
-			un, err := common.ToUnstructured(e.Object)
-			if err != nil {
-				eventCh <- event.Event{
-					Type:  event.ErrorEvent,
-					Error: err,
+				rs, err := w.readStatusFromObject(w.context, un)
+				if err != nil {
+					// Send error event and stop the reporter!
+					eventCh <- event.Event{
+						Type:  event.ErrorEvent,
+						Error: fmt.Errorf("failed to compute object status: %w", err),
+					}
+					return
 				}
-				return
-			}
-			if w.ObjectFilter != nil && w.ObjectFilter.Filter(un) {
-				return
-			}
+				eventCh <- event.Event{
+					Type:     event.ResourceUpdateEvent,
+					Resource: rs,
+				}
+			case watch.Deleted:
+				un, err := common.ToUnstructured(e.Object)
+				if err != nil {
+					eventCh <- event.Event{
+						Type:  event.ErrorEvent,
+						Error: err,
+					}
+					return
+				}
+				if w.ObjectFilter != nil && w.ObjectFilter.Filter(un) {
+					return
+				}
 
-			eventCh <- event.Event{
-				Type:     event.ResourceUpdateEvent,
-				Resource: deletedStatus(cache.ResourceKeyFromUnstructured(un).ObjMetadata()),
+				eventCh <- event.Event{
+					Type:     event.ResourceUpdateEvent,
+					Resource: deletedStatus(cache.ResourceKeyFromUnstructured(un).ObjMetadata()),
+				}
+			case watch.Error:
+				/*			eventCh <- event.Event{
+							Type: event.ErrorEvent,
+						}*/
+			default:
+				fmt.Printf("unexpected watch event: %#v\n", e)
 			}
-		case watch.Error:
-			/*			eventCh <- event.Event{
-						Type: event.ErrorEvent,
-					}*/
-		default:
-			fmt.Printf("unexpected watch event: %#v\n", e)
 		}
 	}
 }
