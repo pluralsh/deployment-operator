@@ -8,7 +8,6 @@ import (
 	"fmt"
 	cachewatcher "github.com/pluralsh/deployment-operator/pkg/cache-watcher"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
@@ -83,6 +82,7 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 	}
 	if cx.statusWatcher == nil {
 		cx.statusWatcher = cachewatcher.NewDefaultStatusWatcher(cx.client, cx.mapper, common.ManagedByAgentLabelSelector())
+		//cx.statusWatcher = watcher.NewDefaultStatusWatcher(cx.client, cx.mapper)
 	}
 	return &cx, nil
 }

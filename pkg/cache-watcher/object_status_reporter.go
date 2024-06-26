@@ -3,23 +3,21 @@ package cachewatcher
 import (
 	"context"
 	"fmt"
-	"sync"
-
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
-	"sigs.k8s.io/cli-utils/pkg/object"
-
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/engine"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
+	"sigs.k8s.io/cli-utils/pkg/object"
+	"sync"
 )
 
 // GroupKindNamespace identifies an informer target.
@@ -32,7 +30,6 @@ type GroupKindNamespace struct {
 }
 
 type ObjectStatusReporter struct {
-
 	// StatusReader specifies a custom implementation of the
 	// engine.StatusReader interface that will be used to compute reconcile
 	// status for resource objects.
@@ -88,7 +85,7 @@ func (w *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 
 	// Send start requests.
 	for _, gkn := range w.Targets {
-		w.startWatcher(gkn)
+		go w.startWatcher(gkn)
 	}
 
 	w.started = true
@@ -105,16 +102,7 @@ func (w *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 		w.stopped = true
 	}()
 
-	// Wait until all informers are synced or stopped, then send a SyncEvent.
-	syncEventCh := make(chan event.Event)
-	err := w.funnel.AddInputChannel(syncEventCh)
-	if err != nil {
-		// Reporter already stopped.
-		return handleFatalError(fmt.Errorf("reporter failed to start: %v", err))
-	}
-
 	return w.funnel.OutputChannel()
-
 }
 
 func (w *ObjectStatusReporter) startWatcher(gkn GroupKindNamespace) {
@@ -128,15 +116,22 @@ func (w *ObjectStatusReporter) startWatcher(gkn GroupKindNamespace) {
 		log.Logger.Errorf("unexpected error establishing watch: %v\n", err)
 		return
 	}
-	go w.Reconcile(watch.ResultChan())
-}
-
-func (w *ObjectStatusReporter) Reconcile(echan <-chan watch.Event) {
-
 	eventCh := make(chan event.Event)
 	// Add this event channel to the output multiplexer
 	w.funnel.AddInputChannel(eventCh)
+	// Send SyncEvent immediately.
+	eventCh <- event.Event{Type: event.SyncEvent}
 
+	go w.Reconcile(watch.ResultChan(), eventCh)
+	go func() {
+		defer close(eventCh)
+		doneCh := w.context.Done()
+		<-doneCh
+		watch.Stop()
+	}()
+}
+
+func (w *ObjectStatusReporter) Reconcile(echan <-chan watch.Event, eventCh chan event.Event) {
 	for e := range echan {
 		switch e.Type {
 		case watch.Added:
@@ -177,9 +172,9 @@ func (w *ObjectStatusReporter) Reconcile(echan <-chan watch.Event) {
 				Resource: deletedStatus(cache.ResourceKeyFromUnstructured(un).ObjMetadata()),
 			}
 		case watch.Error:
-			eventCh <- event.Event{
-				Type: event.ErrorEvent,
-			}
+			/*			eventCh <- event.Event{
+						Type: event.ErrorEvent,
+					}*/
 		default:
 			fmt.Printf("unexpected watch event: %#v\n", e)
 		}

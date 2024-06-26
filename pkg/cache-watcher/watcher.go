@@ -2,13 +2,14 @@ package cachewatcher
 
 import (
 	"context"
+	"strings"
+	"sync"
+
 	"github.com/gobuffalo/flect"
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
-	"strings"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
@@ -44,7 +45,6 @@ func NewDefaultStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMa
 // Each update event includes the computed status of the object.
 func (w *DefaultStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadataSet, opts watcher.Options) <-chan event.Event {
 	targetMap := map[string]GroupKindNamespace{}
-
 	for _, id := range ids {
 		targetMap[id.GroupKind.String()] = GroupKindNamespace{
 			Group:     id.GroupKind.Group,
