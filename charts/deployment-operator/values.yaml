@@ -95,6 +95,10 @@ tolerations: []
 
 affinity: {}
 
+monitoring:
+  enabled: true
+  prometheus: "k8s"
+
 agentk:
   image:
     repository: ghcr.io/pluralsh/agentk
