@@ -78,3 +78,15 @@ func gvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {
 		Resource: flect.Pluralize(strings.ToLower(gvk.Kind)),
 	}
 }
+
+func handleFatalError(err error) <-chan event.Event {
+	eventCh := make(chan event.Event)
+	go func() {
+		defer close(eventCh)
+		eventCh <- event.Event{
+			Type:  event.ErrorEvent,
+			Error: err,
+		}
+	}()
+	return eventCh
+}
