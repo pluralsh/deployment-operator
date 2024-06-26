@@ -32,6 +32,7 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 			return
 		}
 
+		// Allow rerunning cancelled runs when in dev mode.
 		if stackRun != nil && stackRun.Status == gqlclient.StackStatusCancelled && !environment.IsDev() {
 			cancelFunc(errors.ErrRemoteCancel)
 			cancel()

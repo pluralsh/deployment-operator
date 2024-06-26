@@ -21,12 +21,8 @@ import (
 // State implements [v1.Tool] interface.
 func (in *Terraform) State() (*console.StackStateAttributes, error) {
 	state, err := in.state()
-	if err != nil {
+	if err != nil || state.Values == nil || state.Values.RootModule == nil {
 		return nil, err
-	}
-
-	if state.Values == nil || state.Values.RootModule == nil {
-		return nil, nil
 	}
 
 	resources := make([]*console.StackStateResourceAttributes, 0)
@@ -64,7 +60,7 @@ func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 	result := make([]*console.StackOutputAttributes, 0)
 
 	state, err := in.state()
-	if err != nil {
+	if err != nil || state.Values == nil || state.Values.Outputs == nil {
 		return nil, err
 	}
 

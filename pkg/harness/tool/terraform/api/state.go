@@ -34,16 +34,12 @@ func ResourceLinks(resource *tfjson.StateResource) []string {
 }
 
 func ToStackStateResourceAttributesList(resources []*tfjson.StateResource) []*console.StackStateResourceAttributes {
-	consoleResources := algorithms.Map(
-		resources,
-		func(r *tfjson.StateResource) *console.StackStateResourceAttributes {
-			return ToStackStateResourceAttributes(r)
-		})
-
-	// Filter out any nil resources
-	return algorithms.Filter(consoleResources, func(r *console.StackStateResourceAttributes) bool {
-		return r != nil
-	})
+	return algorithms.Filter(
+		algorithms.Map(resources, ToStackStateResourceAttributes),
+		func(r *console.StackStateResourceAttributes) bool {
+			return r != nil
+		},
+	)
 }
 
 func ToStackStateResourceAttributes(resource *tfjson.StateResource) *console.StackStateResourceAttributes {
