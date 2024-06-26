@@ -356,7 +356,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			ForceConflicts:  true,
 			FieldManager:    fieldManager,
 		},
-		//ReconcileTimeout:       10 * time.Second,
+		ReconcileTimeout:       10 * time.Second,
 		EmitStatusEvents:       true,
 		NoPrune:                false,
 		DryRunStrategy:         common.DryRunNone,
