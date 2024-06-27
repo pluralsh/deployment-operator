@@ -130,7 +130,7 @@ func (in *ResourceCache) watch() {
 func (in *ResourceCache) reconcile(e event.Event) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
-		GetHealthCache().Update(e.Resource)
+		//GetHealthCache().Update(e.Resource)
 
 		if !in.shouldCacheResource(e.Resource) {
 			in.deleteCacheEntry(e.Resource)
