@@ -52,6 +52,6 @@ func ToStackStateResourceAttributes(resource *tfjson.StateResource) *console.Sta
 		Resource:      resource.Type,
 		Name:          resource.Name,
 		Configuration: lo.ToPtr(ResourceConfiguration(resource)),
-		Links:         algorithms.Map(ResourceLinks(resource), func(d string) *string { return &d }),
+		Links:         lo.ToSlicePtr(resource.DependsOn),
 	}
 }
