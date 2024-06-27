@@ -13,7 +13,6 @@ import (
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	_ "github.com/pluralsh/deployment-operator/pkg/cache" // Init cache.
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -84,7 +83,6 @@ func main() {
 
 	setupLog.Info("starting agent")
 	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
-	cache.InitHealthCache(ctrlMgr.GetClient())
 
 	backupController := &controller.BackupReconciler{
 		Client:        mgr.GetClient(),
