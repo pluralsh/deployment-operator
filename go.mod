@@ -31,7 +31,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/vektah/gqlparser/v2 v2.5.11
 	github.com/vektra/mockery/v2 v2.39.0
-	github.com/vmware-tanzu/velero v1.13.0
+	github.com/vmware-tanzu/velero v1.13.2
 	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.23.0
