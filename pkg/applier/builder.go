@@ -89,7 +89,6 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 				Fields: nil,
 			},
 		})
-		//cx.statusWatcher = watcher.NewDefaultStatusWatcher(cx.client, cx.mapper)
 	}
 	return &cx, nil
 }

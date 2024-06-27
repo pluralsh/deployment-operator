@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/log"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
@@ -210,7 +212,7 @@ func (w *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 	err := w.funnel.AddInputChannel(syncEventCh)
 	if err != nil {
 		// Reporter already stopped.
-		return handleFatalError(fmt.Errorf("reporter failed to start: %v", err))
+		return handleFatalError(fmt.Errorf("reporter failed to start: %w", err))
 	}
 	go func() {
 		defer close(syncEventCh)
@@ -389,7 +391,7 @@ func (w *ObjectStatusReporter) Run(stopCh <-chan struct{}, echan <-chan watch.Ev
 				rh.OnDelete(un)
 			case watch.Error:
 			default:
-				fmt.Printf("unexpected watch event: %#v\n", e)
+				log.Logger.Error("unexpected watch event: %#v\n", e)
 			}
 		}
 	}
@@ -718,7 +720,7 @@ func (w *ObjectStatusReporter) newStatusCheckTaskFunc(
 	id object.ObjMetadata,
 ) taskFunc {
 	return func() {
-		klog.V(5).Infof("Re-reading object status: %s", status.ScheduleWindow, id)
+		klog.V(5).Infof("Re-reading object status %s %s", status.ScheduleWindow, id)
 		// check again
 		rs, err := w.readStatusFromCluster(ctx, id)
 		if err != nil {
