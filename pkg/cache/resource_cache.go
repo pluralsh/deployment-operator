@@ -2,7 +2,9 @@ package cache
 
 import (
 	"context"
+	cachewatcher "github.com/pluralsh/deployment-operator/pkg/cache-watcher"
 	"os"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,7 +21,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/watcher"
 )
 
 type ResourceCache struct {
@@ -121,12 +122,7 @@ func (in *ResourceCache) stop(resourceKey string) {
 }
 
 func (in *ResourceCache) start(key ResourceKey) {
-	w := watcher.NewDefaultStatusWatcher(in.dynamicClient, in.mapper)
-	w.Filters = &watcher.Filters{
-		Labels: common.ManagedByAgentLabelSelector(),
-		Fields: nil,
-	}
-
+	w := cachewatcher.NewDefaultStatusWatcher(in.dynamicClient, in.mapper, common.ManagedByAgentLabelSelector())
 	ctx, cancelFunc := context.WithCancel(in.ctx)
 	in.resourceToWatcher.Set(key.TypeIdentifier(), &watcherWrapper{
 		w:          w,
@@ -147,9 +143,7 @@ func (in *ResourceCache) startWatch(resourceKey string) {
 	go func() {
 		// Should retry? Check if context was cancelled or there was an error?
 		ch := wrapper.w.Watch(wrapper.ctx, []object.ObjMetadata{wrapper.key.ObjMetadata()}, watcher.Options{
-			ObjectFilter:          nil,
-			UseCustomObjectFilter: true,
-			RESTScopeStrategy:     watcher.RESTScopeRoot,
+			RESTScopeStrategy: watcher.RESTScopeRoot,
 		})
 
 		for e := range ch {
