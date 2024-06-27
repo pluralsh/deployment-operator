@@ -52,7 +52,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	}
 
 	invID := configMap.Labels[common.InventoryLabel]
-	r.inventoryCache[invID] = cache.ParseResourceKeys(set)
+	r.inventoryCache[invID] = cache.ResourceKeyFromObjMetadata(set)
 
 	cache.GetResourceCache().Register(r.inventoryCache.Values())
 

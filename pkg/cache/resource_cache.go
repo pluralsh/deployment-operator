@@ -8,11 +8,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
-	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
+	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -23,18 +23,12 @@ import (
 )
 
 type ResourceCache struct {
-	ctx               context.Context
-	dynamicClient     dynamic.Interface
-	mapper            meta.RESTMapper
-	resourceToWatcher cmap.ConcurrentMap[string, *watcherWrapper]
-	cache             *Cache[SHA]
-}
-
-type watcherWrapper struct {
-	w          watcher.StatusWatcher
-	key        ResourceKey
-	ctx        context.Context
-	cancelFunc context.CancelFunc
+	ctx            context.Context
+	dynamicClient  dynamic.Interface
+	mapper         meta.RESTMapper
+	cache          *Cache[SHA]
+	resourceKeySet containers.Set[string]
+	watcher        kwatcher.StatusWatcher
 }
 
 var resourceCache *ResourceCache
@@ -56,12 +50,23 @@ func init() {
 		os.Exit(1)
 	}
 
+	w := watcher.NewDefaultStatusWatcher(dynamicClient, mapper, &watcher.Options{
+		ObjectFilter:          nil,
+		UseCustomObjectFilter: true,
+		RESTScopeStrategy:     watcher.RESTScopeRoot,
+		Filters: &watcher.Filters{
+			Labels: common.ManagedByAgentLabelSelector(),
+			Fields: nil,
+		},
+	})
+
 	resourceCache = &ResourceCache{
-		ctx:               ctx,
-		dynamicClient:     dynamicClient,
-		mapper:            mapper,
-		resourceToWatcher: cmap.New[*watcherWrapper](),
-		cache:             NewCache[SHA](time.Minute*10, time.Second*30),
+		ctx:            ctx,
+		dynamicClient:  dynamicClient,
+		mapper:         mapper,
+		cache:          NewCache[SHA](time.Minute*10, time.Second*30),
+		resourceKeySet: containers.NewSet[string](),
+		watcher:        w,
 	}
 }
 
@@ -86,79 +91,43 @@ func (in *ResourceCache) GetCacheEntry(key string) (SHA, bool) {
 }
 
 func (in *ResourceCache) Register(keys ResourceKeys) {
-	keySet := keys.StringSet()
-	toDelete := in.toResourceKeysSet().Difference(keySet)
-	toAdd := keySet.Difference(in.toResourceKeysSet())
+	newKeySet := keys.StringSet()
+	toAdd := newKeySet.Difference(in.resourceKeySet)
 
-	for key := range toDelete {
-		in.stop(key)
-	}
-
-	for key := range toAdd {
-		resourceKey, err := ParseResourceKey(key)
-		if err != nil {
-			continue
-		}
-
-		in.start(resourceKey)
+	if len(toAdd) > 0 {
+		in.resourceKeySet = containers.ToSet(append(in.resourceKeySet.List(), newKeySet.List()...))
+		in.watch()
 	}
 }
 
-func (in *ResourceCache) toResourceKeysSet() containers.Set[string] {
-	return containers.ToSet(in.resourceToWatcher.Keys())
-}
-
-func (in *ResourceCache) stop(resourceKey string) {
-	w, ok := in.resourceToWatcher.Get(resourceKey)
-	if !ok {
+func (in *ResourceCache) watch() {
+	objMetadataSet, err := ObjectMetadataSetFromStrings(in.resourceKeySet.List())
+	if err != nil {
+		log.Logger.Error(err, "unable to get resource keys")
 		return
 	}
 
-	if w.cancelFunc != nil {
-		w.cancelFunc()
-		in.resourceToWatcher.Remove(resourceKey)
-	}
-}
-
-func (in *ResourceCache) start(key ResourceKey) {
-	w := watcher.NewDefaultStatusWatcher(in.dynamicClient, in.mapper)
-	w.Filters = &watcher.Filters{
-		Labels: common.ManagedByAgentLabelSelector(),
-		Fields: nil,
-	}
-
-	ctx, cancelFunc := context.WithCancel(in.ctx)
-	in.resourceToWatcher.Set(key.TypeIdentifier(), &watcherWrapper{
-		w:          w,
-		key:        key,
-		ctx:        ctx,
-		cancelFunc: cancelFunc,
-	})
-
-	in.startWatch(key.TypeIdentifier())
-}
-
-func (in *ResourceCache) startWatch(resourceKey string) {
-	wrapper, ok := in.resourceToWatcher.Get(resourceKey)
-	if !ok {
-		return
-	}
+	ch := in.watcher.Watch(in.ctx, objMetadataSet, kwatcher.Options{})
 
 	go func() {
-		// Should retry? Check if context was cancelled or there was an error?
-		ch := wrapper.w.Watch(wrapper.ctx, []object.ObjMetadata{wrapper.key.ObjMetadata()}, watcher.Options{
-			ObjectFilter:          nil,
-			UseCustomObjectFilter: true,
-			RESTScopeStrategy:     watcher.RESTScopeRoot,
-		})
-
-		for e := range ch {
-			in.reconcile(e, resourceKey)
+		for {
+			select {
+			case <-in.ctx.Done():
+				// TODO: check and log error
+				return
+			case e, ok := <-ch:
+				if !ok {
+					// TODO: log that event channel was closed
+					in.watch()
+					return
+				}
+				in.reconcile(e)
+			}
 		}
 	}()
 }
 
-func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
+func (in *ResourceCache) reconcile(e event.Event) {
 	switch e.Type {
 	case event.ResourceUpdateEvent:
 		GetHealthCache().Update(e.Resource)
@@ -170,7 +139,7 @@ func (in *ResourceCache) reconcile(e event.Event, resourceKey string) {
 
 		SaveResourceSHA(e.Resource.Resource, ServerSHA)
 	case event.ErrorEvent:
-		in.startWatch(resourceKey)
+		// handle
 	default:
 		// Ignore.
 	}

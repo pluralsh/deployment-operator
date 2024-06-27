@@ -6,9 +6,6 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/lua"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -16,6 +13,10 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/lua"
 
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
@@ -153,7 +154,10 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
-			cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ApplySHA)
+			if e.ApplyEvent.Status == event.ApplySuccessful {
+				cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ApplySHA)
+			}
+
 			if e.ApplyEvent.Error != nil {
 				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())

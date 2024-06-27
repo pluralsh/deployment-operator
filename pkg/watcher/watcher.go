@@ -1,45 +1,103 @@
-// Copyright 2022 The Kubernetes Authors.
-// SPDX-License-Identifier: Apache-2.0
-
 package watcher
 
 import (
 	"context"
+	"strings"
+	"sync"
 
+	"github.com/gobuffalo/flect"
+	"golang.org/x/exp/maps"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
+	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
-// StatusWatcher watches a set of objects for status updates.
-type StatusWatcher interface {
+// DefaultStatusWatcher reports on status updates to a set of objects.
+//
+// Use NewDefaultStatusWatcher to build a DefaultStatusWatcher with default settings.
+type DefaultStatusWatcher struct {
+	// DynamicClient is used to watch of resource objects.
+	DynamicClient dynamic.Interface
 
-	// Watch a set of objects for status updates.
-	// Watching should stop if the context is cancelled.
-	// Events should only be sent for the specified objects.
-	// The event channel should be closed when the watching stops.
-	Watch(context.Context, object.ObjMetadataSet, Options) <-chan event.Event
+	// Mapper is used to map from GroupKind to GroupVersionKind.
+	Mapper meta.RESTMapper
+
+	// Options can be provided when creating a new StatusWatcher to customize the
+	// behavior.
+	Options *Options
 }
 
-// Options can be provided when creating a new StatusWatcher to customize the
-// behavior.
-type Options struct {
-	// RESTScopeStrategy specifies which strategy to use when listing and
-	// watching resources. By default, the strategy is selected automatically.
-	RESTScopeStrategy RESTScopeStrategy
-
-	// ObjectFilter is used to filter resources after getting them from the API.
-	ObjectFilter ObjectFilter
-
-	// UseCustomObjectFilter controls whether custom ObjectFilter provided in options
-	// should be used instead of the default one.
-	UseCustomObjectFilter bool
+func NewDefaultStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMapper, options *Options) kwatcher.StatusWatcher {
+	return &DefaultStatusWatcher{
+		DynamicClient: dynamicClient,
+		Mapper:        mapper,
+		Options:       options,
+	}
 }
 
-//go:generate stringer -type=RESTScopeStrategy -linecomment
-type RESTScopeStrategy int
+// Watch the cluster for changes made to the specified objects.
+// Returns an event channel on which these updates (and errors) will be reported.
+// Each update event includes the computed status of the object.
+func (w *DefaultStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadataSet, _ kwatcher.Options) <-chan event.Event {
+	targetMap := map[string]GroupKindNamespace{}
+	for _, id := range ids {
+		targetMap[id.GroupKind.String()] = GroupKindNamespace{
+			Group:     id.GroupKind.Group,
+			Kind:      id.GroupKind.Kind,
+			Namespace: "",
+		}
+	}
+	var objectFilter ObjectFilter = &AllowListObjectFilter{AllowList: ids}
+	if w.Options != nil && w.Options.UseCustomObjectFilter {
+		objectFilter = w.Options.ObjectFilter
+	}
 
-const (
-	RESTScopeAutomatic RESTScopeStrategy = iota // automatic
-	RESTScopeRoot                               // root
-	RESTScopeNamespace                          // namespace
-)
+	var labelSelector labels.Selector
+	if w.Options != nil && w.Options.Filters != nil {
+		labelSelector = w.Options.Filters.Labels
+	}
+
+	informer := &ObjectStatusReporter{
+		ObjectFilter:  objectFilter,
+		Targets:       maps.Values(targetMap),
+		lock:          sync.Mutex{},
+		context:       ctx,
+		LabelSelector: labelSelector,
+		DynamicClient: w.DynamicClient,
+		Mapper:        w.Mapper,
+		StatusReader:  statusreaders.NewDefaultStatusReader(w.Mapper),
+		ClusterReader: &clusterreader.DynamicClusterReader{
+			DynamicClient: w.DynamicClient,
+			Mapper:        w.Mapper,
+		},
+	}
+
+	return informer.Start(ctx)
+}
+
+func gvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    gvk.Group,
+		Version:  gvk.Version,
+		Resource: flect.Pluralize(strings.ToLower(gvk.Kind)),
+	}
+}
+
+func handleFatalError(err error) <-chan event.Event {
+	eventCh := make(chan event.Event)
+	go func() {
+		defer close(eventCh)
+		eventCh <- event.Event{
+			Type:  event.ErrorEvent,
+			Error: err,
+		}
+	}()
+	return eventCh
+}

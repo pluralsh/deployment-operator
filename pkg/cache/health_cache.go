@@ -65,7 +65,7 @@ func (in *HealthCache) reconcile() {
 
 func (in *HealthCache) toComponentAttributes(healthComponents []lo.Entry[string, HealthComponent]) []*console.ComponentAttributes {
 	return algorithms.Map(healthComponents, func(entry lo.Entry[string, HealthComponent]) *console.ComponentAttributes {
-		key, _ := ParseResourceKey(entry.Key)
+		key, _ := ResourceKeyFromString(entry.Key)
 		return &console.ComponentAttributes{
 			State:     entry.Value.state,
 			Synced:    entry.Value.status == status.CurrentStatus,

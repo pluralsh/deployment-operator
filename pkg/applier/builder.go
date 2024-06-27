@@ -6,8 +6,7 @@ package applier
 import (
 	"errors"
 	"fmt"
-	cachewatcher "github.com/pluralsh/deployment-operator/pkg/cache-watcher"
-	"github.com/pluralsh/deployment-operator/pkg/common"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
@@ -17,7 +16,10 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply/info"
 	"sigs.k8s.io/cli-utils/pkg/apply/prune"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
+	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/watcher"
 )
 
 type commonBuilder struct {
@@ -29,7 +31,7 @@ type commonBuilder struct {
 	mapper                       meta.RESTMapper
 	restConfig                   *rest.Config
 	unstructuredClientForMapping func(*meta.RESTMapping) (resource.RESTClient, error)
-	statusWatcher                watcher.StatusWatcher
+	statusWatcher                kwatcher.StatusWatcher
 }
 
 func (cb *commonBuilder) finalize() (*commonBuilder, error) {
@@ -81,7 +83,12 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 		cx.unstructuredClientForMapping = cx.factory.UnstructuredClientForMapping
 	}
 	if cx.statusWatcher == nil {
-		cx.statusWatcher = cachewatcher.NewDefaultStatusWatcher(cx.client, cx.mapper, common.ManagedByAgentLabelSelector())
+		cx.statusWatcher = watcher.NewDefaultStatusWatcher(cx.client, cx.mapper, &watcher.Options{
+			Filters: &watcher.Filters{
+				Labels: common.ManagedByAgentLabelSelector(),
+				Fields: nil,
+			},
+		})
 		//cx.statusWatcher = watcher.NewDefaultStatusWatcher(cx.client, cx.mapper)
 	}
 	return &cx, nil
@@ -153,7 +160,7 @@ func (b *ApplierBuilder) WithUnstructuredClientForMapping(unstructuredClientForM
 	return b
 }
 
-func (b *ApplierBuilder) WithStatusWatcher(statusWatcher watcher.StatusWatcher) *ApplierBuilder {
+func (b *ApplierBuilder) WithStatusWatcher(statusWatcher kwatcher.StatusWatcher) *ApplierBuilder {
 	b.statusWatcher = statusWatcher
 	return b
 }

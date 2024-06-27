@@ -1,17 +1,19 @@
-// Copyright 2022 The Kubernetes Authors.
-// SPDX-License-Identifier: Apache-2.0
-
 package watcher
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -68,9 +70,6 @@ func (gkn GroupKindNamespace) GroupKind() schema.GroupKind {
 // TODO: Watch CRDs & Namespaces, even if not in the set of IDs.
 // TODO: Retry with backoff if in namespace-scoped mode, to allow CRDs & namespaces to be created asynchronously
 type ObjectStatusReporter struct {
-	// InformerFactory is used to build informers
-	InformerFactory *DynamicInformerFactory
-
 	// Mapper is used to map from GroupKind to GroupVersionKind.
 	Mapper meta.RESTMapper
 
@@ -124,6 +123,11 @@ type ObjectStatusReporter struct {
 
 	started bool
 	stopped bool
+
+	// DynamicClient is used to watch of resource objects.
+	DynamicClient dynamic.Interface
+
+	LabelSelector labels.Selector
 }
 
 func (w *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
@@ -310,6 +314,25 @@ func (w *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn G
 	}, backoffManager, true, retryCtx.Done())
 }
 
+func (w *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNamespace) (watch.Interface, error) {
+	gk := schema.GroupKind{Group: gkn.Group, Kind: gkn.Kind}
+	mapping, err := w.Mapper.RESTMapping(gk)
+	if err != nil {
+		return nil, err
+	}
+
+	gvr := gvrFromGvk(mapping.GroupVersionKind)
+
+	var labelSelectorString string
+	if w.LabelSelector != nil {
+		labelSelectorString = w.LabelSelector.String()
+	}
+
+	return w.DynamicClient.Resource(gvr).Watch(ctx, metav1.ListOptions{
+		LabelSelector: labelSelectorString,
+	})
+}
+
 // startInformerNow starts an informer to watch for changes to a
 // GroupKindNamespace. Changes are filtered and passed by event channel into the
 // funnel. Each update event includes the computed status of the object.
@@ -318,17 +341,10 @@ func (w *ObjectStatusReporter) startInformerNow(
 	ctx context.Context,
 	gkn GroupKindNamespace,
 ) error {
-	// Look up the mapping for this GroupKind.
-	// If it doesn't exist, either delay watching or emit an error.
-	gk := gkn.GroupKind()
-	mapping, err := w.Mapper.RESTMapping(gk)
+	informer, err := w.newWatcher(ctx, gkn)
 	if err != nil {
-		// Might be a NoResourceMatchError/NoKindMatchError
 		return err
 	}
-
-	informer := w.InformerFactory.NewInformer(ctx, mapping, gkn.Namespace)
-
 	w.informerRefs[gkn].SetInformer(informer)
 
 	eventCh := make(chan event.Event)
@@ -340,34 +356,43 @@ func (w *ObjectStatusReporter) startInformerNow(
 		return fmt.Errorf("informer failed to build event handler: %w", err)
 	}
 
-	// Handler called when ListAndWatch errors.
-	// Custom handler stops the informer if the resource is NotFound (CRD deleted).
-	err = informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		w.watchErrorHandler(gkn, eventCh, err)
-	})
-	if err != nil {
-		// Should never happen.
-		// Informer can't have started yet. We just created it.
-		return fmt.Errorf("failed to set error handler on new informer for %v: %v", mapping.Resource, err)
-	}
-
-	_, err = informer.AddEventHandler(w.eventHandler(ctx, eventCh))
-	if err != nil {
-		// Should never happen.
-		return fmt.Errorf("failed add event handler on new informer for %v: %v", mapping.Resource, err)
-	}
+	rh := w.eventHandler(ctx, eventCh)
 
 	// Start the informer in the background.
 	// Informer will be stopped when the context is cancelled.
 	go func() {
 		klog.V(3).Infof("Watch starting: %v", gkn)
-		informer.Run(ctx.Done())
+		w.Run(ctx.Done(), informer.ResultChan(), rh)
 		klog.V(3).Infof("Watch stopped: %v", gkn)
 		// Signal to the caller there will be no more events for this GroupKind.
 		close(eventCh)
 	}()
 
 	return nil
+}
+
+func (w *ObjectStatusReporter) Run(stopCh <-chan struct{}, echan <-chan watch.Event, rh cache.ResourceEventHandler) {
+	for {
+		select {
+		case <-stopCh:
+			return
+		case e := <-echan:
+			switch e.Type {
+			case watch.Added:
+				un, _ := common.ToUnstructured(e.Object)
+				rh.OnAdd(un, true)
+			case watch.Modified:
+				un, _ := common.ToUnstructured(e.Object)
+				rh.OnUpdate(nil, un)
+			case watch.Deleted:
+				un, _ := common.ToUnstructured(e.Object)
+				rh.OnDelete(un)
+			case watch.Error:
+			default:
+				fmt.Printf("unexpected watch event: %#v\n", e)
+			}
+		}
+	}
 }
 
 func (w *ObjectStatusReporter) forEachTargetWithGroupKind(gk schema.GroupKind, fn func(GroupKindNamespace)) {
@@ -721,56 +746,12 @@ func (w *ObjectStatusReporter) handleFatalError(eventCh chan<- event.Event, err 
 	w.Stop()
 }
 
-// watchErrorHandler logs errors and cancels the informer for this GroupKind
-// if the NotFound error is received, which usually means the CRD was deleted.
-// Based on DefaultWatchErrorHandler from k8s.io/client-go@v0.23.2/tools/cache/reflector.go
-func (w *ObjectStatusReporter) watchErrorHandler(gkn GroupKindNamespace, eventCh chan<- event.Event, err error) {
-	switch {
-	// Stop channel closed
-	case err == io.EOF:
-		klog.V(5).Infof("ListAndWatch error (termination expected): %v: %v", gkn, err)
-
-	// Watch connection closed
-	case err == io.ErrUnexpectedEOF:
-		klog.V(1).Infof("ListAndWatch error (retry expected): %v: %v", gkn, err)
-
-	// Context done
-	case errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded):
-		klog.V(5).Infof("ListAndWatch error (termination expected): %v: %v", gkn, err)
-
-	// resourceVersion too old
-	case apierrors.IsResourceExpired(err):
-		// Keep retrying
-		klog.V(5).Infof("ListAndWatch error (retry expected): %v: %v", gkn, err)
-
-	// Resource unregistered (DEPRECATED, see NotFound)
-	case apierrors.IsGone(err):
-		klog.V(5).Infof("ListAndWatch error (retry expected): %v: %v", gkn, err)
-
-	// Resource not registered
-	case apierrors.IsNotFound(err):
-		klog.V(3).Infof("ListAndWatch error (termination expected): %v: stopping all informers for this GroupKind: %v", gkn, err)
-		w.forEachTargetWithGroupKind(gkn.GroupKind(), func(gkn GroupKindNamespace) {
-			w.stopInformer(gkn)
-		})
-
-	// Insufficient permissions
-	case apierrors.IsForbidden(err):
-		klog.V(3).Infof("ListAndWatch error (termination expected): %v: stopping all informers: %v", gkn, err)
-		w.handleFatalError(eventCh, err)
-
-	// Unexpected error
-	default:
-		klog.Warningf("ListAndWatch error (retry expected): %v: %v", gkn, err)
-	}
-}
-
 // informerReference tracks informer lifecycle.
 type informerReference struct {
 	// lock guards the subsequent stateful fields
 	lock sync.Mutex
 
-	informer cache.SharedIndexInformer
+	informer watch.Interface
 	context  context.Context
 	cancel   context.CancelFunc
 	started  bool
@@ -794,7 +775,7 @@ func (ir *informerReference) Start(ctx context.Context) (context.Context, bool) 
 	return ctx, true
 }
 
-func (ir *informerReference) SetInformer(informer cache.SharedIndexInformer) {
+func (ir *informerReference) SetInformer(informer watch.Interface) {
 	ir.lock.Lock()
 	defer ir.lock.Unlock()
 
@@ -811,7 +792,7 @@ func (ir *informerReference) HasSynced() bool {
 	if ir.informer == nil {
 		return false
 	}
-	return ir.informer.HasSynced()
+	return true
 }
 
 func (ir *informerReference) HasStarted() bool {
