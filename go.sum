@@ -638,6 +638,7 @@ github.com/vektah/gqlparser/v2 v2.5.11 h1:JJxLtXIoN7+3x6MBdtIP59TP1RANnY7pXOaDnA
 github.com/vektah/gqlparser/v2 v2.5.11/go.mod h1:1rCcfwB2ekJofmluGWXMSEnPMZgbxzwj6FaZ/4OT8Cc=
 github.com/vektra/mockery/v2 v2.39.0 h1:AUyq9PQ/VkjrqmKedxoulg83G7uouk4o7hBs1uUMeog=
 github.com/vektra/mockery/v2 v2.39.0/go.mod h1:dPzGtjT0/Uu4hqpF6QNHwz+GLago7lq1bxdj9wHbGKo=
+github.com/vektra/mockery/v2 v2.39.2/go.mod h1:dPzGtjT0/Uu4hqpF6QNHwz+GLago7lq1bxdj9wHbGKo=
 github.com/vmware-tanzu/velero v1.13.0 h1:8lqFM1orSnaCZ52UMOhi9AkgJWGnI46AYxup5CCskz4=
 github.com/vmware-tanzu/velero v1.13.0/go.mod h1:87DH9gnd/uTRmsjLk7wc2JWsK+RjIqX4VEt6z5qkAfA=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
