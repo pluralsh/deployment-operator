@@ -113,11 +113,13 @@ func (in *ResourceCache) watch() {
 		for {
 			select {
 			case <-in.ctx.Done():
-				// TODO: check and log error
+				if in.ctx.Err() != nil {
+					log.Logger.Errorf("status watcher context error %v", in.ctx.Err())
+				}
 				return
 			case e, ok := <-ch:
 				if !ok {
-					// TODO: log that event channel was closed
+					log.Logger.Info("status watcher event channel closed")
 					in.watch()
 					return
 				}
