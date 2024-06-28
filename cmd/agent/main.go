@@ -159,7 +159,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
 	}
 
-	statusController, err := controller.NewStatusReconciler(mgr.GetClient(), config)
+	statusController, err := controller.NewStatusReconciler(mgr.GetClient())
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StatusController")
 	}

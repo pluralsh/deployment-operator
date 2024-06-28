@@ -6,7 +6,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,15 +15,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
 
 type StatusReconciler struct {
 	k8sClient.Client
 	inventoryCache  cache.InventoryResourceKeys
-	inventoryClient inventory.Client
-	config          *rest.Config
 }
 
 func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -36,9 +32,8 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
-	// TODO: handle delete and cleanup watches
 	if !configMap.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+		return r.handleDelete(configMap)
 	}
 
 	inv, err := toUnstructured(configMap)
@@ -51,21 +46,12 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		return ctrl.Result{}, err
 	}
 
-	invID := configMap.Labels[common.InventoryLabel]
+	invID := r.inventoryID(configMap)
 	r.inventoryCache[invID] = cache.ResourceKeyFromObjMetadata(set)
 
-	cache.GetResourceCache().Register(r.inventoryCache.Values())
+	cache.GetResourceCache().Register(r.inventoryCache.Values().StringSet())
 
 	return ctrl.Result{}, nil
-}
-
-func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
-	objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return &unstructured.Unstructured{Object: objMap}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -79,18 +65,29 @@ func (r *StatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func NewStatusReconciler(c client.Client, config *rest.Config) (*StatusReconciler, error) {
-	f := utils.NewFactory(config)
-	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
-	inventoryClient, err := invFactory.NewClient(f)
+func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
+	objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return nil, err
 	}
 
+	return &unstructured.Unstructured{Object: objMap}, nil
+}
+
+func (r *StatusReconciler) inventoryID(c *corev1.ConfigMap) string {
+	return c.Labels[common.InventoryLabel]
+}
+
+func (r *StatusReconciler) handleDelete(c *corev1.ConfigMap) (ctrl.Result, error) {
+	inventoryID := r.inventoryID(c)
+	delete(r.inventoryCache, inventoryID)
+
+	return ctrl.Result{}, nil
+}
+
+func NewStatusReconciler(c client.Client) (*StatusReconciler, error) {
 	return &StatusReconciler{
 		Client:          c,
-		config:          config,
 		inventoryCache:  make(cache.InventoryResourceKeys),
-		inventoryClient: inventoryClient,
 	}, nil
 }

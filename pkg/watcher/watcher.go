@@ -32,13 +32,22 @@ type DefaultStatusWatcher struct {
 	// Options can be provided when creating a new StatusWatcher to customize the
 	// behavior.
 	Options *Options
+
+	// informerRefs tracks which informers have been started and stopped by the ObjectStatusReporter
+	informerRefs map[GroupKindNamespace]*informerReference
 }
 
 func NewDefaultStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMapper, options *Options) kwatcher.StatusWatcher {
+	var informerRefs map[GroupKindNamespace]*informerReference
+	if options != nil && options.UseInformerRefCache {
+		informerRefs = make(map[GroupKindNamespace]*informerReference)
+	}
+
 	return &DefaultStatusWatcher{
 		DynamicClient: dynamicClient,
 		Mapper:        mapper,
 		Options:       options,
+		informerRefs:  informerRefs,
 	}
 }
 
@@ -64,7 +73,7 @@ func (w *DefaultStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadata
 		labelSelector = w.Options.Filters.Labels
 	}
 
-	informer := &ObjectStatusReporter{
+	reporter := &ObjectStatusReporter{
 		ObjectFilter:  objectFilter,
 		Targets:       maps.Values(targetMap),
 		lock:          sync.Mutex{},
@@ -77,9 +86,10 @@ func (w *DefaultStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadata
 			DynamicClient: w.DynamicClient,
 			Mapper:        w.Mapper,
 		},
+		informerRefs: w.informerRefs,
 	}
 
-	return informer.Start(ctx)
+	return reporter.Start(ctx)
 }
 
 func gvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {

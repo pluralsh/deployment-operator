@@ -38,6 +38,11 @@ type Options struct {
 
 	// Filters allows filtering the objects being watched.
 	Filters *Filters
+
+	// UseInformerRefCache allows caching informer ref per status watcher instance.
+	// This allows to ensure that multiple [StatusWatcher.Watch] calls will only spawn
+	// unique watches.
+	UseInformerRefCache bool
 }
 
 // Filters are optional selectors for list and watch

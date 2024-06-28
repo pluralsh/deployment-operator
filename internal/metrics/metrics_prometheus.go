@@ -15,6 +15,15 @@ type prometheusRecorder struct {
 	serviceReconciliationCounter         *prometheus.CounterVec
 	serviceReconciliationErrorCounter    *prometheus.CounterVec
 	stackRunJobsCreatedCounter           prometheus.Counter
+	resourceCacheWatchCounter            *prometheus.GaugeVec
+}
+
+func (in *prometheusRecorder) ResourceCacheWatchStart(resourceType string) {
+	in.resourceCacheWatchCounter.WithLabelValues(resourceType).Inc()
+}
+
+func (in *prometheusRecorder) ResourceCacheWatchEnd(resourceType string) {
+	in.resourceCacheWatchCounter.WithLabelValues(resourceType).Dec()
 }
 
 func (in *prometheusRecorder) DiscoveryAPICacheRefresh(err error) {
@@ -64,6 +73,11 @@ func (in *prometheusRecorder) init() Recorder {
 		Name: StackRunJobsCreatedMetricName,
 		Help: StackRunJobsCreatedMetricDescription,
 	})
+
+	in.resourceCacheWatchCounter = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: ResourceCacheOpenWatchesName,
+		Help: ResourceCacheOpenWatchesDescription,
+	}, []string{ResourceCacheOpenWatchesLabelResourceType})
 
 	return in
 }

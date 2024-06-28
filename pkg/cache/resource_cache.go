@@ -53,6 +53,7 @@ func init() {
 	w := watcher.NewDefaultStatusWatcher(dynamicClient, mapper, &watcher.Options{
 		ObjectFilter:          nil,
 		UseCustomObjectFilter: true,
+		UseInformerRefCache:   true,
 		RESTScopeStrategy:     watcher.RESTScopeRoot,
 		Filters: &watcher.Filters{
 			Labels: common.ManagedByAgentLabelSelector(),
@@ -90,12 +91,11 @@ func (in *ResourceCache) GetCacheEntry(key string) (SHA, bool) {
 	return in.cache.Get(key)
 }
 
-func (in *ResourceCache) Register(keys ResourceKeys) {
-	newKeySet := keys.StringSet()
-	toAdd := newKeySet.Difference(in.resourceKeySet)
+func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[string]) {
+	toAdd := inventoryResourceKeys.Difference(in.resourceKeySet)
 
 	if len(toAdd) > 0 {
-		in.resourceKeySet = containers.ToSet(append(in.resourceKeySet.List(), newKeySet.List()...))
+		in.resourceKeySet = containers.ToSet(append(in.resourceKeySet.List(), inventoryResourceKeys.List()...))
 		in.watch()
 	}
 }

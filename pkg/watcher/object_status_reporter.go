@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -173,9 +174,14 @@ func (w *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 	// Initialize the informer map with references to track their start/stop.
 	// This is the only time we modify the map.
 	// So it should be safe to read from multiple threads after this.
-	w.informerRefs = make(map[GroupKindNamespace]*informerReference, len(w.Targets))
+	if w.informerRefs == nil {
+		w.informerRefs = make(map[GroupKindNamespace]*informerReference)
+	}
+
 	for _, gkn := range w.Targets {
-		w.informerRefs[gkn] = &informerReference{}
+		if _, exists := w.informerRefs[gkn]; !exists {
+			w.informerRefs[gkn] = &informerReference{}
+		}
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -364,7 +370,9 @@ func (w *ObjectStatusReporter) startInformerNow(
 	// Informer will be stopped when the context is cancelled.
 	go func() {
 		klog.V(3).Infof("Watch starting: %v", gkn)
+		metrics.Record().ResourceCacheWatchStart(gkn.String())
 		w.Run(ctx.Done(), informer.ResultChan(), rh)
+		metrics.Record().ResourceCacheWatchEnd(gkn.String())
 		klog.V(3).Infof("Watch stopped: %v", gkn)
 		// Signal to the caller there will be no more events for this GroupKind.
 		close(eventCh)
