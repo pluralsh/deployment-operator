@@ -41,10 +41,7 @@ rbac:
   clusterRole: cluster-admin
 
 podLabels: {}
-podAnnotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/path: "/metrics"
-  prometheus.io/port: "8000"
+podAnnotations: {}
 
 podSecurityContext: {}
   # fsGroup: 2000
@@ -58,7 +55,7 @@ securityContext: {}
   # runAsUser: 1000
 
 monitoring:
-  enabled: true
+  enabled: false
   prometheus: "k8s"
   metricsPort: 8080
   podAnnotations:
