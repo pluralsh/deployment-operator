@@ -32,7 +32,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 
 	configMap := &corev1.ConfigMap{}
 	if err := r.Get(ctx, req.NamespacedName, configMap); err != nil {
-		logger.Error(err, "unable to fetch configmap")
+		logger.Info("unable to fetch configmap")
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
