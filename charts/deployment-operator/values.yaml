@@ -57,7 +57,7 @@ securityContext: {}
 monitoring:
   enabled: false
   prometheus: "k8s"
-  metricsPort: 8080
+  metricsPort: 8000
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/path: "/metrics"
