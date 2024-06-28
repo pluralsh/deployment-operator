@@ -64,7 +64,7 @@ func init() {
 		ctx:            ctx,
 		dynamicClient:  dynamicClient,
 		mapper:         mapper,
-		cache:          NewCache[SHA](time.Minute*10, time.Second*30),
+		cache:          NewCache[SHA](ctx, time.Minute*10, time.Second*30),
 		resourceKeySet: containers.NewSet[string](),
 		watcher:        w,
 	}

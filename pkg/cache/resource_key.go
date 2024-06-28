@@ -45,14 +45,6 @@ func ResourceKeyFromString(key string) (ResourceKey, error) {
 	return ResourceKey(objMetadata), err
 }
 
-func ResourceKeysFromStrings(keys []string) (_ ResourceKeys, err error) {
-	return algorithms.Map(keys, func(k string) ResourceKey {
-		var r ResourceKey
-		r, err = ResourceKeyFromString(k)
-		return r
-	}), err
-}
-
 func ObjectMetadataSetFromStrings(keys []string) (_ object.ObjMetadataSet, err error) {
 	return algorithms.Map(keys, func(k string) object.ObjMetadata {
 		var o object.ObjMetadata

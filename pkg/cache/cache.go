@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"context"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -20,23 +22,33 @@ type Cache[T any] struct {
 	cache                  cmap.ConcurrentMap[string, cacheLine[T]]
 	ttl                    time.Duration
 	expirationPollInterval time.Duration
+	ctx context.Context
 }
 
-func NewCache[T any](ttl, expirationPollInterval time.Duration) *Cache[T] {
-	/*	go wait.PollUntilContextCancel(
-		context.Background(),
-		expirationPollInterval,
+func (c *Cache[T]) init() *Cache[T] {
+	go wait.PollUntilContextCancel(
+		c.ctx,
+		c.expirationPollInterval,
 		false,
-		func(ctx context.Context) (done bool, err error) {
-
+		func(_ context.Context) (done bool, err error) {
+			for k, v := range c.cache.Items() {
+				if !v.alive(c.ttl) {
+					c.Expire(k)
+				}
+			}
 			return false, nil
-		})*/
+		})
 
-	return &Cache[T]{
+	return c
+}
+
+func NewCache[T any](ctx context.Context, ttl, expirationPollInterval time.Duration) *Cache[T] {
+	return (&Cache[T]{
 		cache:                  cmap.New[cacheLine[T]](),
 		ttl:                    ttl,
 		expirationPollInterval: expirationPollInterval,
-	}
+		ctx: ctx,
+	}).init()
 }
 
 func (c *Cache[T]) Get(key string) (T, bool) {
