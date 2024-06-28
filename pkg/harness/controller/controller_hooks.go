@@ -52,6 +52,7 @@ func (in *stackRunController) postStart(err error) {
 	}
 
 	if err := in.completeStackRun(status, err); err != nil {
+		_ = stackrun.MarkStackRun(in.consoleClient, in.stackRunID, gqlclient.StackStatusFailed)
 		klog.ErrorS(err, "could not complete stack run")
 	}
 

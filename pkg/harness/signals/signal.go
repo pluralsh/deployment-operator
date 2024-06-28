@@ -9,6 +9,7 @@ import (
 	"k8s.io/klog/v2"
 
 	console "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -31,7 +32,8 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 			return
 		}
 
-		if stackRun != nil && stackRun.Status == gqlclient.StackStatusCancelled {
+		// Allow rerunning cancelled runs when in dev mode.
+		if stackRun != nil && stackRun.Status == gqlclient.StackStatusCancelled && !environment.IsDev() {
 			cancelFunc(errors.ErrRemoteCancel)
 			cancel()
 		}
