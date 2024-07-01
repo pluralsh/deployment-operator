@@ -1,6 +1,3 @@
-//go:build controller
-// +build controller
-
 /*
 Copyright 2024.
 
