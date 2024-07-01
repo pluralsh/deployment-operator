@@ -1,6 +1,6 @@
 module github.com/pluralsh/deployment-operator
 
-go 1.21
+go 1.22
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -35,6 +35,7 @@ require (
 	github.com/vmware-tanzu/velero v1.13.0
 	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.27.0
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/net v0.23.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.14.3
@@ -209,7 +210,6 @@ require (
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/oauth2 v0.17.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
