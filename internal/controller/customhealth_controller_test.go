@@ -1,3 +1,6 @@
+//go:build controller
+// +build controller
+
 package controller
 
 import (
