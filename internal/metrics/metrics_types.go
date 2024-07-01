@@ -23,11 +23,11 @@ const (
 	ResourceCacheOpenWatchesDescription       = "The total number of open watches in the resource cache"
 	ResourceCacheOpenWatchesLabelResourceType = "resource_type"
 
-	ResourceCacheHitMetricName           = "agent_resource_cache_hit_total"
-	ResourceCacheHitMetricDescription    = "The total number of resource cache hits"
+	ResourceCacheHitMetricName        = "agent_resource_cache_hit_total"
+	ResourceCacheHitMetricDescription = "The total number of resource cache hits"
 
-	ResourceCacheMissMetricName           = "agent_resource_cache_miss_total"
-	ResourceCacheMissMetricDescription    = "The total number of resource cache misses"
+	ResourceCacheMissMetricName        = "agent_resource_cache_miss_total"
+	ResourceCacheMissMetricDescription = "The total number of resource cache misses"
 
 	ResourceCacheMetricLabelServiceID = "service_id"
 )
