@@ -1,6 +1,3 @@
-//go:build controller
-// +build controller
-
 /*
 Copyright 2024.
 
@@ -27,12 +24,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
