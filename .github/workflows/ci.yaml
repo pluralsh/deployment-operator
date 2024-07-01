@@ -52,7 +52,7 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
-      - run: PATH=$PATH:$GOPATH/bin make test
+      - run: PATH=$PATH:$GOPATH/bin make -d test
   lint:
     name: Lint
     runs-on: ubuntu-latest
