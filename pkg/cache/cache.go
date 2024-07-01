@@ -2,11 +2,11 @@ package cache
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type cacheLine[T any] struct {
@@ -22,10 +22,11 @@ type Cache[T any] struct {
 	cache                  cmap.ConcurrentMap[string, cacheLine[T]]
 	ttl                    time.Duration
 	expirationPollInterval time.Duration
-	ctx context.Context
+	ctx                    context.Context
 }
 
 func (c *Cache[T]) init() *Cache[T] {
+	// nolint
 	go wait.PollUntilContextCancel(
 		c.ctx,
 		c.expirationPollInterval,
@@ -47,7 +48,7 @@ func NewCache[T any](ctx context.Context, ttl, expirationPollInterval time.Durat
 		cache:                  cmap.New[cacheLine[T]](),
 		ttl:                    ttl,
 		expirationPollInterval: expirationPollInterval,
-		ctx: ctx,
+		ctx:                    ctx,
 	}).init()
 }
 

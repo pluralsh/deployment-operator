@@ -19,8 +19,8 @@ const (
 	StackRunJobsCreatedMetricName        = "agent_stack_runs_created_total"
 	StackRunJobsCreatedMetricDescription = "The total number of created stack runs"
 
-	ResourceCacheOpenWatchesName        = "agent_resource_cache_open_watches_total"
-	ResourceCacheOpenWatchesDescription = "The total number of open watches in the resource cache"
+	ResourceCacheOpenWatchesName              = "agent_resource_cache_open_watches_total"
+	ResourceCacheOpenWatchesDescription       = "The total number of open watches in the resource cache"
 	ResourceCacheOpenWatchesLabelResourceType = "resource_type"
 )
 

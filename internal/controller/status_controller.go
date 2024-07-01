@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,13 +15,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
 
 type StatusReconciler struct {
 	k8sClient.Client
-	inventoryCache  cache.InventoryResourceKeys
+	inventoryCache cache.InventoryResourceKeys
 }
 
 func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -87,7 +86,7 @@ func (r *StatusReconciler) handleDelete(c *corev1.ConfigMap) (ctrl.Result, error
 
 func NewStatusReconciler(c client.Client) (*StatusReconciler, error) {
 	return &StatusReconciler{
-		Client:          c,
-		inventoryCache:  make(cache.InventoryResourceKeys),
+		Client:         c,
+		inventoryCache: make(cache.InventoryResourceKeys),
 	}, nil
 }
