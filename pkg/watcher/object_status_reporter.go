@@ -386,7 +386,12 @@ func (w *ObjectStatusReporter) Run(stopCh <-chan struct{}, echan <-chan watch.Ev
 		select {
 		case <-stopCh:
 			return
-		case e := <-echan:
+		case e, ok := <-echan:
+			if !ok {
+				log.Logger.Error("event channel closed")
+				return
+			}
+
 			switch e.Type {
 			case watch.Added:
 				un, _ := common.ToUnstructured(e.Object)

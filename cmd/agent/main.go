@@ -13,6 +13,7 @@ import (
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	_ "github.com/pluralsh/deployment-operator/pkg/cache" // Init cache.
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -54,6 +55,7 @@ func main() {
 	opt := newOptions()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
+	cache.Init(ctx, config)
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,

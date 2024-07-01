@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
 	"github.com/pluralsh/polly/containers"
@@ -14,7 +15,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -33,10 +33,7 @@ type ResourceCache struct {
 
 var resourceCache *ResourceCache
 
-func init() {
-	ctx := context.Background()
-	config := ctrl.GetConfigOrDie()
-
+func Init(ctx context.Context, config *rest.Config) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		log.Logger.Error(err, "unable to create dynamic client")
