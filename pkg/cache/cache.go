@@ -9,7 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-type cacheLine[T any] struct {
+type Expirable interface {
+	Expire()
+}
+
+type cacheLine[T Expirable] struct {
 	resource T
 	created  time.Time
 }
@@ -18,7 +22,7 @@ func (l *cacheLine[_]) alive(ttl time.Duration) bool {
 	return l.created.After(time.Now().Add(-ttl))
 }
 
-type Cache[T any] struct {
+type Cache[T Expirable] struct {
 	cache                  cmap.ConcurrentMap[string, cacheLine[T]]
 	ttl                    time.Duration
 	expirationPollInterval time.Duration
@@ -26,24 +30,25 @@ type Cache[T any] struct {
 }
 
 func (c *Cache[T]) init() *Cache[T] {
-	// nolint
-	go wait.PollUntilContextCancel(
-		c.ctx,
-		c.expirationPollInterval,
-		false,
-		func(_ context.Context) (done bool, err error) {
-			for k, v := range c.cache.Items() {
-				if !v.alive(c.ttl) {
-					c.Expire(k)
+	go func() {
+		_ = wait.PollUntilContextCancel(
+			c.ctx,
+			c.expirationPollInterval,
+			false,
+			func(_ context.Context) (done bool, err error) {
+				for k, v := range c.cache.Items() {
+					if !v.alive(c.ttl) {
+						c.Expire(k)
+					}
 				}
-			}
-			return false, nil
-		})
+				return false, nil
+			})
+	}()
 
 	return c
 }
 
-func NewCache[T any](ctx context.Context, ttl, expirationPollInterval time.Duration) *Cache[T] {
+func NewCache[T Expirable](ctx context.Context, ttl, expirationPollInterval time.Duration) *Cache[T] {
 	return (&Cache[T]{
 		cache:                  cmap.New[cacheLine[T]](),
 		ttl:                    ttl,
@@ -71,7 +76,14 @@ func (c *Cache[T]) Wipe() {
 }
 
 func (c *Cache[T]) Expire(key string) {
-	c.cache.Remove(key)
+	expirable, exists := c.cache.Get(key)
+	if !exists {
+		return
+	}
+
+	expirable.resource.Expire()
+	expirable.created = time.Now()
+	c.cache.Set(key, expirable)
 }
 
 func (c *Cache[T]) Clean() {}
