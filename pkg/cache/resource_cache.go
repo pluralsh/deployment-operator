@@ -26,7 +26,7 @@ type ResourceCache struct {
 	ctx            context.Context
 	dynamicClient  dynamic.Interface
 	mapper         meta.RESTMapper
-	cache          *Cache[SHA]
+	cache          *Cache[*SHA]
 	resourceKeySet containers.Set[string]
 	watcher        kwatcher.StatusWatcher
 }
@@ -62,7 +62,7 @@ func Init(ctx context.Context, config *rest.Config) {
 		ctx:            ctx,
 		dynamicClient:  dynamicClient,
 		mapper:         mapper,
-		cache:          NewCache[SHA](ctx, time.Minute*10, time.Second*30),
+		cache:          NewCache[*SHA](ctx, time.Minute*10, time.Second*30),
 		resourceKeySet: containers.NewSet[string](),
 		watcher:        w,
 	}
@@ -81,11 +81,15 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 }
 
 func (in *ResourceCache) SetCacheEntry(key string, value SHA) {
-	in.cache.Set(key, value)
+	in.cache.Set(key, &value)
 }
 
 func (in *ResourceCache) GetCacheEntry(key string) (SHA, bool) {
-	return in.cache.Get(key)
+	if sha, exists := in.cache.Get(key); exists && sha != nil {
+		return *sha, true
+	}
+
+	return SHA{}, false
 }
 
 func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[string]) {

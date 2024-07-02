@@ -29,12 +29,12 @@ type SHA struct {
 }
 
 // Expire implements [Expirable] interface.
-func (in SHA) Expire() {
+func (in *SHA) Expire() {
 	in.manifestSHA = nil
 	in.applySHA = nil
 }
 
-func (in SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
+func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
 	sha, err := HashResource(resource)
 	if err != nil {
 		return err
@@ -52,7 +52,7 @@ func (in SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error 
 	return nil
 }
 
-func (in SHA) SetManifestSHA(manifestSHA string) {
+func (in *SHA) SetManifestSHA(manifestSHA string) {
 	in.manifestSHA = &manifestSHA
 }
 
@@ -60,7 +60,7 @@ func (in SHA) SetManifestSHA(manifestSHA string) {
 // between applySHA calculated during applying resource and serverSHA from a watch of a resource
 // or between last two manifestSHA read from the repository.
 // If any drift is detected, then server-side apply should be done.
-func (in SHA) RequiresApply(manifestSHA string) bool {
+func (in *SHA) RequiresApply(manifestSHA string) bool {
 	return in.serverSHA == nil ||
 		in.applySHA == nil ||
 		in.manifestSHA == nil ||
