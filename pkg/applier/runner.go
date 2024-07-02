@@ -73,12 +73,6 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects objec
 				Inv:       invInfo,
 				InvPolicy: options.InventoryPolicy,
 			},
-			filters.CrdFilter{
-				Client:    a.client,
-				Mapper:    a.mapper,
-				Inv:       invInfo,
-				InvPolicy: options.InventoryPolicy,
-			},
 			filters.DependencyFilter{
 				TaskContext:       taskContext,
 				ActuationStrategy: actuation.ActuationStrategyApply,
