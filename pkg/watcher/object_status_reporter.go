@@ -376,6 +376,7 @@ func (w *ObjectStatusReporter) startInformerNow(
 		klog.V(3).Infof("Watch stopped: %v", gkn)
 		// Signal to the caller there will be no more events for this GroupKind.
 		close(eventCh)
+		w.informerRefs[gkn].Stop()
 	}()
 
 	return nil
