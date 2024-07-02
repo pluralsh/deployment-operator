@@ -72,6 +72,7 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects objec
 				Inv:       invInfo,
 				InvPolicy: options.InventoryPolicy,
 			},
+			filters.CacheFilter{},
 			filters.CrdFilter{
 				Client:    a.client,
 				Mapper:    a.mapper,
@@ -83,7 +84,6 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects objec
 				ActuationStrategy: actuation.ActuationStrategyApply,
 				DryRunStrategy:    options.DryRunStrategy,
 			},
-			filters.CacheFilter{},
 		}
 		// Build list of prune validation filters.
 		pruneFilters := []filter.ValidationFilter{
