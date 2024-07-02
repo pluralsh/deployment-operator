@@ -61,6 +61,8 @@ spec:
           {{- if .Values.monitoring.enabled }}
             - name: observability
               containerPort: {{ .Values.monitoring.metricsPort }}
+            - name: metrics
+              containerPort: 8080
           {{- end }}
           livenessProbe:
             httpGet:

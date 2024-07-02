@@ -18,11 +18,11 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-consoleUrl: ~
-clusterId: 'test'
+consoleUrl: https://console.cd-demo.onplural.sh/ext/gql
+clusterId: '5c1068b4-f9a2-4993-a230-8697fab8307d'
 
 secrets:
-  deployToken: REPLACE_ME
+  deployToken: deploy-2v2z1mhd93wf6zvt3wkybyk4box4iz8lj0b8bs7ia9av87gkfw
 
 imagePullSecrets: []
 nameOverride: ""
@@ -55,7 +55,7 @@ securityContext: {}
   # runAsUser: 1000
 
 monitoring:
-  enabled: false
+  enabled: true
   prometheus: "k8s"
   metricsPort: 8000
   podAnnotations:
