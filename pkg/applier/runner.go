@@ -66,13 +66,8 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects objec
 		// Fetch the queue (channel) of tasks that should be executed.
 		// Build list of apply validation filters.
 		applyFilters := []filter.ValidationFilter{
+			filters.CacheFilter{},
 			filter.InventoryPolicyApplyFilter{
-				Client:    a.client,
-				Mapper:    a.mapper,
-				Inv:       invInfo,
-				InvPolicy: options.InventoryPolicy,
-			},
-			filters.CrdFilter{
 				Client:    a.client,
 				Mapper:    a.mapper,
 				Inv:       invInfo,

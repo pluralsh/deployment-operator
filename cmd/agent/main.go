@@ -10,6 +10,14 @@ import (
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
+
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	_ "github.com/pluralsh/deployment-operator/pkg/cache" // Init cache.
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,11 +28,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-
-	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 var (
@@ -52,6 +55,7 @@ func main() {
 	opt := newOptions()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
+	cache.Init(ctx, config)
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
@@ -78,6 +82,7 @@ func main() {
 		setupLog.Error(err, "unable to create kubernetes client")
 		os.Exit(1)
 	}
+
 	setupLog.Info("starting agent")
 	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
 
@@ -154,6 +159,14 @@ func main() {
 		ConsoleClient: ctrlMgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
+	}
+
+	statusController, err := controller.NewStatusReconciler(mgr.GetClient())
+	if err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "StatusController")
+	}
+	if err := statusController.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to start controller", "controller", "StatusController")
 	}
 
 	//+kubebuilder:scaffold:builder

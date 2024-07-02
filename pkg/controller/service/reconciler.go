@@ -23,6 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
+
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
@@ -136,9 +138,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 
 func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 	lists, err := discoveryClient.ServerPreferredResources()
-	if err != nil {
-		return err
-	}
+
 	for _, list := range lists {
 		if len(list.APIResources) == 0 {
 			continue
@@ -154,7 +154,7 @@ func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 			template.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
 		}
 	}
-	return nil
+	return err
 }
 
 func (s *ServiceReconciler) GetPollInterval() time.Duration {
@@ -196,6 +196,12 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 
 func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
 	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
+		labels := man.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels[agentcommon.ManagedByLabel] = agentcommon.AgentLabelValue
+		man.SetLabels(labels)
 		if man.GetKind() != "CustomResourceDefinition" {
 			return man
 		}
@@ -328,7 +334,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 	manifests = postProcess(manifests)
-
 	logger.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
 	if err != nil {
@@ -338,7 +343,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	vcache := manis.VersionCache(manifests)
 
-	logger.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
+	logger.Info("ApplySHA service", "name", svc.Name, "namespace", svc.Namespace)
 
 	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
 		logger.Error(err, "failed to check namespace")
