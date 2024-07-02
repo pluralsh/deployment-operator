@@ -61,7 +61,11 @@ func (in SHA) SetManifestSHA(manifestSHA string) {
 // or between last two manifestSHA read from the repository.
 // If any drift is detected, then server-side apply should be done.
 func (in SHA) RequiresApply(manifestSHA string) bool {
-	return (*in.serverSHA != *in.applySHA) || (manifestSHA != *in.manifestSHA)
+	return in.serverSHA == nil ||
+		in.applySHA == nil ||
+		in.manifestSHA == nil ||
+		(*in.serverSHA != *in.applySHA) ||
+		(manifestSHA != *in.manifestSHA)
 }
 
 // shaObject is a representation of a resource used to calculate SHA from.
