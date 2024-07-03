@@ -826,7 +826,7 @@ func (ir *informerReference) Stop() {
 	if !ir.started {
 		return
 	}
-
+	ir.informer.Stop()
 	ir.cancel()
 	ir.started = false
 	ir.context = nil
