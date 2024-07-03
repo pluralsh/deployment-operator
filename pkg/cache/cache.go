@@ -22,10 +22,9 @@ func (l *cacheLine[_]) alive(ttl time.Duration) bool {
 }
 
 type Cache[T Expirable] struct {
-	cache                  cmap.ConcurrentMap[string, cacheLine[T]]
-	ttl                    time.Duration
-	expirationPollInterval time.Duration
-	ctx                    context.Context
+	cache cmap.ConcurrentMap[string, cacheLine[T]]
+	ttl   time.Duration
+	ctx   context.Context
 }
 
 func NewCache[T Expirable](ctx context.Context, ttl time.Duration) *Cache[T] {
