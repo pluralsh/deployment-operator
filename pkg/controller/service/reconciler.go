@@ -343,8 +343,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	vcache := manis.VersionCache(manifests)
 
-	logger.Info("ApplySHA service", "name", svc.Name, "namespace", svc.Namespace)
-
 	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
 		logger.Error(err, "failed to check namespace")
 		return

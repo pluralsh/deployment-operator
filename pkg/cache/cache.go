@@ -6,7 +6,6 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type Expirable interface {
@@ -29,32 +28,12 @@ type Cache[T Expirable] struct {
 	ctx                    context.Context
 }
 
-func (c *Cache[T]) init() *Cache[T] {
-	go func() {
-		_ = wait.PollUntilContextCancel(
-			c.ctx,
-			c.expirationPollInterval,
-			false,
-			func(_ context.Context) (done bool, err error) {
-				for k, v := range c.cache.Items() {
-					if !v.alive(c.ttl) {
-						c.Expire(k)
-					}
-				}
-				return false, nil
-			})
-	}()
-
-	return c
-}
-
-func NewCache[T Expirable](ctx context.Context, ttl, expirationPollInterval time.Duration) *Cache[T] {
-	return (&Cache[T]{
-		cache:                  cmap.New[cacheLine[T]](),
-		ttl:                    ttl,
-		expirationPollInterval: expirationPollInterval,
-		ctx:                    ctx,
-	}).init()
+func NewCache[T Expirable](ctx context.Context, ttl time.Duration) *Cache[T] {
+	return &Cache[T]{
+			cache: cmap.New[cacheLine[T]](),
+			ttl:   ttl,
+			ctx:   ctx,
+		}
 }
 
 func (c *Cache[T]) Get(key string) (T, bool) {
