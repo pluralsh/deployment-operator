@@ -64,6 +64,7 @@ type ServiceReconciler struct {
 
 	discoveryClient *discovery.DiscoveryClient
 	pinger          *ping.Pinger
+	ctx             context.Context
 }
 
 func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
@@ -126,6 +127,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		discoveryClient:  discoveryClient,
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		RestoreNamespace: restoreNamespace,
+		ctx:              ctx,
 	}, nil
 }
 
