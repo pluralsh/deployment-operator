@@ -30,10 +30,10 @@ type Cache[T Expirable] struct {
 
 func NewCache[T Expirable](ctx context.Context, ttl time.Duration) *Cache[T] {
 	return &Cache[T]{
-			cache: cmap.New[cacheLine[T]](),
-			ttl:   ttl,
-			ctx:   ctx,
-		}
+		cache: cmap.New[cacheLine[T]](),
+		ttl:   ttl,
+		ctx:   ctx,
+	}
 }
 
 func (c *Cache[T]) Get(key string) (T, bool) {
@@ -43,6 +43,10 @@ func (c *Cache[T]) Get(key string) (T, bool) {
 	}
 
 	c.Expire(key)
+	data, ok = c.cache.Get(key)
+	if ok {
+		return data.resource, true
+	}
 	return lo.Empty[T](), false
 }
 
