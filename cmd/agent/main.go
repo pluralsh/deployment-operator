@@ -10,6 +10,8 @@ import (
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
@@ -62,6 +64,15 @@ func main() {
 		LeaderElection:         args.EnableLeaderElection(),
 		LeaderElectionID:       "dep12loy45.plural.sh",
 		HealthProbeBindAddress: args.ProbeAddr(),
+		Metrics: server.Options{
+			BindAddress:    args.MetricsAddr(),
+			ExtraHandlers: map[string]http.Handler{
+				// Default prometheus metrics path.
+				// We can't use /metrics as it is already taken by the
+				// controller manager.
+				"/metrics/agent": promhttp.Handler(),
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
