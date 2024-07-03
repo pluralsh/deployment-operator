@@ -72,7 +72,11 @@ func (s *ServiceReconciler) getLuaHealthConvert(obj *unstructured.Unstructured) 
 }
 
 func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.ComponentState {
-	h, _ := s.getResourceHealth(obj)
+	h, err := s.getResourceHealth(obj)
+	if err != nil {
+		logger := log.FromContext(s.ctx)
+		logger.Error(err, "Failed to get resource health status", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	}
 	if h == nil {
 		return nil
 	}
