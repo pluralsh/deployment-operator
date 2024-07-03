@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,6 +14,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
 
 type StatusReconciler struct {
@@ -46,6 +48,13 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	}
 
 	invID := r.inventoryID(configMap)
+
+	// If services arg is provided, we can skip
+	// services that are not on the list.
+	if args.SkipService(invID) {
+		return ctrl.Result{}, nil
+	}
+
 	r.inventoryCache[invID] = cache.ResourceKeyFromObjMetadata(set)
 
 	cache.GetResourceCache().Register(r.inventoryCache.Values().StringSet())

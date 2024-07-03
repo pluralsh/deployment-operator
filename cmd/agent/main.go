@@ -12,6 +12,7 @@ import (
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	_ "github.com/pluralsh/deployment-operator/pkg/cache" // Init cache.
@@ -52,16 +53,15 @@ const (
 )
 
 func main() {
-	opt := newOptions()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
-	cache.Init(ctx, config)
+	cache.Init(ctx, config, args.ResourceCacheTTL())
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
-		LeaderElection:         opt.enableLeaderElection,
+		LeaderElection:         args.EnableLeaderElection(),
 		LeaderElectionID:       "dep12loy45.plural.sh",
-		HealthProbeBindAddress: opt.probeAddr,
+		HealthProbeBindAddress: args.ProbeAddr(),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
@@ -84,7 +84,7 @@ func main() {
 	}
 
 	setupLog.Info("starting agent")
-	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
+	ctrlMgr, serviceReconciler, gateReconciler := runAgent(config, ctx, mgr.GetClient())
 
 	backupController := &controller.BackupReconciler{
 		Client:        mgr.GetClient(),
@@ -106,7 +106,7 @@ func main() {
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		ConsoleClient: ctrlMgr.GetClient(),
-		ConsoleURL:    opt.consoleUrl,
+		ConsoleURL:    args.ConsoleUrl(),
 		HttpClient:    &http.Client{Timeout: httpClientTimout},
 		ArgoClientSet: rolloutsClient,
 		DynamicClient: dynamicClient,
@@ -174,7 +174,7 @@ func main() {
 	if err = (&controller.PipelineGateReconciler{
 		Client:        mgr.GetClient(),
 		GateCache:     gateReconciler.GateCache,
-		ConsoleClient: client.New(opt.consoleUrl, opt.deployToken),
+		ConsoleClient: client.New(args.ConsoleUrl(), args.DeployToken()),
 		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
 		Scheme:        mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

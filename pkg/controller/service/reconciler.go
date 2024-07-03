@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
@@ -38,14 +39,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
-)
-
-func init() {
-	Local = false
-}
-
-var (
-	Local = false
 )
 
 const (
@@ -267,6 +260,12 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 			return false, nil
 		}
 		for _, svc := range services {
+			// If services arg is provided, we can skip
+			// services that are not on the list.
+			if args.SkipService(svc.Node.ID) {
+				continue
+			}
+
 			logger.Info("sending update for", "service", svc.Node.ID)
 			s.SvcQueue.Add(svc.Node.ID)
 		}
@@ -305,8 +304,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		metrics.Record().ServiceReconciliation(id, svc.Name, err)
 	}()
 
-	logger.V(2).Info("local", "flag", Local)
-	if Local && svc.Name == OperatorService {
+	logger.V(2).Info("local", "flag", args.Local())
+	if args.Local() && svc.Name == OperatorService {
 		return
 	}
 

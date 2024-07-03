@@ -33,7 +33,7 @@ type ResourceCache struct {
 
 var resourceCache *ResourceCache
 
-func Init(ctx context.Context, config *rest.Config) {
+func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		log.Logger.Error(err, "unable to create dynamic client")
@@ -62,7 +62,7 @@ func Init(ctx context.Context, config *rest.Config) {
 		ctx:            ctx,
 		dynamicClient:  dynamicClient,
 		mapper:         mapper,
-		cache:          NewCache[*SHA](ctx, time.Minute*10),
+		cache:          NewCache[*SHA](ctx, ttl),
 		resourceKeySet: containers.NewSet[string](),
 		watcher:        w,
 	}

@@ -37,17 +37,16 @@ func NewCache[T Expirable](ctx context.Context, ttl time.Duration) *Cache[T] {
 }
 
 func (c *Cache[T]) Get(key string) (T, bool) {
-	data, ok := c.cache.Get(key)
-	if ok && data.alive(c.ttl) {
-		return data.resource, true
+	data, exists := c.cache.Get(key)
+	if !exists {
+		return lo.Empty[T](), false
 	}
 
-	c.Expire(key)
-	data, ok = c.cache.Get(key)
-	if ok {
-		return data.resource, true
+	if !data.alive(c.ttl) {
+		c.Expire(key)
 	}
-	return lo.Empty[T](), false
+
+	return data.resource, true
 }
 
 func (c *Cache[T]) Set(key string, value T) {
