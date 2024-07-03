@@ -36,24 +36,24 @@ const (
 )
 
 var (
-	argDisableHelmTemplateDryRunServer = pflag.Bool("disable-helm-dry-run-server", false, "Disable helm template in dry-run=server mode.")
-	argEnableHelmDependencyUpdate      = pflag.Bool("enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
-	argEnableLeaderElection            = pflag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-	argLocal                           = pflag.Bool("local", false, "Whether you're running the operator locally.")
+	argDisableHelmTemplateDryRunServer = flag.Bool("disable-helm-dry-run-server", false, "Disable helm template in dry-run=server mode.")
+	argEnableHelmDependencyUpdate      = flag.Bool("enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
+	argEnableLeaderElection            = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
 
-	argMaxConcurrentReconciles = pflag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
-	argResyncSeconds           = pflag.Int("resync-seconds", 300, "Resync duration in seconds.")
+	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
+	argResyncSeconds           = flag.Int("resync-seconds", 300, "Resync duration in seconds.")
 
-	argClusterId         = pflag.String("cluster-id", "", "The ID of the cluster being connected to.")
-	argConsoleUrl        = pflag.String("console-url", "", "The URL of the console api to fetch services from.")
-	argDeployToken       = pflag.String("deploy-token", helpers.GetEnv(EnvDeployToken, ""), "The deploy token to auth to Console API with.")
-	argProbeAddr         = pflag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
-	argMetricsAddr       = pflag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
-	argProcessingTimeout = pflag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
-	argRefreshInterval   = pflag.String("refresh-interval", defaultRefreshInterval, "Refresh interval duration.")
-	argResourceCacheTTL  = pflag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
-	argRestoreNamespace  = pflag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
-	argServices          = pflag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
+	argClusterId         = flag.String("cluster-id", "", "The ID of the cluster being connected to.")
+	argConsoleUrl        = flag.String("console-url", "", "The URL of the console api to fetch services from.")
+	argDeployToken       = flag.String("deploy-token", helpers.GetEnv(EnvDeployToken, ""), "The deploy token to auth to Console API with.")
+	argProbeAddr         = flag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
+	argMetricsAddr       = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
+	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
+	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "Refresh interval duration.")
+	argResourceCacheTTL  = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
+	argRestoreNamespace  = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
+	argServices          = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
 
 	serviceSet containers.Set[string]
 )
@@ -70,7 +70,10 @@ func init() {
 	opts.BindFlags(flag.CommandLine)
 
 	pflag.CommandLine.AddGoFlagSet(fs)
-	pflag.Parse()
+	pflag.CommandLine.VisitAll(func(f *pflag.Flag) {
+		flag.CommandLine.Var(f.Value, f.Name, f.Usage)
+	})
+	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
