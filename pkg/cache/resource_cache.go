@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
@@ -47,12 +48,12 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		os.Exit(1)
 	}
 
-	w := watcher.NewDefaultStatusWatcher(dynamicClient, mapper, &watcher.Options{
-		ObjectFilter:          nil,
+	w := watcher.NewDynamicStatusWatcher(dynamicClient, mapper, watcher.Options{
 		UseCustomObjectFilter: true,
+		ObjectFilter:          nil,
 		UseInformerRefCache:   true,
-		RESTScopeStrategy:     watcher.RESTScopeRoot,
-		Filters: &watcher.Filters{
+		RESTScopeStrategy:     lo.ToPtr(kwatcher.RESTScopeRoot),
+		Filters: &kwatcher.Filters{
 			Labels: common.ManagedByAgentLabelSelector(),
 			Fields: nil,
 		},

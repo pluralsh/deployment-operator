@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
@@ -83,8 +84,11 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 		cx.unstructuredClientForMapping = cx.factory.UnstructuredClientForMapping
 	}
 	if cx.statusWatcher == nil {
-		cx.statusWatcher = watcher.NewDefaultStatusWatcher(cx.client, cx.mapper, &watcher.Options{
-			Filters: &watcher.Filters{
+		cx.statusWatcher = watcher.NewDynamicStatusWatcher(cx.client, cx.mapper, watcher.Options{
+			UseCustomObjectFilter: true,
+			ObjectFilter:          nil,
+			RESTScopeStrategy:     lo.ToPtr(kwatcher.RESTScopeRoot),
+			Filters: &kwatcher.Filters{
 				Labels: common.ManagedByAgentLabelSelector(),
 				Fields: nil,
 			},

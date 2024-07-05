@@ -2,14 +2,9 @@ package watcher
 
 import (
 	"context"
-	"strings"
-	"sync"
+	"fmt"
 
-	"github.com/gobuffalo/flect"
-	"golang.org/x/exp/maps"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
+	"k8s.io/klog/v2"
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -19,95 +14,86 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
-// DefaultStatusWatcher reports on status updates to a set of objects.
-//
-// Use NewDefaultStatusWatcher to build a DefaultStatusWatcher with default settings.
-type DefaultStatusWatcher struct {
-	// DynamicClient is used to watch of resource objects.
-	DynamicClient dynamic.Interface
-
-	// Mapper is used to map from GroupKind to GroupVersionKind.
-	Mapper meta.RESTMapper
+type DynamicStatusWatcher struct {
+	*kwatcher.DefaultStatusWatcher
 
 	// Options can be provided when creating a new StatusWatcher to customize the
 	// behavior.
-	Options *Options
+	Options Options
 
 	// informerRefs tracks which informers have been started and stopped by the ObjectStatusReporter
-	informerRefs map[GroupKindNamespace]*informerReference
+	informerRefs map[GroupKindNamespace]*watcherReference
 }
 
-func NewDefaultStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMapper, options *Options) kwatcher.StatusWatcher {
-	var informerRefs map[GroupKindNamespace]*informerReference
-	if options != nil && options.UseInformerRefCache {
-		informerRefs = make(map[GroupKindNamespace]*informerReference)
+func (in *DynamicStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadataSet, opts kwatcher.Options) <-chan event.Event {
+	var strategy kwatcher.RESTScopeStrategy
+
+	if in.Options.RESTScopeStrategy != nil {
+		strategy = *in.Options.RESTScopeStrategy
 	}
 
-	return &DefaultStatusWatcher{
-		DynamicClient: dynamicClient,
-		Mapper:        mapper,
-		Options:       options,
-		informerRefs:  informerRefs,
+	if opts.RESTScopeStrategy != kwatcher.RESTScopeAutomatic {
+		strategy = opts.RESTScopeStrategy
 	}
-}
 
-// Watch the cluster for changes made to the specified objects.
-// Returns an event channel on which these updates (and errors) will be reported.
-// Each update event includes the computed status of the object.
-func (w *DefaultStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadataSet, _ kwatcher.Options) <-chan event.Event {
-	targetMap := map[string]GroupKindNamespace{}
-	for _, id := range ids {
-		targetMap[id.GroupKind.String()] = GroupKindNamespace{
-			Group:     id.GroupKind.Group,
-			Kind:      id.GroupKind.Kind,
-			Namespace: "",
-		}
+	if strategy == kwatcher.RESTScopeAutomatic {
+		strategy = autoSelectRESTScopeStrategy(ids)
 	}
-	var objectFilter ObjectFilter = &AllowListObjectFilter{AllowList: ids}
-	if w.Options != nil && w.Options.UseCustomObjectFilter {
-		objectFilter = w.Options.ObjectFilter
+
+	var scope meta.RESTScope
+	var targets []GroupKindNamespace
+	switch strategy {
+	case kwatcher.RESTScopeRoot:
+		scope = meta.RESTScopeRoot
+		targets = rootScopeGKNs(ids)
+		klog.V(3).Infof("DynamicStatusWatcher starting in root-scoped mode (targets: %d)", len(targets))
+	case kwatcher.RESTScopeNamespace:
+		scope = meta.RESTScopeNamespace
+		targets = namespaceScopeGKNs(ids)
+		klog.V(3).Infof("DynamicStatusWatcher starting in namespace-scoped mode (targets: %d)", len(targets))
+	default:
+		return handleFatalError(fmt.Errorf("invalid RESTScopeStrategy: %v", strategy))
+	}
+
+	var objectFilter kwatcher.ObjectFilter = &kwatcher.AllowListObjectFilter{AllowList: ids}
+	if in.Options.UseCustomObjectFilter {
+		objectFilter = in.Options.ObjectFilter
 	}
 
 	var labelSelector labels.Selector
-	if w.Options != nil && w.Options.Filters != nil {
-		labelSelector = w.Options.Filters.Labels
+	if in.Options.Filters != nil {
+		labelSelector = in.Options.Filters.Labels
 	}
 
-	reporter := &ObjectStatusReporter{
+	informer := &ObjectStatusReporter{
+		Mapper:        in.Mapper,
+		StatusReader:  in.StatusReader,
+		ClusterReader: in.ClusterReader,
+		Targets:       targets,
+		RESTScope:     scope,
 		ObjectFilter:  objectFilter,
-		Targets:       maps.Values(targetMap),
-		lock:          sync.Mutex{},
-		context:       ctx,
+		// Custom options
 		LabelSelector: labelSelector,
-		DynamicClient: w.DynamicClient,
-		Mapper:        w.Mapper,
-		StatusReader:  statusreaders.NewDefaultStatusReader(w.Mapper),
-		ClusterReader: &clusterreader.DynamicClusterReader{
-			DynamicClient: w.DynamicClient,
-			Mapper:        w.Mapper,
-		},
-		informerRefs: w.informerRefs,
+		DynamicClient: in.DynamicClient,
+		watcherRefs:   in.informerRefs,
 	}
 
-	return reporter.Start(ctx)
+	return informer.Start(ctx)
 }
 
-func gvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {
-	return schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: flect.Pluralize(strings.ToLower(gvk.Kind)),
+func NewDynamicStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMapper, options Options) kwatcher.StatusWatcher {
+	var informerRefs map[GroupKindNamespace]*watcherReference
+	if options.UseInformerRefCache {
+		informerRefs = make(map[GroupKindNamespace]*watcherReference)
 	}
-}
 
-func handleFatalError(err error) <-chan event.Event {
-	eventCh := make(chan event.Event)
-	go func() {
-		defer close(eventCh)
-		eventCh <- event.Event{
-			Type:  event.ErrorEvent,
-			Error: err,
-		}
-	}()
-	return eventCh
+	defaultStatusWatcher := kwatcher.NewDefaultStatusWatcher(dynamicClient, mapper)
+	defaultStatusWatcher.Filters = options.Filters
+
+	return &DynamicStatusWatcher{
+		DefaultStatusWatcher: defaultStatusWatcher,
+		// Custom options
+		Options:      options,
+		informerRefs: informerRefs,
+	}
 }
