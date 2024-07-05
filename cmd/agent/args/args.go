@@ -20,8 +20,8 @@ import (
 const (
 	EnvDeployToken = "DEPLOY_TOKEN"
 
-	defaultProbeAddress          = ":9001"
-	defaultMetricsAddress        = ":8000"
+	defaultProbeAddress   = ":9001"
+	defaultMetricsAddress = ":8000"
 
 	defaultProcessingTimeout         = "1m"
 	defaultProcessingTimeoutDuration = time.Minute

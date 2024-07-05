@@ -2,11 +2,12 @@ package cache
 
 import (
 	"context"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
-	"time"
 
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -203,18 +204,22 @@ func (in *ResourceCache) GetCacheStatus(key string) (*applyevent.StatusEvent, er
 		return entry.status, nil
 	}
 	rk, err := ResourceKeyFromString(key)
+	if err != nil {
+		return nil, err
+	}
+
 	mapping, err := in.mapper.RESTMapping(rk.GroupKind)
 	if err != nil {
 		return nil, err
 	}
 
 	gvr := watcher.GvrFromGvk(mapping.GroupVersionKind)
-
 	obj, err := in.dynamicClient.Resource(gvr).Namespace(rk.Namespace).Get(context.Background(), rk.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	status, err := in.toStatusEvent(obj)
+
+	s, err := in.toStatusEvent(obj)
 	in.saveResourceStatus(obj)
-	return status, err
+	return s, err
 }

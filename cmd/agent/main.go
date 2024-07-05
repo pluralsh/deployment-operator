@@ -66,7 +66,7 @@ func main() {
 		LeaderElectionID:       "dep12loy45.plural.sh",
 		HealthProbeBindAddress: args.ProbeAddr(),
 		Metrics: server.Options{
-			BindAddress:    args.MetricsAddr(),
+			BindAddress: args.MetricsAddr(),
 			ExtraHandlers: map[string]http.Handler{
 				// Default prometheus metrics path.
 				// We can't use /metrics as it is already taken by the

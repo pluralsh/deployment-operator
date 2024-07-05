@@ -218,7 +218,7 @@ func (in *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 	err := in.funnel.AddInputChannel(syncEventCh)
 	if err != nil {
 		// Reporter already stopped.
-		return handleFatalError(fmt.Errorf("reporter failed to start: %v", err))
+		return handleFatalError(fmt.Errorf("reporter failed to start: %w", err))
 	}
 	go func() {
 		defer close(syncEventCh)
@@ -361,7 +361,7 @@ func (in *ObjectStatusReporter) startInformerNow(
 	err = in.funnel.AddInputChannel(eventCh)
 	if err != nil {
 		// Reporter already stopped.
-		return fmt.Errorf("informer failed to build event handler: %in", err)
+		return fmt.Errorf("informer failed to build event handler: %w\n", err)
 	}
 
 	// Start the informer in the background.
@@ -497,7 +497,7 @@ func (in *ObjectStatusReporter) eventHandler(
 		rs, err := in.readStatusFromObject(ctx, obj)
 		if err != nil {
 			// Send error event and stop the reporter!
-			in.handleFatalError(eventCh, fmt.Errorf("failed to compute object status: %s: %in", id, err))
+			in.handleFatalError(eventCh, fmt.Errorf("failed to compute object status: %s: %w", id, err))
 			return
 		}
 
@@ -546,7 +546,7 @@ func (in *ObjectStatusReporter) eventHandler(
 		rs, err := in.readStatusFromObject(ctx, obj)
 		if err != nil {
 			// Send error event and stop the reporter!
-			in.handleFatalError(eventCh, fmt.Errorf("failed to compute object status: %s: %in", id, err))
+			in.handleFatalError(eventCh, fmt.Errorf("failed to compute object status: %s: %w", id, err))
 			return
 		}
 
