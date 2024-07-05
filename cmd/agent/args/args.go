@@ -58,7 +58,7 @@ var (
 	serviceSet containers.Set[string]
 )
 
-func init() {
+func Init() {
 	// Init klog
 	fs := flag.NewFlagSet("", flag.PanicOnError)
 	klog.InitFlags(fs)
@@ -81,10 +81,6 @@ func init() {
 	if len(*argServices) > 0 {
 		serviceSet = containers.ToSet(strings.Split(*argServices, ","))
 	}
-
-	fmt.Println(*argServices)
-	fmt.Println(serviceSet)
-	fmt.Println(serviceSet.Len())
 
 	klog.V(log.LogLevelMinimal).InfoS("configured log level", "v", LogLevel())
 }

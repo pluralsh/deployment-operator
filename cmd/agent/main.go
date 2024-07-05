@@ -55,6 +55,7 @@ const (
 )
 
 func main() {
+	args.Init()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
 	cache.Init(ctx, config, args.ResourceCacheTTL())
