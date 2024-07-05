@@ -11,7 +11,6 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
@@ -19,8 +18,6 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/lua"
-
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
@@ -60,18 +57,7 @@ func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func
 }
 
 func (s *ServiceReconciler) getLuaHealthConvert(obj *unstructured.Unstructured) (*common.HealthStatus, error) {
-	out, err := lua.ExecuteLua(obj.Object, s.LuaScript)
-	if err != nil {
-		return nil, err
-	}
-	healthStatus := &common.HealthStatus{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(out, healthStatus); err != nil {
-		return nil, err
-	}
-	if healthStatus.Status == "" && healthStatus.Message == "" {
-		return nil, nil
-	}
-	return healthStatus, nil
+	return common.GetLuaHealthConvert(obj, s.LuaScript)
 }
 
 func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.ComponentState {
