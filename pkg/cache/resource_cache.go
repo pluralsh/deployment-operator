@@ -200,7 +200,7 @@ func (in *ResourceCache) deleteCacheEntry(r *event.ResourceStatus) {
 
 func (in *ResourceCache) GetCacheStatus(key string) (*applyevent.StatusEvent, error) {
 	entry, exists := in.cache.Get(key)
-	if exists {
+	if exists && entry.status != nil {
 		return entry.status, nil
 	}
 	rk, err := ResourceKeyFromString(key)
