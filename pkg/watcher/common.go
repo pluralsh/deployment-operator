@@ -86,7 +86,7 @@ func uniqueNamespaces(ids object.ObjMetadataSet) []string {
 	return nsList
 }
 
-func gvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {
+func GvrFromGvk(gvk schema.GroupVersionKind) schema.GroupVersionResource {
 	return schema.GroupVersionResource{
 		Group:    gvk.Group,
 		Version:  gvk.Version,

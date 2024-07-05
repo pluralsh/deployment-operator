@@ -329,7 +329,7 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 		return nil, err
 	}
 
-	gvr := gvrFromGvk(mapping.GroupVersionKind)
+	gvr := GvrFromGvk(mapping.GroupVersionKind)
 
 	var labelSelectorString string
 	if in.LabelSelector != nil {

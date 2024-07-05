@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pluralsh/polly/containers"
+	"golang.org/x/exp/maps"
+
 	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -195,13 +198,29 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 		return err
 	}
-
+	s.ensureStatuses(ctx, statusCollector)
 	components := statusCollector.componentsAttributes(vcache)
 	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
 
 	return nil
+}
+
+func (s *ServiceReconciler) ensureStatuses(ctx context.Context, statusCollector *serviceComponentsStatusCollector) {
+	logger := log.FromContext(ctx)
+
+	applyKeys := maps.Keys(statusCollector.applyStatus)
+	statusKeys := maps.Keys(statusCollector.latestStatus)
+	diff := containers.ToSet(applyKeys).Difference(containers.ToSet(statusKeys))
+	for key := range diff {
+		e, err := cache.GetResourceCache().GetCacheStatus(key.String())
+		if err != nil {
+			logger.Error(err, "Failed to get cache status")
+			continue
+		}
+		statusCollector.latestStatus[key] = *e
+	}
 }
 
 func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) error {

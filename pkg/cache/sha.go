@@ -2,6 +2,7 @@ package cache
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/cli-utils/pkg/apply/event"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
 )
@@ -14,27 +15,29 @@ const (
 	ServerSHA   SHAType = "SERVER"
 )
 
-// SHA contains latest SHAs for a single resource from multiple stages.
-type SHA struct {
-	// manifestSHA is SHA of the resource manifest from the repository.
+// ResourceCacheEntry contains latest SHAs for a single resource from multiple stages.
+type ResourceCacheEntry struct {
+	// manifestSHA is ResourceCacheEntry of the resource manifest from the repository.
 	manifestSHA *string
 
-	// applySHA is SHA of the resource post-server-side apply.
+	// applySHA is ResourceCacheEntry of the resource post-server-side apply.
 	// Taking only metadata w/ name, namespace, annotations and labels and non-status non-metadata fields.
 	applySHA *string
 
-	// serverSHA is SHA from a watch of the resource, using the same pruning function as applySHA.
+	// serverSHA is ResourceCacheEntry from a watch of the resource, using the same pruning function as applySHA.
 	// It is persisted only if there's a current-inventory annotation.
 	serverSHA *string
+
+	status *event.StatusEvent
 }
 
 // Expire implements [Expirable] interface.
-func (in *SHA) Expire() {
+func (in *ResourceCacheEntry) Expire() {
 	in.manifestSHA = nil
 	in.applySHA = nil
 }
 
-func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
+func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
 	sha, err := HashResource(resource)
 	if err != nil {
 		return err
@@ -52,7 +55,7 @@ func (in *SHA) SetSHA(resource unstructured.Unstructured, shaType SHAType) error
 	return nil
 }
 
-func (in *SHA) SetManifestSHA(manifestSHA string) {
+func (in *ResourceCacheEntry) SetManifestSHA(manifestSHA string) {
 	in.manifestSHA = &manifestSHA
 }
 
@@ -60,7 +63,7 @@ func (in *SHA) SetManifestSHA(manifestSHA string) {
 // between applySHA calculated during applying resource and serverSHA from a watch of a resource
 // or between last two manifestSHA read from the repository.
 // If any drift is detected, then server-side apply should be done.
-func (in *SHA) RequiresApply(manifestSHA string) bool {
+func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
 	return in.serverSHA == nil ||
 		in.applySHA == nil ||
 		in.manifestSHA == nil ||
@@ -68,7 +71,7 @@ func (in *SHA) RequiresApply(manifestSHA string) bool {
 		(manifestSHA != *in.manifestSHA)
 }
 
-// shaObject is a representation of a resource used to calculate SHA from.
+// shaObject is a representation of a resource used to calculate ResourceCacheEntry from.
 type shaObject struct {
 	Name              string            `json:"name"`
 	Namespace         string            `json:"namespace"`
@@ -78,7 +81,7 @@ type shaObject struct {
 	Other             map[string]any    `json:"other"`
 }
 
-// HashResource calculates SHA for an unstructured object.
+// HashResource calculates ResourceCacheEntry for an unstructured object.
 // It uses object metadata (name, namespace, labels, annotations, deletion timestamp)
 // and all other top-level fields except status.
 func HashResource(resource unstructured.Unstructured) (string, error) {
@@ -99,4 +102,8 @@ func HashResource(resource unstructured.Unstructured) (string, error) {
 	object.Other = resourceCopy.Object
 
 	return utils.HashObject(object)
+}
+
+func (in *ResourceCacheEntry) SetStatus(status *event.StatusEvent) {
+	in.status = status
 }

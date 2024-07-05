@@ -2,18 +2,21 @@ package cache
 
 import (
 	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
 	"time"
 
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
-
 	"github.com/pluralsh/polly/containers"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	applyevent "sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
@@ -27,7 +30,7 @@ type ResourceCache struct {
 	ctx            context.Context
 	dynamicClient  dynamic.Interface
 	mapper         meta.RESTMapper
-	cache          *Cache[*SHA]
+	cache          *Cache[*ResourceCacheEntry]
 	resourceKeySet containers.Set[string]
 	watcher        kwatcher.StatusWatcher
 }
@@ -63,7 +66,7 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		ctx:            ctx,
 		dynamicClient:  dynamicClient,
 		mapper:         mapper,
-		cache:          NewCache[*SHA](ctx, ttl),
+		cache:          NewCache[*ResourceCacheEntry](ctx, ttl),
 		resourceKeySet: containers.NewSet[string](),
 		watcher:        w,
 	}
@@ -81,16 +84,46 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	}
 }
 
-func (in *ResourceCache) SetCacheEntry(key string, value SHA) {
+func (in *ResourceCache) toStatusEvent(resource *unstructured.Unstructured) (*applyevent.StatusEvent, error) {
+	sr := statusreaders.NewDefaultStatusReader(in.mapper)
+	cr := &clusterreader.DynamicClusterReader{
+		DynamicClient: in.dynamicClient,
+		Mapper:        in.mapper,
+	}
+	status, err := sr.ReadStatusForObject(context.Background(), cr, resource)
+	if err != nil {
+		return nil, err
+	}
+	return &applyevent.StatusEvent{
+		Identifier:       ResourceKeyFromUnstructured(resource).ObjMetadata(),
+		PollResourceInfo: status,
+		Resource:         resource,
+	}, nil
+}
+
+func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured) {
+	e, err := in.toStatusEvent(resource)
+	if err != nil {
+		log.Logger.Error(err, "unable to convert resource to status event")
+		return
+	}
+	key := object.UnstructuredToObjMetadata(resource).String()
+	cacheEntry, _ := resourceCache.GetCacheEntry(key)
+	cacheEntry.SetStatus(e)
+	resourceCache.SetCacheEntry(key, cacheEntry)
+
+}
+
+func (in *ResourceCache) SetCacheEntry(key string, value ResourceCacheEntry) {
 	in.cache.Set(key, &value)
 }
 
-func (in *ResourceCache) GetCacheEntry(key string) (SHA, bool) {
+func (in *ResourceCache) GetCacheEntry(key string) (ResourceCacheEntry, bool) {
 	if sha, exists := in.cache.Get(key); exists && sha != nil {
 		return *sha, true
 	}
 
-	return SHA{}, false
+	return ResourceCacheEntry{}, false
 }
 
 func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[string]) {
@@ -140,6 +173,7 @@ func (in *ResourceCache) reconcile(e event.Event) {
 		}
 
 		SaveResourceSHA(e.Resource.Resource, ServerSHA)
+		in.saveResourceStatus(e.Resource.Resource)
 	case event.ErrorEvent:
 		// handle
 	default:
@@ -161,4 +195,26 @@ func (in *ResourceCache) deleteCacheEntry(r *event.ResourceStatus) {
 	}
 
 	in.cache.Expire(r.Identifier.String())
+}
+
+func (in *ResourceCache) GetCacheStatus(key string) (*applyevent.StatusEvent, error) {
+	entry, exists := in.cache.Get(key)
+	if exists {
+		return entry.status, nil
+	}
+	rk, err := ResourceKeyFromString(key)
+	mapping, err := in.mapper.RESTMapping(rk.GroupKind)
+	if err != nil {
+		return nil, err
+	}
+
+	gvr := watcher.GvrFromGvk(mapping.GroupVersionKind)
+
+	obj, err := in.dynamicClient.Resource(gvr).Namespace(rk.Namespace).Get(context.Background(), rk.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	status, err := in.toStatusEvent(obj)
+	in.saveResourceStatus(obj)
+	return status, err
 }
