@@ -85,8 +85,6 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 	}
 	if cx.statusWatcher == nil {
 		cx.statusWatcher = watcher.NewDynamicStatusWatcher(cx.client, cx.mapper, watcher.Options{
-			UseCustomObjectFilter: true,
-			ObjectFilter:          nil,
 			RESTScopeStrategy:     lo.ToPtr(kwatcher.RESTScopeRoot),
 			Filters: &kwatcher.Filters{
 				Labels: common.ManagedByAgentLabelSelector(),

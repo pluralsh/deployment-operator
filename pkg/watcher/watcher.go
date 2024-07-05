@@ -28,12 +28,12 @@ type DynamicStatusWatcher struct {
 func (in *DynamicStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadataSet, opts kwatcher.Options) <-chan event.Event {
 	var strategy kwatcher.RESTScopeStrategy
 
-	if in.Options.RESTScopeStrategy != nil {
-		strategy = *in.Options.RESTScopeStrategy
-	}
-
 	if opts.RESTScopeStrategy != kwatcher.RESTScopeAutomatic {
 		strategy = opts.RESTScopeStrategy
+	}
+
+	if in.Options.RESTScopeStrategy != nil {
+		strategy = *in.Options.RESTScopeStrategy
 	}
 
 	if strategy == kwatcher.RESTScopeAutomatic {
