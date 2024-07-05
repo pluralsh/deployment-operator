@@ -66,7 +66,7 @@ agent-run: ## run agent
 
 .PHONY: agent
 agent: ## build agent
-	go build -o bin/deployment-agent cmd/agent/**
+	go build -o bin/deployment-agent cmd/agent/*.go
 
 .PHONY: harness
 harness: ## build stack run harness
