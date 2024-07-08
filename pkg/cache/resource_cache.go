@@ -2,11 +2,11 @@ package cache
 
 import (
 	"context"
-	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"os"
 	"time"
 
+	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
