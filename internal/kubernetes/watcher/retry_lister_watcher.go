@@ -32,7 +32,7 @@ func (in *RetryListerWatcher) ResultChan() <-chan apiwatch.Event {
 	return in.resultChan
 }
 
-func (in *RetryListerWatcher) funnel(to chan<- apiwatch.Event, from <-chan apiwatch.Event) {
+func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
 	for {
 		select {
 		case <-in.Done():
@@ -42,19 +42,19 @@ func (in *RetryListerWatcher) funnel(to chan<- apiwatch.Event, from <-chan apiwa
 				return
 			}
 
-			to <- e
+			in.resultChan <- e
 		}
 	}
 }
 
-func (in *RetryListerWatcher) funnelItems(to chan<- apiwatch.Event, items ...apiwatch.Event) {
+func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
 	for _, item := range items {
 		select {
 		case <-in.Done():
 			klog.V(4).InfoS("funnelItems stopped due to resultChan being closed")
 			return
-		default:
-			to <- item
+		case in.resultChan <- item:
+			klog.V(4).InfoS("successfully sent item to resultChan")
 		}
 	}
 }
@@ -122,8 +122,8 @@ func (in *RetryListerWatcher) watch(resourceVersion string, initialItems ...apiw
 	}
 
 	in.RetryWatcher = w
-	in.funnelItems(in.resultChan, initialItems...)
-	in.funnel(in.resultChan, w.ResultChan())
+	in.funnelItems(initialItems...)
+	in.funnel(w.ResultChan())
 }
 
 func (in *RetryListerWatcher) ensureRequiredArgs() error {

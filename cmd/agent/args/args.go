@@ -33,6 +33,9 @@ const (
 	defaultResourceCacheTTLDuration = time.Hour
 
 	defaultRestoreNamespace = "velero"
+
+	defaultProfilerPath = "/debug/pprof/"
+	defaultProfilerAddress = ":7777"
 )
 
 var (
@@ -40,6 +43,7 @@ var (
 	argEnableHelmDependencyUpdate      = flag.Bool("enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
 	argEnableLeaderElection            = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
+	argProfiler                        = flag.Bool("profiler", false, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
 
 	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
 	argResyncSeconds           = flag.Int("resync-seconds", 300, "Resync duration in seconds.")
@@ -59,20 +63,17 @@ var (
 )
 
 func Init() {
+	defaultFlagSet := flag.CommandLine
+
 	// Init klog
-	fs := flag.NewFlagSet("", flag.PanicOnError)
-	klog.InitFlags(fs)
+	klog.InitFlags(defaultFlagSet)
 
 	// Use default log level defined by the application
-	_ = fs.Set("v", fmt.Sprintf("%d", log.LogLevelDefault))
+	_ = defaultFlagSet.Set("v", fmt.Sprintf("%d", log.LogLevelDefault))
 
 	opts := zap.Options{Development: true}
-	opts.BindFlags(flag.CommandLine)
+	opts.BindFlags(defaultFlagSet)
 
-	pflag.CommandLine.AddGoFlagSet(fs)
-	pflag.CommandLine.VisitAll(func(f *pflag.Flag) {
-		flag.CommandLine.Var(f.Value, f.Name, f.Usage)
-	})
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -80,6 +81,10 @@ func Init() {
 	// Initialize unique service set
 	if len(*argServices) > 0 {
 		serviceSet = containers.ToSet(strings.Split(*argServices, ","))
+	}
+
+	if *argProfiler {
+		initProfiler()
 	}
 
 	klog.V(log.LogLevelMinimal).InfoS("configured log level", "v", LogLevel())
