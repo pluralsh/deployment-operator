@@ -2,12 +2,17 @@ package service
 
 import (
 	"context"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/polly/containers"
+	"golang.org/x/exp/maps"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	console "github.com/pluralsh/console-client-go"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
@@ -84,45 +89,11 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 		Name:      e.Resource.GetName(),
 		Version:   version,
 		Synced:    live == desired,
-		State:     sc.reconciler.toStatus(e.Resource),
+		State:     common.ToStatus(e.Resource),
 		Content: &console.ComponentContentAttributes{
 			Desired: &desired,
 			Live:    &live,
 		},
-	}
-}
-
-func (sc *serviceComponentsStatusCollector) fromSyncResult(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
-	if e.Resource == nil {
-		return nil
-	}
-	gvk := e.Resource.GroupVersionKind()
-	gname := manifests.GroupName{
-		Group: gvk.Group,
-		Kind:  gvk.Kind,
-		Name:  e.Resource.GetName(),
-	}
-
-	version := gvk.Version
-	if v, ok := vcache[gname]; ok {
-		version = v
-	}
-
-	synced := e.PollResourceInfo.Status == status.CurrentStatus
-
-	if e.PollResourceInfo.Status == status.UnknownStatus {
-		if sc.reconciler.toStatus(e.Resource) != nil {
-			synced = *sc.reconciler.toStatus(e.Resource) == console.ComponentStateRunning
-		}
-	}
-	return &console.ComponentAttributes{
-		Group:     gvk.Group,
-		Kind:      gvk.Kind,
-		Namespace: e.Resource.GetNamespace(),
-		Name:      e.Resource.GetName(),
-		Version:   version,
-		Synced:    synced,
-		State:     sc.reconciler.toStatus(e.Resource),
 	}
 }
 
@@ -139,9 +110,21 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 	}
 
 	for _, v := range sc.latestStatus {
-		if attrs := sc.fromSyncResult(v, vcache); attrs != nil {
+		if attrs := common.StatusEventToComponentAttributes(v, vcache); attrs != nil {
 			components = append(components, attrs)
 		}
+	}
+
+	applyKeys := maps.Keys(sc.applyStatus)
+	statusKeys := maps.Keys(sc.latestStatus)
+	diff := containers.ToSet(applyKeys).Difference(containers.ToSet(statusKeys))
+	for key := range diff {
+		e, err := cache.GetResourceCache().GetCacheStatus(key.String())
+		if err != nil {
+			log.Logger.Error(err, "Failed to get cache status")
+			continue
+		}
+		components = append(components, e)
 	}
 
 	return components

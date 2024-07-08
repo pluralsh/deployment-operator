@@ -59,7 +59,6 @@ type ServiceReconciler struct {
 	SvcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
 	ManifestCache    *manifests.ManifestCache
 	UtilFactory      util.Factory
-	LuaScript        string
 	RestoreNamespace string
 
 	discoveryClient *discovery.DiscoveryClient
@@ -436,14 +435,6 @@ func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) *unstructured
 			},
 		},
 	}
-}
-
-func (s *ServiceReconciler) GetLuaScript() string {
-	return s.LuaScript
-}
-
-func (s *ServiceReconciler) SetLuaScript(script string) {
-	s.LuaScript = script
 }
 
 func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) {

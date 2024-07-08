@@ -2,6 +2,8 @@ package cache
 
 import (
 	"context"
+	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"os"
 	"time"
 
@@ -108,9 +110,10 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 		log.Logger.Error(err, "unable to convert resource to status event")
 		return
 	}
+	ca := common.StatusEventToComponentAttributes(*e, make(map[manifests.GroupName]string))
 	key := object.UnstructuredToObjMetadata(resource).String()
 	cacheEntry, _ := resourceCache.GetCacheEntry(key)
-	cacheEntry.SetStatus(e)
+	cacheEntry.SetStatus(ca)
 	resourceCache.SetCacheEntry(key, cacheEntry)
 
 }
@@ -195,7 +198,7 @@ func (in *ResourceCache) deleteCacheEntry(r *event.ResourceStatus) {
 	in.cache.Expire(r.Identifier.String())
 }
 
-func (in *ResourceCache) GetCacheStatus(key string) (*applyevent.StatusEvent, error) {
+func (in *ResourceCache) GetCacheStatus(key string) (*console.ComponentAttributes, error) {
 	entry, exists := in.cache.Get(key)
 	if exists && entry.status != nil {
 		return entry.status, nil
@@ -217,6 +220,9 @@ func (in *ResourceCache) GetCacheStatus(key string) (*applyevent.StatusEvent, er
 	}
 
 	s, err := in.toStatusEvent(obj)
+	if err != nil {
+		return nil, err
+	}
 	in.saveResourceStatus(obj)
-	return s, err
+	return common.StatusEventToComponentAttributes(*s, make(map[manifests.GroupName]string)), nil
 }

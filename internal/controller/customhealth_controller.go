@@ -21,6 +21,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,7 +68,7 @@ func (r *CustomHealthReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
-	r.ServiceReconciler.SetLuaScript(script.Spec.Script)
+	common.GetLuaScript().SetValue(script.Spec.Script)
 	utils.MarkCondition(script.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 
 	return ctrl.Result{}, nil
