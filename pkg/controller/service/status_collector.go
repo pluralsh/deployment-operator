@@ -2,20 +2,18 @@ package service
 
 import (
 	"context"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/polly/containers"
-	"golang.org/x/exp/maps"
-
-	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
+	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
-
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
 type serviceComponentsStatusCollector struct {
@@ -123,6 +121,15 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 		if err != nil {
 			log.Logger.Error(err, "Failed to get cache status")
 			continue
+		}
+		gname := manifests.GroupName{
+			Group: e.Group,
+			Kind:  e.Kind,
+			Name:  e.Name,
+		}
+
+		if v, ok := vcache[gname]; ok {
+			e.Version = v
 		}
 		components = append(components, e)
 	}
