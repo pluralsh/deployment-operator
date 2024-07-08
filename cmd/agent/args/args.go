@@ -34,7 +34,7 @@ const (
 
 	defaultRestoreNamespace = "velero"
 
-	defaultProfilerPath = "/debug/pprof/"
+	defaultProfilerPath    = "/debug/pprof/"
 	defaultProfilerAddress = ":7777"
 )
 
