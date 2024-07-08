@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -27,6 +28,7 @@ import (
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/watcher"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
@@ -336,9 +338,17 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 		labelSelectorString = in.LabelSelector.String()
 	}
 
-	return in.DynamicClient.Resource(gvr).Watch(ctx, metav1.ListOptions{
-		LabelSelector: labelSelectorString,
-	})
+	return watcher.NewRetryListerWatcher(
+		watcher.WithListWatchFunc(
+			func(options metav1.ListOptions) (runtime.Object, error) {
+				options.LabelSelector = labelSelectorString
+				return in.DynamicClient.Resource(gvr).List(ctx, options)
+			}, func(options metav1.ListOptions) (watch.Interface, error) {
+				options.LabelSelector = labelSelectorString
+				return in.DynamicClient.Resource(gvr).Watch(ctx, options)
+			}),
+		watcher.WithID(gkn.String()),
+	)
 }
 
 // startInformerNow starts an informer to watch for changes to a
@@ -349,12 +359,12 @@ func (in *ObjectStatusReporter) startInformerNow(
 	ctx context.Context,
 	gkn GroupKindNamespace,
 ) error {
-	watcher, err := in.newWatcher(ctx, gkn)
+	w, err := in.newWatcher(ctx, gkn)
 	if err != nil {
 		return err
 	}
 
-	in.watcherRefs[gkn].SetInformer(watcher)
+	in.watcherRefs[gkn].SetInformer(w)
 	eventCh := make(chan event.Event)
 
 	// Add this event channel to the output multiplexer
@@ -369,7 +379,7 @@ func (in *ObjectStatusReporter) startInformerNow(
 	go func() {
 		klog.V(3).Infof("Watch starting: %v", gkn)
 		metrics.Record().ResourceCacheWatchStart(gkn.String())
-		in.Run(ctx.Done(), watcher.ResultChan(), in.eventHandler(ctx, eventCh))
+		in.Run(ctx.Done(), w.ResultChan(), in.eventHandler(ctx, eventCh))
 		metrics.Record().ResourceCacheWatchEnd(gkn.String())
 		klog.V(3).Infof("Watch stopped: %v", gkn)
 		// Signal to the caller there will be no more events for this GroupKind.

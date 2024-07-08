@@ -21,10 +21,10 @@ import (
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
+	"github.com/pluralsh/deployment-operator/internal/kstatus/watcher"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/watcher"
 )
 
 type ResourceCache struct {
@@ -155,7 +155,7 @@ func (in *ResourceCache) watch() {
 				return
 			case e, ok := <-ch:
 				if !ok {
-					log.Logger.Info("status watcher event channel closed")
+					log.Logger.Error("status watcher event channel closed")
 					in.watch()
 					return
 				}
@@ -166,20 +166,17 @@ func (in *ResourceCache) watch() {
 }
 
 func (in *ResourceCache) reconcile(e event.Event) {
-	switch e.Type {
-	case event.ResourceUpdateEvent:
-		if !in.shouldCacheResource(e.Resource) {
-			in.deleteCacheEntry(e.Resource)
-			return
-		}
-
-		SaveResourceSHA(e.Resource.Resource, ServerSHA)
-		in.saveResourceStatus(e.Resource.Resource)
-	case event.ErrorEvent:
-		// handle
-	default:
-		// Ignore.
+	if e.Type != event.ResourceUpdateEvent {
+		return
 	}
+
+	if !in.shouldCacheResource(e.Resource) {
+		in.deleteCacheEntry(e.Resource)
+		return
+	}
+
+	SaveResourceSHA(e.Resource.Resource, ServerSHA)
+	in.saveResourceStatus(e.Resource.Resource)
 }
 
 func (in *ResourceCache) shouldCacheResource(r *event.ResourceStatus) bool {

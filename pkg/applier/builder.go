@@ -19,8 +19,8 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 
+	"github.com/pluralsh/deployment-operator/internal/kstatus/watcher"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/watcher"
 )
 
 type commonBuilder struct {
