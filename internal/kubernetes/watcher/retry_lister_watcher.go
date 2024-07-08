@@ -22,10 +22,8 @@ type RetryListerWatcher struct {
 	initialResourceVersion string
 	listerWatcher          cache.ListerWatcher
 
-	listOptions  metav1.ListOptions
-	watchOptions metav1.ListOptions
-
-	resultChan chan apiwatch.Event
+	listOptions metav1.ListOptions
+	resultChan  chan apiwatch.Event
 }
 
 func (in *RetryListerWatcher) ResultChan() <-chan apiwatch.Event {
@@ -92,18 +90,18 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 func (in *RetryListerWatcher) listAndWatch() error {
 	list, err := in.listerWatcher.List(in.listOptions)
 	if err != nil {
-		return fmt.Errorf("error listing resources: %v", err)
+		return fmt.Errorf("error listing resources: %w", err)
 	}
 
 	listMetaInterface, err := meta.ListAccessor(list)
 	if err != nil {
-		return fmt.Errorf("unable to understand list result %#v: %v", list, err)
+		return fmt.Errorf("unable to understand list result %#v: %w", list, err)
 	}
 
 	resourceVersion := listMetaInterface.GetResourceVersion()
 	items, err := meta.ExtractList(list)
 	if err != nil {
-		return fmt.Errorf("unable to understand list result %#v (%v)", list, err)
+		return fmt.Errorf("unable to understand list result %#v (%w)", list, err)
 	}
 
 	go in.watch(resourceVersion, in.toEvents(items...)...)
