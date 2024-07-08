@@ -5,85 +5,16 @@ import (
 	"fmt"
 	"strings"
 
+	console "github.com/pluralsh/console-client-go"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/polly/containers"
 	"golang.org/x/exp/maps"
-
-	console "github.com/pluralsh/console-client-go"
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
-
-// GetResourceHealth returns the health of a k8s resource
-func (s *ServiceReconciler) getResourceHealth(obj *unstructured.Unstructured) (health *common.HealthStatus, err error) {
-	if obj.GetDeletionTimestamp() != nil {
-		return &common.HealthStatus{
-			Status:  common.HealthStatusProgressing,
-			Message: "Pending deletion",
-		}, nil
-	}
-
-	if healthCheck := s.GetHealthCheckFunc(obj.GroupVersionKind()); healthCheck != nil {
-		if health, err = healthCheck(obj); err != nil {
-			health = &common.HealthStatus{
-				Status:  common.HealthStatusUnknown,
-				Message: err.Error(),
-			}
-		}
-	}
-	return health, err
-
-}
-
-// GetHealthCheckFunc returns built-in health check function or nil if health check is not supported
-func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*common.HealthStatus, error) {
-
-	if healthFunc := common.GetHealthCheckFuncByGroupVersionKind(gvk); healthFunc != nil {
-		return healthFunc
-	}
-
-	if s.GetLuaScript() != "" {
-		return s.getLuaHealthConvert
-	}
-
-	return common.GetOtherHealthStatus
-}
-
-func (s *ServiceReconciler) getLuaHealthConvert(obj *unstructured.Unstructured) (*common.HealthStatus, error) {
-	return common.GetLuaHealthConvert(obj, s.LuaScript)
-}
-
-func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.ComponentState {
-	h, err := s.getResourceHealth(obj)
-	if err != nil {
-		logger := log.FromContext(s.ctx)
-		logger.Error(err, "Failed to get resource health status", "name", obj.GetName(), "namespace", obj.GetNamespace())
-	}
-	if h == nil {
-		return nil
-	}
-
-	if h.Status == common.HealthStatusDegraded {
-		return lo.ToPtr(console.ComponentStateFailed)
-	}
-
-	if h.Status == common.HealthStatusHealthy {
-		return lo.ToPtr(console.ComponentStateRunning)
-	}
-
-	if h.Status == common.HealthStatusPaused {
-		return lo.ToPtr(console.ComponentStatePaused)
-	}
-
-	return lo.ToPtr(console.ComponentStatePending)
-}
 
 func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.GetServiceDeploymentForAgent_ServiceDeployment, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
 	logger := log.FromContext(ctx)

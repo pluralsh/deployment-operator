@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -77,7 +78,7 @@ var _ = Describe("Customhealt Controller", Ordered, func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(sr.LuaScript).Should(Equal(script))
+			Expect(common.GetLuaScript().GetValue()).Should(Equal(script))
 
 		})
 	})
