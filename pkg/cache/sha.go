@@ -1,10 +1,9 @@
 package cache
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/cli-utils/pkg/apply/event"
-
+	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type SHAType string
@@ -28,7 +27,7 @@ type ResourceCacheEntry struct {
 	// It is persisted only if there's a current-inventory annotation.
 	serverSHA *string
 
-	status *event.StatusEvent
+	status *console.ComponentAttributes
 }
 
 // Expire implements [Expirable] interface.
@@ -104,6 +103,6 @@ func HashResource(resource unstructured.Unstructured) (string, error) {
 	return utils.HashObject(object)
 }
 
-func (in *ResourceCacheEntry) SetStatus(status *event.StatusEvent) {
+func (in *ResourceCacheEntry) SetStatus(status *console.ComponentAttributes) {
 	in.status = status
 }

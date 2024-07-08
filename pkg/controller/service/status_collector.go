@@ -2,6 +2,10 @@ package service
 
 import (
 	"context"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/polly/containers"
+	"golang.org/x/exp/maps"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
 
@@ -109,6 +113,18 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 		if attrs := common.StatusEventToComponentAttributes(v, vcache); attrs != nil {
 			components = append(components, attrs)
 		}
+	}
+
+	applyKeys := maps.Keys(sc.applyStatus)
+	statusKeys := maps.Keys(sc.latestStatus)
+	diff := containers.ToSet(applyKeys).Difference(containers.ToSet(statusKeys))
+	for key := range diff {
+		e, err := cache.GetResourceCache().GetCacheStatus(key.String())
+		if err != nil {
+			log.Logger.Error(err, "Failed to get cache status")
+			continue
+		}
+		components = append(components, e)
 	}
 
 	return components

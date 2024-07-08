@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func Init() {
+func init() {
 	luaScript = &LuaScript{}
 }
 

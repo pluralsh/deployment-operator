@@ -8,8 +8,6 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
-	"github.com/pluralsh/polly/containers"
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
@@ -115,29 +113,12 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 		return err
 	}
-	s.ensureStatuses(ctx, statusCollector)
 	components := statusCollector.componentsAttributes(vcache)
 	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
 
 	return nil
-}
-
-func (s *ServiceReconciler) ensureStatuses(ctx context.Context, statusCollector *serviceComponentsStatusCollector) {
-	logger := log.FromContext(ctx)
-
-	applyKeys := maps.Keys(statusCollector.applyStatus)
-	statusKeys := maps.Keys(statusCollector.latestStatus)
-	diff := containers.ToSet(applyKeys).Difference(containers.ToSet(statusKeys))
-	for key := range diff {
-		e, err := cache.GetResourceCache().GetCacheStatus(key.String())
-		if err != nil {
-			logger.Error(err, "Failed to get cache status")
-			continue
-		}
-		statusCollector.latestStatus[key] = *e
-	}
 }
 
 func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) error {
