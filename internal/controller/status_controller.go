@@ -4,9 +4,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/cli-utils/pkg/common"
+	cliutilscommon "sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,6 +15,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 type StatusReconciler struct {
@@ -37,7 +36,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		return r.handleDelete(configMap)
 	}
 
-	inv, err := toUnstructured(configMap)
+	inv, err := common.ToUnstructured(configMap)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -66,23 +65,14 @@ func (r *StatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}).
 		WithEventFilter(predicate.NewPredicateFuncs(func(o client.Object) bool {
-			_, exists := o.GetLabels()[common.InventoryLabel]
+			_, exists := o.GetLabels()[cliutilscommon.InventoryLabel]
 			return exists
 		})).
 		Complete(r)
 }
 
-func toUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
-	objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return &unstructured.Unstructured{Object: objMap}, nil
-}
-
 func (r *StatusReconciler) inventoryID(c *corev1.ConfigMap) string {
-	return c.Labels[common.InventoryLabel]
+	return c.Labels[cliutilscommon.InventoryLabel]
 }
 
 func (r *StatusReconciler) handleDelete(c *corev1.ConfigMap) (ctrl.Result, error) {
