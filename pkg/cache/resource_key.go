@@ -3,11 +3,10 @@ package cache
 import (
 	"slices"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
@@ -19,18 +18,43 @@ func (in ResourceKey) ObjMetadata() object.ObjMetadata {
 	return object.ObjMetadata(in)
 }
 
-// TypeIdentifier returns string representation of ResourceKey. TODO
-// Name and namespace are replaced with placeholders as they cannot be empty to parse it back from the string.
-func (in ResourceKey) TypeIdentifier() string {
+// TypeIdentifier returns type-only representation of ResourceKey.
+// Name and namespace are replaced with placeholders as they cannot be empty.
+func (in ResourceKey) TypeIdentifier() ResourceKey {
 	in.Name = resourceKeyPlaceholder
 	in.Namespace = resourceKeyPlaceholder
 
+	return in
+}
+
+// ObjectIdentifier returns a string representation of [object.ObjMetadata].
+func (in ResourceKey) ObjectIdentifier() string {
 	return in.ObjMetadata().String()
 }
 
-// ObjectIdentifier ...TODO
-func (in ResourceKey) ObjectIdentifier() string {
-	return in.ObjMetadata().String()
+type ResourceKeys []ResourceKey
+
+func (in ResourceKeys) TypeIdentifierSet() containers.Set[ResourceKey] {
+	return containers.ToSet(algorithms.Map(in, func(obj ResourceKey) ResourceKey {
+		return obj.TypeIdentifier()
+	}))
+}
+
+func (in ResourceKeys) ObjectMetadataSet() object.ObjMetadataSet {
+	return algorithms.Map(in, func(r ResourceKey) object.ObjMetadata {
+		return r.ObjMetadata()
+	})
+}
+
+// InventoryResourceKeys maps cli-utils inventory ID to ResourceKeys.
+type InventoryResourceKeys map[string]ResourceKeys
+
+func (in InventoryResourceKeys) Values() ResourceKeys {
+	return slices.Concat(lo.Values(in)...)
+}
+
+func ResourceKeyFromObjMetadata(set object.ObjMetadataSet) ResourceKeys {
+	return algorithms.Map(set, func(obj object.ObjMetadata) ResourceKey { return ResourceKey(obj) })
 }
 
 func ResourceKeyFromUnstructured(obj *unstructured.Unstructured) ResourceKey {
@@ -43,29 +67,4 @@ func ResourceKeyFromUnstructured(obj *unstructured.Unstructured) ResourceKey {
 func ResourceKeyFromString(key string) (ResourceKey, error) {
 	objMetadata, err := object.ParseObjMetadata(key)
 	return ResourceKey(objMetadata), err
-}
-
-func ObjectMetadataSetFromStrings(keys []string) (_ object.ObjMetadataSet, err error) {
-	return algorithms.Map(keys, func(k string) object.ObjMetadata {
-		var o object.ObjMetadata
-		o, err = object.ParseObjMetadata(k)
-		return o
-	}), err
-}
-
-type ResourceKeys []ResourceKey
-
-func (in ResourceKeys) StringSet() containers.Set[string] {
-	return containers.ToSet(algorithms.Map(in, func(obj ResourceKey) string { return obj.TypeIdentifier() }))
-}
-
-func ResourceKeyFromObjMetadata(set object.ObjMetadataSet) ResourceKeys {
-	return algorithms.Map(set, func(obj object.ObjMetadata) ResourceKey { return ResourceKey(obj) })
-}
-
-// InventoryResourceKeys maps cli-utils inventory ID to ResourceKeys.
-type InventoryResourceKeys map[string]ResourceKeys
-
-func (in InventoryResourceKeys) Values() ResourceKeys {
-	return slices.Concat(lo.Values(in)...)
 }

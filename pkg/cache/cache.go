@@ -66,5 +66,3 @@ func (c *Cache[T]) Expire(key string) {
 	expirable.created = time.Now()
 	c.cache.Set(key, expirable)
 }
-
-func (c *Cache[T]) Clean() {}

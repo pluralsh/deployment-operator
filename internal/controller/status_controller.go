@@ -56,8 +56,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	}
 
 	r.inventoryCache[invID] = cache.ResourceKeyFromObjMetadata(set)
-
-	cache.GetResourceCache().Register(r.inventoryCache.Values().StringSet())
+	cache.GetResourceCache().Register(r.inventoryCache.Values().TypeIdentifierSet())
 
 	return ctrl.Result{}, nil
 }

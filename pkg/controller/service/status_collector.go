@@ -4,16 +4,17 @@ import (
 	"context"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
 type serviceComponentsStatusCollector struct {
@@ -117,7 +118,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 	statusKeys := maps.Keys(sc.latestStatus)
 	diff := containers.ToSet(applyKeys).Difference(containers.ToSet(statusKeys))
 	for key := range diff {
-		e, err := cache.GetResourceCache().GetCacheStatus(key.String())
+		e, err := cache.GetResourceCache().GetCacheStatus(key)
 		if err != nil {
 			log.Logger.Error(err, "Failed to get cache status")
 			continue
