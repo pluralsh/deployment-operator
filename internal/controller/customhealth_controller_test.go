@@ -17,7 +17,7 @@ import (
 var _ = Describe("Customhealt Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
-			resourceName = "test"
+			resourceName = "default"
 			namespace    = "default"
 			script       = "test script"
 		)
