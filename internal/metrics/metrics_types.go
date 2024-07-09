@@ -13,7 +13,6 @@ const (
 	ServiceReconciliationErrorMetricName        = "agent_service_reconciliation_errors_total"
 	ServiceReconciliationErrorMetricDescription = "The total number of service reconciliation errors"
 
-	ServiceReconciliationMetricLabelServiceID   = "service_id"
 	ServiceReconciliationMetricLabelServiceName = "service_name"
 
 	StackRunJobsCreatedMetricName        = "agent_stack_runs_created_total"
@@ -29,12 +28,13 @@ const (
 	ResourceCacheMissMetricName        = "agent_resource_cache_miss_total"
 	ResourceCacheMissMetricDescription = "The total number of resource cache misses"
 
-	ResourceCacheMetricLabelServiceID = "service_id"
+	MetricLabelServiceID = "service_id"
 )
 
 type Recorder interface {
 	DiscoveryAPICacheRefresh(err error)
 	ServiceReconciliation(serviceID, serviceName string, err error)
+	ServiceDeletion(serviceID string)
 	StackRunJobCreation()
 	ResourceCacheWatchStart(resourceType string)
 	ResourceCacheWatchEnd(resourceType string)

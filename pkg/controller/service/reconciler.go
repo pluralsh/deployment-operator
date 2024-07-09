@@ -323,6 +323,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			ValidationPolicy:        1,
 		})
 
+		metrics.Record().ServiceDeletion(id)
 		err = s.UpdatePruneStatus(ctx, svc, ch, map[manis.GroupName]string{})
 		return
 	}

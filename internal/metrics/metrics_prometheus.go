@@ -54,6 +54,14 @@ func (in *prometheusRecorder) ServiceReconciliation(serviceID, serviceName strin
 	in.serviceReconciliationCounter.WithLabelValues(serviceID, serviceName).Inc()
 }
 
+func (in *prometheusRecorder) ServiceDeletion(serviceID string) {
+	labels := prometheus.Labels{MetricLabelServiceID: serviceID}
+	in.serviceReconciliationErrorCounter.DeletePartialMatch(labels)
+	in.serviceReconciliationCounter.DeletePartialMatch(labels)
+	in.resourceCacheMissCounter.DeletePartialMatch(labels)
+	in.resourceCacheHitCounter.DeletePartialMatch(labels)
+}
+
 func (in *prometheusRecorder) StackRunJobCreation() {
 	in.stackRunJobsCreatedCounter.Inc()
 }
@@ -72,12 +80,12 @@ func (in *prometheusRecorder) init() Recorder {
 	in.serviceReconciliationCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: ServiceReconciliationMetricName,
 		Help: ServiceReconciliationMetricDescription,
-	}, []string{ServiceReconciliationMetricLabelServiceID, ServiceReconciliationMetricLabelServiceName})
+	}, []string{MetricLabelServiceID, ServiceReconciliationMetricLabelServiceName})
 
 	in.serviceReconciliationErrorCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: ServiceReconciliationErrorMetricName,
 		Help: ServiceReconciliationErrorMetricDescription,
-	}, []string{ServiceReconciliationMetricLabelServiceID, ServiceReconciliationMetricLabelServiceName})
+	}, []string{MetricLabelServiceID, ServiceReconciliationMetricLabelServiceName})
 
 	in.stackRunJobsCreatedCounter = promauto.NewCounter(prometheus.CounterOpts{
 		Name: StackRunJobsCreatedMetricName,
@@ -92,12 +100,12 @@ func (in *prometheusRecorder) init() Recorder {
 	in.resourceCacheHitCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: ResourceCacheHitMetricName,
 		Help: ResourceCacheHitMetricDescription,
-	}, []string{ResourceCacheMetricLabelServiceID})
+	}, []string{MetricLabelServiceID})
 
 	in.resourceCacheMissCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: ResourceCacheMissMetricName,
 		Help: ResourceCacheMissMetricDescription,
-	}, []string{ResourceCacheMetricLabelServiceID})
+	}, []string{MetricLabelServiceID})
 
 	return in
 }
