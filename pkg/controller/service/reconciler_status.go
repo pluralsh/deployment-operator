@@ -4,14 +4,18 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/internal/metrics"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
 func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.GetServiceDeploymentForAgent_ServiceDeployment, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
@@ -53,16 +57,28 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.
 	return nil
 }
 
-func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.GetServiceDeploymentForAgent_ServiceDeployment, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdateApplyStatus(
+	ctx context.Context,
+	svc *console.GetServiceDeploymentForAgent_ServiceDeployment,
+	ch <-chan event.Event,
+	printStatus bool,
+	vcache map[manifests.GroupName]string,
+) error {
 	logger := log.FromContext(ctx)
-
-	var statsCollector stats.Stats
-	var err error
-	statusCollector := newServiceComponentsStatusCollector(s, svc)
+	start, err := metrics.FromContext[time.Time](ctx, metrics.ContextKeyTimeStart)
 	if err != nil {
-		return err
+		klog.Fatalf("programmatic error! context does not have value for the key %s", metrics.ContextKeyTimeStart)
 	}
 
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
+	)
+
+	var statsCollector stats.Stats
+	statusCollector := newServiceComponentsStatusCollector(s, svc)
 	for e := range ch {
 		statsCollector.Handle(e)
 		switch e.Type {
@@ -110,6 +126,13 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 		}
 	}
 
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
+	)
+
 	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 		return err
 	}
@@ -117,6 +140,13 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
+
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationUpdateStatusFinish),
+	)
 
 	return nil
 }

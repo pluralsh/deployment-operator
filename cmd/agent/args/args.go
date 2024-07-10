@@ -44,6 +44,7 @@ var (
 	argEnableLeaderElection            = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
 	argProfiler                        = flag.Bool("profiler", false, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
+	argDisableResourceCache            = flag.Bool("disable-resource-cache", false, "Control whether resource cache should be enabled or not.")
 
 	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
 	argResyncSeconds           = flag.Int("resync-seconds", 300, "Resync duration in seconds.")
@@ -191,6 +192,10 @@ func LogLevel() klog.Level {
 	}
 
 	return klog.Level(level)
+}
+
+func ResourceCacheEnabled() bool {
+	return !(*argDisableResourceCache)
 }
 
 func ensureOrDie(argName string, arg *string) {

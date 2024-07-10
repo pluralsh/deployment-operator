@@ -281,6 +281,9 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 }
 
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
+	start := time.Now()
+	ctx = context.WithValue(ctx, metrics.ContextKeyTimeStart, start)
+
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to sync service", "id", id)
 
@@ -294,6 +297,13 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
+	metrics.Record().ServiceReconciliation(
+		id,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationStart),
+	)
+
 	defer func() {
 		if err != nil {
 			logger.Error(err, "process item")
@@ -302,7 +312,13 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			}
 		}
 
-		metrics.Record().ServiceReconciliation(id, svc.Name, err)
+		metrics.Record().ServiceReconciliation(
+			id,
+			svc.Name,
+			metrics.WithServiceReconciliationError(err),
+			metrics.WithServiceReconciliationStartedAt(start),
+			metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationFinish),
+		)
 	}()
 
 	logger.V(2).Info("local", "flag", args.Local())
@@ -341,6 +357,13 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 	inv := inventory.WrapInventoryInfoObj(invObj)
+
+	metrics.Record().ServiceReconciliation(
+		id,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationPrepareManifestsFinish),
+	)
 
 	vcache := manis.VersionCache(manifests)
 

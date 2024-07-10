@@ -58,7 +58,10 @@ func main() {
 	args.Init()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
-	cache.Init(ctx, config, args.ResourceCacheTTL())
+
+	if args.ResourceCacheEnabled() {
+		cache.Init(ctx, config, args.ResourceCacheTTL())
+	}
 
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,

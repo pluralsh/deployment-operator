@@ -2,11 +2,13 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
 	console "github.com/pluralsh/console-client-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
 
@@ -68,7 +70,10 @@ type ResourceCache struct {
 	watcher kwatcher.StatusWatcher
 }
 
-var resourceCache *ResourceCache
+var (
+	resourceCache *ResourceCache
+	initialized   = false
+)
 
 // Init must be executed early in [main] in order to ensure that the
 // [ResourceCache] will be initialized properly during the application
@@ -106,6 +111,8 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		resourceKeySet: containers.NewSet[ResourceKey](),
 		watcher:        w,
 	}
+
+	initialized = true
 }
 
 // GetResourceCache returns an instance of [ResourceCache]. It can
@@ -116,6 +123,11 @@ func GetResourceCache() *ResourceCache {
 
 // GetCacheEntry returns a [ResourceCacheEntry] and an information if it exists.
 func (in *ResourceCache) GetCacheEntry(key string) (ResourceCacheEntry, bool) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return ResourceCacheEntry{}, false
+	}
+
 	if sha, exists := in.cache.Get(key); exists && sha != nil {
 		return *sha, true
 	}
@@ -125,6 +137,11 @@ func (in *ResourceCache) GetCacheEntry(key string) (ResourceCacheEntry, bool) {
 
 // SetCacheEntry updates cache key with the provided value of [ResourceCacheEntry].
 func (in *ResourceCache) SetCacheEntry(key string, value ResourceCacheEntry) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return
+	}
+
 	in.cache.Set(key, &value)
 }
 
@@ -132,6 +149,11 @@ func (in *ResourceCache) SetCacheEntry(key string, value ResourceCacheEntry) {
 // are stored. It only supports registering new resources that are not currently being watched.
 // If empty set is provided, it won't do anything.
 func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[ResourceKey]) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return
+	}
+
 	toAdd := inventoryResourceKeys.Difference(in.resourceKeySet)
 
 	if len(toAdd) > 0 {
@@ -143,6 +165,11 @@ func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[ResourceK
 // SaveResourceSHA allows updating specific SHA type based on the provided resource. It will
 // calculate the SHA and then update cache.
 func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return
+	}
+
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
 	if err := sha.SetSHA(*resource, shaType); err == nil {
@@ -153,6 +180,10 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 // GetCacheStatus returns cached status based on the provided key. If no status is found in cache,
 // it will make an API call, fetch the latest resource and extract the status.
 func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.ComponentAttributes, error) {
+	if !initialized {
+		return nil, fmt.Errorf("resource cache not initialized")
+	}
+
 	entry, exists := in.cache.Get(key.String())
 	if exists && entry.status != nil {
 		return entry.status, nil

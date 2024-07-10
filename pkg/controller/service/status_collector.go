@@ -120,7 +120,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 	for key := range diff {
 		e, err := cache.GetResourceCache().GetCacheStatus(key)
 		if err != nil {
-			log.Logger.Error(err, "Failed to get cache status")
+			log.Logger.Error(err, "failed to get cache status")
 			continue
 		}
 		gname := manifests.GroupName{
