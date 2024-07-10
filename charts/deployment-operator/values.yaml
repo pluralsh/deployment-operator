@@ -11,8 +11,7 @@ args:
   processingTimeout: 5m
   enableHelmDependencyUpdate: false
   disableHelmTemplateDryRunServer: false
-
-extraArgs: []
+  disableResourceCache: false
 
 image:
   repository: ghcr.io/pluralsh/deployment-operator
