@@ -46,6 +46,9 @@ spec:
           - -processing-timeout={{ .Values.args.processingTimeout }}
           - -enable-helm-dependency-update={{ .Values.args.enableHelmDependencyUpdate }}
           - -disable-helm-dry-run-server={{ .Values.args.disableHelmTemplateDryRunServer }}
+          {{- range .Values.extraArgs }}
+          - {{ . }}
+          {{- end }}
           env:
           - name: IMAGE_TAG
             value: {{ $tag | quote }}

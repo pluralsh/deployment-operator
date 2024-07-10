@@ -12,6 +12,8 @@ args:
   enableHelmDependencyUpdate: false
   disableHelmTemplateDryRunServer: false
 
+extraArgs: []
+
 image:
   repository: ghcr.io/pluralsh/deployment-operator
   pullPolicy: IfNotPresent
