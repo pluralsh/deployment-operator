@@ -46,6 +46,7 @@ spec:
           - -processing-timeout={{ .Values.args.processingTimeout }}
           - -enable-helm-dependency-update={{ .Values.args.enableHelmDependencyUpdate }}
           - -disable-helm-dry-run-server={{ .Values.args.disableHelmTemplateDryRunServer }}
+          - -disable-resource-cache
           {{- range .Values.extraArgs }}
           - {{ . }}
           {{- end }}
