@@ -38,3 +38,8 @@ args:
 args:
   disableHelmTemplateDryRunServer: {{ configuration.disableHelmTemplateDryRunServer }}
 {% endif %}
+
+{% if configuration.disableResourceCache %}
+args:
+  disableResourceCache: {{ configuration.disableResourceCache }}
+{% endif %}

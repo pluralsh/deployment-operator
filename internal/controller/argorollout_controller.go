@@ -9,25 +9,22 @@ import (
 
 	clientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned/typed/rollouts/v1alpha1"
 	"github.com/argoproj/argo-rollouts/pkg/kubectl-argo-rollouts/cmd/abort"
+	"sigs.k8s.io/cli-utils/pkg/inventory"
 
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-)
 
-const (
-	inventoryAnnotationName = "config.k8s.io/owning-inventory"
-	closed                  = "closed"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 var requeueRollout = ctrl.Result{RequeueAfter: time.Second * 5}
@@ -60,7 +57,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	serviceID, ok := rollout.Annotations[inventoryAnnotationName]
+	serviceID, ok := rollout.Annotations[inventory.OwningInventoryKey]
 	if !ok {
 		return ctrl.Result{}, nil
 	}

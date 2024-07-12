@@ -32,6 +32,8 @@ import (
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/yaml"
+
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 )
 
 const (
@@ -45,8 +47,6 @@ const (
 )
 
 func init() {
-	EnableHelmDependencyUpdate = false
-	DisableHelmTemplateDryRunServer = false
 	// setup helm cache directory.
 	dir, err := os.MkdirTemp("", "repositories")
 	if err != nil {
@@ -59,8 +59,6 @@ func init() {
 }
 
 var settings = cli.New()
-var EnableHelmDependencyUpdate bool
-var DisableHelmTemplateDryRunServer bool
 var APIVersions cmap.ConcurrentMap[string, bool]
 
 func debug(format string, v ...interface{}) {
@@ -90,8 +88,8 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 		return nil, err
 	}
 
-	log.Println("render helm templates:", "enable dependency update=", EnableHelmDependencyUpdate, "dependencies=", len(c.Dependencies))
-	if len(c.Dependencies) > 0 && EnableHelmDependencyUpdate {
+	log.Println("render helm templates:", "enable dependency update=", args.EnableHelmDependencyUpdate(), "dependencies=", len(c.Dependencies))
+	if len(c.Dependencies) > 0 && args.EnableHelmDependencyUpdate() {
 		if err := h.dependencyUpdate(config, c.Dependencies); err != nil {
 			return nil, err
 		}
@@ -216,7 +214,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 
 	client := action.NewInstall(conf)
 	client.DryRun = true
-	if !DisableHelmTemplateDryRunServer {
+	if !args.DisableHelmTemplateDryRunServer() {
 		client.DryRunOption = "server"
 	}
 	client.ReleaseName = release

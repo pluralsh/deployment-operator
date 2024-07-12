@@ -5,10 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
 type ControllerManager struct {
@@ -88,8 +89,7 @@ func (cm *ControllerManager) Start() error {
 			if controllerPollInterval := controller.Do.GetPollInterval(); controllerPollInterval > 0 {
 				pollInterval = controllerPollInterval
 			}
-			//nolint:all
-			_ = wait.PollImmediateInfinite(pollInterval, func() (done bool, err error) {
+			_ = wait.PollUntilContextCancel(context.Background(), pollInterval, true, func(_ context.Context) (done bool, err error) {
 				return controller.Do.Poll(cm.ctx)
 			})
 		}()
@@ -100,8 +100,7 @@ func (cm *ControllerManager) Start() error {
 	}
 
 	go func() {
-		//nolint:all
-		_ = wait.PollImmediateInfinite(cm.Refresh, func() (done bool, err error) {
+		_ = wait.PollUntilContextCancel(context.Background(), cm.Refresh, true, func(_ context.Context) (done bool, err error) {
 			return false, cm.Socket.Join()
 		})
 	}()

@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,7 +17,7 @@ import (
 var _ = Describe("Customhealt Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
-			resourceName = "test"
+			resourceName = "default"
 			namespace    = "default"
 			script       = "test script"
 		)
@@ -76,7 +77,7 @@ var _ = Describe("Customhealt Controller", Ordered, func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(sr.LuaScript).Should(Equal(script))
+			Expect(common.GetLuaScript().GetValue()).Should(Equal(script))
 
 		})
 	})

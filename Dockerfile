@@ -1,4 +1,4 @@
-FROM golang:1.21.2-alpine3.17 as builder
+FROM golang:1.22.4-alpine3.20 as builder
 
 ARG TARGETARCH
 
@@ -17,9 +17,9 @@ COPY /api api/
 COPY /internal internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent cmd/agent/**
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent cmd/agent/*.go
 
-FROM alpine:3.18
+FROM alpine:3.20
 WORKDIR /workspace
 
 COPY --from=builder /workspace/deployment-agent .

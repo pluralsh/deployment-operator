@@ -1,13 +1,13 @@
-package service
+package common
 
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
-	"github.com/pluralsh/deployment-operator/pkg/lua"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -19,8 +19,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubectl/pkg/util/podutils"
 )
+
+const (
+	// Indicates that health assessment failed and actual health status is unknown
+	HealthStatusUnknown HealthStatusCode = "Unknown"
+	// Progressing health status means that resource is not healthy but still have a chance to reach healthy state
+	HealthStatusProgressing HealthStatusCode = "Progressing"
+	// Resource is 100% healthy
+	HealthStatusHealthy HealthStatusCode = "Healthy"
+	// Assigned to resources that are suspended or paused. The typical example is a
+	// [suspended](https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#suspend) CronJob.
+	HealthStatusSuspended HealthStatusCode = "Suspended"
+	HealthStatusPaused    HealthStatusCode = "Paused"
+	// Degrade status is used if resource status indicates failure or resource could not reach healthy state
+	// within some timeout.
+	HealthStatusDegraded HealthStatusCode = "Degraded"
+	// Indicates that resource is missing in the cluster.
+	HealthStatusMissing HealthStatusCode = "Missing"
+)
+
+// Represents resource health status
+type HealthStatusCode string
 
 const (
 	SecretKind                   = "Secret"
@@ -772,7 +794,58 @@ type Status struct {
 
 const readyCondition = "Ready"
 
-func getOtherHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
+func GetHealthCheckFuncByGroupVersionKind(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	switch gvk.Group {
+	case "apps":
+		switch gvk.Kind {
+		case DeploymentKind:
+			return getDeploymentHealth
+		case StatefulSetKind:
+			return getStatefulSetHealth
+		case ReplicaSetKind:
+			return getReplicaSetHealth
+		case DaemonSetKind:
+			return getDaemonSetHealth
+		}
+	case "extensions":
+		if gvk.Kind == IngressKind {
+			return getIngressHealth
+		}
+	case "networking.k8s.io":
+		if gvk.Kind == IngressKind {
+			return getIngressHealth
+		}
+	case "":
+		switch gvk.Kind {
+		case ServiceKind:
+			return getServiceHealth
+		case PersistentVolumeClaimKind:
+			return getPVCHealth
+		case PodKind:
+			return getPodHealth
+		}
+	case "batch":
+		if gvk.Kind == JobKind {
+			return getJobHealth
+		}
+	case "flagger.app":
+		if gvk.Kind == CanaryKind {
+			return getCanaryHealth
+		}
+	case rollouts.Group:
+		if gvk.Kind == rollouts.RolloutKind {
+			return getArgoRolloutHealth
+		}
+	case "autoscaling":
+		if gvk.Kind == HorizontalPodAutoscalerKind {
+			return getHPAHealth
+		}
+	}
+
+	return nil
+}
+
+func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	sts := Status{}
 	status, ok := obj.Object["status"]
 	if ok {
@@ -794,19 +867,4 @@ func getOtherHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	}
 
 	return nil, nil
-}
-
-func (s *ServiceReconciler) getLuaHealthConvert(obj *unstructured.Unstructured) (*HealthStatus, error) {
-	out, err := lua.ExecuteLua(obj.Object, s.LuaScript)
-	if err != nil {
-		return nil, err
-	}
-	healthStatus := &HealthStatus{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(out, healthStatus); err != nil {
-		return nil, err
-	}
-	if healthStatus.Status == "" && healthStatus.Message == "" {
-		return nil, nil
-	}
-	return healthStatus, nil
 }

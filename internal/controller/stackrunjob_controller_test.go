@@ -8,8 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
@@ -18,6 +16,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("Stack Run Job Controller", Ordered, func() {

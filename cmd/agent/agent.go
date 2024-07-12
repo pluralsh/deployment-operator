@@ -4,6 +4,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 
@@ -21,26 +22,23 @@ import (
 
 const pollInterval = time.Second * 30
 
-func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {
-	r, err := time.ParseDuration(opt.refreshInterval)
-	if err != nil {
-		setupLog.Error("unable to get refresh interval", "error", err)
-		os.Exit(1)
-	}
-
-	t, err := time.ParseDuration(opt.processingTimeout)
-	if err != nil {
-		setupLog.Errorw("unable to get processing timeout", "error", err)
-		os.Exit(1)
-	}
-
-	mgr, err := controller.NewControllerManager(ctx, opt.maxConcurrentReconciles, t, r, lo.ToPtr(true), opt.consoleUrl, opt.deployToken, opt.clusterId)
+func runAgent(config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {
+	mgr, err := controller.NewControllerManager(
+		ctx,
+		args.MaxConcurrentReconciles(),
+		args.ProcessingTimeout(),
+		args.RefreshInterval(),
+		lo.ToPtr(true),
+		args.ConsoleUrl(),
+		args.DeployToken(),
+		args.ClusterId(),
+	)
 	if err != nil {
 		setupLog.Errorw("unable to create manager", "error", err)
 		os.Exit(1)
 	}
 
-	sr, err := service.NewServiceReconciler(ctx, mgr.GetClient(), config, r, opt.restoreNamespace)
+	sr, err := service.NewServiceReconciler(ctx, mgr.GetClient(), config, args.RefreshInterval(), args.ManifestCacheTTL(), args.RestoreNamespace(), args.ConsoleUrl())
 	if err != nil {
 		setupLog.Errorw("unable to create service reconciler", "error", err)
 		os.Exit(1)
@@ -50,7 +48,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Do:    sr,
 		Queue: sr.SvcQueue,
 	})
-	gr, err := pipelinegates.NewGateReconciler(mgr.GetClient(), k8sClient, config, r, pollInterval, opt.clusterId)
+	gr, err := pipelinegates.NewGateReconciler(mgr.GetClient(), k8sClient, config, args.RefreshInterval(), pollInterval, args.ClusterId())
 	if err != nil {
 		setupLog.Errorw("unable to create gate reconciler", "error", err)
 		os.Exit(1)
@@ -61,14 +59,14 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		Queue: gr.GateQueue,
 	})
 
-	rr := restore.NewRestoreReconciler(mgr.GetClient(), k8sClient, r, opt.restoreNamespace)
+	rr := restore.NewRestoreReconciler(mgr.GetClient(), k8sClient, args.RefreshInterval(), args.RestoreNamespace())
 	mgr.AddController(&controller.Controller{
 		Name:  "Restore Controller",
 		Do:    rr,
 		Queue: rr.RestoreQueue,
 	})
 
-	ns := namespaces.NewNamespaceReconciler(mgr.GetClient(), k8sClient, r)
+	ns := namespaces.NewNamespaceReconciler(mgr.GetClient(), k8sClient, args.RefreshInterval())
 	mgr.AddController(&controller.Controller{
 		Name:  "Managed Namespace Controller",
 		Do:    ns,
@@ -81,7 +79,7 @@ func runAgent(opt *options, config *rest.Config, ctx context.Context, k8sClient 
 		os.Exit(1)
 	}
 
-	s := stacks.NewStackReconciler(mgr.GetClient(), k8sClient, r, pollInterval, namespace, opt.consoleUrl, opt.deployToken)
+	s := stacks.NewStackReconciler(mgr.GetClient(), k8sClient, args.RefreshInterval(), pollInterval, namespace, args.ConsoleUrl(), args.DeployToken())
 	mgr.AddController(&controller.Controller{
 		Name:  "Stack Controller",
 		Do:    s,

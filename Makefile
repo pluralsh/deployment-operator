@@ -59,14 +59,25 @@ genmock: mockery ## generates mocks before running tests
 ##@ Run
 
 .PHONY: agent-run
-agent-run: ## run agent
-	go run cmd/agent/**
+agent-run: agent ## run agent
+	OPERATOR_NAMESPACE=plrl-deploy-operator \
+	go run cmd/agent/*.go \
+		--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
+        --enable-helm-dependency-update=false \
+        --disable-helm-dry-run-server=false \
+        --cluster-id=${PLURAL_CLUSTER_ID} \
+        --local \
+        --refresh-interval=30s \
+        --resource-cache-ttl=60s \
+        --max-concurrent-reconciles=20 \
+        --v=1 \
+        --deploy-token=${PLURAL_DEPLOY_TOKEN}
 
 ##@ Build
 
 .PHONY: agent
 agent: ## build agent
-	go build -o bin/deployment-agent cmd/agent/**
+	go build -o bin/deployment-agent cmd/agent/*.go
 
 .PHONY: harness
 harness: ## build stack run harness

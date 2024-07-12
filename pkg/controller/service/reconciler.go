@@ -23,6 +23,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
+
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
@@ -36,14 +39,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
-)
-
-func init() {
-	Local = false
-}
-
-var (
-	Local = false
 )
 
 const (
@@ -64,14 +59,14 @@ type ServiceReconciler struct {
 	SvcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
 	ManifestCache    *manifests.ManifestCache
 	UtilFactory      util.Factory
-	LuaScript        string
 	RestoreNamespace string
 
 	discoveryClient *discovery.DiscoveryClient
 	pinger          *ping.Pinger
+	ctx             context.Context
 }
 
-func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
+func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	logger := log.FromContext(ctx)
 	utils.DisableClientLimits(config)
 
@@ -88,7 +83,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 
 	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-	manifestCache := manifests.NewCache(refresh, deployToken)
+	manifestCache := manifests.NewCache(manifestTTL, deployToken, consoleURL)
 
 	f := utils.NewFactory(config)
 
@@ -131,14 +126,13 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		discoveryClient:  discoveryClient,
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		RestoreNamespace: restoreNamespace,
+		ctx:              ctx,
 	}, nil
 }
 
 func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 	lists, err := discoveryClient.ServerPreferredResources()
-	if err != nil {
-		return err
-	}
+
 	for _, list := range lists {
 		if len(list.APIResources) == 0 {
 			continue
@@ -154,7 +148,7 @@ func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
 			template.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
 		}
 	}
-	return nil
+	return err
 }
 
 func (s *ServiceReconciler) GetPollInterval() time.Duration {
@@ -196,6 +190,12 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 
 func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
 	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
+		labels := man.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels[agentcommon.ManagedByLabel] = agentcommon.AgentLabelValue
+		man.SetLabels(labels)
 		if man.GetKind() != "CustomResourceDefinition" {
 			return man
 		}
@@ -261,6 +261,12 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 			return false, nil
 		}
 		for _, svc := range services {
+			// If services arg is provided, we can skip
+			// services that are not on the list.
+			if args.SkipService(svc.Node.ID) {
+				continue
+			}
+
 			logger.Info("sending update for", "service", svc.Node.ID)
 			s.SvcQueue.Add(svc.Node.ID)
 		}
@@ -275,6 +281,9 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 }
 
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
+	start := time.Now()
+	ctx = context.WithValue(ctx, metrics.ContextKeyTimeStart, start)
+
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to sync service", "id", id)
 
@@ -288,6 +297,13 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
+	metrics.Record().ServiceReconciliation(
+		id,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationStart),
+	)
+
 	defer func() {
 		if err != nil {
 			logger.Error(err, "process item")
@@ -296,11 +312,17 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			}
 		}
 
-		metrics.Record().ServiceReconciliation(id, svc.Name, err)
+		metrics.Record().ServiceReconciliation(
+			id,
+			svc.Name,
+			metrics.WithServiceReconciliationError(err),
+			metrics.WithServiceReconciliationStartedAt(start),
+			metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationFinish),
+		)
 	}()
 
-	logger.V(2).Info("local", "flag", Local)
-	if Local && svc.Name == OperatorService {
+	logger.V(2).Info("local", "flag", args.Local())
+	if args.Local() && svc.Name == OperatorService {
 		return
 	}
 
@@ -317,6 +339,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			ValidationPolicy:        1,
 		})
 
+		metrics.Record().ServiceDeletion(id)
 		err = s.UpdatePruneStatus(ctx, svc, ch, map[manis.GroupName]string{})
 		return
 	}
@@ -328,7 +351,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 	manifests = postProcess(manifests)
-
 	logger.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
 	if err != nil {
@@ -336,9 +358,14 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 	inv := inventory.WrapInventoryInfoObj(invObj)
 
-	vcache := manis.VersionCache(manifests)
+	metrics.Record().ServiceReconciliation(
+		id,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationPrepareManifestsFinish),
+	)
 
-	logger.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
+	vcache := manis.VersionCache(manifests)
 
 	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
 		logger.Error(err, "failed to check namespace")
@@ -432,14 +459,6 @@ func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) *unstructured
 			},
 		},
 	}
-}
-
-func (s *ServiceReconciler) GetLuaScript() string {
-	return s.LuaScript
-}
-
-func (s *ServiceReconciler) SetLuaScript(script string) {
-	s.LuaScript = script
 }
 
 func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) {

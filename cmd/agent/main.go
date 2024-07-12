@@ -10,6 +10,17 @@ import (
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	_ "github.com/pluralsh/deployment-operator/pkg/cache" // Init cache.
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,11 +31,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-
-	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 var (
@@ -49,15 +55,28 @@ const (
 )
 
 func main() {
-	opt := newOptions()
+	args.Init()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
 
+	if args.ResourceCacheEnabled() {
+		cache.Init(ctx, config, args.ResourceCacheTTL())
+	}
+
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
-		LeaderElection:         opt.enableLeaderElection,
+		LeaderElection:         args.EnableLeaderElection(),
 		LeaderElectionID:       "dep12loy45.plural.sh",
-		HealthProbeBindAddress: opt.probeAddr,
+		HealthProbeBindAddress: args.ProbeAddr(),
+		Metrics: server.Options{
+			BindAddress: args.MetricsAddr(),
+			ExtraHandlers: map[string]http.Handler{
+				// Default prometheus metrics path.
+				// We can't use /metrics as it is already taken by the
+				// controller manager.
+				"/metrics/agent": promhttp.Handler(),
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
@@ -78,8 +97,9 @@ func main() {
 		setupLog.Error(err, "unable to create kubernetes client")
 		os.Exit(1)
 	}
+
 	setupLog.Info("starting agent")
-	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
+	ctrlMgr, serviceReconciler, gateReconciler := runAgent(config, ctx, mgr.GetClient())
 
 	backupController := &controller.BackupReconciler{
 		Client:        mgr.GetClient(),
@@ -101,7 +121,7 @@ func main() {
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		ConsoleClient: ctrlMgr.GetClient(),
-		ConsoleURL:    opt.consoleUrl,
+		ConsoleURL:    args.ConsoleUrl(),
 		HttpClient:    &http.Client{Timeout: httpClientTimout},
 		ArgoClientSet: rolloutsClient,
 		DynamicClient: dynamicClient,
@@ -156,12 +176,20 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
 	}
 
+	statusController, err := controller.NewStatusReconciler(mgr.GetClient())
+	if err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "StatusController")
+	}
+	if err := statusController.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to start controller", "controller", "StatusController")
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err = (&controller.PipelineGateReconciler{
 		Client:        mgr.GetClient(),
 		GateCache:     gateReconciler.GateCache,
-		ConsoleClient: client.New(opt.consoleUrl, opt.deployToken),
+		ConsoleClient: client.New(args.ConsoleUrl(), args.DeployToken()),
 		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
 		Scheme:        mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
