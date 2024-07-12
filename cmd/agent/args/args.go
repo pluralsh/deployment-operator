@@ -32,6 +32,9 @@ const (
 	defaultResourceCacheTTL         = "1h"
 	defaultResourceCacheTTLDuration = time.Hour
 
+	defaultManifestCacheTTL         = "1h"
+	defaultManifestCacheTTLDuration = time.Hour
+
 	defaultRestoreNamespace = "velero"
 
 	defaultProfilerPath    = "/debug/pprof/"
@@ -57,6 +60,7 @@ var (
 	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
 	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "Refresh interval duration.")
 	argResourceCacheTTL  = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
+	argManifestCacheTTL  = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
 	argRestoreNamespace  = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
 	argServices          = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
 
@@ -166,6 +170,16 @@ func ResourceCacheTTL() time.Duration {
 	if err != nil {
 		klog.ErrorS(err, "Could not parse resource-cache-ttl", "value", *argResourceCacheTTL, "default", defaultResourceCacheTTLDuration)
 		return defaultResourceCacheTTLDuration
+	}
+
+	return duration
+}
+
+func ManifestCacheTTL() time.Duration {
+	duration, err := time.ParseDuration(*argManifestCacheTTL)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse manifest-cache-ttl", "value", *argManifestCacheTTL, "default", defaultManifestCacheTTLDuration)
+		return defaultManifestCacheTTLDuration
 	}
 
 	return duration

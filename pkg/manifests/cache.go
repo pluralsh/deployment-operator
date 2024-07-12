@@ -20,30 +20,33 @@ var (
 
 type cacheLine struct {
 	dir     string
+	sha     string
 	created time.Time
 }
 
 type ManifestCache struct {
-	cache  cmap.ConcurrentMap[string, *cacheLine]
-	token  string
-	expiry time.Duration
+	cache      cmap.ConcurrentMap[string, *cacheLine]
+	token      string
+	consoleURL string
+	expiry     time.Duration
 }
 
-func NewCache(expiry time.Duration, token string) *ManifestCache {
+func NewCache(expiry time.Duration, token, consoleURL string) *ManifestCache {
 	return &ManifestCache{
-		cache:  cmap.New[*cacheLine](),
-		token:  token,
-		expiry: expiry,
+		cache:      cmap.New[*cacheLine](),
+		token:      token,
+		expiry:     expiry,
+		consoleURL: consoleURL,
 	}
 }
 
 func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]*unstructured.Unstructured, error) {
+	sha, err := fetchSha(c.consoleURL, c.token, svc.ID)
 	if line, ok := c.cache.Get(svc.ID); ok {
-		if line.live(c.expiry) {
+		if err == nil && line.live(c.expiry) && line.sha == sha {
 			return template.Render(line.dir, svc, utilFactory)
-		} else {
-			line.wipe()
 		}
+		line.wipe()
 	}
 
 	if svc.Tarball == nil {
@@ -57,7 +60,7 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.GetServiceD
 	}
 	log.V(1).Info("using cache dir", "dir", dir)
 
-	c.cache.Set(svc.ID, &cacheLine{dir: dir, created: time.Now()})
+	c.cache.Set(svc.ID, &cacheLine{dir: dir, sha: sha, created: time.Now()})
 	return template.Render(dir, svc, utilFactory)
 }
 

@@ -66,7 +66,7 @@ type ServiceReconciler struct {
 	ctx             context.Context
 }
 
-func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
+func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	logger := log.FromContext(ctx)
 	utils.DisableClientLimits(config)
 
@@ -83,7 +83,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 
 	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
-	manifestCache := manifests.NewCache(refresh, deployToken)
+	manifestCache := manifests.NewCache(manifestTTL, deployToken, consoleURL)
 
 	f := utils.NewFactory(config)
 

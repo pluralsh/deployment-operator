@@ -38,7 +38,7 @@ func runAgent(config *rest.Config, ctx context.Context, k8sClient ctrclient.Clie
 		os.Exit(1)
 	}
 
-	sr, err := service.NewServiceReconciler(ctx, mgr.GetClient(), config, args.RefreshInterval(), args.RestoreNamespace())
+	sr, err := service.NewServiceReconciler(ctx, mgr.GetClient(), config, args.RefreshInterval(), args.ManifestCacheTTL(), args.RestoreNamespace(), args.ConsoleUrl())
 	if err != nil {
 		setupLog.Errorw("unable to create service reconciler", "error", err)
 		os.Exit(1)
