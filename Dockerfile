@@ -22,6 +22,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o 
 FROM alpine:3.20
 WORKDIR /workspace
 
+RUN mkdir /.kube && chown 65532:65532 /.kube
+
 COPY --from=builder /workspace/deployment-agent .
 USER 65532:65532
+
+
 ENTRYPOINT ["/workspace/deployment-agent"]
