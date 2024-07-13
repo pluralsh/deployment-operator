@@ -331,7 +331,7 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 		return nil, err
 	}
 
-	gvr := GvrFromGvk(mapping.GroupVersionKind)
+	gvr := mapping.Resource
 
 	var labelSelectorString string
 	if in.LabelSelector != nil {
@@ -759,7 +759,7 @@ func (in *ObjectStatusReporter) newStatusCheckTaskFunc(
 }
 
 func (in *ObjectStatusReporter) handleFatalError(eventCh chan<- event.Event, err error) {
-	klog.V(5).Infof("Reporter error: %v", err)
+	klog.Warningf("Reporter error: %v", err)
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return
 	}

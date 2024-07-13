@@ -8,6 +8,8 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
+
+	"github.com/samber/lo"
 )
 
 func handleFatalError(err error) <-chan event.Event {
@@ -23,6 +25,10 @@ func handleFatalError(err error) <-chan event.Event {
 }
 
 func autoSelectRESTScopeStrategy(ids object.ObjMetadataSet) kwatcher.RESTScopeStrategy {
+	if lo.EveryBy(ids, func(id object.ObjMetadata) bool { return id.Namespace == "" }) {
+		return kwatcher.RESTScopeRoot
+	}
+
 	if len(uniqueNamespaces(ids)) > 1 {
 		return kwatcher.RESTScopeRoot
 	}

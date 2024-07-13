@@ -194,7 +194,7 @@ func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.Compon
 		return nil, err
 	}
 
-	gvr := watcher.GvrFromGvk(mapping.GroupVersionKind)
+	gvr := mapping.Resource
 	obj, err := in.dynamicClient.Resource(gvr).Namespace(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
