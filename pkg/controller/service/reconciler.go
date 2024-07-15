@@ -188,6 +188,32 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		Build()
 }
 
+func enforceNamespace(mans []*unstructured.Unstructured, namespace string, syncConfig *console.GetServiceDeploymentForAgent_ServiceDeployment_SyncConfig) []*unstructured.Unstructured {
+	if syncConfig == nil {
+		return mans
+	}
+	if syncConfig.EnforceNamespace == nil {
+		return mans
+	}
+	if *syncConfig.EnforceNamespace == false {
+		return mans
+	}
+	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
+		gvk := schema.GroupVersionKind{
+			Group:   man.GroupVersionKind().Group,
+			Version: man.GroupVersionKind().Version,
+			Kind:    man.GetKind(),
+		}
+		if !controller.ClusterResources.Has(gvk) {
+			man.SetNamespace(namespace)
+		}
+		if gvk == controller.NamespaceGVK {
+			man.SetName(namespace)
+		}
+		return man
+	})
+}
+
 func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
 	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
 		labels := man.GetLabels()
@@ -371,6 +397,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		logger.Error(err, "failed to check namespace")
 		return
 	}
+
+	manifests = enforceNamespace(manifests, svc.Namespace, svc.SyncConfig)
 
 	options := apply.ApplierOptions{
 		ServerSideOptions: common.ServerSideOptions{
