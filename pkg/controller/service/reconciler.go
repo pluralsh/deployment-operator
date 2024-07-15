@@ -195,7 +195,7 @@ func enforceNamespace(mans []*unstructured.Unstructured, namespace string, syncC
 	if syncConfig.EnforceNamespace == nil {
 		return mans
 	}
-	if *syncConfig.EnforceNamespace == false {
+	if !*syncConfig.EnforceNamespace {
 		return mans
 	}
 	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
