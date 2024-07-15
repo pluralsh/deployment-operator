@@ -188,30 +188,32 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		Build()
 }
 
-func enforceNamespace(mans []*unstructured.Unstructured, namespace string, syncConfig *console.GetServiceDeploymentForAgent_ServiceDeployment_SyncConfig) []*unstructured.Unstructured {
-	if syncConfig == nil {
-		return mans
+func enforceNamespace(mans []*unstructured.Unstructured, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) error {
+	if svc == nil {
+		return nil
 	}
-	if syncConfig.EnforceNamespace == nil {
-		return mans
+	if svc.SyncConfig == nil {
+		return nil
 	}
-	if !*syncConfig.EnforceNamespace {
-		return mans
+	if svc.SyncConfig.EnforceNamespace == nil {
+		return nil
 	}
-	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
+	if !*svc.SyncConfig.EnforceNamespace {
+		return nil
+	}
+
+	for _, man := range mans {
 		gvk := schema.GroupVersionKind{
 			Group:   man.GroupVersionKind().Group,
 			Version: man.GroupVersionKind().Version,
 			Kind:    man.GetKind(),
 		}
-		if !controller.ClusterResources.Has(gvk) {
-			man.SetNamespace(namespace)
+		if controller.ClusterResources.Has(gvk) {
+			return fmt.Errorf("the service %s with 'enforceNamespace' flag contains cluster resources", svc.Name)
 		}
-		if gvk == controller.NamespaceGVK {
-			man.SetName(namespace)
-		}
-		return man
-	})
+		man.SetNamespace(svc.Namespace)
+	}
+	return nil
 }
 
 func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
@@ -398,7 +400,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	manifests = enforceNamespace(manifests, svc.Namespace, svc.SyncConfig)
+	err = enforceNamespace(manifests, svc)
+	if err != nil {
+		return
+	}
 
 	options := apply.ApplierOptions{
 		ServerSideOptions: common.ServerSideOptions{
