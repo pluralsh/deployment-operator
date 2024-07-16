@@ -75,7 +75,9 @@ func (ir *watcherReference) Stop() {
 		return
 	}
 
-	ir.watcher.Stop()
+	if ir.watcher != nil {
+		ir.watcher.Stop()
+	}
 	ir.cancel()
 	ir.started = false
 	ir.context = nil
