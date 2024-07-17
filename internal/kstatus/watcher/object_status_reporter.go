@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -102,6 +104,9 @@ type ObjectStatusReporter struct {
 	// DynamicClient is used to watch of resource objects.
 	DynamicClient dynamic.Interface
 
+	// DiscoveryClient is used to ensure if CRD exists on the server.
+	DiscoveryClient discovery.CachedDiscoveryInterface
+
 	// LabelSelector is used to apply server-side filtering on watched resources.
 	LabelSelector labels.Selector
 
@@ -133,6 +138,8 @@ type ObjectStatusReporter struct {
 
 	started bool
 	stopped bool
+
+	id string
 }
 
 func (in *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
@@ -232,6 +239,22 @@ func (in *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 		}
 	}()
 
+	//nolint
+	go wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (done bool, err error) {
+		stopped := true
+		for _, ref := range in.watcherRefs {
+			if ref.started {
+				stopped = false
+			}
+		}
+
+		if stopped {
+			in.Stop()
+		}
+
+		return stopped, nil
+	})
+
 	return in.funnel.OutputChannel()
 }
 
@@ -284,32 +307,43 @@ func (in *ObjectStatusReporter) stopInformer(gkn GroupKindNamespace) {
 	in.watcherRefs[gkn].Stop()
 }
 
+// restartInformer restarts the informer watching the specified GroupKindNamespace.
+func (in *ObjectStatusReporter) restartInformer(gkn GroupKindNamespace) {
+	in.watcherRefs[gkn].Restart()
+}
+
 func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn GroupKindNamespace) {
 	realClock := &clock.RealClock{}
 	// TODO nolint can be removed once https://github.com/kubernetes/kubernetes/issues/118638 is resolved
 	backoffManager := wait.NewExponentialBackoffManager(800*time.Millisecond, 30*time.Second, 2*time.Minute, 2.0, 1.0, realClock) //nolint:staticcheck
 	retryCtx, retryCancel := context.WithCancel(ctx)
+	retryCount := 0
 
 	wait.BackoffUntil(func() {
 		err := in.startInformerNow(
 			ctx,
 			gkn,
 		)
+		if retryCount >= 10 {
+			klog.V(3).Infof("Watch start abort, reached retry limit: %d: %v", retryCount, gkn)
+			in.stopInformer(gkn)
+			return
+		}
+
 		if err != nil {
 			if meta.IsNoMatchError(err) {
-				// CRD (or api extension) not installed
-				// TODO: retry if CRDs are not being watched
+				// CRD (or api extension) not installed, retry
 				klog.V(3).Infof("Watch start error (blocking until CRD is added): %v: %v", gkn, err)
-				// Cancel the parent context, which will stop the retries too.
-				in.stopInformer(gkn)
+				in.restartInformer(gkn)
+				retryCount++
 				return
 			}
 
 			// Create a temporary input channel to send the error event.
 			eventCh := make(chan event.Event)
 			defer close(eventCh)
-			err := in.funnel.AddInputChannel(eventCh)
-			if err != nil {
+			funnelErr := in.funnel.AddInputChannel(eventCh)
+			if funnelErr != nil {
 				// Reporter already stopped.
 				// This is fine. 🔥
 				klog.V(5).Infof("Informer failed to start: %v", err)
@@ -338,7 +372,7 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 		labelSelectorString = in.LabelSelector.String()
 	}
 
-	return watcher.NewRetryListerWatcher(
+	w, err := watcher.NewRetryListerWatcher(
 		watcher.WithListWatchFunc(
 			func(options metav1.ListOptions) (runtime.Object, error) {
 				options.LabelSelector = labelSelectorString
@@ -349,6 +383,33 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 			}),
 		watcher.WithID(gkn.String()),
 	)
+	if apierrors.IsNotFound(err) && !in.hasGVR(gvr) {
+		return nil, &meta.NoKindMatchError{
+			GroupKind:        gk,
+			SearchedVersions: []string{gvr.Version},
+		}
+	}
+
+	return w, err
+}
+
+func (in *ObjectStatusReporter) hasGVR(gvr schema.GroupVersionResource) bool {
+	// Ensure we get fresh information about server resources
+	in.DiscoveryClient.Invalidate()
+
+	list, err := in.DiscoveryClient.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	if err != nil {
+		klog.ErrorS(err, "failed to get discovery server resources", "gvr", gvr)
+		return false
+	}
+
+	for _, resource := range list.APIResources {
+		if gvr.Resource == resource.Name {
+			return true
+		}
+	}
+
+	return false
 }
 
 // startInformerNow starts an informer to watch for changes to a

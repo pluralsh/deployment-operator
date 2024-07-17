@@ -28,4 +28,6 @@ type Options struct {
 	// This allows to ensure that multiple [StatusWatcher.Watch] calls will only spawn
 	// unique watches.
 	UseInformerRefCache bool
+
+	ID string
 }
