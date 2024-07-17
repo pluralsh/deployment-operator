@@ -102,7 +102,7 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		UseCustomObjectFilter: true,
 		ObjectFilter:          nil,
 		//UseInformerRefCache:   true,
-		RESTScopeStrategy:     lo.ToPtr(kwatcher.RESTScopeRoot),
+		RESTScopeStrategy: lo.ToPtr(kwatcher.RESTScopeRoot),
 		Filters: &kwatcher.Filters{
 			Labels: common.ManagedByAgentLabelSelector(),
 			Fields: nil,
@@ -177,7 +177,7 @@ func (in *ResourceCache) Unregister(inventoryResourceKeys containers.Set[Resourc
 
 	toRemove := in.resourceKeySet.Difference(inventoryResourceKeys)
 
-	for key, _ := range toRemove {
+	for key := range toRemove {
 		in.resourceKeySet.Remove(key)
 		// TODO: we should trigger a watch stop too
 	}

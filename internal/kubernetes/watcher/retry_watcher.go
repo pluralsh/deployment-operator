@@ -126,7 +126,7 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 			return false, 0
 		}
 
-		if apierrors.IsNotFound(err) || errors.Is(err, context.Canceled){
+		if apierrors.IsNotFound(err) || errors.Is(err, context.Canceled) {
 			klog.V(5).InfoS(msg, "err", err)
 			// Stop
 			return true, 0

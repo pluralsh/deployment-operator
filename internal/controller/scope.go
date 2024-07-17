@@ -32,7 +32,7 @@ func NewDefaultScope[T client.Object](ctx context.Context, client client.Client,
 
 	helper, err := patch.NewHelper(object, client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new helper, go error: %s", err)
+		return nil, fmt.Errorf("failed to create new helper, go error: %w", err)
 	}
 
 	return &DefaultScope[T]{

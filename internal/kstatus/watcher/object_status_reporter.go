@@ -239,6 +239,7 @@ func (in *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 		}
 	}()
 
+	//nolint
 	go wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (done bool, err error) {
 		stopped := true
 		for _, ref := range in.watcherRefs {
@@ -334,6 +335,7 @@ func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn 
 				// CRD (or api extension) not installed, retry
 				klog.V(3).Infof("Watch start error (blocking until CRD is added): %v: %v", gkn, err)
 				in.restartInformer(gkn)
+				retryCount++
 				return
 			}
 

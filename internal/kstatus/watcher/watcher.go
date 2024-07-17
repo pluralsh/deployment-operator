@@ -27,7 +27,6 @@ type DynamicStatusWatcher struct {
 
 	// informerRefs tracks which informers have been started and stopped by the ObjectStatusReporter
 	informerRefs map[GroupKindNamespace]*watcherReference
-	name         string
 }
 
 func (in *DynamicStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadataSet, opts kwatcher.Options) <-chan event.Event {
