@@ -46,6 +46,7 @@ func newEventFunnel(ctx context.Context) *eventFunnel {
 		for {
 			select {
 			case delta := <-funnel.counterCh:
+
 				inputs += delta
 				klog.V(5).Infof("Funnel input channels (%+d): %d", delta, inputs)
 			case <-ctxDoneCh:

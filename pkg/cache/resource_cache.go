@@ -92,16 +92,23 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		os.Exit(1)
 	}
 
-	w := watcher.NewDynamicStatusWatcher(dynamicClient, mapper, watcher.Options{
+	discoveryClient, err := f.ToDiscoveryClient()
+	if err != nil {
+		log.Logger.Error(err, "unable to create discovery client")
+		os.Exit(1)
+	}
+
+	w := watcher.NewDynamicStatusWatcher(dynamicClient, discoveryClient, mapper, watcher.Options{
 		UseCustomObjectFilter: true,
 		ObjectFilter:          nil,
-		UseInformerRefCache:   true,
+		//UseInformerRefCache:   true,
 		RESTScopeStrategy:     lo.ToPtr(kwatcher.RESTScopeRoot),
 		Filters: &kwatcher.Filters{
 			Labels: common.ManagedByAgentLabelSelector(),
 			Fields: nil,
 		},
-	}, "resourceCache")
+		ID: "resource-cache",
+	})
 
 	resourceCache = &ResourceCache{
 		ctx:            ctx,
@@ -158,7 +165,21 @@ func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[ResourceK
 
 	if len(toAdd) > 0 {
 		in.resourceKeySet = containers.ToSet(append(in.resourceKeySet.List(), inventoryResourceKeys.List()...))
-		in.watch()
+		in.watch(toAdd)
+	}
+}
+
+func (in *ResourceCache) Unregister(inventoryResourceKeys containers.Set[ResourceKey]) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return
+	}
+
+	toRemove := in.resourceKeySet.Difference(inventoryResourceKeys)
+
+	for key, _ := range toRemove {
+		in.resourceKeySet.Remove(key)
+		// TODO: we should trigger a watch stop too
 	}
 }
 
@@ -222,8 +243,13 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 
 }
 
-func (in *ResourceCache) watch() {
-	objMetadataSet := ResourceKeys(in.resourceKeySet.List()).ObjectMetadataSet()
+func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
+	if in.resourceKeySet.Intersect(resourceKeySet).Len() == 0 {
+		log.Logger.Infow("resource keys not found in cache, stopping watch", "resourceKeys", resourceKeySet.List())
+		return
+	}
+
+	objMetadataSet := ResourceKeys(resourceKeySet.List()).ObjectMetadataSet()
 	ch := in.watcher.Watch(in.ctx, objMetadataSet, kwatcher.Options{})
 
 	go func() {
@@ -237,9 +263,10 @@ func (in *ResourceCache) watch() {
 			case e, ok := <-ch:
 				if !ok {
 					log.Logger.Error("status watcher event channel closed")
-					in.watch()
+					in.watch(resourceKeySet)
 					return
 				}
+
 				in.reconcile(e)
 			}
 		}

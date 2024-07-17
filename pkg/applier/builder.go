@@ -84,7 +84,7 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 		cx.unstructuredClientForMapping = cx.factory.UnstructuredClientForMapping
 	}
 	if cx.statusWatcher == nil {
-		cx.statusWatcher = watcher.NewDynamicStatusWatcher(cx.client, cx.mapper, watcher.Options{
+		cx.statusWatcher = watcher.NewDynamicStatusWatcher(cx.client, cx.discoClient, cx.mapper, watcher.Options{
 			RESTScopeStrategy: lo.ToPtr(kwatcher.RESTScopeRoot),
 			Filters: &kwatcher.Filters{
 				Labels: common.ManagedByAgentLabelSelector(),

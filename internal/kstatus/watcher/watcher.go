@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 
@@ -20,6 +21,9 @@ type DynamicStatusWatcher struct {
 	// Options can be provided when creating a new StatusWatcher to customize the
 	// behavior.
 	Options Options
+
+	// discoveryClient is used to ensure if CRD exists on the server.
+	discoveryClient discovery.CachedDiscoveryInterface
 
 	// informerRefs tracks which informers have been started and stopped by the ObjectStatusReporter
 	informerRefs map[GroupKindNamespace]*watcherReference
@@ -74,16 +78,17 @@ func (in *DynamicStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadat
 		RESTScope:     scope,
 		ObjectFilter:  objectFilter,
 		// Custom options
-		LabelSelector: labelSelector,
-		DynamicClient: in.DynamicClient,
-		watcherRefs:   in.informerRefs,
-		name:          in.name,
+		LabelSelector:   labelSelector,
+		DynamicClient:   in.DynamicClient,
+		DiscoveryClient: in.discoveryClient,
+		watcherRefs:     in.informerRefs,
+		id:              in.Options.ID,
 	}
 
 	return informer.Start(ctx)
 }
 
-func NewDynamicStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMapper, options Options, name string) kwatcher.StatusWatcher {
+func NewDynamicStatusWatcher(dynamicClient dynamic.Interface, discoveryClient discovery.CachedDiscoveryInterface, mapper meta.RESTMapper, options Options) kwatcher.StatusWatcher {
 	var informerRefs map[GroupKindNamespace]*watcherReference
 	if options.UseInformerRefCache {
 		informerRefs = make(map[GroupKindNamespace]*watcherReference)
@@ -95,8 +100,8 @@ func NewDynamicStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMa
 	return &DynamicStatusWatcher{
 		DefaultStatusWatcher: defaultStatusWatcher,
 		// Custom options
-		Options:      options,
-		informerRefs: informerRefs,
-		name:         name,
+		discoveryClient: discoveryClient,
+		Options:         options,
+		informerRefs:    informerRefs,
 	}
 }

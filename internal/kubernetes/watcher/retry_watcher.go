@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,6 +48,8 @@ type resourceVersionGetter interface {
 // Please note that this is not resilient to etcd cache not having the resource version anymore - you would need to
 // use Informers for that.
 type RetryWatcher struct {
+	mutex               sync.Mutex
+	stopped             bool
 	lastResourceVersion string
 	watcherClient       cache.Watcher
 	resultChan          chan watch.Event
@@ -117,10 +120,16 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 		return false, 0
 	default:
 		msg := "Watch failed"
-		if net.IsProbableEOF(err) || net.IsTimeout(err) || errors.Is(err, context.Canceled) {
+		if net.IsProbableEOF(err) || net.IsTimeout(err) {
 			klog.V(5).InfoS(msg, "err", err)
 			// Retry
 			return false, 0
+		}
+
+		if apierrors.IsNotFound(err) || errors.Is(err, context.Canceled){
+			klog.V(5).InfoS(msg, "err", err)
+			// Stop
+			return true, 0
 		}
 
 		klog.ErrorS(err, msg)
@@ -284,6 +293,14 @@ func (rw *RetryWatcher) ResultChan() <-chan watch.Event {
 
 // Stop implements Interface.
 func (rw *RetryWatcher) Stop() {
+	rw.mutex.Lock()
+	defer rw.mutex.Unlock()
+
+	if rw.stopped {
+		return
+	}
+
+	rw.stopped = true
 	close(rw.stopChan)
 }
 
