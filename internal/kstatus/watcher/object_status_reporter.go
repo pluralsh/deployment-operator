@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -133,6 +134,7 @@ type ObjectStatusReporter struct {
 
 	started bool
 	stopped bool
+	name    string
 }
 
 func (in *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
@@ -284,6 +286,11 @@ func (in *ObjectStatusReporter) stopInformer(gkn GroupKindNamespace) {
 	in.watcherRefs[gkn].Stop()
 }
 
+// restartInformer the informer watching the specified GroupKindNamespace.
+func (in *ObjectStatusReporter) restartInformer(gkn GroupKindNamespace) {
+	in.watcherRefs[gkn].Restart()
+}
+
 func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn GroupKindNamespace) {
 	realClock := &clock.RealClock{}
 	// TODO nolint can be removed once https://github.com/kubernetes/kubernetes/issues/118638 is resolved
@@ -297,11 +304,16 @@ func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn 
 		)
 		if err != nil {
 			if meta.IsNoMatchError(err) {
-				// CRD (or api extension) not installed
-				// TODO: retry if CRDs are not being watched
-				klog.V(3).Infof("Watch start error (blocking until CRD is added): %v: %v", gkn, err)
+				klog.V(3).Infof("Watch start error: %v: %v", gkn, err)
 				// Cancel the parent context, which will stop the retries too.
 				in.stopInformer(gkn)
+				return
+			}
+			if apierrors.IsNotFound(err) {
+				// CRD (or api extension) not installed
+				klog.V(3).Infof("Watch start error (blocking until CRD is added): %v: %v", gkn, err)
+				// doesn't cancel the parent context, which will not stop the retries too.
+				in.restartInformer(gkn)
 				return
 			}
 

@@ -101,7 +101,7 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 			Labels: common.ManagedByAgentLabelSelector(),
 			Fields: nil,
 		},
-	})
+	}, "resourceCache")
 
 	resourceCache = &ResourceCache{
 		ctx:            ctx,

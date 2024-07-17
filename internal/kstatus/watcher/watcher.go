@@ -23,6 +23,7 @@ type DynamicStatusWatcher struct {
 
 	// informerRefs tracks which informers have been started and stopped by the ObjectStatusReporter
 	informerRefs map[GroupKindNamespace]*watcherReference
+	name         string
 }
 
 func (in *DynamicStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadataSet, opts kwatcher.Options) <-chan event.Event {
@@ -76,12 +77,13 @@ func (in *DynamicStatusWatcher) Watch(ctx context.Context, ids object.ObjMetadat
 		LabelSelector: labelSelector,
 		DynamicClient: in.DynamicClient,
 		watcherRefs:   in.informerRefs,
+		name:          in.name,
 	}
 
 	return informer.Start(ctx)
 }
 
-func NewDynamicStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMapper, options Options) kwatcher.StatusWatcher {
+func NewDynamicStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMapper, options Options, name string) kwatcher.StatusWatcher {
 	var informerRefs map[GroupKindNamespace]*watcherReference
 	if options.UseInformerRefCache {
 		informerRefs = make(map[GroupKindNamespace]*watcherReference)
@@ -95,5 +97,6 @@ func NewDynamicStatusWatcher(dynamicClient dynamic.Interface, mapper meta.RESTMa
 		// Custom options
 		Options:      options,
 		informerRefs: informerRefs,
+		name:         name,
 	}
 }
