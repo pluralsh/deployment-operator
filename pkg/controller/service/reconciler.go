@@ -9,6 +9,7 @@ import (
 	console "github.com/pluralsh/console-client-go"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,6 +21,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -61,6 +63,7 @@ type ServiceReconciler struct {
 	UtilFactory      util.Factory
 	RestoreNamespace string
 
+	mapper          meta.RESTMapper
 	discoveryClient *discovery.DiscoveryClient
 	pinger          *ping.Pinger
 	ctx             context.Context
@@ -86,7 +89,10 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 	manifestCache := manifests.NewCache(manifestTTL, deployToken, consoleURL)
 
 	f := utils.NewFactory(config)
-
+	mapper, err := f.ToRESTMapper()
+	if err != nil {
+		return nil, err
+	}
 	cs, err := f.KubernetesClientSet()
 	if err != nil {
 		return nil, err
@@ -127,6 +133,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		RestoreNamespace: restoreNamespace,
 		ctx:              ctx,
+		mapper:           mapper,
 	}, nil
 }
 
@@ -186,6 +193,49 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		WithFactory(f).
 		WithInventoryClient(invClient).
 		Build()
+}
+
+func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) error {
+	if svc == nil {
+		return nil
+	}
+	if svc.SyncConfig == nil {
+		return nil
+	}
+	if svc.SyncConfig.EnforceNamespace == nil {
+		return nil
+	}
+	if !*svc.SyncConfig.EnforceNamespace {
+		return nil
+	}
+
+	var crdObjs []*unstructured.Unstructured
+	// find any crds in the set of resources.
+	for _, obj := range objs {
+		if object.IsCRD(obj) {
+			crdObjs = append(crdObjs, obj)
+		}
+	}
+	for _, obj := range objs {
+
+		// Look up the scope of the resource so we know if the resource
+		// should have a namespace set or not.
+		scope, err := object.LookupResourceScope(obj, crdObjs, s.mapper)
+		if err != nil {
+			return err
+		}
+
+		switch scope {
+		case meta.RESTScopeNamespace:
+			obj.SetNamespace(svc.Namespace)
+		case meta.RESTScopeRoot:
+			return fmt.Errorf("the service %s with 'enforceNamespace' flag has cluster-scoped resources", svc.ID)
+		default:
+			return fmt.Errorf("unknown RESTScope %q", scope.Name())
+		}
+	}
+
+	return nil
 }
 
 func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
@@ -369,6 +419,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
 		logger.Error(err, "failed to check namespace")
+		return
+	}
+
+	err = s.enforceNamespace(manifests, svc)
+	if err != nil {
 		return
 	}
 
