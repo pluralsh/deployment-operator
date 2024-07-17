@@ -134,8 +134,8 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
 		exec.WithOutputSinks(append(toolWriters, consoleWriter)...),
-		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
-		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
+		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step)),
+		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step)),
 		exec.WithOutputAnalyzer(exec.NewKeywordDetector()),
 	)
 

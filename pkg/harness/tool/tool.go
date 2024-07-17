@@ -19,6 +19,8 @@ func New(stackType console.StackType, workDir, execDir string) v1.Tool {
 		t = terraform.New(execDir)
 	case console.StackTypeAnsible:
 		t = ansible.New(workDir, execDir)
+	case console.StackTypeCustom:
+		t = v1.New()
 	default:
 		klog.Fatalf("unsupported stack type: %s", stackType)
 	}

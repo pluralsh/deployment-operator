@@ -150,6 +150,6 @@ func (in *Terraform) init() *Terraform {
 }
 
 // New creates a Terraform structure that implements v1.Tool interface.
-func New(dir string) *Terraform {
+func New(dir string) v1.Tool {
 	return (&Terraform{dir: dir}).init()
 }
