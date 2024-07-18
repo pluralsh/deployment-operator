@@ -82,3 +82,20 @@ func (ir *watcherReference) Stop() {
 	ir.started = false
 	ir.context = nil
 }
+
+// Restart restarts the watcher.
+func (ir *watcherReference) Restart() {
+	ir.lock.Lock()
+	defer ir.lock.Unlock()
+
+	if !ir.started {
+		return
+	}
+
+	if ir.watcher != nil {
+		ir.watcher.Stop()
+	}
+
+	ir.started = false
+	ir.context = nil
+}
