@@ -46,6 +46,6 @@ func (in *Ansible) init() *Ansible {
 }
 
 // New creates an Ansible structure that implements v1.Tool interface.
-func New(workDir, execDir string) *Ansible {
+func New(workDir, execDir string) v1.Tool {
 	return (&Ansible{workDir: workDir, execDir: execDir}).init()
 }
