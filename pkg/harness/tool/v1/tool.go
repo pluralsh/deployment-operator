@@ -28,3 +28,7 @@ func (in *DefaultTool) Plan() (*console.StackStateAttributes, error) {
 func (in *DefaultTool) Modifier(stage console.StepStage) Modifier {
 	return nil
 }
+
+func New() Tool {
+	return &DefaultTool{}
+}
