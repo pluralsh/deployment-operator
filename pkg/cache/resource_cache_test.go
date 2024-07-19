@@ -1,12 +1,14 @@
+//go:build e2e
+
 package cache
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,6 +23,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 		const (
 			resourceName = "default"
 			namespace    = "default"
+			key          = "default_default_apps_Deployment"
 		)
 
 		ctx := context.Background()
@@ -40,6 +43,9 @@ var _ = Describe("Resource cache", Ordered, func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: namespace,
+						Labels: map[string]string{
+							common.ManagedByLabel: common.AgentLabelValue,
+						},
 					},
 					Spec: appsv1.DeploymentSpec{
 						Replicas: lo.ToPtr(int32(3)),
@@ -85,20 +91,24 @@ var _ = Describe("Resource cache", Ordered, func() {
 		})
 
 		It("should successfully create resource cache", func() {
-
 			Init(ctx, cfg, 100*time.Second)
 			toAdd := containers.NewSet[ResourceKey]()
 
-			rk, err := ResourceKeyFromString("default_default_apps_Deployment")
+			// register resource and watch for changes
+			rk, err := ResourceKeyFromString(key)
 			Expect(err).NotTo(HaveOccurred())
-
 			toAdd.Add(rk)
 			GetResourceCache().Register(toAdd)
-			rce, ok := GetResourceCache().GetCacheEntry("")
-			Expect(ok).To(Equal(true))
-			fmt.Println(rce)
+			// get resource
 			resource := &appsv1.Deployment{}
 			Expect(kClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
+			// update resource
+			resource.Spec.Replicas = lo.ToPtr(int32(1))
+			Expect(kClient.Update(ctx, resource)).To(Succeed())
+			time.Sleep(2 * time.Second)
+			rce, ok := GetResourceCache().GetCacheEntry(key)
+			Expect(ok).To(Equal(true))
+			Expect(rce.serverSHA).NotTo(BeNil())
 		})
 	})
 
