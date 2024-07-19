@@ -1,9 +1,10 @@
-//go:build e2e
+////go:build e2e
 
 package cache
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Resource cache", Ordered, func() {
@@ -103,8 +105,11 @@ var _ = Describe("Resource cache", Ordered, func() {
 			resource := &appsv1.Deployment{}
 			Expect(kClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
 			// update resource
-			resource.Spec.Replicas = lo.ToPtr(int32(1))
-			Expect(kClient.Update(ctx, resource)).To(Succeed())
+			Expect(updateWithRetry(ctx, kClient, resource, func(obj client.Object) client.Object {
+				deployment := obj.(*appsv1.Deployment)
+				deployment.Spec.Replicas = lo.ToPtr(int32(1))
+				return deployment
+			})).To(Succeed())
 			time.Sleep(2 * time.Second)
 			rce, ok := GetResourceCache().GetCacheEntry(key)
 			Expect(ok).To(Equal(true))
@@ -113,3 +118,32 @@ var _ = Describe("Resource cache", Ordered, func() {
 	})
 
 })
+
+func updateWithRetry(ctx context.Context, k8sClient client.Client, obj client.Object, updateFunc func(client.Object) client.Object) error {
+	for {
+		// Apply the update function to the resource
+		updatedObj := updateFunc(obj.DeepCopyObject().(client.Object))
+
+		// Attempt to update the resource
+		err = k8sClient.Update(ctx, updatedObj)
+		if err == nil {
+			fmt.Println("Resource updated successfully")
+			break
+		}
+
+		if !errors.IsConflict(err) {
+			return fmt.Errorf("failed to update resource: %v", err)
+		}
+
+		fmt.Println("Conflict detected, retrying...")
+
+		// Fetch the latest version of the resource
+		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+		if err != nil {
+			return fmt.Errorf("failed to get resource: %v", err)
+		}
+
+		time.Sleep(time.Second)
+	}
+	return nil
+}
