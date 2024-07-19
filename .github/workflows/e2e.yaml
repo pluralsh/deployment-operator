@@ -17,7 +17,5 @@ jobs:
           cache: false
       - name: Create kind cluster
         uses: helm/kind-action@v1.10.0
-        with:
-          install_only: true
       - run: kind get clusters
       - run: go test -v -race ./pkg/cache/... -tags="e2e"
