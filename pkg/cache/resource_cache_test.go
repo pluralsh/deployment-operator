@@ -132,7 +132,7 @@ func updateWithRetry(ctx context.Context, k8sClient client.Client, obj client.Ob
 		}
 
 		if !errors.IsConflict(err) {
-			return fmt.Errorf("failed to update resource: %v", err)
+			return fmt.Errorf("failed to update resource: %w", err)
 		}
 
 		fmt.Println("Conflict detected, retrying...")
@@ -140,7 +140,7 @@ func updateWithRetry(ctx context.Context, k8sClient client.Client, obj client.Ob
 		// Fetch the latest version of the resource
 		err = k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
 		if err != nil {
-			return fmt.Errorf("failed to get resource: %v", err)
+			return fmt.Errorf("failed to get resource: %w", err)
 		}
 
 		time.Sleep(time.Second)
