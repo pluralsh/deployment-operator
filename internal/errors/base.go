@@ -36,6 +36,14 @@ func (er *wrappedErrorResponse) Has(err KnownError) bool {
 	return false
 }
 
+func (er *wrappedErrorResponse) HasNetworkError(code int) bool {
+	if er.err.NetworkError == nil {
+		return false
+	}
+
+	return er.err.NetworkError.Code == code
+}
+
 func newAPIError(err *client.ErrorResponse) *wrappedErrorResponse {
 	return &wrappedErrorResponse{
 		err: err,
@@ -68,4 +76,18 @@ func IsDeleteRepository(err error) bool {
 	}
 
 	return newAPIError(errorResponse).Has(ErrDeleteRepository)
+}
+
+func IsNetworkError(err error, code int) bool {
+	if err == nil {
+		return false
+	}
+
+	errorResponse := new(client.ErrorResponse)
+	ok := errors.As(err, &errorResponse)
+	if !ok {
+		return false
+	}
+
+	return newAPIError(errorResponse).HasNetworkError(code)
 }
