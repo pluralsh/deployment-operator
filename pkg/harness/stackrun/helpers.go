@@ -63,11 +63,6 @@ func CompleteStackRun(client console.Client, id string, attributes *gqlclient.St
 				attributes.State.Plan = nil
 				return attributes
 			},
-			func(attributes *gqlclient.StackRunAttributes) *gqlclient.StackRunAttributes {
-				// as the last resort drop output
-				attributes.Output = nil
-				return attributes
-			},
 		}
 
 		return func() func(attributes *gqlclient.StackRunAttributes) *gqlclient.StackRunAttributes {
