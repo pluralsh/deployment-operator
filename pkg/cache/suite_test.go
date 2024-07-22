@@ -19,16 +19,18 @@ package cache
 import (
 	"testing"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -49,11 +51,12 @@ var _ = BeforeSuite(func() {
 	cfg = ctrl.GetConfigOrDie()
 
 	Expect(cfg).NotTo(BeNil())
+	Expect(deploymentsv1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(extv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 
-	err = deploymentsv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	kClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	kClient, err = client.New(cfg, client.Options{
+		Scheme: scheme.Scheme,
+	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kClient).NotTo(BeNil())
 })

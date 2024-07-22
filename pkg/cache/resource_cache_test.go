@@ -9,16 +9,15 @@ import (
 	"os"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -94,12 +93,14 @@ var _ = Describe("Resource cache", Ordered, func() {
 		})
 
 		AfterAll(func() {
-			resource := &appsv1.Deployment{}
-			err := kClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
 			By("Cleanup the specific resource instance")
+			resource := &appsv1.Deployment{}
+			Expect(kClient.Get(ctx, typeNamespacedName, resource)).NotTo(HaveOccurred())
 			Expect(kClient.Delete(ctx, resource)).To(Succeed())
+
+			customHealth := &deploymentsv1alpha1.CustomHealth{}
+			Expect(kClient.Get(ctx, typeNamespacedName, customHealth)).NotTo(HaveOccurred())
+			Expect(kClient.Delete(ctx, customHealth)).To(Succeed())
 		})
 
 		It("should successfully create resource cache", func() {
@@ -132,15 +133,17 @@ var _ = Describe("Resource cache", Ordered, func() {
 			Init(ctx, cfg, 100*time.Second)
 			toAdd := containers.NewSet[ResourceKey]()
 
+			err = applyYamlFile(ctx, kClient, "../../config/crd/bases/deployments.plural.sh_customhealths.yaml")
+			Expect(err).NotTo(HaveOccurred())
+			crdList := &extv1.CustomResourceDefinitionList{}
+			Expect(kClient.List(ctx, crdList)).NotTo(HaveOccurred())
+			Expect(crdList.Items).To(HaveLen(1))
+			time.Sleep(1 * time.Second)
 			// register CRD object first
 			crdObjKey, err := ResourceKeyFromString(crdObjectKey)
 			Expect(err).NotTo(HaveOccurred())
 			toAdd.Add(crdObjKey)
 			GetResourceCache().Register(toAdd)
-
-			err = applyYamlFile(ctx, kClient, "../../config/crd/bases/deployments.plural.sh_customhealths.yaml")
-			Expect(err).NotTo(HaveOccurred())
-
 			// register CRD definition
 			crdDefKey, err := ResourceKeyFromString(crdDefinitionKey)
 			Expect(err).NotTo(HaveOccurred())
@@ -160,6 +163,12 @@ var _ = Describe("Resource cache", Ordered, func() {
 				},
 			}
 			Expect(kClient.Create(ctx, customHealth)).To(Succeed())
+			// update resource
+			Expect(updateWithRetry(ctx, kClient, customHealth, func(obj client.Object) client.Object {
+				ch := obj.(*deploymentsv1alpha1.CustomHealth)
+				ch.Spec.Script = "new"
+				return ch
+			})).To(Succeed())
 			time.Sleep(2 * time.Second)
 			rce, ok := GetResourceCache().GetCacheEntry(crdObjectKey)
 			Expect(ok).To(Equal(true))
