@@ -179,15 +179,16 @@ var _ = Describe("Resource cache", Ordered, func() {
 })
 
 func updateWithRetry(ctx context.Context, k8sClient client.Client, obj client.Object, updateFunc func(client.Object) client.Object) error {
-	for {
+	attempts := 5
+	for i := 0; i <= attempts; i++ {
 		// Apply the update function to the resource
 		updatedObj := updateFunc(obj.DeepCopyObject().(client.Object))
 
 		// Attempt to update the resource
 		err = k8sClient.Update(ctx, updatedObj)
 		if err == nil {
-			fmt.Println("Resource updated successfully")
-			break
+			GinkgoWriter.Println("Resource updated successfully")
+			return nil
 		}
 
 		if !errors.IsConflict(err) {
@@ -202,9 +203,8 @@ func updateWithRetry(ctx context.Context, k8sClient client.Client, obj client.Ob
 			return fmt.Errorf("failed to get resource: %w", err)
 		}
 
-		time.Sleep(time.Second)
 	}
-	return nil
+	return fmt.Errorf("couldn't update resource after %d attempts", attempts)
 }
 
 func applyYamlFile(ctx context.Context, k8sClient client.Client, filename string) error {
