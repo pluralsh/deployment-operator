@@ -41,7 +41,7 @@ var kClient client.Client
 var cfg *rest.Config
 var err error
 
-func TestControllers(t *testing.T) {
+func TestE2ECache(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Resource Cache Suite")
 }

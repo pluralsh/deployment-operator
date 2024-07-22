@@ -1,3 +1,5 @@
+//go:build cache
+
 package cache
 
 import (
