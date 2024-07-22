@@ -121,9 +121,8 @@ var _ = Describe("Resource cache", Ordered, func() {
 				deployment.Spec.Replicas = lo.ToPtr(int32(1))
 				return deployment
 			})).To(Succeed())
-			time.Sleep(2 * time.Second)
-			rce, ok := GetResourceCache().GetCacheEntry(key)
-			Expect(ok).To(Equal(true))
+			rce, err := getResourceCacheWithRetry(5, key)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(rce.serverSHA).NotTo(BeNil())
 			GetResourceCache().Unregister(toAdd)
 			GetResourceCache().SetCacheEntry(key, ResourceCacheEntry{})
@@ -138,7 +137,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 			crdList := &extv1.CustomResourceDefinitionList{}
 			Expect(kClient.List(ctx, crdList)).NotTo(HaveOccurred())
 			Expect(crdList.Items).To(HaveLen(1))
-			time.Sleep(1 * time.Second)
+			time.Sleep(time.Second)
 			// register CRD object first
 			crdObjKey, err := ResourceKeyFromString(crdObjectKey)
 			Expect(err).NotTo(HaveOccurred())
@@ -169,14 +168,24 @@ var _ = Describe("Resource cache", Ordered, func() {
 				ch.Spec.Script = "new"
 				return ch
 			})).To(Succeed())
-			time.Sleep(2 * time.Second)
-			rce, ok := GetResourceCache().GetCacheEntry(crdObjectKey)
-			Expect(ok).To(Equal(true))
+			rce, err := getResourceCacheWithRetry(5, crdObjectKey)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(rce.serverSHA).NotTo(BeNil())
 		})
 	})
 
 })
+
+func getResourceCacheWithRetry(attempts int, key string) (ResourceCacheEntry, error) {
+	for i := 0; i <= attempts; i++ {
+		rce, ok := GetResourceCache().GetCacheEntry(key)
+		if ok {
+			return rce, nil
+		}
+		time.Sleep(time.Second)
+	}
+	return ResourceCacheEntry{}, fmt.Errorf("couldn't get resource cache item after %d attempts", attempts)
+}
 
 func updateWithRetry(ctx context.Context, k8sClient client.Client, obj client.Object, updateFunc func(client.Object) client.Object) error {
 	attempts := 5
