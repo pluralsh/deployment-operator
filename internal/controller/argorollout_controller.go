@@ -27,7 +27,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
-var requeueRollout = ctrl.Result{RequeueAfter: time.Second * 5}
+const requeueArgoRolloutAfter = time.Second * 5
 
 // ArgoRolloutReconciler reconciles a Argo Rollout custom resource.
 type ArgoRolloutReconciler struct {
@@ -75,7 +75,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if rollout.Status.Phase == rolloutv1alpha1.RolloutPhasePaused {
 		// wait until the agent will change component status
 		if !hasPausedRolloutComponent(service) {
-			return requeueRollout, nil
+			return requeue(requeueArgoRolloutAfter, jitter), nil
 		}
 
 		rolloutIf := r.ArgoClientSet.ArgoprojV1alpha1().Rollouts(rollout.Namespace)
@@ -96,7 +96,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if rollbackResponse == http.StatusOK {
 			return ctrl.Result{}, r.rollback(rolloutIf, rollout)
 		}
-		return requeueRollout, nil
+		return requeue(requeueArgoRolloutAfter, jitter), nil
 	}
 	return ctrl.Result{}, nil
 }
