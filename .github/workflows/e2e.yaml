@@ -1,0 +1,21 @@
+name: E2E
+on:
+  pull_request:
+    branches:
+      - main
+jobs:
+  create-cluster:
+    name: Create Kind cluster
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install GO
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.10.0
+      - run: kind get clusters
+      - run: go test -v -race ./pkg/cache/... -tags="e2e"
