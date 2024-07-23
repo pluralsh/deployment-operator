@@ -1,7 +1,7 @@
 package cache
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 

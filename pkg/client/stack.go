@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 
-	gqlclient "github.com/pluralsh/console-client-go"
+	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
 
 	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"

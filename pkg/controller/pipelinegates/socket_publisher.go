@@ -1,7 +1,7 @@
 package pipelinegates
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 
 	"k8s.io/client-go/util/workqueue"

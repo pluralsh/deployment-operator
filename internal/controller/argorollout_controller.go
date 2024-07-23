@@ -14,7 +14,7 @@ import (
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"

@@ -1,7 +1,7 @@
 package service
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"

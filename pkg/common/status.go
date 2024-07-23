@@ -1,7 +1,7 @@
 package common
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	dlog "github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"

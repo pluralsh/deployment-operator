@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 

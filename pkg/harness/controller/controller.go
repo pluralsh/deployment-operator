@@ -9,7 +9,7 @@ import (
 	"slices"
 	"sync"
 
-	gqlclient "github.com/pluralsh/console-client-go"
+	gqlclient "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/klog/v2"
 

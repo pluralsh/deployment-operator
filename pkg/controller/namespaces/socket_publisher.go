@@ -1,7 +1,7 @@
 package namespaces
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"

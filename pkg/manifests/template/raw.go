@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
 	"github.com/pluralsh/polly/template"
 	"github.com/samber/lo"

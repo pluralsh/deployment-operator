@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 )
 
 func (c *client) GetNamespace(id string) (*console.ManagedNamespaceFragment, error) {

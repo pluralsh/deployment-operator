@@ -15,7 +15,7 @@ import (
 	"github.com/gofrs/flock"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pkg/errors"
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/fs"
 	"github.com/samber/lo"

@@ -22,7 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	console_client_go "github.com/pluralsh/console-client-go"
+	console_client_go "github.com/pluralsh/console/go/client"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"

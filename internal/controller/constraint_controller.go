@@ -10,7 +10,7 @@ import (
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	"github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"

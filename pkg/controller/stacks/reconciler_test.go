@@ -7,7 +7,7 @@ import (
 	"github.com/Yamashou/gqlgenc/clientv2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	"github.com/vektah/gqlparser/v2/gqlerror"

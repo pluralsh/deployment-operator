@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"golang.org/x/exp/maps"
