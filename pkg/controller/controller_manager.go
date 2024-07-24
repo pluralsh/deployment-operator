@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,6 +28,8 @@ type ControllerManager struct {
 
 	Refresh time.Duration
 
+	Jitter time.Duration
+
 	// started is true if the ControllerManager has been Started
 	started bool
 
@@ -38,7 +41,7 @@ type ControllerManager struct {
 }
 
 func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cacheSyncTimeout time.Duration,
-	refresh time.Duration, recoverPanic *bool, consoleUrl, deployToken, clusterId string) (*ControllerManager, error) {
+	refresh, jitter time.Duration, recoverPanic *bool, consoleUrl, deployToken, clusterId string) (*ControllerManager, error) {
 
 	socket, err := websocket.New(clusterId, consoleUrl, deployToken)
 	if err != nil {
@@ -54,6 +57,7 @@ func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cach
 		CacheSyncTimeout:        cacheSyncTimeout,
 		RecoverPanic:            recoverPanic,
 		Refresh:                 refresh,
+		Jitter:                  jitter,
 		started:                 false,
 		ctx:                     ctx,
 		client:                  client.New(consoleUrl, deployToken),
@@ -78,7 +82,7 @@ func (cm *ControllerManager) Start() error {
 
 	for _, ctrl := range cm.Controllers {
 		controller := ctrl
-
+		jitterValue := time.Duration(rand.Int63n(int64(cm.Jitter)))
 		cm.Socket.AddPublisher(controller.Do.GetPublisher())
 
 		go func() {
@@ -89,6 +93,7 @@ func (cm *ControllerManager) Start() error {
 			if controllerPollInterval := controller.Do.GetPollInterval(); controllerPollInterval > 0 {
 				pollInterval = controllerPollInterval
 			}
+			pollInterval += jitterValue
 			_ = wait.PollUntilContextCancel(context.Background(), pollInterval, true, func(_ context.Context) (done bool, err error) {
 				return controller.Do.Poll(cm.ctx)
 			})
