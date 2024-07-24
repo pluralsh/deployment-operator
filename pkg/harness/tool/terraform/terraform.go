@@ -32,7 +32,7 @@ func (in *Terraform) State() (*console.StackStateAttributes, error) {
 		klog.V(log.LogLevelTrace).InfoS("visiting module", "module", module)
 		resources = append(
 			resources,
-			tfapi.ToStackStateResourceAttributesList(state.Values.RootModule.Resources)...,
+			tfapi.ToStackStateResourceAttributesList(module.Resources)...,
 		)
 
 		return nil

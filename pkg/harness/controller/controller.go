@@ -16,6 +16,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -139,14 +140,6 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithOutputAnalyzer(exec.NewKeywordDetector()),
 	)
 
-	// Add a custom run step output analyzer for the destroy stage to increase
-	// a chance of detecting errors during execution. On occasion executable can
-	// return exit code 0 even though there was a fatal error during execution.
-	// TODO: use destroy stage
-	// if step.Stage == gqlclient.StepStageApply {
-	//	options = append(options, exec.WithOutputAnalyzer(exec.NewKeywordDetector()))
-	//}
-
 	return exec.NewExecutable(step.Cmd, options...)
 }
 
@@ -179,7 +172,7 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 		})
 	}
 
-	return in.consoleClient.CompleteStackRun(in.stackRunID, gqlclient.StackRunAttributes{
+	return stackrun.CompleteStackRun(in.consoleClient, in.stackRunID, &gqlclient.StackRunAttributes{
 		Errors: serviceErrorAttributes,
 		Output: output,
 		State:  state,
