@@ -20,7 +20,10 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
-const pollInterval = time.Second * 30
+const (
+	pollInterval = time.Second * 30
+	jitter       = time.Second * 15
+)
 
 func runAgent(config *rest.Config, ctx context.Context, k8sClient ctrclient.Client) (*controller.ControllerManager, *service.ServiceReconciler, *pipelinegates.GateReconciler) {
 	mgr, err := controller.NewControllerManager(
@@ -28,6 +31,7 @@ func runAgent(config *rest.Config, ctx context.Context, k8sClient ctrclient.Clie
 		args.MaxConcurrentReconciles(),
 		args.ProcessingTimeout(),
 		args.RefreshInterval(),
+		args.RefreshJitter(),
 		lo.ToPtr(true),
 		args.ConsoleUrl(),
 		args.DeployToken(),

@@ -29,6 +29,9 @@ const (
 	defaultRefreshInterval         = "2m"
 	defaultRefreshIntervalDuration = 2 * time.Minute
 
+	defaultRefreshJitter         = "15s"
+	defaultRefreshJitterDuration = 15 * time.Second
+
 	defaultResourceCacheTTL         = "1h"
 	defaultResourceCacheTTLDuration = time.Hour
 
@@ -59,6 +62,7 @@ var (
 	argMetricsAddr       = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
 	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
 	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "Refresh interval duration.")
+	argRefreshJitter     = flag.String("refresh-jitter", defaultRefreshJitter, "Refresh jitter.")
 	argResourceCacheTTL  = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
 	argManifestCacheTTL  = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
 	argRestoreNamespace  = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
@@ -158,11 +162,21 @@ func ProcessingTimeout() time.Duration {
 func RefreshInterval() time.Duration {
 	duration, err := time.ParseDuration(*argRefreshInterval)
 	if err != nil {
-		klog.ErrorS(err, "Could not parse refresh-interval", "value", *argProcessingTimeout, "default", defaultRefreshIntervalDuration)
+		klog.ErrorS(err, "Could not parse refresh-interval", "value", *argRefreshInterval, "default", defaultRefreshIntervalDuration)
 		return defaultRefreshIntervalDuration
 	}
 
 	return duration
+}
+
+func RefreshJitter() time.Duration {
+	jitter, err := time.ParseDuration(*argRefreshJitter)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse refresh-jitter", "value", *argRefreshJitter, "default", defaultRefreshJitterDuration)
+		return defaultRefreshJitterDuration
+	}
+
+	return jitter
 }
 
 func ResourceCacheTTL() time.Duration {
