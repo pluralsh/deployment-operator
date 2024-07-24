@@ -2,12 +2,15 @@ package stackrun
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"time"
 
 	gqlclient "github.com/pluralsh/console-client-go"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/internal/errors"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
@@ -34,8 +37,58 @@ func StartStackRun(client console.Client, id string) error {
 	return MarkStackRun(client, id, gqlclient.StackStatusRunning)
 }
 
-func CompleteStackRun(client console.Client, id string) error {
-	return MarkStackRun(client, id, gqlclient.StackStatusSuccessful)
+func CompleteStackRun(client console.Client, id string, attributes *gqlclient.StackRunAttributes) (err error) {
+	if attributes == nil {
+		return fmt.Errorf("cannot complete stack run with nil attributes")
+	}
+
+	createModifierIter := func() func() func(attributes *gqlclient.StackRunAttributes) *gqlclient.StackRunAttributes {
+		idx := 0
+		modifiers := []func(attributes *gqlclient.StackRunAttributes) *gqlclient.StackRunAttributes{
+			func(attributes *gqlclient.StackRunAttributes) *gqlclient.StackRunAttributes {
+				if attributes.State == nil {
+					return attributes
+				}
+
+				// first drop the state
+				attributes.State.State = nil
+				return attributes
+			},
+			func(attributes *gqlclient.StackRunAttributes) *gqlclient.StackRunAttributes {
+				if attributes.State == nil {
+					return attributes
+				}
+
+				// next drop the plan
+				attributes.State.Plan = nil
+				return attributes
+			},
+		}
+
+		return func() func(attributes *gqlclient.StackRunAttributes) *gqlclient.StackRunAttributes {
+			if idx > len(modifiers) {
+				return nil
+			}
+
+			m := modifiers[idx]
+			idx++
+			return m
+		}
+	}
+
+	next := createModifierIter()
+	for {
+		if err = client.CompleteStackRun(id, *attributes); !errors.IsNetworkError(err, http.StatusRequestEntityTooLarge) {
+			return err
+		}
+
+		if modifier := next(); modifier != nil {
+			attributes = modifier(attributes)
+			continue
+		}
+
+		return err
+	}
 }
 
 func CancelStackRun(client console.Client, id string) error {
