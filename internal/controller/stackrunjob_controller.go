@@ -81,7 +81,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			})
 			return ctrl.Result{}, err
 		}
-		return requeue, nil
+		return requeue(requeueAfter, jitter), nil
 	}
 
 	if hasSucceeded(job) {
