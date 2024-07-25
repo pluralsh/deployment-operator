@@ -4,7 +4,7 @@ import (
 	"os"
 	"path"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 

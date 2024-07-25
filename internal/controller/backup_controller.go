@@ -19,7 +19,7 @@ package controller
 import (
 	"context"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/samber/lo"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"

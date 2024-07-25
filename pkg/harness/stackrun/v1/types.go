@@ -3,7 +3,7 @@ package v1
 import (
 	"fmt"
 
-	gqlclient "github.com/pluralsh/console-client-go"
+	gqlclient "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 )
 

@@ -3,7 +3,7 @@ package v1
 import (
 	"io"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 )
 
 // Tool handles one of the supported infrastructure management tools.

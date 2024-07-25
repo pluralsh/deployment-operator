@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -230,11 +230,11 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) cor
 func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment) string {
 	image := defaultContainerImages[run.Type]
 	version := defaultContainerVersions[run.Type]
-	if run.Configuration != nil && run.Configuration.Version != "" {
+	if run.Configuration.Version != "" {
 		version = run.Configuration.Version
 	}
 
-	if run.Configuration != nil && run.Configuration.Image != nil && *run.Configuration.Image != "" {
+	if run.Configuration.Image != nil && *run.Configuration.Image != "" {
 		image = *run.Configuration.Image
 		return fmt.Sprintf("%s:%s", image, version)
 	}

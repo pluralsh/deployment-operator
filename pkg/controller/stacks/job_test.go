@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -18,7 +18,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 	reconciler := NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
 	run := &console.StackRunFragment{
 		Type: console.StackTypeTerraform,
-		Configuration: &console.StackConfigurationFragment{
+		Configuration: console.StackConfigurationFragment{
 			Version: "1.8.4",
 		},
 	}

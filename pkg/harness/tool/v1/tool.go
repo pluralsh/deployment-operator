@@ -1,7 +1,7 @@
 package v1
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 )
 
 // State implements [Tool] interface.
