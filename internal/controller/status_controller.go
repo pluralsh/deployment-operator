@@ -3,14 +3,14 @@ package controller
 import (
 	"context"
 
-	"sigs.k8s.io/controller-runtime/pkg/event"
-
 	corev1 "k8s.io/api/core/v1"
 	cliutilscommon "sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -18,6 +18,10 @@ import (
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+)
+
+const (
+	StatusFinalizer = "deployments.plural.sh/inventory-protection"
 )
 
 type StatusReconciler struct {
@@ -34,10 +38,6 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
-	if !configMap.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
-	}
-
 	scope, err := NewDefaultScope(ctx, r.Client, configMap)
 	if err != nil {
 		logger.Error(err, "failed to create configmap definition scope")
@@ -50,6 +50,12 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 			reterr = err
 		}
 	}()
+
+	if !configMap.DeletionTimestamp.IsZero() {
+		// delete finalizer for legacy objects
+		controllerutil.RemoveFinalizer(configMap, StatusFinalizer)
+		return ctrl.Result{}, nil
+	}
 
 	inv, err := common.ToUnstructured(configMap)
 	if err != nil {
