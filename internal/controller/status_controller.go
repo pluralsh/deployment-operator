@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -50,10 +51,10 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		}
 	}()
 
-	// Handle proper resource deletion via finalizer
-	result, err := r.addOrRemoveFinalizer(configMap)
-	if result != nil {
-		return *result, err
+	if !configMap.DeletionTimestamp.IsZero() {
+		// delete finalizer for legacy objects
+		controllerutil.RemoveFinalizer(configMap, StatusFinalizer)
+		return ctrl.Result{}, nil
 	}
 
 	inv, err := common.ToUnstructured(configMap)
@@ -88,28 +89,37 @@ func (r *StatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			_, exists := o.GetLabels()[cliutilscommon.InventoryLabel]
 			return exists
 		})).
+		WithEventFilter(withInventoryEventFilter(r.inventoryCache)).
 		Complete(r)
 }
 
-func (r *StatusReconciler) addOrRemoveFinalizer(cm *corev1.ConfigMap) (*ctrl.Result, error) {
-	// If object is not being deleted and if it does not have our finalizer,
-	// then lets add the finalizer. This is equivalent to registering our finalizer.
-	if cm.ObjectMeta.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(cm, StatusFinalizer) {
-		controllerutil.AddFinalizer(cm, StatusFinalizer)
+func withInventoryEventFilter(inventoryCache cache.InventoryResourceKeys) predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+			if deleteEvent.Object == nil {
+				return false
+			}
+			inventoryID, exists := deleteEvent.Object.GetLabels()[cliutilscommon.InventoryLabel]
+			if exists {
+				deleteFromInventoryCache(inventoryCache, inventoryID)
+			}
+			return true
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
 	}
+}
 
-	// If object is being deleted cleanup and remove the finalizer.
-	if !cm.ObjectMeta.DeletionTimestamp.IsZero() {
-		inventoryID := r.inventoryID(cm)
-		delete(r.inventoryCache, inventoryID)
-		cache.GetResourceCache().Unregister(r.inventoryCache.Values().TypeIdentifierSet())
-
-		// Stop reconciliation as the item is being deleted
-		controllerutil.RemoveFinalizer(cm, StatusFinalizer)
-		return &ctrl.Result{}, nil
-	}
-
-	return nil, nil
+func deleteFromInventoryCache(inventoryCache cache.InventoryResourceKeys, inventoryID string) {
+	delete(inventoryCache, inventoryID)
+	cache.GetResourceCache().Unregister(inventoryCache.Values().TypeIdentifierSet())
 }
 
 func (r *StatusReconciler) inventoryID(c *corev1.ConfigMap) string {
