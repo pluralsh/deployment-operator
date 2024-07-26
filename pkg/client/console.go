@@ -59,7 +59,7 @@ type Client interface {
 	GetClusterBackup(clusterID, namespace, name string) (*console.ClusterBackupFragment, error)
 	GetServices(after *string, first *int64) (*console.PagedClusterServices, error)
 	GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error)
-	UpdateComponents(id, revisionID, sha string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
+	UpdateComponents(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
 	AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error
 	ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, operatorNamespace string) (*v1alpha1.PipelineGate, error)
 	GateExists(id string) bool

@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samber/lo"
-
 	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
@@ -224,7 +222,7 @@ func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, com
 		errs = append(errs, err)
 	}
 
-	return s.ConsoleClient.UpdateComponents(id, revisionID, lo.FromPtr(sha), components, errs)
+	return s.ConsoleClient.UpdateComponents(id, revisionID, sha, components, errs)
 }
 
 func (s *ServiceReconciler) AddErrors(id string, err *console.ServiceErrorAttributes) error {

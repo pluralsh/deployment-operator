@@ -1283,7 +1283,7 @@ func (_c *ClientMock_UpdateClusterRestore_Call) RunAndReturn(run func(string, cl
 }
 
 // UpdateComponents provides a mock function with given fields: id, revisionID, sha, components, errs
-func (_m *ClientMock) UpdateComponents(id string, revisionID string, sha string, components []*client.ComponentAttributes, errs []*client.ServiceErrorAttributes) error {
+func (_m *ClientMock) UpdateComponents(id string, revisionID string, sha *string, components []*client.ComponentAttributes, errs []*client.ServiceErrorAttributes) error {
 	ret := _m.Called(id, revisionID, sha, components, errs)
 
 	if len(ret) == 0 {
@@ -1291,7 +1291,7 @@ func (_m *ClientMock) UpdateComponents(id string, revisionID string, sha string,
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, string, []*client.ComponentAttributes, []*client.ServiceErrorAttributes) error); ok {
+	if rf, ok := ret.Get(0).(func(string, string, *string, []*client.ComponentAttributes, []*client.ServiceErrorAttributes) error); ok {
 		r0 = rf(id, revisionID, sha, components, errs)
 	} else {
 		r0 = ret.Error(0)
@@ -1308,16 +1308,16 @@ type ClientMock_UpdateComponents_Call struct {
 // UpdateComponents is a helper method to define mock.On call
 //   - id string
 //   - revisionID string
-//   - sha string
+//   - sha *string
 //   - components []*client.ComponentAttributes
 //   - errs []*client.ServiceErrorAttributes
 func (_e *ClientMock_Expecter) UpdateComponents(id interface{}, revisionID interface{}, sha interface{}, components interface{}, errs interface{}) *ClientMock_UpdateComponents_Call {
 	return &ClientMock_UpdateComponents_Call{Call: _e.mock.On("UpdateComponents", id, revisionID, sha, components, errs)}
 }
 
-func (_c *ClientMock_UpdateComponents_Call) Run(run func(id string, revisionID string, sha string, components []*client.ComponentAttributes, errs []*client.ServiceErrorAttributes)) *ClientMock_UpdateComponents_Call {
+func (_c *ClientMock_UpdateComponents_Call) Run(run func(id string, revisionID string, sha *string, components []*client.ComponentAttributes, errs []*client.ServiceErrorAttributes)) *ClientMock_UpdateComponents_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(string), args[2].(string), args[3].([]*client.ComponentAttributes), args[4].([]*client.ServiceErrorAttributes))
+		run(args[0].(string), args[1].(string), args[2].(*string), args[3].([]*client.ComponentAttributes), args[4].([]*client.ServiceErrorAttributes))
 	})
 	return _c
 }
@@ -1327,7 +1327,7 @@ func (_c *ClientMock_UpdateComponents_Call) Return(_a0 error) *ClientMock_Update
 	return _c
 }
 
-func (_c *ClientMock_UpdateComponents_Call) RunAndReturn(run func(string, string, string, []*client.ComponentAttributes, []*client.ServiceErrorAttributes) error) *ClientMock_UpdateComponents_Call {
+func (_c *ClientMock_UpdateComponents_Call) RunAndReturn(run func(string, string, *string, []*client.ComponentAttributes, []*client.ServiceErrorAttributes) error) *ClientMock_UpdateComponents_Call {
 	_c.Call.Return(run)
 	return _c
 }

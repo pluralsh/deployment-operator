@@ -27,7 +27,7 @@ func (c *client) GetService(id string) (*console.GetServiceDeploymentForAgent_Se
 	return resp.ServiceDeployment, nil
 }
 
-func (c *client) UpdateComponents(id, revisionID, sha string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error {
+func (c *client) UpdateComponents(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error {
 	_, err := c.consoleClient.UpdateServiceComponents(c.ctx, id, components, revisionID, sha, errs)
 	return err
 }
