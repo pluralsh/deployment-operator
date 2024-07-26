@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	gqlclient "github.com/pluralsh/console/go/client"
+	client "github.com/pluralsh/console/go/client"
 	mock "github.com/stretchr/testify/mock"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
@@ -25,7 +25,7 @@ func (_m *ClientMock) EXPECT() *ClientMock_Expecter {
 }
 
 // AddServiceErrors provides a mock function with given fields: id, errs
-func (_m *ClientMock) AddServiceErrors(id string, errs []*gqlclient.ServiceErrorAttributes) error {
+func (_m *ClientMock) AddServiceErrors(id string, errs []*client.ServiceErrorAttributes) error {
 	ret := _m.Called(id, errs)
 
 	if len(ret) == 0 {
@@ -33,7 +33,7 @@ func (_m *ClientMock) AddServiceErrors(id string, errs []*gqlclient.ServiceError
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, []*gqlclient.ServiceErrorAttributes) error); ok {
+	if rf, ok := ret.Get(0).(func(string, []*client.ServiceErrorAttributes) error); ok {
 		r0 = rf(id, errs)
 	} else {
 		r0 = ret.Error(0)
@@ -49,14 +49,14 @@ type ClientMock_AddServiceErrors_Call struct {
 
 // AddServiceErrors is a helper method to define mock.On call
 //   - id string
-//   - errs []*gqlclient.ServiceErrorAttributes
+//   - errs []*client.ServiceErrorAttributes
 func (_e *ClientMock_Expecter) AddServiceErrors(id interface{}, errs interface{}) *ClientMock_AddServiceErrors_Call {
 	return &ClientMock_AddServiceErrors_Call{Call: _e.mock.On("AddServiceErrors", id, errs)}
 }
 
-func (_c *ClientMock_AddServiceErrors_Call) Run(run func(id string, errs []*gqlclient.ServiceErrorAttributes)) *ClientMock_AddServiceErrors_Call {
+func (_c *ClientMock_AddServiceErrors_Call) Run(run func(id string, errs []*client.ServiceErrorAttributes)) *ClientMock_AddServiceErrors_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].([]*gqlclient.ServiceErrorAttributes))
+		run(args[0].(string), args[1].([]*client.ServiceErrorAttributes))
 	})
 	return _c
 }
@@ -66,7 +66,7 @@ func (_c *ClientMock_AddServiceErrors_Call) Return(_a0 error) *ClientMock_AddSer
 	return _c
 }
 
-func (_c *ClientMock_AddServiceErrors_Call) RunAndReturn(run func(string, []*gqlclient.ServiceErrorAttributes) error) *ClientMock_AddServiceErrors_Call {
+func (_c *ClientMock_AddServiceErrors_Call) RunAndReturn(run func(string, []*client.ServiceErrorAttributes) error) *ClientMock_AddServiceErrors_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -119,7 +119,7 @@ func (_c *ClientMock_AddStackRunLogs_Call) RunAndReturn(run func(string, string)
 }
 
 // CompleteStackRun provides a mock function with given fields: id, attributes
-func (_m *ClientMock) CompleteStackRun(id string, attributes gqlclient.StackRunAttributes) error {
+func (_m *ClientMock) CompleteStackRun(id string, attributes client.StackRunAttributes) error {
 	ret := _m.Called(id, attributes)
 
 	if len(ret) == 0 {
@@ -127,7 +127,7 @@ func (_m *ClientMock) CompleteStackRun(id string, attributes gqlclient.StackRunA
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, gqlclient.StackRunAttributes) error); ok {
+	if rf, ok := ret.Get(0).(func(string, client.StackRunAttributes) error); ok {
 		r0 = rf(id, attributes)
 	} else {
 		r0 = ret.Error(0)
@@ -143,14 +143,14 @@ type ClientMock_CompleteStackRun_Call struct {
 
 // CompleteStackRun is a helper method to define mock.On call
 //   - id string
-//   - attributes gqlclient.StackRunAttributes
+//   - attributes client.StackRunAttributes
 func (_e *ClientMock_Expecter) CompleteStackRun(id interface{}, attributes interface{}) *ClientMock_CompleteStackRun_Call {
 	return &ClientMock_CompleteStackRun_Call{Call: _e.mock.On("CompleteStackRun", id, attributes)}
 }
 
-func (_c *ClientMock_CompleteStackRun_Call) Run(run func(id string, attributes gqlclient.StackRunAttributes)) *ClientMock_CompleteStackRun_Call {
+func (_c *ClientMock_CompleteStackRun_Call) Run(run func(id string, attributes client.StackRunAttributes)) *ClientMock_CompleteStackRun_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(gqlclient.StackRunAttributes))
+		run(args[0].(string), args[1].(client.StackRunAttributes))
 	})
 	return _c
 }
@@ -160,7 +160,7 @@ func (_c *ClientMock_CompleteStackRun_Call) Return(_a0 error) *ClientMock_Comple
 	return _c
 }
 
-func (_c *ClientMock_CompleteStackRun_Call) RunAndReturn(run func(string, gqlclient.StackRunAttributes) error) *ClientMock_CompleteStackRun_Call {
+func (_c *ClientMock_CompleteStackRun_Call) RunAndReturn(run func(string, client.StackRunAttributes) error) *ClientMock_CompleteStackRun_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -212,23 +212,23 @@ func (_c *ClientMock_GateExists_Call) RunAndReturn(run func(string) bool) *Clien
 }
 
 // GetClusterBackup provides a mock function with given fields: clusterID, namespace, name
-func (_m *ClientMock) GetClusterBackup(clusterID string, namespace string, name string) (*gqlclient.ClusterBackupFragment, error) {
+func (_m *ClientMock) GetClusterBackup(clusterID string, namespace string, name string) (*client.ClusterBackupFragment, error) {
 	ret := _m.Called(clusterID, namespace, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetClusterBackup")
 	}
 
-	var r0 *gqlclient.ClusterBackupFragment
+	var r0 *client.ClusterBackupFragment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, string, string) (*gqlclient.ClusterBackupFragment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string, string, string) (*client.ClusterBackupFragment, error)); ok {
 		return rf(clusterID, namespace, name)
 	}
-	if rf, ok := ret.Get(0).(func(string, string, string) *gqlclient.ClusterBackupFragment); ok {
+	if rf, ok := ret.Get(0).(func(string, string, string) *client.ClusterBackupFragment); ok {
 		r0 = rf(clusterID, namespace, name)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.ClusterBackupFragment)
+			r0 = ret.Get(0).(*client.ClusterBackupFragment)
 		}
 	}
 
@@ -261,34 +261,34 @@ func (_c *ClientMock_GetClusterBackup_Call) Run(run func(clusterID string, names
 	return _c
 }
 
-func (_c *ClientMock_GetClusterBackup_Call) Return(_a0 *gqlclient.ClusterBackupFragment, _a1 error) *ClientMock_GetClusterBackup_Call {
+func (_c *ClientMock_GetClusterBackup_Call) Return(_a0 *client.ClusterBackupFragment, _a1 error) *ClientMock_GetClusterBackup_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetClusterBackup_Call) RunAndReturn(run func(string, string, string) (*gqlclient.ClusterBackupFragment, error)) *ClientMock_GetClusterBackup_Call {
+func (_c *ClientMock_GetClusterBackup_Call) RunAndReturn(run func(string, string, string) (*client.ClusterBackupFragment, error)) *ClientMock_GetClusterBackup_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetClusterGate provides a mock function with given fields: id
-func (_m *ClientMock) GetClusterGate(id string) (*gqlclient.PipelineGateFragment, error) {
+func (_m *ClientMock) GetClusterGate(id string) (*client.PipelineGateFragment, error) {
 	ret := _m.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetClusterGate")
 	}
 
-	var r0 *gqlclient.PipelineGateFragment
+	var r0 *client.PipelineGateFragment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*gqlclient.PipelineGateFragment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*client.PipelineGateFragment, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) *gqlclient.PipelineGateFragment); ok {
+	if rf, ok := ret.Get(0).(func(string) *client.PipelineGateFragment); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.PipelineGateFragment)
+			r0 = ret.Get(0).(*client.PipelineGateFragment)
 		}
 	}
 
@@ -319,34 +319,34 @@ func (_c *ClientMock_GetClusterGate_Call) Run(run func(id string)) *ClientMock_G
 	return _c
 }
 
-func (_c *ClientMock_GetClusterGate_Call) Return(_a0 *gqlclient.PipelineGateFragment, _a1 error) *ClientMock_GetClusterGate_Call {
+func (_c *ClientMock_GetClusterGate_Call) Return(_a0 *client.PipelineGateFragment, _a1 error) *ClientMock_GetClusterGate_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetClusterGate_Call) RunAndReturn(run func(string) (*gqlclient.PipelineGateFragment, error)) *ClientMock_GetClusterGate_Call {
+func (_c *ClientMock_GetClusterGate_Call) RunAndReturn(run func(string) (*client.PipelineGateFragment, error)) *ClientMock_GetClusterGate_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetClusterGates provides a mock function with given fields: after, first
-func (_m *ClientMock) GetClusterGates(after *string, first *int64) (*gqlclient.PagedClusterGates, error) {
+func (_m *ClientMock) GetClusterGates(after *string, first *int64) (*client.PagedClusterGates, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetClusterGates")
 	}
 
-	var r0 *gqlclient.PagedClusterGates
+	var r0 *client.PagedClusterGates
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*gqlclient.PagedClusterGates, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterGates, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *gqlclient.PagedClusterGates); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterGates); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.PagedClusterGates)
+			r0 = ret.Get(0).(*client.PagedClusterGates)
 		}
 	}
 
@@ -378,34 +378,34 @@ func (_c *ClientMock_GetClusterGates_Call) Run(run func(after *string, first *in
 	return _c
 }
 
-func (_c *ClientMock_GetClusterGates_Call) Return(_a0 *gqlclient.PagedClusterGates, _a1 error) *ClientMock_GetClusterGates_Call {
+func (_c *ClientMock_GetClusterGates_Call) Return(_a0 *client.PagedClusterGates, _a1 error) *ClientMock_GetClusterGates_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetClusterGates_Call) RunAndReturn(run func(*string, *int64) (*gqlclient.PagedClusterGates, error)) *ClientMock_GetClusterGates_Call {
+func (_c *ClientMock_GetClusterGates_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterGates, error)) *ClientMock_GetClusterGates_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetClusterRestore provides a mock function with given fields: id
-func (_m *ClientMock) GetClusterRestore(id string) (*gqlclient.ClusterRestoreFragment, error) {
+func (_m *ClientMock) GetClusterRestore(id string) (*client.ClusterRestoreFragment, error) {
 	ret := _m.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetClusterRestore")
 	}
 
-	var r0 *gqlclient.ClusterRestoreFragment
+	var r0 *client.ClusterRestoreFragment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*gqlclient.ClusterRestoreFragment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*client.ClusterRestoreFragment, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) *gqlclient.ClusterRestoreFragment); ok {
+	if rf, ok := ret.Get(0).(func(string) *client.ClusterRestoreFragment); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.ClusterRestoreFragment)
+			r0 = ret.Get(0).(*client.ClusterRestoreFragment)
 		}
 	}
 
@@ -436,12 +436,12 @@ func (_c *ClientMock_GetClusterRestore_Call) Run(run func(id string)) *ClientMoc
 	return _c
 }
 
-func (_c *ClientMock_GetClusterRestore_Call) Return(_a0 *gqlclient.ClusterRestoreFragment, _a1 error) *ClientMock_GetClusterRestore_Call {
+func (_c *ClientMock_GetClusterRestore_Call) Return(_a0 *client.ClusterRestoreFragment, _a1 error) *ClientMock_GetClusterRestore_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetClusterRestore_Call) RunAndReturn(run func(string) (*gqlclient.ClusterRestoreFragment, error)) *ClientMock_GetClusterRestore_Call {
+func (_c *ClientMock_GetClusterRestore_Call) RunAndReturn(run func(string) (*client.ClusterRestoreFragment, error)) *ClientMock_GetClusterRestore_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -502,23 +502,23 @@ func (_c *ClientMock_GetCredentials_Call) RunAndReturn(run func() (string, strin
 }
 
 // GetNamespace provides a mock function with given fields: id
-func (_m *ClientMock) GetNamespace(id string) (*gqlclient.ManagedNamespaceFragment, error) {
+func (_m *ClientMock) GetNamespace(id string) (*client.ManagedNamespaceFragment, error) {
 	ret := _m.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetNamespace")
 	}
 
-	var r0 *gqlclient.ManagedNamespaceFragment
+	var r0 *client.ManagedNamespaceFragment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*gqlclient.ManagedNamespaceFragment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*client.ManagedNamespaceFragment, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) *gqlclient.ManagedNamespaceFragment); ok {
+	if rf, ok := ret.Get(0).(func(string) *client.ManagedNamespaceFragment); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.ManagedNamespaceFragment)
+			r0 = ret.Get(0).(*client.ManagedNamespaceFragment)
 		}
 	}
 
@@ -549,34 +549,34 @@ func (_c *ClientMock_GetNamespace_Call) Run(run func(id string)) *ClientMock_Get
 	return _c
 }
 
-func (_c *ClientMock_GetNamespace_Call) Return(_a0 *gqlclient.ManagedNamespaceFragment, _a1 error) *ClientMock_GetNamespace_Call {
+func (_c *ClientMock_GetNamespace_Call) Return(_a0 *client.ManagedNamespaceFragment, _a1 error) *ClientMock_GetNamespace_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetNamespace_Call) RunAndReturn(run func(string) (*gqlclient.ManagedNamespaceFragment, error)) *ClientMock_GetNamespace_Call {
+func (_c *ClientMock_GetNamespace_Call) RunAndReturn(run func(string) (*client.ManagedNamespaceFragment, error)) *ClientMock_GetNamespace_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetService provides a mock function with given fields: id
-func (_m *ClientMock) GetService(id string) (*gqlclient.GetServiceDeploymentForAgent_ServiceDeployment, error) {
+func (_m *ClientMock) GetService(id string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error) {
 	ret := _m.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetService")
 	}
 
-	var r0 *gqlclient.GetServiceDeploymentForAgent_ServiceDeployment
+	var r0 *client.GetServiceDeploymentForAgent_ServiceDeployment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*gqlclient.GetServiceDeploymentForAgent_ServiceDeployment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) *gqlclient.GetServiceDeploymentForAgent_ServiceDeployment); ok {
+	if rf, ok := ret.Get(0).(func(string) *client.GetServiceDeploymentForAgent_ServiceDeployment); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.GetServiceDeploymentForAgent_ServiceDeployment)
+			r0 = ret.Get(0).(*client.GetServiceDeploymentForAgent_ServiceDeployment)
 		}
 	}
 
@@ -607,34 +607,34 @@ func (_c *ClientMock_GetService_Call) Run(run func(id string)) *ClientMock_GetSe
 	return _c
 }
 
-func (_c *ClientMock_GetService_Call) Return(_a0 *gqlclient.GetServiceDeploymentForAgent_ServiceDeployment, _a1 error) *ClientMock_GetService_Call {
+func (_c *ClientMock_GetService_Call) Return(_a0 *client.GetServiceDeploymentForAgent_ServiceDeployment, _a1 error) *ClientMock_GetService_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetService_Call) RunAndReturn(run func(string) (*gqlclient.GetServiceDeploymentForAgent_ServiceDeployment, error)) *ClientMock_GetService_Call {
+func (_c *ClientMock_GetService_Call) RunAndReturn(run func(string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error)) *ClientMock_GetService_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetServices provides a mock function with given fields: after, first
-func (_m *ClientMock) GetServices(after *string, first *int64) (*gqlclient.PagedClusterServices, error) {
+func (_m *ClientMock) GetServices(after *string, first *int64) (*client.PagedClusterServices, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetServices")
 	}
 
-	var r0 *gqlclient.PagedClusterServices
+	var r0 *client.PagedClusterServices
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*gqlclient.PagedClusterServices, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterServices, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *gqlclient.PagedClusterServices); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterServices); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.PagedClusterServices)
+			r0 = ret.Get(0).(*client.PagedClusterServices)
 		}
 	}
 
@@ -666,34 +666,34 @@ func (_c *ClientMock_GetServices_Call) Run(run func(after *string, first *int64)
 	return _c
 }
 
-func (_c *ClientMock_GetServices_Call) Return(_a0 *gqlclient.PagedClusterServices, _a1 error) *ClientMock_GetServices_Call {
+func (_c *ClientMock_GetServices_Call) Return(_a0 *client.PagedClusterServices, _a1 error) *ClientMock_GetServices_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetServices_Call) RunAndReturn(run func(*string, *int64) (*gqlclient.PagedClusterServices, error)) *ClientMock_GetServices_Call {
+func (_c *ClientMock_GetServices_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterServices, error)) *ClientMock_GetServices_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetStackRun provides a mock function with given fields: id
-func (_m *ClientMock) GetStackRun(id string) (*gqlclient.StackRunFragment, error) {
+func (_m *ClientMock) GetStackRun(id string) (*client.StackRunFragment, error) {
 	ret := _m.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetStackRun")
 	}
 
-	var r0 *gqlclient.StackRunFragment
+	var r0 *client.StackRunFragment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*gqlclient.StackRunFragment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*client.StackRunFragment, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) *gqlclient.StackRunFragment); ok {
+	if rf, ok := ret.Get(0).(func(string) *client.StackRunFragment); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.StackRunFragment)
+			r0 = ret.Get(0).(*client.StackRunFragment)
 		}
 	}
 
@@ -724,12 +724,12 @@ func (_c *ClientMock_GetStackRun_Call) Run(run func(id string)) *ClientMock_GetS
 	return _c
 }
 
-func (_c *ClientMock_GetStackRun_Call) Return(_a0 *gqlclient.StackRunFragment, _a1 error) *ClientMock_GetStackRun_Call {
+func (_c *ClientMock_GetStackRun_Call) Return(_a0 *client.StackRunFragment, _a1 error) *ClientMock_GetStackRun_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetStackRun_Call) RunAndReturn(run func(string) (*gqlclient.StackRunFragment, error)) *ClientMock_GetStackRun_Call {
+func (_c *ClientMock_GetStackRun_Call) RunAndReturn(run func(string) (*client.StackRunFragment, error)) *ClientMock_GetStackRun_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -793,23 +793,23 @@ func (_c *ClientMock_GetStackRunBase_Call) RunAndReturn(run func(string) (*v1.St
 }
 
 // ListClusterStackRuns provides a mock function with given fields: after, first
-func (_m *ClientMock) ListClusterStackRuns(after *string, first *int64) (*gqlclient.ListClusterStacks_ClusterStackRuns, error) {
+func (_m *ClientMock) ListClusterStackRuns(after *string, first *int64) (*client.ListClusterStacks_ClusterStackRuns, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListClusterStackRuns")
 	}
 
-	var r0 *gqlclient.ListClusterStacks_ClusterStackRuns
+	var r0 *client.ListClusterStacks_ClusterStackRuns
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*gqlclient.ListClusterStacks_ClusterStackRuns, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.ListClusterStacks_ClusterStackRuns, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *gqlclient.ListClusterStacks_ClusterStackRuns); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.ListClusterStacks_ClusterStackRuns); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.ListClusterStacks_ClusterStackRuns)
+			r0 = ret.Get(0).(*client.ListClusterStacks_ClusterStackRuns)
 		}
 	}
 
@@ -841,34 +841,34 @@ func (_c *ClientMock_ListClusterStackRuns_Call) Run(run func(after *string, firs
 	return _c
 }
 
-func (_c *ClientMock_ListClusterStackRuns_Call) Return(_a0 *gqlclient.ListClusterStacks_ClusterStackRuns, _a1 error) *ClientMock_ListClusterStackRuns_Call {
+func (_c *ClientMock_ListClusterStackRuns_Call) Return(_a0 *client.ListClusterStacks_ClusterStackRuns, _a1 error) *ClientMock_ListClusterStackRuns_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_ListClusterStackRuns_Call) RunAndReturn(run func(*string, *int64) (*gqlclient.ListClusterStacks_ClusterStackRuns, error)) *ClientMock_ListClusterStackRuns_Call {
+func (_c *ClientMock_ListClusterStackRuns_Call) RunAndReturn(run func(*string, *int64) (*client.ListClusterStacks_ClusterStackRuns, error)) *ClientMock_ListClusterStackRuns_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListNamespaces provides a mock function with given fields: after, first
-func (_m *ClientMock) ListNamespaces(after *string, first *int64) (*gqlclient.ListClusterNamespaces_ClusterManagedNamespaces, error) {
+func (_m *ClientMock) ListNamespaces(after *string, first *int64) (*client.ListClusterNamespaces_ClusterManagedNamespaces, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListNamespaces")
 	}
 
-	var r0 *gqlclient.ListClusterNamespaces_ClusterManagedNamespaces
+	var r0 *client.ListClusterNamespaces_ClusterManagedNamespaces
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*gqlclient.ListClusterNamespaces_ClusterManagedNamespaces, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.ListClusterNamespaces_ClusterManagedNamespaces, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *gqlclient.ListClusterNamespaces_ClusterManagedNamespaces); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.ListClusterNamespaces_ClusterManagedNamespaces); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.ListClusterNamespaces_ClusterManagedNamespaces)
+			r0 = ret.Get(0).(*client.ListClusterNamespaces_ClusterManagedNamespaces)
 		}
 	}
 
@@ -900,34 +900,34 @@ func (_c *ClientMock_ListNamespaces_Call) Run(run func(after *string, first *int
 	return _c
 }
 
-func (_c *ClientMock_ListNamespaces_Call) Return(_a0 *gqlclient.ListClusterNamespaces_ClusterManagedNamespaces, _a1 error) *ClientMock_ListNamespaces_Call {
+func (_c *ClientMock_ListNamespaces_Call) Return(_a0 *client.ListClusterNamespaces_ClusterManagedNamespaces, _a1 error) *ClientMock_ListNamespaces_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_ListNamespaces_Call) RunAndReturn(run func(*string, *int64) (*gqlclient.ListClusterNamespaces_ClusterManagedNamespaces, error)) *ClientMock_ListNamespaces_Call {
+func (_c *ClientMock_ListNamespaces_Call) RunAndReturn(run func(*string, *int64) (*client.ListClusterNamespaces_ClusterManagedNamespaces, error)) *ClientMock_ListNamespaces_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // MyCluster provides a mock function with given fields:
-func (_m *ClientMock) MyCluster() (*gqlclient.MyCluster, error) {
+func (_m *ClientMock) MyCluster() (*client.MyCluster, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for MyCluster")
 	}
 
-	var r0 *gqlclient.MyCluster
+	var r0 *client.MyCluster
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (*gqlclient.MyCluster, error)); ok {
+	if rf, ok := ret.Get(0).(func() (*client.MyCluster, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() *gqlclient.MyCluster); ok {
+	if rf, ok := ret.Get(0).(func() *client.MyCluster); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.MyCluster)
+			r0 = ret.Get(0).(*client.MyCluster)
 		}
 	}
 
@@ -957,18 +957,18 @@ func (_c *ClientMock_MyCluster_Call) Run(run func()) *ClientMock_MyCluster_Call 
 	return _c
 }
 
-func (_c *ClientMock_MyCluster_Call) Return(_a0 *gqlclient.MyCluster, _a1 error) *ClientMock_MyCluster_Call {
+func (_c *ClientMock_MyCluster_Call) Return(_a0 *client.MyCluster, _a1 error) *ClientMock_MyCluster_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_MyCluster_Call) RunAndReturn(run func() (*gqlclient.MyCluster, error)) *ClientMock_MyCluster_Call {
+func (_c *ClientMock_MyCluster_Call) RunAndReturn(run func() (*client.MyCluster, error)) *ClientMock_MyCluster_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParsePipelineGateCR provides a mock function with given fields: pgFragment, operatorNamespace
-func (_m *ClientMock) ParsePipelineGateCR(pgFragment *gqlclient.PipelineGateFragment, operatorNamespace string) (*v1alpha1.PipelineGate, error) {
+func (_m *ClientMock) ParsePipelineGateCR(pgFragment *client.PipelineGateFragment, operatorNamespace string) (*v1alpha1.PipelineGate, error) {
 	ret := _m.Called(pgFragment, operatorNamespace)
 
 	if len(ret) == 0 {
@@ -977,10 +977,10 @@ func (_m *ClientMock) ParsePipelineGateCR(pgFragment *gqlclient.PipelineGateFrag
 
 	var r0 *v1alpha1.PipelineGate
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*gqlclient.PipelineGateFragment, string) (*v1alpha1.PipelineGate, error)); ok {
+	if rf, ok := ret.Get(0).(func(*client.PipelineGateFragment, string) (*v1alpha1.PipelineGate, error)); ok {
 		return rf(pgFragment, operatorNamespace)
 	}
-	if rf, ok := ret.Get(0).(func(*gqlclient.PipelineGateFragment, string) *v1alpha1.PipelineGate); ok {
+	if rf, ok := ret.Get(0).(func(*client.PipelineGateFragment, string) *v1alpha1.PipelineGate); ok {
 		r0 = rf(pgFragment, operatorNamespace)
 	} else {
 		if ret.Get(0) != nil {
@@ -988,7 +988,7 @@ func (_m *ClientMock) ParsePipelineGateCR(pgFragment *gqlclient.PipelineGateFrag
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*gqlclient.PipelineGateFragment, string) error); ok {
+	if rf, ok := ret.Get(1).(func(*client.PipelineGateFragment, string) error); ok {
 		r1 = rf(pgFragment, operatorNamespace)
 	} else {
 		r1 = ret.Error(1)
@@ -1003,15 +1003,15 @@ type ClientMock_ParsePipelineGateCR_Call struct {
 }
 
 // ParsePipelineGateCR is a helper method to define mock.On call
-//   - pgFragment *gqlclient.PipelineGateFragment
+//   - pgFragment *client.PipelineGateFragment
 //   - operatorNamespace string
 func (_e *ClientMock_Expecter) ParsePipelineGateCR(pgFragment interface{}, operatorNamespace interface{}) *ClientMock_ParsePipelineGateCR_Call {
 	return &ClientMock_ParsePipelineGateCR_Call{Call: _e.mock.On("ParsePipelineGateCR", pgFragment, operatorNamespace)}
 }
 
-func (_c *ClientMock_ParsePipelineGateCR_Call) Run(run func(pgFragment *gqlclient.PipelineGateFragment, operatorNamespace string)) *ClientMock_ParsePipelineGateCR_Call {
+func (_c *ClientMock_ParsePipelineGateCR_Call) Run(run func(pgFragment *client.PipelineGateFragment, operatorNamespace string)) *ClientMock_ParsePipelineGateCR_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*gqlclient.PipelineGateFragment), args[1].(string))
+		run(args[0].(*client.PipelineGateFragment), args[1].(string))
 	})
 	return _c
 }
@@ -1021,7 +1021,7 @@ func (_c *ClientMock_ParsePipelineGateCR_Call) Return(_a0 *v1alpha1.PipelineGate
 	return _c
 }
 
-func (_c *ClientMock_ParsePipelineGateCR_Call) RunAndReturn(run func(*gqlclient.PipelineGateFragment, string) (*v1alpha1.PipelineGate, error)) *ClientMock_ParsePipelineGateCR_Call {
+func (_c *ClientMock_ParsePipelineGateCR_Call) RunAndReturn(run func(*client.PipelineGateFragment, string) (*v1alpha1.PipelineGate, error)) *ClientMock_ParsePipelineGateCR_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1073,7 +1073,7 @@ func (_c *ClientMock_Ping_Call) RunAndReturn(run func(string) error) *ClientMock
 }
 
 // PingCluster provides a mock function with given fields: attributes
-func (_m *ClientMock) PingCluster(attributes gqlclient.ClusterPing) error {
+func (_m *ClientMock) PingCluster(attributes client.ClusterPing) error {
 	ret := _m.Called(attributes)
 
 	if len(ret) == 0 {
@@ -1081,7 +1081,7 @@ func (_m *ClientMock) PingCluster(attributes gqlclient.ClusterPing) error {
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(gqlclient.ClusterPing) error); ok {
+	if rf, ok := ret.Get(0).(func(client.ClusterPing) error); ok {
 		r0 = rf(attributes)
 	} else {
 		r0 = ret.Error(0)
@@ -1096,14 +1096,14 @@ type ClientMock_PingCluster_Call struct {
 }
 
 // PingCluster is a helper method to define mock.On call
-//   - attributes gqlclient.ClusterPing
+//   - attributes client.ClusterPing
 func (_e *ClientMock_Expecter) PingCluster(attributes interface{}) *ClientMock_PingCluster_Call {
 	return &ClientMock_PingCluster_Call{Call: _e.mock.On("PingCluster", attributes)}
 }
 
-func (_c *ClientMock_PingCluster_Call) Run(run func(attributes gqlclient.ClusterPing)) *ClientMock_PingCluster_Call {
+func (_c *ClientMock_PingCluster_Call) Run(run func(attributes client.ClusterPing)) *ClientMock_PingCluster_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(gqlclient.ClusterPing))
+		run(args[0].(client.ClusterPing))
 	})
 	return _c
 }
@@ -1113,7 +1113,7 @@ func (_c *ClientMock_PingCluster_Call) Return(_a0 error) *ClientMock_PingCluster
 	return _c
 }
 
-func (_c *ClientMock_PingCluster_Call) RunAndReturn(run func(gqlclient.ClusterPing) error) *ClientMock_PingCluster_Call {
+func (_c *ClientMock_PingCluster_Call) RunAndReturn(run func(client.ClusterPing) error) *ClientMock_PingCluster_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1166,27 +1166,27 @@ func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[str
 }
 
 // SaveClusterBackup provides a mock function with given fields: attrs
-func (_m *ClientMock) SaveClusterBackup(attrs gqlclient.BackupAttributes) (*gqlclient.ClusterBackupFragment, error) {
+func (_m *ClientMock) SaveClusterBackup(attrs client.BackupAttributes) (*client.ClusterBackupFragment, error) {
 	ret := _m.Called(attrs)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveClusterBackup")
 	}
 
-	var r0 *gqlclient.ClusterBackupFragment
+	var r0 *client.ClusterBackupFragment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(gqlclient.BackupAttributes) (*gqlclient.ClusterBackupFragment, error)); ok {
+	if rf, ok := ret.Get(0).(func(client.BackupAttributes) (*client.ClusterBackupFragment, error)); ok {
 		return rf(attrs)
 	}
-	if rf, ok := ret.Get(0).(func(gqlclient.BackupAttributes) *gqlclient.ClusterBackupFragment); ok {
+	if rf, ok := ret.Get(0).(func(client.BackupAttributes) *client.ClusterBackupFragment); ok {
 		r0 = rf(attrs)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.ClusterBackupFragment)
+			r0 = ret.Get(0).(*client.ClusterBackupFragment)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(gqlclient.BackupAttributes) error); ok {
+	if rf, ok := ret.Get(1).(func(client.BackupAttributes) error); ok {
 		r1 = rf(attrs)
 	} else {
 		r1 = ret.Error(1)
@@ -1201,50 +1201,50 @@ type ClientMock_SaveClusterBackup_Call struct {
 }
 
 // SaveClusterBackup is a helper method to define mock.On call
-//   - attrs gqlclient.BackupAttributes
+//   - attrs client.BackupAttributes
 func (_e *ClientMock_Expecter) SaveClusterBackup(attrs interface{}) *ClientMock_SaveClusterBackup_Call {
 	return &ClientMock_SaveClusterBackup_Call{Call: _e.mock.On("SaveClusterBackup", attrs)}
 }
 
-func (_c *ClientMock_SaveClusterBackup_Call) Run(run func(attrs gqlclient.BackupAttributes)) *ClientMock_SaveClusterBackup_Call {
+func (_c *ClientMock_SaveClusterBackup_Call) Run(run func(attrs client.BackupAttributes)) *ClientMock_SaveClusterBackup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(gqlclient.BackupAttributes))
+		run(args[0].(client.BackupAttributes))
 	})
 	return _c
 }
 
-func (_c *ClientMock_SaveClusterBackup_Call) Return(_a0 *gqlclient.ClusterBackupFragment, _a1 error) *ClientMock_SaveClusterBackup_Call {
+func (_c *ClientMock_SaveClusterBackup_Call) Return(_a0 *client.ClusterBackupFragment, _a1 error) *ClientMock_SaveClusterBackup_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_SaveClusterBackup_Call) RunAndReturn(run func(gqlclient.BackupAttributes) (*gqlclient.ClusterBackupFragment, error)) *ClientMock_SaveClusterBackup_Call {
+func (_c *ClientMock_SaveClusterBackup_Call) RunAndReturn(run func(client.BackupAttributes) (*client.ClusterBackupFragment, error)) *ClientMock_SaveClusterBackup_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateClusterRestore provides a mock function with given fields: id, attrs
-func (_m *ClientMock) UpdateClusterRestore(id string, attrs gqlclient.RestoreAttributes) (*gqlclient.ClusterRestoreFragment, error) {
+func (_m *ClientMock) UpdateClusterRestore(id string, attrs client.RestoreAttributes) (*client.ClusterRestoreFragment, error) {
 	ret := _m.Called(id, attrs)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateClusterRestore")
 	}
 
-	var r0 *gqlclient.ClusterRestoreFragment
+	var r0 *client.ClusterRestoreFragment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, gqlclient.RestoreAttributes) (*gqlclient.ClusterRestoreFragment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string, client.RestoreAttributes) (*client.ClusterRestoreFragment, error)); ok {
 		return rf(id, attrs)
 	}
-	if rf, ok := ret.Get(0).(func(string, gqlclient.RestoreAttributes) *gqlclient.ClusterRestoreFragment); ok {
+	if rf, ok := ret.Get(0).(func(string, client.RestoreAttributes) *client.ClusterRestoreFragment); ok {
 		r0 = rf(id, attrs)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.ClusterRestoreFragment)
+			r0 = ret.Get(0).(*client.ClusterRestoreFragment)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(string, gqlclient.RestoreAttributes) error); ok {
+	if rf, ok := ret.Get(1).(func(string, client.RestoreAttributes) error); ok {
 		r1 = rf(id, attrs)
 	} else {
 		r1 = ret.Error(1)
@@ -1260,39 +1260,39 @@ type ClientMock_UpdateClusterRestore_Call struct {
 
 // UpdateClusterRestore is a helper method to define mock.On call
 //   - id string
-//   - attrs gqlclient.RestoreAttributes
+//   - attrs client.RestoreAttributes
 func (_e *ClientMock_Expecter) UpdateClusterRestore(id interface{}, attrs interface{}) *ClientMock_UpdateClusterRestore_Call {
 	return &ClientMock_UpdateClusterRestore_Call{Call: _e.mock.On("UpdateClusterRestore", id, attrs)}
 }
 
-func (_c *ClientMock_UpdateClusterRestore_Call) Run(run func(id string, attrs gqlclient.RestoreAttributes)) *ClientMock_UpdateClusterRestore_Call {
+func (_c *ClientMock_UpdateClusterRestore_Call) Run(run func(id string, attrs client.RestoreAttributes)) *ClientMock_UpdateClusterRestore_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(gqlclient.RestoreAttributes))
+		run(args[0].(string), args[1].(client.RestoreAttributes))
 	})
 	return _c
 }
 
-func (_c *ClientMock_UpdateClusterRestore_Call) Return(_a0 *gqlclient.ClusterRestoreFragment, _a1 error) *ClientMock_UpdateClusterRestore_Call {
+func (_c *ClientMock_UpdateClusterRestore_Call) Return(_a0 *client.ClusterRestoreFragment, _a1 error) *ClientMock_UpdateClusterRestore_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_UpdateClusterRestore_Call) RunAndReturn(run func(string, gqlclient.RestoreAttributes) (*gqlclient.ClusterRestoreFragment, error)) *ClientMock_UpdateClusterRestore_Call {
+func (_c *ClientMock_UpdateClusterRestore_Call) RunAndReturn(run func(string, client.RestoreAttributes) (*client.ClusterRestoreFragment, error)) *ClientMock_UpdateClusterRestore_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// UpdateComponents provides a mock function with given fields: id, components, errs
-func (_m *ClientMock) UpdateComponents(id string, components []*gqlclient.ComponentAttributes, errs []*gqlclient.ServiceErrorAttributes) error {
-	ret := _m.Called(id, components, errs)
+// UpdateComponents provides a mock function with given fields: id, revisionID, sha, components, errs
+func (_m *ClientMock) UpdateComponents(id string, revisionID string, sha *string, components []*client.ComponentAttributes, errs []*client.ServiceErrorAttributes) error {
+	ret := _m.Called(id, revisionID, sha, components, errs)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateComponents")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, []*gqlclient.ComponentAttributes, []*gqlclient.ServiceErrorAttributes) error); ok {
-		r0 = rf(id, components, errs)
+	if rf, ok := ret.Get(0).(func(string, string, *string, []*client.ComponentAttributes, []*client.ServiceErrorAttributes) error); ok {
+		r0 = rf(id, revisionID, sha, components, errs)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1307,15 +1307,17 @@ type ClientMock_UpdateComponents_Call struct {
 
 // UpdateComponents is a helper method to define mock.On call
 //   - id string
-//   - components []*gqlclient.ComponentAttributes
-//   - errs []*gqlclient.ServiceErrorAttributes
-func (_e *ClientMock_Expecter) UpdateComponents(id interface{}, components interface{}, errs interface{}) *ClientMock_UpdateComponents_Call {
-	return &ClientMock_UpdateComponents_Call{Call: _e.mock.On("UpdateComponents", id, components, errs)}
+//   - revisionID string
+//   - sha *string
+//   - components []*client.ComponentAttributes
+//   - errs []*client.ServiceErrorAttributes
+func (_e *ClientMock_Expecter) UpdateComponents(id interface{}, revisionID interface{}, sha interface{}, components interface{}, errs interface{}) *ClientMock_UpdateComponents_Call {
+	return &ClientMock_UpdateComponents_Call{Call: _e.mock.On("UpdateComponents", id, revisionID, sha, components, errs)}
 }
 
-func (_c *ClientMock_UpdateComponents_Call) Run(run func(id string, components []*gqlclient.ComponentAttributes, errs []*gqlclient.ServiceErrorAttributes)) *ClientMock_UpdateComponents_Call {
+func (_c *ClientMock_UpdateComponents_Call) Run(run func(id string, revisionID string, sha *string, components []*client.ComponentAttributes, errs []*client.ServiceErrorAttributes)) *ClientMock_UpdateComponents_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].([]*gqlclient.ComponentAttributes), args[2].([]*gqlclient.ServiceErrorAttributes))
+		run(args[0].(string), args[1].(string), args[2].(*string), args[3].([]*client.ComponentAttributes), args[4].([]*client.ServiceErrorAttributes))
 	})
 	return _c
 }
@@ -1325,13 +1327,13 @@ func (_c *ClientMock_UpdateComponents_Call) Return(_a0 error) *ClientMock_Update
 	return _c
 }
 
-func (_c *ClientMock_UpdateComponents_Call) RunAndReturn(run func(string, []*gqlclient.ComponentAttributes, []*gqlclient.ServiceErrorAttributes) error) *ClientMock_UpdateComponents_Call {
+func (_c *ClientMock_UpdateComponents_Call) RunAndReturn(run func(string, string, *string, []*client.ComponentAttributes, []*client.ServiceErrorAttributes) error) *ClientMock_UpdateComponents_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateGate provides a mock function with given fields: id, attributes
-func (_m *ClientMock) UpdateGate(id string, attributes gqlclient.GateUpdateAttributes) error {
+func (_m *ClientMock) UpdateGate(id string, attributes client.GateUpdateAttributes) error {
 	ret := _m.Called(id, attributes)
 
 	if len(ret) == 0 {
@@ -1339,7 +1341,7 @@ func (_m *ClientMock) UpdateGate(id string, attributes gqlclient.GateUpdateAttri
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, gqlclient.GateUpdateAttributes) error); ok {
+	if rf, ok := ret.Get(0).(func(string, client.GateUpdateAttributes) error); ok {
 		r0 = rf(id, attributes)
 	} else {
 		r0 = ret.Error(0)
@@ -1355,14 +1357,14 @@ type ClientMock_UpdateGate_Call struct {
 
 // UpdateGate is a helper method to define mock.On call
 //   - id string
-//   - attributes gqlclient.GateUpdateAttributes
+//   - attributes client.GateUpdateAttributes
 func (_e *ClientMock_Expecter) UpdateGate(id interface{}, attributes interface{}) *ClientMock_UpdateGate_Call {
 	return &ClientMock_UpdateGate_Call{Call: _e.mock.On("UpdateGate", id, attributes)}
 }
 
-func (_c *ClientMock_UpdateGate_Call) Run(run func(id string, attributes gqlclient.GateUpdateAttributes)) *ClientMock_UpdateGate_Call {
+func (_c *ClientMock_UpdateGate_Call) Run(run func(id string, attributes client.GateUpdateAttributes)) *ClientMock_UpdateGate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(gqlclient.GateUpdateAttributes))
+		run(args[0].(string), args[1].(client.GateUpdateAttributes))
 	})
 	return _c
 }
@@ -1372,13 +1374,13 @@ func (_c *ClientMock_UpdateGate_Call) Return(_a0 error) *ClientMock_UpdateGate_C
 	return _c
 }
 
-func (_c *ClientMock_UpdateGate_Call) RunAndReturn(run func(string, gqlclient.GateUpdateAttributes) error) *ClientMock_UpdateGate_Call {
+func (_c *ClientMock_UpdateGate_Call) RunAndReturn(run func(string, client.GateUpdateAttributes) error) *ClientMock_UpdateGate_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateStackRun provides a mock function with given fields: id, attributes
-func (_m *ClientMock) UpdateStackRun(id string, attributes gqlclient.StackRunAttributes) error {
+func (_m *ClientMock) UpdateStackRun(id string, attributes client.StackRunAttributes) error {
 	ret := _m.Called(id, attributes)
 
 	if len(ret) == 0 {
@@ -1386,7 +1388,7 @@ func (_m *ClientMock) UpdateStackRun(id string, attributes gqlclient.StackRunAtt
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, gqlclient.StackRunAttributes) error); ok {
+	if rf, ok := ret.Get(0).(func(string, client.StackRunAttributes) error); ok {
 		r0 = rf(id, attributes)
 	} else {
 		r0 = ret.Error(0)
@@ -1402,14 +1404,14 @@ type ClientMock_UpdateStackRun_Call struct {
 
 // UpdateStackRun is a helper method to define mock.On call
 //   - id string
-//   - attributes gqlclient.StackRunAttributes
+//   - attributes client.StackRunAttributes
 func (_e *ClientMock_Expecter) UpdateStackRun(id interface{}, attributes interface{}) *ClientMock_UpdateStackRun_Call {
 	return &ClientMock_UpdateStackRun_Call{Call: _e.mock.On("UpdateStackRun", id, attributes)}
 }
 
-func (_c *ClientMock_UpdateStackRun_Call) Run(run func(id string, attributes gqlclient.StackRunAttributes)) *ClientMock_UpdateStackRun_Call {
+func (_c *ClientMock_UpdateStackRun_Call) Run(run func(id string, attributes client.StackRunAttributes)) *ClientMock_UpdateStackRun_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(gqlclient.StackRunAttributes))
+		run(args[0].(string), args[1].(client.StackRunAttributes))
 	})
 	return _c
 }
@@ -1419,13 +1421,13 @@ func (_c *ClientMock_UpdateStackRun_Call) Return(_a0 error) *ClientMock_UpdateSt
 	return _c
 }
 
-func (_c *ClientMock_UpdateStackRun_Call) RunAndReturn(run func(string, gqlclient.StackRunAttributes) error) *ClientMock_UpdateStackRun_Call {
+func (_c *ClientMock_UpdateStackRun_Call) RunAndReturn(run func(string, client.StackRunAttributes) error) *ClientMock_UpdateStackRun_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateStackRunStep provides a mock function with given fields: id, attributes
-func (_m *ClientMock) UpdateStackRunStep(id string, attributes gqlclient.RunStepAttributes) error {
+func (_m *ClientMock) UpdateStackRunStep(id string, attributes client.RunStepAttributes) error {
 	ret := _m.Called(id, attributes)
 
 	if len(ret) == 0 {
@@ -1433,7 +1435,7 @@ func (_m *ClientMock) UpdateStackRunStep(id string, attributes gqlclient.RunStep
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, gqlclient.RunStepAttributes) error); ok {
+	if rf, ok := ret.Get(0).(func(string, client.RunStepAttributes) error); ok {
 		r0 = rf(id, attributes)
 	} else {
 		r0 = ret.Error(0)
@@ -1449,14 +1451,14 @@ type ClientMock_UpdateStackRunStep_Call struct {
 
 // UpdateStackRunStep is a helper method to define mock.On call
 //   - id string
-//   - attributes gqlclient.RunStepAttributes
+//   - attributes client.RunStepAttributes
 func (_e *ClientMock_Expecter) UpdateStackRunStep(id interface{}, attributes interface{}) *ClientMock_UpdateStackRunStep_Call {
 	return &ClientMock_UpdateStackRunStep_Call{Call: _e.mock.On("UpdateStackRunStep", id, attributes)}
 }
 
-func (_c *ClientMock_UpdateStackRunStep_Call) Run(run func(id string, attributes gqlclient.RunStepAttributes)) *ClientMock_UpdateStackRunStep_Call {
+func (_c *ClientMock_UpdateStackRunStep_Call) Run(run func(id string, attributes client.RunStepAttributes)) *ClientMock_UpdateStackRunStep_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(gqlclient.RunStepAttributes))
+		run(args[0].(string), args[1].(client.RunStepAttributes))
 	})
 	return _c
 }
@@ -1466,33 +1468,33 @@ func (_c *ClientMock_UpdateStackRunStep_Call) Return(_a0 error) *ClientMock_Upda
 	return _c
 }
 
-func (_c *ClientMock_UpdateStackRunStep_Call) RunAndReturn(run func(string, gqlclient.RunStepAttributes) error) *ClientMock_UpdateStackRunStep_Call {
+func (_c *ClientMock_UpdateStackRunStep_Call) RunAndReturn(run func(string, client.RunStepAttributes) error) *ClientMock_UpdateStackRunStep_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpsertConstraints provides a mock function with given fields: constraints
-func (_m *ClientMock) UpsertConstraints(constraints []*gqlclient.PolicyConstraintAttributes) (*gqlclient.UpsertPolicyConstraints, error) {
+func (_m *ClientMock) UpsertConstraints(constraints []*client.PolicyConstraintAttributes) (*client.UpsertPolicyConstraints, error) {
 	ret := _m.Called(constraints)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpsertConstraints")
 	}
 
-	var r0 *gqlclient.UpsertPolicyConstraints
+	var r0 *client.UpsertPolicyConstraints
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]*gqlclient.PolicyConstraintAttributes) (*gqlclient.UpsertPolicyConstraints, error)); ok {
+	if rf, ok := ret.Get(0).(func([]*client.PolicyConstraintAttributes) (*client.UpsertPolicyConstraints, error)); ok {
 		return rf(constraints)
 	}
-	if rf, ok := ret.Get(0).(func([]*gqlclient.PolicyConstraintAttributes) *gqlclient.UpsertPolicyConstraints); ok {
+	if rf, ok := ret.Get(0).(func([]*client.PolicyConstraintAttributes) *client.UpsertPolicyConstraints); ok {
 		r0 = rf(constraints)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gqlclient.UpsertPolicyConstraints)
+			r0 = ret.Get(0).(*client.UpsertPolicyConstraints)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]*gqlclient.PolicyConstraintAttributes) error); ok {
+	if rf, ok := ret.Get(1).(func([]*client.PolicyConstraintAttributes) error); ok {
 		r1 = rf(constraints)
 	} else {
 		r1 = ret.Error(1)
@@ -1507,24 +1509,24 @@ type ClientMock_UpsertConstraints_Call struct {
 }
 
 // UpsertConstraints is a helper method to define mock.On call
-//   - constraints []*gqlclient.PolicyConstraintAttributes
+//   - constraints []*client.PolicyConstraintAttributes
 func (_e *ClientMock_Expecter) UpsertConstraints(constraints interface{}) *ClientMock_UpsertConstraints_Call {
 	return &ClientMock_UpsertConstraints_Call{Call: _e.mock.On("UpsertConstraints", constraints)}
 }
 
-func (_c *ClientMock_UpsertConstraints_Call) Run(run func(constraints []*gqlclient.PolicyConstraintAttributes)) *ClientMock_UpsertConstraints_Call {
+func (_c *ClientMock_UpsertConstraints_Call) Run(run func(constraints []*client.PolicyConstraintAttributes)) *ClientMock_UpsertConstraints_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]*gqlclient.PolicyConstraintAttributes))
+		run(args[0].([]*client.PolicyConstraintAttributes))
 	})
 	return _c
 }
 
-func (_c *ClientMock_UpsertConstraints_Call) Return(_a0 *gqlclient.UpsertPolicyConstraints, _a1 error) *ClientMock_UpsertConstraints_Call {
+func (_c *ClientMock_UpsertConstraints_Call) Return(_a0 *client.UpsertPolicyConstraints, _a1 error) *ClientMock_UpsertConstraints_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_UpsertConstraints_Call) RunAndReturn(run func([]*gqlclient.PolicyConstraintAttributes) (*gqlclient.UpsertPolicyConstraints, error)) *ClientMock_UpsertConstraints_Call {
+func (_c *ClientMock_UpsertConstraints_Call) RunAndReturn(run func([]*client.PolicyConstraintAttributes) (*client.UpsertPolicyConstraints, error)) *ClientMock_UpsertConstraints_Call {
 	_c.Call.Return(run)
 	return _c
 }
