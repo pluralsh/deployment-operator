@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/lo"
+
 	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
@@ -50,7 +52,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.
 
 	components := statusCollector.componentsAttributes(vcache)
 	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
-	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
+	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
 
@@ -137,7 +139,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		return err
 	}
 	components := statusCollector.componentsAttributes(vcache)
-	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
+	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
 
@@ -216,13 +218,13 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	}
 }
 
-func (s *ServiceReconciler) UpdateStatus(id string, components []*console.ComponentAttributes, err *console.ServiceErrorAttributes) error {
+func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, components []*console.ComponentAttributes, err *console.ServiceErrorAttributes) error {
 	errs := make([]*console.ServiceErrorAttributes, 0)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	return s.ConsoleClient.UpdateComponents(id, components, errs)
+	return s.ConsoleClient.UpdateComponents(id, revisionID, lo.FromPtr(sha), components, errs)
 }
 
 func (s *ServiceReconciler) AddErrors(id string, err *console.ServiceErrorAttributes) error {
