@@ -43,9 +43,6 @@ rbac:
 
 podLabels: {}
 podAnnotations: {}
-#  prometheus.io/scrape: "true"
-#  prometheus.io/path: "/metrics"
-#  prometheus.io/port: "8080"
 
 podSecurityContext: {}
   # fsGroup: 2000
@@ -57,6 +54,15 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
+
+monitoring:
+  enabled: false
+  prometheus: "k8s"
+  metricsPort: 8000
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "8000"
 
 service:
   type: ClusterIP
@@ -136,6 +142,3 @@ agentk:
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
-  serviceMonitor:
-    # Specifies whether to create a ServiceMonitor resource for collecting Prometheus metrics
-    enabled: false
