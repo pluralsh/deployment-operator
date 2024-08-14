@@ -242,7 +242,7 @@ func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment
 	// with provided values.
 	// Image name format: <image>:<version>
 	if r.hasCustomImage(run) && r.hasCustomVersion(run) {
-		return fmt.Sprintf("%s:%s", *run.Configuration.Image, run.Configuration.Version)
+		return fmt.Sprintf("%s:%s", *run.Configuration.Image, *run.Configuration.Version)
 	}
 
 	// In case only image is provided, do not follow our default naming scheme.
@@ -270,12 +270,12 @@ func (r *StackReconciler) getImage(run *console.StackRunFragment) string {
 }
 
 func (r *StackReconciler) hasCustomVersion(run *console.StackRunFragment) bool {
-	return len(run.Configuration.Version) > 0
+	return run.Configuration.Version != nil && len(*run.Configuration.Version) > 0
 }
 
 func (r *StackReconciler) getVersion(run *console.StackRunFragment) string {
 	if r.hasCustomVersion(run) {
-		return run.Configuration.Version
+		return *run.Configuration.Version
 	}
 
 	return defaultContainerVersions[run.Type]
