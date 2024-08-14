@@ -25,7 +25,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 		{
 			name: "use_defaults_when_no_configuration_provided",
 			run: &console.StackRunFragment{
-				Type: console.StackTypeTerraform,
+				Type:          console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{},
 			},
 			expectedImage: "ghcr.io/pluralsh/harness:0.4.29-terraform-1.8.2",
@@ -56,7 +56,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
 					Image: lo.ToPtr("ghcr.io/pluralsh/custom"),
-					Tag: lo.ToPtr("0.4.99"),
+					Tag:   lo.ToPtr("0.4.99"),
 				},
 			},
 			expectedImage: "ghcr.io/pluralsh/custom:0.4.99",
@@ -76,7 +76,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 			run: &console.StackRunFragment{
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
-					Image: lo.ToPtr("ghcr.io/pluralsh/custom"),
+					Image:   lo.ToPtr("ghcr.io/pluralsh/custom"),
 					Version: lo.ToPtr("1.8.4"),
 				},
 			},
@@ -87,7 +87,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 			run: &console.StackRunFragment{
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
-					Tag: lo.ToPtr("1.8.4"),
+					Tag:     lo.ToPtr("1.8.4"),
 					Version: lo.ToPtr("1.8.0"),
 				},
 			},
