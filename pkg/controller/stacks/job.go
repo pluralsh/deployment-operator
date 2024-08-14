@@ -228,18 +228,69 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) cor
 }
 
 func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment) string {
-	image := defaultContainerImages[run.Type]
-	version := defaultContainerVersions[run.Type]
-	if run.Configuration.Version != "" {
-		version = run.Configuration.Version
+	// In case image is not provided, it will use our default image.
+	// Image name format: <defaultImage>:<tag>
+	// Note: User has to make sure that the tag is correct and matches our naming scheme.
+	//
+	// In case image is provided, it will replace both image and tag with provided values.
+	// Image name format: <image>:<tag>
+	if r.hasCustomTag(run) {
+		return fmt.Sprintf("%s:%s", r.getImage(run), *run.Configuration.Tag)
 	}
 
-	if run.Configuration.Image != nil && *run.Configuration.Image != "" {
-		image = *run.Configuration.Image
-		return fmt.Sprintf("%s:%s", image, version)
+	// In case there is a custom version and a custom image provided, it will replace both image and version
+	// with provided values.
+	// Image name format: <image>:<version>
+	if r.hasCustomImage(run) && r.hasCustomVersion(run) {
+		return fmt.Sprintf("%s:%s", *run.Configuration.Image, run.Configuration.Version)
 	}
 
-	return fmt.Sprintf("%s:%s-%s-%s", image, defaultImageTag, strings.ToLower(string(run.Type)), version)
+	// In case only image is provided, do not follow our default naming scheme.
+	// Image name format: <image>:<defaultTag>
+	// Note: User has to make sure that the image contains the tag matching our defaults.
+	if r.hasCustomImage(run) {
+		return fmt.Sprintf("%s:%s", *run.Configuration.Image, r.getTag(run))
+	}
+
+	// In any other case return image in the default format: <defaultImage>:<defaultTag>-<stackType>-<defaultVersionOrVersion>.
+	// In this case only a custom tool version is ever provided to override our defaults.
+	return fmt.Sprintf("%s:%s-%s-%s", r.getImage(run), r.getTag(run), strings.ToLower(string(run.Type)), r.getVersion(run))
+}
+
+func (r *StackReconciler) hasCustomImage(run *console.StackRunFragment) bool {
+	return run.Configuration.Image != nil && len(*run.Configuration.Image) > 0
+}
+
+func (r *StackReconciler) getImage(run *console.StackRunFragment) string {
+	if r.hasCustomImage(run) {
+		return *run.Configuration.Image
+	}
+
+	return defaultContainerImages[run.Type]
+}
+
+func (r *StackReconciler) hasCustomVersion(run *console.StackRunFragment) bool {
+	return len(run.Configuration.Version) > 0
+}
+
+func (r *StackReconciler) getVersion(run *console.StackRunFragment) string {
+	if r.hasCustomVersion(run) {
+		return run.Configuration.Version
+	}
+
+	return defaultContainerVersions[run.Type]
+}
+
+func (r *StackReconciler) hasCustomTag(run *console.StackRunFragment) bool {
+	return run.Configuration.Tag != nil && len(*run.Configuration.Tag) > 0
+}
+
+func (r *StackReconciler) getTag(run *console.StackRunFragment) string {
+	if r.hasCustomTag(run) {
+		return *run.Configuration.Tag
+	}
+
+	return defaultImageTag
 }
 
 func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
