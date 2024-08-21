@@ -33,9 +33,8 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.
 			gk := e.StatusEvent.Identifier.GroupKind
 			name := e.StatusEvent.Identifier.Name
 			if e.StatusEvent.Error != nil {
-				errorMsg := fmt.Sprintf("%s status %s: %s\n", resourceIDToString(gk, name),
+				err = fmt.Errorf("%s status %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
-				err = fmt.Errorf(errorMsg)
 				logger.Error(err, "status error")
 			} else {
 				logger.Info(resourceIDToString(gk, name),
@@ -97,12 +96,13 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 			}
 
 			if e.ApplyEvent.Error != nil {
-				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
-					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
 				if e.ApplyEvent.Status == event.ApplyFailed {
-					err = fmt.Errorf(msg)
+					err = fmt.Errorf("%s apply %s: %s\n", resourceIDToString(gk, name),
+						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
 					logger.Error(err, "apply error")
 				} else {
+					msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
+						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
 					logger.Info(msg)
 				}
 			} else if printStatus {
@@ -115,9 +115,8 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 			gk := e.StatusEvent.Identifier.GroupKind
 			name := e.StatusEvent.Identifier.Name
 			if e.StatusEvent.Error != nil {
-				errorMsg := fmt.Sprintf("%s status %s: %s\n", resourceIDToString(gk, name),
+				err = fmt.Errorf("%s status %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
-				err = fmt.Errorf(errorMsg)
 				logger.Error(err, "status error")
 			} else if printStatus {
 				logger.Info(resourceIDToString(gk, name),
