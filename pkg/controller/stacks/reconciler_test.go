@@ -70,7 +70,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 		It("should exit without errors as stack run is already deleted", func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(nil, &clientv2.ErrorResponse{
-				GqlErrors: &gqlerror.List{gqlerror.Errorf(errors2.ErrorNotFound.String())},
+				GqlErrors: &gqlerror.List{gqlerror.Errorf("%s", errors2.ErrorNotFound.String())},
 			})
 
 			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")

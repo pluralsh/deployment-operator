@@ -20,16 +20,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 // CustomHealthReconciler reconciles a LuaScript object
@@ -65,7 +66,7 @@ func (r *CustomHealthReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	scope, err := NewClusterScope(ctx, r.Client, script)
 	if err != nil {
 		logger.Error(err, "Failed to create cluster scope")
-		utils.MarkCondition(script.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
+		utils.MarkCondition(script.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, "%s", err.Error())
 		return ctrl.Result{}, err
 	}
 	defer func() {
