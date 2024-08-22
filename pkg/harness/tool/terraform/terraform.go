@@ -116,7 +116,7 @@ func (in *Terraform) state() (*tfjson.State, error) {
 		exec.WithDir(in.dir),
 	).RunWithOutput(context.Background())
 	if err != nil {
-		return state, err
+		return state, fmt.Errorf("failed executing terraform show -json: %s: %w", string(output), err)
 	}
 
 	err = state.UnmarshalJSON(output)
@@ -135,7 +135,7 @@ func (in *Terraform) plan() (string, error) {
 		exec.WithDir(in.dir),
 	).RunWithOutput(context.Background())
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed executing terraform show: %s: %w", string(output), err)
 	}
 
 	klog.V(log.LogLevelTrace).InfoS("terraform plan file read successfully", "file", in.planFileName, "output", string(output))
