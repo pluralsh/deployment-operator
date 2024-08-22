@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 
 	"k8s.io/klog/v2"
 
@@ -25,15 +24,20 @@ func NewPassthroughModifier(planFile string) v1.Modifier {
 }
 
 func (in *GlobalEnvModifier) Env(env []string) []string {
-	ansibleHome := path.Join(in.workDir, ansibleDir)
-	ansibleTmp := path.Join(ansibleHome, ansibleTmpDir)
+	//ansibleHome := path.Join(in.workDir, ansibleDir)
+	//ansibleTmp := path.Join(ansibleHome, ansibleTmpDir)
 
-	return append(env,
-		fmt.Sprintf("ANSIBLE_HOME=%s", ansibleHome),
-		fmt.Sprintf("ANSIBLE_REMOTE_TMP=%s", ansibleTmp),
-	)
+	return env
 }
 
 func NewGlobalEnvModifier(workDir string) v1.Modifier {
 	return &GlobalEnvModifier{workDir: workDir}
+}
+
+func (in *VariableInjectorModifier) Args(args []string) []string {
+	return append(args, fmt.Sprintf("--extra-vars @%s", in.variablesFile))
+}
+
+func NewVariableInjectorModifier(variablesFile string) v1.Modifier {
+	return &VariableInjectorModifier{variablesFile: variablesFile}
 }

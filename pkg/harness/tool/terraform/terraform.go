@@ -142,14 +142,17 @@ func (in *Terraform) plan() (string, error) {
 	return string(output), nil
 }
 
-func (in *Terraform) init() *Terraform {
+func (in *Terraform) init() v1.Tool {
 	in.planFileName = "terraform.tfplan"
-	helpers.EnsureFileOrDie(path.Join(in.dir, in.planFileName))
+	helpers.EnsureFileOrDie(path.Join(in.dir, in.planFileName), nil)
+
+	in.variablesFileName = "plural.auto.tfvars.json"
+	helpers.EnsureFileOrDie(path.Join(in.dir, in.variablesFileName), in.variables)
 
 	return in
 }
 
 // New creates a Terraform structure that implements v1.Tool interface.
-func New(dir string) v1.Tool {
-	return (&Terraform{dir: dir}).init()
+func New(dir string, variables *string) v1.Tool {
+	return (&Terraform{dir: dir, variables: variables}).init()
 }

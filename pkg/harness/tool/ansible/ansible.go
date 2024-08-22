@@ -28,24 +28,31 @@ func (in *Ansible) Plan() (*console.StackStateAttributes, error) {
 
 // Modifier implements [v1.Tool] interface.
 func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
-	globalEnvModifier := NewGlobalEnvModifier(in.workDir)
+	modifiers := []v1.Modifier{NewGlobalEnvModifier(in.workDir)}
 
-	if stage == console.StepStagePlan {
-		return v1.NewMultiModifier(NewPassthroughModifier(in.planFilePath), globalEnvModifier)
+	if in.variables != nil {
+		modifiers = append(modifiers, NewVariableInjectorModifier(in.variablesFileName))
 	}
 
-	return globalEnvModifier
+	if stage == console.StepStagePlan {
+		modifiers = append(modifiers, NewPassthroughModifier(in.planFilePath))
+	}
+
+	return v1.NewMultiModifier(modifiers...)
 }
 
 func (in *Ansible) init() *Ansible {
 	in.planFileName = "ansible.plan"
 	in.planFilePath = path.Join(in.execDir, in.planFileName)
-	helpers.EnsureFileOrDie(in.planFilePath)
+	helpers.EnsureFileOrDie(in.planFilePath, nil)
+
+	in.variablesFileName = "plural.variables.json"
+	helpers.EnsureFileOrDie(path.Join(in.execDir, in.variablesFileName), in.variables)
 
 	return in
 }
 
 // New creates an Ansible structure that implements v1.Tool interface.
-func New(workDir, execDir string) v1.Tool {
-	return (&Ansible{workDir: workDir, execDir: execDir}).init()
+func New(workDir, execDir string, variables *string) v1.Tool {
+	return (&Ansible{workDir: workDir, execDir: execDir, variables: variables}).init()
 }

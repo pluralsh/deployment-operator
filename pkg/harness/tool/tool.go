@@ -11,14 +11,14 @@ import (
 
 // New creates a specific tool implementation structure based on the provided
 // gqlclient.StackType.
-func New(stackType console.StackType, workDir, execDir string) v1.Tool {
+func New(stackType console.StackType, workDir, execDir string, variables *string) v1.Tool {
 	var t v1.Tool
 
 	switch stackType {
 	case console.StackTypeTerraform:
-		t = terraform.New(execDir)
+		t = terraform.New(execDir, variables)
 	case console.StackTypeAnsible:
-		t = ansible.New(workDir, execDir)
+		t = ansible.New(workDir, execDir, variables)
 	case console.StackTypeCustom:
 		t = v1.New()
 	default:

@@ -20,6 +20,13 @@ type GlobalEnvModifier struct {
 	workDir string
 }
 
+type VariableInjectorModifier struct {
+	v1.DefaultModifier
+
+	// variablesFile
+	variablesFile string
+}
+
 const (
 	ansibleDir    = ".ansible"
 	ansibleTmpDir = "tmp"

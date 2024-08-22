@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
 
 	gqlclient "github.com/pluralsh/console/go/client"
@@ -21,6 +22,7 @@ type StackRun struct {
 	ManageState bool
 	Creds       *gqlclient.StackRunBaseFragment_PluralCreds
 	StateUrls   *gqlclient.StackRunBaseFragment_StateUrls
+	Variables   map[string]interface{}
 }
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
@@ -38,6 +40,7 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		ManageState: fragment.ManageState != nil && *fragment.ManageState,
 		Creds:       fragment.PluralCreds,
 		StateUrls:   fragment.StateUrls,
+		Variables:   fragment.Variables,
 	}
 }
 
@@ -56,6 +59,16 @@ func (in *StackRun) Env() []string {
 	}
 
 	return env
+}
+
+// Vars parses the StackRun.Variables map as a valid JSON.
+func (in *StackRun) Vars() (*string, error) {
+	if in.Variables == nil {
+		return nil, nil
+	}
+
+	data, err := json.Marshal(in.Variables)
+	return lo.ToPtr(string(data)), err
 }
 
 type Lifecycle string
