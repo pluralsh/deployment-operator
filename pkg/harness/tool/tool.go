@@ -18,7 +18,7 @@ func New(stackType console.StackType, workDir, execDir string, variables *string
 	case console.StackTypeTerraform:
 		t = terraform.New(execDir, variables)
 	case console.StackTypeAnsible:
-		t = ansible.New(workDir, execDir, variables)
+		t = ansible.New(workDir, execDir)
 	case console.StackTypeCustom:
 		t = v1.New()
 	default:

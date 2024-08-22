@@ -46,13 +46,10 @@ func (in *Ansible) init() *Ansible {
 	in.planFilePath = path.Join(in.execDir, in.planFileName)
 	helpers.EnsureFileOrDie(in.planFilePath, nil)
 
-	in.variablesFileName = "plural.variables.json"
-	helpers.EnsureFileOrDie(path.Join(in.execDir, in.variablesFileName), in.variables)
-
 	return in
 }
 
 // New creates an Ansible structure that implements v1.Tool interface.
-func New(workDir, execDir string, variables *string) v1.Tool {
-	return (&Ansible{workDir: workDir, execDir: execDir, variables: variables}).init()
+func New(workDir, execDir string) v1.Tool {
+	return (&Ansible{workDir: workDir, execDir: execDir}).init()
 }
