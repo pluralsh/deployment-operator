@@ -2,8 +2,10 @@ package helpers
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -61,10 +63,16 @@ func EnsureDirOrDie(dir string) {
 	klog.V(log.LogLevelDebug).Infof("created directory: %s", dir)
 }
 
-func EnsureFileOrDie(file string) string {
+func EnsureFileOrDie(file string, content *string) string {
 	f, err := os.Create(file)
 	if err != nil && !os.IsExist(err) {
 		panic(fmt.Errorf("could not create file: %w", err))
+	}
+
+	if content != nil {
+		if _, err = io.Copy(f, strings.NewReader(*content)); err != nil {
+			panic(fmt.Errorf("could not copy content: %w", err))
+		}
 	}
 
 	klog.V(log.LogLevelDebug).Infof("created file: %s", file)

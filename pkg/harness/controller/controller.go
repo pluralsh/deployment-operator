@@ -200,7 +200,12 @@ func (in *stackRunController) prepare() error {
 		return err
 	}
 
-	in.tool = tool.New(in.stackRun.Type, in.dir, in.execWorkDir())
+	variables, err := in.stackRun.Vars()
+	if err != nil {
+		return err
+	}
+
+	in.tool = tool.New(in.stackRun.Type, in.dir, in.execWorkDir(), variables)
 
 	return nil
 }

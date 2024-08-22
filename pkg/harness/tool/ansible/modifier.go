@@ -37,3 +37,11 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 func NewGlobalEnvModifier(workDir string) v1.Modifier {
 	return &GlobalEnvModifier{workDir: workDir}
 }
+
+func (in *VariableInjectorModifier) Args(args []string) []string {
+	return append(args, fmt.Sprintf("--extra-vars @%s", in.variablesFile))
+}
+
+func NewVariableInjectorModifier(variablesFile string) v1.Modifier {
+	return &VariableInjectorModifier{variablesFile: variablesFile}
+}
