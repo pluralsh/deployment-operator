@@ -41,6 +41,7 @@ import (
 
 const jobSelector = "stackrun.deployments.plural.sh"
 const jobTimout = time.Minute * 40
+const podTimout = time.Minute * 2
 
 // StackRunJobReconciler reconciles a Job resource.
 type StackRunJobReconciler struct {
@@ -71,7 +72,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Exit if stack run is not in running state (run status already updated),
 	// or if the job is still running (harness controls run status).
 	if stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero() {
-		if isActiveJobTimout(stackRun.Status, job) {
+		if isActiveJobTimout(stackRun.Status, job) || r.isActiveJobPodFailed(ctx, stackRun.Status, job) {
 			if err := r.killJob(ctx, job); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -178,9 +179,24 @@ func getStackRunID(job *batchv1.Job) string {
 	return strings.TrimPrefix(job.Name, "stack-")
 }
 
+func isActiveJob(stackStatus console.StackStatus, job *batchv1.Job) bool {
+	return stackStatus == console.StackStatusPending && job.Status.CompletionTime.IsZero() && !job.Status.StartTime.IsZero()
+}
+
 func isActiveJobTimout(stackStatus console.StackStatus, job *batchv1.Job) bool {
-	if stackStatus == console.StackStatusPending && job.Status.CompletionTime.IsZero() && !job.Status.StartTime.IsZero() {
+	if isActiveJob(stackStatus, job) {
 		return time.Now().After(job.Status.StartTime.Add(jobTimout))
+	}
+	return false
+}
+
+func (r *StackRunJobReconciler) isActiveJobPodFailed(ctx context.Context, stackStatus console.StackStatus, job *batchv1.Job) bool {
+	if isActiveJob(stackStatus, job) {
+		status, err := r.getJobPodStatus(ctx, job.Spec.Selector.MatchLabels)
+		if err != nil || status == console.StackStatusFailed {
+			// in case when job's Pod wasn't created yet
+			return time.Now().After(job.Status.StartTime.Add(podTimout))
+		}
 	}
 	return false
 }
