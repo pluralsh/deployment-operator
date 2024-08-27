@@ -40,8 +40,8 @@ import (
 )
 
 const jobSelector = "stackrun.deployments.plural.sh"
-const jobTimout = time.Minute * 40
-const podTimout = time.Minute * 2
+const jobTimeout = time.Minute * 40
+const podTimeout = time.Minute * 2
 
 // StackRunJobReconciler reconciles a Job resource.
 type StackRunJobReconciler struct {
@@ -185,7 +185,7 @@ func isActiveJob(stackStatus console.StackStatus, job *batchv1.Job) bool {
 
 func isActiveJobTimout(stackStatus console.StackStatus, job *batchv1.Job) bool {
 	if isActiveJob(stackStatus, job) {
-		return time.Now().After(job.Status.StartTime.Add(jobTimout))
+		return time.Now().After(job.Status.StartTime.Add(jobTimeout))
 	}
 	return false
 }
@@ -195,7 +195,7 @@ func (r *StackRunJobReconciler) isActiveJobPodFailed(ctx context.Context, stackS
 		status, err := r.getJobPodStatus(ctx, job.Spec.Selector.MatchLabels)
 		if err != nil || status == console.StackStatusFailed {
 			// in case when job's Pod wasn't created yet
-			return time.Now().After(job.Status.StartTime.Add(podTimout))
+			return time.Now().After(job.Status.StartTime.Add(podTimeout))
 		}
 	}
 	return false
