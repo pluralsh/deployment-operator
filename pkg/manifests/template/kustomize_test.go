@@ -71,7 +71,7 @@ patches:
 		Expect(os.Rename(filepath.Join(dir, "dev", "kustomization.yaml"), filepath.Join(dir, "dev", "kustomization.yaml.liquid"))).To(Succeed())
 	})
 	AfterEach(func() {
-		os.WriteFile(filepath.Join(dir, "dev", "kustomization.yaml"), []byte(template), 0644)
+		Expect(os.WriteFile(filepath.Join(dir, "dev", "kustomization.yaml"), []byte(template), 0644)).To(Succeed())
 	})
 	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
 		Namespace: "default",
