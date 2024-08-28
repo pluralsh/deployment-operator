@@ -165,6 +165,52 @@ func (_c *ClientMock_CompleteStackRun_Call) RunAndReturn(run func(string, client
 	return _c
 }
 
+// DetachCluster provides a mock function with given fields: id
+func (_m *ClientMock) DetachCluster(id string) error {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DetachCluster")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ClientMock_DetachCluster_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DetachCluster'
+type ClientMock_DetachCluster_Call struct {
+	*mock.Call
+}
+
+// DetachCluster is a helper method to define mock.On call
+//   - id string
+func (_e *ClientMock_Expecter) DetachCluster(id interface{}) *ClientMock_DetachCluster_Call {
+	return &ClientMock_DetachCluster_Call{Call: _e.mock.On("DetachCluster", id)}
+}
+
+func (_c *ClientMock_DetachCluster_Call) Run(run func(id string)) *ClientMock_DetachCluster_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_DetachCluster_Call) Return(_a0 error) *ClientMock_DetachCluster_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ClientMock_DetachCluster_Call) RunAndReturn(run func(string) error) *ClientMock_DetachCluster_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GateExists provides a mock function with given fields: id
 func (_m *ClientMock) GateExists(id string) bool {
 	ret := _m.Called(id)
@@ -207,6 +253,64 @@ func (_c *ClientMock_GateExists_Call) Return(_a0 bool) *ClientMock_GateExists_Ca
 }
 
 func (_c *ClientMock_GateExists_Call) RunAndReturn(run func(string) bool) *ClientMock_GateExists_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetCluster provides a mock function with given fields: id
+func (_m *ClientMock) GetCluster(id string) (*client.TinyClusterFragment, error) {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetCluster")
+	}
+
+	var r0 *client.TinyClusterFragment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*client.TinyClusterFragment, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) *client.TinyClusterFragment); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.TinyClusterFragment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetCluster_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCluster'
+type ClientMock_GetCluster_Call struct {
+	*mock.Call
+}
+
+// GetCluster is a helper method to define mock.On call
+//   - id string
+func (_e *ClientMock_Expecter) GetCluster(id interface{}) *ClientMock_GetCluster_Call {
+	return &ClientMock_GetCluster_Call{Call: _e.mock.On("GetCluster", id)}
+}
+
+func (_c *ClientMock_GetCluster_Call) Run(run func(id string)) *ClientMock_GetCluster_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetCluster_Call) Return(_a0 *client.TinyClusterFragment, _a1 error) *ClientMock_GetCluster_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetCluster_Call) RunAndReturn(run func(string) (*client.TinyClusterFragment, error)) *ClientMock_GetCluster_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -788,6 +892,62 @@ func (_c *ClientMock_GetStackRunBase_Call) Return(_a0 *v1.StackRun, _a1 error) *
 }
 
 func (_c *ClientMock_GetStackRunBase_Call) RunAndReturn(run func(string) (*v1.StackRun, error)) *ClientMock_GetStackRunBase_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// IsClusterExists provides a mock function with given fields: id
+func (_m *ClientMock) IsClusterExists(id string) (bool, error) {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsClusterExists")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (bool, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) bool); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_IsClusterExists_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsClusterExists'
+type ClientMock_IsClusterExists_Call struct {
+	*mock.Call
+}
+
+// IsClusterExists is a helper method to define mock.On call
+//   - id string
+func (_e *ClientMock_Expecter) IsClusterExists(id interface{}) *ClientMock_IsClusterExists_Call {
+	return &ClientMock_IsClusterExists_Call{Call: _e.mock.On("IsClusterExists", id)}
+}
+
+func (_c *ClientMock_IsClusterExists_Call) Run(run func(id string)) *ClientMock_IsClusterExists_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_IsClusterExists_Call) Return(_a0 bool, _a1 error) *ClientMock_IsClusterExists_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_IsClusterExists_Call) RunAndReturn(run func(string) (bool, error)) *ClientMock_IsClusterExists_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1527,6 +1687,65 @@ func (_c *ClientMock_UpsertConstraints_Call) Return(_a0 *client.UpsertPolicyCons
 }
 
 func (_c *ClientMock_UpsertConstraints_Call) RunAndReturn(run func([]*client.PolicyConstraintAttributes) (*client.UpsertPolicyConstraints, error)) *ClientMock_UpsertConstraints_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpsertVirtualCluster provides a mock function with given fields: parentID, attributes
+func (_m *ClientMock) UpsertVirtualCluster(parentID string, attributes client.ClusterAttributes) (*client.GetClusterWithToken_Cluster, error) {
+	ret := _m.Called(parentID, attributes)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertVirtualCluster")
+	}
+
+	var r0 *client.GetClusterWithToken_Cluster
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string, client.ClusterAttributes) (*client.GetClusterWithToken_Cluster, error)); ok {
+		return rf(parentID, attributes)
+	}
+	if rf, ok := ret.Get(0).(func(string, client.ClusterAttributes) *client.GetClusterWithToken_Cluster); ok {
+		r0 = rf(parentID, attributes)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.GetClusterWithToken_Cluster)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string, client.ClusterAttributes) error); ok {
+		r1 = rf(parentID, attributes)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_UpsertVirtualCluster_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertVirtualCluster'
+type ClientMock_UpsertVirtualCluster_Call struct {
+	*mock.Call
+}
+
+// UpsertVirtualCluster is a helper method to define mock.On call
+//   - parentID string
+//   - attributes client.ClusterAttributes
+func (_e *ClientMock_Expecter) UpsertVirtualCluster(parentID interface{}, attributes interface{}) *ClientMock_UpsertVirtualCluster_Call {
+	return &ClientMock_UpsertVirtualCluster_Call{Call: _e.mock.On("UpsertVirtualCluster", parentID, attributes)}
+}
+
+func (_c *ClientMock_UpsertVirtualCluster_Call) Run(run func(parentID string, attributes client.ClusterAttributes)) *ClientMock_UpsertVirtualCluster_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(client.ClusterAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_UpsertVirtualCluster_Call) Return(_a0 *client.GetClusterWithToken_Cluster, _a1 error) *ClientMock_UpsertVirtualCluster_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_UpsertVirtualCluster_Call) RunAndReturn(run func(string, client.ClusterAttributes) (*client.GetClusterWithToken_Cluster, error)) *ClientMock_UpsertVirtualCluster_Call {
 	_c.Call.Return(run)
 	return _c
 }
