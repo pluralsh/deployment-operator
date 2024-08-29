@@ -145,13 +145,13 @@ spec:
                       values:
                         description: "Values allows defining arbitrary YAML values
                           to pass to the helm as values.yaml file.\nUse only one of:\n\t-
-                          Values\n\t- ValuesConfigMapRef\n\t- ValuesSecretRef"
+                          Values\n\t- ValuesSecretRef\n\t- ValuesConfigMapRef"
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                       valuesConfigMapRef:
                         description: "ValuesConfigMapRef fetches helm values from
                           a config map in this cluster.\nUse only one of:\n\t- Values\n\t-
-                          ValuesConfigMapRef\n\t- ValuesSecretRef"
+                          ValuesSecretRef\n\t- ValuesConfigMapRef"
                         properties:
                           key:
                             description: The key to select.
@@ -172,8 +172,8 @@ spec:
                         x-kubernetes-map-type: atomic
                       valuesSecretRef:
                         description: "ValuesSecretRef fetches helm values from a secret
-                          in this cluster.\nUse only one of:\n\t- Values\n\t- ValuesConfigMapRef\n\t-
-                          ValuesSecretRef"
+                          in this cluster.\nUse only one of:\n\t- Values\n\t- ValuesSecretRef\n\t-
+                          ValuesConfigMapRef"
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -207,13 +207,13 @@ spec:
                       values:
                         description: "Values allows defining arbitrary YAML values
                           to pass to the helm as values.yaml file.\nUse only one of:\n\t-
-                          Values\n\t- ValuesConfigMapRef\n\t- ValuesSecretRef"
+                          Values\n\t- ValuesSecretRef\n\t- ValuesConfigMapRef"
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                       valuesConfigMapRef:
                         description: "ValuesConfigMapRef fetches helm values from
                           a config map in this cluster.\nUse only one of:\n\t- Values\n\t-
-                          ValuesConfigMapRef\n\t- ValuesSecretRef"
+                          ValuesSecretRef\n\t- ValuesConfigMapRef"
                         properties:
                           key:
                             description: The key to select.
@@ -234,8 +234,8 @@ spec:
                         x-kubernetes-map-type: atomic
                       valuesSecretRef:
                         description: "ValuesSecretRef fetches helm values from a secret
-                          in this cluster.\nUse only one of:\n\t- Values\n\t- ValuesConfigMapRef\n\t-
-                          ValuesSecretRef"
+                          in this cluster.\nUse only one of:\n\t- Values\n\t- ValuesSecretRef\n\t-
+                          ValuesConfigMapRef"
                         properties:
                           key:
                             description: The key of the secret to select from.  Must

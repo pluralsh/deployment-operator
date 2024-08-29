@@ -284,14 +284,14 @@ func (in *HelmConfiguration) DeepCopyInto(out *HelmConfiguration) {
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.ValuesConfigMapRef != nil {
-		in, out := &in.ValuesConfigMapRef, &out.ValuesConfigMapRef
-		*out = new(corev1.ConfigMapKeySelector)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.ValuesSecretRef != nil {
 		in, out := &in.ValuesSecretRef, &out.ValuesSecretRef
 		*out = new(corev1.SecretKeySelector)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.ValuesConfigMapRef != nil {
+		in, out := &in.ValuesConfigMapRef, &out.ValuesConfigMapRef
+		*out = new(corev1.ConfigMapKeySelector)
 		(*in).DeepCopyInto(*out)
 	}
 }

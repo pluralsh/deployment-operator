@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 )
 
 type Helm struct {
@@ -58,6 +57,17 @@ func (in *Helm) Install() error {
 	return err
 }
 
+func (in *Helm) Uninstall() error {
+	uninstallAction := action.NewUninstall(in.configuration)
+
+	// Action config
+	uninstallAction.Timeout = 5 * time.Minute
+	uninstallAction.Wait = true
+
+	_, err := uninstallAction.Run(in.releaseName)
+	return err
+}
+
 func (in *Helm) Upgrade(install bool) error {
 	installed, err := in.installed()
 	if err != nil {
@@ -77,10 +87,11 @@ func (in *Helm) Upgrade(install bool) error {
 	// Action config
 	upgradeAction.Namespace = in.releaseNamespace
 	upgradeAction.Timeout = 5 * time.Minute
-	upgradeAction.Wait = false
+	upgradeAction.Wait = true
+	upgradeAction.Install = install
 
 	_, err = upgradeAction.Run(in.releaseName, in.chart, in.values)
-	return nil
+	return err
 }
 
 // releases lists all releases that match the given state.
@@ -131,10 +142,6 @@ func (in *Helm) init() (*Helm, error) {
 		in.releaseNamespace = "default"
 	}
 
-	if err := in.initRepo(); err != nil {
-		return in, err
-	}
-
 	if err := in.initConfiguration(); err != nil {
 		return in, err
 	}
@@ -146,10 +153,6 @@ func (in *Helm) init() (*Helm, error) {
 	return in, nil
 }
 
-func (in *Helm) initRepo() error {
-	return template.AddRepo(in.releaseName, in.repository)
-}
-
 func (in *Helm) initConfiguration() error {
 	in.configuration = new(action.Configuration)
 	restConfig, err := in.restConfig()
@@ -157,18 +160,18 @@ func (in *Helm) initConfiguration() error {
 		return err
 	}
 
-	return in.configuration.Init(utils.NewFactory(restConfig), in.releaseNamespace, "", logrus.Debugf)
+	return in.configuration.Init(utils.NewNamespacedFactory(restConfig, in.releaseNamespace), in.releaseNamespace, "", logrus.Debugf)
 }
 
 func (in *Helm) initChart() error {
 	installAction := action.NewInstall(in.configuration)
-	locateName := fmt.Sprintf("%s/%s", in.releaseName, in.chartName)
-	path, err := installAction.ChartPathOptions.LocateChart(locateName, cli.New())
+	installAction.RepoURL = in.repository
+	path, err := installAction.ChartPathOptions.LocateChart(in.chartName, cli.New())
 	if err != nil {
 		return err
 	}
 
-	_, err = loader.Load(path)
+	in.chart, err = loader.Load(path)
 	return err
 }
 

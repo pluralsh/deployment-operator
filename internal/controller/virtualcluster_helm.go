@@ -4,20 +4,27 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pluralsh/polly/algorithms"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/helm"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 func (in *VirtualClusterController) deployVCluster(ctx context.Context, vCluster *v1alpha1.VirtualCluster) error {
+	values, err := in.handleValues(ctx, vCluster.Spec.Helm.GetVCluster().HelmConfiguration, vCluster.Namespace)
+	if err != nil {
+		return err
+	}
+
 	deployer, err := helm.New(
 		helm.WithReleaseName(vCluster.Name),
 		helm.WithReleaseNamespace(vCluster.Namespace),
 		helm.WithRepository(vCluster.Spec.Helm.GetVCluster().GetRepoUrl()),
 		helm.WithChartName(vCluster.Spec.Helm.GetVCluster().GetChartName()),
-		// TODO: add values
+		helm.WithValues(values),
 	)
 	if err != nil {
 		return err
@@ -26,11 +33,39 @@ func (in *VirtualClusterController) deployVCluster(ctx context.Context, vCluster
 	return deployer.Upgrade(true)
 }
 
-func (in *VirtualClusterController) deployAgent(ctx context.Context, vCluster *v1alpha1.VirtualCluster) error {
+func (in *VirtualClusterController) deleteVCluster(vCluster *v1alpha1.VirtualCluster) error {
+	deployer, err := helm.New(
+		helm.WithReleaseName(vCluster.Name),
+		helm.WithReleaseNamespace(vCluster.Namespace),
+		helm.WithRepository(vCluster.Spec.Helm.GetVCluster().GetRepoUrl()),
+		helm.WithChartName(vCluster.Spec.Helm.GetVCluster().GetChartName()),
+	)
+	if err != nil {
+		return err
+	}
+
+	return deployer.Uninstall()
+}
+
+func (in *VirtualClusterController) deployAgent(ctx context.Context, vCluster *v1alpha1.VirtualCluster, deployToken string) error {
 	kubeconfig, err := in.handleKubeconfigRef(ctx, vCluster)
 	if err != nil {
 		return err
 	}
+
+	values, err := in.handleValues(ctx, vCluster.Spec.Helm.GetAgent().HelmConfiguration, vCluster.Namespace)
+	if err != nil {
+		return err
+	}
+
+	initialValues := map[string]any{
+		"secrets": map[string]string{
+			"deployToken": deployToken,
+		},
+		"consoleUrl": fmt.Sprintf("%s/ext/gql", in.ConsoleUrl),
+	}
+
+	values = algorithms.Merge(values, initialValues)
 
 	deployer, err := helm.New(
 		helm.WithReleaseName(v1alpha1.AgentDefaultReleaseName),
@@ -38,13 +73,82 @@ func (in *VirtualClusterController) deployAgent(ctx context.Context, vCluster *v
 		helm.WithRepository(vCluster.Spec.Helm.GetAgent().GetRepoUrl()),
 		helm.WithChartName(vCluster.Spec.Helm.GetAgent().GetChartName()),
 		helm.WithKubeconfig(kubeconfig),
-		// TODO: add values
+		helm.WithValues(values),
 	)
 	if err != nil {
 		return err
 	}
 
 	return deployer.Upgrade(true)
+}
+
+func (in *VirtualClusterController) handleValues(ctx context.Context, helmConfiguration v1alpha1.HelmConfiguration, namespace string) (map[string]interface{}, error) {
+	if helmConfiguration.Values != nil {
+		values, err := common.JSONToMap(string(helmConfiguration.Values.Raw))
+		if err != nil {
+			return nil, err
+		}
+
+		return values, nil
+	}
+
+	if helmConfiguration.ValuesSecretRef != nil {
+		return in.handleValuesSecretRef(ctx, client.ObjectKey{Name: helmConfiguration.ValuesSecretRef.Name, Namespace: namespace})
+	}
+
+	if helmConfiguration.ValuesConfigMapRef != nil {
+		return in.handleValuesConfigMapRef(ctx, client.ObjectKey{Name: helmConfiguration.ValuesConfigMapRef.Name, Namespace: namespace})
+	}
+
+	return nil, nil
+}
+
+func (in *VirtualClusterController) handleValuesSecretRef(ctx context.Context, objKey client.ObjectKey) (map[string]interface{}, error) {
+	secret := &corev1.Secret{}
+
+	if err := in.Get(
+		ctx,
+		objKey,
+		secret,
+	); err != nil {
+		return nil, err
+	}
+
+	values, exists := secret.Data[v1alpha1.HelmValuesKey]
+	if !exists {
+		return nil, fmt.Errorf("secret %s/%s does not contain values", objKey.Namespace, objKey.Name)
+	}
+
+	valuesMap, err := common.JSONToMap(string(values))
+	if err != nil {
+		return nil, err
+	}
+
+	return valuesMap, nil
+}
+
+func (in *VirtualClusterController) handleValuesConfigMapRef(ctx context.Context, objKey client.ObjectKey) (map[string]interface{}, error) {
+	configMap := &corev1.ConfigMap{}
+
+	if err := in.Get(
+		ctx,
+		objKey,
+		configMap,
+	); err != nil {
+		return nil, err
+	}
+
+	values, exists := configMap.Data[v1alpha1.HelmValuesKey]
+	if !exists {
+		return nil, fmt.Errorf("secret %s/%s does not contain values", objKey.Namespace, objKey.Name)
+	}
+
+	valuesMap, err := common.JSONToMap(values)
+	if err != nil {
+		return nil, err
+	}
+
+	return valuesMap, nil
 }
 
 func (in *VirtualClusterController) handleKubeconfigRef(ctx context.Context, vCluster *v1alpha1.VirtualCluster) (string, error) {

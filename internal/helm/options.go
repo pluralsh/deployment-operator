@@ -34,6 +34,10 @@ func WithKubeconfig(kubeconfig string) Option {
 
 func WithValues(values map[string]interface{}) Option {
 	return func(h *Helm) {
+		if values == nil {
+			return
+		}
+
 		h.values = values
 	}
 }

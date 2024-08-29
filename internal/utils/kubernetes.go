@@ -78,6 +78,21 @@ func NewFactory(cfg *rest.Config) util.Factory {
 	return util.NewFactory(matchVersionKubeConfigFlags)
 }
 
+func NewNamespacedFactory(cfg *rest.Config, namespace string) util.Factory {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	kubeConfigFlags.WithDiscoveryQPS(cfg.QPS).WithDiscoveryBurst(cfg.Burst)
+	kubeConfigFlags.Namespace = &namespace
+	cfgPtrCopy := cfg
+	kubeConfigFlags.WrapConfigFn = func(c *rest.Config) *rest.Config {
+		// update rest.Config to pick up QPS & timeout changes
+		deepCopyRESTConfig(cfgPtrCopy, c)
+		return c
+	}
+
+	matchVersionKubeConfigFlags := util.NewMatchVersionFlags(kubeConfigFlags)
+	return util.NewFactory(matchVersionKubeConfigFlags)
+}
+
 func deepCopyRESTConfig(from, to *rest.Config) {
 	to.Host = from.Host
 	to.APIPath = from.APIPath

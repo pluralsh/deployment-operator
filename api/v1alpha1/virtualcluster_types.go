@@ -21,6 +21,7 @@ const (
 	AgentDefaultChartName       = "deployment-operator"
 	AgentDefaultReleaseName     = "deploy-operator"
 	AgentDefaultNamespace       = "plrl-deploy-operator"
+	HelmValuesKey               = "values.yaml"
 )
 
 // VirtualClusterList contains a list of [VirtualCluster]
@@ -162,26 +163,26 @@ type HelmConfiguration struct {
 	// Values allows defining arbitrary YAML values to pass to the helm as values.yaml file.
 	// Use only one of:
 	// 	- Values
-	//	- ValuesConfigMapRef
 	//	- ValuesSecretRef
+	//	- ValuesConfigMapRef
 	// +kubebuilder:validation:Optional
 	Values *runtime.RawExtension `json:"values,omitempty"`
-
-	// ValuesConfigMapRef fetches helm values from a config map in this cluster.
-	// Use only one of:
-	// 	- Values
-	//	- ValuesConfigMapRef
-	//	- ValuesSecretRef
-	// +kubebuilder:validation:Optional
-	ValuesConfigMapRef *corev1.ConfigMapKeySelector `json:"valuesConfigMapRef,omitempty"`
 
 	// ValuesSecretRef fetches helm values from a secret in this cluster.
 	// Use only one of:
 	// 	- Values
-	//	- ValuesConfigMapRef
 	//	- ValuesSecretRef
+	//	- ValuesConfigMapRef
 	// +kubebuilder:validation:Optional
 	ValuesSecretRef *corev1.SecretKeySelector `json:"valuesSecretRef,omitempty"`
+
+	// ValuesConfigMapRef fetches helm values from a config map in this cluster.
+	// Use only one of:
+	// 	- Values
+	//	- ValuesSecretRef
+	//	- ValuesConfigMapRef
+	// +kubebuilder:validation:Optional
+	ValuesConfigMapRef *corev1.ConfigMapKeySelector `json:"valuesConfigMapRef,omitempty"`
 }
 
 type AgentHelmConfiguration struct {

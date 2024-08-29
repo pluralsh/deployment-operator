@@ -98,8 +98,6 @@ func (in *VirtualClusterController) Reconcile(ctx context.Context, req reconcile
 
 	utils.MarkCondition(vCluster.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
-	utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
-	utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 
 	return ctrl.Result{}, reterr
 }
@@ -126,6 +124,15 @@ func (in *VirtualClusterController) delete(ctx context.Context, vCluster *v1alph
 	logger := log.FromContext(ctx)
 	logger.Info("trying to delete VirtualCluster", "namespace", vCluster.Namespace, "name", vCluster.Name)
 
+	// if virtual cluster is ready, delete
+	if vCluster.Status.IsVClusterReady() {
+		if err := in.deleteVCluster(vCluster); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
+	}
+
 	// if cluster ID has not been synced proceed with deletion
 	if !vCluster.Status.HasID() {
 		controllerutil.RemoveFinalizer(vCluster, VirtualClusterFinalizer)
@@ -143,13 +150,6 @@ func (in *VirtualClusterController) delete(ctx context.Context, vCluster *v1alph
 			return ctrl.Result{}, err
 		}
 	}
-
-	// if virtual cluster is ready, delete
-	//if vCluster.Status.IsVClusterReady() {
-	//	if err = in.deleteVCluster(); err != nil {
-	//		return ctrl.Result{}, err
-	//	}
-	//}
 
 	// stop reconciliation as the cluster has been detached and cleaned up
 	controllerutil.RemoveFinalizer(vCluster, VirtualClusterFinalizer)
@@ -177,16 +177,24 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 		return nil, err
 	}
 
-	err = in.deployVCluster(ctx, vCluster)
-	if err != nil {
-		utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
-		return nil, err
+	if !vCluster.Status.IsVClusterReady() || (vCluster.Status.IsVClusterReady() && changed) {
+		err = in.deployVCluster(ctx, vCluster)
+		if err != nil {
+			utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
+			return nil, err
+		}
+
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	}
 
-	err = in.deployAgent(ctx, vCluster)
-	if err != nil {
-		utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
-		return nil, err
+	if !vCluster.Status.IsAgentReady() || (vCluster.Status.IsAgentReady() && changed) {
+		err = in.deployAgent(ctx, vCluster, *createdVCluster.DeployToken)
+		if err != nil {
+			utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
+			return nil, err
+		}
+
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	}
 
 	return &console.TinyClusterFragment{
