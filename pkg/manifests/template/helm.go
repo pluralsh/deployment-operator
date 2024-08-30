@@ -30,10 +30,12 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 const (
@@ -306,7 +308,7 @@ func defaultKeyring() string {
 var errNoRepositories = errors.New("no repositories found. You must add one before updating")
 
 func UpdateRepos() error {
-	log.Println("helm repo update...")
+	klog.V(loglevel.LogLevelExtended).InfoS("helm repo update...")
 	f, err := repo.LoadFile(settings.RepositoryConfig)
 	switch {
 	case isNotExist(err):
@@ -339,10 +341,10 @@ func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) erro
 		go func(re *repo.ChartRepository) {
 			defer wg.Done()
 			if _, err := re.DownloadIndexFile(); err != nil {
-				log.Printf("unable to get an update from the %q chart repository (%s):\n\t%s\n", re.Config.Name, re.Config.URL, err)
+				klog.ErrorS(err, "unable to get an update from the chart repository", "name", re.Config.Name, "url", re.Config.URL)
 				repoFailList = append(repoFailList, re.Config.URL)
 			} else {
-				log.Printf("successfully got an update from the %q chart repository\n", re.Config.Name)
+				klog.V(loglevel.LogLevelExtended).InfoS("successfully got an update from the chart repository", "name", re.Config.Name)
 			}
 		}(re)
 	}
@@ -353,7 +355,7 @@ func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) erro
 			repoFailList)
 	}
 
-	log.Printf("Update Complete.")
+	klog.V(loglevel.LogLevelExtended).InfoS("helm repo update complete")
 	return nil
 }
 
@@ -363,7 +365,7 @@ func AddRepo(repoName, repoUrl string) error {
 	if err != nil && !os.IsExist(err) {
 		return err
 	}
-	log.Printf("Adding repo %s to %s\n", repoName, repoFile)
+	klog.V(loglevel.LogLevelExtended).InfoS("adding helm repo", "name", repoName, "file", repoFile)
 	// Acquire a file lock for process synchronization.
 	repoFileExt := filepath.Ext(repoFile)
 	var lockPath string
@@ -401,10 +403,14 @@ func AddRepo(repoName, repoUrl string) error {
 		InsecureSkipTLSverify: true,
 	}
 	f.Update(&c)
-	log.Printf("Repo %s added to %s\n", repoName, repoFile)
+	klog.V(loglevel.LogLevelExtended).InfoS("helm repo added", "name", repoName, "file", repoFile)
 	return f.WriteFile(repoFile, 0644)
 }
 
 func isNotExist(err error) bool {
 	return os.IsNotExist(errors.Cause(err))
+}
+
+func HelmSettings() *cli.EnvSettings {
+	return settings
 }

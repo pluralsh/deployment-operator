@@ -8,13 +8,13 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/release"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 )
 
 type Helm struct {
@@ -142,6 +142,10 @@ func (in *Helm) init() (*Helm, error) {
 		in.releaseNamespace = "default"
 	}
 
+	if err := in.initRepo(); err != nil {
+		return in, err
+	}
+
 	if err := in.initConfiguration(); err != nil {
 		return in, err
 	}
@@ -151,6 +155,14 @@ func (in *Helm) init() (*Helm, error) {
 	}
 
 	return in, nil
+}
+
+func (in *Helm) initRepo() error {
+	if err := template.AddRepo(in.releaseName, in.repository); err != nil {
+		return err
+	}
+
+	return template.UpdateRepos()
 }
 
 func (in *Helm) initConfiguration() error {
@@ -165,8 +177,7 @@ func (in *Helm) initConfiguration() error {
 
 func (in *Helm) initChart() error {
 	installAction := action.NewInstall(in.configuration)
-	installAction.RepoURL = in.repository
-	path, err := installAction.ChartPathOptions.LocateChart(in.chartName, cli.New())
+	path, err := installAction.ChartPathOptions.LocateChart(fmt.Sprintf("%s/%s", in.releaseName, in.chartName), template.HelmSettings())
 	if err != nil {
 		return err
 	}
