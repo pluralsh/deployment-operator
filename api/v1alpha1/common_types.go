@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -45,6 +46,10 @@ const (
 	ReadonlyTrueConditionMessage         ConditionMessage = "Running in read-only mode"
 	SynchronizedNotFoundConditionMessage ConditionMessage = "Could not find resource in Console API"
 )
+
+// Hasher
+// +kubebuilder:object:generate:=false
+type Hasher func(interface{}) (string, error)
 
 type Status struct {
 	// ID of the resource in the Console API.
@@ -150,6 +155,16 @@ func (b *Binding) Attributes() *console.PolicyBindingAttributes {
 	}
 }
 
-// Hasher
-// +kubebuilder:object:generate:=false
-type Hasher func(interface{}) (string, error)
+func PolicyBindings(bindings []Binding) []*console.PolicyBindingAttributes {
+	if bindings == nil {
+		return nil
+	}
+
+	filtered := algorithms.Filter(bindings, func(b Binding) bool {
+		return b.UserID != nil || b.GroupID != nil
+	})
+
+	return algorithms.Map(filtered, func(b Binding) *console.PolicyBindingAttributes {
+		return b.Attributes()
+	})
+}

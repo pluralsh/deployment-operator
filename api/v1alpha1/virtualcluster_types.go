@@ -88,6 +88,11 @@ func (in *VirtualCluster) Attributes() console.ClusterAttributes {
 		attrs.Metadata = lo.ToPtr(string(in.Spec.Cluster.Metadata.Raw))
 	}
 
+	if in.Spec.Cluster.Bindings != nil {
+		attrs.ReadBindings = PolicyBindings(in.Spec.Cluster.Bindings.Read)
+		attrs.WriteBindings = PolicyBindings(in.Spec.Cluster.Bindings.Write)
+	}
+
 	return attrs
 }
 
