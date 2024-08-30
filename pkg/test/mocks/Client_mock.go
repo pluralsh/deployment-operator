@@ -605,6 +605,64 @@ func (_c *ClientMock_GetCredentials_Call) RunAndReturn(run func() (string, strin
 	return _c
 }
 
+// GetGroup provides a mock function with given fields: name
+func (_m *ClientMock) GetGroup(name string) (*client.GroupFragment, error) {
+	ret := _m.Called(name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetGroup")
+	}
+
+	var r0 *client.GroupFragment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*client.GroupFragment, error)); ok {
+		return rf(name)
+	}
+	if rf, ok := ret.Get(0).(func(string) *client.GroupFragment); ok {
+		r0 = rf(name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.GroupFragment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetGroup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetGroup'
+type ClientMock_GetGroup_Call struct {
+	*mock.Call
+}
+
+// GetGroup is a helper method to define mock.On call
+//   - name string
+func (_e *ClientMock_Expecter) GetGroup(name interface{}) *ClientMock_GetGroup_Call {
+	return &ClientMock_GetGroup_Call{Call: _e.mock.On("GetGroup", name)}
+}
+
+func (_c *ClientMock_GetGroup_Call) Run(run func(name string)) *ClientMock_GetGroup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetGroup_Call) Return(_a0 *client.GroupFragment, _a1 error) *ClientMock_GetGroup_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetGroup_Call) RunAndReturn(run func(string) (*client.GroupFragment, error)) *ClientMock_GetGroup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetNamespace provides a mock function with given fields: id
 func (_m *ClientMock) GetNamespace(id string) (*client.ManagedNamespaceFragment, error) {
 	ret := _m.Called(id)
@@ -892,6 +950,64 @@ func (_c *ClientMock_GetStackRunBase_Call) Return(_a0 *v1.StackRun, _a1 error) *
 }
 
 func (_c *ClientMock_GetStackRunBase_Call) RunAndReturn(run func(string) (*v1.StackRun, error)) *ClientMock_GetStackRunBase_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUser provides a mock function with given fields: email
+func (_m *ClientMock) GetUser(email string) (*client.UserFragment, error) {
+	ret := _m.Called(email)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUser")
+	}
+
+	var r0 *client.UserFragment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*client.UserFragment, error)); ok {
+		return rf(email)
+	}
+	if rf, ok := ret.Get(0).(func(string) *client.UserFragment); ok {
+		r0 = rf(email)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.UserFragment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(email)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUser'
+type ClientMock_GetUser_Call struct {
+	*mock.Call
+}
+
+// GetUser is a helper method to define mock.On call
+//   - email string
+func (_e *ClientMock_Expecter) GetUser(email interface{}) *ClientMock_GetUser_Call {
+	return &ClientMock_GetUser_Call{Call: _e.mock.On("GetUser", email)}
+}
+
+func (_c *ClientMock_GetUser_Call) Run(run func(email string)) *ClientMock_GetUser_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetUser_Call) Return(_a0 *client.UserFragment, _a1 error) *ClientMock_GetUser_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetUser_Call) RunAndReturn(run func(string) (*client.UserFragment, error)) *ClientMock_GetUser_Call {
 	_c.Call.Return(run)
 	return _c
 }

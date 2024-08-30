@@ -3,11 +3,13 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -15,12 +17,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const (
-	VirtualClusterFinalizer = "deployments.plural.sh/virtualcluster-protection"
+	VirtualClusterFinalizer  = "deployments.plural.sh/virtualcluster-protection"
+	defaultWipeCacheInterval = time.Minute * 30
 )
 
 // VirtualClusterController reconciler a v1alpha1.VirtualCluster resource.
@@ -32,8 +37,9 @@ type VirtualClusterController struct {
 	ExtConsoleClient client.Client
 	ConsoleUrl       string
 
-	consoleClient client.Client
-	myCluster       *console.MyCluster_MyCluster_
+	userGroupCache cache.UserGroupCache
+	consoleClient  client.Client
+	myCluster      *console.MyCluster_MyCluster_
 }
 
 func (in *VirtualClusterController) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
@@ -60,7 +66,7 @@ func (in *VirtualClusterController) Reconcile(ctx context.Context, req reconcile
 	scope, err := NewDefaultScope(ctx, in.Client, vCluster)
 	if err != nil {
 		logger.Error(err, "failed to create scope")
-		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
 		return ctrl.Result{}, err
 	}
 
@@ -81,7 +87,7 @@ func (in *VirtualClusterController) Reconcile(ctx context.Context, req reconcile
 	changed, sha, err := vCluster.Diff(utils.HashObject)
 	if err != nil {
 		logger.Error(err, "unable to calculate virtual cluster SHA")
-		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
 		return ctrl.Result{}, err
 	}
 
@@ -89,7 +95,7 @@ func (in *VirtualClusterController) Reconcile(ctx context.Context, req reconcile
 	apiVCluster, err := in.sync(ctx, vCluster, changed)
 	if err != nil {
 		logger.Error(err, "unable to create or update virtual cluster")
-		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
 		return ctrl.Result{}, err
 	}
 
@@ -163,9 +169,9 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 		return nil, err
 	}
 
-	//if err := in.ensureCluster(vCluster); err != nil {
-	//	return nil, err
-	//}
+	if err := in.ensureCluster(vCluster); err != nil {
+		return nil, err
+	}
 
 	if exists && !changed {
 		return in.consoleClient.GetCluster(vCluster.Status.GetID())
@@ -180,7 +186,7 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 	if !vCluster.Status.IsVClusterReady() || (vCluster.Status.IsVClusterReady() && changed) {
 		err = in.deployVCluster(ctx, vCluster)
 		if err != nil {
-			utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
+			utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
 			return nil, err
 		}
 
@@ -190,7 +196,7 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 	if !vCluster.Status.IsAgentReady() || (vCluster.Status.IsAgentReady() && changed) {
 		err = in.deployAgent(ctx, vCluster, *createdVCluster.DeployToken)
 		if err != nil {
-			utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
+			utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
 			return nil, err
 		}
 
@@ -225,6 +231,34 @@ func (in *VirtualClusterController) handleCredentialsRef(ctx context.Context, vC
 	return string(token), nil
 }
 
+// ensureCluster makes sure that user-friendly input such as userEmail/groupName in
+// bindings are transformed into valid IDs on the v1alpha1.Binding object before creation
+func (in *VirtualClusterController) ensureCluster(cluster *v1alpha1.VirtualCluster) error {
+	if cluster.Spec.Cluster.Bindings == nil {
+		return nil
+	}
+
+	bindings, req, err := ensureBindings(cluster.Spec.Cluster.Bindings.Read, in.userGroupCache)
+	if err != nil {
+		return err
+	}
+
+	cluster.Spec.Cluster.Bindings.Read = bindings
+
+	bindings, req2, err := ensureBindings(cluster.Spec.Cluster.Bindings.Write, in.userGroupCache)
+	if err != nil {
+		return err
+	}
+
+	cluster.Spec.Cluster.Bindings.Write = bindings
+
+	if req || req2 {
+		return errors.ErrRetriable
+	}
+
+	return nil
+}
+
 func (in *VirtualClusterController) initConsoleClient(ctx context.Context, vCluster *v1alpha1.VirtualCluster) error {
 	if in.consoleClient != nil {
 		return nil
@@ -236,6 +270,17 @@ func (in *VirtualClusterController) initConsoleClient(ctx context.Context, vClus
 	}
 
 	in.consoleClient = client.New(fmt.Sprintf("%s/gql", in.ConsoleUrl), token)
+	in.userGroupCache = cache.NewUserGroupCache(in.consoleClient)
+
+	// wipe user cache periodically
+	go func() {
+		_ = wait.PollUntilContextCancel(context.Background(), defaultWipeCacheInterval, true,
+			func(ctx context.Context) (done bool, err error) {
+				in.userGroupCache.Wipe()
+				return true, nil
+			})
+	}()
+
 	return nil
 }
 

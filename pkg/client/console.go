@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"net/http"
-	"sync"
 
 	console "github.com/pluralsh/console/go/client"
 
@@ -11,8 +10,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
-
-var lock = &sync.Mutex{}
 
 type client struct {
 	ctx           context.Context
@@ -69,4 +66,6 @@ type Client interface {
 	UpdateStackRun(id string, attributes console.StackRunAttributes) error
 	UpdateStackRunStep(id string, attributes console.RunStepAttributes) error
 	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStacks_ClusterStackRuns, error)
+	GetUser(email string) (*console.UserFragment, error)
+	GetGroup(name string) (*console.GroupFragment, error)
 }
