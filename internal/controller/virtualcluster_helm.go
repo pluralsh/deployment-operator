@@ -92,7 +92,7 @@ func (in *VirtualClusterController) deployAgent(ctx context.Context, vCluster *v
 
 func (in *VirtualClusterController) handleValues(ctx context.Context, helmConfiguration v1alpha1.HelmConfiguration, namespace string) (map[string]interface{}, error) {
 	if helmConfiguration.Values != nil {
-		values, err := common.JSONToMap(string(helmConfiguration.Values.Raw))
+		values, err := common.Unmarshal(string(helmConfiguration.Values.Raw))
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +135,7 @@ func (in *VirtualClusterController) handleValuesSecretRef(ctx context.Context, o
 		return nil, fmt.Errorf("secret %s/%s does not contain values", objKey.Namespace, objKey.Name)
 	}
 
-	valuesMap, err := common.JSONToMap(string(values))
+	valuesMap, err := common.Unmarshal(string(values))
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (in *VirtualClusterController) handleValuesConfigMapRef(ctx context.Context
 		return nil, fmt.Errorf("config map %s/%s does not contain values", objKey.Namespace, objKey.Name)
 	}
 
-	valuesMap, err := common.JSONToMap(values)
+	valuesMap, err := common.Unmarshal(values)
 	if err != nil {
 		return nil, err
 	}
