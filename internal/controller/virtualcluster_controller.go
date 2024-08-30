@@ -234,7 +234,7 @@ func (in *VirtualClusterController) handleCredentialsRef(ctx context.Context, vC
 // ensureCluster makes sure that user-friendly input such as userEmail/groupName in
 // bindings are transformed into valid IDs on the v1alpha1.Binding object before creation
 func (in *VirtualClusterController) ensureCluster(cluster *v1alpha1.VirtualCluster) error {
-	if cluster.Spec.Cluster.Bindings == nil {
+	if cluster.Spec.Cluster == nil || cluster.Spec.Cluster.Bindings == nil {
 		return nil
 	}
 
