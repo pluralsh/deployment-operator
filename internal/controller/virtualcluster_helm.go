@@ -21,11 +21,11 @@ func (in *VirtualClusterController) deployVCluster(ctx context.Context, vCluster
 
 	initialValues := map[string]any{
 		"exportKubeConfig": map[string]string{
-			"server": fmt.Sprintf("https://%s.%s:8443", vCluster.Name, vCluster.Namespace),
+			"server": fmt.Sprintf("https://%s.%s:443", vCluster.Name, vCluster.Namespace),
 		},
 	}
 
-	values = algorithms.Merge(values, initialValues)
+	values = algorithms.Merge(initialValues, values)
 
 	deployer, err := helm.New(
 		helm.WithReleaseName(vCluster.Name),
@@ -73,7 +73,7 @@ func (in *VirtualClusterController) deployAgent(ctx context.Context, vCluster *v
 		"consoleUrl": fmt.Sprintf("%s/ext/gql", in.ConsoleUrl),
 	}
 
-	values = algorithms.Merge(values, initialValues)
+	values = algorithms.Merge(initialValues, values)
 
 	deployer, err := helm.New(
 		helm.WithReleaseName(v1alpha1.AgentDefaultReleaseName),

@@ -183,7 +183,7 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 		return nil, err
 	}
 
-	if !vCluster.Status.IsVClusterReady() || (vCluster.Status.IsVClusterReady() && changed) {
+	if !vCluster.Status.IsVClusterReady() || (vCluster.Status.HasID() && changed) {
 		err = in.deployVCluster(ctx, vCluster)
 		if err != nil {
 			utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
@@ -193,7 +193,7 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 		utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	}
 
-	if !vCluster.Status.IsAgentReady() || (vCluster.Status.IsAgentReady() && changed) {
+	if !vCluster.Status.IsAgentReady() || (vCluster.Status.HasID() && changed) {
 		err = in.deployAgent(ctx, vCluster, *createdVCluster.DeployToken)
 		if err != nil {
 			utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
