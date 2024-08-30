@@ -21,7 +21,6 @@ const (
 	AgentDefaultChartName       = "deployment-operator"
 	AgentDefaultReleaseName     = "deploy-operator"
 	AgentDefaultNamespace       = "plrl-deploy-operator"
-	HelmValuesKey               = "values.yaml"
 )
 
 // VirtualClusterList contains a list of [VirtualCluster]

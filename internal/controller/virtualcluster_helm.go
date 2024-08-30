@@ -19,6 +19,14 @@ func (in *VirtualClusterController) deployVCluster(ctx context.Context, vCluster
 		return err
 	}
 
+	initialValues := map[string]any{
+		"exportKubeConfig": map[string]string{
+			"server": fmt.Sprintf("https://%s.%s:8443", vCluster.Name, vCluster.Namespace),
+		},
+	}
+
+	values = algorithms.Merge(values, initialValues)
+
 	deployer, err := helm.New(
 		helm.WithReleaseName(vCluster.Name),
 		helm.WithReleaseNamespace(vCluster.Namespace),
@@ -93,17 +101,25 @@ func (in *VirtualClusterController) handleValues(ctx context.Context, helmConfig
 	}
 
 	if helmConfiguration.ValuesSecretRef != nil {
-		return in.handleValuesSecretRef(ctx, client.ObjectKey{Name: helmConfiguration.ValuesSecretRef.Name, Namespace: namespace})
+		return in.handleValuesSecretRef(
+			ctx,
+			client.ObjectKey{Name: helmConfiguration.ValuesSecretRef.Name, Namespace: namespace},
+			helmConfiguration.ValuesSecretRef.Key,
+		)
 	}
 
 	if helmConfiguration.ValuesConfigMapRef != nil {
-		return in.handleValuesConfigMapRef(ctx, client.ObjectKey{Name: helmConfiguration.ValuesConfigMapRef.Name, Namespace: namespace})
+		return in.handleValuesConfigMapRef(
+			ctx,
+			client.ObjectKey{Name: helmConfiguration.ValuesConfigMapRef.Name, Namespace: namespace},
+			helmConfiguration.ValuesConfigMapRef.Key,
+		)
 	}
 
 	return nil, nil
 }
 
-func (in *VirtualClusterController) handleValuesSecretRef(ctx context.Context, objKey client.ObjectKey) (map[string]interface{}, error) {
+func (in *VirtualClusterController) handleValuesSecretRef(ctx context.Context, objKey client.ObjectKey, selectorKey string) (map[string]interface{}, error) {
 	secret := &corev1.Secret{}
 
 	if err := in.Get(
@@ -114,7 +130,7 @@ func (in *VirtualClusterController) handleValuesSecretRef(ctx context.Context, o
 		return nil, err
 	}
 
-	values, exists := secret.Data[v1alpha1.HelmValuesKey]
+	values, exists := secret.Data[selectorKey]
 	if !exists {
 		return nil, fmt.Errorf("secret %s/%s does not contain values", objKey.Namespace, objKey.Name)
 	}
@@ -127,7 +143,7 @@ func (in *VirtualClusterController) handleValuesSecretRef(ctx context.Context, o
 	return valuesMap, nil
 }
 
-func (in *VirtualClusterController) handleValuesConfigMapRef(ctx context.Context, objKey client.ObjectKey) (map[string]interface{}, error) {
+func (in *VirtualClusterController) handleValuesConfigMapRef(ctx context.Context, objKey client.ObjectKey, selectorKey string) (map[string]interface{}, error) {
 	configMap := &corev1.ConfigMap{}
 
 	if err := in.Get(
@@ -138,9 +154,9 @@ func (in *VirtualClusterController) handleValuesConfigMapRef(ctx context.Context
 		return nil, err
 	}
 
-	values, exists := configMap.Data[v1alpha1.HelmValuesKey]
+	values, exists := configMap.Data[selectorKey]
 	if !exists {
-		return nil, fmt.Errorf("secret %s/%s does not contain values", objKey.Namespace, objKey.Name)
+		return nil, fmt.Errorf("config map %s/%s does not contain values", objKey.Namespace, objKey.Name)
 	}
 
 	valuesMap, err := common.JSONToMap(values)
