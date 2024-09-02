@@ -127,6 +127,13 @@ spec:
                 - key
                 type: object
                 x-kubernetes-map-type: atomic
+              external:
+                description: |-
+                  External marks this virtual cluster as external one, meaning
+                  that the vcluster deployment will not be automatically created.
+                  User has to pre-provision vcluster and provide a valid KubeconfigRef
+                  pointing to an existing vcluster installation.
+                type: boolean
               helm:
                 description: |-
                   Helm allows configuring helm chart options of both agent and vcluster.

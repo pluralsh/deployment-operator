@@ -557,6 +557,11 @@ func (in *VirtualClusterSpec) DeepCopyInto(out *VirtualClusterSpec) {
 		*out = new(ClusterSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.External != nil {
+		in, out := &in.External, &out.External
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Helm != nil {
 		in, out := &in.Helm, &out.Helm
 		*out = new(HelmSpec)

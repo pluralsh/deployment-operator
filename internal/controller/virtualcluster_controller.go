@@ -131,7 +131,7 @@ func (in *VirtualClusterController) delete(ctx context.Context, vCluster *v1alph
 	logger.Info("trying to delete VirtualCluster", "namespace", vCluster.Namespace, "name", vCluster.Name)
 
 	// if virtual cluster is ready, delete
-	if vCluster.Status.IsVClusterReady() {
+	if vCluster.Status.IsVClusterReady() && !vCluster.Spec.IsExternal() {
 		if err := in.deleteVCluster(vCluster); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -183,7 +183,7 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 		return nil, err
 	}
 
-	if !vCluster.Status.IsVClusterReady() || (vCluster.Status.HasID() && changed) {
+	if in.shouldDeployVCluster(vCluster, changed) {
 		err = in.deployVCluster(ctx, vCluster)
 		if err != nil {
 			utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
@@ -193,7 +193,7 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 		utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	}
 
-	if !vCluster.Status.IsAgentReady() || (vCluster.Status.HasID() && changed) {
+	if in.shouldDeployAgent(vCluster, changed) {
 		err = in.deployAgent(ctx, vCluster, *createdVCluster.DeployToken)
 		if err != nil {
 			utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
@@ -210,6 +210,14 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 		Self:    createdVCluster.Self,
 		Project: createdVCluster.Project,
 	}, nil
+}
+
+func (in *VirtualClusterController) shouldDeployVCluster(vCluster *v1alpha1.VirtualCluster, changed bool) bool {
+	return !vCluster.Spec.IsExternal() && (!vCluster.Status.IsVClusterReady() || (vCluster.Status.HasID() && changed))
+}
+
+func (in *VirtualClusterController) shouldDeployAgent(vCluster *v1alpha1.VirtualCluster, changed bool) bool {
+	return !vCluster.Status.IsAgentReady() || (vCluster.Status.HasID() && changed)
 }
 
 func (in *VirtualClusterController) handleCredentialsRef(ctx context.Context, vCluster *v1alpha1.VirtualCluster) (string, error) {

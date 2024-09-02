@@ -113,10 +113,25 @@ type VirtualClusterSpec struct {
 	// +kubebuilder:validation:Optional
 	Cluster *ClusterSpec `json:"cluster,omitempty"`
 
+	// External marks this virtual cluster as external one, meaning
+	// that the vcluster deployment will not be automatically created.
+	// User has to pre-provision vcluster and provide a valid KubeconfigRef
+	// pointing to an existing vcluster installation.
+	// +kubebuilder:validation:Optional
+	External *bool `json:"external,omitempty"`
+
 	// Helm allows configuring helm chart options of both agent and vcluster.
 	// It is then deployed by the [VirtualCluster] CRD controller.
 	// +kubebuilder:validation:Optional
 	Helm *HelmSpec `json:"helm,omitempty"`
+}
+
+func (in *VirtualClusterSpec) IsExternal() bool {
+	if in.External == nil {
+		return false
+	}
+
+	return *in.External
 }
 
 type HelmSpec struct {
