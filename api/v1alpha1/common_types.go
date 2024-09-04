@@ -100,14 +100,6 @@ func (p *Status) IsSHAEqual(sha string) bool {
 	return p.GetSHA() == sha
 }
 
-// func (p *Status) HasReadonlyCondition() bool {
-//	return meta.FindStatusCondition(p.Conditions, ReadonlyConditionType.String()) != nil
-//}
-//
-// func (p *Status) IsReadonly() bool {
-//	return meta.IsStatusConditionTrue(p.Conditions, ReadonlyConditionType.String())
-//}
-
 func (p *Status) IsStatusConditionTrue(condition ConditionType) bool {
 	return meta.IsStatusConditionTrue(p.Conditions, condition.String())
 }
