@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"net/http"
-	"sync"
 
 	console "github.com/pluralsh/console/go/client"
 
@@ -11,9 +10,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
-
-var lock = &sync.Mutex{}
-var singleInstance Client
 
 type client struct {
 	ctx           context.Context
@@ -27,24 +23,14 @@ func (c *client) GetCredentials() (url, token string) {
 }
 
 func New(url, token string) Client {
-	if singleInstance != nil {
-		return singleInstance
+	return &client{
+		consoleClient: console.NewClient(&http.Client{
+			Transport: helpers.NewAuthorizationTokenTransport(token),
+		}, url, nil),
+		ctx:   context.Background(),
+		url:   url,
+		token: token,
 	}
-
-	lock.Lock()
-	defer lock.Unlock()
-	httpClient := http.Client{
-		Transport: helpers.NewAuthorizationTokenTransport(token),
-	}
-
-	singleInstance = &client{
-		consoleClient: console.NewClient(&httpClient, url, nil),
-		ctx:           context.Background(),
-		url:           url,
-		token:         token,
-	}
-
-	return singleInstance
 }
 
 type Client interface {
@@ -52,7 +38,11 @@ type Client interface {
 	PingCluster(attributes console.ClusterPing) error
 	Ping(vsn string) error
 	RegisterRuntimeServices(svcs map[string]string, serviceId *string) error
+	UpsertVirtualCluster(parentID string, attributes console.ClusterAttributes) (*console.GetClusterWithToken_Cluster, error)
+	IsClusterExists(id string) (bool, error)
+	GetCluster(id string) (*console.TinyClusterFragment, error)
 	MyCluster() (*console.MyCluster, error)
+	DetachCluster(id string) error
 	GetClusterRestore(id string) (*console.ClusterRestoreFragment, error)
 	UpdateClusterRestore(id string, attrs console.RestoreAttributes) (*console.ClusterRestoreFragment, error)
 	SaveClusterBackup(attrs console.BackupAttributes) (*console.ClusterBackupFragment, error)
@@ -76,4 +66,6 @@ type Client interface {
 	UpdateStackRun(id string, attributes console.StackRunAttributes) error
 	UpdateStackRunStep(id string, attributes console.RunStepAttributes) error
 	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStacks_ClusterStackRuns, error)
+	GetUser(email string) (*console.UserFragment, error)
+	GetGroup(name string) (*console.GroupFragment, error)
 }

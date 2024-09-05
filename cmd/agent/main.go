@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
@@ -174,6 +175,16 @@ func main() {
 		ConsoleClient: ctrlMgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
+	}
+
+	rawConsoleUrl, _ := strings.CutSuffix(args.ConsoleUrl(), "/ext/gql")
+	if err = (&controller.VirtualClusterController{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		ExtConsoleClient: ctrlMgr.GetClient(),
+		ConsoleUrl:       rawConsoleUrl,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VirtualCluster")
 	}
 
 	statusController, err := controller.NewStatusReconciler(mgr.GetClient())
