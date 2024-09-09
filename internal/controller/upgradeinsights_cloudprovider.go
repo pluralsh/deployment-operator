@@ -172,8 +172,7 @@ func NewCloudProvider(distro *console.ClusterDistro, kubeClient runtimeclient.Cl
 		return nil, fmt.Errorf("distro cannot be nil")
 	}
 
-	switch *distro {
-	case console.ClusterDistroEks:
+	if *distro == console.ClusterDistroEks {
 		return newEKSCloudProvider(kubeClient, clusterName), nil
 	}
 
