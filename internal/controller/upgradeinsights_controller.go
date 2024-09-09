@@ -97,7 +97,11 @@ func (in *UpgradeInsightsController) handleDelete(ctx context.Context, ui *v1alp
 }
 
 func (in *UpgradeInsightsController) sync(ctx context.Context, ui *v1alpha1.UpgradeInsights) error {
-	cloudProvider, err := NewCloudProvider(ui.Spec.GetDistro(in.myCluster.GetDistro()), in.Client, in.myCluster.GetName())
+	cloudProvider, err := NewCloudProvider(
+		ui.Spec.GetDistro(in.myCluster.GetDistro()),
+		in.Client,
+		ui.Spec.GetClusterName(in.myCluster.GetName()),
+	)
 	if err != nil {
 		return err
 	}

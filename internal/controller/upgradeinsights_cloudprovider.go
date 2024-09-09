@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
@@ -39,7 +40,7 @@ func (in *EKSCloudProvider) UpgradeInsights(ctx context.Context, ui v1alpha1.Upg
 		return nil, err
 	}
 
-	return algorithms.Map(insights, func(insight types.InsightSummary) console.UpgradeInsightAttributes {
+	return algorithms.Map(insights, func(insight *types.Insight) console.UpgradeInsightAttributes {
 		var refreshedAt *string
 		if insight.LastRefreshTime != nil {
 			refreshedAt = lo.ToPtr(insight.LastRefreshTime.Format(time.RFC3339))
@@ -55,17 +56,19 @@ func (in *EKSCloudProvider) UpgradeInsights(ctx context.Context, ui v1alpha1.Upg
 			Version:        insight.KubernetesVersion,
 			Description:    insight.Description,
 			Status:         in.fromInsightStatus(insight.InsightStatus),
+			Details:        in.toInsightDetails(insight),
 			RefreshedAt:    refreshedAt,
 			TransitionedAt: transitionedAt,
 		}
 	}), nil
 }
 
-func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client, ui v1alpha1.UpgradeInsights) ([]types.InsightSummary, error) {
+func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client, ui v1alpha1.UpgradeInsights) ([]*types.Insight, error) {
+	logger := log.FromContext(ctx)
 	var result []types.InsightSummary
 
 	out, err := client.ListInsights(ctx, &eks.ListInsightsInput{
-		ClusterName: lo.ToPtr(ui.Spec.GetClusterName(in.clusterName)),
+		ClusterName: lo.ToPtr(in.clusterName),
 	})
 	if err != nil {
 		return nil, err
@@ -75,7 +78,7 @@ func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client
 	nextToken := out.NextToken
 	for out.NextToken != nil {
 		out, err = client.ListInsights(ctx, &eks.ListInsightsInput{
-			ClusterName: lo.ToPtr(ui.Spec.GetClusterName(in.clusterName)),
+			ClusterName: lo.ToPtr(in.clusterName),
 			NextToken:   nextToken,
 		})
 		if err != nil {
@@ -85,7 +88,23 @@ func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client
 		nextToken = out.NextToken
 	}
 
-	return result, nil
+	return algorithms.Filter(
+		algorithms.Map(result, func(insight types.InsightSummary) *types.Insight {
+			output, err := client.DescribeInsight(ctx, &eks.DescribeInsightInput{
+				ClusterName: lo.ToPtr(in.clusterName),
+				Id:          insight.Id,
+			})
+			// If there is an error getting the details of an insight just ignore.
+			// It will be picked up during the next reconcile.
+			if err != nil {
+				logger.Error(err, "could not describe insight", "clusterName", in.clusterName, "id", insight.Id)
+				return nil
+			}
+
+			return output.Insight
+		}), func(insight *types.Insight) bool {
+			return insight != nil
+		}), nil
 }
 
 func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *console.UpgradeInsightStatus {
@@ -104,6 +123,24 @@ func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *cons
 	}
 
 	return nil
+}
+
+func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.UpgradeInsightDetailAttributes {
+	if insight.CategorySpecificSummary == nil {
+		return nil
+	}
+
+	result := make([]*console.UpgradeInsightDetailAttributes, 0)
+	for _, r := range insight.CategorySpecificSummary.DeprecationDetails {
+		result = append(result, &console.UpgradeInsightDetailAttributes{
+			Used:        r.Usage,
+			Replacement: r.ReplacedWith,
+			ReplacedIn:  r.StartServingReplacementVersion,
+			RemovedIn:   r.StopServingVersion,
+		})
+	}
+
+	return result
 }
 
 func (in *EKSCloudProvider) config(ctx context.Context, ui v1alpha1.UpgradeInsights) (aws.Config, error) {
