@@ -66,7 +66,7 @@ func (r *CustomHealthReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	scope, err := NewClusterScope(ctx, r.Client, script)
 	if err != nil {
 		logger.Error(err, "Failed to create cluster scope")
-		utils.MarkCondition(script.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, "%s", err.Error())
+		utils.MarkCondition(script.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 	defer func() {
