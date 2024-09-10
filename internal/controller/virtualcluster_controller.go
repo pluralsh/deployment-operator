@@ -66,7 +66,7 @@ func (in *VirtualClusterController) Reconcile(ctx context.Context, req reconcile
 	scope, err := NewDefaultScope(ctx, in.Client, vCluster)
 	if err != nil {
 		logger.Error(err, "failed to create scope")
-		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -87,7 +87,7 @@ func (in *VirtualClusterController) Reconcile(ctx context.Context, req reconcile
 	changed, sha, err := vCluster.Diff(utils.HashObject)
 	if err != nil {
 		logger.Error(err, "unable to calculate virtual cluster SHA")
-		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -95,7 +95,7 @@ func (in *VirtualClusterController) Reconcile(ctx context.Context, req reconcile
 	apiVCluster, err := in.sync(ctx, vCluster, changed)
 	if err != nil {
 		logger.Error(err, "unable to create or update virtual cluster")
-		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
+		utils.MarkCondition(vCluster.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -186,7 +186,7 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 	if in.shouldDeployVCluster(vCluster, changed) {
 		err = in.deployVCluster(ctx, vCluster)
 		if err != nil {
-			utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
+			utils.MarkCondition(vCluster.SetCondition, v1alpha1.VirtualClusterConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 			return nil, err
 		}
 
@@ -196,7 +196,7 @@ func (in *VirtualClusterController) sync(ctx context.Context, vCluster *v1alpha1
 	if in.shouldDeployAgent(vCluster, changed) {
 		err = in.deployAgent(ctx, vCluster, *createdVCluster.DeployToken)
 		if err != nil {
-			utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, "%v", err)
+			utils.MarkCondition(vCluster.SetCondition, v1alpha1.AgentConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 			return nil, err
 		}
 
