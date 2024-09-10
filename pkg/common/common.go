@@ -4,6 +4,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -22,4 +23,13 @@ func ToUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
 	}
 
 	return &unstructured.Unstructured{Object: objMap}, nil
+}
+
+func Unmarshal(s string) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(s), &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

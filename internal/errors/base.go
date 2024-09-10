@@ -12,9 +12,14 @@ func (k KnownError) String() string {
 	return string(k)
 }
 
+func (k KnownError) Error() string {
+	return string(k)
+}
+
 const (
-	ErrorNotFound       KnownError = "could not find resource"
+	ErrNotFound         KnownError = "could not find resource"
 	ErrExpected         KnownError = "this is a transient, expected error"
+	ErrRetriable        KnownError = "Still waiting on read/write bindings, requeueing until they're available"
 	ErrDeleteRepository            = "could not delete repository"
 )
 
@@ -61,7 +66,15 @@ func IsNotFound(err error) bool {
 		return false
 	}
 
-	return newAPIError(errorResponse).Has(ErrorNotFound)
+	return newAPIError(errorResponse).Has(ErrNotFound)
+}
+
+func IgnoreNotFound(err error) error {
+	if IsNotFound(err) {
+		return nil
+	}
+
+	return err
 }
 
 func IsDeleteRepository(err error) bool {
