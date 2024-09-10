@@ -103,15 +103,34 @@ type ProviderCredentials struct {
 }
 
 type AWSProviderCredentials struct {
-	// Region ...
+	// Region is the name of the AWS region cluster lives in.
 	// +kubebuilder:validation:Required
 	Region string `json:"region"`
 
-	// AccessKeyID ...
+	// AccessKeyID is your access key ID used to authenticate against AWS API.
 	// +kubebuilder:validation:Required
 	AccessKeyID string `json:"accessKeyID"`
 
-	// SecretAccessKeyRef ...
+	// SecretAccessKeyRef is a reference to the secret that contains secret access key.
+	// Since UpgradeInsights is a cluster-scoped resource we can't use local reference.
+	//
+	// SecretAccessKey must be stored in a key named "secretAccessKey".
+	//
+	// An example secret can look like this:
+	//	apiVersion: v1
+	//	kind: Secret
+	//	metadata:
+	//		name: eks-credentials
+	//		namespace: upgrade-insights-test
+	//	stringData:
+	//		secretAccessKey: "changeme"
+	// 
+	// Then it can be referenced like this:
+	// 		...
+	//		secretAccessKeyRef:
+	//			name: eks-credentials
+	//			namespace: upgrade-insights-test
+	//
 	// +kubebuilder:validation:Required
 	SecretAccessKeyRef corev1.SecretReference `json:"secretAccessKeyRef"`
 }
