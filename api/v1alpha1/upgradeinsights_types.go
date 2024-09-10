@@ -120,16 +120,16 @@ type AWSProviderCredentials struct {
 	//	apiVersion: v1
 	//	kind: Secret
 	//	metadata:
-	//		name: eks-credentials
-	//		namespace: upgrade-insights-test
+	//    name: eks-credentials
+	//    namespace: upgrade-insights-test
 	//	stringData:
-	//		secretAccessKey: "changeme"
-	// 
+	//    secretAccessKey: "changeme"
+	//
 	// Then it can be referenced like this:
-	// 		...
-	//		secretAccessKeyRef:
-	//			name: eks-credentials
-	//			namespace: upgrade-insights-test
+	//    ...
+	//    secretAccessKeyRef:
+	//      name: eks-credentials
+	//      namespace: upgrade-insights-test
 	//
 	// +kubebuilder:validation:Required
 	SecretAccessKeyRef corev1.SecretReference `json:"secretAccessKeyRef"`

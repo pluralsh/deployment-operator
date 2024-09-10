@@ -72,10 +72,11 @@ spec:
                           is a cluster-scoped resource we can't use local reference.\n\n\nSecretAccessKey
                           must be stored in a key named \"secretAccessKey\".\n\n\nAn
                           example secret can look like this:\n\tapiVersion: v1\n\tkind:
-                          Secret\n\tmetadata:\n\t\tname: eks-credentials\n\t\tnamespace:
-                          upgrade-insights-test\n\tstringData:\n\t\tsecretAccessKey:
-                          \"changeme\"\n\n\nThen it can be referenced like this:\n\t\t...\n\t\tsecretAccessKeyRef:\n\t\t\tname:
-                          eks-credentials\n\t\t\tnamespace: upgrade-insights-test"
+                          Secret\n\tmetadata:\n   name: eks-credentials\n   namespace:
+                          upgrade-insights-test\n\tstringData:\n   secretAccessKey:
+                          \"changeme\"\n\n\nThen it can be referenced like this:\n
+                          \  ...\n   secretAccessKeyRef:\n     name: eks-credentials\n
+                          \    namespace: upgrade-insights-test"
                         properties:
                           name:
                             description: name is unique within a namespace to reference
