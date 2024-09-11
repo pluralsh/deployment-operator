@@ -31,7 +31,7 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[manifests.
 
 	if e.PollResourceInfo.Status == status.UnknownStatus {
 		if ToStatus(e.Resource) != nil {
-			synced = *ToStatus(e.Resource) == console.ComponentStateRunning
+			synced = true
 		}
 	}
 	return &console.ComponentAttributes{
