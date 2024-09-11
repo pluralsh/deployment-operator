@@ -41,37 +41,12 @@ var _ = Describe("Kustomize template", func() {
 
 var _ = Describe("Kustomize liquid template", func() {
 	const (
-		name     = "test"
-		template = `apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources:
-  - ../../base
-
-namespace: my-app-dev
-
-nameSuffix: -dev
-
-configMapGenerator:
-  - literals:
-      - username=demo-user
-    name: {{ configuration.name }}
-
-secretGenerator:
-  - literals:
-      - password=demo
-    name: credentials
-    type: Opaque
-patches:
-  - path: deployment_env.yaml`
+		name = "test"
 	)
 
 	dir := filepath.Join("..", "..", "..", "test", "kustomize", "liquid")
-	BeforeEach(func() {
-		Expect(os.Rename(filepath.Join(dir, "dev", "kustomization.yaml"), filepath.Join(dir, "dev", "kustomization.yaml.liquid"))).To(Succeed())
-	})
 	AfterEach(func() {
-		Expect(os.WriteFile(filepath.Join(dir, "dev", "kustomization.yaml"), []byte(template), 0644)).To(Succeed())
+		Expect(os.Remove(filepath.Join(dir, "dev", "kustomization.yaml"))).To(Succeed())
 	})
 	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
 		Namespace: "default",

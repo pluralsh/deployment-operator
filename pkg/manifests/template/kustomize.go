@@ -68,11 +68,11 @@ func (k *kustomize) Render(svc *console.GetServiceDeploymentForAgent_ServiceDepl
 		if err != nil {
 			return fmt.Errorf("templating error in %s: %w", rpath, err)
 		}
-		if err := writeFile(path, data); err != nil {
+		newPath := strings.TrimSuffix(path, ".liquid")
+		if err := writeFile(newPath, data); err != nil {
 			return err
 		}
-		newPath := strings.TrimSuffix(path, ".liquid")
-		return os.Rename(path, newPath)
+		return nil
 	}); err != nil {
 		return nil, err
 	}

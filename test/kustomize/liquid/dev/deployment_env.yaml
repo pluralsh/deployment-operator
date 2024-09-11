@@ -6,12 +6,12 @@ spec:
   template:
     spec:
       containers:
-      - name: my-app
-        env:
-          - name: foo
-            value: we-are-in-dev
-        envFrom:
-          - configMapRef:
-              name: app-config
-          - secretRef:
-              name: credentials
+        - name: my-app
+          env:
+            - name: foo
+              value: we-are-in-dev
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: credentials
