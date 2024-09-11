@@ -187,6 +187,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualCluster")
 	}
 
+	if err = (&controller.UpgradeInsightsController{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ConsoleClient: ctrlMgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "UpgradeInsights")
+	}
+
 	statusController, err := controller.NewStatusReconciler(mgr.GetClient())
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StatusController")

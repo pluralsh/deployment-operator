@@ -1499,6 +1499,64 @@ func (_c *ClientMock_SaveClusterBackup_Call) RunAndReturn(run func(client.Backup
 	return _c
 }
 
+// SaveUpgradeInsights provides a mock function with given fields: attributes
+func (_m *ClientMock) SaveUpgradeInsights(attributes []*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error) {
+	ret := _m.Called(attributes)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveUpgradeInsights")
+	}
+
+	var r0 *client.SaveUpgradeInsights
+	var r1 error
+	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error)); ok {
+		return rf(attributes)
+	}
+	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes) *client.SaveUpgradeInsights); ok {
+		r0 = rf(attributes)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.SaveUpgradeInsights)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func([]*client.UpgradeInsightAttributes) error); ok {
+		r1 = rf(attributes)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_SaveUpgradeInsights_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveUpgradeInsights'
+type ClientMock_SaveUpgradeInsights_Call struct {
+	*mock.Call
+}
+
+// SaveUpgradeInsights is a helper method to define mock.On call
+//   - attributes []*client.UpgradeInsightAttributes
+func (_e *ClientMock_Expecter) SaveUpgradeInsights(attributes interface{}) *ClientMock_SaveUpgradeInsights_Call {
+	return &ClientMock_SaveUpgradeInsights_Call{Call: _e.mock.On("SaveUpgradeInsights", attributes)}
+}
+
+func (_c *ClientMock_SaveUpgradeInsights_Call) Run(run func(attributes []*client.UpgradeInsightAttributes)) *ClientMock_SaveUpgradeInsights_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]*client.UpgradeInsightAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_SaveUpgradeInsights_Call) Return(_a0 *client.SaveUpgradeInsights, _a1 error) *ClientMock_SaveUpgradeInsights_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_SaveUpgradeInsights_Call) RunAndReturn(run func([]*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error)) *ClientMock_SaveUpgradeInsights_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateClusterRestore provides a mock function with given fields: id, attrs
 func (_m *ClientMock) UpdateClusterRestore(id string, attrs client.RestoreAttributes) (*client.ClusterRestoreFragment, error) {
 	ret := _m.Called(id, attrs)
