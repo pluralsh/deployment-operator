@@ -69,10 +69,7 @@ func (k *kustomize) Render(svc *console.GetServiceDeploymentForAgent_ServiceDepl
 			return fmt.Errorf("templating error in %s: %w", rpath, err)
 		}
 		newPath := strings.TrimSuffix(path, ".liquid")
-		if err := writeFile(newPath, data); err != nil {
-			return err
-		}
-		return nil
+		return writeFile(newPath, data)
 	}); err != nil {
 		return nil, err
 	}
