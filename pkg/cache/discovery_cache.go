@@ -28,6 +28,7 @@ func DiscoveryCache() cmap.ConcurrentMap[string, bool] {
 }
 
 func RunDiscoveryCacheInBackgroundOrDie(ctx context.Context, discoveryClient *discovery.DiscoveryClient) {
+	log.Logger.Info("starting discovery cache")
 	err := helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
 		if err = updateDiscoveryCache(discoveryClient); err != nil {
 			log.Logger.Error(err, "can't fetch API versions")

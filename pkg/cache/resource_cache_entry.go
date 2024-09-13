@@ -5,8 +5,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
 type SHAType string
@@ -80,5 +80,5 @@ func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
 // SetStatus saves the last seen resource [event.StatusEvent] and converts it to a simpler
 // [console.ComponentAttributes] structure.
 func (in *ResourceCacheEntry) SetStatus(se event.StatusEvent) {
-	in.status = common.StatusEventToComponentAttributes(se, make(map[manifests.GroupName]string))
+	in.status = common.StatusEventToComponentAttributes(se, make(map[schema.GroupName]string))
 }

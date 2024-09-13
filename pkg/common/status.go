@@ -2,21 +2,22 @@ package common
 
 import (
 	console "github.com/pluralsh/console/go/client"
-	dlog "github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
+
+	schema2 "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	dlog "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
+func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[schema2.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
 	gvk := e.Resource.GroupVersionKind()
-	gname := manifests.GroupName{
+	gname := schema2.GroupName{
 		Group: gvk.Group,
 		Kind:  gvk.Kind,
 		Name:  e.Resource.GetName(),

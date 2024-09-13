@@ -12,8 +12,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
 
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
-
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,6 +25,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/object"
 
 	"github.com/pluralsh/deployment-operator/internal/kstatus/watcher"
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -101,7 +100,7 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 	w := watcher.NewDynamicStatusWatcher(dynamicClient, discoveryClient, mapper, watcher.Options{
 		UseCustomObjectFilter: true,
 		ObjectFilter:          nil,
-		RESTScopeStrategy: lo.ToPtr(kwatcher.RESTScopeRoot),
+		RESTScopeStrategy:     lo.ToPtr(kwatcher.RESTScopeRoot),
 		Filters: &kwatcher.Filters{
 			Labels: common.ManagedByAgentLabelSelector(),
 			Fields: nil,
@@ -225,7 +224,7 @@ func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.Compon
 		return nil, err
 	}
 	in.saveResourceStatus(obj)
-	return common.StatusEventToComponentAttributes(*s, make(map[manifests.GroupName]string)), nil
+	return common.StatusEventToComponentAttributes(*s, make(map[schema.GroupName]string)), nil
 }
 
 func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured) {

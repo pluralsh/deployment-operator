@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
@@ -61,8 +62,8 @@ type ServiceReconciler struct {
 	UtilFactory      util.Factory
 	RestoreNamespace string
 
-	mapper          meta.RESTMapper
-	pinger          *ping.Pinger
+	mapper meta.RESTMapper
+	pinger *ping.Pinger
 }
 
 func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
@@ -353,7 +354,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		})
 
 		metrics.Record().ServiceDeletion(id)
-		err = s.UpdatePruneStatus(ctx, svc, ch, map[manis.GroupName]string{})
+		err = s.UpdatePruneStatus(ctx, svc, ch, map[schema.GroupName]string{})
 		return
 	}
 
