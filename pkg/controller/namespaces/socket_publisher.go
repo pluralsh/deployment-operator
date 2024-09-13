@@ -8,7 +8,7 @@ import (
 )
 
 type socketPublisher struct {
-	restoreQueue workqueue.RateLimitingInterface
+	restoreQueue workqueue.TypedRateLimitingInterface[string]
 	restoreCache *client.Cache[console.ManagedNamespaceFragment]
 }
 

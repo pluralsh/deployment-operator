@@ -44,6 +44,7 @@ crd-docs: ##generate docs from the CRDs
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	@$(MAKE) -s codegen-chart-crds
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -52,6 +53,10 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 .PHONY: genmock
 genmock: mockery ## generates mocks before running tests
 	$(MOCKERY)
+
+.PHONY: codegen-chart-crds
+codegen-chart-crds: ## copy CRDs to the helm chart
+	@cp -a config/crd/bases/. charts/deployment-operator/crds
 
 ##@ Run
 

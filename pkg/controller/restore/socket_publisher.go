@@ -2,12 +2,13 @@ package restore
 
 import (
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type socketPublisher struct {
-	restoreQueue workqueue.RateLimitingInterface
+	restoreQueue workqueue.TypedRateLimitingInterface[string]
 	restoreCache *client.Cache[console.ClusterRestoreFragment]
 }
 
