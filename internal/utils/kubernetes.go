@@ -56,12 +56,12 @@ func AsName(val string) string {
 	return strings.ReplaceAll(val, " ", "-")
 }
 
-func MarkCondition(set func(condition metav1.Condition), conditionType v1alpha1.ConditionType, conditionStatus metav1.ConditionStatus, conditionReason v1alpha1.ConditionReason, message string, messageArgs ...interface{}) {
+func MarkCondition(set func(condition metav1.Condition), conditionType v1alpha1.ConditionType, conditionStatus metav1.ConditionStatus, conditionReason v1alpha1.ConditionReason, message string) {
 	set(metav1.Condition{
 		Type:    conditionType.String(),
 		Status:  conditionStatus,
 		Reason:  conditionReason.String(),
-		Message: fmt.Sprintf(message, messageArgs...),
+		Message: message,
 	})
 }
 

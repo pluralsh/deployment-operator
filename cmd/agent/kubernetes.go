@@ -181,12 +181,20 @@ func registerKubeReconcilersOrDie(
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualCluster")
 	}
 
+	if err := (&controller.UpgradeInsightsController{
+		Client:        manager.GetClient(),
+		Scheme:        manager.GetScheme(),
+		ConsoleClient: extConsoleClient,
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "UpgradeInsights")
+	}
+
 	statusController, err := controller.NewStatusReconciler(manager.GetClient())
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StatusController")
 	}
 	if err := statusController.SetupWithManager(manager); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "StatusController")
+		setupLog.Error(err, "unable to setup controller", "controller", "StatusController")
 	}
 
 	if err = (&controller.PipelineGateReconciler{
