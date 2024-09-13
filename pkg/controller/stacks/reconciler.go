@@ -25,7 +25,7 @@ const (
 type StackReconciler struct {
 	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
-	StackQueue    workqueue.RateLimitingInterface
+	StackQueue    workqueue.TypedRateLimitingInterface[string]
 	StackCache    *client.Cache[console.StackRunFragment]
 	Namespace     string
 	ConsoleURL    string
@@ -37,7 +37,7 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 	return &StackReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
-		StackQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		StackQueue:    workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
 		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
 			return consoleClient.GetStackRun(id)
 		}),

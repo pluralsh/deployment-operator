@@ -52,7 +52,7 @@ type Controller struct {
 
 	// Queue is an listeningQueue that listens for events from Informers and adds object keys to
 	// the Queue for processing
-	Queue workqueue.RateLimitingInterface
+	Queue workqueue.TypedRateLimitingInterface[string]
 
 	// mu is used to synchronize Controller setup
 	mu sync.Mutex
@@ -77,7 +77,7 @@ func (c *Controller) Reconcile(ctx context.Context, req string) (_ reconcile.Res
 		if r := recover(); r != nil {
 			if c.RecoverPanic != nil && *c.RecoverPanic {
 				for _, fn := range utilruntime.PanicHandlers {
-					fn(r)
+					fn(ctx, r)
 				}
 				err = fmt.Errorf("panic: %v [recovered]", r)
 				return
@@ -130,7 +130,7 @@ func (c *Controller) Start(ctx context.Context) {
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the reconcileHandler.
 func (c *Controller) processNextWorkItem(ctx context.Context) bool {
-	obj, shutdown := c.Queue.Get()
+	id, shutdown := c.Queue.Get()
 	if shutdown {
 		// Stop working
 		return false
@@ -142,35 +142,24 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// not call Forget if a transient error occurs, instead the item is
 	// put back on the workqueue and attempted again after a back-off
 	// period.
-	defer c.Queue.Done(obj)
-	c.reconcileHandler(ctx, obj)
+	defer c.Queue.Done(id)
+	c.reconcileHandler(ctx, id)
 	return true
 }
 
-func (c *Controller) reconcileHandler(ctx context.Context, obj interface{}) {
+func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 	log := log.FromContext(ctx)
-	// Make sure that the object is a valid request.
-	req, ok := obj.(string)
-	if !ok {
-		// As the item in the workqueue is actually invalid, we call
-		// Forget here else we'd go into a loop of attempting to
-		// process a work item that is invalid.
-		c.Queue.Forget(obj)
-		// Return true, don't take a break
-		return
-	}
-
 	reconcileID := uuid.NewUUID()
 	ctx = addReconcileID(ctx, reconcileID)
 
 	// RunInformersAndControllers the syncHandler, passing it the Namespace/Name string of the
 	// resource to be synced.
 	log.V(5).Info("Reconciling")
-	result, err := c.Reconcile(ctx, req)
+	result, err := c.Reconcile(ctx, id)
 	switch {
 	case err != nil:
 
-		c.Queue.AddRateLimited(req)
+		c.Queue.AddRateLimited(id)
 
 		if !result.IsZero() {
 			log.V(1).Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
@@ -182,16 +171,16 @@ func (c *Controller) reconcileHandler(ctx context.Context, obj interface{}) {
 		// along with a non-nil error. But this is intended as
 		// We need to drive to stable reconcile loops before queuing due
 		// to result.RequestAfter
-		c.Queue.Forget(obj)
-		c.Queue.AddAfter(req, result.RequeueAfter)
+		c.Queue.Forget(id)
+		c.Queue.AddAfter(id, result.RequeueAfter)
 	case result.Requeue:
 		log.V(5).Info("Reconcile done, requeueing")
-		c.Queue.AddRateLimited(req)
+		c.Queue.AddRateLimited(id)
 	default:
 		log.V(5).Info("Reconcile successful")
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
-		c.Queue.Forget(obj)
+		c.Queue.Forget(id)
 	}
 }
 

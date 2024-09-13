@@ -36,7 +36,7 @@ type GateReconciler struct {
 	Config            *rest.Config
 	Clientset         *kubernetes.Clientset
 	GateCache         *client.Cache[console.PipelineGateFragment]
-	GateQueue         workqueue.RateLimitingInterface
+	GateQueue         workqueue.TypedRateLimitingInterface[string]
 	UtilFactory       util.Factory
 	discoveryClient   *discovery.DiscoveryClient
 	pinger            *ping.Pinger
@@ -56,7 +56,7 @@ func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client,
 		return consoleClient.GetClusterGate(id)
 	})
 
-	gateQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	gateQueue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
 
 	f := utils.NewFactory(config)
 

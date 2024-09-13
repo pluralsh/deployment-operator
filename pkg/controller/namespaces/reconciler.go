@@ -31,7 +31,7 @@ const (
 type NamespaceReconciler struct {
 	ConsoleClient  client.Client
 	K8sClient      ctrlclient.Client
-	NamespaceQueue workqueue.RateLimitingInterface
+	NamespaceQueue workqueue.TypedRateLimitingInterface[string]
 	NamespaceCache *client.Cache[console.ManagedNamespaceFragment]
 }
 
@@ -39,7 +39,7 @@ func NewNamespaceReconciler(consoleClient client.Client, k8sClient ctrlclient.Cl
 	return &NamespaceReconciler{
 		ConsoleClient:  consoleClient,
 		K8sClient:      k8sClient,
-		NamespaceQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		NamespaceQueue: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
 		NamespaceCache: client.NewCache[console.ManagedNamespaceFragment](refresh, func(id string) (*console.ManagedNamespaceFragment, error) {
 			return consoleClient.GetNamespace(id)
 		}),

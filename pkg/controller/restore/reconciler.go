@@ -51,7 +51,7 @@ var (
 type RestoreReconciler struct {
 	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
-	RestoreQueue  workqueue.RateLimitingInterface
+	RestoreQueue  workqueue.TypedRateLimitingInterface[string]
 	RestoreCache  *client.Cache[console.ClusterRestoreFragment]
 	Namespace     string
 }
@@ -60,7 +60,7 @@ func NewRestoreReconciler(consoleClient client.Client, k8sClient ctrlclient.Clie
 	return &RestoreReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
-		RestoreQueue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		RestoreQueue:  workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
 		RestoreCache: client.NewCache[console.ClusterRestoreFragment](refresh, func(id string) (*console.ClusterRestoreFragment, error) {
 			return consoleClient.GetClusterRestore(id)
 		}),
