@@ -57,7 +57,7 @@ type ServiceReconciler struct {
 	Clientset        *kubernetes.Clientset
 	Applier          *applier.Applier
 	Destroyer        *apply.Destroyer
-	SvcQueue         workqueue.RateLimitingInterface
+	SvcQueue         workqueue.TypedRateLimitingInterface[string]
 	SvcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
 	ManifestCache    *manifests.ManifestCache
 	UtilFactory      util.Factory
@@ -84,7 +84,7 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		return consoleClient.GetService(id)
 	})
 
-	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	svcQueue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
 
 	manifestCache := manifests.NewCache(manifestTTL, deployToken, consoleURL)
 

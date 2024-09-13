@@ -6,21 +6,22 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
 type StackReconciler struct {
 	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
-	StackQueue    workqueue.RateLimitingInterface
+	StackQueue    workqueue.TypedRateLimitingInterface[string]
 	StackCache    *client.Cache[console.StackRunFragment]
 	Namespace     string
 	ConsoleURL    string
@@ -32,7 +33,7 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 	return &StackReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
-		StackQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		StackQueue:    workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
 		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
 			return consoleClient.GetStackRun(id)
 		}),
