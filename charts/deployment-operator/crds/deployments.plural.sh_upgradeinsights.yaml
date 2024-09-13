@@ -4,20 +4,25 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
-  name: customhealths.deployments.plural.sh
+  name: upgradeinsights.deployments.plural.sh
 spec:
   group: deployments.plural.sh
   names:
-    kind: CustomHealth
-    listKind: CustomHealthList
-    plural: customhealths
-    singular: customhealth
-  scope: Namespaced
+    kind: UpgradeInsights
+    listKind: UpgradeInsightsList
+    plural: upgradeinsights
+    singular: upgradeinsights
+  scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: ID of the UpgradeInsights in the Console API.
+      jsonPath: .status.id
+      name: ID
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CustomHealth is the Schema for the HealthConverts API
+        description: UpgradeInsights is the Schema for the UpgradeInsights API
         properties:
           apiVersion:
             description: |-
@@ -37,16 +42,75 @@ spec:
           metadata:
             type: object
           spec:
-            description: CustomHealthSpec defines the desired state of CustomHealth
             properties:
-              script:
+              clusterName:
+                description: |-
+                  ClusterName is your cloud provider cluster identifier (usually name) that is used
+                  to fetch latest upgrade insights information from the cloud provider API.
+                  If not provided, we get the cluster name from the Plural API cluster tied to this
+                  operator deploy token and assume that it is the same as the cluster name in your cloud provider.
+                type: string
+              credentials:
+                description: Credentials allow overriding default provider credentials
+                  bound to the operator.
+                properties:
+                  aws:
+                    description: AWS defines attributes required to auth with AWS
+                      API.
+                    properties:
+                      accessKeyID:
+                        description: AccessKeyID is your access key ID used to authenticate
+                          against AWS API.
+                        type: string
+                      region:
+                        description: Region is the name of the AWS region cluster
+                          lives in.
+                        type: string
+                      secretAccessKeyRef:
+                        description: "SecretAccessKeyRef is a reference to the secret
+                          that contains secret access key.\nSince UpgradeInsights
+                          is a cluster-scoped resource we can't use local reference.\n\nSecretAccessKey
+                          must be stored in a key named \"secretAccessKey\".\n\nAn
+                          example secret can look like this:\n\tapiVersion: v1\n\tkind:
+                          Secret\n\tmetadata:\n   name: eks-credentials\n   namespace:
+                          upgrade-insights-test\n\tstringData:\n   secretAccessKey:
+                          \"changeme\"\n\nThen it can be referenced like this:\n   ...\n
+                          \  secretAccessKeyRef:\n     name: eks-credentials\n     namespace:
+                          upgrade-insights-test"
+                        properties:
+                          name:
+                            description: name is unique within a namespace to reference
+                              a secret resource.
+                            type: string
+                          namespace:
+                            description: namespace defines the space within which
+                              the secret name must be unique.
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    required:
+                    - accessKeyID
+                    - region
+                    - secretAccessKeyRef
+                    type: object
+                type: object
+              distro:
+                description: |-
+                  Distro defines which provider API should be used to fetch latest upgrade insights.
+                  If not provided, we get the distro from the Plural API cluster tied to this operator deploy token.
+                enum:
+                - EKS
+                type: string
+              interval:
+                default: 10m
+                description: Interval defines how often should the upgrade insights
+                  information be fetched.
                 type: string
             type: object
           status:
-            description: CustomHealthStatus defines the observed state of CustomHealth
             properties:
               conditions:
-                description: Represents the observations of a HealthConvert current
+                description: Represents the observations of a PrAutomation's current
                   state.
                 items:
                   description: Condition contains details for one aspect of the current
@@ -106,6 +170,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              id:
+                description: ID of the resource in the Console API.
+                type: string
+              sha:
+                description: SHA of last applied configuration.
+                type: string
             type: object
         type: object
     served: true
