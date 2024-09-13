@@ -38,7 +38,6 @@ func Unmarshal(s string) (map[string]interface{}, error) {
 	return result, nil
 }
 
-
 func ToReconcilerOrDie[R controller.Reconciler](in controller.Reconciler) R {
 	out, ok := in.(R)
 	// If cast fails panic. It means that the calling code is bad and has to be changed.
