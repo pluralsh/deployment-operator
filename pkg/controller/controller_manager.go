@@ -75,7 +75,7 @@ func (cm *ControllerManager) GetReconciler(name string) Reconciler {
 	return nil
 }
 
-func (cm *ControllerManager) AddReconcilerOrDie(name string, reconcilerGetter func() (Reconciler, workqueue.RateLimitingInterface, error)) {
+func (cm *ControllerManager) AddReconcilerOrDie(name string, reconcilerGetter func() (Reconciler, workqueue.TypedRateLimitingInterface[string], error)) {
 	reconciler, queue, err := reconcilerGetter()
 	if err != nil {
 		log.Logger.Errorw("unable to create reconciler", "name", name, "error", err)

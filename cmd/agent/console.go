@@ -45,27 +45,27 @@ func registerConsoleReconcilersOrDie(
 	k8sClient ctrclient.Client,
 	consoleClient client.Client,
 ) {
-	mgr.AddReconcilerOrDie(service.Identifier, func() (controller.Reconciler, workqueue.RateLimitingInterface, error) {
+	mgr.AddReconcilerOrDie(service.Identifier, func() (controller.Reconciler, workqueue.TypedRateLimitingInterface[string], error) {
 		r, err := service.NewServiceReconciler(consoleClient, config, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.RestoreNamespace(), args.ConsoleUrl())
 		return r, r.SvcQueue, err
 	})
 
-	mgr.AddReconcilerOrDie(pipelinegates.Identifier, func() (controller.Reconciler, workqueue.RateLimitingInterface, error) {
+	mgr.AddReconcilerOrDie(pipelinegates.Identifier, func() (controller.Reconciler, workqueue.TypedRateLimitingInterface[string], error) {
 		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, config, args.ControllerCacheTTL(), args.PollInterval(), args.ClusterId())
 		return r, r.GateQueue, err
 	})
 
-	mgr.AddReconcilerOrDie(restore.Identifier, func() (controller.Reconciler, workqueue.RateLimitingInterface, error) {
+	mgr.AddReconcilerOrDie(restore.Identifier, func() (controller.Reconciler, workqueue.TypedRateLimitingInterface[string], error) {
 		r := restore.NewRestoreReconciler(consoleClient, k8sClient, args.ControllerCacheTTL(), args.RestoreNamespace())
 		return r, r.RestoreQueue, nil
 	})
 
-	mgr.AddReconcilerOrDie(namespaces.Identifier, func() (controller.Reconciler, workqueue.RateLimitingInterface, error) {
+	mgr.AddReconcilerOrDie(namespaces.Identifier, func() (controller.Reconciler, workqueue.TypedRateLimitingInterface[string], error) {
 		r := namespaces.NewNamespaceReconciler(consoleClient, k8sClient, args.ControllerCacheTTL())
 		return r, r.NamespaceQueue, nil
 	})
 
-	mgr.AddReconcilerOrDie(stacks.Identifier, func() (controller.Reconciler, workqueue.RateLimitingInterface, error) {
+	mgr.AddReconcilerOrDie(stacks.Identifier, func() (controller.Reconciler, workqueue.TypedRateLimitingInterface[string], error) {
 		namespace, err := utils.GetOperatorNamespace()
 		if err != nil {
 			setupLog.Errorw("unable to get operator namespace", "error", err)
