@@ -1,37 +1,30 @@
 package main
 
 import (
-	"net/http"
+	"context"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
-	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	_ "github.com/pluralsh/deployment-operator/pkg/cache" // Init cache.
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 )
 
 var (
@@ -51,8 +44,7 @@ func init() {
 }
 
 const (
-	httpClientTimout    = time.Second * 5
-	httpCacheExpiryTime = time.Second * 2
+	httpClientTimout = time.Second * 5
 )
 
 func main() {
@@ -60,162 +52,53 @@ func main() {
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.SetupSignalHandler()
 
+	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
+	discoveryClient := initDiscoveryClientOrDie(config)
+	kubeManager := initKubeManagerOrDie(config)
+	consoleManager := initConsoleManagerOrDie()
+
+	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), extConsoleClient)
+	registerKubeReconcilersOrDie(kubeManager, consoleManager, config, extConsoleClient)
+
+	//+kubebuilder:scaffold:builder
+
+	// Start resource cache in background if enabled.
 	if args.ResourceCacheEnabled() {
 		cache.Init(ctx, config, args.ResourceCacheTTL())
 	}
 
-	mgr, err := ctrl.NewManager(config, ctrl.Options{
-		Scheme:                 scheme,
-		LeaderElection:         args.EnableLeaderElection(),
-		LeaderElectionID:       "dep12loy45.plural.sh",
-		HealthProbeBindAddress: args.ProbeAddr(),
-		Metrics: server.Options{
-			BindAddress: args.MetricsAddr(),
-			ExtraHandlers: map[string]http.Handler{
-				// Default prometheus metrics path.
-				// We can't use /metrics as it is already taken by the
-				// controller manager.
-				"/metrics/agent": promhttp.Handler(),
-			},
-		},
-	})
+	// Start the discovery cache in background.
+	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
+
+	// Start the console manager in background.
+	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
+
+	// Start the standard kubernetes manager and block the main thread until context cancel.
+	runKubeManagerOrDie(ctx, kubeManager)
+}
+
+func initDiscoveryClientOrDie(config *rest.Config) *discovery.DiscoveryClient {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		setupLog.Error(err, "unable to create manager")
-		os.Exit(1)
-	}
-	rolloutsClient, err := roclientset.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create rollouts client")
-		os.Exit(1)
-	}
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create dynamic client")
-		os.Exit(1)
-	}
-	kubeClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create kubernetes client")
+		setupLog.Error(err, "unable to create discovery client")
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting agent")
-	ctrlMgr, serviceReconciler, gateReconciler := runAgent(config, ctx, mgr.GetClient())
+	return discoveryClient
+}
 
-	backupController := &controller.BackupReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-	}
-	restoreController := &controller.RestoreReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-	}
-	constraintController := &controller.ConstraintReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-		Reader:        mgr.GetCache(),
-	}
-	argoRolloutController := &controller.ArgoRolloutReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-		ConsoleURL:    args.ConsoleUrl(),
-		HttpClient:    &http.Client{Timeout: httpClientTimout},
-		ArgoClientSet: rolloutsClient,
-		DynamicClient: dynamicClient,
-		SvcReconciler: serviceReconciler,
-		KubeClient:    kubeClient,
-	}
-
-	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
-		{
-			Group:   velerov1.SchemeGroupVersion.Group,
-			Version: velerov1.SchemeGroupVersion.Version,
-			Kind:    "Backup",
-		}: backupController.SetupWithManager,
-		{
-			Group:   velerov1.SchemeGroupVersion.Group,
-			Version: velerov1.SchemeGroupVersion.Version,
-			Kind:    "Restore",
-		}: restoreController.SetupWithManager,
-		{
-			Group:   "status.gatekeeper.sh",
-			Version: "v1beta1",
-			Kind:    "ConstraintPodStatus",
-		}: constraintController.SetupWithManager,
-		{
-			Group:   rolloutv1alpha1.SchemeGroupVersion.Group,
-			Version: rolloutv1alpha1.SchemeGroupVersion.Version,
-			Kind:    rollouts.RolloutKind,
-		}: argoRolloutController.SetupWithManager,
-	}
-
-	if err = (&controller.CrdRegisterControllerReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		ReconcilerGroups: reconcileGroups,
-		Mgr:              mgr,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CRDRegisterController")
-	}
-
-	if err = (&controller.CustomHealthReconciler{
-		Client:            mgr.GetClient(),
-		Scheme:            mgr.GetScheme(),
-		ServiceReconciler: serviceReconciler,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HealthConvert")
-	}
-	if err = (&controller.StackRunJobReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
-	}
-
-	rawConsoleUrl, _ := strings.CutSuffix(args.ConsoleUrl(), "/ext/gql")
-	if err = (&controller.VirtualClusterController{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		ExtConsoleClient: ctrlMgr.GetClient(),
-		ConsoleUrl:       rawConsoleUrl,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VirtualCluster")
-	}
-
-	statusController, err := controller.NewStatusReconciler(mgr.GetClient())
-	if err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "StatusController")
-	}
-	if err := statusController.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to start controller", "controller", "StatusController")
-	}
-
-	//+kubebuilder:scaffold:builder
-
-	if err = (&controller.PipelineGateReconciler{
-		Client:        mgr.GetClient(),
-		GateCache:     gateReconciler.GateCache,
-		ConsoleClient: client.New(args.ConsoleUrl(), args.DeployToken()),
-		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
-		Scheme:        mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Group")
-		os.Exit(1)
-	}
-
-	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to create health check")
-		os.Exit(1)
-	}
-
-	setupLog.Info("starting manager")
+func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.ControllerManager) {
+	setupLog.Info("starting console controller manager")
 	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "problem running manager")
+		setupLog.Errorw("unable to start console controller manager", "error", err)
+		os.Exit(1)
+	}
+}
+
+func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
+	setupLog.Info("starting kubernetes controller manager")
+	if err := mgr.Start(ctx); err != nil {
+		setupLog.Errorw("unable to start kubernetes controller manager", "error", err)
 		os.Exit(1)
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
-	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pkg/errors"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -35,6 +34,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -57,11 +57,9 @@ func init() {
 	settings.RepositoryCache = dir
 	settings.RepositoryConfig = path.Join(dir, "repositories.yaml")
 	settings.KubeInsecureSkipTLSVerify = true
-	APIVersions = cmap.New[bool]()
 }
 
 var settings = cli.New()
-var APIVersions cmap.ConcurrentMap[string, bool]
 
 func debug(format string, v ...interface{}) {
 	format = fmt.Sprintf("INFO: %s\n", format)
@@ -230,7 +228,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 		return nil, err
 	}
 	client.KubeVersion = vsn
-	client.APIVersions = algorithms.MapKeys[string, bool](APIVersions.Items())
+	client.APIVersions = algorithms.MapKeys[string, bool](cache.DiscoveryCache().Items())
 
 	return client.Run(chart, values)
 }

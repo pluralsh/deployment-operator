@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -33,36 +35,24 @@ type ControllerManager struct {
 	// started is true if the ControllerManager has been Started
 	started bool
 
-	ctx context.Context
-
 	client client.Client
 
 	Socket *websocket.Socket
 }
 
-func NewControllerManager(ctx context.Context, maxConcurrentReconciles int, cacheSyncTimeout time.Duration,
-	refresh, jitter time.Duration, recoverPanic *bool, consoleUrl, deployToken, clusterId string) (*ControllerManager, error) {
-
-	socket, err := websocket.New(clusterId, consoleUrl, deployToken)
-	if err != nil {
-		if socket == nil {
-			return nil, err
-		}
-		klog.Error(err, "could not initiate websocket connection, ignoring and falling back to polling")
+func NewControllerManager(options ...ControllerManagerOption) (*ControllerManager, error) {
+	ctrl := &ControllerManager{
+		Controllers: make([]*Controller, 0),
+		started:     false,
 	}
 
-	return &ControllerManager{
-		Controllers:             make([]*Controller, 0),
-		MaxConcurrentReconciles: maxConcurrentReconciles,
-		CacheSyncTimeout:        cacheSyncTimeout,
-		RecoverPanic:            recoverPanic,
-		Refresh:                 refresh,
-		Jitter:                  jitter,
-		started:                 false,
-		ctx:                     ctx,
-		client:                  client.New(consoleUrl, deployToken),
-		Socket:                  socket,
-	}, nil
+	for _, option := range options {
+		if err := option(ctrl); err != nil {
+			return nil, err
+		}
+	}
+
+	return ctrl, nil
 }
 
 func (cm *ControllerManager) GetClient() client.Client {
@@ -75,7 +65,31 @@ func (cm *ControllerManager) AddController(ctrl *Controller) {
 	cm.Controllers = append(cm.Controllers, ctrl)
 }
 
-func (cm *ControllerManager) Start() error {
+func (cm *ControllerManager) GetReconciler(name string) Reconciler {
+	for _, ctrl := range cm.Controllers {
+		if ctrl.Name == name {
+			return ctrl.Do
+		}
+	}
+
+	return nil
+}
+
+func (cm *ControllerManager) AddReconcilerOrDie(name string, reconcilerGetter func() (Reconciler, workqueue.RateLimitingInterface, error)) {
+	reconciler, queue, err := reconcilerGetter()
+	if err != nil {
+		log.Logger.Errorw("unable to create reconciler", "name", name, "error", err)
+		os.Exit(1)
+	}
+
+	cm.AddController(&Controller{
+		Name:  name,
+		Do:    reconciler,
+		Queue: queue,
+	})
+}
+
+func (cm *ControllerManager) Start(ctx context.Context) error {
 	if cm.started {
 		return errors.New("controller manager was started more than once")
 	}
@@ -95,12 +109,12 @@ func (cm *ControllerManager) Start() error {
 			}
 			pollInterval += jitterValue
 			_ = wait.PollUntilContextCancel(context.Background(), pollInterval, true, func(_ context.Context) (done bool, err error) {
-				return controller.Do.Poll(cm.ctx)
+				return controller.Do.Poll(ctx)
 			})
 		}()
 
 		go func() {
-			controller.Start(cm.ctx)
+			controller.Start(ctx)
 		}()
 	}
 

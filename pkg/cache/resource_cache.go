@@ -101,7 +101,6 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 	w := watcher.NewDynamicStatusWatcher(dynamicClient, discoveryClient, mapper, watcher.Options{
 		UseCustomObjectFilter: true,
 		ObjectFilter:          nil,
-		//UseInformerRefCache:   true,
 		RESTScopeStrategy: lo.ToPtr(kwatcher.RESTScopeRoot),
 		Filters: &kwatcher.Filters{
 			Labels: common.ManagedByAgentLabelSelector(),
