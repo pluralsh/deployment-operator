@@ -13,12 +13,17 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
-func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.GetServiceDeploymentForAgent_ServiceDeployment, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdatePruneStatus(
+	ctx context.Context,
+	svc *console.GetServiceDeploymentForAgent_ServiceDeployment,
+	ch <-chan event.Event,
+	vcache map[internalschema.GroupName]string,
+) error {
 	logger := log.FromContext(ctx)
 
 	var statsCollector stats.Stats
@@ -61,7 +66,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 	svc *console.GetServiceDeploymentForAgent_ServiceDeployment,
 	ch <-chan event.Event,
 	printStatus bool,
-	vcache map[manifests.GroupName]string,
+	vcache map[internalschema.GroupName]string,
 ) error {
 	logger := log.FromContext(ctx)
 	start, err := metrics.FromContext[time.Time](ctx, metrics.ContextKeyTimeStart)

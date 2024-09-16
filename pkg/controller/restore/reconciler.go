@@ -19,6 +19,10 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
+const (
+	Identifier = "Restore Controller"
+)
+
 var (
 	restoreStatusMap = map[velerov1.RestorePhase]console.RestoreStatus{
 		velerov1.RestorePhaseNew:                                       console.RestoreStatusCreated,

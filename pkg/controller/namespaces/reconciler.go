@@ -24,6 +24,10 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
+const (
+	Identifier = "Namespace Controller"
+)
+
 type NamespaceReconciler struct {
 	ConsoleClient  client.Client
 	K8sClient      ctrlclient.Client

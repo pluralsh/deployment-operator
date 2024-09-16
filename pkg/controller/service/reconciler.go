@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -26,10 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
@@ -38,12 +37,12 @@ import (
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
 const (
+	Identifier           = "Service Controller"
 	OperatorService      = "deploy-operator"
 	RestoreConfigMapName = "restore-config-map"
 	// The field manager name for the ones agentk owns, see
@@ -63,14 +62,11 @@ type ServiceReconciler struct {
 	UtilFactory      util.Factory
 	RestoreNamespace string
 
-	mapper          meta.RESTMapper
-	discoveryClient *discovery.DiscoveryClient
-	pinger          *ping.Pinger
-	ctx             context.Context
+	mapper meta.RESTMapper
+	pinger *ping.Pinger
 }
 
-func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
-	logger := log.FromContext(ctx)
+func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -110,15 +106,6 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		return nil, err
 	}
 
-	_ = helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
-		if err = CapabilitiesAPIVersions(discoveryClient); err != nil {
-			logger.Error(err, "can't fetch API versions")
-		}
-
-		metrics.Record().DiscoveryAPICacheRefresh(err)
-		return false, nil
-	})
-
 	return &ServiceReconciler{
 		ConsoleClient:    consoleClient,
 		Config:           config,
@@ -129,33 +116,10 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		UtilFactory:      f,
 		Applier:          a,
 		Destroyer:        d,
-		discoveryClient:  discoveryClient,
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		RestoreNamespace: restoreNamespace,
-		ctx:              ctx,
 		mapper:           mapper,
 	}, nil
-}
-
-func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
-	lists, err := discoveryClient.ServerPreferredResources()
-
-	for _, list := range lists {
-		if len(list.APIResources) == 0 {
-			continue
-		}
-		gv, err := schema.ParseGroupVersion(list.GroupVersion)
-		if err != nil {
-			continue
-		}
-		for _, resource := range list.APIResources {
-			if len(resource.Verbs) == 0 {
-				continue
-			}
-			template.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
-		}
-	}
-	return err
 }
 
 func (s *ServiceReconciler) GetPollInterval() time.Duration {
@@ -390,7 +354,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		})
 
 		metrics.Record().ServiceDeletion(id)
-		err = s.UpdatePruneStatus(ctx, svc, ch, map[manis.GroupName]string{})
+		err = s.UpdatePruneStatus(ctx, svc, ch, map[schema.GroupName]string{})
 		return
 	}
 

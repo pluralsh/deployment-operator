@@ -18,6 +18,10 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
+const (
+	Identifier = "Stack Controller"
+)
+
 type StackReconciler struct {
 	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
