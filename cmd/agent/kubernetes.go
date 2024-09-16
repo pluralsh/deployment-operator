@@ -171,6 +171,13 @@ func registerKubeReconcilersOrDie(
 		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
 	}
 
+	if err := (&controller.IngressReplicaReconciler{
+		Client: manager.GetClient(),
+		Scheme: manager.GetScheme(),
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "IngressReplica")
+	}
+
 	rawConsoleUrl, _ := strings.CutSuffix(args.ConsoleUrl(), "/ext/gql")
 	if err := (&controller.VirtualClusterController{
 		Client:           manager.GetClient(),
