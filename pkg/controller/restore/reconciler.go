@@ -6,9 +6,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +13,14 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
+)
+
+const (
+	Identifier = "Restore Controller"
 )
 
 var (
@@ -46,7 +51,7 @@ var (
 type RestoreReconciler struct {
 	ConsoleClient client.Client
 	K8sClient     ctrlclient.Client
-	RestoreQueue  workqueue.RateLimitingInterface
+	RestoreQueue  workqueue.TypedRateLimitingInterface[string]
 	RestoreCache  *client.Cache[console.ClusterRestoreFragment]
 	Namespace     string
 }
@@ -55,7 +60,7 @@ func NewRestoreReconciler(consoleClient client.Client, k8sClient ctrlclient.Clie
 	return &RestoreReconciler{
 		ConsoleClient: consoleClient,
 		K8sClient:     k8sClient,
-		RestoreQueue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		RestoreQueue:  workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
 		RestoreCache: client.NewCache[console.ClusterRestoreFragment](refresh, func(id string) (*console.ClusterRestoreFragment, error) {
 			return consoleClient.GetClusterRestore(id)
 		}),

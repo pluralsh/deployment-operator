@@ -2,19 +2,15 @@ package manifests
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 )
 
-type GroupName struct {
-	Group string
-	Kind  string
-	Name  string
-}
-
-func VersionCache(manifests []*unstructured.Unstructured) map[GroupName]string {
-	res := map[GroupName]string{}
+func VersionCache(manifests []*unstructured.Unstructured) map[schema.GroupName]string {
+	res := map[schema.GroupName]string{}
 	for _, man := range manifests {
 		gvk := man.GroupVersionKind()
-		name := GroupName{
+		name := schema.GroupName{
 			Group: gvk.Group,
 			Kind:  gvk.Kind,
 			Name:  man.GetName(),

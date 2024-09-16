@@ -8,7 +8,7 @@ import (
 )
 
 type socketPublisher struct {
-	stackRunQueue workqueue.RateLimitingInterface
+	stackRunQueue workqueue.TypedRateLimitingInterface[string]
 	stackRunCache *client.Cache[console.StackRunFragment]
 }
 

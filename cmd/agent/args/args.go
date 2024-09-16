@@ -29,6 +29,9 @@ const (
 	defaultRefreshInterval         = "2m"
 	defaultRefreshIntervalDuration = 2 * time.Minute
 
+	defaultPollInterval         = "30s"
+	defaultPollIntervalDuration = 30 * time.Second
+
 	defaultRefreshJitter         = "15s"
 	defaultRefreshJitterDuration = 15 * time.Second
 
@@ -37,6 +40,9 @@ const (
 
 	defaultManifestCacheTTL         = "1h"
 	defaultManifestCacheTTLDuration = time.Hour
+
+	defaultControllerCacheTTL         = "30s"
+	defaultControllerCacheTTLDuration = 30 * time.Second
 
 	defaultRestoreNamespace = "velero"
 
@@ -55,18 +61,20 @@ var (
 	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
 	argResyncSeconds           = flag.Int("resync-seconds", 300, "Resync duration in seconds.")
 
-	argClusterId         = flag.String("cluster-id", "", "The ID of the cluster being connected to.")
-	argConsoleUrl        = flag.String("console-url", "", "The URL of the console api to fetch services from.")
-	argDeployToken       = flag.String("deploy-token", helpers.GetEnv(EnvDeployToken, ""), "The deploy token to auth to Console API with.")
-	argProbeAddr         = flag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
-	argMetricsAddr       = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
-	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
-	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "Refresh interval duration.")
-	argRefreshJitter     = flag.String("refresh-jitter", defaultRefreshJitter, "Refresh jitter.")
-	argResourceCacheTTL  = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
-	argManifestCacheTTL  = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
-	argRestoreNamespace  = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
-	argServices          = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
+	argClusterId          = flag.String("cluster-id", "", "The ID of the cluster being connected to.")
+	argConsoleUrl         = flag.String("console-url", "", "The URL of the console api to fetch services from.")
+	argDeployToken        = flag.String("deploy-token", helpers.GetEnv(EnvDeployToken, ""), "The deploy token to auth to Console API with.")
+	argProbeAddr          = flag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
+	argMetricsAddr        = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
+	argProcessingTimeout  = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
+	argRefreshInterval    = flag.String("refresh-interval", defaultRefreshInterval, "Time interval to recheck the websocket connection.")
+	argPollInterval       = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
+	argRefreshJitter      = flag.String("refresh-jitter", defaultRefreshJitter, "Refresh jitter.")
+	argResourceCacheTTL   = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
+	argManifestCacheTTL   = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
+	argControllerCacheTTL = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
+	argRestoreNamespace   = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
+	argServices           = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
 
 	serviceSet containers.Set[string]
 )
@@ -169,6 +177,16 @@ func RefreshInterval() time.Duration {
 	return duration
 }
 
+func PollInterval() time.Duration {
+	duration, err := time.ParseDuration(*argPollInterval)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse poll-interval", "value", *argPollInterval, "default", defaultPollIntervalDuration)
+		return defaultPollIntervalDuration
+	}
+
+	return duration
+}
+
 func RefreshJitter() time.Duration {
 	jitter, err := time.ParseDuration(*argRefreshJitter)
 	if err != nil {
@@ -194,6 +212,16 @@ func ManifestCacheTTL() time.Duration {
 	if err != nil {
 		klog.ErrorS(err, "Could not parse manifest-cache-ttl", "value", *argManifestCacheTTL, "default", defaultManifestCacheTTLDuration)
 		return defaultManifestCacheTTLDuration
+	}
+
+	return duration
+}
+
+func ControllerCacheTTL() time.Duration {
+	duration, err := time.ParseDuration(*argControllerCacheTTL)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse controller-cache-ttl", "value", *argControllerCacheTTL, "default", defaultControllerCacheTTLDuration)
+		return defaultControllerCacheTTLDuration
 	}
 
 	return duration

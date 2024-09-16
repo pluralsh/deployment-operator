@@ -3,9 +3,10 @@ package common
 import (
 	"sync"
 
-	"github.com/pluralsh/deployment-operator/pkg/lua"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/pluralsh/deployment-operator/pkg/lua"
 )
 
 func init() {

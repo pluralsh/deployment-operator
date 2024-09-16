@@ -6,12 +6,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/ping"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,6 +17,17 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/ping"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
+)
+
+const (
+	Identifier = "Gate Controller"
 )
 
 type GateReconciler struct {
@@ -31,7 +36,7 @@ type GateReconciler struct {
 	Config            *rest.Config
 	Clientset         *kubernetes.Clientset
 	GateCache         *client.Cache[console.PipelineGateFragment]
-	GateQueue         workqueue.RateLimitingInterface
+	GateQueue         workqueue.TypedRateLimitingInterface[string]
 	UtilFactory       util.Factory
 	discoveryClient   *discovery.DiscoveryClient
 	pinger            *ping.Pinger
@@ -51,7 +56,7 @@ func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client,
 		return consoleClient.GetClusterGate(id)
 	})
 
-	gateQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	gateQueue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
 
 	f := utils.NewFactory(config)
 

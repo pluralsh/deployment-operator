@@ -8,11 +8,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,12 +16,22 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/websocket"
+)
+
+const (
+	Identifier = "Namespace Controller"
 )
 
 type NamespaceReconciler struct {
 	ConsoleClient  client.Client
 	K8sClient      ctrlclient.Client
-	NamespaceQueue workqueue.RateLimitingInterface
+	NamespaceQueue workqueue.TypedRateLimitingInterface[string]
 	NamespaceCache *client.Cache[console.ManagedNamespaceFragment]
 }
 
@@ -34,7 +39,7 @@ func NewNamespaceReconciler(consoleClient client.Client, k8sClient ctrlclient.Cl
 	return &NamespaceReconciler{
 		ConsoleClient:  consoleClient,
 		K8sClient:      k8sClient,
-		NamespaceQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		NamespaceQueue: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
 		NamespaceCache: client.NewCache[console.ManagedNamespaceFragment](refresh, func(id string) (*console.ManagedNamespaceFragment, error) {
 			return consoleClient.GetNamespace(id)
 		}),

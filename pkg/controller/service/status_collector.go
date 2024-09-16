@@ -11,10 +11,10 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
 type serviceComponentsStatusCollector struct {
@@ -58,12 +58,12 @@ func (sc *serviceComponentsStatusCollector) refetch(resource *unstructured.Unstr
 	return response
 }
 
-func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, vcache map[manifests.GroupName]string) *console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, vcache map[schema.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
 	gvk := e.Resource.GroupVersionKind()
-	gname := manifests.GroupName{
+	gname := schema.GroupName{
 		Group: gvk.Group,
 		Kind:  gvk.Kind,
 		Name:  e.Resource.GetName(),
@@ -96,7 +96,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 	}
 }
 
-func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[manifests.GroupName]string) []*console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[schema.GroupName]string) []*console.ComponentAttributes {
 	components := make([]*console.ComponentAttributes, 0, len(sc.latestStatus))
 
 	if sc.DryRun {
@@ -123,7 +123,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[mani
 			log.Logger.Error(err, "failed to get cache status")
 			continue
 		}
-		gname := manifests.GroupName{
+		gname := schema.GroupName{
 			Group: e.Group,
 			Kind:  e.Kind,
 			Name:  e.Name,
