@@ -41,6 +41,9 @@ type IngressReplicaSpec struct {
 	IngressRef corev1.ObjectReference `json:"ingressRef"`
 
 	// +kubebuilder:validation:Optional
+	IngressClassName *string `json:"ingressClassName,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	TLS []v1.IngressTLS `json:"tls,omitempty"`
 
 	// +kubebuilder:validation:Required

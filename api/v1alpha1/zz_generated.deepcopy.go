@@ -411,6 +411,11 @@ func (in *IngressReplicaList) DeepCopyObject() runtime.Object {
 func (in *IngressReplicaSpec) DeepCopyInto(out *IngressReplicaSpec) {
 	*out = *in
 	out.IngressRef = in.IngressRef
+	if in.IngressClassName != nil {
+		in, out := &in.IngressClassName, &out.IngressClassName
+		*out = new(string)
+		**out = **in
+	}
 	if in.TLS != nil {
 		in, out := &in.TLS, &out.TLS
 		*out = make([]networkingv1.IngressTLS, len(*in))

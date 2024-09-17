@@ -5,6 +5,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/samber/lo"
 	networkv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,10 +111,8 @@ func (r *IngressReplicaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func genIngress(ingressReplica *v1alpha1.IngressReplica, oldIngress *networkv1.Ingress) *networkv1.Ingress {
 	newIngress := &networkv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        ingressReplica.Name,
-			Namespace:   ingressReplica.Namespace,
-			Labels:      oldIngress.Labels,
-			Annotations: oldIngress.Annotations,
+			Name:      ingressReplica.Name,
+			Namespace: ingressReplica.Namespace,
 		},
 		Spec: networkv1.IngressSpec{
 			IngressClassName: oldIngress.Spec.IngressClassName,
@@ -125,6 +124,33 @@ func genIngress(ingressReplica *v1alpha1.IngressReplica, oldIngress *networkv1.I
 }
 
 func updateIngress(ingressReplica *v1alpha1.IngressReplica, newIngress *networkv1.Ingress, oldIngress *networkv1.Ingress) {
+	if newIngress.Labels == nil {
+		newIngress.Labels = map[string]string{}
+	}
+	if oldIngress.Labels == nil {
+		oldIngress.Labels = map[string]string{}
+	}
+	if ingressReplica.Labels == nil {
+		ingressReplica.Labels = map[string]string{}
+	}
+	// merge from left to right
+	newIngress.Labels = lo.Assign(newIngress.Labels, oldIngress.Labels, ingressReplica.Labels)
+
+	if newIngress.Annotations == nil {
+		newIngress.Annotations = map[string]string{}
+	}
+	if oldIngress.Annotations == nil {
+		oldIngress.Annotations = map[string]string{}
+	}
+	if ingressReplica.Annotations == nil {
+		ingressReplica.Annotations = map[string]string{}
+	}
+	// merge from left to right
+	newIngress.Annotations = lo.Assign(newIngress.Annotations, oldIngress.Annotations, ingressReplica.Annotations)
+
+	if ingressReplica.Spec.IngressClassName != nil {
+		newIngress.Spec.IngressClassName = ingressReplica.Spec.IngressClassName
+	}
 	if len(ingressReplica.Spec.TLS) > 0 {
 		newIngress.Spec.TLS = ingressReplica.Spec.TLS
 	}
