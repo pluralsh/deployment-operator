@@ -10,6 +10,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
@@ -23,17 +24,21 @@ type Reconciler interface {
 	Reconcile(context.Context, string) (reconcile.Result, error)
 
 	// Poll Console for any state changes and put them in the queue that will be consumed by Reconcile.
-	Poll(context.Context) (bool, error)
+	Poll(context.Context) error
 
 	// GetPublisher returns event name, i.e. "event.service", and Publisher that will be registered with this reconciler.
 	// TODO: Make it optional and/or accept multiple publishers.
 	GetPublisher() (string, websocket.Publisher)
 
-	// WipeCache containing Console resources.
-	WipeCache()
+	// Queue returns a queue.
+	Queue() workqueue.TypedRateLimitingInterface[string]
 
-	// ShutdownQueue containing Console resources.
-	ShutdownQueue()
+	// Shutdown shuts down up the reconciler cache & queue
+	Shutdown()
+
+	// Restart initiates a reconciler restart. It ensures queue and cache are
+	// safely cleaned up and reinitialized.
+	Restart()
 
 	// GetPollInterval returns custom poll interval. If 0 then controller manager use default from the options.
 	GetPollInterval() time.Duration
@@ -49,10 +54,6 @@ type Controller struct {
 	// Reconciler is a function that can be called at any time with the ID of an object and
 	// ensures that the state of the system matches the state specified in the object.
 	Do Reconciler
-
-	// Queue is an listeningQueue that listens for events from Informers and adds object keys to
-	// the Queue for processing
-	Queue workqueue.TypedRateLimitingInterface[string]
 
 	// mu is used to synchronize Controller setup
 	mu sync.Mutex
@@ -70,6 +71,9 @@ type Controller struct {
 
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
 	RecoverPanic *bool
+
+	// heartbeat returns a timestamp of the last time Reconciler.Poll was called.
+	heartbeat time.Time
 }
 
 func (c *Controller) Reconcile(ctx context.Context, req string) (_ reconcile.Result, err error) {
@@ -91,7 +95,7 @@ func (c *Controller) Reconcile(ctx context.Context, req string) (_ reconcile.Res
 	return c.Do.Reconcile(ctx, req)
 }
 
-func (c *Controller) SetupWithManager(manager *ControllerManager) {
+func (c *Controller) SetupWithManager(manager *Manager) {
 	c.MaxConcurrentReconciles = manager.MaxConcurrentReconciles
 	c.CacheSyncTimeout = manager.CacheSyncTimeout
 	c.RecoverPanic = manager.RecoverPanic
@@ -125,12 +129,25 @@ func (c *Controller) Start(ctx context.Context) {
 
 	<-ctx.Done()
 	wg.Wait()
+
+	klog.InfoS("controller shutting down", "name", c.Name)
+}
+
+// Heartbeat returns the last time controller poll/reconcile was executed.
+// It signals that the controller is alive and running.
+func (c *Controller) Heartbeat() time.Time {
+	return c.heartbeat
+}
+
+// Tick updates the heartbeat time.
+func (c *Controller) Tick() {
+	c.heartbeat = time.Now()
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the reconcileHandler.
 func (c *Controller) processNextWorkItem(ctx context.Context) bool {
-	id, shutdown := c.Queue.Get()
+	id, shutdown := c.Do.Queue().Get()
 	if shutdown {
 		// Stop working
 		return false
@@ -142,7 +159,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	// not call Forget if a transient error occurs, instead the item is
 	// put back on the workqueue and attempted again after a back-off
 	// period.
-	defer c.Queue.Done(id)
+	defer c.Do.Queue().Done(id)
 	c.reconcileHandler(ctx, id)
 	return true
 }
@@ -158,8 +175,7 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 	result, err := c.Reconcile(ctx, id)
 	switch {
 	case err != nil:
-
-		c.Queue.AddRateLimited(id)
+		c.Do.Queue().AddRateLimited(id)
 
 		if !result.IsZero() {
 			log.V(1).Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
@@ -171,16 +187,16 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 		// along with a non-nil error. But this is intended as
 		// We need to drive to stable reconcile loops before queuing due
 		// to result.RequestAfter
-		c.Queue.Forget(id)
-		c.Queue.AddAfter(id, result.RequeueAfter)
+		c.Do.Queue().Forget(id)
+		c.Do.Queue().AddAfter(id, result.RequeueAfter)
 	case result.Requeue:
 		log.V(5).Info("Reconcile done, requeueing")
-		c.Queue.AddRateLimited(id)
+		c.Do.Queue().AddRateLimited(id)
 	default:
 		log.V(5).Info("Reconcile successful")
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
-		c.Queue.Forget(id)
+		c.Do.Queue().Forget(id)
 	}
 }
 

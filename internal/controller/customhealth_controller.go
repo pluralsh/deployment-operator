@@ -30,14 +30,12 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 // CustomHealthReconciler reconciles a LuaScript object
 type CustomHealthReconciler struct {
 	client.Client
 	Scheme            *runtime.Scheme
-	ServiceReconciler *service.ServiceReconciler
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=customhealths,verbs=get;list;watch;create;update;patch;delete

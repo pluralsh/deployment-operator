@@ -69,7 +69,7 @@ var (
 	argProcessingTimeout  = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
 	argRefreshInterval    = flag.String("refresh-interval", defaultRefreshInterval, "Time interval to recheck the websocket connection.")
 	argPollInterval       = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
-	argRefreshJitter      = flag.String("refresh-jitter", defaultRefreshJitter, "Refresh jitter.")
+	argRefreshJitter      = flag.String("refresh-jitter", defaultRefreshJitter, "PollInterval jitter.")
 	argResourceCacheTTL   = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
 	argManifestCacheTTL   = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
 	argControllerCacheTTL = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")

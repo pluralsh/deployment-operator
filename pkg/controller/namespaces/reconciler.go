@@ -29,21 +29,39 @@ const (
 )
 
 type NamespaceReconciler struct {
-	ConsoleClient  client.Client
-	K8sClient      ctrlclient.Client
-	NamespaceQueue workqueue.TypedRateLimitingInterface[string]
-	NamespaceCache *client.Cache[console.ManagedNamespaceFragment]
+	consoleClient  client.Client
+	k8sClient      ctrlclient.Client
+	namespaceQueue workqueue.TypedRateLimitingInterface[string]
+	namespaceCache *client.Cache[console.ManagedNamespaceFragment]
 }
 
 func NewNamespaceReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration) *NamespaceReconciler {
 	return &NamespaceReconciler{
-		ConsoleClient:  consoleClient,
-		K8sClient:      k8sClient,
-		NamespaceQueue: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		NamespaceCache: client.NewCache[console.ManagedNamespaceFragment](refresh, func(id string) (*console.ManagedNamespaceFragment, error) {
+		consoleClient:  consoleClient,
+		k8sClient:      k8sClient,
+		namespaceQueue: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
+		namespaceCache: client.NewCache[console.ManagedNamespaceFragment](refresh, func(id string) (*console.ManagedNamespaceFragment, error) {
 			return consoleClient.GetNamespace(id)
 		}),
 	}
+}
+
+func (n *NamespaceReconciler) Queue() workqueue.TypedRateLimitingInterface[string] {
+	return n.namespaceQueue
+}
+
+func (n *NamespaceReconciler) Restart() {
+	// Cleanup
+	n.namespaceQueue.ShutDown()
+	n.namespaceCache.Wipe()
+
+	// Initialize
+	n.namespaceQueue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
+}
+
+func (n *NamespaceReconciler) Shutdown() {
+	n.namespaceQueue.ShutDown()
+	n.namespaceCache.Wipe()
 }
 
 func (n *NamespaceReconciler) GetPollInterval() time.Duration {
@@ -52,24 +70,24 @@ func (n *NamespaceReconciler) GetPollInterval() time.Duration {
 
 func (n *NamespaceReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "namespace.event", &socketPublisher{
-		restoreQueue: n.NamespaceQueue,
-		restoreCache: n.NamespaceCache,
+		restoreQueue: n.namespaceQueue,
+		restoreCache: n.namespaceCache,
 	}
 }
 
 func (n *NamespaceReconciler) WipeCache() {
-	n.NamespaceCache.Wipe()
+	n.namespaceCache.Wipe()
 }
 
 func (n *NamespaceReconciler) ShutdownQueue() {
-	n.NamespaceQueue.ShutDown()
+	n.namespaceQueue.ShutDown()
 }
 
 func (n *NamespaceReconciler) ListNamespaces(ctx context.Context) *algorithms.Pager[*console.ManagedNamespaceEdgeFragment] {
 	logger := log.FromContext(ctx)
 	logger.Info("create namespace pager")
 	fetch := func(page *string, size int64) ([]*console.ManagedNamespaceEdgeFragment, *algorithms.PageInfo, error) {
-		resp, err := n.ConsoleClient.ListNamespaces(page, &size)
+		resp, err := n.consoleClient.ListNamespaces(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch namespaces")
 			return nil, nil, err
@@ -84,7 +102,7 @@ func (n *NamespaceReconciler) ListNamespaces(ctx context.Context) *algorithms.Pa
 	return algorithms.NewPager[*console.ManagedNamespaceEdgeFragment](controller.DefaultPageSize, fetch)
 }
 
-func (n *NamespaceReconciler) Poll(ctx context.Context) (done bool, err error) {
+func (n *NamespaceReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 	logger.Info("fetching namespaces")
 	pager := n.ListNamespaces(ctx)
@@ -93,21 +111,21 @@ func (n *NamespaceReconciler) Poll(ctx context.Context) (done bool, err error) {
 		namespaces, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch namespace list")
-			return false, nil
+			return err
 		}
 		for _, namespace := range namespaces {
 			logger.Info("sending update for", "namespace", namespace.Node.ID)
-			n.NamespaceQueue.Add(namespace.Node.ID)
+			n.namespaceQueue.Add(namespace.Node.ID)
 		}
 	}
 
-	return false, nil
+	return nil
 }
 
 func (n *NamespaceReconciler) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to sync namespace", "id", id)
-	namespace, err := n.NamespaceCache.Get(id)
+	namespace, err := n.namespaceCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
 			logger.Info("namespace already deleted", "id", id)
@@ -147,10 +165,10 @@ func (n *NamespaceReconciler) UpsertNamespace(ctx context.Context, fragment *con
 
 	if createNamespace {
 		existing := &v1.Namespace{}
-		err := n.K8sClient.Get(ctx, ctrlclient.ObjectKey{Name: fragment.Name}, existing)
+		err := n.k8sClient.Get(ctx, ctrlclient.ObjectKey{Name: fragment.Name}, existing)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				if err := n.K8sClient.Create(ctx, &v1.Namespace{
+				if err := n.k8sClient.Create(ctx, &v1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        fragment.Name,
 						Labels:      labels,
@@ -168,7 +186,7 @@ func (n *NamespaceReconciler) UpsertNamespace(ctx context.Context, fragment *con
 		if !reflect.DeepEqual(labels, existing.Labels) || !reflect.DeepEqual(annotations, existing.Annotations) {
 			existing.Labels = labels
 			existing.Annotations = annotations
-			if err := n.K8sClient.Update(ctx, existing); err != nil {
+			if err := n.k8sClient.Update(ctx, existing); err != nil {
 				return err
 			}
 		}

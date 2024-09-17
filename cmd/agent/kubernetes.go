@@ -24,12 +24,12 @@ import (
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
+		Logger:                 setupLog,
 		Scheme:                 scheme,
 		LeaderElection:         args.EnableLeaderElection(),
 		LeaderElectionID:       "dep12loy45.plural.sh",
@@ -86,7 +86,7 @@ func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clie
 
 func registerKubeReconcilersOrDie(
 	manager ctrl.Manager,
-	consoleManager *consolectrl.ControllerManager,
+	consoleManager *consolectrl.Manager,
 	config *rest.Config,
 	extConsoleClient consoleclient.Client,
 ) {
@@ -157,9 +157,6 @@ func registerKubeReconcilersOrDie(
 	if err := (&controller.CustomHealthReconciler{
 		Client: manager.GetClient(),
 		Scheme: manager.GetScheme(),
-		ServiceReconciler: common.ToReconcilerOrDie[*service.ServiceReconciler](
-			consoleManager.GetReconciler(service.Identifier),
-		),
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HealthConvert")
 	}
@@ -198,12 +195,8 @@ func registerKubeReconcilersOrDie(
 	}
 
 	if err = (&controller.PipelineGateReconciler{
-		Client: manager.GetClient(),
-		GateCache: common.ToReconcilerOrDie[*pipelinegates.GateReconciler](
-			consoleManager.GetReconciler(pipelinegates.Identifier),
-		).GateCache,
+		Client:        manager.GetClient(),
 		ConsoleClient: consoleclient.New(args.ConsoleUrl(), args.DeployToken()),
-		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
 		Scheme:        manager.GetScheme(),
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Group")

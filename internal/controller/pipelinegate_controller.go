@@ -22,9 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,15 +33,18 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 // PipelineGateReconciler reconciles a PipelineGate object
 type PipelineGateReconciler struct {
 	client.Client
 	ConsoleClient consoleclient.Client
-	GateCache     *consoleclient.Cache[console.PipelineGateFragment]
 	Scheme        *runtime.Scheme
-	Log           logr.Logger
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates,verbs=get;list;watch;create;update;patch;delete
@@ -67,7 +68,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	cachedGate, err := r.GateCache.Get(crGate.Spec.ID)
+	cachedGate, err := cache.GateCache().Get(crGate.Spec.ID)
 	if err != nil {
 		log.Info("Unable to fetch PipelineGate from cache, this gate probably doesn't exist in the console.")
 		if err := r.cleanUpGate(ctx, crGate); err != nil {
@@ -246,7 +247,7 @@ func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate) 
 	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, gate.Status.GateUpdateAttributes()); err != nil {
 		return err
 	}
-	if _, err := r.GateCache.Set(gate.Spec.ID); err != nil {
+	if _, err := cache.GateCache().Set(gate.Spec.ID); err != nil {
 		return err
 	}
 	return nil

@@ -24,7 +24,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
+	"github.com/pluralsh/deployment-operator/pkg/controller"
 )
 
 const requeueArgoRolloutAfter = time.Second * 5
@@ -39,7 +39,7 @@ type ArgoRolloutReconciler struct {
 	ArgoClientSet roclientset.Interface
 	DynamicClient dynamic.Interface
 	KubeClient    kubernetes.Interface
-	SvcReconciler *service.ServiceReconciler
+	SvcReconciler controller.Reconciler
 }
 
 // Reconcile Argo Rollout custom resources to ensure that Console stays in sync with Kubernetes cluster.
@@ -107,7 +107,7 @@ func (r *ArgoRolloutReconciler) promote(ctx context.Context, rolloutIf clientset
 	}
 
 	if r.SvcReconciler != nil {
-		r.SvcReconciler.SvcQueue.AddRateLimited(svcId)
+		r.SvcReconciler.Queue().AddRateLimited(svcId)
 	}
 	return nil
 }

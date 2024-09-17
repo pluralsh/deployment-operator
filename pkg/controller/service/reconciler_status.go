@@ -239,11 +239,11 @@ func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, com
 		errs = append(errs, err)
 	}
 
-	return s.ConsoleClient.UpdateComponents(id, revisionID, sha, components, errs)
+	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs)
 }
 
 func (s *ServiceReconciler) AddErrors(id string, err *console.ServiceErrorAttributes) error {
-	return s.ConsoleClient.AddServiceErrors(id, []*console.ServiceErrorAttributes{err})
+	return s.consoleClient.AddServiceErrors(id, []*console.ServiceErrorAttributes{err})
 }
 
 func resourceIDToString(gk schema.GroupKind, name string) string {
