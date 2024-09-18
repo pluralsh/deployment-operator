@@ -134,10 +134,10 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 
 	// Recheck the controller heartbeat every 30 seconds.
 	heartbeatCheckInterval := 30 * time.Second
-	// Make heartbeat check interval 2 times the time of regular poll.
+	// Make last heartbeat deadline 3 times the time of regular poll.
 	// It means that the controller poller skipped at least the last 2 scheduled polls.
 	// It could indicate that the controller poll might have died and controller should be restarted.
-	lastHeartbeatDeadline := 2 * (cm.PollInterval + cm.Jitter)
+	lastHeartbeatDeadline := 3 * (cm.PollInterval + cm.Jitter)
 	ticker := time.NewTicker(heartbeatCheckInterval)
 	defer ticker.Stop()
 
