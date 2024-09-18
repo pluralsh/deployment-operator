@@ -13,6 +13,10 @@ var (
 )
 
 func InitGateCache(expireAfter time.Duration, consoleClient client.Client) {
+	if gateCache != nil {
+		return
+	}
+
 	gateCache = client.NewCache[console.PipelineGateFragment](expireAfter, func(id string) (*console.PipelineGateFragment, error) {
 		return consoleClient.GetClusterGate(id)
 	})

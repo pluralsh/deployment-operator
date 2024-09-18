@@ -51,7 +51,6 @@ func main() {
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
 
-	// supervisor := supervisor.New(ctx)
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)
 	kubeManager := initKubeManagerOrDie(config)
@@ -74,7 +73,6 @@ func main() {
 	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
 
 	// Start the console manager in background.
-	// supervisor.AddFunc(runConsoleManagerInBackgroundOrDie(ctx, consoleManager))
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
 
 	// Start the standard kubernetes manager and block the main thread until context cancel.
