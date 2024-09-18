@@ -200,11 +200,8 @@ func (cm *Manager) startPoller(ctx context.Context, ctrl *Controller) {
 	}
 	pollInterval += jitterInterval
 
-	internalCtx, cancel := context.WithDeadline(ctx, time.Now().Add(2*pollInterval))
-	defer cancel()
-
 	klog.V(log.LogLevelTrace).InfoS("Starting controller poller", "ctrl", ctrl.Name, "pollInterval", pollInterval)
-	_ = wait.PollUntilContextCancel(internalCtx, pollInterval, true, func(_ context.Context) (bool, error) {
+	_ = wait.PollUntilContextCancel(ctx, pollInterval, true, func(_ context.Context) (bool, error) {
 		ctrl.HeartbeatTick()
 		if err := ctrl.Do.Poll(ctx); err != nil {
 			klog.ErrorS(err, "poller failed")
