@@ -10,7 +10,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
@@ -58,13 +57,6 @@ type Controller struct {
 	// mu is used to synchronize Controller setup
 	mu sync.Mutex
 
-	// ctx is the context that was passed to Start() and used when starting watches.
-	//
-	// According to the docs, contexts should not be stored in a struct: https://golang.org/pkg/context,
-	// while we usually always strive to follow best practices, we consider this a legacy case and it should
-	// undergo a major refactoring and redesign to allow for context to not be stored in a struct.
-	ctx context.Context
-
 	// CacheSyncTimeout refers to the time limit set on waiting for cache to sync
 	// Defaults to 2 minutes if not set.
 	CacheSyncTimeout time.Duration
@@ -74,25 +66,6 @@ type Controller struct {
 
 	// heartbeat returns a timestamp of the last time Reconciler.Poll was called.
 	heartbeat time.Time
-}
-
-func (c *Controller) Reconcile(ctx context.Context, req string) (_ reconcile.Result, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			if c.RecoverPanic != nil && *c.RecoverPanic {
-				for _, fn := range utilruntime.PanicHandlers {
-					fn(ctx, r)
-				}
-				err = fmt.Errorf("panic: %v [recovered]", r)
-				return
-			}
-
-			log := logf.FromContext(ctx)
-			log.V(1).Info(fmt.Sprintf("Observed a panic in reconciler: %v", r))
-			panic(r)
-		}
-	}()
-	return c.Do.Reconcile(ctx, req)
 }
 
 func (c *Controller) SetupWithManager(manager *Manager) {
@@ -106,9 +79,6 @@ func (c *Controller) Start(ctx context.Context) {
 	// use an IIFE to get proper lock handling
 	// but lock outside to get proper handling of the queue shutdown
 	c.mu.Lock()
-
-	// Set the internal context.
-	c.ctx = ctx
 
 	wg := &sync.WaitGroup{}
 	func() {
@@ -129,8 +99,6 @@ func (c *Controller) Start(ctx context.Context) {
 
 	<-ctx.Done()
 	wg.Wait()
-
-	klog.InfoS("controller shutting down", "name", c.Name)
 }
 
 // Heartbeat returns the last time controller poll/reconcile was executed.
@@ -139,8 +107,8 @@ func (c *Controller) Heartbeat() time.Time {
 	return c.heartbeat
 }
 
-// Tick updates the heartbeat time.
-func (c *Controller) Tick() {
+// HeartbeatTick updates the heartbeat time.
+func (c *Controller) HeartbeatTick() {
 	c.heartbeat = time.Now()
 }
 
@@ -172,7 +140,7 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 	// RunInformersAndControllers the syncHandler, passing it the Namespace/Name string of the
 	// resource to be synced.
 	log.V(5).Info("Reconciling")
-	result, err := c.Reconcile(ctx, id)
+	result, err := c.reconcile(ctx, id)
 	switch {
 	case err != nil:
 		c.Do.Queue().AddRateLimited(id)
@@ -198,6 +166,25 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 		// get queued again until another change happens.
 		c.Do.Queue().Forget(id)
 	}
+}
+
+func (c *Controller) reconcile(ctx context.Context, req string) (_ reconcile.Result, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if c.RecoverPanic != nil && *c.RecoverPanic {
+				for _, fn := range utilruntime.PanicHandlers {
+					fn(ctx, r)
+				}
+				err = fmt.Errorf("panic: %v [recovered]", r)
+				return
+			}
+
+			log := logf.FromContext(ctx)
+			log.V(1).Info(fmt.Sprintf("Observed a panic in reconciler: %v", r))
+			panic(r)
+		}
+	}()
+	return c.Do.Reconcile(ctx, req)
 }
 
 // reconcileIDKey is a context.Context Value key. Its associated value should

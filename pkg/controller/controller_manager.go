@@ -93,7 +93,7 @@ func (cm *Manager) Start(ctx context.Context) error {
 	defer cm.Unlock()
 
 	if cm.started {
-		return errors.New("controller manager was started more than once")
+		return errors.New("console controller manager was started more than once")
 	}
 
 	go cm.startSupervised(ctx)
@@ -111,86 +111,121 @@ func (cm *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-func (cm *Manager) startPoller(ctx context.Context, ctrl *Controller, jitterValue time.Duration) {
-	defer ctrl.Do.Shutdown()
-
-	pollInterval := cm.PollInterval
-	if controllerPollInterval := ctrl.Do.GetPollInterval(); controllerPollInterval > 0 {
-		pollInterval = controllerPollInterval
-	}
-	pollInterval += jitterValue
-	_ = wait.PollUntilContextCancel(ctx, pollInterval, true, func(_ context.Context) (bool, error) {
-		ctrl.Tick()
-		if err := ctrl.Do.Poll(ctx); err != nil {
-			klog.Info("poller failed", "error", err)
-		}
-
-		// never stop
-		return false, nil
-	})
-}
-
 func (cm *Manager) startSupervised(ctx context.Context) {
 	wg := &sync.WaitGroup{}
+	wg.Add(len(cm.Controllers))
+
+	for _, ctrl := range cm.Controllers {
+		go func() {
+			defer wg.Done()
+			cm.startControllerSupervised(ctx, ctrl)
+		}()
+	}
+
+	<-ctx.Done()
+	klog.InfoS("Shutdown signal received, waiting for all controllers to finish", "name", "console-manager")
+	wg.Wait()
+	klog.InfoS("All controllers finished", "name", "console-manager")
+}
+
+func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controller) {
 	internalCtx, cancel := context.WithCancel(ctx)
+	wg := &sync.WaitGroup{}
 
-	cm.startControllers(internalCtx, nil, wg)
-
-	// TODO: figure out the correct ticker interval
-	ticker := time.NewTicker(5 * time.Second)
+	// Recheck the controller heartbeat every 30 seconds.
+	heartbeatCheckInterval := 30 * time.Second
+	// Make heartbeat check interval 2 times the time of regular poll.
+	// It means that the controller poller skipped at least the last 2 scheduled polls.
+	// It could indicate that the controller poll might have died and controller should be restarted.
+	lastHeartbeatDeadline := 2 * (cm.PollInterval + cm.Jitter)
+	ticker := time.NewTicker(heartbeatCheckInterval)
 	defer ticker.Stop()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cm.startController(internalCtx, ctrl)
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
-			klog.Info("shutting down console manager")
-			// we are done, stop and exit
+			klog.V(log.LogLevelDefault).InfoS(
+				"Shutdown signal received, waiting for controller to finish",
+				"name", ctrl.Name,
+			)
 			cancel()
 			wg.Wait()
+			klog.V(log.LogLevelDefault).InfoS("Controller shutdown finished", "name", ctrl.Name)
 			return
 		case <-internalCtx.Done():
-			klog.V(log.LogLevelVerbose).Info("restarting console manager")
+			klog.V(log.LogLevelVerbose).InfoS("Restart signal received, waiting for controller to finish", "name", ctrl.Name)
+			wg.Wait()
+			klog.V(log.LogLevelVerbose).InfoS("Controller finished", "name", ctrl.Name)
 			// Reinitialize context
 			internalCtx, cancel = context.WithCancel(ctx)
-			// wait for all controllers to finish
-			wg.Wait()
 			// restart
-			cm.startControllers(internalCtx, func(ctrl *Controller) {
-				ctrl.Do.Restart()
-			}, wg)
-		case _ = <-ticker.C:
-			for _, ctrl := range cm.Controllers {
-				// TODO: extract duration
-				heartbeat := ctrl.Heartbeat()
-				if time.Now().After(heartbeat.Add(10 * time.Second)) {
-					klog.InfoS("controller is not responding", "ctrl", ctrl.Name, "heartbeat", heartbeat.Format(time.RFC3339))
-					cancel()
-					break
-				}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				cm.restartController(internalCtx, ctrl)
+			}()
+		case <-ticker.C:
+			heartbeat := ctrl.Heartbeat()
+			klog.V(log.LogLevelDebug).InfoS(
+				"Controller heartbeat check",
+				"name", ctrl.Name,
+				"heartbeat", heartbeat.Format(time.RFC3339),
+			)
+			if time.Now().After(heartbeat.Add(lastHeartbeatDeadline)) {
+				klog.V(log.LogLevelDefault).InfoS(
+					"Controller unresponsive, restarting",
+					"ctrl", ctrl.Name,
+					"heartbeat", heartbeat.Format(time.RFC3339),
+				)
+				cancel()
 			}
 		}
 	}
 }
 
-func (cm *Manager) startControllers(ctx context.Context, preStartFunc func(*Controller), wg *sync.WaitGroup) {
-	jitterValue := time.Duration(rand.Int63n(int64(cm.Jitter)))
-	wg.Add(len(cm.Controllers))
+func (cm *Manager) startPoller(ctx context.Context, ctrl *Controller) {
+	defer ctrl.Do.Shutdown()
 
-	for _, ctrl := range cm.Controllers {
-		klog.InfoS("starting controller", "name", ctrl.Name)
+	// It ensures that controllers won't poll the API at the same time.
+	jitterInterval := time.Duration(rand.Int63n(int64(cm.Jitter)))
+	pollInterval := cm.PollInterval
+	if controllerPollInterval := ctrl.Do.GetPollInterval(); controllerPollInterval > 0 {
+		pollInterval = controllerPollInterval
+	}
+	pollInterval += jitterInterval
 
-		// If publisher exists, this is a no-op
-		cm.Socket.AddPublisher(ctrl.Do.GetPublisher())
+	internalCtx, cancel := context.WithDeadline(ctx, time.Now().Add(2 * pollInterval))
+	defer cancel()
 
-		if preStartFunc != nil {
-			preStartFunc(ctrl)
+	klog.V(log.LogLevelTrace).InfoS("Starting controller poller", "ctrl", ctrl.Name, "pollInterval", pollInterval)
+	_ = wait.PollUntilContextCancel(internalCtx, pollInterval, true, func(_ context.Context) (bool, error) {
+		ctrl.HeartbeatTick()
+		if err := ctrl.Do.Poll(ctx); err != nil {
+			klog.ErrorS(err, "poller failed")
 		}
 
-		go cm.startPoller(ctx, ctrl, jitterValue)
-		go func() {
-			// Since ctrl.Start is a blocking function, we have to wait until it finishes
-			// before marking this ctrl as finished.
-			defer wg.Done()
-			ctrl.Start(ctx)
-		}()
-	}
+		// never stop
+		return false, nil
+	})
+	klog.V(log.LogLevelDefault).InfoS("Controller poller finished", "ctrl", ctrl.Name)
+}
+
+func (cm *Manager) startController(ctx context.Context, ctrl *Controller) {
+	klog.V(log.LogLevelDefault).InfoS("Starting controller", "name", ctrl.Name)
+
+	// If publisher exists, this is a no-op
+	cm.Socket.AddPublisher(ctrl.Do.GetPublisher())
+	go cm.startPoller(ctx, ctrl)
+	ctrl.Start(ctx)
+}
+
+func (cm *Manager) restartController(ctx context.Context, ctrl *Controller) {
+	ctrl.Do.Restart()
+	cm.startController(ctx, ctrl)
 }

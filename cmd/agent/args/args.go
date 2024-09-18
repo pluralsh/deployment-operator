@@ -32,8 +32,8 @@ const (
 	defaultPollInterval         = "30s"
 	defaultPollIntervalDuration = 30 * time.Second
 
-	defaultRefreshJitter         = "15s"
-	defaultRefreshJitterDuration = 15 * time.Second
+	defaultPollJitter         = "15s"
+	defaultPollJitterDuration = 15 * time.Second
 
 	defaultResourceCacheTTL         = "1h"
 	defaultResourceCacheTTLDuration = time.Hour
@@ -69,7 +69,8 @@ var (
 	argProcessingTimeout  = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
 	argRefreshInterval    = flag.String("refresh-interval", defaultRefreshInterval, "Time interval to recheck the websocket connection.")
 	argPollInterval       = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
-	argRefreshJitter      = flag.String("refresh-jitter", defaultRefreshJitter, "PollInterval jitter.")
+	// TODO: ensure this arg can be safely renamed without causing breaking changes.
+	argPollJitter         = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
 	argResourceCacheTTL   = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
 	argManifestCacheTTL   = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
 	argControllerCacheTTL = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
@@ -187,11 +188,11 @@ func PollInterval() time.Duration {
 	return duration
 }
 
-func RefreshJitter() time.Duration {
-	jitter, err := time.ParseDuration(*argRefreshJitter)
+func PollJitter() time.Duration {
+	jitter, err := time.ParseDuration(*argPollJitter)
 	if err != nil {
-		klog.ErrorS(err, "Could not parse refresh-jitter", "value", *argRefreshJitter, "default", defaultRefreshJitterDuration)
-		return defaultRefreshJitterDuration
+		klog.ErrorS(err, "Could not parse refresh-jitter", "value", *argPollJitter, "default", defaultPollJitterDuration)
+		return defaultPollJitterDuration
 	}
 
 	return jitter

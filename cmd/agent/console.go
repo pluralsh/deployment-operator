@@ -23,8 +23,8 @@ func initConsoleManagerOrDie() *consolectrl.Manager {
 	mgr, err := consolectrl.NewControllerManager(
 		consolectrl.WithMaxConcurrentReconciles(args.MaxConcurrentReconciles()),
 		consolectrl.WithCacheSyncTimeout(args.ProcessingTimeout()),
-		consolectrl.WithPollInterval(args.RefreshInterval()),
-		consolectrl.WithJitter(args.RefreshJitter()),
+		consolectrl.WithPollInterval(args.PollInterval()),
+		consolectrl.WithJitter(args.PollJitter()),
 		consolectrl.WithRecoverPanic(true),
 		consolectrl.WithConsoleClientArgs(args.ConsoleUrl(), args.DeployToken()),
 		consolectrl.WithSocketArgs(args.ClusterId(), args.ConsoleUrl(), args.DeployToken()),
