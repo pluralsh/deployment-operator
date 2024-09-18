@@ -200,7 +200,7 @@ func (cm *Manager) startPoller(ctx context.Context, ctrl *Controller) {
 	}
 	pollInterval += jitterInterval
 
-	internalCtx, cancel := context.WithDeadline(ctx, time.Now().Add(2 * pollInterval))
+	internalCtx, cancel := context.WithDeadline(ctx, time.Now().Add(2*pollInterval))
 	defer cancel()
 
 	klog.V(log.LogLevelTrace).InfoS("Starting controller poller", "ctrl", ctrl.Name, "pollInterval", pollInterval)

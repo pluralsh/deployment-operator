@@ -31,20 +31,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 // PipelineGateReconciler reconciles a PipelineGate object
 type PipelineGateReconciler struct {
-	client.Client
+	runtimeclient.Client
 	ConsoleClient consoleclient.Client
 	Scheme        *runtime.Scheme
+	GateCache     *consoleclient.Cache[console.PipelineGateFragment]
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates,verbs=get;list;watch;create;update;patch;delete
@@ -68,7 +68,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	cachedGate, err := cache.GateCache().Get(crGate.Spec.ID)
+	cachedGate, err := r.GateCache.Get(crGate.Spec.ID)
 	if err != nil {
 		log.Info("Unable to fetch PipelineGate from cache, this gate probably doesn't exist in the console.")
 		if err := r.cleanUpGate(ctx, crGate); err != nil {
@@ -134,7 +134,7 @@ func (r *PipelineGateReconciler) cleanUpGate(ctx context.Context, crGate *v1alph
 func (r *PipelineGateReconciler) killJob(ctx context.Context, job *batchv1.Job) error {
 	log := log.FromContext(ctx)
 	deletePolicy := metav1.DeletePropagationBackground // kill the job and its pods asap
-	if err := r.Delete(ctx, job, &client.DeleteOptions{
+	if err := r.Delete(ctx, job, &runtimeclient.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}); err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -247,7 +247,7 @@ func (r *PipelineGateReconciler) updateConsoleGate(gate *v1alpha1.PipelineGate) 
 	if err := r.ConsoleClient.UpdateGate(gate.Spec.ID, gate.Status.GateUpdateAttributes()); err != nil {
 		return err
 	}
-	if _, err := cache.GateCache().Set(gate.Spec.ID); err != nil {
+	if _, err := r.GateCache.Set(gate.Spec.ID); err != nil {
 		return err
 	}
 	return nil
@@ -284,7 +284,7 @@ func hasSucceeded(job *batchv1.Job) bool {
 }
 
 // Job reconciles a k8s job object.
-func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger) (*batchv1.Job, error) {
+func Job(ctx context.Context, r runtimeclient.Client, job *batchv1.Job, log logr.Logger) (*batchv1.Job, error) {
 	foundJob := &batchv1.Job{}
 	if err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {

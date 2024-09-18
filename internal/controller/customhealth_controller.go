@@ -35,7 +35,7 @@ import (
 // CustomHealthReconciler reconciles a LuaScript object
 type CustomHealthReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
+	Scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=customhealths,verbs=get;list;watch;create;update;patch;delete

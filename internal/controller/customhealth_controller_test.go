@@ -5,13 +5,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 var _ = Describe("Customhealt Controller", Ordered, func() {
@@ -66,11 +66,9 @@ var _ = Describe("Customhealt Controller", Ordered, func() {
 					Conditions: []metav1.Condition{},
 				},
 			}
-			sr := &service.ServiceReconciler{}
 			reconciler := &CustomHealthReconciler{
-				Client:            kClient,
-				Scheme:            kClient.Scheme(),
-				ServiceReconciler: sr,
+				Client: kClient,
+				Scheme: kClient.Scheme(),
 			}
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,

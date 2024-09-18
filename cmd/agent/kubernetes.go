@@ -21,6 +21,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
@@ -198,6 +199,7 @@ func registerKubeReconcilersOrDie(
 		Client:        manager.GetClient(),
 		ConsoleClient: consoleclient.New(args.ConsoleUrl(), args.DeployToken()),
 		Scheme:        manager.GetScheme(),
+		GateCache:     cache.GateCache(),
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Group")
 		os.Exit(1)

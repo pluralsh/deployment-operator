@@ -2,10 +2,12 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/test/common"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
@@ -28,19 +31,19 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 			raw       = `{"backoffLimit":4,"template":{"metadata":{"namespace":"default","creationTimestamp":null},"spec":{"containers":[{"name":"pi","image":"perl:5.34.0","command":["perl","-Mbignum=bpi","-wle","print bpi(2000)"],"resources":{}}],"restartPolicy":"Never"}}}`
 		)
 
-		//gateCache := client.NewCache[console.PipelineGateFragment](time.Second, func(id string) (*console.PipelineGateFragment, error) {
-		//	return &console.PipelineGateFragment{
-		//		ID:   id,
-		//		Name: "test",
-		//		Spec: &console.GateSpecFragment{
-		//			Job: &console.JobSpecFragment{
-		//				Namespace: namespace,
-		//				Raw:       lo.ToPtr(raw),
-		//			},
-		//		},
-		//		Status: nil,
-		//	}, nil
-		//})
+		gateCache := client.NewCache[console.PipelineGateFragment](time.Second, func(id string) (*console.PipelineGateFragment, error) {
+			return &console.PipelineGateFragment{
+				ID:   id,
+				Name: "test",
+				Spec: &console.GateSpecFragment{
+					Job: &console.JobSpecFragment{
+						Namespace: namespace,
+						Raw:       lo.ToPtr(raw),
+					},
+				},
+				Status: nil,
+			}, nil
+		})
 
 		ctx := context.Background()
 		gateNamespacedName := types.NamespacedName{Name: gateName, Namespace: namespace}
@@ -77,7 +80,6 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 				}
 				Expect(kClient.Create(ctx, resource)).To(Succeed())
 			}
-
 		})
 
 		It("should set state pending", func() {
@@ -87,6 +89,7 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
 				Scheme:        kClient.Scheme(),
+				GateCache:     gateCache,
 			}
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: gateNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -104,6 +107,7 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
 				Scheme:        kClient.Scheme(),
+				GateCache:     gateCache,
 			}
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: gateNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -122,6 +126,7 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
 				Scheme:        kClient.Scheme(),
+				GateCache:     gateCache,
 			}
 
 			existingJob := &batchv1.Job{}

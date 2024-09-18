@@ -44,6 +44,7 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		consoleURL:   consoleURL,
 		deployToken:  deployToken,
 		pollInterval: pollInterval,
+		namespace:    namespace,
 	}
 }
 

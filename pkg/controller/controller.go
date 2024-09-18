@@ -32,7 +32,7 @@ type Reconciler interface {
 	// Queue returns a queue.
 	Queue() workqueue.TypedRateLimitingInterface[string]
 
-	// Shutdown shuts down up the reconciler cache & queue
+	// Shutdown shuts down the reconciler cache & queue
 	Shutdown()
 
 	// Restart initiates a reconciler restart. It ensures queue and cache are
