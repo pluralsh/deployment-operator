@@ -10,6 +10,7 @@ import (
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
@@ -39,6 +40,7 @@ func init() {
 	utilruntime.Must(constraintstatusv1beta1.AddToScheme(scheme))
 	utilruntime.Must(templatesv1.AddToScheme(scheme))
 	utilruntime.Must(rolloutv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(metricsv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -57,7 +59,7 @@ func main() {
 	consoleManager := initConsoleManagerOrDie()
 
 	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), extConsoleClient)
-	registerKubeReconcilersOrDie(kubeManager, consoleManager, config, extConsoleClient)
+	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient)
 
 	//+kubebuilder:scaffold:builder
 

@@ -1,4 +1,4 @@
-apiVersion: pipelines.plural.sh/v1alpha1
+apiVersion: deployments.plural.sh/v1alpha1
 kind: MetricsAggregate
 metadata:
   labels:

@@ -3,13 +3,15 @@ package controller
 import (
 	"context"
 	"fmt"
-
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
+	metricsapi "k8s.io/metrics/pkg/apis/metrics"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,15 +19,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const debounceDuration = time.Second * 30
+
+var supportedMetricsAPIVersions = []string{
+	"v1beta1",
+}
+
 // MetricsAggregateReconciler reconciles a MetricsAggregate resource.
 type MetricsAggregateReconciler struct {
 	k8sClient.Client
-	Scheme *runtime.Scheme
+	Scheme          *runtime.Scheme
+	DiscoveryClient discovery.DiscoveryInterface
 }
 
 // Reconcile IngressReplica ensure that stays in sync with Kubernetes cluster.
 func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, reterr error) {
 	logger := log.FromContext(ctx)
+
+	apiGroups, err := r.DiscoveryClient.ServerGroups()
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	metricsAPIAvailable := SupportedMetricsAPIVersionAvailable(apiGroups)
+	if !metricsAPIAvailable {
+		logger.V(5).Info("metrics api not available")
+		return requeue(time.Minute*5, jitter), nil
+	}
 
 	// Read resource from Kubernetes cluster.
 	metrics := &v1alpha1.MetricsAggregate{}
@@ -56,8 +75,11 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	nodeList := &corev1.NodeList{}
-	availableResources := make(map[string]corev1.ResourceList)
+	if err := r.List(ctx, nodeList); err != nil {
+		return reconcile.Result{}, err
+	}
 
+	availableResources := make(map[string]corev1.ResourceList)
 	for _, n := range nodeList.Items {
 		availableResources[n.Name] = n.Status.Allocatable
 	}
@@ -78,6 +100,8 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	// save metrics
 	metrics.Spec.Nodes = len(nodeList.Items)
 	for _, nm := range nodeMetrics {
 		metrics.Spec.CPUAvailableMillicores += nm.CPUAvailableMillicores
@@ -91,14 +115,16 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	fraction = float64(metrics.Spec.MemoryTotalBytes) / float64(metrics.Spec.MemoryAvailableBytes) * 100
 	metrics.Spec.MemoryUsedPercentage = int64(fraction)
 
-	return requeue(requeueAfter, jitter), reterr
+	return ctrl.Result{}, reterr
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MetricsAggregateReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MetricsAggregateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	debounceReconciler := NewDebounceReconciler(mgr.GetClient(), debounceDuration, r)
+	debounceReconciler.Start(ctx)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.MetricsAggregate{}).
-		Complete(r)
+		Complete(debounceReconciler)
 }
 
 type ResourceMetricsInfo struct {
@@ -140,4 +166,20 @@ func ConvertNodeMetrics(metrics []v1beta1.NodeMetrics, availableResources map[st
 	}
 
 	return nodeMetrics, nil
+}
+
+func SupportedMetricsAPIVersionAvailable(discoveredAPIGroups *metav1.APIGroupList) bool {
+	for _, discoveredAPIGroup := range discoveredAPIGroups.Groups {
+		if discoveredAPIGroup.Name != metricsapi.GroupName {
+			continue
+		}
+		for _, version := range discoveredAPIGroup.Versions {
+			for _, supportedVersion := range supportedMetricsAPIVersions {
+				if version.Version == supportedVersion {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
