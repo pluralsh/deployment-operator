@@ -29,8 +29,8 @@ const (
 	defaultRefreshInterval         = "2m"
 	defaultRefreshIntervalDuration = 2 * time.Minute
 
-	defaultPollInterval         = "30s"
-	defaultPollIntervalDuration = 30 * time.Second
+	defaultPollInterval         = "2m"
+	defaultPollIntervalDuration = 2 * time.Minute
 
 	defaultPollJitter         = "15s"
 	defaultPollJitterDuration = 15 * time.Second
@@ -41,8 +41,8 @@ const (
 	defaultManifestCacheTTL         = "1h"
 	defaultManifestCacheTTLDuration = time.Hour
 
-	defaultControllerCacheTTL         = "30s"
-	defaultControllerCacheTTLDuration = 30 * time.Second
+	defaultControllerCacheTTL         = "2m"
+	defaultControllerCacheTTLDuration = 2 * time.Minute
 
 	defaultRestoreNamespace = "velero"
 
@@ -67,7 +67,7 @@ var (
 	argProbeAddr         = flag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
 	argMetricsAddr       = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
 	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
-	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "Time interval to recheck the websocket connection.")
+	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "DEPRECATED: Time interval to poll resources from the Console API.")
 	argPollInterval      = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
 	// TODO: ensure this arg can be safely renamed without causing breaking changes.
 	argPollJitter         = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")

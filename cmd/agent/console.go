@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -37,6 +38,12 @@ func initConsoleManagerOrDie() *consolectrl.Manager {
 	return mgr
 }
 
+const (
+	// Use custom (short) poll intervals for these reconcilers.
+	pipelineGatesPollInterval = 30 * time.Second
+	stacksPollInterval        = 30 * time.Second
+)
+
 func registerConsoleReconcilersOrDie(
 	mgr *controller.Manager,
 	config *rest.Config,
@@ -49,7 +56,7 @@ func registerConsoleReconcilersOrDie(
 	})
 
 	mgr.AddReconcilerOrDie(pipelinegates.Identifier, func() (controller.Reconciler, error) {
-		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, config, args.PollInterval())
+		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, config, pipelineGatesPollInterval)
 		return r, err
 	})
 
@@ -70,7 +77,7 @@ func registerConsoleReconcilersOrDie(
 			os.Exit(1)
 		}
 
-		r := stacks.NewStackReconciler(consoleClient, k8sClient, args.ControllerCacheTTL(), args.PollInterval(), namespace, args.ConsoleUrl(), args.DeployToken())
+		r := stacks.NewStackReconciler(consoleClient, k8sClient, args.ControllerCacheTTL(), stacksPollInterval, namespace, args.ConsoleUrl(), args.DeployToken())
 		return r, nil
 	})
 }
