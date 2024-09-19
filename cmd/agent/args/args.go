@@ -185,6 +185,10 @@ func PollInterval() time.Duration {
 		return defaultPollIntervalDuration
 	}
 
+	if duration < 10 * time.Second {
+		klog.Fatalf("--poll-interval cannot be lower than 10s")
+	}
+
 	return duration
 }
 
@@ -193,6 +197,10 @@ func PollJitter() time.Duration {
 	if err != nil {
 		klog.ErrorS(err, "Could not parse refresh-jitter", "value", *argPollJitter, "default", defaultPollJitterDuration)
 		return defaultPollJitterDuration
+	}
+
+	if jitter < 10 * time.Second {
+		klog.Fatalf("--refresh-jitter cannot be lower than 10s")
 	}
 
 	return jitter
