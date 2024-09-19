@@ -146,7 +146,7 @@ func (in *Terraform) init() v1.Tool {
 	in.planFileName = "terraform.tfplan"
 	helpers.EnsureFileOrDie(path.Join(in.dir, in.planFileName), nil)
 
-	if in.variables != nil && *in.variables == "" {
+	if in.variables != nil && len(*in.variables) > 0 {
 		in.variablesFileName = "plural.auto.tfvars.json"
 		helpers.EnsureFileOrDie(path.Join(in.dir, in.variablesFileName), in.variables)
 	}
