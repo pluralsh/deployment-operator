@@ -11,6 +11,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
@@ -162,6 +163,7 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 			klog.V(log.LogLevelDefault).InfoS("Controller shutdown finished", "name", ctrl.Name)
 			return
 		case <-internalCtx.Done():
+			metrics.Record().ControllerRestart(ctrl.Name)
 			klog.V(log.LogLevelVerbose).InfoS("Restart signal received, waiting for controller to finish", "name", ctrl.Name)
 			wg.Wait()
 			klog.V(log.LogLevelVerbose).InfoS("Controller finished", "name", ctrl.Name)
