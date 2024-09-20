@@ -21,8 +21,6 @@ import (
 	internallog "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-
-
 type Controller struct {
 	// Name is used to uniquely identify a Controller in tracing, logging and monitoring. Name is required.
 	Name string
