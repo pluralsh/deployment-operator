@@ -24,7 +24,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
@@ -117,10 +116,8 @@ func registerKubeReconcilersOrDie(
 		HttpClient:    &http.Client{Timeout: httpClientTimout},
 		ArgoClientSet: rolloutsClient,
 		DynamicClient: dynamicClient,
-		SvcReconciler: common.ToReconcilerOrDie[*service.ServiceReconciler](
-			consoleManager.GetReconciler(service.Identifier),
-		),
-		KubeClient: kubeClient,
+		SvcReconciler: consoleManager.GetReconcilerOrDie(service.Identifier),
+		KubeClient:    kubeClient,
 	}
 
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{

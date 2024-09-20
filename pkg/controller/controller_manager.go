@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -67,14 +68,14 @@ func (cm *Manager) AddController(ctrl *Controller) {
 	cm.Controllers = append(cm.Controllers, ctrl)
 }
 
-func (cm *Manager) GetReconciler(name string) v1.Reconciler {
+func (cm *Manager) GetReconcilerOrDie(name string) v1.Reconciler {
 	for _, ctrl := range cm.Controllers {
 		if ctrl.Name == name {
 			return ctrl.Do
 		}
 	}
 
-	return nil
+	panic(fmt.Sprintf("controller %s not found", name))
 }
 
 func (cm *Manager) AddReconcilerOrDie(name string, reconcilerGetter func() (v1.Reconciler, error)) {
