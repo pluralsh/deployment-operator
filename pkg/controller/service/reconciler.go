@@ -25,15 +25,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
-	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
-
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
+	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
@@ -259,7 +258,7 @@ func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[
 		}
 		return resp.PagedClusterServices.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.ServiceDeploymentEdgeFragment](controller.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.ServiceDeploymentEdgeFragment](common2.DefaultPageSize, fetch)
 }
 
 func (s *ServiceReconciler) Poll(ctx context.Context) error {

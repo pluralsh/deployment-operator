@@ -69,7 +69,7 @@ func WithPollInterval(interval time.Duration) ControllerManagerOption {
 
 func WithJitter(jitter time.Duration) ControllerManagerOption {
 	return func(o *Manager) error {
-		o.Jitter = jitter
+		o.PollJitter = jitter
 		return nil
 	}
 }

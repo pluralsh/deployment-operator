@@ -3,16 +3,16 @@ package controller
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"os"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
+	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -32,9 +32,11 @@ type Manager struct {
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
 	RecoverPanic *bool
 
+	// PollInterval defines how often controllers should poll for new resources.
 	PollInterval time.Duration
 
-	Jitter time.Duration
+	// PollJitter defines how much polling jitter should there be when polling for new resources.
+	PollJitter time.Duration
 
 	Socket *websocket.Socket
 
@@ -65,7 +67,7 @@ func (cm *Manager) AddController(ctrl *Controller) {
 	cm.Controllers = append(cm.Controllers, ctrl)
 }
 
-func (cm *Manager) GetReconciler(name string) Reconciler {
+func (cm *Manager) GetReconciler(name string) v1.Reconciler {
 	for _, ctrl := range cm.Controllers {
 		if ctrl.Name == name {
 			return ctrl.Do
@@ -75,7 +77,7 @@ func (cm *Manager) GetReconciler(name string) Reconciler {
 	return nil
 }
 
-func (cm *Manager) AddReconcilerOrDie(name string, reconcilerGetter func() (Reconciler, error)) {
+func (cm *Manager) AddReconcilerOrDie(name string, reconcilerGetter func() (v1.Reconciler, error)) {
 	reconciler, err := reconcilerGetter()
 	if err != nil {
 		klog.ErrorS(err, "unable to create reconciler", "name", name)
@@ -132,13 +134,13 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 	internalCtx, cancel := context.WithCancel(ctx)
 	wg := &sync.WaitGroup{}
 
-	// Recheck the controller heartbeat every 30 seconds.
-	heartbeatCheckInterval := 30 * time.Second
-	// Make last heartbeat deadline 3 times the time of regular poll.
-	// It means that the controller poller skipped at least the last 2 scheduled polls.
-	// It could indicate that the controller poll might have died and controller should be restarted.
-	lastHeartbeatDeadline := 3 * (cm.PollInterval + cm.Jitter)
-	ticker := time.NewTicker(heartbeatCheckInterval)
+	// Recheck the controller liveness every 30 seconds.
+	livenessCheckInterval := 30 * time.Second
+	// Make last controller action deadline 5 times the time of regular poll.
+	// It means that the controller hasn't polled/reconciled any resources.
+	// It could indicate that the controller might have died and should be restarted.
+	lastControllerActionDeadline := 5 * (cm.PollInterval + cm.PollJitter)
+	ticker := time.NewTicker(livenessCheckInterval)
 	defer ticker.Stop()
 
 	wg.Add(1)
@@ -171,17 +173,41 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 				cm.restartController(internalCtx, ctrl)
 			}()
 		case <-ticker.C:
-			heartbeat := ctrl.Heartbeat()
+			lastPollTime := ctrl.LastPollTime()
 			klog.V(log.LogLevelDebug).InfoS(
-				"Controller heartbeat check",
+				"Controller last poll time check",
 				"name", ctrl.Name,
-				"heartbeat", heartbeat.Format(time.RFC3339),
+				"lastPollTime", lastPollTime.Format(time.RFC3339),
 			)
-			if time.Now().After(heartbeat.Add(lastHeartbeatDeadline)) {
+			if time.Now().After(lastPollTime.Add(lastControllerActionDeadline)) {
 				klog.V(log.LogLevelDefault).InfoS(
 					"Controller unresponsive, restarting",
 					"ctrl", ctrl.Name,
-					"heartbeat", heartbeat.Format(time.RFC3339),
+					"lastPollTime", lastPollTime.Format(time.RFC3339),
+				)
+				cancel()
+				break
+			}
+
+			// We only want to do an additional last reconcile time check
+			// for services controller. There will always be at least one
+			// service by default that should be reconciled. Other controllers
+			// do not have any resources to reconcile by default.
+			if ctrl.Name != service.Identifier {
+				break
+			}
+
+			lastReconcileTime := ctrl.LastReconcileTime()
+			klog.V(log.LogLevelDebug).InfoS(
+				"Controller last reconcile time check",
+				"name", ctrl.Name,
+				"lastReconcileTime", lastReconcileTime.Format(time.RFC3339),
+			)
+			if time.Now().After(lastReconcileTime.Add(lastControllerActionDeadline)) {
+				klog.V(log.LogLevelDefault).InfoS(
+					"Controller unresponsive, restarting",
+					"ctrl", ctrl.Name,
+					"lastReconcileTime", lastPollTime.Format(time.RFC3339),
 				)
 				cancel()
 			}
@@ -189,40 +215,16 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 	}
 }
 
-func (cm *Manager) startPoller(ctx context.Context, ctrl *Controller) {
-	defer ctrl.Do.Shutdown()
-
-	// It ensures that controllers won't poll the API at the same time.
-	jitterInterval := time.Duration(rand.Int63n(int64(cm.Jitter)))
-	pollInterval := cm.PollInterval
-	if controllerPollInterval := ctrl.Do.GetPollInterval(); controllerPollInterval > 0 {
-		pollInterval = controllerPollInterval
-	}
-	pollInterval += jitterInterval
-
-	klog.V(log.LogLevelTrace).InfoS("Starting controller poller", "ctrl", ctrl.Name, "pollInterval", pollInterval)
-	_ = wait.PollUntilContextCancel(ctx, pollInterval, true, func(_ context.Context) (bool, error) {
-		ctrl.HeartbeatTick()
-		if err := ctrl.Do.Poll(ctx); err != nil {
-			klog.ErrorS(err, "poller failed")
-		}
-
-		// never stop
-		return false, nil
-	})
-	klog.V(log.LogLevelDefault).InfoS("Controller poller finished", "ctrl", ctrl.Name)
-}
-
+// startController starts the controller and blocks until it does not stop.
 func (cm *Manager) startController(ctx context.Context, ctrl *Controller) {
 	klog.V(log.LogLevelDefault).InfoS("Starting controller", "name", ctrl.Name)
 
 	// If publisher exists, this is a no-op
 	cm.Socket.AddPublisher(ctrl.Do.GetPublisher())
-	go cm.startPoller(ctx, ctrl)
 	ctrl.Start(ctx)
 }
 
 func (cm *Manager) restartController(ctx context.Context, ctrl *Controller) {
-	ctrl.Do.Restart()
+	ctrl.Restart()
 	cm.startController(ctx, ctrl)
 }

@@ -1,14 +1,10 @@
 package common
 
 import (
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
-
-	"github.com/pluralsh/deployment-operator/pkg/controller"
 )
 
 const (
@@ -36,18 +32,4 @@ func Unmarshal(s string) (map[string]interface{}, error) {
 	}
 
 	return result, nil
-}
-
-func ToReconcilerOrDie[R controller.Reconciler](in controller.Reconciler) R {
-	if in == nil {
-		panic("reconciler cannot be nil")
-	}
-
-	out, ok := in.(R)
-	// If cast fails panic. It means that the calling code is bad and has to be changed.
-	if !ok {
-		panic(fmt.Sprintf("%T is not a R", in))
-	}
-
-	return out
 }

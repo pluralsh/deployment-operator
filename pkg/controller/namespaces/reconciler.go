@@ -20,7 +20,7 @@ import (
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -99,7 +99,7 @@ func (n *NamespaceReconciler) ListNamespaces(ctx context.Context) *algorithms.Pa
 		}
 		return resp.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.ManagedNamespaceEdgeFragment](controller.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.ManagedNamespaceEdgeFragment](common.DefaultPageSize, fetch)
 }
 
 func (n *NamespaceReconciler) Poll(ctx context.Context) error {

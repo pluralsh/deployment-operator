@@ -9,6 +9,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
+	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 
 	"k8s.io/client-go/rest"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,27 +51,27 @@ func registerConsoleReconcilersOrDie(
 	k8sClient ctrclient.Client,
 	consoleClient client.Client,
 ) {
-	mgr.AddReconcilerOrDie(service.Identifier, func() (controller.Reconciler, error) {
+	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
 		r, err := service.NewServiceReconciler(consoleClient, config, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.RestoreNamespace(), args.ConsoleUrl())
 		return r, err
 	})
 
-	mgr.AddReconcilerOrDie(pipelinegates.Identifier, func() (controller.Reconciler, error) {
+	mgr.AddReconcilerOrDie(pipelinegates.Identifier, func() (v1.Reconciler, error) {
 		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, config, pipelineGatesPollInterval)
 		return r, err
 	})
 
-	mgr.AddReconcilerOrDie(restore.Identifier, func() (controller.Reconciler, error) {
+	mgr.AddReconcilerOrDie(restore.Identifier, func() (v1.Reconciler, error) {
 		r := restore.NewRestoreReconciler(consoleClient, k8sClient, args.ControllerCacheTTL(), args.RestoreNamespace())
 		return r, nil
 	})
 
-	mgr.AddReconcilerOrDie(namespaces.Identifier, func() (controller.Reconciler, error) {
+	mgr.AddReconcilerOrDie(namespaces.Identifier, func() (v1.Reconciler, error) {
 		r := namespaces.NewNamespaceReconciler(consoleClient, k8sClient, args.ControllerCacheTTL())
 		return r, nil
 	})
 
-	mgr.AddReconcilerOrDie(stacks.Identifier, func() (controller.Reconciler, error) {
+	mgr.AddReconcilerOrDie(stacks.Identifier, func() (v1.Reconciler, error) {
 		namespace, err := utils.GetOperatorNamespace()
 		if err != nil {
 			setupLog.Error(err, "unable to get operator namespace")

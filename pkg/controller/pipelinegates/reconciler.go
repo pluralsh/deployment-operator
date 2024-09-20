@@ -20,7 +20,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -101,7 +101,7 @@ func (s *GateReconciler) ListGates(ctx context.Context) *algorithms.Pager[*conso
 		}
 		return resp.PagedClusterGates.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.PipelineGateEdgeFragment](controller.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.PipelineGateEdgeFragment](common.DefaultPageSize, fetch)
 }
 
 func (s *GateReconciler) Poll(ctx context.Context) error {

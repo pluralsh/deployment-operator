@@ -3,45 +3,25 @@ package controller
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/util/workqueue"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/pluralsh/deployment-operator/pkg/websocket"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	internallog "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-type Reconciler interface {
-	// Reconcile Kubernetes resources to reflect state from the Console.
-	Reconcile(context.Context, string) (reconcile.Result, error)
 
-	// Poll Console for any state changes and put them in the queue that will be consumed by Reconcile.
-	Poll(context.Context) error
-
-	// GetPublisher returns event name, i.e. "event.service", and Publisher that will be registered with this reconciler.
-	// TODO: Make it optional and/or accept multiple publishers.
-	GetPublisher() (string, websocket.Publisher)
-
-	// Queue returns a queue.
-	Queue() workqueue.TypedRateLimitingInterface[string]
-
-	// Shutdown shuts down the reconciler cache & queue
-	Shutdown()
-
-	// Restart initiates a reconciler restart. It ensures queue and cache are
-	// safely cleaned up and reinitialized.
-	Restart()
-
-	// GetPollInterval returns custom poll interval. If 0 then controller manager use default from the options.
-	GetPollInterval() time.Duration
-}
 
 type Controller struct {
 	// Name is used to uniquely identify a Controller in tracing, logging and monitoring. Name is required.
@@ -52,7 +32,7 @@ type Controller struct {
 
 	// Reconciler is a function that can be called at any time with the ID of an object and
 	// ensures that the state of the system matches the state specified in the object.
-	Do Reconciler
+	Do v1.Reconciler
 
 	// mu is used to synchronize Controller setup
 	mu sync.Mutex
@@ -61,17 +41,28 @@ type Controller struct {
 	// Defaults to 2 minutes if not set.
 	CacheSyncTimeout time.Duration
 
+	// PollInterval defines how often controllers should poll for new resources.
+	PollInterval time.Duration
+
+	// PollJitter defines how much polling jitter should there be when polling for new resources.
+	PollJitter time.Duration
+
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
 	RecoverPanic *bool
 
-	// heartbeat returns a timestamp of the last time Reconciler.Poll was called.
-	heartbeat time.Time
+	// lastPollTime is the last time Reconciler.Poll was called.
+	lastPollTime time.Time
+
+	// lastReconcileTime is the last time Reconciler.Reconcile was called.
+	lastReconcileTime time.Time
 }
 
 func (c *Controller) SetupWithManager(manager *Manager) {
 	c.MaxConcurrentReconciles = manager.MaxConcurrentReconciles
 	c.CacheSyncTimeout = manager.CacheSyncTimeout
 	c.RecoverPanic = manager.RecoverPanic
+	c.PollInterval = manager.PollInterval
+	c.PollJitter = manager.PollJitter
 }
 
 // Start implements controller.Controller.
@@ -84,6 +75,8 @@ func (c *Controller) Start(ctx context.Context) {
 	func() {
 		defer c.mu.Unlock()
 		defer utilruntime.HandleCrash()
+
+		go c.startPoller(ctx)
 
 		wg.Add(c.MaxConcurrentReconciles)
 		for i := 0; i < c.MaxConcurrentReconciles; i++ {
@@ -101,15 +94,47 @@ func (c *Controller) Start(ctx context.Context) {
 	wg.Wait()
 }
 
-// Heartbeat returns the last time controller poll/reconcile was executed.
-// It signals that the controller is alive and running.
-func (c *Controller) Heartbeat() time.Time {
-	return c.heartbeat
+func (c *Controller) Restart() {
+	c.Do.Restart()
 }
 
-// HeartbeatTick updates the heartbeat time.
-func (c *Controller) HeartbeatTick() {
-	c.heartbeat = time.Now()
+// LastPollTime returns the last time controller poll was executed.
+// It signals whether the controller is alive and running.
+func (c *Controller) LastPollTime() time.Time {
+	return c.lastPollTime
+}
+
+// LastReconcileTime returns the last time controller poll was executed.
+// It signals whether the controller is alive and running.
+func (c *Controller) LastReconcileTime() time.Time {
+	return c.lastReconcileTime
+}
+
+func (c *Controller) startPoller(ctx context.Context) {
+	defer c.Do.Shutdown()
+
+	// It ensures that controllers won't poll the API at the same time.
+	jitterInterval := time.Duration(rand.Int63n(int64(c.PollJitter)))
+	pollInterval := c.PollInterval
+	if controllerPollInterval := c.Do.GetPollInterval(); controllerPollInterval > 0 {
+		pollInterval = controllerPollInterval
+	}
+	pollInterval += jitterInterval
+
+	klog.V(internallog.LogLevelTrace).InfoS("Starting controller poller", "ctrl", c.Name, "pollInterval", pollInterval)
+	_ = wait.PollUntilContextCancel(ctx, pollInterval, true, func(_ context.Context) (bool, error) {
+		defer func() {
+			c.lastPollTime = time.Now()
+		}()
+
+		if err := c.Do.Poll(ctx); err != nil {
+			klog.ErrorS(err, "poller failed")
+		}
+
+		// never stop
+		return false, nil
+	})
+	klog.V(internallog.LogLevelDefault).InfoS("Controller poller finished", "ctrl", c.Name)
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
@@ -182,7 +207,11 @@ func (c *Controller) reconcile(ctx context.Context, req string) (_ reconcile.Res
 			log := logf.FromContext(ctx)
 			log.V(1).Info(fmt.Sprintf("Observed a panic in reconciler: %v", r))
 			panic(r)
+		} else {
+			// Update last reconcile time on successful reconcile
+			c.lastReconcileTime = time.Now()
 		}
+
 	}()
 	return c.Do.Reconcile(ctx, req)
 }

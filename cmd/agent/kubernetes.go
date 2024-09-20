@@ -23,8 +23,8 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 

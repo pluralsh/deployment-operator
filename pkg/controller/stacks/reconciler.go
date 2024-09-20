@@ -14,7 +14,7 @@ import (
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -101,7 +101,7 @@ func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*con
 		}
 		return resp.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.StackRunEdgeFragment](controller.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.StackRunEdgeFragment](common.DefaultPageSize, fetch)
 }
 
 func (r *StackReconciler) Poll(ctx context.Context) error {
