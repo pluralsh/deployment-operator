@@ -100,21 +100,20 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 			if e.ApplyEvent.Status == event.ApplySuccessful {
 				cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ApplySHA)
 			}
-
 			if e.ApplyEvent.Error != nil {
-				// e.ApplyEvent.Resource == nil, create the key to get cache entry
-				key := cache.ResourceKey{
-					Namespace: namespace,
-					Name:      name,
-					GroupKind: gk,
-				}
-				sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
-				if exists {
-					// clear SHA when error occurs
-					sha.Expire()
-					cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
-				}
 				if e.ApplyEvent.Status == event.ApplyFailed {
+					// e.ApplyEvent.Resource == nil, create the key to get cache entry
+					key := cache.ResourceKey{
+						Namespace: namespace,
+						Name:      name,
+						GroupKind: gk,
+					}
+					sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
+					if exists {
+						// clear SHA when error occurs
+						sha.Expire()
+						cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
+					}
 					err = fmt.Errorf("%s apply %s: %s\n", resourceIDToString(gk, name),
 						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
 					logger.Error(err, "apply error")
