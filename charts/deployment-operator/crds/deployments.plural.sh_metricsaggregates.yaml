@@ -36,44 +36,10 @@ spec:
             type: string
           metadata:
             type: object
-          spec:
-            description: Spec of the MetricsAggregate
-            properties:
-              cpuAvailableMillicores:
-                description: CPUAvailableMillicores in m cores
-                format: int64
-                type: integer
-              cpuTotalMillicores:
-                description: CPUTotalMillicores in m cores
-                format: int64
-                type: integer
-              cpuUsedPercentage:
-                description: CPUUsedPercentage in percentage
-                format: int64
-                type: integer
-              memoryAvailableBytes:
-                description: MemoryAvailableBytes available memory for node
-                format: int64
-                type: integer
-              memoryTotalBytes:
-                description: MemoryTotalBytes current memory usage in bytes
-                format: int64
-                type: integer
-              memoryUsedPercentage:
-                description: MemoryUsedPercentage in percentage
-                format: int64
-                type: integer
-              nodes:
-                type: integer
-            required:
-            - nodes
-            type: object
           status:
-            description: Status of the IngressReplica
+            description: Status of the MetricsAggregate
             properties:
               conditions:
-                description: Represents the observations of a PrAutomation's current
-                  state.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -132,15 +98,33 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              id:
-                description: ID of the resource in the Console API.
-                type: string
-              sha:
-                description: SHA of last applied configuration.
-                type: string
+              cpuAvailableMillicores:
+                description: CPUAvailableMillicores in m cores
+                format: int64
+                type: integer
+              cpuTotalMillicores:
+                description: CPUTotalMillicores in m cores
+                format: int64
+                type: integer
+              cpuUsedPercentage:
+                description: CPUUsedPercentage in percentage
+                format: int64
+                type: integer
+              memoryAvailableBytes:
+                description: MemoryAvailableBytes available memory for node
+                format: int64
+                type: integer
+              memoryTotalBytes:
+                description: MemoryTotalBytes current memory usage in bytes
+                format: int64
+                type: integer
+              memoryUsedPercentage:
+                description: MemoryUsedPercentage in percentage
+                format: int64
+                type: integer
+              nodes:
+                type: integer
             type: object
-        required:
-        - spec
         type: object
     served: true
     storage: true

@@ -2,8 +2,9 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -44,6 +45,7 @@ func (r *DebounceReconciler) Reconcile(_ context.Context, req reconcile.Request)
 
 // Start begins the debouncing mechanism.
 func (r *DebounceReconciler) Start(ctx context.Context) {
+	logger := log.FromContext(ctx)
 	go func() {
 		ticker := time.NewTicker(r.debounceDuration)
 		defer ticker.Stop()
@@ -62,7 +64,7 @@ func (r *DebounceReconciler) Start(ctx context.Context) {
 				if time.Since(r.lastRequest) >= r.debounceDuration {
 					// Process the debounced request.
 					if err := r.processRequest(ctx, latestRequest); err != nil {
-						fmt.Printf("Error processing request: %v\n", err)
+						logger.Error(err, "Error processing request: %v\n")
 					}
 				}
 			}

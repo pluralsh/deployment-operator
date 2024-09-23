@@ -8,6 +8,7 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
@@ -19,7 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const debounceDuration = time.Second * 30
+const (
+	globalName       = "global"
+	debounceDuration = time.Second * 30
+)
 
 var supportedMetricsAPIVersions = []string{
 	"v1beta1",
@@ -49,8 +53,13 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Read resource from Kubernetes cluster.
 	metrics := &v1alpha1.MetricsAggregate{}
 	if err := r.Get(ctx, req.NamespacedName, metrics); err != nil {
-		logger.Error(err, "unable to fetch MetricsAggregate")
-		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			if err := r.initGlobalMetricsAggregate(ctx); err != nil {
+				return ctrl.Result{}, err
+			}
+			return requeue(time.Second, jitter), nil
+		}
+		return ctrl.Result{}, err
 	}
 
 	logger.Info("reconciling MetricsAggregate", "namespace", metrics.Namespace, "name", metrics.Name)
@@ -102,29 +111,50 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// save metrics
-	metrics.Spec.Nodes = len(nodeList.Items)
+	metrics.Status.Nodes = len(nodeList.Items)
 	for _, nm := range nodeMetrics {
-		metrics.Spec.CPUAvailableMillicores += nm.CPUAvailableMillicores
-		metrics.Spec.CPUTotalMillicores += nm.CPUTotalMillicores
-		metrics.Spec.MemoryAvailableBytes += nm.MemoryAvailableBytes
-		metrics.Spec.MemoryTotalBytes += nm.MemoryTotalBytes
+		metrics.Status.CPUAvailableMillicores += nm.CPUAvailableMillicores
+		metrics.Status.CPUTotalMillicores += nm.CPUTotalMillicores
+		metrics.Status.MemoryAvailableBytes += nm.MemoryAvailableBytes
+		metrics.Status.MemoryTotalBytes += nm.MemoryTotalBytes
 	}
 
-	fraction := float64(metrics.Spec.CPUTotalMillicores) / float64(metrics.Spec.CPUAvailableMillicores) * 100
-	metrics.Spec.CPUUsedPercentage = int64(fraction)
-	fraction = float64(metrics.Spec.MemoryTotalBytes) / float64(metrics.Spec.MemoryAvailableBytes) * 100
-	metrics.Spec.MemoryUsedPercentage = int64(fraction)
+	fraction := float64(metrics.Status.CPUTotalMillicores) / float64(metrics.Status.CPUAvailableMillicores) * 100
+	metrics.Status.CPUUsedPercentage = int64(fraction)
+	fraction = float64(metrics.Status.MemoryTotalBytes) / float64(metrics.Status.MemoryAvailableBytes) * 100
+	metrics.Status.MemoryUsedPercentage = int64(fraction)
 
-	return ctrl.Result{}, reterr
+	utils.MarkCondition(metrics.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
+
+	return requeue(requeueAfter, jitter), reterr
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MetricsAggregateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	debounceReconciler := NewDebounceReconciler(mgr.GetClient(), debounceDuration, r)
 	debounceReconciler.Start(ctx)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.MetricsAggregate{}).
 		Complete(debounceReconciler)
+}
+
+func (r *MetricsAggregateReconciler) initGlobalMetricsAggregate(ctx context.Context) error {
+	// Init global MetricsAggregate object
+	if err := r.Get(ctx, k8sClient.ObjectKey{Name: globalName}, &v1alpha1.MetricsAggregate{}); err != nil {
+		if apierrors.IsNotFound(err) {
+			if err := r.Create(ctx, &v1alpha1.MetricsAggregate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: globalName,
+				},
+			}); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 type ResourceMetricsInfo struct {
@@ -133,15 +163,15 @@ type ResourceMetricsInfo struct {
 	Available corev1.ResourceList
 }
 
-func ConvertNodeMetrics(metrics []v1beta1.NodeMetrics, availableResources map[string]corev1.ResourceList) ([]v1alpha1.MetricsAggregateSpec, error) {
-	nodeMetrics := make([]v1alpha1.MetricsAggregateSpec, 0)
+func ConvertNodeMetrics(metrics []v1beta1.NodeMetrics, availableResources map[string]corev1.ResourceList) ([]v1alpha1.MetricsAggregateStatus, error) {
+	nodeMetrics := make([]v1alpha1.MetricsAggregateStatus, 0)
 
 	if metrics == nil {
 		return nil, fmt.Errorf("metric list can not be nil")
 	}
 
 	for _, m := range metrics {
-		nodeMetric := v1alpha1.MetricsAggregateSpec{}
+		nodeMetric := v1alpha1.MetricsAggregateStatus{}
 
 		resourceMetricsInfo := ResourceMetricsInfo{
 			Name:      m.Name,

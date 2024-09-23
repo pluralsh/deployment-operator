@@ -6,6 +6,4 @@ metadata:
     app.kubernetes.io/instance: metricsaggregate-sample
     app.kubernetes.io/part-of: deployment-operator
     app.kubernetes.io/created-by: deployment-operator
-  name: metrics-aggregate-sample
-spec:
-  nodes: 0
+  name: global
