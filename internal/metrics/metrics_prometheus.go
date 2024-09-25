@@ -25,6 +25,8 @@ type prometheusRecorder struct {
 	resourceCacheWatchCounter *prometheus.GaugeVec
 	resourceCacheHitCounter   *prometheus.CounterVec
 	resourceCacheMissCounter  *prometheus.CounterVec
+
+	controllerRestartCounter *prometheus.CounterVec
 }
 
 func (in *prometheusRecorder) ResourceCacheWatchStart(resourceType string) {
@@ -82,6 +84,10 @@ func (in *prometheusRecorder) StackRunJobCreation() {
 	in.stackRunJobsCreatedCounter.Inc()
 }
 
+func (in *prometheusRecorder) ControllerRestart(name string) {
+	in.controllerRestartCounter.WithLabelValues(name).Inc()
+}
+
 func (in *prometheusRecorder) init() Recorder {
 	in.discoveryAPICacheRefreshCounter = promauto.NewCounter(prometheus.CounterOpts{
 		Name: DiscoveryAPICacheRefreshMetricName,
@@ -122,6 +128,11 @@ func (in *prometheusRecorder) init() Recorder {
 		Name: ResourceCacheMissMetricName,
 		Help: ResourceCacheMissMetricDescription,
 	}, []string{MetricLabelServiceID})
+
+	in.controllerRestartCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: ControllerRestartsMetricName,
+		Help: ControllerRestartsMetricDescription,
+	}, []string{MetricLabelControllerName})
 
 	return in
 }

@@ -29,11 +29,11 @@ const (
 	defaultRefreshInterval         = "2m"
 	defaultRefreshIntervalDuration = 2 * time.Minute
 
-	defaultPollInterval         = "30s"
-	defaultPollIntervalDuration = 30 * time.Second
+	defaultPollInterval         = "2m"
+	defaultPollIntervalDuration = 2 * time.Minute
 
-	defaultRefreshJitter         = "15s"
-	defaultRefreshJitterDuration = 15 * time.Second
+	defaultPollJitter         = "15s"
+	defaultPollJitterDuration = 15 * time.Second
 
 	defaultResourceCacheTTL         = "1h"
 	defaultResourceCacheTTLDuration = time.Hour
@@ -41,8 +41,8 @@ const (
 	defaultManifestCacheTTL         = "1h"
 	defaultManifestCacheTTLDuration = time.Hour
 
-	defaultControllerCacheTTL         = "30s"
-	defaultControllerCacheTTLDuration = 30 * time.Second
+	defaultControllerCacheTTL         = "2m"
+	defaultControllerCacheTTLDuration = 2 * time.Minute
 
 	defaultRestoreNamespace = "velero"
 
@@ -61,15 +61,16 @@ var (
 	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
 	argResyncSeconds           = flag.Int("resync-seconds", 300, "Resync duration in seconds.")
 
-	argClusterId          = flag.String("cluster-id", "", "The ID of the cluster being connected to.")
-	argConsoleUrl         = flag.String("console-url", "", "The URL of the console api to fetch services from.")
-	argDeployToken        = flag.String("deploy-token", helpers.GetEnv(EnvDeployToken, ""), "The deploy token to auth to Console API with.")
-	argProbeAddr          = flag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
-	argMetricsAddr        = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
-	argProcessingTimeout  = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
-	argRefreshInterval    = flag.String("refresh-interval", defaultRefreshInterval, "Time interval to recheck the websocket connection.")
-	argPollInterval       = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
-	argRefreshJitter      = flag.String("refresh-jitter", defaultRefreshJitter, "Refresh jitter.")
+	argClusterId         = flag.String("cluster-id", "", "The ID of the cluster being connected to.")
+	argConsoleUrl        = flag.String("console-url", "", "The URL of the console api to fetch services from.")
+	argDeployToken       = flag.String("deploy-token", helpers.GetEnv(EnvDeployToken, ""), "The deploy token to auth to Console API with.")
+	argProbeAddr         = flag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
+	argMetricsAddr       = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
+	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
+	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "DEPRECATED: Time interval to poll resources from the Console API.")
+	argPollInterval      = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
+	// TODO: ensure this arg can be safely renamed without causing breaking changes.
+	argPollJitter         = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
 	argResourceCacheTTL   = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
 	argManifestCacheTTL   = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
 	argControllerCacheTTL = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
@@ -184,14 +185,22 @@ func PollInterval() time.Duration {
 		return defaultPollIntervalDuration
 	}
 
+	if duration < 10*time.Second {
+		klog.Fatalf("--poll-interval cannot be lower than 10s")
+	}
+
 	return duration
 }
 
-func RefreshJitter() time.Duration {
-	jitter, err := time.ParseDuration(*argRefreshJitter)
+func PollJitter() time.Duration {
+	jitter, err := time.ParseDuration(*argPollJitter)
 	if err != nil {
-		klog.ErrorS(err, "Could not parse refresh-jitter", "value", *argRefreshJitter, "default", defaultRefreshJitterDuration)
-		return defaultRefreshJitterDuration
+		klog.ErrorS(err, "Could not parse refresh-jitter", "value", *argPollJitter, "default", defaultPollJitterDuration)
+		return defaultPollJitterDuration
+	}
+
+	if jitter < 10*time.Second {
+		klog.Fatalf("--refresh-jitter cannot be lower than 10s")
 	}
 
 	return jitter

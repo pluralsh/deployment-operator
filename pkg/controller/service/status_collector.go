@@ -8,13 +8,13 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/object"
 
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 type serviceComponentsStatusCollector struct {
@@ -45,12 +45,12 @@ func (sc *serviceComponentsStatusCollector) updateApplyStatus(id object.ObjMetad
 }
 
 func (sc *serviceComponentsStatusCollector) refetch(resource *unstructured.Unstructured) *unstructured.Unstructured {
-	if sc.reconciler.Clientset == nil || resource == nil {
+	if sc.reconciler.clientset == nil || resource == nil {
 		return nil
 	}
 
 	response := new(unstructured.Unstructured)
-	err := sc.reconciler.Clientset.RESTClient().Get().AbsPath(toAPIPath(resource)).Do(context.Background()).Into(response)
+	err := sc.reconciler.clientset.RESTClient().Get().AbsPath(toAPIPath(resource)).Do(context.Background()).Into(response)
 	if err != nil {
 		return nil
 	}
@@ -120,7 +120,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[sche
 	for key := range diff {
 		e, err := cache.GetResourceCache().GetCacheStatus(key)
 		if err != nil {
-			log.Logger.Error(err, "failed to get cache status")
+			klog.ErrorS(err, "failed to get cache status")
 			continue
 		}
 		gname := schema.GroupName{

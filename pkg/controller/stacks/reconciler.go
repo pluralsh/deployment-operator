@@ -14,7 +14,7 @@ import (
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -23,55 +23,73 @@ const (
 )
 
 type StackReconciler struct {
-	ConsoleClient client.Client
-	K8sClient     ctrlclient.Client
-	StackQueue    workqueue.TypedRateLimitingInterface[string]
-	StackCache    *client.Cache[console.StackRunFragment]
-	Namespace     string
-	ConsoleURL    string
-	DeployToken   string
-	PollInterval  time.Duration
+	consoleClient client.Client
+	k8sClient     ctrlclient.Client
+	stackQueue    workqueue.TypedRateLimitingInterface[string]
+	stackCache    *client.Cache[console.StackRunFragment]
+	namespace     string
+	consoleURL    string
+	deployToken   string
+	pollInterval  time.Duration
 }
 
 func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh, pollInterval time.Duration, namespace, consoleURL, deployToken string) *StackReconciler {
 	return &StackReconciler{
-		ConsoleClient: consoleClient,
-		K8sClient:     k8sClient,
-		StackQueue:    workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		StackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
+		consoleClient: consoleClient,
+		k8sClient:     k8sClient,
+		stackQueue:    workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
+		stackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
 			return consoleClient.GetStackRun(id)
 		}),
-		Namespace:    namespace,
-		ConsoleURL:   consoleURL,
-		DeployToken:  deployToken,
-		PollInterval: pollInterval,
+		consoleURL:   consoleURL,
+		deployToken:  deployToken,
+		pollInterval: pollInterval,
+		namespace:    namespace,
 	}
 }
 
+func (r *StackReconciler) Queue() workqueue.TypedRateLimitingInterface[string] {
+	return r.stackQueue
+}
+
+func (r *StackReconciler) Restart() {
+	// Cleanup
+	r.stackQueue.ShutDown()
+	r.stackCache.Wipe()
+
+	// Initialize
+	r.stackQueue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
+}
+
+func (r *StackReconciler) Shutdown() {
+	r.stackQueue.ShutDown()
+	r.stackCache.Wipe()
+}
+
 func (r *StackReconciler) GetPollInterval() time.Duration {
-	return r.PollInterval
+	return r.pollInterval
 }
 
 func (r *StackReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "stack.run.event", &socketPublisher{
-		stackRunQueue: r.StackQueue,
-		stackRunCache: r.StackCache,
+		stackRunQueue: r.stackQueue,
+		stackRunCache: r.stackCache,
 	}
 }
 
 func (r *StackReconciler) WipeCache() {
-	r.StackCache.Wipe()
+	r.stackCache.Wipe()
 }
 
 func (r *StackReconciler) ShutdownQueue() {
-	r.StackQueue.ShutDown()
+	r.stackQueue.ShutDown()
 }
 
 func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*console.StackRunEdgeFragment] {
 	logger := log.FromContext(ctx)
 	logger.Info("create stack run pager")
 	fetch := func(page *string, size int64) ([]*console.StackRunEdgeFragment, *algorithms.PageInfo, error) {
-		resp, err := r.ConsoleClient.ListClusterStackRuns(page, &size)
+		resp, err := r.consoleClient.ListClusterStackRuns(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch stack run")
 			return nil, nil, err
@@ -83,10 +101,10 @@ func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*con
 		}
 		return resp.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.StackRunEdgeFragment](controller.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.StackRunEdgeFragment](common.DefaultPageSize, fetch)
 }
 
-func (r *StackReconciler) Poll(ctx context.Context) (done bool, err error) {
+func (r *StackReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 	logger.Info("fetching stacks")
 	pager := r.ListStacks(ctx)
@@ -95,21 +113,21 @@ func (r *StackReconciler) Poll(ctx context.Context) (done bool, err error) {
 		stacks, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch stack run list")
-			return false, nil
+			return err
 		}
 		for _, stack := range stacks {
 			logger.Info("sending update for", "stack run", stack.Node.ID)
-			r.StackQueue.Add(stack.Node.ID)
+			r.stackQueue.Add(stack.Node.ID)
 		}
 	}
 
-	return false, nil
+	return nil
 }
 
 func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to sync stack run", "id", id)
-	stackRun, err := r.StackCache.Get(id)
+	stackRun, err := r.stackCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
 			logger.Info("stack run already deleted", "id", id)

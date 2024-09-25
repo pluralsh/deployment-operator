@@ -1,6 +1,7 @@
 package client
 
 import (
+	"sync"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -12,6 +13,8 @@ type cacheLine[T any] struct {
 }
 
 type Cache[T any] struct {
+	sync.Mutex
+
 	cache     cmap.ConcurrentMap[string, *cacheLine[T]]
 	expiry    time.Duration
 	clientGet Getter[T]
@@ -38,6 +41,9 @@ func (c *Cache[T]) Get(id string) (*T, error) {
 }
 
 func (c *Cache[T]) Set(id string) (*T, error) {
+	c.Lock()
+	defer c.Unlock()
+
 	resource, err := c.clientGet(id)
 	if err != nil {
 		return nil, err
@@ -52,6 +58,9 @@ func (c *Cache[T]) Wipe() {
 }
 
 func (c *Cache[T]) Expire(id string) {
+	c.Lock()
+	defer c.Unlock()
+
 	c.cache.Remove(id)
 }
 
