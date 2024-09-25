@@ -25,15 +25,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
-	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
-
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
+	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
@@ -51,38 +50,27 @@ const (
 )
 
 type ServiceReconciler struct {
-	ConsoleClient    client.Client
-	Config           *rest.Config
-	Clientset        *kubernetes.Clientset
-	Applier          *applier.Applier
-	Destroyer        *apply.Destroyer
-	SvcQueue         workqueue.TypedRateLimitingInterface[string]
-	SvcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
-	ManifestCache    *manifests.ManifestCache
-	UtilFactory      util.Factory
-	RestoreNamespace string
-
-	mapper meta.RESTMapper
-	pinger *ping.Pinger
+	consoleClient    client.Client
+	clientset        *kubernetes.Clientset
+	applier          *applier.Applier
+	destroyer        *apply.Destroyer
+	svcQueue         workqueue.TypedRateLimitingInterface[string]
+	svcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
+	manifestCache    *manifests.ManifestCache
+	utilFactory      util.Factory
+	restoreNamespace string
+	mapper           meta.RESTMapper
+	pinger           *ping.Pinger
 }
 
 func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
-
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-
-	svcCache := client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
-		return consoleClient.GetService(id)
-	})
-
-	svcQueue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
-
-	manifestCache := manifests.NewCache(manifestTTL, deployToken, consoleURL)
 
 	f := utils.NewFactory(config)
 	mapper, err := f.ToRESTMapper()
@@ -107,19 +95,40 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 	}
 
 	return &ServiceReconciler{
-		ConsoleClient:    consoleClient,
-		Config:           config,
-		Clientset:        cs,
-		SvcQueue:         svcQueue,
-		SvcCache:         svcCache,
-		ManifestCache:    manifestCache,
-		UtilFactory:      f,
-		Applier:          a,
-		Destroyer:        d,
+		consoleClient: consoleClient,
+		clientset:     cs,
+		svcQueue:      workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
+		svcCache: client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (
+			*console.GetServiceDeploymentForAgent_ServiceDeployment, error,
+		) {
+			return consoleClient.GetService(id)
+		}),
+		manifestCache:    manifests.NewCache(manifestTTL, deployToken, consoleURL),
+		utilFactory:      f,
+		applier:          a,
+		destroyer:        d,
 		pinger:           ping.New(consoleClient, discoveryClient, f),
-		RestoreNamespace: restoreNamespace,
+		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
 	}, nil
+}
+
+func (s *ServiceReconciler) Queue() workqueue.TypedRateLimitingInterface[string] {
+	return s.svcQueue
+}
+
+func (s *ServiceReconciler) Restart() {
+	// Cleanup
+	s.svcQueue.ShutDown()
+	s.svcCache.Wipe()
+
+	// Initialize
+	s.svcQueue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
+}
+
+func (s *ServiceReconciler) Shutdown() {
+	s.svcQueue.ShutDown()
+	s.svcCache.Wipe()
 }
 
 func (s *ServiceReconciler) GetPollInterval() time.Duration {
@@ -128,9 +137,9 @@ func (s *ServiceReconciler) GetPollInterval() time.Duration {
 
 func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "service.event", &socketPublisher{
-		svcQueue: s.SvcQueue,
-		svcCache: s.SvcCache,
-		manCache: s.ManifestCache,
+		svcQueue: s.svcQueue,
+		svcCache: s.svcCache,
+		manCache: s.manifestCache,
 	}
 
 }
@@ -225,19 +234,19 @@ func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured
 }
 
 func (s *ServiceReconciler) WipeCache() {
-	s.SvcCache.Wipe()
-	s.ManifestCache.Wipe()
+	s.svcCache.Wipe()
+	s.manifestCache.Wipe()
 }
 
 func (s *ServiceReconciler) ShutdownQueue() {
-	s.SvcQueue.ShutDown()
+	s.svcQueue.ShutDown()
 }
 
 func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentEdgeFragment] {
 	logger := log.FromContext(ctx)
 	logger.Info("create service pager")
 	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentEdgeFragment, *algorithms.PageInfo, error) {
-		resp, err := s.ConsoleClient.GetServices(page, &size)
+		resp, err := s.consoleClient.GetServices(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch service list from deployments service")
 			return nil, nil, err
@@ -249,21 +258,21 @@ func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[
 		}
 		return resp.PagedClusterServices.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.ServiceDeploymentEdgeFragment](controller.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.ServiceDeploymentEdgeFragment](common2.DefaultPageSize, fetch)
 }
 
-func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
+func (s *ServiceReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 	logger.Info("fetching services for cluster")
 
 	restore, err := s.isClusterRestore(ctx)
 	if err != nil {
 		logger.Error(err, "failed to check restore config map")
-		return false, nil
+		return err
 	}
 	if restore {
 		logger.Info("restoring cluster from backup")
-		return false, nil
+		return nil
 	}
 
 	pager := s.ListServices(ctx)
@@ -272,7 +281,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 		services, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch service list from deployments service")
-			return false, nil
+			return err
 		}
 		for _, svc := range services {
 			// If services arg is provided, we can skip
@@ -282,7 +291,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 			}
 
 			logger.Info("sending update for", "service", svc.Node.ID)
-			s.SvcQueue.Add(svc.Node.ID)
+			s.svcQueue.Add(svc.Node.ID)
 		}
 	}
 
@@ -291,7 +300,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 	}
 
 	s.ScrapeKube(ctx)
-	return false, nil
+	return nil
 }
 
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
@@ -301,7 +310,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to sync service", "id", id)
 
-	svc, err := s.SvcCache.Get(id)
+	svc, err := s.svcCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
 			logger.Info("service already deleted", "id", id)
@@ -344,7 +353,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	if svc.DeletedAt != nil {
 		logger.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := s.Destroyer.Run(ctx, inventory.WrapInventoryInfoObj(s.defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
+		ch := s.destroyer.Run(ctx, inventory.WrapInventoryInfoObj(s.defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
 			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
 			DryRunStrategy:          common.DryRunNone,
 			DeleteTimeout:           20 * time.Second,
@@ -359,7 +368,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	logger.Info("Fetching manifests", "service", svc.Name)
-	manifests, err := s.ManifestCache.Fetch(s.UtilFactory, svc)
+	manifests, err := s.manifestCache.Fetch(s.utilFactory, svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)
 		return
@@ -415,7 +424,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		options.DryRunStrategy = common.DryRunServer
 	}
 
-	ch := s.Applier.Run(ctx, inv, manifests, options)
+	ch := s.applier.Run(ctx, inv, manifests, options)
 	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
@@ -436,7 +445,7 @@ func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console
 		}
 	}
 	if createNamespace {
-		return utils.CheckNamespace(*s.Clientset, namespace, labels, annotations)
+		return utils.CheckNamespace(*s.clientset, namespace, labels, annotations)
 	}
 	return nil
 }
@@ -481,13 +490,13 @@ func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) *unstructured
 }
 
 func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) {
-	cmr, err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Get(ctx, RestoreConfigMapName, metav1.GetOptions{})
+	cmr, err := s.clientset.CoreV1().ConfigMaps(s.restoreNamespace).Get(ctx, RestoreConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return false, nil
 	}
 	timeout := cmr.CreationTimestamp.Add(time.Hour)
 	if time.Now().After(timeout) {
-		if err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Delete(ctx, RestoreConfigMapName, metav1.DeleteOptions{}); err != nil {
+		if err := s.clientset.CoreV1().ConfigMaps(s.restoreNamespace).Delete(ctx, RestoreConfigMapName, metav1.DeleteOptions{}); err != nil {
 			return true, err
 		}
 		return false, nil

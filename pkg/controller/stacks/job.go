@@ -80,22 +80,22 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 	logger := log.FromContext(ctx)
 	jobName := GetRunJobName(run)
 	foundJob := &batchv1.Job{}
-	if err := r.K8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.Namespace}, foundJob); err != nil {
+	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
 
-		logger.V(2).Info("generating job", "namespace", r.Namespace, "name", jobName)
+		logger.V(2).Info("generating job", "namespace", r.namespace, "name", jobName)
 		job := r.GenerateRunJob(run, jobName)
 
 		logger.V(2).Info("creating job", "namespace", job.Namespace, "name", job.Name)
-		if err := r.K8sClient.Create(ctx, job); err != nil {
+		if err := r.k8sClient.Create(ctx, job); err != nil {
 			logger.Error(err, "unable to create job")
 			return nil, err
 		}
 
 		metrics.Record().StackRunJobCreation()
-		if err := r.ConsoleClient.UpdateStackRun(run.ID, console.StackRunAttributes{
+		if err := r.consoleClient.UpdateStackRun(run.ID, console.StackRunAttributes{
 			Status: run.Status,
 			JobRef: &console.NamespacedName{
 				Name:      job.Name,
@@ -137,7 +137,7 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 	jobSpec.Template.Annotations[podDefaultContainerAnnotation] = DefaultJobContainer
 
 	if jobSpec.Template.ObjectMeta.Namespace == "" {
-		jobSpec.Template.ObjectMeta.Namespace = r.Namespace
+		jobSpec.Template.ObjectMeta.Namespace = r.namespace
 	}
 
 	jobSpec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
@@ -154,7 +154,7 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Namespace:   r.Namespace,
+			Namespace:   r.namespace,
 			Annotations: map[string]string{jobSelector: name},
 			Labels:      map[string]string{jobSelector: name},
 		},
@@ -295,8 +295,8 @@ func (r *StackReconciler) getTag(run *console.StackRunFragment) string {
 
 func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
 	return []string{
-		fmt.Sprintf("--console-url=%s", r.ConsoleURL),
-		fmt.Sprintf("--console-token=%s", r.DeployToken),
+		fmt.Sprintf("--console-url=%s", r.consoleURL),
+		fmt.Sprintf("--console-token=%s", r.deployToken),
 		fmt.Sprintf("--stack-run-id=%s", runID),
 	}
 }

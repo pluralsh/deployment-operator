@@ -8,10 +8,10 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 var (
@@ -28,10 +28,10 @@ func DiscoveryCache() cmap.ConcurrentMap[string, bool] {
 }
 
 func RunDiscoveryCacheInBackgroundOrDie(ctx context.Context, discoveryClient *discovery.DiscoveryClient) {
-	log.Logger.Info("starting discovery cache")
+	klog.Info("starting discovery cache")
 	err := helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
 		if err = updateDiscoveryCache(discoveryClient); err != nil {
-			log.Logger.Error(err, "can't fetch API versions")
+			klog.Error(err, "can't fetch API versions")
 		}
 
 		metrics.Record().DiscoveryAPICacheRefresh(err)

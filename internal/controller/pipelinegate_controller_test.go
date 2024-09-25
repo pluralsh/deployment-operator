@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
@@ -81,7 +80,6 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 				}
 				Expect(kClient.Create(ctx, resource)).To(Succeed())
 			}
-
 		})
 
 		It("should set state pending", func() {
@@ -90,9 +88,8 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 			reconciler := &PipelineGateReconciler{
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
-				GateCache:     gateCache,
 				Scheme:        kClient.Scheme(),
-				Log:           logr.Logger{},
+				GateCache:     gateCache,
 			}
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: gateNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -109,9 +106,8 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 			reconciler := &PipelineGateReconciler{
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
-				GateCache:     gateCache,
 				Scheme:        kClient.Scheme(),
-				Log:           logr.Logger{},
+				GateCache:     gateCache,
 			}
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: gateNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -129,9 +125,8 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 			reconciler := &PipelineGateReconciler{
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
-				GateCache:     gateCache,
 				Scheme:        kClient.Scheme(),
-				Log:           logr.Logger{},
+				GateCache:     gateCache,
 			}
 
 			existingJob := &batchv1.Job{}
