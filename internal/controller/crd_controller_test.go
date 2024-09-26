@@ -20,7 +20,7 @@ func (r *TestReconciler) SetupWithManager(_ ctrl.Manager) error {
 	return nil
 }
 
-var _ = Describe("Backup Controller", Ordered, func() {
+var _ = Describe("CRD Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
 			resourceName = "testresources.test.group"
