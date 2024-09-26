@@ -11,13 +11,14 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	"k8s.io/klog/v2"
+
 
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -25,11 +26,17 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 )
 
 var (
 	scheme   = runtime.NewScheme()
-	setupLog = log.Logger
+	setupLog = klog.NewKlogr()
 )
 
 func init() {
@@ -51,12 +58,15 @@ const (
 func main() {
 	args.Init()
 	config := ctrl.GetConfigOrDie()
-	ctx := ctrl.SetupSignalHandler()
+	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
+
+	// Initialize Pipeline Gate Cache
+	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
 	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), extConsoleClient)
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient)
@@ -88,10 +98,10 @@ func initDiscoveryClientOrDie(config *rest.Config) *discovery.DiscoveryClient {
 	return discoveryClient
 }
 
-func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.ControllerManager) {
+func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Manager) {
 	setupLog.Info("starting console controller manager")
 	if err := mgr.Start(ctx); err != nil {
-		setupLog.Errorw("unable to start console controller manager", "error", err)
+		setupLog.Error(err, "unable to start console controller manager")
 		os.Exit(1)
 	}
 }
@@ -99,7 +109,7 @@ func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Co
 func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
 	setupLog.Info("starting kubernetes controller manager")
 	if err := mgr.Start(ctx); err != nil {
-		setupLog.Errorw("unable to start kubernetes controller manager", "error", err)
+		setupLog.Error(err, "unable to start kubernetes controller manager")
 		os.Exit(1)
 	}
 }

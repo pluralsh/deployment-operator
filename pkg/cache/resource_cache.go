@@ -28,7 +28,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 // ResourceCache is responsible for creating a global resource cache of the
@@ -80,20 +79,20 @@ var (
 func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
-		log.Logger.Error(err, "unable to create dynamic client")
+		klog.Error(err, "unable to create dynamic client")
 		os.Exit(1)
 	}
 
 	f := utils.NewFactory(config)
 	mapper, err := f.ToRESTMapper()
 	if err != nil {
-		log.Logger.Error(err, "unable to create rest mapper")
+		klog.Error(err, "unable to create rest mapper")
 		os.Exit(1)
 	}
 
 	discoveryClient, err := f.ToDiscoveryClient()
 	if err != nil {
-		log.Logger.Error(err, "unable to create discovery client")
+		klog.Error(err, "unable to create discovery client")
 		os.Exit(1)
 	}
 
@@ -230,7 +229,7 @@ func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.Compon
 func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured) {
 	e, err := in.toStatusEvent(resource)
 	if err != nil {
-		log.Logger.Error(err, "unable to convert resource to status event")
+		klog.Error(err, "unable to convert resource to status event")
 		return
 	}
 
@@ -243,7 +242,7 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 
 func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
 	if in.resourceKeySet.Intersect(resourceKeySet).Len() == 0 {
-		log.Logger.Infow("resource keys not found in cache, stopping watch", "resourceKeys", resourceKeySet.List())
+		klog.InfoS("resource keys not found in cache, stopping watch", "resourceKeys", resourceKeySet.List())
 		return
 	}
 
@@ -255,12 +254,12 @@ func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
 			select {
 			case <-in.ctx.Done():
 				if in.ctx.Err() != nil {
-					log.Logger.Errorf("status watcher context error %v", in.ctx.Err())
+					klog.Errorf("status watcher context error %v", in.ctx.Err())
 				}
 				return
 			case e, ok := <-ch:
 				if !ok {
-					log.Logger.Error("status watcher event channel closed")
+					klog.Error("status watcher event channel closed")
 					in.watch(resourceKeySet)
 					return
 				}

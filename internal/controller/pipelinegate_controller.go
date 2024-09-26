@@ -22,9 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,17 +31,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 // PipelineGateReconciler reconciles a PipelineGate object
 type PipelineGateReconciler struct {
-	client.Client
+	runtimeclient.Client
 	ConsoleClient consoleclient.Client
-	GateCache     *consoleclient.Cache[console.PipelineGateFragment]
 	Scheme        *runtime.Scheme
-	Log           logr.Logger
+	GateCache     *consoleclient.Cache[console.PipelineGateFragment]
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates,verbs=get;list;watch;create;update;patch;delete
@@ -133,7 +134,7 @@ func (r *PipelineGateReconciler) cleanUpGate(ctx context.Context, crGate *v1alph
 func (r *PipelineGateReconciler) killJob(ctx context.Context, job *batchv1.Job) error {
 	log := log.FromContext(ctx)
 	deletePolicy := metav1.DeletePropagationBackground // kill the job and its pods asap
-	if err := r.Delete(ctx, job, &client.DeleteOptions{
+	if err := r.Delete(ctx, job, &runtimeclient.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}); err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -283,7 +284,7 @@ func hasSucceeded(job *batchv1.Job) bool {
 }
 
 // Job reconciles a k8s job object.
-func Job(ctx context.Context, r client.Client, job *batchv1.Job, log logr.Logger) (*batchv1.Job, error) {
+func Job(ctx context.Context, r runtimeclient.Client, job *batchv1.Job, log logr.Logger) (*batchv1.Job, error) {
 	foundJob := &batchv1.Job{}
 	if err := r.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {

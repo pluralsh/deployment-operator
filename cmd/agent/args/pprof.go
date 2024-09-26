@@ -4,17 +4,17 @@ import (
 	"net/http"
 	"net/http/pprof"
 
-	"github.com/pluralsh/deployment-operator/pkg/log"
+	"k8s.io/klog/v2"
 )
 
 func initProfiler() {
-	log.Logger.Info("initializing profiler")
+	klog.Info("initializing profiler")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(defaultProfilerPath, pprof.Index)
 	go func() {
 		if err := http.ListenAndServe(defaultProfilerAddress, mux); err != nil {
-			log.Logger.Fatal(err)
+			klog.Fatal(err)
 		}
 	}()
 }

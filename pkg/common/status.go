@@ -5,11 +5,11 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
 	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
-	dlog "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
@@ -49,7 +49,7 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 func ToStatus(obj *unstructured.Unstructured) *console.ComponentState {
 	h, err := GetResourceHealth(obj)
 	if err != nil {
-		dlog.Logger.Error(err, "Failed to get resource health status", "name", obj.GetName(), "namespace", obj.GetNamespace())
+		klog.ErrorS(err, "failed to get resource health status", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	}
 	if h == nil {
 		return nil
