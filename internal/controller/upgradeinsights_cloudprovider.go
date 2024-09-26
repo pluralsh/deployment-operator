@@ -146,7 +146,7 @@ func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.
 func (in *EKSCloudProvider) config(ctx context.Context, ui v1alpha1.UpgradeInsights) (aws.Config, error) {
 	// If credentials are not provided in the request, then use default credentials.
 	if ui.Spec.Credentials == nil || ui.Spec.Credentials.AWS == nil {
-		return awsconfig.LoadDefaultConfig(ctx, awsconfig.WithDefaultsMode(aws.DefaultsModeAuto))
+		return awsconfig.LoadDefaultConfig(ctx, awsconfig.WithEC2IMDSRegion())
 	}
 
 	// Otherwise use provided credentials.
