@@ -6,3 +6,6 @@ packages:
   github.com/pluralsh/deployment-operator/pkg/client:
     interfaces:
       Client:
+  k8s.io/client-go/discovery:
+    interfaces:
+      DiscoveryInterface:

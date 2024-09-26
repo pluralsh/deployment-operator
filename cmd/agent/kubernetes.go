@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -85,10 +87,12 @@ func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clie
 }
 
 func registerKubeReconcilersOrDie(
+	ctx context.Context,
 	manager ctrl.Manager,
 	consoleManager *consolectrl.Manager,
 	config *rest.Config,
 	extConsoleClient consoleclient.Client,
+	discoveryClient discovery.DiscoveryInterface,
 ) {
 	rolloutsClient, dynamicClient, kubeClient := initKubeClientsOrDie(config)
 
@@ -207,5 +211,13 @@ func registerKubeReconcilersOrDie(
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Group")
 		os.Exit(1)
+	}
+
+	if err := (&controller.MetricsAggregateReconciler{
+		Client:          manager.GetClient(),
+		Scheme:          manager.GetScheme(),
+		DiscoveryClient: discoveryClient,
+	}).SetupWithManager(ctx, manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
 }

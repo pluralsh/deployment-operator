@@ -42,7 +42,6 @@ require (
 	github.com/yuin/gopher-lua v1.1.1
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
-	golang.org/x/net v0.29.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.16.1
 	k8s.io/api v0.31.1
@@ -52,6 +51,7 @@ require (
 	k8s.io/client-go v0.31.1
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.31.1
+	k8s.io/metrics v0.31.1
 	k8s.io/utils v0.0.0-20240902221715-702e33fdd3c3
 	layeh.com/gopher-luar v1.0.11
 	sigs.k8s.io/cli-utils v0.37.2
@@ -356,6 +356,7 @@ require (
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20240314144324-c7f7c6466f7f // indirect
 	golang.org/x/mod v0.21.0 // indirect
+	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
