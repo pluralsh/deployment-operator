@@ -125,6 +125,17 @@ func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *cons
 	return nil
 }
 
+func (in *EKSCloudProvider) fromClientStats(stats []types.ClientStat) *console.UpgradeInsightStatus {
+	const failedAfterDuration = int64(24 * time.Hour)
+	for _, stat := range stats {
+		if stat.LastRequestTime != nil && time.Now().Sub(*stat.LastRequestTime).Milliseconds() < failedAfterDuration {
+			return lo.ToPtr(console.UpgradeInsightStatusFailed)
+		}
+	}
+
+	return lo.ToPtr(console.UpgradeInsightStatusPassing)
+}
+
 func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.UpgradeInsightDetailAttributes {
 	if insight.CategorySpecificSummary == nil {
 		return nil
@@ -137,6 +148,7 @@ func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.
 			Replacement: r.ReplacedWith,
 			ReplacedIn:  r.StartServingReplacementVersion,
 			RemovedIn:   r.StopServingVersion,
+			Status:      in.fromClientStats(r.ClientStats),
 		})
 	}
 
