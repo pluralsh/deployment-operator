@@ -59,13 +59,6 @@ var _ = Describe("Customhealt Controller", Ordered, func() {
 
 		It("should successfully reconcile resource", func() {
 			By("Reconciling the import resource")
-			_ = struct {
-				expectedStatus v1alpha1.CustomHealthStatus
-			}{
-				expectedStatus: v1alpha1.CustomHealthStatus{
-					Conditions: []metav1.Condition{},
-				},
-			}
 			reconciler := &CustomHealthReconciler{
 				Client: kClient,
 				Scheme: kClient.Scheme(),

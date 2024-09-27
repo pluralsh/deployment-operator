@@ -77,7 +77,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	scope, err := NewPipelineGateScope(ctx, r.Client, crGate)
+	scope, err := NewDefaultScope(ctx, r.Client, crGate)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -223,7 +223,7 @@ func (r *PipelineGateReconciler) updateJob(ctx context.Context, reconciledJob *b
 		reconciledJob.Spec.Template.Annotations[k] = v
 	}
 
-	jobScope, err := NewJobScope(ctx, r.Client, reconciledJob)
+	jobScope, err := NewDefaultScope(ctx, r.Client, reconciledJob)
 	if err != nil {
 		return err
 	}
