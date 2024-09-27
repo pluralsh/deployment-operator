@@ -128,7 +128,7 @@ func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *cons
 func (in *EKSCloudProvider) fromClientStats(stats []types.ClientStat) *console.UpgradeInsightStatus {
 	const failedBeforeDuration = 24.0 // in hours
 	for _, stat := range stats {
-		if stat.LastRequestTime != nil && time.Now().Sub(*stat.LastRequestTime).Hours() < failedBeforeDuration {
+		if stat.LastRequestTime != nil && time.Since(*stat.LastRequestTime).Hours() < failedBeforeDuration {
 			return lo.ToPtr(console.UpgradeInsightStatusFailed)
 		}
 	}
