@@ -182,6 +182,10 @@ crd-ref-docs: --tool
 controller-gen: TOOL = controller-gen
 controller-gen: --tool
 
+.PHONY: discovery
+discovery: TOOL = discovery
+discovery: --tool
+
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
