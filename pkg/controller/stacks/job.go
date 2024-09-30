@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -15,9 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/pluralsh/deployment-operator/internal/metrics"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const (
@@ -82,6 +81,10 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 	foundJob := &batchv1.Job{}
 	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {
+			return nil, err
+		}
+
+		if _, err = r.upsertRunSecret(ctx); err != nil {
 			return nil, err
 		}
 
