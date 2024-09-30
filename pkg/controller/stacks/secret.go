@@ -3,7 +3,6 @@ package stacks
 import (
 	"context"
 
-	"github.com/pluralsh/deployment-operator/cmd/harness/args"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,18 +12,20 @@ import (
 
 const (
 	jobRunSecretName = "job-run-env"
+	envConsoleUrl    = "CONSOLE_URL"
+	envConsoleToken  = "CONSOLE_TOKEN"
 )
 
 func (r *StackReconciler) getRunSecretData() map[string]string {
 	return map[string]string{
-		args.EnvConsoleUrl:   r.consoleURL,
-		args.EnvConsoleToken: r.deployToken,
+		envConsoleUrl:   r.consoleURL,
+		envConsoleToken: r.deployToken,
 	}
 }
 
 func (r *StackReconciler) hasRunSecretData(data map[string][]byte) bool {
-	token, hasToken := data[args.EnvConsoleToken]
-	url, hasUrl := data[args.EnvConsoleUrl]
+	token, hasToken := data[envConsoleToken]
+	url, hasUrl := data[envConsoleUrl]
 	return hasToken && hasUrl && string(token) == r.deployToken && string(url) == r.consoleURL
 }
 
