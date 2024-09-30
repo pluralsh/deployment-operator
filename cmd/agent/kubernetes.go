@@ -9,6 +9,12 @@ import (
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -16,17 +22,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
-
-	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
-	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 func initKubeManagerOrDie(config *rest.Config) manager.Manager {
@@ -64,7 +64,7 @@ func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	return mgr
 }
 
-func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clientset, dynamicClient *dynamic.DynamicClient, kubeClient *kubernetes.Clientset) {
+func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clientset, dynamicClient *dynamic.DynamicClient, kubeClient *kubernetes.Clientset, metricsClient metricsclientset.Interface) {
 	rolloutsClient, err := roclientset.NewForConfig(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create rollouts client")
@@ -83,7 +83,13 @@ func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clie
 		os.Exit(1)
 	}
 
-	return rolloutsClient, dynamicClient, kubeClient
+	metricsClient, err = metricsclientset.NewForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create metrics client")
+		os.Exit(1)
+	}
+
+	return rolloutsClient, dynamicClient, kubeClient, metricsClient
 }
 
 func registerKubeReconcilersOrDie(
@@ -94,7 +100,8 @@ func registerKubeReconcilersOrDie(
 	extConsoleClient consoleclient.Client,
 	discoveryClient discovery.DiscoveryInterface,
 ) {
-	rolloutsClient, dynamicClient, kubeClient := initKubeClientsOrDie(config)
+
+	rolloutsClient, dynamicClient, kubeClient, metricsClient := initKubeClientsOrDie(config)
 
 	backupController := &controller.BackupReconciler{
 		Client:        manager.GetClient(),
@@ -217,6 +224,7 @@ func registerKubeReconcilersOrDie(
 		Client:          manager.GetClient(),
 		Scheme:          manager.GetScheme(),
 		DiscoveryClient: discoveryClient,
+		MetricsClient:   metricsClient,
 	}).SetupWithManager(ctx, manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}

@@ -13,16 +13,14 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
-	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -39,7 +37,6 @@ func init() {
 	utilruntime.Must(constraintstatusv1beta1.AddToScheme(scheme))
 	utilruntime.Must(templatesv1.AddToScheme(scheme))
 	utilruntime.Must(rolloutv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(metricsv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
