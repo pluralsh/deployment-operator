@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	jobRunSecretName = "job-run-secret"
+	jobRunSecretName = "job-run-env"
 )
 
 func (r *StackReconciler) getRunSecretData() map[string]string {
