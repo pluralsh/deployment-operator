@@ -12,8 +12,8 @@ import (
 
 const (
 	jobRunSecretName = "job-run-env"
-	envConsoleUrl    = "CONSOLE_URL"
-	envConsoleToken  = "CONSOLE_TOKEN"
+	envConsoleUrl    = "PLRL_CONSOLE_URL"
+	envConsoleToken  = "PLRL_CONSOLE_TOKEN"
 )
 
 func (r *StackReconciler) getRunSecretData() map[string]string {
