@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -15,9 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/pluralsh/deployment-operator/internal/metrics"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const (
@@ -82,6 +81,10 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 	foundJob := &batchv1.Job{}
 	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {
+			return nil, err
+		}
+
+		if _, err = r.upsertRunSecret(ctx); err != nil {
 			return nil, err
 		}
 
@@ -208,6 +211,8 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 
 		containers[index].Args = r.getDefaultContainerArgs(run.ID)
 
+		containers[index].EnvFrom = r.getDefaultContainerEnvFrom()
+
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
 	}
 	return containers
@@ -224,6 +229,7 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) cor
 		},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		Env:             make([]corev1.EnvVar, 0),
+		EnvFrom:         r.getDefaultContainerEnvFrom(),
 	}
 }
 
@@ -293,12 +299,20 @@ func (r *StackReconciler) getTag(run *console.StackRunFragment) string {
 	return defaultImageTag
 }
 
-func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
-	return []string{
-		fmt.Sprintf("--console-url=%s", r.consoleURL),
-		fmt.Sprintf("--console-token=%s", r.deployToken),
-		fmt.Sprintf("--stack-run-id=%s", runID),
+func (r *StackReconciler) getDefaultContainerEnvFrom() []corev1.EnvFromSource {
+	return []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: jobRunSecretName,
+				},
+			},
+		},
 	}
+}
+
+func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
+	return []string{fmt.Sprintf("--stack-run-id=%s", runID)}
 }
 
 func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount {
