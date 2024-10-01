@@ -53,7 +53,7 @@ func (r *StackReconciler) upsertRunSecret(ctx context.Context) (*corev1.Secret, 
 		return secret, nil
 	}
 
-	if r.hasRunSecretData(secret.Data) {
+	if !r.hasRunSecretData(secret.Data) {
 		logger.V(2).Info("updating secret", "namespace", secret.Namespace, "name", secret.Name)
 		secret.StringData = r.getRunSecretData()
 		if err := r.k8sClient.Update(ctx, secret); err != nil {
