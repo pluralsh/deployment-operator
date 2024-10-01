@@ -156,28 +156,55 @@ func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.
 }
 
 func (in *EKSCloudProvider) config(ctx context.Context, ui v1alpha1.UpgradeInsights) (aws.Config, error) {
-	// If credentials are not provided in the request, then use default credentials.
-	if ui.Spec.Credentials == nil || ui.Spec.Credentials.AWS == nil {
-		return awsconfig.LoadDefaultConfig(ctx, awsconfig.WithEC2IMDSRegion())
+	options := []func(*awsconfig.LoadOptions) error{awsconfig.WithEC2IMDSRegion()}
+
+	if in.hasAccessKeys(ui) {
+		options = append(options, in.withCredentials(ctx, ui))
 	}
 
-	// Otherwise use provided credentials.
+	if in.hasRegion(ui) {
+		options = append(options, in.withRegion(ui))
+	}
+
+	return awsconfig.LoadDefaultConfig(ctx, options...)
+}
+
+func (in *EKSCloudProvider) hasCredentials(ui v1alpha1.UpgradeInsights) bool {
+	return ui.Spec.Credentials != nil && ui.Spec.Credentials.AWS != nil
+}
+
+func (in *EKSCloudProvider) hasAccessKeys(ui v1alpha1.UpgradeInsights) bool {
+	return in.hasCredentials(ui) &&
+		ui.Spec.Credentials.AWS.SecretAccessKeyRef != nil &&
+		ui.Spec.Credentials.AWS.AccessKeyID != nil
+}
+
+func (in *EKSCloudProvider) hasRegion(ui v1alpha1.UpgradeInsights) bool {
+	return in.hasCredentials(ui) && len(ui.Spec.Credentials.AWS.Region) > 0
+}
+
+func (in *EKSCloudProvider) withCredentials(ctx context.Context, ui v1alpha1.UpgradeInsights) awsconfig.LoadOptionsFunc {
 	credentials := ui.Spec.Credentials.AWS
-	secretAccessKey, err := in.handleSecretAccessKeyRef(ctx, ui.Spec.Credentials.AWS.SecretAccessKeyRef, ui.Namespace)
-	if err != nil {
-		return aws.Config{}, err
+	return func(options *awsconfig.LoadOptions) error {
+		secretAccessKey, err := in.handleSecretAccessKeyRef(ctx, *credentials.SecretAccessKeyRef, ui.Namespace)
+		if err != nil {
+			return err
+		}
+
+		options.Credentials = awscredentials.NewStaticCredentialsProvider(
+			*credentials.AccessKeyID,
+			secretAccessKey,
+			"",
+		)
+		return nil
 	}
+}
 
-	config, err := awsconfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return aws.Config{}, err
+func (in *EKSCloudProvider) withRegion(ui v1alpha1.UpgradeInsights) awsconfig.LoadOptionsFunc {
+	return func(options *awsconfig.LoadOptions) error {
+		options.Region = ui.Spec.Credentials.AWS.Region
+		return nil
 	}
-
-	config.Region = credentials.Region
-	config.Credentials = awscredentials.NewStaticCredentialsProvider(
-		credentials.AccessKeyID, secretAccessKey, "")
-
-	return config, nil
 }
 
 func (in *EKSCloudProvider) handleSecretAccessKeyRef(ctx context.Context, ref corev1.SecretReference, namespace string) (string, error) {
