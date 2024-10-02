@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -94,7 +96,10 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 			return nil, err
 		}
 
-		job := r.GenerateRunJob(run, jobSpec, name, namespace)
+		job, err := r.GenerateRunJob(run, jobSpec, name, namespace)
+		if err != nil {
+			return nil, err
+		}
 		logger.V(2).Info("creating job for stack run", "id", run.ID, "namespace", job.Namespace, "name", job.Name)
 		if err := r.k8sClient.Create(ctx, job); err != nil {
 			logger.Error(err, "unable to create job")
@@ -141,7 +146,8 @@ func (r *StackReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (nam
 	return
 }
 
-func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, jobSpec *batchv1.JobSpec, name, namespace string) *batchv1.Job {
+func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, jobSpec *batchv1.JobSpec, name, namespace string) (*batchv1.Job, error) {
+	var err error
 	// If user-defined job spec was not available initialize it here.
 	if jobSpec == nil {
 		jobSpec = &batchv1.JobSpec{}
@@ -163,6 +169,11 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, jobSpec 
 
 	jobSpec.Template.Spec.Containers = r.ensureDefaultContainer(jobSpec.Template.Spec.Containers, run)
 
+	jobSpec.Template.Spec.Containers, err = r.ensureDefaultContainerResourcesRequests(jobSpec.Template.Spec.Containers, run)
+	if err != nil {
+		return nil, err
+	}
+
 	jobSpec.Template.Spec.Volumes = ensureDefaultVolumes(jobSpec.Template.Spec.Volumes)
 
 	jobSpec.Template.Spec.SecurityContext = ensureDefaultPodSecurityContext(jobSpec.Template.Spec.SecurityContext)
@@ -175,7 +186,7 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, jobSpec 
 			Labels:      map[string]string{jobSelector: name},
 		},
 		Spec: *jobSpec,
-	}
+	}, nil
 }
 
 func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batchv1.JobSpec {
@@ -377,4 +388,56 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
 	}
+}
+
+func (r *StackReconciler) ensureDefaultContainerResourcesRequests(containers []corev1.Container, run *console.StackRunFragment) ([]corev1.Container, error) {
+	if run.JobSpec == nil || run.JobSpec.Requests == nil {
+		return containers, nil
+	}
+	if run.JobSpec.Requests.Requests == nil && run.JobSpec.Requests.Limits == nil {
+		return containers, nil
+	}
+
+	for i, container := range containers {
+		if run.JobSpec.Requests.Requests != nil {
+			if len(container.Resources.Requests) == 0 {
+				containers[i].Resources.Requests = map[corev1.ResourceName]resource.Quantity{}
+			}
+			if run.JobSpec.Requests.Requests.CPU != nil {
+				cpu, err := resource.ParseQuantity(*run.JobSpec.Requests.Requests.CPU)
+				if err != nil {
+					return nil, err
+				}
+				containers[i].Resources.Requests[corev1.ResourceCPU] = cpu
+			}
+			if run.JobSpec.Requests.Requests.Memory != nil {
+				memory, err := resource.ParseQuantity(*run.JobSpec.Requests.Requests.Memory)
+				if err != nil {
+					return nil, err
+				}
+				containers[i].Resources.Requests[corev1.ResourceMemory] = memory
+			}
+		}
+		if run.JobSpec.Requests.Limits != nil {
+			if len(container.Resources.Limits) == 0 {
+				containers[i].Resources.Limits = map[corev1.ResourceName]resource.Quantity{}
+			}
+			if run.JobSpec.Requests.Limits.CPU != nil {
+				cpu, err := resource.ParseQuantity(*run.JobSpec.Requests.Limits.CPU)
+				if err != nil {
+					return nil, err
+				}
+				containers[i].Resources.Limits[corev1.ResourceCPU] = cpu
+			}
+			if run.JobSpec.Requests.Limits.Memory != nil {
+				memory, err := resource.ParseQuantity(*run.JobSpec.Requests.Limits.Memory)
+				if err != nil {
+					return nil, err
+				}
+				containers[i].Resources.Limits[corev1.ResourceMemory] = memory
+			}
+		}
+	}
+
+	return containers, nil
 }
