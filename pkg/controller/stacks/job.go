@@ -8,6 +8,7 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
@@ -88,7 +89,8 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 			return nil, err
 		}
 
-		if _, err = r.upsertRunSecret(ctx, name, namespace, run.ID); err != nil {
+		secret, err := r.upsertRunSecret(ctx, name, namespace, run.ID)
+		if err != nil {
 			return nil, err
 		}
 
@@ -96,6 +98,11 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 		logger.V(2).Info("creating job for stack run", "id", run.ID, "namespace", job.Namespace, "name", job.Name)
 		if err := r.k8sClient.Create(ctx, job); err != nil {
 			logger.Error(err, "unable to create job")
+			return nil, err
+		}
+
+		if err := utils.TryAddOwnerRef(ctx, r.k8sClient, job, secret, r.scheme); err != nil {
+			logger.Error(err, "error setting owner reference for job secret")
 			return nil, err
 		}
 
@@ -112,8 +119,8 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 
 		return job, nil
 	}
-	return foundJob, nil
 
+	return foundJob, nil
 }
 
 // GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
