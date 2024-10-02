@@ -1,8 +1,14 @@
 package stacks
 
 import (
+	"fmt"
 	"testing"
 	"time"
+
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -102,4 +108,170 @@ func TestGetDefaultContainerImage(t *testing.T) {
 			assert.Equal(t, img, test.expectedImage)
 		})
 	}
+}
+
+func TestGenerateRunJob(t *testing.T) {
+	var kClient client.Client
+	fakeConsoleClient := mocks.NewClientMock(t)
+	namespace := "default"
+	runID := "1"
+	reconciler := NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
+	cases := []struct {
+		name            string
+		run             *console.StackRunFragment
+		expectedJobSpec batchv1.JobSpec
+	}{
+		{
+			name: "use_empty_job_spec",
+			run: &console.StackRunFragment{
+				ID:            runID,
+				Type:          console.StackTypeTerraform,
+				Configuration: console.StackConfigurationFragment{},
+			},
+			expectedJobSpec: func() batchv1.JobSpec {
+				js := genDefaultJobSpec(namespace, "use_empty_job_spec", runID)
+				js.Template.Labels = nil
+				return js
+			}(),
+		},
+		{
+			name: "use_defaults",
+			run: &console.StackRunFragment{
+				ID:            runID,
+				Type:          console.StackTypeTerraform,
+				Configuration: console.StackConfigurationFragment{},
+				JobSpec: &console.JobSpecFragment{
+					Namespace: namespace,
+				},
+			},
+			expectedJobSpec: genDefaultJobSpec(namespace, "use_defaults", runID),
+		},
+		{
+			name: "add_labels",
+			run: &console.StackRunFragment{
+				ID:            runID,
+				Type:          console.StackTypeTerraform,
+				Configuration: console.StackConfigurationFragment{},
+				JobSpec: &console.JobSpecFragment{
+					Namespace: namespace,
+					Labels: map[string]interface{}{
+						"test": "test",
+					},
+				},
+			},
+			expectedJobSpec: func() batchv1.JobSpec {
+				js := genDefaultJobSpec(namespace, "add_labels", runID)
+				js.Template.Labels = map[string]string{
+					"test": "test",
+				}
+				return js
+			}(),
+		},
+		{
+			name: "add_sa",
+			run: &console.StackRunFragment{
+				ID:            runID,
+				Type:          console.StackTypeTerraform,
+				Configuration: console.StackConfigurationFragment{},
+				JobSpec: &console.JobSpecFragment{
+					Namespace:      namespace,
+					ServiceAccount: lo.ToPtr("default"),
+				},
+			},
+			expectedJobSpec: func() batchv1.JobSpec {
+				js := genDefaultJobSpec(namespace, "add_sa", runID)
+				js.Template.Spec.ServiceAccountName = "default"
+				return js
+			}(),
+		},
+		{
+			name: "add_resources",
+			run: &console.StackRunFragment{
+				ID:            runID,
+				Type:          console.StackTypeTerraform,
+				Configuration: console.StackConfigurationFragment{},
+				JobSpec: &console.JobSpecFragment{
+					Namespace: namespace,
+					Requests: &console.ContainerResourcesFragment{
+						Requests: &console.ResourceRequestFragment{
+							CPU: lo.ToPtr("2Mi"),
+						},
+						Limits: &console.ResourceRequestFragment{
+							Memory: lo.ToPtr("2M"),
+						},
+					},
+				},
+			},
+			expectedJobSpec: func() batchv1.JobSpec {
+				js := genDefaultJobSpec(namespace, "add_resources", runID)
+				js.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU: resource.MustParse("2Mi"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("2M"),
+					},
+				}
+				return js
+			}(),
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			name := GetRunResourceName(test.run)
+			jobSpec := getRunJobSpec(name, test.run.JobSpec)
+			job, err := reconciler.GenerateRunJob(test.run, jobSpec, test.name, namespace)
+			assert.Nil(t, err)
+			assert.NotNil(t, job)
+			assert.Equal(t, test.expectedJobSpec, job.Spec)
+		})
+	}
+}
+
+func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
+	return batchv1.JobSpec{
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Namespace:   namespace,
+				Labels:      map[string]string{},
+				Annotations: map[string]string{podDefaultContainerAnnotation: DefaultJobContainer},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:       "default",
+						Image:      "ghcr.io/pluralsh/harness:0.4.29-terraform-1.8.2",
+						WorkingDir: "",
+						EnvFrom: []corev1.EnvFromSource{
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: fmt.Sprintf("stack-%s", runID),
+									},
+								},
+							},
+						},
+						Env:                      make([]corev1.EnvVar, 0),
+						Resources:                corev1.ResourceRequirements{},
+						VolumeMounts:             ensureDefaultVolumeMounts(nil),
+						TerminationMessagePath:   "",
+						TerminationMessagePolicy: "",
+						ImagePullPolicy:          "",
+						SecurityContext:          ensureDefaultContainerSecurityContext(nil),
+						Stdin:                    false,
+						StdinOnce:                false,
+						TTY:                      false,
+					},
+				},
+				RestartPolicy:   corev1.RestartPolicyNever,
+				Volumes:         ensureDefaultVolumes(nil),
+				SecurityContext: ensureDefaultPodSecurityContext(nil),
+			},
+		},
+		TTLSecondsAfterFinished: lo.ToPtr(int32(60 * 60)),
+		BackoffLimit:            lo.ToPtr(int32(0)),
+	}
+
 }
