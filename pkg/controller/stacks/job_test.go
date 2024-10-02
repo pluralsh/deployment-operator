@@ -19,6 +19,8 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
+const defaultName = "default"
+
 func TestGetDefaultContainerImage(t *testing.T) {
 	var kClient client.Client
 	fakeConsoleClient := mocks.NewClientMock(t)
@@ -113,7 +115,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 func TestGenerateRunJob(t *testing.T) {
 	var kClient client.Client
 	fakeConsoleClient := mocks.NewClientMock(t)
-	namespace := "default"
+	namespace := defaultName
 	runID := "1"
 	reconciler := NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 	cases := []struct {
@@ -175,12 +177,12 @@ func TestGenerateRunJob(t *testing.T) {
 				Configuration: console.StackConfigurationFragment{},
 				JobSpec: &console.JobSpecFragment{
 					Namespace:      namespace,
-					ServiceAccount: lo.ToPtr("default"),
+					ServiceAccount: lo.ToPtr(defaultName),
 				},
 			},
 			expectedJobSpec: func() batchv1.JobSpec {
 				js := genDefaultJobSpec(namespace, "add_sa", runID)
-				js.Template.Spec.ServiceAccountName = "default"
+				js.Template.Spec.ServiceAccountName = defaultName
 				return js
 			}(),
 		},
@@ -241,7 +243,7 @@ func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:       "default",
+						Name:       defaultName,
 						Image:      "ghcr.io/pluralsh/harness:0.4.29-terraform-1.8.2",
 						WorkingDir: "",
 						EnvFrom: []corev1.EnvFromSource{
