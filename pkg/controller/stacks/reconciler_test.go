@@ -124,7 +124,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			job := &batchv1.Job{}
-			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunResourceName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0)))
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
 			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(2))
@@ -163,7 +163,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			job := &batchv1.Job{}
-			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunResourceName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0)))
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(3))
 			Expect(job.Spec.Template.ObjectMeta.Labels).To(ContainElement(labelsValue))
@@ -219,7 +219,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			job := &batchv1.Job{}
-			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunResourceName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(*job.Spec.ActiveDeadlineSeconds).To(Equal(*jobSpec.ActiveDeadlineSeconds))
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0))) // Overridden by controller.
 			Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(jobSpec.Template.Spec.ServiceAccountName))

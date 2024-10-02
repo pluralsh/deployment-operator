@@ -11,9 +11,8 @@ import (
 )
 
 const (
-	jobRunSecretName = "job-run-env"
-	envConsoleUrl    = "PLRL_CONSOLE_URL"
-	envConsoleToken  = "PLRL_CONSOLE_TOKEN"
+	envConsoleUrl   = "PLRL_CONSOLE_URL"
+	envConsoleToken = "PLRL_CONSOLE_TOKEN"
 )
 
 func (r *StackReconciler) getRunSecretData() map[string]string {
@@ -29,18 +28,18 @@ func (r *StackReconciler) hasRunSecretData(data map[string][]byte) bool {
 	return hasToken && hasUrl && string(token) == r.deployToken && string(url) == r.consoleURL
 }
 
-func (r *StackReconciler) upsertRunSecret(ctx context.Context) (*corev1.Secret, error) {
+func (r *StackReconciler) upsertRunSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error) {
 	logger := log.FromContext(ctx)
 	secret := &corev1.Secret{}
 
-	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: jobRunSecretName, Namespace: r.namespace}, secret); err != nil {
+	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
 
-		logger.V(2).Info("generating secret", "namespace", r.namespace, "name", jobRunSecretName)
+		logger.V(2).Info("generating run job secret", "namespace", namespace, "name", name)
 		secret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: jobRunSecretName, Namespace: r.namespace},
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 			StringData: r.getRunSecretData(),
 		}
 
@@ -63,5 +62,4 @@ func (r *StackReconciler) upsertRunSecret(ctx context.Context) (*corev1.Secret, 
 	}
 
 	return secret, nil
-
 }
