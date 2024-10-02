@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/discovery"
 	metricsapi "k8s.io/metrics/pkg/apis/metrics"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,6 +35,7 @@ type MetricsAggregateReconciler struct {
 	k8sClient.Client
 	Scheme          *runtime.Scheme
 	DiscoveryClient discovery.DiscoveryInterface
+	MetricsClient   metricsclientset.Interface
 }
 
 // Reconcile IngressReplica ensure that stays in sync with Kubernetes cluster.
@@ -94,8 +96,8 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	nodeDeploymentNodesMetrics := make([]v1beta1.NodeMetrics, 0)
-	allNodeMetricsList := &v1beta1.NodeMetricsList{}
-	if err := r.List(ctx, allNodeMetricsList); err != nil {
+	allNodeMetricsList, err := r.MetricsClient.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{})
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -126,12 +128,12 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	utils.MarkCondition(metrics.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 
-	return requeue(requeueAfter, jitter), reterr
+	return requeue(time.Second*5, jitter), reterr
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MetricsAggregateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	debounceReconciler := NewDebounceReconciler(mgr.GetClient(), debounceDuration, r)
+	debounceReconciler := NewDebounceReconciler(mgr.GetClient(), time.Second*10, r)
 	debounceReconciler.Start(ctx)
 
 	return ctrl.NewControllerManagedBy(mgr).

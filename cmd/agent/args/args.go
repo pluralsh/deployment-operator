@@ -266,6 +266,6 @@ func ResourceCacheEnabled() bool {
 func ensureOrDie(argName string, arg *string) {
 	if arg == nil || len(*arg) == 0 {
 		pflag.PrintDefaults()
-		panic(fmt.Sprintf("%s arg is rquired", argName))
+		panic(fmt.Sprintf("%s arg is required", argName))
 	}
 }

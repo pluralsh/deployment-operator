@@ -10,6 +10,7 @@ import (
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/client-go/rest"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,6 +50,7 @@ func registerConsoleReconcilersOrDie(
 	mgr *controller.Manager,
 	config *rest.Config,
 	k8sClient ctrclient.Client,
+	scheme *runtime.Scheme,
 	consoleClient client.Client,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
@@ -78,7 +80,7 @@ func registerConsoleReconcilersOrDie(
 			os.Exit(1)
 		}
 
-		r := stacks.NewStackReconciler(consoleClient, k8sClient, args.ControllerCacheTTL(), stacksPollInterval, namespace, args.ConsoleUrl(), args.DeployToken())
+		r := stacks.NewStackReconciler(consoleClient, k8sClient, scheme, args.ControllerCacheTTL(), stacksPollInterval, namespace, args.ConsoleUrl(), args.DeployToken())
 		return r, nil
 	})
 }

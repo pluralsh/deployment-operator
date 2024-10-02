@@ -108,8 +108,8 @@ type AWSProviderCredentials struct {
 	Region string `json:"region"`
 
 	// AccessKeyID is your access key ID used to authenticate against AWS API.
-	// +kubebuilder:validation:Required
-	AccessKeyID string `json:"accessKeyID"`
+	// +kubebuilder:validation:Optional
+	AccessKeyID *string `json:"accessKeyID,omitempty"`
 
 	// SecretAccessKeyRef is a reference to the secret that contains secret access key.
 	// Since UpgradeInsights is a cluster-scoped resource we can't use local reference.
@@ -131,6 +131,6 @@ type AWSProviderCredentials struct {
 	//      name: eks-credentials
 	//      namespace: upgrade-insights-test
 	//
-	// +kubebuilder:validation:Required
-	SecretAccessKeyRef corev1.SecretReference `json:"secretAccessKeyRef"`
+	// +kubebuilder:validation:Optional
+	SecretAccessKeyRef *corev1.SecretReference `json:"secretAccessKeyRef,omitempty"`
 }
