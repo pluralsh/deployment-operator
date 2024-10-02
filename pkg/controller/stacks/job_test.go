@@ -7,6 +7,7 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
@@ -16,7 +17,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 	var kClient client.Client
 	fakeConsoleClient := mocks.NewClientMock(t)
 	namespace := "default"
-	reconciler := NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
+	reconciler := NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 	cases := []struct {
 		name          string
 		run           *console.StackRunFragment
