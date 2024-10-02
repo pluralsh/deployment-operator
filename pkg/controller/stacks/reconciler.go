@@ -7,6 +7,7 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -25,6 +26,7 @@ const (
 type StackReconciler struct {
 	consoleClient client.Client
 	k8sClient     ctrlclient.Client
+	scheme        *runtime.Scheme
 	stackQueue    workqueue.TypedRateLimitingInterface[string]
 	stackCache    *client.Cache[console.StackRunFragment]
 	namespace     string
@@ -33,10 +35,11 @@ type StackReconciler struct {
 	pollInterval  time.Duration
 }
 
-func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh, pollInterval time.Duration, namespace, consoleURL, deployToken string) *StackReconciler {
+func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, scheme *runtime.Scheme, refresh, pollInterval time.Duration, namespace, consoleURL, deployToken string) *StackReconciler {
 	return &StackReconciler{
 		consoleClient: consoleClient,
 		k8sClient:     k8sClient,
+		scheme:        scheme,
 		stackQueue:    workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
 		stackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
 			return consoleClient.GetStackRun(id)

@@ -8,6 +8,7 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
@@ -77,23 +78,31 @@ func init() {
 
 func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
-	jobName := GetRunJobName(run)
+
+	name := GetRunResourceName(run)
+	jobSpec := getRunJobSpec(name, run.JobSpec)
+	namespace := r.GetRunResourceNamespace(jobSpec)
+
 	foundJob := &batchv1.Job{}
-	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.namespace}, foundJob); err != nil {
+	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
 
-		if _, err = r.upsertRunSecret(ctx); err != nil {
+		secret, err := r.upsertRunSecret(ctx, name, namespace, run.ID)
+		if err != nil {
 			return nil, err
 		}
 
-		logger.V(2).Info("generating job", "namespace", r.namespace, "name", jobName)
-		job := r.GenerateRunJob(run, jobName)
-
-		logger.V(2).Info("creating job", "namespace", job.Namespace, "name", job.Name)
+		job := r.GenerateRunJob(run, jobSpec, name, namespace)
+		logger.V(2).Info("creating job for stack run", "id", run.ID, "namespace", job.Namespace, "name", job.Name)
 		if err := r.k8sClient.Create(ctx, job); err != nil {
 			logger.Error(err, "unable to create job")
+			return nil, err
+		}
+
+		if err := utils.TryAddOwnerRef(ctx, r.k8sClient, job, secret, r.scheme); err != nil {
+			logger.Error(err, "error setting owner reference for job secret")
 			return nil, err
 		}
 
@@ -110,22 +119,29 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 
 		return job, nil
 	}
-	return foundJob, nil
 
+	return foundJob, nil
 }
 
-func GetRunJobName(run *console.StackRunFragment) string {
+// GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
+func GetRunResourceName(run *console.StackRunFragment) string {
 	return fmt.Sprintf("stack-%s", run.ID)
 }
 
-func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name string) *batchv1.Job {
-	var jobSpec *batchv1.JobSpec
-
-	// Use job spec defined in run as base if it is available.
-	if run.JobSpec != nil {
-		jobSpec = getRunJobSpec(name, run.JobSpec)
+// GetRunResourceNamespace returns a resource namespace used for a job and a secret connected to a given run.
+func (r *StackReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (namespace string) {
+	if jobSpec != nil {
+		namespace = jobSpec.Template.Namespace
 	}
 
+	if namespace == "" {
+		namespace = r.namespace
+	}
+
+	return
+}
+
+func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, jobSpec *batchv1.JobSpec, name, namespace string) *batchv1.Job {
 	// If user-defined job spec was not available initialize it here.
 	if jobSpec == nil {
 		jobSpec = &batchv1.JobSpec{}
@@ -133,15 +149,12 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 
 	// Set requirements like name, namespace, container and volume.
 	jobSpec.Template.ObjectMeta.Name = name
+	jobSpec.Template.ObjectMeta.Namespace = namespace
 
 	if jobSpec.Template.Annotations == nil {
 		jobSpec.Template.Annotations = map[string]string{}
 	}
 	jobSpec.Template.Annotations[podDefaultContainerAnnotation] = DefaultJobContainer
-
-	if jobSpec.Template.ObjectMeta.Namespace == "" {
-		jobSpec.Template.ObjectMeta.Namespace = r.namespace
-	}
 
 	jobSpec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 
@@ -157,7 +170,7 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Namespace:   r.namespace,
+			Namespace:   namespace,
 			Annotations: map[string]string{jobSelector: name},
 			Labels:      map[string]string{jobSelector: name},
 		},
@@ -209,9 +222,7 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 			containers[index].Image = r.getDefaultContainerImage(run)
 		}
 
-		containers[index].Args = r.getDefaultContainerArgs(run.ID)
-
-		containers[index].EnvFrom = r.getDefaultContainerEnvFrom()
+		containers[index].EnvFrom = r.getDefaultContainerEnvFrom(run)
 
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
 	}
@@ -222,14 +233,13 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) cor
 	return corev1.Container{
 		Name:  DefaultJobContainer,
 		Image: r.getDefaultContainerImage(run),
-		Args:  r.getDefaultContainerArgs(run.ID),
 		VolumeMounts: []corev1.VolumeMount{
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
 		},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		Env:             make([]corev1.EnvVar, 0),
-		EnvFrom:         r.getDefaultContainerEnvFrom(),
+		EnvFrom:         r.getDefaultContainerEnvFrom(run),
 	}
 }
 
@@ -299,20 +309,16 @@ func (r *StackReconciler) getTag(run *console.StackRunFragment) string {
 	return defaultImageTag
 }
 
-func (r *StackReconciler) getDefaultContainerEnvFrom() []corev1.EnvFromSource {
+func (r *StackReconciler) getDefaultContainerEnvFrom(run *console.StackRunFragment) []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: jobRunSecretName,
+					Name: GetRunResourceName(run),
 				},
 			},
 		},
 	}
-}
-
-func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
-	return []string{fmt.Sprintf("--stack-run-id=%s", runID)}
 }
 
 func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount {

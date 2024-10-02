@@ -52,6 +52,33 @@ func TryAddControllerRef(ctx context.Context, client ctrlruntimeclient.Client, o
 	})
 }
 
+func TryAddOwnerRef(ctx context.Context, client ctrlruntimeclient.Client, owner ctrlruntimeclient.Object, object ctrlruntimeclient.Object, scheme *runtime.Scheme) error {
+	key := ctrlruntimeclient.ObjectKeyFromObject(object)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := client.Get(ctx, key, object); err != nil {
+			return err
+		}
+
+		if owner.GetDeletionTimestamp() != nil || object.GetDeletionTimestamp() != nil {
+			return nil
+		}
+
+		original := object.DeepCopyObject().(ctrlruntimeclient.Object)
+
+		err := controllerutil.SetOwnerReference(owner, object, scheme)
+		if err != nil {
+			return err
+		}
+
+		if reflect.DeepEqual(original.GetOwnerReferences(), object.GetOwnerReferences()) {
+			return nil
+		}
+
+		return client.Patch(ctx, object, ctrlruntimeclient.MergeFromWithOptions(original, ctrlruntimeclient.MergeFromWithOptimisticLock{}))
+	})
+}
+
 func AsName(val string) string {
 	return strings.ReplaceAll(val, " ", "-")
 }
