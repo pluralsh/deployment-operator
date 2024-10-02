@@ -11,24 +11,28 @@ import (
 )
 
 const (
-	envConsoleUrl   = "PLRL_CONSOLE_URL"
+	envConsoleURL   = "PLRL_CONSOLE_URL"
 	envConsoleToken = "PLRL_CONSOLE_TOKEN"
+	envStackRunID   = "PLRL_STACK_RUN_ID"
 )
 
-func (r *StackReconciler) getRunSecretData() map[string]string {
+func (r *StackReconciler) getRunSecretData(runID string) map[string]string {
 	return map[string]string{
-		envConsoleUrl:   r.consoleURL,
+		envConsoleURL:   r.consoleURL,
 		envConsoleToken: r.deployToken,
+		envStackRunID:   runID,
 	}
 }
 
-func (r *StackReconciler) hasRunSecretData(data map[string][]byte) bool {
+func (r *StackReconciler) hasRunSecretData(data map[string][]byte, runID string) bool {
 	token, hasToken := data[envConsoleToken]
-	url, hasUrl := data[envConsoleUrl]
-	return hasToken && hasUrl && string(token) == r.deployToken && string(url) == r.consoleURL
+	url, hasUrl := data[envConsoleURL]
+	id, hasID := data[envConsoleURL]
+	return hasToken && hasUrl && hasID &&
+		string(token) == r.deployToken && string(url) == r.consoleURL && string(id) == runID
 }
 
-func (r *StackReconciler) upsertRunSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error) {
+func (r *StackReconciler) upsertRunSecret(ctx context.Context, name, namespace, runID string) (*corev1.Secret, error) {
 	logger := log.FromContext(ctx)
 	secret := &corev1.Secret{}
 
@@ -40,7 +44,7 @@ func (r *StackReconciler) upsertRunSecret(ctx context.Context, name, namespace s
 		logger.V(2).Info("generating run job secret", "namespace", namespace, "name", name)
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-			StringData: r.getRunSecretData(),
+			StringData: r.getRunSecretData(runID),
 		}
 
 		logger.V(2).Info("creating secret", "namespace", secret.Namespace, "name", secret.Name)
@@ -52,9 +56,9 @@ func (r *StackReconciler) upsertRunSecret(ctx context.Context, name, namespace s
 		return secret, nil
 	}
 
-	if !r.hasRunSecretData(secret.Data) {
+	if !r.hasRunSecretData(secret.Data, runID) {
 		logger.V(2).Info("updating secret", "namespace", secret.Namespace, "name", secret.Name)
-		secret.StringData = r.getRunSecretData()
+		secret.StringData = r.getRunSecretData(runID)
 		if err := r.k8sClient.Update(ctx, secret); err != nil {
 			logger.Error(err, "unable to update secret")
 			return nil, err

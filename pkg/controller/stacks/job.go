@@ -88,7 +88,7 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 			return nil, err
 		}
 
-		if _, err = r.upsertRunSecret(ctx, name, namespace); err != nil {
+		if _, err = r.upsertRunSecret(ctx, name, namespace, run.ID); err != nil {
 			return nil, err
 		}
 
@@ -215,8 +215,6 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 			containers[index].Image = r.getDefaultContainerImage(run)
 		}
 
-		containers[index].Args = r.getDefaultContainerArgs(run.ID)
-
 		containers[index].EnvFrom = r.getDefaultContainerEnvFrom(run)
 
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
@@ -228,7 +226,6 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) cor
 	return corev1.Container{
 		Name:  DefaultJobContainer,
 		Image: r.getDefaultContainerImage(run),
-		Args:  r.getDefaultContainerArgs(run.ID),
 		VolumeMounts: []corev1.VolumeMount{
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
@@ -315,10 +312,6 @@ func (r *StackReconciler) getDefaultContainerEnvFrom(run *console.StackRunFragme
 			},
 		},
 	}
-}
-
-func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
-	return []string{fmt.Sprintf("--stack-run-id=%s", runID)}
 }
 
 func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount {
