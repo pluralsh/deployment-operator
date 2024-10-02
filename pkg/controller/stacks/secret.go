@@ -34,19 +34,17 @@ func (r *StackReconciler) hasRunSecretData(data map[string][]byte, runID string)
 
 func (r *StackReconciler) upsertRunSecret(ctx context.Context, name, namespace, runID string) (*corev1.Secret, error) {
 	logger := log.FromContext(ctx)
-	secret := &corev1.Secret{}
 
+	secret := &corev1.Secret{}
 	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
 
-		logger.V(2).Info("generating run job secret", "namespace", namespace, "name", name)
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 			StringData: r.getRunSecretData(runID),
 		}
-
 		logger.V(2).Info("creating secret", "namespace", secret.Namespace, "name", secret.Name)
 		if err := r.k8sClient.Create(ctx, secret); err != nil {
 			logger.Error(err, "unable to create secret")
