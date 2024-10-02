@@ -2,6 +2,12 @@ package controller
 
 import (
 	"context"
+	"time"
+
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
+	corev1 "k8s.io/api/core/v1"
+
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -9,17 +15,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
-var _ = Describe("Customhealt Controller", Ordered, func() {
+var _ = Describe("Restore Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
 			resourceName = "default"
 			namespace    = "default"
-			script       = "test script"
 		)
 
 		ctx := context.Background()
@@ -29,19 +31,23 @@ var _ = Describe("Customhealt Controller", Ordered, func() {
 			Namespace: "default",
 		}
 
-		customHealth := &v1alpha1.CustomHealth{}
+		restore := &velerov1.Restore{}
 
 		BeforeAll(func() {
-			By("creating the custom resource for the Kind CustomHealth")
-			err := kClient.Get(ctx, typeNamespacedName, customHealth)
+			By("creating the custom resource for the Kind Restore")
+			err := kClient.Get(ctx, typeNamespacedName, restore)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &v1alpha1.CustomHealth{
+				resource := &velerov1.Restore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: namespace,
 					},
-					Spec: v1alpha1.CustomHealthSpec{
-						Script: script,
+					Spec: velerov1.RestoreSpec{},
+					Status: velerov1.RestoreStatus{
+						Phase: velerov1.RestorePhaseInProgress,
+						StartTimestamp: &metav1.Time{
+							Time: time.Now(),
+						},
 					},
 				}
 				Expect(kClient.Create(ctx, resource)).To(Succeed())
@@ -49,17 +55,16 @@ var _ = Describe("Customhealt Controller", Ordered, func() {
 		})
 
 		AfterAll(func() {
-			resource := &v1alpha1.CustomHealth{}
+			resource := &velerov1.Restore{}
 			err := kClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance CustomHealth")
+			By("Cleanup the specific resource instance Backup")
 			Expect(kClient.Delete(ctx, resource)).To(Succeed())
 		})
 
-		It("should successfully reconcile resource", func() {
-			By("Reconciling the import resource")
-			reconciler := &CustomHealthReconciler{
+		It("should successfully reconcile resource and create config map", func() {
+			reconciler := &RestoreReconciler{
 				Client: kClient,
 				Scheme: kClient.Scheme(),
 			}
@@ -67,9 +72,7 @@ var _ = Describe("Customhealt Controller", Ordered, func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-
-			Expect(common.GetLuaScript().GetValue()).Should(Equal(script))
-
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: service.RestoreConfigMapName, Namespace: namespace}, &corev1.ConfigMap{})).To(Succeed())
 		})
 	})
 
