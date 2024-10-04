@@ -17,16 +17,18 @@ limitations under the License.
 package template
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
 
-	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -39,6 +41,7 @@ import (
 var k8sClient client.Client
 var utilFactory util.Factory
 var testEnv *envtest.Environment
+var discoveryClient *discovery.DiscoveryClient
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -50,6 +53,8 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "test", "crd")},
+		ErrorIfCRDPathMissing: true,
 		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
 			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
@@ -57,10 +62,17 @@ var _ = BeforeSuite(func() {
 	cfg, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
-
+	
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	discoveryClient, err = discovery.NewDiscoveryClientForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient).NotTo(BeNil())
+
+	cache.RunDiscoveryCacheInBackgroundOrDie(context.Background(), discoveryClient)
+
 	utilFactory = cmdtesting.NewTestFactory()
 })
 

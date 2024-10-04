@@ -66,6 +66,14 @@ var _ = Describe("Helm template", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(14))
 		})
+		It("should successfully render Capabilities.APIVersions.Has", func() {
+			dir := filepath.Join("..", "..", "..", "test", "helm", "yet-another-cloudwatch-exporter")
+
+			resp, err := NewHelm(dir).Render(svc, utilFactory)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(resp)).To(Equal(1))
+		})
+
 	})
 
 })
