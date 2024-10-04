@@ -60,7 +60,7 @@ func updateDiscoveryCache(discoveryClient *discovery.DiscoveryClient) error {
 			}
 
 			discoveryCache.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
-			discoveryCache.Set(fmt.Sprintf("%s", gv.String()), true)
+			discoveryCache.Set(gv.String(), true)
 		}
 	}
 
