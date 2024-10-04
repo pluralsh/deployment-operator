@@ -127,7 +127,7 @@ func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *cons
 }
 
 func (in *EKSCloudProvider) fromClientStats(stats []types.ClientStat) *console.UpgradeInsightStatus {
-	const failedBeforeDuration = 24.0 // 24 hours
+	const failedBeforeDuration = 24.0       // 24 hours
 	const warningBeforeDuration = 24.0 * 30 // 30 days
 
 	for _, stat := range stats {
