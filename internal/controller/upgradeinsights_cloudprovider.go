@@ -35,7 +35,7 @@ func (in *EKSCloudProvider) UpgradeInsights(ctx context.Context, ui v1alpha1.Upg
 		return nil, err
 	}
 
-	insights, err := in.listInsights(ctx, client, ui)
+	insights, err := in.listInsights(ctx, client)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (in *EKSCloudProvider) UpgradeInsights(ctx context.Context, ui v1alpha1.Upg
 	}), nil
 }
 
-func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client, ui v1alpha1.UpgradeInsights) ([]*types.Insight, error) {
+func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client) ([]*types.Insight, error) {
 	logger := log.FromContext(ctx)
 	var result []types.InsightSummary
 
@@ -116,8 +116,9 @@ func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *cons
 	case types.InsightStatusValuePassing:
 		return lo.ToPtr(console.UpgradeInsightStatusPassing)
 	case types.InsightStatusValueError:
-	case types.InsightStatusValueWarning:
 		return lo.ToPtr(console.UpgradeInsightStatusFailed)
+	case types.InsightStatusValueWarning:
+		return lo.ToPtr(console.UpgradeInsightStatusWarning)
 	case types.InsightStatusValueUnknown:
 		return lo.ToPtr(console.UpgradeInsightStatusUnknown)
 	}
@@ -126,10 +127,16 @@ func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *cons
 }
 
 func (in *EKSCloudProvider) fromClientStats(stats []types.ClientStat) *console.UpgradeInsightStatus {
-	const failedBeforeDuration = 24.0 // in hours
+	const failedBeforeDuration = 24.0 // 24 hours
+	const warningBeforeDuration = 24.0 * 30 // 30 days
+
 	for _, stat := range stats {
 		if stat.LastRequestTime != nil && time.Since(*stat.LastRequestTime).Hours() < failedBeforeDuration {
 			return lo.ToPtr(console.UpgradeInsightStatusFailed)
+		}
+
+		if stat.LastRequestTime != nil && time.Since(*stat.LastRequestTime).Hours() < warningBeforeDuration {
+			return lo.ToPtr(console.UpgradeInsightStatusWarning)
 		}
 	}
 
