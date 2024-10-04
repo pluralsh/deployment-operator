@@ -168,11 +168,7 @@ func (h *helm) values(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 		}
 	}
 
-	filename := "values.yaml.static"
-	if !fs.Exists(filename) {
-		filename = "values.yaml"
-	}
-	overrides, err := h.valuesFile(svc, filename)
+	overrides, err := h.valuesFile(svc, "values.yaml.static")
 	if err != nil {
 		return currentMap, nil
 	}
