@@ -14,8 +14,6 @@ import (
 )
 
 var _ = Describe("Helm template", func() {
-
-	dir := filepath.Join("..", "..", "..", "charts", "deployment-operator")
 	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
 		Namespace: "default",
 		Name:      "test",
@@ -61,11 +59,14 @@ var _ = Describe("Helm template", func() {
 	})
 
 	Context("Render helm template", func() {
-		It("should successfully render the helm template", func() {
+		It("should successfully render Capabilities.APIVersions.Has", func() {
+			dir := filepath.Join("..", "..", "..", "test", "helm", "yet-another-cloudwatch-exporter")
+
 			resp, err := NewHelm(dir).Render(svc, utilFactory)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(resp)).To(Equal(14))
+			Expect(len(resp)).To(Equal(1))
 		})
+
 	})
 
 })

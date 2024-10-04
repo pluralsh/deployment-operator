@@ -6,12 +6,11 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
-
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/internal/metrics"
 )
 
 var (
@@ -61,6 +60,7 @@ func updateDiscoveryCache(discoveryClient *discovery.DiscoveryClient) error {
 			}
 
 			discoveryCache.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
+			discoveryCache.Set(gv.String(), true)
 		}
 	}
 
