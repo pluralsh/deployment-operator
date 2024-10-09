@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -156,6 +157,13 @@ func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.
 			ReplacedIn:  r.StartServingReplacementVersion,
 			RemovedIn:   r.StopServingVersion,
 			Status:      in.fromClientStats(r.ClientStats),
+			ClientInfo: algorithms.Map(r.ClientStats, func(cs types.ClientStat) *console.InsightClientInfoAttributes {
+				return &console.InsightClientInfoAttributes{
+					UserAgent:     cs.UserAgent,
+					Count:         lo.ToPtr(strconv.FormatInt(int64(cs.NumberOfRequestsLast30Days), 10)),
+					LastRequestAt: lo.ToPtr(cs.LastRequestTime.Format(time.RFC3339)),
+				}
+			}),
 		})
 	}
 
