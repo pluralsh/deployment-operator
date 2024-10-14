@@ -51,3 +51,14 @@ func contexts(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[s
 	}
 	return res
 }
+
+func imports(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[string]map[string]string {
+	res := map[string]map[string]string{}
+	for _, imp := range svc.Imports {
+		res[imp.Stack.Name] = map[string]string{}
+		for _, out := range imp.Outputs {
+			res[imp.Stack.Name][out.Name] = out.Value
+		}
+	}
+	return res
+}
