@@ -11,6 +11,8 @@ github.com/4meepo/tagalign v1.3.4 h1:P51VcvBnf04YkHzjfclN6BbsopfJR5rxs1n+5zHt+w8
 github.com/4meepo/tagalign v1.3.4/go.mod h1:M+pnkHH2vG8+qhE5bVc/zeP7HS/j910Fwa9TUSyZVI0=
 github.com/99designs/gqlgen v0.17.49 h1:b3hNGexHd33fBSAd4NDT/c3NCcQzcAVkknhN9ym36YQ=
 github.com/99designs/gqlgen v0.17.49/go.mod h1:tC8YFVZMed81x7UJ7ORUwXF4Kn6SXuucFqQBhN8+BU0=
+github.com/99designs/gqlgen v0.17.54 h1:AsF49k/7RJlwA00RQYsYN0T8cQuaosnV/7G1dHC3Uh8=
+github.com/99designs/gqlgen v0.17.54/go.mod h1:77/+pVe6zlTsz++oUg2m8VLgzdUPHxjoAG3BxI5y8Rc=
 github.com/Abirdcfly/dupword v0.1.1 h1:Bsxe0fIw6OwBtXMIncaTxCLHYO5BB+3mcsR5E8VXloY=
 github.com/Abirdcfly/dupword v0.1.1/go.mod h1:B49AcJdTYYkpd4HjgAcutNGG9HZ2JWwKunH9Y2BA6sM=
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 h1:bvDV9vkmnHYOMsOr4WLk+Vo07yKIzd94sVoIqshQ4bU=
@@ -60,6 +62,8 @@ github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d h1:UrqY+r/O
 github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d/go.mod h1:HI8ITrYtUY+O+ZhtlqUnD8+KwNPOyugEhfP9fdUIaEQ=
 github.com/Yamashou/gqlgenc v0.25.0 h1:wb4CKKpnklmK9R+RQ68yoSdhqlK+MPflYT/hsMOE1+I=
 github.com/Yamashou/gqlgenc v0.25.0/go.mod h1:KheDl3KZUFmnGCLHCHPQ6hodwWbggc889vwwaf0VqH8=
+github.com/Yamashou/gqlgenc v0.25.3 h1:mVV8/Ho8EDZUQKQZbQqqXGNq8jc8aQfPpHhZOnTkMNE=
+github.com/Yamashou/gqlgenc v0.25.3/go.mod h1:G0g1N81xpIklVdnyboW1zwOHcj/n4hNfhTwfN29Rjig=
 github.com/agnivade/levenshtein v1.1.1 h1:QY8M92nrzkmr798gCo3kmMyqXFzdQVpxLlGPRBij0P8=
 github.com/agnivade/levenshtein v1.1.1/go.mod h1:veldBMzWxcCG2ZvUTKD2kJNRdCk5hVbJomOvKkmgYbo=
 github.com/alecthomas/assert/v2 v2.2.2 h1:Z/iVC0xZfWTaFNE6bA3z07T86hd45Xe2eLt6WVy2bbk=
