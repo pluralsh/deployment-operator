@@ -110,6 +110,15 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 	if err != nil {
 		return nil, err
 	}
+	if args.ReconcileHelmHooks() {
+		for _, h := range rel.Hooks {
+			_, err = fmt.Fprintln(&buffer, "---")
+			_, err = fmt.Fprintln(&buffer, strings.TrimSpace(h.Manifest))
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	r := bytes.NewReader(buffer.Bytes())
 	mapper, err := utilFactory.ToRESTMapper()
