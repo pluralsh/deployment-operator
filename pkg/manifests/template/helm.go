@@ -113,6 +113,9 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 	if args.ReconcileHelmHooks() {
 		for _, h := range rel.Hooks {
 			_, err = fmt.Fprintln(&buffer, "---")
+			if err != nil {
+				return nil, err
+			}
 			_, err = fmt.Fprintln(&buffer, strings.TrimSpace(h.Manifest))
 			if err != nil {
 				return nil, err
