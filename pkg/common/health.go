@@ -846,13 +846,16 @@ func GetHealthCheckFuncByGroupVersionKind(gvk schema.GroupVersionKind) func(obj 
 }
 
 func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	defaultReadyStatus := &HealthStatus{
+		Status: HealthStatusHealthy,
+	}
 	sts := Status{}
 	status, ok := obj.Object["status"]
 	if ok {
 		s, ok := status.(map[string]interface{})
 		if ok {
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(s, &sts); err != nil {
-				return nil, nil
+				return defaultReadyStatus, nil
 			}
 			if meta.FindStatusCondition(sts.Conditions, readyCondition) != nil {
 				status := HealthStatusProgressing
@@ -866,5 +869,5 @@ func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error)
 		}
 	}
 
-	return nil, nil
+	return defaultReadyStatus, nil
 }
