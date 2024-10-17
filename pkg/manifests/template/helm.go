@@ -110,7 +110,7 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 	if err != nil {
 		return nil, err
 	}
-	if args.ReconcileHelmHooks() {
+	if svc.Helm != nil && svc.Helm.IgnoreHooks != nil && !*svc.Helm.IgnoreHooks {
 		for _, h := range rel.Hooks {
 			_, err = fmt.Fprintln(&buffer, "---")
 			if err != nil {

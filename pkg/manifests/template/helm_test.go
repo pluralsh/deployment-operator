@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 )
 
 var _ = Describe("Helm template", func() {
@@ -65,6 +66,20 @@ var _ = Describe("Helm template", func() {
 			resp, err := NewHelm(dir).Render(svc, utilFactory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
+
+			// Ignore hooks
+			svc.Helm = &console.GetServiceDeploymentForAgent_ServiceDeployment_Helm{
+				IgnoreHooks: lo.ToPtr(true),
+			}
+			resp, err = NewHelm(dir).Render(svc, utilFactory)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(resp)).To(Equal(1))
+
+			// Reconcile hooks
+			svc.Helm.IgnoreHooks = lo.ToPtr(false)
+			resp, err = NewHelm(dir).Render(svc, utilFactory)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(resp)).To(Equal(2))
 		})
 
 	})

@@ -53,7 +53,6 @@ const (
 var (
 	argDisableHelmTemplateDryRunServer = flag.Bool("disable-helm-dry-run-server", false, "Disable helm template in dry-run=server mode.")
 	argEnableHelmDependencyUpdate      = flag.Bool("enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
-	argReconcileHelmHooks              = flag.Bool("reconcile-helm-hooks", false, "Allow reconcile helm hooks")
 	argEnableLeaderElection            = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
 	argProfiler                        = flag.Bool("profiler", false, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
@@ -115,10 +114,6 @@ func DisableHelmTemplateDryRunServer() bool {
 
 func EnableHelmDependencyUpdate() bool {
 	return *argEnableHelmDependencyUpdate
-}
-
-func ReconcileHelmHooks() bool {
-	return *argReconcileHelmHooks
 }
 
 func EnableLeaderElection() bool {
