@@ -5,6 +5,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
+	"github.com/stretchr/testify/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,7 +21,6 @@ import (
 var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
-			nodeMetricsName      = "node-metrics"
 			nodeName             = "node"
 			metricsAggregateName = "global"
 			namespace            = "default"
@@ -39,9 +39,27 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			},
 		}
 
-		nodeMetrics := types.NamespacedName{Name: nodeMetricsName, Namespace: namespace}
+		nodeMetrics := types.NamespacedName{Name: nodeName, Namespace: namespace}
 		node := types.NamespacedName{Name: nodeName, Namespace: namespace}
 		metricsAggregate := types.NamespacedName{Name: metricsAggregateName, Namespace: namespace}
+
+		defaultNodeMetrics := v1beta1.NodeMetrics{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      nodeName,
+				Namespace: namespace,
+			},
+			Timestamp: metav1.Time{},
+			Window:    metav1.Duration{},
+			Usage: map[corev1.ResourceName]resource.Quantity{
+				"cpu":    resource.MustParse("100m"),
+				"memory": resource.MustParse("100Mi"),
+			},
+		}
+		defaultNodeMetricsList := &v1beta1.NodeMetricsList{
+			Items: []v1beta1.NodeMetrics{
+				defaultNodeMetrics,
+			},
+		}
 
 		nm := &v1beta1.NodeMetrics{}
 		n := &corev1.Node{}
@@ -49,18 +67,7 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			By("Creating node metrics")
 			err := kClient.Get(ctx, nodeMetrics, nm)
 			if err != nil && errors.IsNotFound(err) {
-				Expect(kClient.Create(ctx, &v1beta1.NodeMetrics{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      nodeMetricsName,
-						Namespace: namespace,
-					},
-					Timestamp: metav1.Time{},
-					Window:    metav1.Duration{},
-					Usage: map[corev1.ResourceName]resource.Quantity{
-						"cpu":    resource.MustParse("100m"),
-						"memory": resource.MustParse("100Mi"),
-					},
-				})).To(Succeed())
+				Expect(kClient.Create(ctx, &defaultNodeMetrics)).To(Succeed())
 			}
 
 			By("Creating Node")
@@ -74,7 +81,8 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 					Spec: corev1.NodeSpec{},
 					Status: corev1.NodeStatus{
 						Capacity: corev1.ResourceList{
-							corev1.ResourceCPU: resource.MustParse("100m"),
+							corev1.ResourceCPU:    resource.MustParse("1"),
+							corev1.ResourceMemory: resource.MustParse("1Gi"),
 						},
 					},
 				}
@@ -103,6 +111,36 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			metrics := &v1alpha1.MetricsAggregate{}
 			Expect(kClient.Get(ctx, metricsAggregate, metrics)).NotTo(HaveOccurred())
+		})
+
+		It("should create global metrics aggregate", func() {
+			metricsClient := mocks.NewInterfaceMock(mocks.TestingT)
+			metricsV1beta1 := mocks.NewMetricsV1beta1InterfaceMock(mocks.TestingT)
+			nodeMetricses := mocks.NewNodeMetricsInterfaceMock(mocks.TestingT)
+			metricsClient.On("MetricsV1beta1").Return(metricsV1beta1)
+			metricsV1beta1.On("NodeMetricses").Return(nodeMetricses)
+			nodeMetricses.On("List", mock.Anything, mock.Anything).Return(defaultNodeMetricsList, nil)
+
+			discoveryClient := mocks.NewDiscoveryInterfaceMock(mocks.TestingT)
+			discoveryClient.On("ServerGroups").Return(apiGroups, nil)
+
+			r := MetricsAggregateReconciler{
+				Client:          kClient,
+				Scheme:          kClient.Scheme(),
+				DiscoveryClient: discoveryClient,
+				MetricsClient:   metricsClient,
+			}
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: metricsAggregate})
+			Expect(err).NotTo(HaveOccurred())
+			metrics := &v1alpha1.MetricsAggregate{}
+			Expect(kClient.Get(ctx, metricsAggregate, metrics)).NotTo(HaveOccurred())
+			Expect(metrics.Status.Nodes).Should(Equal(1))
+			Expect(metrics.Status.CPUAvailableMillicores).Should(Equal(int64(1000)))
+			Expect(metrics.Status.CPUTotalMillicores).Should(Equal(int64(100)))
+			Expect(metrics.Status.CPUUsedPercentage).Should(Equal(int64(10)))
+			Expect(metrics.Status.MemoryAvailableBytes).Should(Equal(int64(1073741824)))
+			Expect(metrics.Status.MemoryTotalBytes).Should(Equal(int64(104857600)))
+			Expect(metrics.Status.MemoryUsedPercentage).Should(Equal(int64(9)))
 		})
 	})
 })

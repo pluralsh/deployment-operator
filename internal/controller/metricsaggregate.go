@@ -92,7 +92,8 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	availableResources := make(map[string]corev1.ResourceList)
 	for _, n := range nodeList.Items {
-		availableResources[n.Name] = n.Status.Allocatable
+		// Total number, contains system reserved resources
+		availableResources[n.Name] = n.Status.Capacity
 	}
 
 	nodeDeploymentNodesMetrics := make([]v1beta1.NodeMetrics, 0)
@@ -114,12 +115,17 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// save metrics
 	metrics.Status.Nodes = len(nodeList.Items)
+	var cpuAvailableMillicores, cpuTotalMillicores, memoryAvailableBytes, memoryTotalBytes int64
 	for _, nm := range nodeMetrics {
-		metrics.Status.CPUAvailableMillicores += nm.CPUAvailableMillicores
-		metrics.Status.CPUTotalMillicores += nm.CPUTotalMillicores
-		metrics.Status.MemoryAvailableBytes += nm.MemoryAvailableBytes
-		metrics.Status.MemoryTotalBytes += nm.MemoryTotalBytes
+		cpuAvailableMillicores += nm.CPUAvailableMillicores
+		cpuTotalMillicores += nm.CPUTotalMillicores
+		memoryAvailableBytes += nm.MemoryAvailableBytes
+		memoryTotalBytes += nm.MemoryTotalBytes
 	}
+	metrics.Status.CPUAvailableMillicores = cpuAvailableMillicores
+	metrics.Status.CPUTotalMillicores = cpuTotalMillicores
+	metrics.Status.MemoryAvailableBytes = memoryAvailableBytes
+	metrics.Status.MemoryTotalBytes = memoryTotalBytes
 
 	fraction := float64(metrics.Status.CPUTotalMillicores) / float64(metrics.Status.CPUAvailableMillicores) * 100
 	metrics.Status.CPUUsedPercentage = int64(fraction)
@@ -191,8 +197,8 @@ func ConvertNodeMetrics(metrics []v1beta1.NodeMetrics, availableResources map[st
 		if available, found := resourceMetricsInfo.Available[corev1.ResourceMemory]; found {
 			quantityM := resourceMetricsInfo.Metrics[corev1.ResourceMemory]
 			// memory in bytes
-			nodeMetric.MemoryTotalBytes = quantityM.Value() / (1024 * 1024)
-			nodeMetric.MemoryAvailableBytes = available.Value() / (1024 * 1024)
+			nodeMetric.MemoryTotalBytes = quantityM.Value()     // in Bytes
+			nodeMetric.MemoryAvailableBytes = available.Value() // in Bytes
 		}
 		nodeMetrics = append(nodeMetrics, nodeMetric)
 	}
