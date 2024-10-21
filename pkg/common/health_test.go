@@ -1,6 +1,8 @@
 package common_test
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -8,8 +10,6 @@ import (
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("Health Test", Ordered, func() {
@@ -21,9 +21,9 @@ var _ = Describe("Health Test", Ordered, func() {
 		}
 
 		It("should get default status from CRD without condition block", func() {
-			obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(customResource)
+			obj, err := common.ToUnstructured(customResource)
 			Expect(err).NotTo(HaveOccurred())
-			status, err := common.GetResourceHealth(&unstructured.Unstructured{Object: obj})
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
@@ -39,9 +39,9 @@ var _ = Describe("Health Test", Ordered, func() {
 					},
 				},
 			}
-			obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(customResource)
+			obj, err := common.ToUnstructured(customResource)
 			Expect(err).NotTo(HaveOccurred())
-			status, err := common.GetResourceHealth(&unstructured.Unstructured{Object: obj})
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
@@ -58,9 +58,9 @@ var _ = Describe("Health Test", Ordered, func() {
 					},
 				},
 			}
-			obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(customResource)
+			obj, err := common.ToUnstructured(customResource)
 			Expect(err).NotTo(HaveOccurred())
-			status, err := common.GetResourceHealth(&unstructured.Unstructured{Object: obj})
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
@@ -72,14 +72,30 @@ var _ = Describe("Health Test", Ordered, func() {
 			customResource.DeletionTimestamp = &metav1.Time{
 				Time: time.Now(),
 			}
-			obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(customResource)
+			obj, err := common.ToUnstructured(customResource)
 			Expect(err).NotTo(HaveOccurred())
-			status, err := common.GetResourceHealth(&unstructured.Unstructured{Object: obj})
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
 				Status:  common.HealthStatusProgressing,
 				Message: "Pending deletion",
+			}))
+		})
+
+		It("should get status from Lua script", func() {
+			customResource.DeletionTimestamp = nil
+			obj, err := common.ToUnstructured(customResource)
+			Expect(err).NotTo(HaveOccurred())
+			scriptPath := filepath.Join("..", "..", "test", "lua", "test.lua")
+			script, err := os.ReadFile(scriptPath)
+			Expect(err).NotTo(HaveOccurred())
+			common.GetLuaScript().SetValue(string(script))
+			status, err := common.GetResourceHealth(obj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(status).To(Not(BeNil()))
+			Expect(*status).To(Equal(common.HealthStatus{
+				Status: common.HealthStatusProgressing,
 			}))
 		})
 
