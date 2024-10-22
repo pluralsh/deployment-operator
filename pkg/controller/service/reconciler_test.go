@@ -35,7 +35,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			ID:        serviceId,
 			Name:      serviceName,
 			Namespace: namespace,
-			Tarball:   lo.ToPtr("http://localhost:8080/ext/v1/digests"),
+			Tarball:   lo.ToPtr("http://localhost:8081/ext/v1/digests"),
 			Configuration: []*console.GetServiceDeploymentForAgent_ServiceDeployment_Configuration{
 				{
 					Name:  "name",
@@ -61,7 +61,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 		})
 
 		srv := &http.Server{
-			Addr:    ":8080",
+			Addr:    ":8081",
 			Handler: r,
 		}
 		dir := ""
