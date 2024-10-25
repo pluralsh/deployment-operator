@@ -779,24 +779,82 @@ func (_c *ClientMock_GetService_Call) RunAndReturn(run func(string) (*client.Get
 	return _c
 }
 
+// GetServiceDeploymentComponents provides a mock function with given fields: id
+func (_m *ClientMock) GetServiceDeploymentComponents(id string) (*client.GetServiceDeploymentComponents_ServiceDeployment, error) {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetServiceDeploymentComponents")
+	}
+
+	var r0 *client.GetServiceDeploymentComponents_ServiceDeployment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*client.GetServiceDeploymentComponents_ServiceDeployment, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) *client.GetServiceDeploymentComponents_ServiceDeployment); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.GetServiceDeploymentComponents_ServiceDeployment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetServiceDeploymentComponents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetServiceDeploymentComponents'
+type ClientMock_GetServiceDeploymentComponents_Call struct {
+	*mock.Call
+}
+
+// GetServiceDeploymentComponents is a helper method to define mock.On call
+//   - id string
+func (_e *ClientMock_Expecter) GetServiceDeploymentComponents(id interface{}) *ClientMock_GetServiceDeploymentComponents_Call {
+	return &ClientMock_GetServiceDeploymentComponents_Call{Call: _e.mock.On("GetServiceDeploymentComponents", id)}
+}
+
+func (_c *ClientMock_GetServiceDeploymentComponents_Call) Run(run func(id string)) *ClientMock_GetServiceDeploymentComponents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetServiceDeploymentComponents_Call) Return(_a0 *client.GetServiceDeploymentComponents_ServiceDeployment, _a1 error) *ClientMock_GetServiceDeploymentComponents_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetServiceDeploymentComponents_Call) RunAndReturn(run func(string) (*client.GetServiceDeploymentComponents_ServiceDeployment, error)) *ClientMock_GetServiceDeploymentComponents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetServices provides a mock function with given fields: after, first
-func (_m *ClientMock) GetServices(after *string, first *int64) (*client.PagedClusterServices, error) {
+func (_m *ClientMock) GetServices(after *string, first *int64) (*client.PagedClusterServiceIds, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetServices")
 	}
 
-	var r0 *client.PagedClusterServices
+	var r0 *client.PagedClusterServiceIds
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterServices, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterServiceIds, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterServices); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterServiceIds); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*client.PagedClusterServices)
+			r0 = ret.Get(0).(*client.PagedClusterServiceIds)
 		}
 	}
 
@@ -828,12 +886,12 @@ func (_c *ClientMock_GetServices_Call) Run(run func(after *string, first *int64)
 	return _c
 }
 
-func (_c *ClientMock_GetServices_Call) Return(_a0 *client.PagedClusterServices, _a1 error) *ClientMock_GetServices_Call {
+func (_c *ClientMock_GetServices_Call) Return(_a0 *client.PagedClusterServiceIds, _a1 error) *ClientMock_GetServices_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetServices_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterServices, error)) *ClientMock_GetServices_Call {
+func (_c *ClientMock_GetServices_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterServiceIds, error)) *ClientMock_GetServices_Call {
 	_c.Call.Return(run)
 	return _c
 }

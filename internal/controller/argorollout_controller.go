@@ -64,7 +64,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if serviceID == "" {
 		return ctrl.Result{}, fmt.Errorf("the service ID from the inventory annotation is empty")
 	}
-	service, err := r.ConsoleClient.GetService(serviceID)
+	service, err := r.ConsoleClient.GetServiceDeploymentComponents(serviceID)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -119,7 +119,7 @@ func (r *ArgoRolloutReconciler) rollback(rolloutIf clientset.RolloutInterface, r
 	return nil
 }
 
-func hasPausedRolloutComponent(service *console.GetServiceDeploymentForAgent_ServiceDeployment) bool {
+func hasPausedRolloutComponent(service *console.GetServiceDeploymentComponents_ServiceDeployment) bool {
 	for _, component := range service.Components {
 		if component.Kind == rollouts.RolloutKind {
 			if component.State != nil && *component.State == console.ComponentStatePaused {

@@ -6,20 +6,28 @@ import (
 	console "github.com/pluralsh/console/go/client"
 )
 
-func (c *client) GetServices(after *string, first *int64) (*console.PagedClusterServices, error) {
-
-	resp, err := c.consoleClient.PagedClusterServices(c.ctx, after, first, nil, nil)
+func (c *client) GetServices(after *string, first *int64) (*console.PagedClusterServiceIds, error) {
+	resp, err := c.consoleClient.PagedClusterServiceIds(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	if resp.GetPagedClusterServices() == nil {
-		return nil, fmt.Errorf("the response from PagedClusterServices is nil")
+		return nil, fmt.Errorf("the response from PagedClusterServiceIds is nil")
 	}
 	return resp, nil
 }
 
 func (c *client) GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
 	resp, err := c.consoleClient.GetServiceDeploymentForAgent(c.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.ServiceDeployment, nil
+}
+
+func (c *client) GetServiceDeploymentComponents(id string) (*console.GetServiceDeploymentComponents_ServiceDeployment, error) {
+	resp, err := c.consoleClient.GetServiceDeploymentComponents(c.ctx, id)
 	if err != nil {
 		return nil, err
 	}
