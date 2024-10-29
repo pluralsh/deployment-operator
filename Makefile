@@ -124,6 +124,20 @@ docker-run-harness: docker-build-harness-terraform docker-build-harness-ansible 
 			--console-token=${PLURAL_DEPLOY_TOKEN} \
 			--stack-run-id=${PLURAL_STACK_RUN_ID}
 
+.PHONY: docker-build-go-fips
+docker-build-go-fips: ## build base docker go fips image
+	docker build \
+    	  	-t go-fips \
+    		-f dockerfiles/fips/go.Dockerfile \
+    		.
+
+.PHONY: docker-build-fips
+docker-build-fips: ## build docker fips agent image
+	docker build \
+    	  	-t deployment-agent-fips \
+    		-f dockerfiles/agent/fips.Dockerfile \
+    		.
+
 velero-crds:
 	@curl -L $(VELERO_CHART_URL) --output velero.tgz
 	@tar zxvf velero.tgz velero/crds
