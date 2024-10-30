@@ -13,6 +13,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,6 +70,9 @@ func main() {
 
 	// Start the discovery cache in background.
 	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
+
+	// Start AI insight component scraper in background
+	scraper.RunAiInsightComponentScraperInBackgroundOrDie(ctx, kubeManager.GetClient())
 
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
