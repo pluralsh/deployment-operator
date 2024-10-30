@@ -35,6 +35,8 @@ jobs:
           images: |
             ghcr.io/pluralsh/go-fips
             docker.io/pluralsh/go-fips
+          tags: |
+            type=raw,value=1.23.2
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -56,7 +58,7 @@ jobs:
           context: "."
           file: "./dockerfiles/fips/go.Dockerfile"
           push: true
-          tags: 1.23.2
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
