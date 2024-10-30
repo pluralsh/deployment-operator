@@ -58,6 +58,7 @@ const (
 	PersistentVolumeClaimKind    = "PersistentVolumeClaim"
 	CustomResourceDefinitionKind = "CustomResourceDefinition"
 	PodKind                      = "Pod"
+	NodeKind                     = "Node"
 	APIServiceKind               = "APIService"
 	NamespaceKind                = "Namespace"
 	HorizontalPodAutoscalerKind  = "HorizontalPodAutoscaler"
@@ -367,6 +368,42 @@ func getBatchv1JobHealth(job *batchv1.Job) (*HealthStatus, error) {
 		Message: message,
 	}, nil
 
+}
+
+func getNodeHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
+	gvk := obj.GroupVersionKind()
+	switch gvk {
+	case corev1.SchemeGroupVersion.WithKind(NodeKind):
+		var node corev1.Node
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &node)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert unstructured Node to typed: %w", err)
+		}
+		return getCorev1NodeHealth(&node)
+	default:
+		return nil, fmt.Errorf("unsupported Node GVK: %s", gvk)
+	}
+}
+
+func getCorev1NodeHealth(node *corev1.Node) (*HealthStatus, error) {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			if condition.Status == corev1.ConditionTrue {
+				return &HealthStatus{
+					Status:  HealthStatusHealthy,
+					Message: condition.Message,
+				}, nil
+			}
+			return &HealthStatus{
+				Status:  HealthStatusDegraded,
+				Message: condition.Message,
+			}, nil
+		}
+	}
+
+	return &HealthStatus{
+		Status: HealthStatusUnknown,
+	}, nil
 }
 
 func getPodHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
@@ -823,6 +860,8 @@ func GetHealthCheckFuncByGroupVersionKind(gvk schema.GroupVersionKind) func(obj 
 			return getPVCHealth
 		case PodKind:
 			return getPodHealth
+		case NodeKind:
+			return getNodeHealth
 		}
 	case "batch":
 		if gvk.Kind == JobKind {
