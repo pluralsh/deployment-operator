@@ -37,6 +37,8 @@ jobs:
             docker.io/pluralsh/go-fips
           tags: |
             type=semver,pattern={{version}},priority=1000
+            type=sha,priority=800
+            type=ref,event=pr,priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -88,7 +90,9 @@ jobs:
             ghcr.io/pluralsh/deployment-operator
             docker.io/pluralsh/deployment-operator
           tags: |
-            type=semver,pattern={{version}},suffix=-fips
+            type=semver,pattern={{version}},suffix=-fips,priority=1000
+            type=sha,suffix=-fips,priority=800
+            type=ref,event=pr,suffix=-fips,priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
