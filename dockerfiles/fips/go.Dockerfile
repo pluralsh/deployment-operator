@@ -1,13 +1,16 @@
-# Use Red Hat UBI8 base image
-FROM registry.access.redhat.com/ubi8/ubi AS go
+# This Dockerfile builds Go FIPS with OpenSSL
 
+ARG UBI_MINIMAL_VERSION="latest"
+FROM registry.access.redhat.com/ubi8/ubi-minimal:${UBI_MINIMAL_VERSION} AS go
 ARG GO_VERSION=1.23.2
 ARG TARGETARCH
 ARG PLATFORM_ARCH=amd64
+
 WORKDIR /workspace
 
 # Install FIPS-compliant OpenSSL
-RUN yum install -y git openssl-devel glibc-devel tar gzip gcc make && yum clean all
+RUN microdnf --nodocs install yum && yum --nodocs -q update -y
+RUN yum install --nodocs -y git openssl-devel glibc-devel tar gzip gcc make && yum clean all
 
 # Set environment variables for FIPS compliance
 ENV OPENSSL_FIPS=1
@@ -29,8 +32,8 @@ RUN git clone \
 
 RUN cd /tmp/go && \
     chmod +x scripts/* && \
-    git config --global user.email "you@example.com" && \
-    git config --global user.name "Your Name" && \
+    git config --global user.email "plural@plural.sh" && \
+    git config --global user.name "plural" && \
     scripts/full-initialize-repo.sh && \
     pushd go/src && \
     CGO_ENABLED=1 ./make.bash && \
@@ -47,9 +50,10 @@ RUN cd /usr/local/go/src && \
         /usr/local/go/src/cmd/dist/dist \
         /usr/local/go/.git*
 
-FROM registry.access.redhat.com/ubi8/ubi
+FROM registry.access.redhat.com/ubi8/ubi-minimal:${UBI_MINIMAL_VERSION}
 
-RUN yum install -y openssl-devel glibc-devel tar gzip gcc make && yum clean all
+RUN microdnf --nodocs install yum && yum --nodocs -q update -y
+RUN yum install --nodocs -y openssl-devel glibc-devel tar gzip gcc make && yum clean all
 
 COPY --from=go /usr/local/go /usr/local/go
 ENV OPENSSL_FIPS=1

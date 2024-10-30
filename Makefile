@@ -131,8 +131,8 @@ docker-build-go-fips: ## build base docker go fips image
     		-f dockerfiles/fips/go.Dockerfile \
     		.
 
-.PHONY: docker-build-fips
-docker-build-fips: ## build docker fips agent image
+.PHONY: docker-build-agent-fips
+docker-build-agent-fips: ## build docker fips agent image
 	docker build \
     	  	-t deployment-agent-fips \
     		-f dockerfiles/agent/fips.Dockerfile \
