@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
@@ -19,7 +21,10 @@ import (
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const name = "Ai Insight Component Scraper"
+const (
+	name     = "Ai Insight Component Scraper"
+	nodeKind = "Node"
+)
 
 var (
 	aiInsightComponents *AiInsightComponents
@@ -93,17 +98,14 @@ func RunAiInsightComponentScraperInBackgroundOrDie(ctx context.Context, k8sClien
 		{Group: "apps", Version: "v1", Kind: "Deployment"},
 		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
 		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
-	}
-
-	manageByOperatorLabels := map[string]string{
-		agentcommon.ManagedByLabel: agentcommon.AgentLabelValue,
+		{Group: "", Version: "v1", Kind: nodeKind},
 	}
 
 	err := helpers.BackgroundPollUntilContextCancel(ctx, 15*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
 		GetAiInsightComponents().Clear()
 
 		for _, gvk := range scrapeResources {
-			if err := setUnhealthyComponents(ctx, k8sClient, gvk, ctrclient.MatchingLabels(manageByOperatorLabels)); err != nil {
+			if err := setUnhealthyComponents(ctx, k8sClient, gvk); err != nil {
 				klog.Error(err, "can't set update component status")
 			}
 		}
@@ -117,7 +119,7 @@ func RunAiInsightComponentScraperInBackgroundOrDie(ctx context.Context, k8sClien
 }
 
 func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind, opts ...ctrclient.ListOption) error {
-	pager := listResources(ctx, k8sClient, gvk, opts...)
+	pager := listResources(ctx, k8sClient, gvk)
 	for pager.HasNext() {
 		items, err := pager.NextPage()
 		if err != nil {
@@ -140,7 +142,16 @@ func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk
 	return nil
 }
 
-func listResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind, opts ...ctrclient.ListOption) *algorithms.Pager[unstructured.Unstructured] {
+func listResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind) *algorithms.Pager[unstructured.Unstructured] {
+	var opts []ctrclient.ListOption
+	manageByOperatorLabels := map[string]string{
+		agentcommon.ManagedByLabel: agentcommon.AgentLabelValue,
+	}
+	ml := ctrclient.MatchingLabels(manageByOperatorLabels)
+	if gvk != corev1.SchemeGroupVersion.WithKind(nodeKind) {
+		opts = append(opts, ml)
+	}
+
 	fetch := func(page *string, size int64) ([]unstructured.Unstructured, *algorithms.PageInfo, error) {
 		list := &unstructured.UnstructuredList{}
 		list.SetGroupVersionKind(gvk)
