@@ -66,7 +66,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=${{ steps.meta.outputs.version }}
+            GO_VERSION=1.23.2
 
   publish-agent-fips:
     name: Build and push agent FIPS container
@@ -120,5 +120,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=${{ steps.meta.outputs.version }}
+            GO_FIPS_IMAGE_REPO=ghcr.io/pluralsh/go-fips
+            GO_FIPS_IMAGE_TAG=${{ needs.publish-go-fips.outputs.version }}
 
