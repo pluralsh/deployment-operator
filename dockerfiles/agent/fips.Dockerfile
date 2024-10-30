@@ -33,9 +33,6 @@ RUN GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-age
 # This the minimal UBI FIPS compliance image
 FROM registry.access.redhat.com/ubi8/ubi-minimal:$UBI_MINIMAL_VERSION
 WORKDIR /workspace
-# Set environment variables for FIPS compliance in the runtime
-ENV OPENSSL_FIPS=1
-ENV FIPS_MODE=true
 
 RUN microdnf install -y openssl && \
     microdnf clean all
