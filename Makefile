@@ -91,6 +91,24 @@ docker-build: ## build image
 docker-push: ## push image
 	docker push ${IMG}
 
+.PHONY: docker-build-harness-base-fips
+docker-build-harness-base-fips: ## build fips base docker harness image
+	docker build \
+			--no-cache \
+			--build-arg=VERSION="0.0.0-dev" \
+    	  	-t harness-base-fips \
+    		-f dockerfiles/harness/fips.base.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-ansible-fips
+docker-build-harness-ansible-fips: docker-build-harness-base-fips ## build fips ansible docker harness image
+	docker build \
+			--no-cache \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
+    	  	-t harness-fips \
+    		-f dockerfiles/harness/fips.ansible.Dockerfile \
+    		.
+
 .PHONY: docker-build-harness-base
 docker-build-harness-base: ## build base docker harness image
 	docker build \
