@@ -7,8 +7,6 @@ ARG PYTHON_VERSION=3.12
 # Use harness base image
 FROM ${HARNESS_BASE_IMAGE} as harness
 
-FROM deployment-agent-fips:latest as agent
-
 # Build Ansible from Python Image
 FROM registry.access.redhat.com/ubi8/ubi:latest as final
 
