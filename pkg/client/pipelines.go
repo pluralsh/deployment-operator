@@ -22,8 +22,8 @@ func (c *client) UpdateGate(id string, attributes console.GateUpdateAttributes) 
 	return err
 }
 
-func (c *client) GetClusterGates(after *string, first *int64) (*console.PagedClusterGates, error) {
-	resp, err := c.consoleClient.PagedClusterGates(c.ctx, after, first, nil, nil)
+func (c *client) GetClusterGates(after *string, first *int64) (*console.PagedClusterGateIDs, error) {
+	resp, err := c.consoleClient.PagedClusterGateIDs(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}

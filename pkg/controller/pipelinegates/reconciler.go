@@ -85,10 +85,10 @@ func (s *GateReconciler) GetPollInterval() time.Duration {
 	return s.pollInterval
 }
 
-func (s *GateReconciler) ListGates(ctx context.Context) *algorithms.Pager[*console.PipelineGateEdgeFragment] {
+func (s *GateReconciler) ListGates(ctx context.Context) *algorithms.Pager[*console.PipelineGateIDsEdgeFragment] {
 	logger := log.FromContext(ctx)
 	logger.Info("create pipeline gate pager")
-	fetch := func(page *string, size int64) ([]*console.PipelineGateEdgeFragment, *algorithms.PageInfo, error) {
+	fetch := func(page *string, size int64) ([]*console.PipelineGateIDsEdgeFragment, *algorithms.PageInfo, error) {
 		resp, err := s.consoleClient.GetClusterGates(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch gates")
@@ -101,7 +101,7 @@ func (s *GateReconciler) ListGates(ctx context.Context) *algorithms.Pager[*conso
 		}
 		return resp.PagedClusterGates.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.PipelineGateEdgeFragment](common.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.PipelineGateIDsEdgeFragment](common.DefaultPageSize, fetch)
 }
 
 func (s *GateReconciler) Poll(ctx context.Context) error {
