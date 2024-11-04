@@ -55,7 +55,7 @@ type Client interface {
 	ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, operatorNamespace string) (*v1alpha1.PipelineGate, error)
 	GateExists(id string) bool
 	GetClusterGate(id string) (*console.PipelineGateFragment, error)
-	GetClusterGates(after *string, first *int64) (*console.PagedClusterGates, error)
+	GetClusterGates(after *string, first *int64) (*console.PagedClusterGateIDs, error)
 	UpdateGate(id string, attributes console.GateUpdateAttributes) error
 	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)

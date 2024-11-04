@@ -434,23 +434,23 @@ func (_c *ClientMock_GetClusterGate_Call) RunAndReturn(run func(string) (*client
 }
 
 // GetClusterGates provides a mock function with given fields: after, first
-func (_m *ClientMock) GetClusterGates(after *string, first *int64) (*client.PagedClusterGates, error) {
+func (_m *ClientMock) GetClusterGates(after *string, first *int64) (*client.PagedClusterGateIDs, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetClusterGates")
 	}
 
-	var r0 *client.PagedClusterGates
+	var r0 *client.PagedClusterGateIDs
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterGates, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterGateIDs, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterGates); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterGateIDs); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*client.PagedClusterGates)
+			r0 = ret.Get(0).(*client.PagedClusterGateIDs)
 		}
 	}
 
@@ -482,12 +482,12 @@ func (_c *ClientMock_GetClusterGates_Call) Run(run func(after *string, first *in
 	return _c
 }
 
-func (_c *ClientMock_GetClusterGates_Call) Return(_a0 *client.PagedClusterGates, _a1 error) *ClientMock_GetClusterGates_Call {
+func (_c *ClientMock_GetClusterGates_Call) Return(_a0 *client.PagedClusterGateIDs, _a1 error) *ClientMock_GetClusterGates_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetClusterGates_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterGates, error)) *ClientMock_GetClusterGates_Call {
+func (_c *ClientMock_GetClusterGates_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterGateIDs, error)) *ClientMock_GetClusterGates_Call {
 	_c.Call.Return(run)
 	return _c
 }
