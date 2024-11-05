@@ -28,12 +28,12 @@ func TestGetDefaultContainerImage(t *testing.T) {
 	reconciler := NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 	cases := []struct {
 		name          string
-		run           *console.StackRunFragment
+		run           *console.StackRunMinimalFragment
 		expectedImage string
 	}{
 		{
 			name: "use_defaults_when_no_configuration_provided",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				Type:          console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{},
 			},
@@ -41,7 +41,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 		},
 		{
 			name: "custom_tool_version_provided",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
 					Version: lo.ToPtr("1.8.4"),
@@ -51,7 +51,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 		},
 		{
 			name: "custom_tag_provided",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
 					Tag: lo.ToPtr("0.4.99"),
@@ -61,7 +61,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 		},
 		{
 			name: "custom_image_and_tag_provided",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
 					Image: lo.ToPtr("ghcr.io/pluralsh/custom"),
@@ -72,7 +72,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 		},
 		{
 			name: "custom_image_provided",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
 					Image: lo.ToPtr("ghcr.io/pluralsh/custom"),
@@ -82,7 +82,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 		},
 		{
 			name: "custom_image_and_version_provided",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
 					Image:   lo.ToPtr("ghcr.io/pluralsh/custom"),
@@ -93,7 +93,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 		},
 		{
 			name: "ignore_version_when_custom_tag_provided",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				Type: console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{
 					Tag:     lo.ToPtr("1.8.4"),
@@ -120,12 +120,12 @@ func TestGenerateRunJob(t *testing.T) {
 	reconciler := NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 	cases := []struct {
 		name            string
-		run             *console.StackRunFragment
+		run             *console.StackRunMinimalFragment
 		expectedJobSpec batchv1.JobSpec
 	}{
 		{
 			name: "use_empty_job_spec",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				ID:            runID,
 				Type:          console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{},
@@ -138,7 +138,7 @@ func TestGenerateRunJob(t *testing.T) {
 		},
 		{
 			name: "use_defaults",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				ID:            runID,
 				Type:          console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{},
@@ -150,7 +150,7 @@ func TestGenerateRunJob(t *testing.T) {
 		},
 		{
 			name: "add_labels",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				ID:            runID,
 				Type:          console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{},
@@ -171,7 +171,7 @@ func TestGenerateRunJob(t *testing.T) {
 		},
 		{
 			name: "add_sa",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				ID:            runID,
 				Type:          console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{},
@@ -188,7 +188,7 @@ func TestGenerateRunJob(t *testing.T) {
 		},
 		{
 			name: "add_resources",
-			run: &console.StackRunFragment{
+			run: &console.StackRunMinimalFragment{
 				ID:            runID,
 				Type:          console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{},

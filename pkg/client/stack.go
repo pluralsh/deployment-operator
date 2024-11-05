@@ -63,8 +63,8 @@ func (c *client) UpdateStackRunStep(id string, attributes gqlclient.RunStepAttri
 	return nil
 }
 
-func (c *client) GetStackRun(id string) (*gqlclient.StackRunFragment, error) {
-	restore, err := c.consoleClient.GetStackRun(c.ctx, id)
+func (c *client) GetStackRun(id string) (*gqlclient.StackRunMinimalFragment, error) {
+	restore, err := c.consoleClient.GetStackRunMinimal(c.ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -72,13 +72,13 @@ func (c *client) GetStackRun(id string) (*gqlclient.StackRunFragment, error) {
 	return restore.StackRun, nil
 }
 
-func (c *client) ListClusterStackRuns(after *string, first *int64) (*gqlclient.ListClusterStacks_ClusterStackRuns, error) {
-	resp, err := c.consoleClient.ListClusterStacks(c.ctx, after, first, nil, nil)
+func (c *client) ListClusterStackRuns(after *string, first *int64) (*gqlclient.ListClusterStackIds_ClusterStackRuns, error) {
+	resp, err := c.consoleClient.ListClusterStackIds(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	if resp.ClusterStackRuns == nil {
-		return nil, fmt.Errorf("the response from ListInfrastructureStacks is nil")
+		return nil, fmt.Errorf("the response from ListClusterStackIds is nil")
 	}
 	return resp.ClusterStackRuns, nil
 }
