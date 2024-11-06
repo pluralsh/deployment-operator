@@ -70,4 +70,5 @@ type Client interface {
 	GetUser(email string) (*console.UserFragment, error)
 	GetGroup(name string) (*console.GroupFragment, error)
 	SaveUpgradeInsights(attributes []*console.UpgradeInsightAttributes) (*console.SaveUpgradeInsights, error)
+	UpsertVulnerabilityReports(vulnerabilities []*console.VulnerabilityReportAttributes) (*console.UpsertVulnerabilities, error)
 }

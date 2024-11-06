@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
@@ -131,6 +132,12 @@ func registerKubeReconcilersOrDie(
 		KubeClient:    kubeClient,
 	}
 
+	vulnerabilityReportController := &controller.VulnerabilityReportReconciler{
+		Client:        manager.GetClient(),
+		Scheme:        manager.GetScheme(),
+		ConsoleClient: extConsoleClient,
+	}
+
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
 		{
 			Group:   velerov1.SchemeGroupVersion.Group,
@@ -152,6 +159,11 @@ func registerKubeReconcilersOrDie(
 			Version: rolloutv1alpha1.SchemeGroupVersion.Version,
 			Kind:    rollouts.RolloutKind,
 		}: argoRolloutController.SetupWithManager,
+		{
+			Group:   trivy.SchemeGroupVersion.Group,
+			Version: trivy.SchemeGroupVersion.Version,
+			Kind:    "VulnerabilityReport",
+		}: vulnerabilityReportController.SetupWithManager,
 	}
 
 	if err := (&controller.CrdRegisterControllerReconciler{
