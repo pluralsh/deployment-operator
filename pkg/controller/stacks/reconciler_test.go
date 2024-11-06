@@ -95,7 +95,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 		It("should exit without errors as job is already created", func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunMinimalFragment{
 				ID:       stackRunId,
 				Approval: lo.ToPtr(false),
 				Status:   console.StackStatusPending,
@@ -109,7 +109,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 		It("should create new job with default values", func() {
 			stackRunId := "default-values"
-			stackRun := &console.StackRunFragment{
+			stackRun := &console.StackRunMinimalFragment{
 				ID:       stackRunId,
 				Approval: lo.ToPtr(false),
 				Status:   console.StackStatusPending,
@@ -136,7 +136,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			labelsValue := "labels-123"
 			annotationsValue := "annotations-123"
 			stackRunId := "user-defined-spec"
-			stackRun := &console.StackRunFragment{
+			stackRun := &console.StackRunMinimalFragment{
 				ID: stackRunId,
 				JobSpec: &console.JobSpecFragment{
 					Namespace: namespace,
@@ -201,7 +201,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			stackRunId := "user-defined-raw-spec"
-			stackRun := &console.StackRunFragment{
+			stackRun := &console.StackRunMinimalFragment{
 				ID: stackRunId,
 				JobSpec: &console.JobSpecFragment{
 					Namespace: "",

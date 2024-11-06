@@ -78,7 +78,7 @@ func init() {
 	}
 }
 
-func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
+func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunMinimalFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
 
 	name := GetRunResourceName(run)
@@ -129,7 +129,7 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 }
 
 // GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
-func GetRunResourceName(run *console.StackRunFragment) string {
+func GetRunResourceName(run *console.StackRunMinimalFragment) string {
 	return fmt.Sprintf("stack-%s", run.ID)
 }
 
@@ -146,7 +146,7 @@ func (r *StackReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (nam
 	return
 }
 
-func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, jobSpec *batchv1.JobSpec, name, namespace string) (*batchv1.Job, error) {
+func (r *StackReconciler) GenerateRunJob(run *console.StackRunMinimalFragment, jobSpec *batchv1.JobSpec, name, namespace string) (*batchv1.Job, error) {
 	var err error
 	// If user-defined job spec was not available initialize it here.
 	if jobSpec == nil {
@@ -223,7 +223,7 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 	return jobSpec
 }
 
-func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, run *console.StackRunFragment) []corev1.Container {
+func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, run *console.StackRunMinimalFragment) []corev1.Container {
 	if index := algorithms.Index(containers, func(container corev1.Container) bool {
 		return container.Name == DefaultJobContainer
 	}); index == -1 {
@@ -240,7 +240,7 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 	return containers
 }
 
-func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) corev1.Container {
+func (r *StackReconciler) getDefaultContainer(run *console.StackRunMinimalFragment) corev1.Container {
 	return corev1.Container{
 		Name:  DefaultJobContainer,
 		Image: r.getDefaultContainerImage(run),
@@ -254,7 +254,7 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) cor
 	}
 }
 
-func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment) string {
+func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunMinimalFragment) string {
 	// In case image is not provided, it will use our default image.
 	// Image name format: <defaultImage>:<tag>
 	// Note: User has to make sure that the tag is correct and matches our naming scheme.
@@ -284,11 +284,11 @@ func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment
 	return fmt.Sprintf("%s:%s-%s-%s", r.getImage(run), r.getTag(run), strings.ToLower(string(run.Type)), r.getVersion(run))
 }
 
-func (r *StackReconciler) hasCustomImage(run *console.StackRunFragment) bool {
+func (r *StackReconciler) hasCustomImage(run *console.StackRunMinimalFragment) bool {
 	return run.Configuration.Image != nil && len(*run.Configuration.Image) > 0
 }
 
-func (r *StackReconciler) getImage(run *console.StackRunFragment) string {
+func (r *StackReconciler) getImage(run *console.StackRunMinimalFragment) string {
 	if r.hasCustomImage(run) {
 		return *run.Configuration.Image
 	}
@@ -296,11 +296,11 @@ func (r *StackReconciler) getImage(run *console.StackRunFragment) string {
 	return defaultContainerImages[run.Type]
 }
 
-func (r *StackReconciler) hasCustomVersion(run *console.StackRunFragment) bool {
+func (r *StackReconciler) hasCustomVersion(run *console.StackRunMinimalFragment) bool {
 	return run.Configuration.Version != nil && len(*run.Configuration.Version) > 0
 }
 
-func (r *StackReconciler) getVersion(run *console.StackRunFragment) string {
+func (r *StackReconciler) getVersion(run *console.StackRunMinimalFragment) string {
 	if r.hasCustomVersion(run) {
 		return *run.Configuration.Version
 	}
@@ -308,11 +308,11 @@ func (r *StackReconciler) getVersion(run *console.StackRunFragment) string {
 	return defaultContainerVersions[run.Type]
 }
 
-func (r *StackReconciler) hasCustomTag(run *console.StackRunFragment) bool {
+func (r *StackReconciler) hasCustomTag(run *console.StackRunMinimalFragment) bool {
 	return run.Configuration.Tag != nil && len(*run.Configuration.Tag) > 0
 }
 
-func (r *StackReconciler) getTag(run *console.StackRunFragment) string {
+func (r *StackReconciler) getTag(run *console.StackRunMinimalFragment) string {
 	if r.hasCustomTag(run) {
 		return *run.Configuration.Tag
 	}
@@ -320,7 +320,7 @@ func (r *StackReconciler) getTag(run *console.StackRunFragment) string {
 	return defaultImageTag
 }
 
-func (r *StackReconciler) getDefaultContainerEnvFrom(run *console.StackRunFragment) []corev1.EnvFromSource {
+func (r *StackReconciler) getDefaultContainerEnvFrom(run *console.StackRunMinimalFragment) []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{
@@ -390,7 +390,7 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 	}
 }
 
-func (r *StackReconciler) ensureDefaultContainerResourcesRequests(containers []corev1.Container, run *console.StackRunFragment) ([]corev1.Container, error) {
+func (r *StackReconciler) ensureDefaultContainerResourcesRequests(containers []corev1.Container, run *console.StackRunMinimalFragment) ([]corev1.Container, error) {
 	if run.JobSpec == nil || run.JobSpec.Requests == nil {
 		return containers, nil
 	}

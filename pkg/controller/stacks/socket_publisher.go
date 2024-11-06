@@ -9,7 +9,7 @@ import (
 
 type socketPublisher struct {
 	stackRunQueue workqueue.TypedRateLimitingInterface[string]
-	stackRunCache *client.Cache[console.StackRunFragment]
+	stackRunCache *client.Cache[console.StackRunMinimalFragment]
 }
 
 func (sp *socketPublisher) Publish(id string) {

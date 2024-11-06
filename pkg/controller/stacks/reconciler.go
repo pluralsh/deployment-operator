@@ -28,7 +28,7 @@ type StackReconciler struct {
 	k8sClient     ctrlclient.Client
 	scheme        *runtime.Scheme
 	stackQueue    workqueue.TypedRateLimitingInterface[string]
-	stackCache    *client.Cache[console.StackRunFragment]
+	stackCache    *client.Cache[console.StackRunMinimalFragment]
 	namespace     string
 	consoleURL    string
 	deployToken   string
@@ -41,7 +41,7 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		k8sClient:     k8sClient,
 		scheme:        scheme,
 		stackQueue:    workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		stackCache: client.NewCache[console.StackRunFragment](refresh, func(id string) (*console.StackRunFragment, error) {
+		stackCache: client.NewCache[console.StackRunMinimalFragment](refresh, func(id string) (*console.StackRunMinimalFragment, error) {
 			return consoleClient.GetStackRun(id)
 		}),
 		consoleURL:   consoleURL,
@@ -88,10 +88,10 @@ func (r *StackReconciler) ShutdownQueue() {
 	r.stackQueue.ShutDown()
 }
 
-func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*console.StackRunEdgeFragment] {
+func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*console.StackRunIDEdgeFragment] {
 	logger := log.FromContext(ctx)
 	logger.Info("create stack run pager")
-	fetch := func(page *string, size int64) ([]*console.StackRunEdgeFragment, *algorithms.PageInfo, error) {
+	fetch := func(page *string, size int64) ([]*console.StackRunIDEdgeFragment, *algorithms.PageInfo, error) {
 		resp, err := r.consoleClient.ListClusterStackRuns(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch stack run")
@@ -104,7 +104,7 @@ func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*con
 		}
 		return resp.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.StackRunEdgeFragment](common.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.StackRunIDEdgeFragment](common.DefaultPageSize, fetch)
 }
 
 func (r *StackReconciler) Poll(ctx context.Context) error {
