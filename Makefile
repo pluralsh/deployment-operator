@@ -91,6 +91,24 @@ docker-build: ## build image
 docker-push: ## push image
 	docker push ${IMG}
 
+.PHONY: docker-build-harness-base-fips
+docker-build-harness-base-fips: ## build fips base docker harness image
+	docker build \
+			--no-cache \
+			--build-arg=VERSION="0.0.0-dev" \
+    	  	-t harness-base-fips \
+    		-f dockerfiles/harness/base.fips.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-ansible-fips
+docker-build-harness-ansible-fips: docker-build-harness-base-fips ## build fips ansible docker harness image
+	docker build \
+			--no-cache \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
+    	  	-t harness-fips \
+    		-f dockerfiles/harness/ansible.fips.Dockerfile \
+    		.
+
 .PHONY: docker-build-harness-base
 docker-build-harness-base: ## build base docker harness image
 	docker build \
@@ -123,6 +141,13 @@ docker-run-harness: docker-build-harness-terraform docker-build-harness-ansible 
 			--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
 			--console-token=${PLURAL_DEPLOY_TOKEN} \
 			--stack-run-id=${PLURAL_STACK_RUN_ID}
+
+.PHONY: docker-build-agent-fips
+docker-build-agent-fips: ## build docker fips agent image
+	docker build \
+    	  	-t deployment-agent-fips \
+    		-f dockerfiles/agent/fips.Dockerfile \
+    		.
 
 velero-crds:
 	@curl -L $(VELERO_CHART_URL) --output velero.tgz
