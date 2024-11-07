@@ -17,7 +17,7 @@ require (
 	github.com/fluxcd/flagger v1.38.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-logr/logr v1.4.2
-	github.com/gobuffalo/flect v1.0.2
+	github.com/gobuffalo/flect v1.0.3
 	github.com/gofrs/flock v0.12.1
 	github.com/golangci/golangci-lint v1.61.0
 	github.com/google/gnostic-models v0.6.8
