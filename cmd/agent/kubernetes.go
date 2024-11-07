@@ -136,6 +136,7 @@ func registerKubeReconcilersOrDie(
 		Client:        manager.GetClient(),
 		Scheme:        manager.GetScheme(),
 		ConsoleClient: extConsoleClient,
+		Ctx:           ctx,
 	}
 
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{

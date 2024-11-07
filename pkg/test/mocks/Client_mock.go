@@ -1982,6 +1982,64 @@ func (_c *ClientMock_UpsertVirtualCluster_Call) RunAndReturn(run func(string, cl
 	return _c
 }
 
+// UpsertVulnerabilityReports provides a mock function with given fields: vulnerabilities
+func (_m *ClientMock) UpsertVulnerabilityReports(vulnerabilities []*client.VulnerabilityReportAttributes) (*client.UpsertVulnerabilities, error) {
+	ret := _m.Called(vulnerabilities)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertVulnerabilityReports")
+	}
+
+	var r0 *client.UpsertVulnerabilities
+	var r1 error
+	if rf, ok := ret.Get(0).(func([]*client.VulnerabilityReportAttributes) (*client.UpsertVulnerabilities, error)); ok {
+		return rf(vulnerabilities)
+	}
+	if rf, ok := ret.Get(0).(func([]*client.VulnerabilityReportAttributes) *client.UpsertVulnerabilities); ok {
+		r0 = rf(vulnerabilities)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.UpsertVulnerabilities)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func([]*client.VulnerabilityReportAttributes) error); ok {
+		r1 = rf(vulnerabilities)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_UpsertVulnerabilityReports_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertVulnerabilityReports'
+type ClientMock_UpsertVulnerabilityReports_Call struct {
+	*mock.Call
+}
+
+// UpsertVulnerabilityReports is a helper method to define mock.On call
+//   - vulnerabilities []*client.VulnerabilityReportAttributes
+func (_e *ClientMock_Expecter) UpsertVulnerabilityReports(vulnerabilities interface{}) *ClientMock_UpsertVulnerabilityReports_Call {
+	return &ClientMock_UpsertVulnerabilityReports_Call{Call: _e.mock.On("UpsertVulnerabilityReports", vulnerabilities)}
+}
+
+func (_c *ClientMock_UpsertVulnerabilityReports_Call) Run(run func(vulnerabilities []*client.VulnerabilityReportAttributes)) *ClientMock_UpsertVulnerabilityReports_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]*client.VulnerabilityReportAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_UpsertVulnerabilityReports_Call) Return(_a0 *client.UpsertVulnerabilities, _a1 error) *ClientMock_UpsertVulnerabilityReports_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_UpsertVulnerabilityReports_Call) RunAndReturn(run func([]*client.VulnerabilityReportAttributes) (*client.UpsertVulnerabilities, error)) *ClientMock_UpsertVulnerabilityReports_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewClientMock creates a new instance of ClientMock. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewClientMock(t interface {
