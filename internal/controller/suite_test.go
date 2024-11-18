@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"testing"
 
+	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
@@ -78,6 +79,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = templatesv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = trivy.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	kClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
