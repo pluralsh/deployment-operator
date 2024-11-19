@@ -3,15 +3,17 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"k8s.io/client-go/discovery"
-	"k8s.io/klog/v2"
-	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
-
+	"github.com/pluralsh/deployment-operator/internal/kstatus/statusreaders"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/event"
+	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
@@ -93,7 +95,18 @@ func NewDynamicStatusWatcher(dynamicClient dynamic.Interface, discoveryClient di
 		informerRefs = make(map[GroupKindNamespace]*watcherReference)
 	}
 
-	defaultStatusWatcher := kwatcher.NewDefaultStatusWatcher(dynamicClient, mapper)
+	defaultStatusWatcher := &kwatcher.DefaultStatusWatcher{
+		DynamicClient: dynamicClient,
+		Mapper:        mapper,
+		ResyncPeriod:  1 * time.Hour,
+		StatusReader:  statusreaders.NewDefaultStatusReader(mapper),
+		ClusterReader: &clusterreader.DynamicClusterReader{
+			DynamicClient: dynamicClient,
+			Mapper:        mapper,
+		},
+		Indexers: kwatcher.DefaultIndexers(),
+	}
+
 	defaultStatusWatcher.Filters = options.Filters
 
 	return &DynamicStatusWatcher{
