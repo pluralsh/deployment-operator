@@ -44,7 +44,7 @@ jobs:
           version: v1.60.2
   publish:
     name: Build and push Agent container
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs:
     - test
     permissions:

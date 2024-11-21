@@ -22,7 +22,7 @@ jobs:
       - run: PATH=$PATH:$GOPATH/bin make test
   publish-docker:
     name: Build and push agent container
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [test]
     permissions:
       contents: 'read'
@@ -82,7 +82,7 @@ jobs:
       if: always()
   bump:
     name: Bump Chart Version
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [publish-docker]
     permissions:
       contents: write
