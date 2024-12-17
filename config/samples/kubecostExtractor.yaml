@@ -1,0 +1,12 @@
+apiVersion: deployments.plural.sh/v1alpha1
+kind: KubecostExtractor
+metadata:
+  labels:
+    app.kubernetes.io/part-of: deployment-operator
+    app.kubernetes.io/created-by: deployment-operator
+  name: default
+spec:
+  recommendationThreshold: "2"
+  kubecostServiceRef:
+    name: kubecost-cost-analyzer
+    namespace: kubecost

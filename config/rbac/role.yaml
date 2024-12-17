@@ -21,6 +21,7 @@ rules:
   - deployments.plural.sh
   resources:
   - customhealths
+  - kubecostextractors
   - pipelinegates
   verbs:
   - create
@@ -34,6 +35,7 @@ rules:
   - deployments.plural.sh
   resources:
   - customhealths/finalizers
+  - kubecostextractors/finalizers
   - pipelinegates/finalizers
   verbs:
   - update
@@ -41,6 +43,7 @@ rules:
   - deployments.plural.sh
   resources:
   - customhealths/status
+  - kubecostextractors/status
   - pipelinegates/status
   verbs:
   - get

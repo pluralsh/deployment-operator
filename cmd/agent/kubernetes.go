@@ -241,4 +241,12 @@ func registerKubeReconcilersOrDie(
 	}).SetupWithManager(ctx, manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
+
+	if err := (&controller.KubecostExtractorReconciler{
+		Client:     manager.GetClient(),
+		Scheme:     manager.GetScheme(),
+		KubeClient: kubeClient,
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
+	}
 }

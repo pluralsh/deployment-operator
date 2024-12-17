@@ -4,25 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
-  name: upgradeinsights.deployments.plural.sh
+  name: kubecostextractors.deployments.plural.sh
 spec:
   group: deployments.plural.sh
   names:
-    kind: UpgradeInsights
-    listKind: UpgradeInsightsList
-    plural: upgradeinsights
-    singular: upgradeinsights
+    kind: KubecostExtractor
+    listKind: KubecostExtractorList
+    plural: kubecostextractors
+    singular: kubecostextractor
   scope: Cluster
   versions:
-  - additionalPrinterColumns:
-    - description: ID of the UpgradeInsights in the Console API.
-      jsonPath: .status.id
-      name: ID
-      type: string
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: UpgradeInsights is the Schema for the UpgradeInsights API
+        description: KubecostExtractor
         properties:
           apiVersion:
             description: |-
@@ -43,69 +38,64 @@ spec:
             type: object
           spec:
             properties:
-              clusterName:
-                description: |-
-                  ClusterName is your cloud provider cluster identifier (usually name) that is used
-                  to fetch latest upgrade insights information from the cloud provider API.
-                  If not provided, we get the cluster name from the Plural API cluster tied to this
-                  operator deploy token and assume that it is the same as the cluster name in your cloud provider.
-                type: string
-              credentials:
-                description: Credentials allow overriding default provider credentials
-                  bound to the operator.
-                properties:
-                  aws:
-                    description: AWS defines attributes required to auth with AWS
-                      API.
-                    properties:
-                      accessKeyID:
-                        description: AccessKeyID is your access key ID used to authenticate
-                          against AWS API.
-                        type: string
-                      region:
-                        description: Region is the name of the AWS region cluster
-                          lives in.
-                        type: string
-                      secretAccessKeyRef:
-                        description: "SecretAccessKeyRef is a reference to the secret
-                          that contains secret access key.\nSince UpgradeInsights
-                          is a cluster-scoped resource we can't use local reference.\n\nSecretAccessKey
-                          must be stored in a key named \"secretAccessKey\".\n\nAn
-                          example secret can look like this:\n\tapiVersion: v1\n\tkind:
-                          Secret\n\tmetadata:\n   name: eks-credentials\n   namespace:
-                          upgrade-insights-test\n\tstringData:\n   secretAccessKey:
-                          \"changeme\"\n\nThen it can be referenced like this:\n   ...\n
-                          \  secretAccessKeyRef:\n     name: eks-credentials\n     namespace:
-                          upgrade-insights-test"
-                        properties:
-                          name:
-                            description: name is unique within a namespace to reference
-                              a secret resource.
-                            type: string
-                          namespace:
-                            description: namespace defines the space within which
-                              the secret name must be unique.
-                            type: string
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    required:
-                    - region
-                    type: object
-                type: object
-              distro:
-                description: |-
-                  Distro defines which provider API should be used to fetch latest upgrade insights.
-                  If not provided, we get the distro from the Plural API cluster tied to this operator deploy token.
-                enum:
-                - EKS
-                type: string
               interval:
-                default: 10m
-                description: Interval defines how often should the upgrade insights
-                  information be fetched.
+                default: 1h
                 type: string
+              kubecostPort:
+                format: int32
+                type: integer
+              kubecostServiceRef:
+                description: ObjectReference contains enough information to let you
+                  inspect or modify the referred object.
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  fieldPath:
+                    description: |-
+                      If referring to a piece of an object instead of an entire object, this string
+                      should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                      For example, if the object reference is to a container within a pod, this would take on a value like:
+                      "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                      the event) or if no container name is specified "spec.containers[2]" (container with
+                      index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                      referencing a part of an object.
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the referent.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                    type: string
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                    type: string
+                  resourceVersion:
+                    description: |-
+                      Specific resourceVersion to which this reference is made, if any.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                    type: string
+                  uid:
+                    description: |-
+                      UID of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              recommendationThreshold:
+                type: string
+            required:
+            - kubecostServiceRef
+            - recommendationThreshold
             type: object
           status:
+            description: Status of the MetricsAggregate
             properties:
               conditions:
                 description: Represents the observations of a PrAutomation's current
@@ -175,6 +165,8 @@ spec:
                 description: SHA of last applied configuration.
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

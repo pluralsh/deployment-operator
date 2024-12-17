@@ -71,4 +71,5 @@ type Client interface {
 	GetGroup(name string) (*console.GroupFragment, error)
 	SaveUpgradeInsights(attributes []*console.UpgradeInsightAttributes) (*console.SaveUpgradeInsights, error)
 	UpsertVulnerabilityReports(vulnerabilities []*console.VulnerabilityReportAttributes) (*console.UpsertVulnerabilities, error)
+	IngestClusterCost(attr console.CostIngestAttributes) (*console.IngestClusterCost, error)
 }
