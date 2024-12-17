@@ -1,6 +1,8 @@
 module github.com/pluralsh/deployment-operator
 
-go 1.22.6
+go 1.22.7
+
+toolchain go1.23.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -28,6 +30,7 @@ require (
 	github.com/onsi/gomega v1.34.2
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20240802234259-aa99306df54e
 	github.com/open-policy-agent/gatekeeper/v3 v3.17.1
+	github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/pluralsh/console/go/client v1.25.2
@@ -338,6 +341,7 @@ require (
 	github.com/osteele/tuesday v1.0.3 // indirect
 	github.com/owenrumney/squealer v1.2.2 // indirect
 	github.com/package-url/packageurl-go v0.1.3 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect

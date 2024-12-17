@@ -291,7 +291,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 			}
 
 			logger.Info("sending update for", "service", svc.Node.ID)
-			s.svcQueue.Add(svc.Node.ID)
+			//s.svcQueue.Add(svc.Node.ID)
 		}
 	}
 
