@@ -172,11 +172,10 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string, interval time.Duration) (*allocationResponse, error) {
-	// calculate window from interval
+func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string) (*allocationResponse, error) {
 	now := time.Now()
-	subtractedTime := now.Add(-interval)
-	window := fmt.Sprintf("%d,%d", subtractedTime.Unix(), now.Unix())
+	oneMonthBefore := now.AddDate(0, -1, 0) // 0 years, -1 month, 0 days
+	window := fmt.Sprintf("%d,%d", oneMonthBefore.Unix(), now.Unix())
 
 	queryParams := map[string]string{
 		"window":     window,
@@ -198,7 +197,7 @@ func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *co
 func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Context, srv *corev1.Service, servicePort string, interval time.Duration, recommendationThreshold float64) ([]*console.ClusterRecommendationAttributes, error) {
 	var result []*console.ClusterRecommendationAttributes
 	for _, resourceType := range kubecostResourceTypes {
-		ar, err := r.getAllocation(ctx, srv, servicePort, resourceType, interval)
+		ar, err := r.getAllocation(ctx, srv, servicePort, resourceType)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +225,7 @@ func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Co
 
 func (r *KubecostExtractorReconciler) getNamespacesCost(ctx context.Context, srv *corev1.Service, servicePort string, interval time.Duration) ([]*console.CostAttributes, error) {
 	var result []*console.CostAttributes
-	ar, err := r.getAllocation(ctx, srv, servicePort, "namespace", interval)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "namespace")
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +260,7 @@ func (r *KubecostExtractorReconciler) getClusterCost(ctx context.Context, srv *c
 		return nil, err
 	}
 
-	ar, err := r.getAllocation(ctx, srv, servicePort, "cluster", interval)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "cluster")
 	if err != nil {
 		return nil, err
 	}
