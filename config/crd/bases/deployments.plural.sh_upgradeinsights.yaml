@@ -89,9 +89,7 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                     required:
-                    - accessKeyID
                     - region
-                    - secretAccessKeyRef
                     type: object
                 type: object
               distro:

@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	cmap "github.com/orcaman/concurrent-map/v2"
+
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
@@ -239,6 +241,16 @@ func registerKubeReconcilersOrDie(
 		DiscoveryClient: discoveryClient,
 		MetricsClient:   metricsClient,
 	}).SetupWithManager(ctx, manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
+	}
+
+	if err := (&controller.KubecostExtractorReconciler{
+		Client:           manager.GetClient(),
+		Scheme:           manager.GetScheme(),
+		KubeClient:       kubeClient,
+		ExtConsoleClient: extConsoleClient,
+		Tasks:            cmap.New[context.CancelFunc](),
+	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
 }

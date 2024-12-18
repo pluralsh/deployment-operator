@@ -1070,6 +1070,64 @@ func (_c *ClientMock_GetUser_Call) RunAndReturn(run func(string) (*client.UserFr
 	return _c
 }
 
+// IngestClusterCost provides a mock function with given fields: attr
+func (_m *ClientMock) IngestClusterCost(attr client.CostIngestAttributes) (*client.IngestClusterCost, error) {
+	ret := _m.Called(attr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IngestClusterCost")
+	}
+
+	var r0 *client.IngestClusterCost
+	var r1 error
+	if rf, ok := ret.Get(0).(func(client.CostIngestAttributes) (*client.IngestClusterCost, error)); ok {
+		return rf(attr)
+	}
+	if rf, ok := ret.Get(0).(func(client.CostIngestAttributes) *client.IngestClusterCost); ok {
+		r0 = rf(attr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.IngestClusterCost)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(client.CostIngestAttributes) error); ok {
+		r1 = rf(attr)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_IngestClusterCost_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IngestClusterCost'
+type ClientMock_IngestClusterCost_Call struct {
+	*mock.Call
+}
+
+// IngestClusterCost is a helper method to define mock.On call
+//   - attr client.CostIngestAttributes
+func (_e *ClientMock_Expecter) IngestClusterCost(attr interface{}) *ClientMock_IngestClusterCost_Call {
+	return &ClientMock_IngestClusterCost_Call{Call: _e.mock.On("IngestClusterCost", attr)}
+}
+
+func (_c *ClientMock_IngestClusterCost_Call) Run(run func(attr client.CostIngestAttributes)) *ClientMock_IngestClusterCost_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(client.CostIngestAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_IngestClusterCost_Call) Return(_a0 *client.IngestClusterCost, _a1 error) *ClientMock_IngestClusterCost_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_IngestClusterCost_Call) RunAndReturn(run func(client.CostIngestAttributes) (*client.IngestClusterCost, error)) *ClientMock_IngestClusterCost_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsClusterExists provides a mock function with given fields: id
 func (_m *ClientMock) IsClusterExists(id string) (bool, error) {
 	ret := _m.Called(id)

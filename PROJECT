@@ -17,4 +17,9 @@ resources:
   kind: CustomHealth
   path: github.com/pluralsh/deployment-operator/api/v1alpha1
   version: v1alpha1
+- controller: true
+  domain: plural.sh
+  group: deployments
+  kind: KubecostExtractor
+  version: v1alpha1
 version: "3"

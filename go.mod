@@ -1,11 +1,14 @@
 module github.com/pluralsh/deployment-operator
 
-go 1.22.6
+go 1.22.7
+
+toolchain go1.23.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Yamashou/gqlgenc v0.25.0
+	github.com/aquasecurity/trivy-db v0.0.0-20231020043206-3770774790ce
 	github.com/aquasecurity/trivy-operator v0.22.0
 	github.com/argoproj/argo-rollouts v1.7.2
 	github.com/aws/aws-sdk-go-v2 v1.30.5
@@ -27,9 +30,10 @@ require (
 	github.com/onsi/gomega v1.34.2
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20240802234259-aa99306df54e
 	github.com/open-policy-agent/gatekeeper/v3 v3.17.1
+	github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.25.1
+	github.com/pluralsh/console/go/client v1.25.2
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.1.10
@@ -110,7 +114,6 @@ require (
 	github.com/aquasecurity/tml v0.6.1 // indirect
 	github.com/aquasecurity/trivy v0.53.0 // indirect
 	github.com/aquasecurity/trivy-checks v0.13.0 // indirect
-	github.com/aquasecurity/trivy-db v0.0.0-20231020043206-3770774790ce // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/ashanbrown/forbidigo v1.6.0 // indirect
 	github.com/ashanbrown/makezero v1.1.1 // indirect
@@ -338,6 +341,7 @@ require (
 	github.com/osteele/tuesday v1.0.3 // indirect
 	github.com/owenrumney/squealer v1.2.2 // indirect
 	github.com/package-url/packageurl-go v0.1.3 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
