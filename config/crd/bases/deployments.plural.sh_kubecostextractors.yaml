@@ -89,6 +89,8 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               recommendationThreshold:
+                description: 'RecommendationThreshold float value for example: `1.2
+                  or 0.001`'
                 type: string
             required:
             - kubecostServiceRef

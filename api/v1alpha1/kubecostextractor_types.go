@@ -24,7 +24,8 @@ type KubecostExtractorSpec struct {
 	Interval           *string                `json:"interval,omitempty"`
 	KubecostServiceRef corev1.ObjectReference `json:"kubecostServiceRef"`
 	// +kubebuilder:validation:Optional
-	KubecostPort            *int32 `json:"kubecostPort,omitempty"`
+	KubecostPort *int32 `json:"kubecostPort,omitempty"`
+	// RecommendationThreshold float value for example: `1.2 or 0.001`
 	RecommendationThreshold string `json:"recommendationThreshold"`
 }
 
