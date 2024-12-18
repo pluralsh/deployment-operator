@@ -17,10 +17,13 @@ limitations under the License.
 package controller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -172,6 +175,34 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
+func (r *KubecostExtractorReconciler) fetch(host, path string, params map[string]string) ([]byte, error) {
+	tr := &http.Transport{
+		MaxIdleConns:          10,
+		IdleConnTimeout:       30 * time.Second,
+		DisableCompression:    true,
+		ResponseHeaderTimeout: 60 * time.Second,
+	}
+	client := &http.Client{Transport: tr}
+	urlParams := url.Values{}
+	for k, v := range params {
+		urlParams.Add(k, v)
+	}
+
+	resp, err := client.Get(fmt.Sprintf("http://%s%s?%s", host, path, urlParams.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var buffer bytes.Buffer
+	_, err = io.Copy(&buffer, resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
+}
+
 func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string) (*allocationResponse, error) {
 	now := time.Now()
 	oneMonthBefore := now.AddDate(0, -1, 0) // 0 years, -1 month, 0 days
@@ -183,7 +214,7 @@ func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *co
 		"accumulate": "true",
 	}
 
-	bytes, err := r.KubeClient.CoreV1().Services(srv.Namespace).ProxyGet("", srv.Name, servicePort, "/model/allocation", queryParams).DoRaw(ctx)
+	bytes, err := r.fetch(fmt.Sprintf("%s.%s:%s", srv.Name, srv.Namespace, servicePort), "/model/allocation", queryParams)
 	if err != nil {
 		return nil, err
 	}
