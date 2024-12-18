@@ -6,7 +6,8 @@ metadata:
     app.kubernetes.io/created-by: deployment-operator
   name: default
 spec:
-  recommendationThreshold: "2"
+  interval: "1h1m"
+  recommendationThreshold: "0.00002"
   kubecostServiceRef:
     name: kubecost-cost-analyzer
     namespace: kubecost

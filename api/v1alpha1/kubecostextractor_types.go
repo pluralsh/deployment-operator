@@ -10,9 +10,8 @@ import (
 )
 
 const (
-	defaultKubecostExtractorInterval       = 1 * time.Hour
-	defaultKubecostExtractorIntervalString = "1h"
-	defaultKubecostExtractorPort           = "9090"
+	defaultKubecostExtractorInterval = 2 * time.Hour
+	defaultKubecostExtractorPort     = "9090"
 )
 
 func init() {
@@ -62,14 +61,6 @@ func (in *KubecostExtractorSpec) GetInterval() time.Duration {
 	}
 
 	return interval
-}
-
-func (in *KubecostExtractorSpec) GetIntervalString() string {
-	if in.Interval == nil {
-		return defaultKubecostExtractorIntervalString
-	}
-
-	return *in.Interval
 }
 
 func (in *KubecostExtractorSpec) GetPort() string {
