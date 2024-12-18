@@ -343,6 +343,9 @@ func (r *KubecostExtractorReconciler) convertClusterRecommendationAttributes(ctx
 		if ok {
 			result.Namespace = lo.ToPtr(namespace)
 		}
+		if allocation.Properties.Container != "" {
+			result.Container = lo.ToPtr(allocation.Properties.Container)
+		}
 	}
 	namespace := ""
 	if result.Namespace != nil {
@@ -374,6 +377,5 @@ func convertCostAttributes(allocation opencost.Allocation) *console.CostAttribut
 	if allocation.GPUAllocation != nil {
 		attr.GpuUtil = allocation.GPUAllocation.GPUUsageAverage
 	}
-
 	return attr
 }
