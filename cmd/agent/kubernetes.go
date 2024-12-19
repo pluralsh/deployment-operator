@@ -102,6 +102,7 @@ func registerKubeReconcilersOrDie(
 	config *rest.Config,
 	extConsoleClient consoleclient.Client,
 	discoveryClient discovery.DiscoveryInterface,
+	enableKubecostProxy bool,
 ) {
 
 	rolloutsClient, dynamicClient, kubeClient, metricsClient := initKubeClientsOrDie(config)
@@ -250,6 +251,7 @@ func registerKubeReconcilersOrDie(
 		KubeClient:       kubeClient,
 		ExtConsoleClient: extConsoleClient,
 		Tasks:            cmap.New[context.CancelFunc](),
+		Proxy:            enableKubecostProxy,
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
