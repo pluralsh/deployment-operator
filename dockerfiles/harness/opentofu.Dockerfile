@@ -1,0 +1,14 @@
+ARG TOFU_IMAGE_TAG=1.7.1
+ARG TOFU_IMAGE=ghcr.io/opentofu/opentofu:$TOFU_IMAGE_TAG
+
+ARG HARNESS_BASE_IMAGE_TAG=sha-1eca71e
+ARG HARNESS_BASE_IMAGE_REPO=harness-base
+ARG HARNESS_BASE_IMAGE=$HARNESS_BASE_IMAGE_REPO:$HARNESS_BASE_IMAGE_TAG
+
+FROM $TOFU_IMAGE as tofu
+FROM $HARNESS_BASE_IMAGE as final
+
+COPY --from=tofu /usr/local/bin/tofu /bin/terraform
+
+# Switch to the non-root user
+USER 65532:65532
