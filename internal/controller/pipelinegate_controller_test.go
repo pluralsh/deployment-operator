@@ -4,14 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/test/common"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
@@ -20,6 +15,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/test/common"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("PipelineGate Controller", Ordered, func() {
@@ -80,7 +80,6 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 				}
 				Expect(kClient.Create(ctx, resource)).To(Succeed())
 			}
-
 		})
 
 		It("should set state pending", func() {
@@ -89,9 +88,8 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 			reconciler := &PipelineGateReconciler{
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
-				GateCache:     gateCache,
 				Scheme:        kClient.Scheme(),
-				Log:           logr.Logger{},
+				GateCache:     gateCache,
 			}
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: gateNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -108,9 +106,8 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 			reconciler := &PipelineGateReconciler{
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
-				GateCache:     gateCache,
 				Scheme:        kClient.Scheme(),
-				Log:           logr.Logger{},
+				GateCache:     gateCache,
 			}
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: gateNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -128,9 +125,8 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 			reconciler := &PipelineGateReconciler{
 				Client:        kClient,
 				ConsoleClient: fakeConsoleClient,
-				GateCache:     gateCache,
 				Scheme:        kClient.Scheme(),
-				Log:           logr.Logger{},
+				GateCache:     gateCache,
 			}
 
 			existingJob := &batchv1.Job{}

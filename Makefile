@@ -19,7 +19,7 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 ENVTEST_K8S_VERSION := 1.28.3
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+CONTROLLER_GEN ?= $(shell which controller-gen)
 MOCKERY ?= $(shell which mockery)
 include tools.mk
 
@@ -35,9 +35,6 @@ PRE = --ensure
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.3)
-
 .PHONY: crd-docs
 crd-docs: ##generate docs from the CRDs
 	$(CRDDOCS) --source-path=./api --renderer=markdown --output-path=./docs/api.md --config=config.yaml
@@ -47,6 +44,7 @@ crd-docs: ##generate docs from the CRDs
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	@$(MAKE) -s codegen-chart-crds
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -56,17 +54,32 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 genmock: mockery ## generates mocks before running tests
 	$(MOCKERY)
 
+.PHONY: codegen-chart-crds
+codegen-chart-crds: ## copy CRDs to the helm chart
+	@cp -a config/crd/bases/. charts/deployment-operator/crds
+
 ##@ Run
 
 .PHONY: agent-run
-agent-run: ## run agent
-	go run cmd/agent/**
+agent-run: agent ## run agent
+	OPERATOR_NAMESPACE=plrl-deploy-operator \
+	go run cmd/agent/*.go \
+		--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
+        --enable-helm-dependency-update=false \
+        --disable-helm-dry-run-server=false \
+        --cluster-id=${PLURAL_CLUSTER_ID} \
+        --local \
+        --refresh-interval=30s \
+        --resource-cache-ttl=60s \
+        --max-concurrent-reconciles=20 \
+        --v=1 \
+        --deploy-token=${PLURAL_DEPLOY_TOKEN}
 
 ##@ Build
 
 .PHONY: agent
 agent: ## build agent
-	go build -o bin/deployment-agent cmd/agent/**
+	go build -o bin/deployment-agent cmd/agent/*.go
 
 .PHONY: harness
 harness: ## build stack run harness
@@ -77,6 +90,24 @@ docker-build: ## build image
 
 docker-push: ## push image
 	docker push ${IMG}
+
+.PHONY: docker-build-harness-base-fips
+docker-build-harness-base-fips: ## build fips base docker harness image
+	docker build \
+			--no-cache \
+			--build-arg=VERSION="0.0.0-dev" \
+    	  	-t harness-base-fips \
+    		-f dockerfiles/harness/base.fips.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-ansible-fips
+docker-build-harness-ansible-fips: docker-build-harness-base-fips ## build fips ansible docker harness image
+	docker build \
+			--no-cache \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
+    	  	-t harness-fips \
+    		-f dockerfiles/harness/ansible.fips.Dockerfile \
+    		.
 
 .PHONY: docker-build-harness-base
 docker-build-harness-base: ## build base docker harness image
@@ -111,6 +142,13 @@ docker-run-harness: docker-build-harness-terraform docker-build-harness-ansible 
 			--console-token=${PLURAL_DEPLOY_TOKEN} \
 			--stack-run-id=${PLURAL_STACK_RUN_ID}
 
+.PHONY: docker-build-agent-fips
+docker-build-agent-fips: ## build docker fips agent image
+	docker build \
+    	  	-t deployment-agent-fips \
+    		-f dockerfiles/agent/fips.Dockerfile \
+    		.
+
 velero-crds:
 	@curl -L $(VELERO_CHART_URL) --output velero.tgz
 	@tar zxvf velero.tgz velero/crds
@@ -121,7 +159,7 @@ velero-crds:
 
 .PHONY: test
 test: envtest ## run tests
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test $$(go list ./... | grep -v /e2e) -v
+	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test $$(go list ./... | grep -v /e2e) -v -tags="cache"
 
 .PHONY: lint
 lint: $(PRE) ## run linters
@@ -164,6 +202,14 @@ mockery: --tool
 .PHONY: crd-ref-docs
 crd-ref-docs: TOOL = crd-ref-docs
 crd-ref-docs: --tool
+
+.PHONY: controller-gen
+controller-gen: TOOL = controller-gen
+controller-gen: --tool
+
+.PHONY: discovery
+discovery: TOOL = discovery
+discovery: --tool
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))

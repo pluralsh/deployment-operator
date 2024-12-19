@@ -9,13 +9,14 @@ import (
 	"slices"
 	"sync"
 
-	gqlclient "github.com/pluralsh/console-client-go"
+	gqlclient "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
+	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -134,18 +135,10 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
 		exec.WithOutputSinks(append(toolWriters, consoleWriter)...),
-		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step.Stage, step.ID)),
-		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step.Stage)),
+		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step)),
+		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step)),
 		exec.WithOutputAnalyzer(exec.NewKeywordDetector()),
 	)
-
-	// Add a custom run step output analyzer for the destroy stage to increase
-	// a chance of detecting errors during execution. On occasion executable can
-	// return exit code 0 even though there was a fatal error during execution.
-	// TODO: use destroy stage
-	// if step.Stage == gqlclient.StepStageApply {
-	//	options = append(options, exec.WithOutputAnalyzer(exec.NewKeywordDetector()))
-	//}
 
 	return exec.NewExecutable(step.Cmd, options...)
 }
@@ -179,7 +172,7 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 		})
 	}
 
-	return in.consoleClient.CompleteStackRun(in.stackRunID, gqlclient.StackRunAttributes{
+	return stackrun.CompleteStackRun(in.consoleClient, in.stackRunID, &gqlclient.StackRunAttributes{
 		Errors: serviceErrorAttributes,
 		Output: output,
 		State:  state,
@@ -207,7 +200,12 @@ func (in *stackRunController) prepare() error {
 		return err
 	}
 
-	in.tool = tool.New(in.stackRun.Type, in.dir, in.execWorkDir())
+	variables, err := in.stackRun.Vars()
+	if err != nil {
+		return err
+	}
+
+	in.tool = tool.New(in.stackRun.Type, in.dir, in.execWorkDir(), variables)
 
 	return nil
 }

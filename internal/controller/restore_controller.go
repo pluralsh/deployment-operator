@@ -29,10 +29,6 @@ const (
 	restoreNameKey = "name"
 )
 
-var (
-	requeue = ctrl.Result{RequeueAfter: time.Second * 30}
-)
-
 // Reconcile Velero Restore custom resources to ensure that Console stays in sync with Kubernetes cluster.
 func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -56,7 +52,7 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 					logger.Error(err, "Unable to create config map")
 					return ctrl.Result{}, err
 				}
-				return requeue, nil
+				return requeue(requeueAfter, jitter), nil
 			}
 			return ctrl.Result{}, err
 		}
@@ -73,13 +69,13 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-		return requeue, nil
+		return requeue(requeueAfter, jitter), nil
 	}
 
 	configMap := &corev1.ConfigMap{}
 	if err := r.Get(ctx, types.NamespacedName{Name: service.RestoreConfigMapName, Namespace: restore.Namespace}, configMap); err != nil {
 		if apierrors.IsNotFound(err) {
-			return requeue, nil
+			return requeue(requeueAfter, jitter), nil
 		}
 		return ctrl.Result{}, err
 	}
@@ -91,7 +87,7 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	return requeue, nil
+	return requeue(requeueAfter, jitter), nil
 }
 
 func CreateConfigMap(ctx context.Context, client k8sClient.Client, restore *velerov1.Restore) error {

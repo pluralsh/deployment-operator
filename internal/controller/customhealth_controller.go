@@ -18,23 +18,24 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 // CustomHealthReconciler reconciles a LuaScript object
 type CustomHealthReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	ServiceReconciler *service.ServiceReconciler
+	Scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=customhealths,verbs=get;list;watch;create;update;patch;delete
@@ -48,14 +49,19 @@ type CustomHealthReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *CustomHealthReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, reterr error) {
 	logger := log.FromContext(ctx)
+	if req.Name != "default" {
+		logger.Error(fmt.Errorf("expected 'default' name, got %s", req.Name), "")
+		return reconcile.Result{}, nil
+	}
 	script := &v1alpha1.CustomHealth{}
 	if err := r.Get(ctx, req.NamespacedName, script); err != nil {
 		logger.Error(err, "Unable to fetch LuaScript")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	utils.MarkCondition(script.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
 
 	// Ensure that status updates will always be persisted when exiting this function.
-	scope, err := NewClusterScope(ctx, r.Client, script)
+	scope, err := NewDefaultScope(ctx, r.Client, script)
 	if err != nil {
 		logger.Error(err, "Failed to create cluster scope")
 		utils.MarkCondition(script.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
@@ -67,7 +73,7 @@ func (r *CustomHealthReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
-	r.ServiceReconciler.SetLuaScript(script.Spec.Script)
+	common.GetLuaScript().SetValue(script.Spec.Script)
 	utils.MarkCondition(script.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 
 	return ctrl.Result{}, nil

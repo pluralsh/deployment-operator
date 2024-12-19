@@ -10,35 +10,12 @@ env:
   GOPATH: /home/runner/go/
   GOPROXY: "https://proxy.golang.org"
 jobs:
-  prepare:
-    name: Prepare release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-    outputs:
-      new_release_version: ${{ steps.semantic_release.outputs.new_release_version }}
-      new_release_published: ${{ steps.semantic_release.outputs.new_release_published }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.PLURAL_BOT_PAT }}
-      - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v3
-        id: semantic_release
-        with:
-          dry_run: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.PLURAL_BOT_PAT }}
-          NODE_AUTH_TOKEN: ${{ secrets.PLURAL_BOT_NPM_TOKEN }}
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           check-latest: true
@@ -48,28 +25,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           check-latest: true
-      - run: PATH=$PATH:$GOPATH/bin make test
+      - run: PATH=$PATH:$GOPATH/bin make -d test
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           check-latest: true
       - uses: golangci/golangci-lint-action@v3
         with:
-          version: latest
+          version: v1.60.2
   publish:
     name: Build and push Agent container
     runs-on: ubuntu-20.04
     needs:
-    - prepare
     - test
     permissions:
       contents: 'read'
@@ -122,31 +98,3 @@ jobs:
         cache-to: type=gha,mode=max
         build-args: |
           GIT_COMMIT=${{ github.sha }}
-  release:
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-    if: github.event_name != 'pull_request'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.PLURAL_BOT_PAT }}
-      - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v3
-        id: semantic_release
-        if: github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.PLURAL_BOT_PAT }}
-          NODE_AUTH_TOKEN: ${{ secrets.PLURAL_BOT_NPM_TOKEN }}
-      - name: slack webhook
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          fields: workflow,job,repo,message,commit,author
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }} # required
-        if: always()

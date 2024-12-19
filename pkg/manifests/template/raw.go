@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
 	"github.com/pluralsh/polly/template"
 	"github.com/samber/lo"
@@ -32,6 +32,7 @@ func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_Servic
 		"configuration": configMap(svc),
 		"cluster":       clusterConfiguration(svc.Cluster),
 		"contexts":      contexts(svc),
+		"imports":       imports(svc),
 	}
 	return template.RenderLiquid(input, bindings)
 }

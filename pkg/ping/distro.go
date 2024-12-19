@@ -3,7 +3,7 @@ package ping
 import (
 	"strings"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 )
 
 func findDistro(vals []string) console.ClusterDistro {

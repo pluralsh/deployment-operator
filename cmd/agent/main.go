@@ -1,38 +1,38 @@
 package main
 
 import (
-	"net/http"
+	"context"
 	"os"
 	"time"
 
-	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
+	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
-	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-
-	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 var (
 	scheme   = runtime.NewScheme()
-	setupLog = log.Logger
+	setupLog = klog.NewKlogr()
 )
 
 func init() {
+	utilruntime.Must(trivy.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(deploymentsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(velerov1.AddToScheme(scheme))
@@ -44,139 +44,67 @@ func init() {
 }
 
 const (
-	httpClientTimout    = time.Second * 5
-	httpCacheExpiryTime = time.Second * 2
+	httpClientTimout = time.Second * 5
 )
 
 func main() {
-	opt := newOptions()
+	args.Init()
 	config := ctrl.GetConfigOrDie()
-	ctx := ctrl.SetupSignalHandler()
+	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
 
-	mgr, err := ctrl.NewManager(config, ctrl.Options{
-		Scheme:                 scheme,
-		LeaderElection:         opt.enableLeaderElection,
-		LeaderElectionID:       "dep12loy45.plural.sh",
-		HealthProbeBindAddress: opt.probeAddr,
-	})
-	if err != nil {
-		setupLog.Error(err, "unable to create manager")
-		os.Exit(1)
-	}
-	rolloutsClient, err := roclientset.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create rollouts client")
-		os.Exit(1)
-	}
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create dynamic client")
-		os.Exit(1)
-	}
-	kubeClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create kubernetes client")
-		os.Exit(1)
-	}
-	setupLog.Info("starting agent")
-	ctrlMgr, serviceReconciler, gateReconciler := runAgent(opt, config, ctx, mgr.GetClient())
+	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
+	discoveryClient := initDiscoveryClientOrDie(config)
+	kubeManager := initKubeManagerOrDie(config)
+	consoleManager := initConsoleManagerOrDie()
 
-	backupController := &controller.BackupReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-	}
-	restoreController := &controller.RestoreReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-	}
-	constraintController := &controller.ConstraintReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-		Reader:        mgr.GetCache(),
-	}
-	argoRolloutController := &controller.ArgoRolloutReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-		ConsoleURL:    opt.consoleUrl,
-		HttpClient:    &http.Client{Timeout: httpClientTimout},
-		ArgoClientSet: rolloutsClient,
-		DynamicClient: dynamicClient,
-		SvcReconciler: serviceReconciler,
-		KubeClient:    kubeClient,
-	}
+	// Initialize Pipeline Gate Cache
+	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
-	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
-		{
-			Group:   velerov1.SchemeGroupVersion.Group,
-			Version: velerov1.SchemeGroupVersion.Version,
-			Kind:    "Backup",
-		}: backupController.SetupWithManager,
-		{
-			Group:   velerov1.SchemeGroupVersion.Group,
-			Version: velerov1.SchemeGroupVersion.Version,
-			Kind:    "Restore",
-		}: restoreController.SetupWithManager,
-		{
-			Group:   "status.gatekeeper.sh",
-			Version: "v1beta1",
-			Kind:    "ConstraintPodStatus",
-		}: constraintController.SetupWithManager,
-		{
-			Group:   rolloutv1alpha1.SchemeGroupVersion.Group,
-			Version: rolloutv1alpha1.SchemeGroupVersion.Version,
-			Kind:    rollouts.RolloutKind,
-		}: argoRolloutController.SetupWithManager,
-	}
-
-	if err = (&controller.CrdRegisterControllerReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		ReconcilerGroups: reconcileGroups,
-		Mgr:              mgr,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CRDRegisterController")
-	}
-
-	if err = (&controller.CustomHealthReconciler{
-		Client:            mgr.GetClient(),
-		Scheme:            mgr.GetScheme(),
-		ServiceReconciler: serviceReconciler,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HealthConvert")
-	}
-	if err = (&controller.StackRunJobReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ConsoleClient: ctrlMgr.GetClient(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
-	}
+	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), kubeManager.GetScheme(), extConsoleClient)
+	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
 
-	if err = (&controller.PipelineGateReconciler{
-		Client:        mgr.GetClient(),
-		GateCache:     gateReconciler.GateCache,
-		ConsoleClient: client.New(opt.consoleUrl, opt.deployToken),
-		Log:           ctrl.Log.WithName("controllers").WithName("PipelineGate"),
-		Scheme:        mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Group")
+	// Start resource cache in background if enabled.
+	if args.ResourceCacheEnabled() {
+		cache.Init(ctx, config, args.ResourceCacheTTL())
+	}
+
+	// Start the discovery cache in background.
+	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
+
+	// Start AI insight component scraper in background
+	scraper.RunAiInsightComponentScraperInBackgroundOrDie(ctx, kubeManager.GetClient())
+
+	// Start the console manager in background.
+	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
+
+	// Start the standard kubernetes manager and block the main thread until context cancel.
+	runKubeManagerOrDie(ctx, kubeManager)
+}
+
+func initDiscoveryClientOrDie(config *rest.Config) *discovery.DiscoveryClient {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create discovery client")
 		os.Exit(1)
 	}
 
-	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to create health check")
-		os.Exit(1)
-	}
+	return discoveryClient
+}
 
-	setupLog.Info("starting manager")
+func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Manager) {
+	setupLog.Info("starting console controller manager")
 	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "problem running manager")
+		setupLog.Error(err, "unable to start console controller manager")
+		os.Exit(1)
+	}
+}
+
+func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
+	setupLog.Info("starting kubernetes controller manager")
+	if err := mgr.Start(ctx); err != nil {
+		setupLog.Error(err, "unable to start kubernetes controller manager")
 		os.Exit(1)
 	}
 }

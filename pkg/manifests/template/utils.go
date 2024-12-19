@@ -3,7 +3,7 @@ package template
 import (
 	"strings"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 )
 
 func isTemplated(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) bool {
@@ -48,6 +48,17 @@ func contexts(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[s
 	res := map[string]map[string]interface{}{}
 	for _, context := range svc.Contexts {
 		res[context.Name] = context.Configuration
+	}
+	return res
+}
+
+func imports(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[string]map[string]string {
+	res := map[string]map[string]string{}
+	for _, imp := range svc.Imports {
+		res[imp.Stack.Name] = map[string]string{}
+		for _, out := range imp.Outputs {
+			res[imp.Stack.Name][out.Name] = out.Value
+		}
 	}
 	return res
 }

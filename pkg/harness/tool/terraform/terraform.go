@@ -2,18 +2,18 @@ package terraform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path"
 
-	console "github.com/pluralsh/console-client-go"
+	tfjson "github.com/hashicorp/terraform-json"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	v4 "github.com/pluralsh/deployment-operator/pkg/harness/tool/terraform/api/v4"
+	tfapi "github.com/pluralsh/deployment-operator/pkg/harness/tool/terraform/api"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -21,16 +21,25 @@ import (
 // State implements [v1.Tool] interface.
 func (in *Terraform) State() (*console.StackStateAttributes, error) {
 	state, err := in.state()
-	if err != nil {
+	if err != nil || state.Values == nil || state.Values.RootModule == nil {
 		return nil, err
 	}
 
+	resources := make([]*console.StackStateResourceAttributes, 0)
+	_ = algorithms.BFS(state.Values.RootModule, func(module *tfjson.StateModule) ([]*tfjson.StateModule, error) {
+		return module.ChildModules, nil
+	}, func(module *tfjson.StateModule) error {
+		klog.V(log.LogLevelTrace).InfoS("visiting module", "module", module)
+		resources = append(
+			resources,
+			tfapi.ToStackStateResourceAttributesList(module.Resources)...,
+		)
+
+		return nil
+	})
+
 	return &console.StackStateAttributes{
-		State: algorithms.Map(
-			state.Values.RootModule.Resources,
-			func(r v4.Resource) *console.StackStateResourceAttributes {
-				return in.resource(r)
-			}),
+		State: resources,
 	}, nil
 }
 
@@ -51,14 +60,14 @@ func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 	result := make([]*console.StackOutputAttributes, 0)
 
 	state, err := in.state()
-	if err != nil {
+	if err != nil || state.Values == nil || state.Values.Outputs == nil {
 		return nil, err
 	}
 
 	for k, v := range state.Values.Outputs {
 		result = append(result, &console.StackOutputAttributes{
 			Name:   k,
-			Value:  v.ValueString(),
+			Value:  tfapi.OutputValueString(v.Value),
 			Secret: lo.ToPtr(v.Sensitive),
 		})
 	}
@@ -99,28 +108,18 @@ func (in *Terraform) ConfigureStateBackend(actor, deployToken string, urls *cons
 	return nil
 }
 
-func (in *Terraform) resource(r v4.Resource) *console.StackStateResourceAttributes {
-	return &console.StackStateResourceAttributes{
-		Identifier:    r.Address,
-		Resource:      r.Type,
-		Name:          r.Name,
-		Configuration: lo.ToPtr(r.Configuration()),
-		Links:         algorithms.Map(r.Links(), func(d string) *string { return &d }),
-	}
-}
-
-func (in *Terraform) state() (*v4.State, error) {
-	state := new(v4.State)
+func (in *Terraform) state() (*tfjson.State, error) {
+	state := new(tfjson.State)
 	output, err := exec.NewExecutable(
 		"terraform",
 		exec.WithArgs([]string{"show", "-json"}),
 		exec.WithDir(in.dir),
 	).RunWithOutput(context.Background())
 	if err != nil {
-		return state, err
+		return state, fmt.Errorf("failed executing terraform show -json: %s: %w", string(output), err)
 	}
 
-	err = json.Unmarshal(output, state)
+	err = state.UnmarshalJSON(output)
 	if err != nil {
 		return nil, err
 	}
@@ -136,21 +135,26 @@ func (in *Terraform) plan() (string, error) {
 		exec.WithDir(in.dir),
 	).RunWithOutput(context.Background())
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed executing terraform show: %s: %w", string(output), err)
 	}
 
 	klog.V(log.LogLevelTrace).InfoS("terraform plan file read successfully", "file", in.planFileName, "output", string(output))
 	return string(output), nil
 }
 
-func (in *Terraform) init() *Terraform {
+func (in *Terraform) init() v1.Tool {
 	in.planFileName = "terraform.tfplan"
-	helpers.EnsureFileOrDie(path.Join(in.dir, in.planFileName))
+	helpers.EnsureFileOrDie(path.Join(in.dir, in.planFileName), nil)
+
+	if in.variables != nil && len(*in.variables) > 0 {
+		in.variablesFileName = "plural.auto.tfvars.json"
+		helpers.EnsureFileOrDie(path.Join(in.dir, in.variablesFileName), in.variables)
+	}
 
 	return in
 }
 
 // New creates a Terraform structure that implements v1.Tool interface.
-func New(dir string) *Terraform {
-	return (&Terraform{dir: dir}).init()
+func New(dir string, variables *string) v1.Tool {
+	return (&Terraform{dir: dir, variables: variables}).init()
 }

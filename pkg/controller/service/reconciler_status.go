@@ -4,138 +4,26 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
-	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
 
-const (
-	// Indicates that health assessment failed and actual health status is unknown
-	HealthStatusUnknown HealthStatusCode = "Unknown"
-	// Progressing health status means that resource is not healthy but still have a chance to reach healthy state
-	HealthStatusProgressing HealthStatusCode = "Progressing"
-	// Resource is 100% healthy
-	HealthStatusHealthy HealthStatusCode = "Healthy"
-	// Assigned to resources that are suspended or paused. The typical example is a
-	// [suspended](https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#suspend) CronJob.
-	HealthStatusSuspended HealthStatusCode = "Suspended"
-	HealthStatusPaused    HealthStatusCode = "Paused"
-	// Degrade status is used if resource status indicates failure or resource could not reach healthy state
-	// within some timeout.
-	HealthStatusDegraded HealthStatusCode = "Degraded"
-	// Indicates that resource is missing in the cluster.
-	HealthStatusMissing HealthStatusCode = "Missing"
-)
-
-// Represents resource health status
-type HealthStatusCode string
-
-// GetResourceHealth returns the health of a k8s resource
-func (s *ServiceReconciler) getResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, err error) {
-	if obj.GetDeletionTimestamp() != nil {
-		return &HealthStatus{
-			Status:  HealthStatusProgressing,
-			Message: "Pending deletion",
-		}, nil
-	}
-
-	if healthCheck := s.GetHealthCheckFunc(obj.GroupVersionKind()); healthCheck != nil {
-		if health, err = healthCheck(obj); err != nil {
-			health = &HealthStatus{
-				Status:  HealthStatusUnknown,
-				Message: err.Error(),
-			}
-		}
-	}
-	return health, err
-
-}
-
-// GetHealthCheckFunc returns built-in health check function or nil if health check is not supported
-func (s *ServiceReconciler) GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
-	switch gvk.Group {
-	case "apps":
-		switch gvk.Kind {
-		case DeploymentKind:
-			return getDeploymentHealth
-		case StatefulSetKind:
-			return getStatefulSetHealth
-		case ReplicaSetKind:
-			return getReplicaSetHealth
-		case DaemonSetKind:
-			return getDaemonSetHealth
-		}
-	case "extensions":
-		if gvk.Kind == IngressKind {
-			return getIngressHealth
-		}
-	case "networking.k8s.io":
-		if gvk.Kind == IngressKind {
-			return getIngressHealth
-		}
-	case "":
-		switch gvk.Kind {
-		case ServiceKind:
-			return getServiceHealth
-		case PersistentVolumeClaimKind:
-			return getPVCHealth
-		case PodKind:
-			return getPodHealth
-		}
-	case "batch":
-		if gvk.Kind == JobKind {
-			return getJobHealth
-		}
-	case "flagger.app":
-		if gvk.Kind == CanaryKind {
-			return getCanaryHealth
-		}
-	case rollouts.Group:
-		if gvk.Kind == rollouts.RolloutKind {
-			return getArgoRolloutHealth
-		}
-	case "autoscaling":
-		if gvk.Kind == HorizontalPodAutoscalerKind {
-			return getHPAHealth
-		}
-	}
-
-	if s.GetLuaScript() != "" {
-		return s.getLuaHealthConvert
-	}
-
-	return getOtherHealth
-}
-
-func (s *ServiceReconciler) toStatus(obj *unstructured.Unstructured) *console.ComponentState {
-	h, _ := s.getResourceHealth(obj)
-	if h == nil {
-		return nil
-	}
-
-	if h.Status == HealthStatusDegraded {
-		return lo.ToPtr(console.ComponentStateFailed)
-	}
-
-	if h.Status == HealthStatusHealthy {
-		return lo.ToPtr(console.ComponentStateRunning)
-	}
-
-	if h.Status == HealthStatusPaused {
-		return lo.ToPtr(console.ComponentStatePaused)
-	}
-
-	return lo.ToPtr(console.ComponentStatePending)
-}
-
-func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.GetServiceDeploymentForAgent_ServiceDeployment, ch <-chan event.Event, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdatePruneStatus(
+	ctx context.Context,
+	svc *console.GetServiceDeploymentForAgent_ServiceDeployment,
+	ch <-chan event.Event,
+	vcache map[internalschema.GroupName]string,
+) error {
 	logger := log.FromContext(ctx)
 
 	var statsCollector stats.Stats
@@ -150,9 +38,8 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.
 			gk := e.StatusEvent.Identifier.GroupKind
 			name := e.StatusEvent.Identifier.Name
 			if e.StatusEvent.Error != nil {
-				errorMsg := fmt.Sprintf("%s status %s: %s\n", resourceIDToString(gk, name),
+				err = fmt.Errorf("%s status %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
-				err = fmt.Errorf(errorMsg)
 				logger.Error(err, "status error")
 			} else {
 				logger.Info(resourceIDToString(gk, name),
@@ -167,20 +54,35 @@ func (s *ServiceReconciler) UpdatePruneStatus(ctx context.Context, svc *console.
 
 	components := statusCollector.componentsAttributes(vcache)
 	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
-	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
+	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
 
 	return nil
 }
 
-func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.GetServiceDeploymentForAgent_ServiceDeployment, ch <-chan event.Event, printStatus bool, vcache map[manifests.GroupName]string) error {
+func (s *ServiceReconciler) UpdateApplyStatus(
+	ctx context.Context,
+	svc *console.GetServiceDeploymentForAgent_ServiceDeployment,
+	ch <-chan event.Event,
+	printStatus bool,
+	vcache map[internalschema.GroupName]string,
+) error {
 	logger := log.FromContext(ctx)
+	start, err := metrics.FromContext[time.Time](ctx, metrics.ContextKeyTimeStart)
+	if err != nil {
+		klog.Fatalf("programmatic error! context does not have value for the key %s", metrics.ContextKeyTimeStart)
+	}
+
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
+	)
 
 	var statsCollector stats.Stats
-	var err error
 	statusCollector := newServiceComponentsStatusCollector(s, svc)
-
 	for e := range ch {
 		statsCollector.Handle(e)
 		switch e.Type {
@@ -194,13 +96,30 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
 			gk := e.ApplyEvent.Identifier.GroupKind
 			name := e.ApplyEvent.Identifier.Name
+			namespace := e.ApplyEvent.Identifier.Namespace
+			if e.ApplyEvent.Status == event.ApplySuccessful {
+				cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ApplySHA)
+			}
 			if e.ApplyEvent.Error != nil {
-				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
-					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
 				if e.ApplyEvent.Status == event.ApplyFailed {
-					err = fmt.Errorf(msg)
+					// e.ApplyEvent.Resource == nil, create the key to get cache entry
+					key := cache.ResourceKey{
+						Namespace: namespace,
+						Name:      name,
+						GroupKind: gk,
+					}
+					sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
+					if exists {
+						// clear SHA when error occurs
+						sha.Expire()
+						cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
+					}
+					err = fmt.Errorf("%s apply %s: %s\n", resourceIDToString(gk, name),
+						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
 					logger.Error(err, "apply error")
 				} else {
+					msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
+						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
 					logger.Info(msg)
 				}
 			} else if printStatus {
@@ -213,9 +132,8 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 			gk := e.StatusEvent.Identifier.GroupKind
 			name := e.StatusEvent.Identifier.Name
 			if e.StatusEvent.Error != nil {
-				errorMsg := fmt.Sprintf("%s status %s: %s\n", resourceIDToString(gk, name),
+				err = fmt.Errorf("%s status %s: %s\n", resourceIDToString(gk, name),
 					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
-				err = fmt.Errorf(errorMsg)
 				logger.Error(err, "status error")
 			} else if printStatus {
 				logger.Info(resourceIDToString(gk, name),
@@ -224,14 +142,27 @@ func (s *ServiceReconciler) UpdateApplyStatus(ctx context.Context, svc *console.
 		}
 	}
 
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
+	)
+
 	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 		return err
 	}
-
 	components := statusCollector.componentsAttributes(vcache)
-	if err := s.UpdateStatus(svc.ID, components, errorAttributes("sync", err)); err != nil {
+	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}
+
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationUpdateStatusFinish),
+	)
 
 	return nil
 }
@@ -301,17 +232,17 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	}
 }
 
-func (s *ServiceReconciler) UpdateStatus(id string, components []*console.ComponentAttributes, err *console.ServiceErrorAttributes) error {
+func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, components []*console.ComponentAttributes, err *console.ServiceErrorAttributes) error {
 	errs := make([]*console.ServiceErrorAttributes, 0)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	return s.ConsoleClient.UpdateComponents(id, components, errs)
+	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs)
 }
 
 func (s *ServiceReconciler) AddErrors(id string, err *console.ServiceErrorAttributes) error {
-	return s.ConsoleClient.AddServiceErrors(id, []*console.ServiceErrorAttributes{err})
+	return s.consoleClient.AddServiceErrors(id, []*console.ServiceErrorAttributes{err})
 }
 
 func resourceIDToString(gk schema.GroupKind, name string) string {

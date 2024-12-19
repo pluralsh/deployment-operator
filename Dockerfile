@@ -1,4 +1,4 @@
-FROM golang:1.21.2-alpine3.17 as builder
+FROM golang:1.22.7-alpine3.20 AS builder
 
 ARG TARGETARCH
 
@@ -17,11 +17,15 @@ COPY /api api/
 COPY /internal internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent cmd/agent/**
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o deployment-agent cmd/agent/*.go
 
-FROM alpine:3.18
+FROM alpine:3.20
 WORKDIR /workspace
+
+RUN mkdir /.kube && chown 65532:65532 /.kube
 
 COPY --from=builder /workspace/deployment-agent .
 USER 65532:65532
+
+
 ENTRYPOINT ["/workspace/deployment-agent"]

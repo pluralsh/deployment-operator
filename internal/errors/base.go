@@ -12,9 +12,14 @@ func (k KnownError) String() string {
 	return string(k)
 }
 
+func (k KnownError) Error() string {
+	return string(k)
+}
+
 const (
-	ErrorNotFound       KnownError = "could not find resource"
+	ErrNotFound         KnownError = "could not find resource"
 	ErrExpected         KnownError = "this is a transient, expected error"
+	ErrRetriable        KnownError = "Still waiting on read/write bindings, requeueing until they're available"
 	ErrDeleteRepository            = "could not delete repository"
 )
 
@@ -36,6 +41,14 @@ func (er *wrappedErrorResponse) Has(err KnownError) bool {
 	return false
 }
 
+func (er *wrappedErrorResponse) HasNetworkError(code int) bool {
+	if er.err.NetworkError == nil {
+		return false
+	}
+
+	return er.err.NetworkError.Code == code
+}
+
 func newAPIError(err *client.ErrorResponse) *wrappedErrorResponse {
 	return &wrappedErrorResponse{
 		err: err,
@@ -53,7 +66,15 @@ func IsNotFound(err error) bool {
 		return false
 	}
 
-	return newAPIError(errorResponse).Has(ErrorNotFound)
+	return newAPIError(errorResponse).Has(ErrNotFound)
+}
+
+func IgnoreNotFound(err error) error {
+	if IsNotFound(err) {
+		return nil
+	}
+
+	return err
 }
 
 func IsDeleteRepository(err error) bool {
@@ -68,4 +89,18 @@ func IsDeleteRepository(err error) bool {
 	}
 
 	return newAPIError(errorResponse).Has(ErrDeleteRepository)
+}
+
+func IsNetworkError(err error, code int) bool {
+	if err == nil {
+		return false
+	}
+
+	errorResponse := new(client.ErrorResponse)
+	ok := errors.As(err, &errorResponse)
+	if !ok {
+		return false
+	}
+
+	return newAPIError(errorResponse).HasNetworkError(code)
 }

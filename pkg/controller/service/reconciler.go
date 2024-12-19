@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -20,33 +20,28 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+	"sigs.k8s.io/cli-utils/pkg/object"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller"
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
+	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
-func init() {
-	Local = false
-}
-
-var (
-	Local = false
-)
-
 const (
+	Identifier           = "Service Controller"
 	OperatorService      = "deploy-operator"
 	RestoreConfigMapName = "restore-config-map"
 	// The field manager name for the ones agentk owns, see
@@ -55,43 +50,33 @@ const (
 )
 
 type ServiceReconciler struct {
-	ConsoleClient    client.Client
-	Config           *rest.Config
-	Clientset        *kubernetes.Clientset
-	Applier          *applier.Applier
-	Destroyer        *apply.Destroyer
-	SvcQueue         workqueue.RateLimitingInterface
-	SvcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
-	ManifestCache    *manifests.ManifestCache
-	UtilFactory      util.Factory
-	LuaScript        string
-	RestoreNamespace string
-
-	discoveryClient *discovery.DiscoveryClient
-	pinger          *ping.Pinger
+	consoleClient    client.Client
+	clientset        *kubernetes.Clientset
+	applier          *applier.Applier
+	destroyer        *apply.Destroyer
+	svcQueue         workqueue.TypedRateLimitingInterface[string]
+	svcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
+	manifestCache    *manifests.ManifestCache
+	utilFactory      util.Factory
+	restoreNamespace string
+	mapper           meta.RESTMapper
+	pinger           *ping.Pinger
 }
 
-func NewServiceReconciler(ctx context.Context, consoleClient client.Client, config *rest.Config, refresh time.Duration, restoreNamespace string) (*ServiceReconciler, error) {
-	logger := log.FromContext(ctx)
+func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
-
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
 
-	svcCache := client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
-		return consoleClient.GetService(id)
-	})
-
-	svcQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
-	manifestCache := manifests.NewCache(refresh, deployToken)
-
 	f := utils.NewFactory(config)
-
+	mapper, err := f.ToRESTMapper()
+	if err != nil {
+		return nil, err
+	}
 	cs, err := f.KubernetesClientSet()
 	if err != nil {
 		return nil, err
@@ -109,52 +94,41 @@ func NewServiceReconciler(ctx context.Context, consoleClient client.Client, conf
 		return nil, err
 	}
 
-	_ = helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
-		if err = CapabilitiesAPIVersions(discoveryClient); err != nil {
-			logger.Error(err, "can't fetch API versions")
-		}
-
-		metrics.Record().DiscoveryAPICacheRefresh(err)
-		return false, nil
-	})
-
 	return &ServiceReconciler{
-		ConsoleClient:    consoleClient,
-		Config:           config,
-		Clientset:        cs,
-		SvcQueue:         svcQueue,
-		SvcCache:         svcCache,
-		ManifestCache:    manifestCache,
-		UtilFactory:      f,
-		Applier:          a,
-		Destroyer:        d,
-		discoveryClient:  discoveryClient,
+		consoleClient: consoleClient,
+		clientset:     cs,
+		svcQueue:      workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
+		svcCache: client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (
+			*console.GetServiceDeploymentForAgent_ServiceDeployment, error,
+		) {
+			return consoleClient.GetService(id)
+		}),
+		manifestCache:    manifests.NewCache(manifestTTL, deployToken, consoleURL),
+		utilFactory:      f,
+		applier:          a,
+		destroyer:        d,
 		pinger:           ping.New(consoleClient, discoveryClient, f),
-		RestoreNamespace: restoreNamespace,
+		restoreNamespace: restoreNamespace,
+		mapper:           mapper,
 	}, nil
 }
 
-func CapabilitiesAPIVersions(discoveryClient *discovery.DiscoveryClient) error {
-	lists, err := discoveryClient.ServerPreferredResources()
-	if err != nil {
-		return err
-	}
-	for _, list := range lists {
-		if len(list.APIResources) == 0 {
-			continue
-		}
-		gv, err := schema.ParseGroupVersion(list.GroupVersion)
-		if err != nil {
-			continue
-		}
-		for _, resource := range list.APIResources {
-			if len(resource.Verbs) == 0 {
-				continue
-			}
-			template.APIVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
-		}
-	}
-	return nil
+func (s *ServiceReconciler) Queue() workqueue.TypedRateLimitingInterface[string] {
+	return s.svcQueue
+}
+
+func (s *ServiceReconciler) Restart() {
+	// Cleanup
+	s.svcQueue.ShutDown()
+	s.svcCache.Wipe()
+
+	// Initialize
+	s.svcQueue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
+}
+
+func (s *ServiceReconciler) Shutdown() {
+	s.svcQueue.ShutDown()
+	s.svcCache.Wipe()
 }
 
 func (s *ServiceReconciler) GetPollInterval() time.Duration {
@@ -163,9 +137,9 @@ func (s *ServiceReconciler) GetPollInterval() time.Duration {
 
 func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "service.event", &socketPublisher{
-		svcQueue: s.SvcQueue,
-		svcCache: s.SvcCache,
-		manCache: s.ManifestCache,
+		svcQueue: s.svcQueue,
+		svcCache: s.svcCache,
+		manCache: s.manifestCache,
 	}
 
 }
@@ -194,8 +168,57 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		Build()
 }
 
+func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) error {
+	if svc == nil {
+		return nil
+	}
+	if svc.SyncConfig == nil {
+		return nil
+	}
+	if svc.SyncConfig.EnforceNamespace == nil {
+		return nil
+	}
+	if !*svc.SyncConfig.EnforceNamespace {
+		return nil
+	}
+
+	var crdObjs []*unstructured.Unstructured
+	// find any crds in the set of resources.
+	for _, obj := range objs {
+		if object.IsCRD(obj) {
+			crdObjs = append(crdObjs, obj)
+		}
+	}
+	for _, obj := range objs {
+
+		// Look up the scope of the resource so we know if the resource
+		// should have a namespace set or not.
+		scope, err := object.LookupResourceScope(obj, crdObjs, s.mapper)
+		if err != nil {
+			return err
+		}
+
+		switch scope {
+		case meta.RESTScopeNamespace:
+			obj.SetNamespace(svc.Namespace)
+		case meta.RESTScopeRoot:
+			return fmt.Errorf("the service %s with 'enforceNamespace' flag has cluster-scoped resources", svc.ID)
+		default:
+			return fmt.Errorf("unknown RESTScope %q", scope.Name())
+		}
+	}
+
+	return nil
+}
+
 func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
 	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
+		labels := man.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels[agentcommon.ManagedByLabel] = agentcommon.AgentLabelValue
+		man.SetLabels(labels)
 		if man.GetKind() != "CustomResourceDefinition" {
 			return man
 		}
@@ -211,19 +234,19 @@ func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured
 }
 
 func (s *ServiceReconciler) WipeCache() {
-	s.SvcCache.Wipe()
-	s.ManifestCache.Wipe()
+	s.svcCache.Wipe()
+	s.manifestCache.Wipe()
 }
 
 func (s *ServiceReconciler) ShutdownQueue() {
-	s.SvcQueue.ShutDown()
+	s.svcQueue.ShutDown()
 }
 
-func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentEdgeFragment] {
+func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentIDEdgeFragment] {
 	logger := log.FromContext(ctx)
 	logger.Info("create service pager")
-	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentEdgeFragment, *algorithms.PageInfo, error) {
-		resp, err := s.ConsoleClient.GetServices(page, &size)
+	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentIDEdgeFragment, *algorithms.PageInfo, error) {
+		resp, err := s.consoleClient.GetServices(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch service list from deployments service")
 			return nil, nil, err
@@ -235,21 +258,21 @@ func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[
 		}
 		return resp.PagedClusterServices.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.ServiceDeploymentEdgeFragment](controller.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.ServiceDeploymentIDEdgeFragment](common2.DefaultPageSize, fetch)
 }
 
-func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
+func (s *ServiceReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 	logger.Info("fetching services for cluster")
 
 	restore, err := s.isClusterRestore(ctx)
 	if err != nil {
 		logger.Error(err, "failed to check restore config map")
-		return false, nil
+		return err
 	}
 	if restore {
 		logger.Info("restoring cluster from backup")
-		return false, nil
+		return nil
 	}
 
 	pager := s.ListServices(ctx)
@@ -258,11 +281,17 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 		services, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch service list from deployments service")
-			return false, nil
+			return err
 		}
 		for _, svc := range services {
+			// If services arg is provided, we can skip
+			// services that are not on the list.
+			if args.SkipService(svc.Node.ID) {
+				continue
+			}
+
 			logger.Info("sending update for", "service", svc.Node.ID)
-			s.SvcQueue.Add(svc.Node.ID)
+			s.svcQueue.Add(svc.Node.ID)
 		}
 	}
 
@@ -271,14 +300,17 @@ func (s *ServiceReconciler) Poll(ctx context.Context) (done bool, err error) {
 	}
 
 	s.ScrapeKube(ctx)
-	return false, nil
+	return nil
 }
 
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
+	start := time.Now()
+	ctx = context.WithValue(ctx, metrics.ContextKeyTimeStart, start)
+
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to sync service", "id", id)
 
-	svc, err := s.SvcCache.Get(id)
+	svc, err := s.svcCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
 			logger.Info("service already deleted", "id", id)
@@ -288,6 +320,13 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
+	metrics.Record().ServiceReconciliation(
+		id,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationStart),
+	)
+
 	defer func() {
 		if err != nil {
 			logger.Error(err, "process item")
@@ -296,11 +335,17 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			}
 		}
 
-		metrics.Record().ServiceReconciliation(id, svc.Name, err)
+		metrics.Record().ServiceReconciliation(
+			id,
+			svc.Name,
+			metrics.WithServiceReconciliationError(err),
+			metrics.WithServiceReconciliationStartedAt(start),
+			metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationFinish),
+		)
 	}()
 
-	logger.V(2).Info("local", "flag", Local)
-	if Local && svc.Name == OperatorService {
+	logger.V(2).Info("local", "flag", args.Local())
+	if args.Local() && svc.Name == OperatorService {
 		return
 	}
 
@@ -308,7 +353,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	if svc.DeletedAt != nil {
 		logger.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := s.Destroyer.Run(ctx, inventory.WrapInventoryInfoObj(s.defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
+		ch := s.destroyer.Run(ctx, inventory.WrapInventoryInfoObj(s.defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
 			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
 			DryRunStrategy:          common.DryRunNone,
 			DeleteTimeout:           20 * time.Second,
@@ -317,18 +362,18 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			ValidationPolicy:        1,
 		})
 
-		err = s.UpdatePruneStatus(ctx, svc, ch, map[manis.GroupName]string{})
+		metrics.Record().ServiceDeletion(id)
+		err = s.UpdatePruneStatus(ctx, svc, ch, map[schema.GroupName]string{})
 		return
 	}
 
 	logger.Info("Fetching manifests", "service", svc.Name)
-	manifests, err := s.ManifestCache.Fetch(s.UtilFactory, svc)
+	manifests, err := s.manifestCache.Fetch(s.utilFactory, svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)
 		return
 	}
 	manifests = postProcess(manifests)
-
 	logger.Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
 	if err != nil {
@@ -336,12 +381,22 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 	inv := inventory.WrapInventoryInfoObj(invObj)
 
-	vcache := manis.VersionCache(manifests)
+	metrics.Record().ServiceReconciliation(
+		id,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationPrepareManifestsFinish),
+	)
 
-	logger.Info("Apply service", "name", svc.Name, "namespace", svc.Namespace)
+	vcache := manis.VersionCache(manifests)
 
 	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
 		logger.Error(err, "failed to check namespace")
+		return
+	}
+
+	err = s.enforceNamespace(manifests, svc)
+	if err != nil {
 		return
 	}
 
@@ -369,7 +424,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		options.DryRunStrategy = common.DryRunServer
 	}
 
-	ch := s.Applier.Run(ctx, inv, manifests, options)
+	ch := s.applier.Run(ctx, inv, manifests, options)
 	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
@@ -390,7 +445,7 @@ func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console
 		}
 	}
 	if createNamespace {
-		return utils.CheckNamespace(*s.Clientset, namespace, labels, annotations)
+		return utils.CheckNamespace(*s.clientset, namespace, labels, annotations)
 	}
 	return nil
 }
@@ -434,22 +489,14 @@ func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) *unstructured
 	}
 }
 
-func (s *ServiceReconciler) GetLuaScript() string {
-	return s.LuaScript
-}
-
-func (s *ServiceReconciler) SetLuaScript(script string) {
-	s.LuaScript = script
-}
-
 func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) {
-	cmr, err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Get(ctx, RestoreConfigMapName, metav1.GetOptions{})
+	cmr, err := s.clientset.CoreV1().ConfigMaps(s.restoreNamespace).Get(ctx, RestoreConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return false, nil
 	}
 	timeout := cmr.CreationTimestamp.Add(time.Hour)
 	if time.Now().After(timeout) {
-		if err := s.Clientset.CoreV1().ConfigMaps(s.RestoreNamespace).Delete(ctx, RestoreConfigMapName, metav1.DeleteOptions{}); err != nil {
+		if err := s.clientset.CoreV1().ConfigMaps(s.restoreNamespace).Delete(ctx, RestoreConfigMapName, metav1.DeleteOptions{}); err != nil {
 			return true, err
 		}
 		return false, nil

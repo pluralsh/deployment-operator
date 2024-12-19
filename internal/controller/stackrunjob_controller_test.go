@@ -7,9 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
@@ -18,6 +16,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("Stack Run Job Controller", Ordered, func() {
@@ -109,11 +110,11 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			runId := strings.TrimPrefix(completedName, "stack-")
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunMinimalFragment{
 				ID:     runId,
 				Status: console.StackStatusSuccessful,
 			}, nil)
-			fakeConsoleClient.On("UpdateStackRun", runId, mock.Anything).Return(&console.StackRunFragment{}, nil)
+			fakeConsoleClient.On("UpdateStackRun", runId, mock.Anything).Return(&console.StackRunMinimalFragment{}, nil)
 
 			reconciler := &StackRunJobReconciler{
 				Client:        kClient,
@@ -128,7 +129,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			runId := strings.TrimPrefix(completedName, "stack-")
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunMinimalFragment{
 				ID:     runId,
 				Status: console.StackStatusSuccessful,
 			}, nil)
@@ -144,7 +145,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 
 		It("should exit without errors as stack run status was already updated", func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunMinimalFragment{
 				ID:     "2",
 				Status: console.StackStatusFailed,
 			}, nil)
@@ -162,7 +163,7 @@ var _ = Describe("Stack Run Job Controller", Ordered, func() {
 			runId := strings.TrimPrefix(runningName, "stack-")
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunMinimalFragment{
 				ID:     runId,
 				Status: console.StackStatusRunning,
 			}, nil)

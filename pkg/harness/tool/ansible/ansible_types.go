@@ -19,4 +19,12 @@ type Ansible struct {
 
 	// planFilePath
 	planFilePath string
+
+	// variablesFileName is an ansible variables file name.
+	// Default: plural.variables.json
+	variablesFileName string
+
+	// variables is a JSON encoded string representing
+	// ansible variable file.
+	variables *string
 }

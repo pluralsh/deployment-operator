@@ -7,7 +7,7 @@ import (
 	"github.com/Yamashou/gqlgenc/clientv2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
 	errors2 "github.com/pluralsh/deployment-operator/internal/errors"
@@ -70,10 +71,10 @@ var _ = Describe("Reconciler", Ordered, func() {
 		It("should exit without errors as stack run is already deleted", func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(nil, &clientv2.ErrorResponse{
-				GqlErrors: &gqlerror.List{gqlerror.Errorf(errors2.ErrorNotFound.String())},
+				GqlErrors: &gqlerror.List{gqlerror.Errorf("%s", errors2.ErrNotFound.String())},
 			})
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
@@ -85,7 +86,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 				GqlErrors: &gqlerror.List{gqlerror.Errorf("unknown error")},
 			})
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).To(HaveOccurred())
@@ -94,13 +95,13 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 		It("should exit without errors as job is already created", func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunFragment{
+			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(&console.StackRunMinimalFragment{
 				ID:       stackRunId,
 				Approval: lo.ToPtr(false),
 				Status:   console.StackStatusPending,
 			}, nil)
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
@@ -108,7 +109,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 		It("should create new job with default values", func() {
 			stackRunId := "default-values"
-			stackRun := &console.StackRunFragment{
+			stackRun := &console.StackRunMinimalFragment{
 				ID:       stackRunId,
 				Approval: lo.ToPtr(false),
 				Status:   console.StackStatusPending,
@@ -118,13 +119,13 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
 			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
 
 			job := &batchv1.Job{}
-			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunResourceName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0)))
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
 			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(2))
@@ -135,7 +136,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			labelsValue := "labels-123"
 			annotationsValue := "annotations-123"
 			stackRunId := "user-defined-spec"
-			stackRun := &console.StackRunFragment{
+			stackRun := &console.StackRunMinimalFragment{
 				ID: stackRunId,
 				JobSpec: &console.JobSpecFragment{
 					Namespace: namespace,
@@ -157,13 +158,13 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
 			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 
 			_, err := reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
 
 			job := &batchv1.Job{}
-			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunResourceName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0)))
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(3))
 			Expect(job.Spec.Template.ObjectMeta.Labels).To(ContainElement(labelsValue))
@@ -200,7 +201,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			stackRunId := "user-defined-raw-spec"
-			stackRun := &console.StackRunFragment{
+			stackRun := &console.StackRunMinimalFragment{
 				ID: stackRunId,
 				JobSpec: &console.JobSpecFragment{
 					Namespace: "",
@@ -213,13 +214,13 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("GetStackRun", mock.Anything).Return(stackRun, nil)
 			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
-			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, time.Minute, 0, namespace, "", "")
+			reconciler := stacks.NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
 
 			_, err = reconciler.Reconcile(ctx, stackRunId)
 			Expect(err).NotTo(HaveOccurred())
 
 			job := &batchv1.Job{}
-			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunJobName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
+			Expect(kClient.Get(ctx, types.NamespacedName{Name: stacks.GetRunResourceName(stackRun), Namespace: namespace}, job)).NotTo(HaveOccurred())
 			Expect(*job.Spec.ActiveDeadlineSeconds).To(Equal(*jobSpec.ActiveDeadlineSeconds))
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(0))) // Overridden by controller.
 			Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(jobSpec.Template.Spec.ServiceAccountName))

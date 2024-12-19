@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +21,8 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
 func TryAddControllerRef(ctx context.Context, client ctrlruntimeclient.Client, owner ctrlruntimeclient.Object, controlled ctrlruntimeclient.Object, scheme *runtime.Scheme) error {
@@ -51,16 +52,43 @@ func TryAddControllerRef(ctx context.Context, client ctrlruntimeclient.Client, o
 	})
 }
 
+func TryAddOwnerRef(ctx context.Context, client ctrlruntimeclient.Client, owner ctrlruntimeclient.Object, object ctrlruntimeclient.Object, scheme *runtime.Scheme) error {
+	key := ctrlruntimeclient.ObjectKeyFromObject(object)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := client.Get(ctx, key, object); err != nil {
+			return err
+		}
+
+		if owner.GetDeletionTimestamp() != nil || object.GetDeletionTimestamp() != nil {
+			return nil
+		}
+
+		original := object.DeepCopyObject().(ctrlruntimeclient.Object)
+
+		err := controllerutil.SetOwnerReference(owner, object, scheme)
+		if err != nil {
+			return err
+		}
+
+		if reflect.DeepEqual(original.GetOwnerReferences(), object.GetOwnerReferences()) {
+			return nil
+		}
+
+		return client.Patch(ctx, object, ctrlruntimeclient.MergeFromWithOptions(original, ctrlruntimeclient.MergeFromWithOptimisticLock{}))
+	})
+}
+
 func AsName(val string) string {
 	return strings.ReplaceAll(val, " ", "-")
 }
 
-func MarkCondition(set func(condition metav1.Condition), conditionType v1alpha1.ConditionType, conditionStatus metav1.ConditionStatus, conditionReason v1alpha1.ConditionReason, message string, messageArgs ...interface{}) {
+func MarkCondition(set func(condition metav1.Condition), conditionType v1alpha1.ConditionType, conditionStatus metav1.ConditionStatus, conditionReason v1alpha1.ConditionReason, message string) {
 	set(metav1.Condition{
 		Type:    conditionType.String(),
 		Status:  conditionStatus,
 		Reason:  conditionReason.String(),
-		Message: fmt.Sprintf(message, messageArgs...),
+		Message: message,
 	})
 }
 
@@ -73,6 +101,21 @@ func NewFactory(cfg *rest.Config) util.Factory {
 		deepCopyRESTConfig(cfgPtrCopy, c)
 		return c
 	}
+	matchVersionKubeConfigFlags := util.NewMatchVersionFlags(kubeConfigFlags)
+	return util.NewFactory(matchVersionKubeConfigFlags)
+}
+
+func NewNamespacedFactory(cfg *rest.Config, namespace string) util.Factory {
+	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag()
+	kubeConfigFlags.WithDiscoveryQPS(cfg.QPS).WithDiscoveryBurst(cfg.Burst)
+	kubeConfigFlags.Namespace = &namespace
+	cfgPtrCopy := cfg
+	kubeConfigFlags.WrapConfigFn = func(c *rest.Config) *rest.Config {
+		// update rest.Config to pick up QPS & timeout changes
+		deepCopyRESTConfig(cfgPtrCopy, c)
+		return c
+	}
+
 	matchVersionKubeConfigFlags := util.NewMatchVersionFlags(kubeConfigFlags)
 	return util.NewFactory(matchVersionKubeConfigFlags)
 }

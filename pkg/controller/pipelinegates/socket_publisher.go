@@ -1,18 +1,16 @@
 package pipelinegates
 
 import (
-	console "github.com/pluralsh/console-client-go"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
 
 type socketPublisher struct {
-	gateQueue workqueue.RateLimitingInterface
-	gateCache *client.Cache[console.PipelineGateFragment]
+	gateQueue workqueue.TypedRateLimitingInterface[string]
 }
 
 func (sp *socketPublisher) Publish(id string) {
-	sp.gateCache.Expire(id)
+	cache.GateCache().Expire(id)
 	sp.gateQueue.Add(id)
 }

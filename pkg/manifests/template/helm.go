@@ -13,9 +13,8 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
-	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pkg/errors"
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/fs"
 	"github.com/samber/lo"
@@ -30,8 +29,13 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/yaml"
+
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 const (
@@ -45,8 +49,6 @@ const (
 )
 
 func init() {
-	EnableHelmDependencyUpdate = false
-	DisableHelmTemplateDryRunServer = false
 	// setup helm cache directory.
 	dir, err := os.MkdirTemp("", "repositories")
 	if err != nil {
@@ -55,13 +57,9 @@ func init() {
 	settings.RepositoryCache = dir
 	settings.RepositoryConfig = path.Join(dir, "repositories.yaml")
 	settings.KubeInsecureSkipTLSVerify = true
-	APIVersions = cmap.New[bool]()
 }
 
 var settings = cli.New()
-var EnableHelmDependencyUpdate bool
-var DisableHelmTemplateDryRunServer bool
-var APIVersions cmap.ConcurrentMap[string, bool]
 
 func debug(format string, v ...interface{}) {
 	format = fmt.Sprintf("INFO: %s\n", format)
@@ -90,8 +88,8 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 		return nil, err
 	}
 
-	log.Println("render helm templates:", "enable dependency update=", EnableHelmDependencyUpdate, "dependencies=", len(c.Dependencies))
-	if len(c.Dependencies) > 0 && EnableHelmDependencyUpdate {
+	log.Println("render helm templates:", "enable dependency update=", args.EnableHelmDependencyUpdate(), "dependencies=", len(c.Dependencies))
+	if len(c.Dependencies) > 0 && args.EnableHelmDependencyUpdate() {
 		if err := h.dependencyUpdate(config, c.Dependencies); err != nil {
 			return nil, err
 		}
@@ -111,6 +109,18 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 	_, err = fmt.Fprintln(&buffer, strings.TrimSpace(rel.Manifest))
 	if err != nil {
 		return nil, err
+	}
+	if svc.Helm != nil && svc.Helm.IgnoreHooks != nil && !*svc.Helm.IgnoreHooks {
+		for _, h := range rel.Hooks {
+			_, err = fmt.Fprintln(&buffer, "---")
+			if err != nil {
+				return nil, err
+			}
+			_, err = fmt.Fprintln(&buffer, strings.TrimSpace(h.Manifest))
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	r := bytes.NewReader(buffer.Bytes())
@@ -216,7 +226,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 
 	client := action.NewInstall(conf)
 	client.DryRun = true
-	if !DisableHelmTemplateDryRunServer {
+	if !args.DisableHelmTemplateDryRunServer() {
 		client.DryRunOption = "server"
 	}
 	client.ReleaseName = release
@@ -230,7 +240,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 		return nil, err
 	}
 	client.KubeVersion = vsn
-	client.APIVersions = algorithms.MapKeys[string, bool](APIVersions.Items())
+	client.APIVersions = algorithms.MapKeys[string, bool](cache.DiscoveryCache().Items())
 
 	return client.Run(chart, values)
 }
@@ -308,7 +318,7 @@ func defaultKeyring() string {
 var errNoRepositories = errors.New("no repositories found. You must add one before updating")
 
 func UpdateRepos() error {
-	log.Println("helm repo update...")
+	klog.V(loglevel.LogLevelExtended).InfoS("helm repo update...")
 	f, err := repo.LoadFile(settings.RepositoryConfig)
 	switch {
 	case isNotExist(err):
@@ -341,10 +351,10 @@ func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) erro
 		go func(re *repo.ChartRepository) {
 			defer wg.Done()
 			if _, err := re.DownloadIndexFile(); err != nil {
-				log.Printf("unable to get an update from the %q chart repository (%s):\n\t%s\n", re.Config.Name, re.Config.URL, err)
+				klog.ErrorS(err, "unable to get an update from the chart repository", "name", re.Config.Name, "url", re.Config.URL)
 				repoFailList = append(repoFailList, re.Config.URL)
 			} else {
-				log.Printf("successfully got an update from the %q chart repository\n", re.Config.Name)
+				klog.V(loglevel.LogLevelExtended).InfoS("successfully got an update from the chart repository", "name", re.Config.Name)
 			}
 		}(re)
 	}
@@ -355,7 +365,7 @@ func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) erro
 			repoFailList)
 	}
 
-	log.Printf("Update Complete.")
+	klog.V(loglevel.LogLevelExtended).InfoS("helm repo update complete")
 	return nil
 }
 
@@ -365,7 +375,7 @@ func AddRepo(repoName, repoUrl string) error {
 	if err != nil && !os.IsExist(err) {
 		return err
 	}
-	log.Printf("Adding repo %s to %s\n", repoName, repoFile)
+	klog.V(loglevel.LogLevelExtended).InfoS("adding helm repo", "name", repoName, "file", repoFile)
 	// Acquire a file lock for process synchronization.
 	repoFileExt := filepath.Ext(repoFile)
 	var lockPath string
@@ -403,10 +413,14 @@ func AddRepo(repoName, repoUrl string) error {
 		InsecureSkipTLSverify: true,
 	}
 	f.Update(&c)
-	log.Printf("Repo %s added to %s\n", repoName, repoFile)
+	klog.V(loglevel.LogLevelExtended).InfoS("helm repo added", "name", repoName, "file", repoFile)
 	return f.WriteFile(repoFile, 0644)
 }
 
 func isNotExist(err error) bool {
 	return os.IsNotExist(errors.Cause(err))
+}
+
+func HelmSettings() *cli.EnvSettings {
+	return settings
 }

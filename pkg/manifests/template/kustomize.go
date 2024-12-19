@@ -2,9 +2,14 @@ package template
 
 import (
 	"bytes"
+	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
-	console "github.com/pluralsh/console-client-go"
+	"github.com/samber/lo"
+
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/i18n"
@@ -38,8 +43,38 @@ func (k *kustomize) Render(svc *console.GetServiceDeploymentForAgent_ServiceDepl
 	}
 
 	command := build.NewCmdBuild(filesys.MakeFsOnDisk(), help, out)
-	path := filepath.Join(k.dir, subdir)
-	command.SetArgs([]string{path})
+	dir := filepath.Join(k.dir, subdir)
+	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		if ext := strings.ToLower(filepath.Ext(info.Name())); !lo.Contains([]string{".liquid"}, ext) {
+			return nil
+		}
+		rpath, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		data, err = renderLiquid(data, svc)
+		if err != nil {
+			return fmt.Errorf("templating error in %s: %w", rpath, err)
+		}
+		newPath := strings.TrimSuffix(path, ".liquid")
+		return writeFile(newPath, data)
+	}); err != nil {
+		return nil, err
+	}
+
+	command.SetArgs([]string{dir})
 	if err := command.Execute(); err != nil {
 		return nil, err
 	}
@@ -67,4 +102,11 @@ func (k *kustomize) Render(svc *console.GetServiceDeploymentForAgent_ServiceDepl
 		return nil, err
 	}
 	return items, nil
+}
+
+func writeFile(name string, content []byte) error {
+	if err := os.MkdirAll(filepath.Dir(name), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(name, content, 0644)
 }

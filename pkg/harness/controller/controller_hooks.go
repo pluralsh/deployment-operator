@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	gqlclient "github.com/pluralsh/console-client-go"
+	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
@@ -52,6 +52,7 @@ func (in *stackRunController) postStart(err error) {
 	}
 
 	if err := in.completeStackRun(status, err); err != nil {
+		_ = stackrun.MarkStackRun(in.consoleClient, in.stackRunID, gqlclient.StackStatusFailed)
 		klog.ErrorS(err, "could not complete stack run")
 	}
 
@@ -77,10 +78,10 @@ func (in *stackRunController) postStepRun(id string, err error) {
 }
 
 // postExecHook is a callback function started by the exec.Executable after it finishes.
-// Unlike postStepRun it does provide any additional information.
-func (in *stackRunController) postExecHook(stage gqlclient.StepStage) v1.HookFunction {
+// Unlike postStepRun it does not provide any additional information.
+func (in *stackRunController) postExecHook(step *gqlclient.RunStepFragment) v1.HookFunction {
 	return func() error {
-		if stage != gqlclient.StepStagePlan {
+		if step.Stage != gqlclient.StepStagePlan {
 			return nil
 		}
 
@@ -89,13 +90,13 @@ func (in *stackRunController) postExecHook(stage gqlclient.StepStage) v1.HookFun
 }
 
 // postExecHook is a callback function started by the exec.Executable before it runs the executable.
-func (in *stackRunController) preExecHook(stage gqlclient.StepStage, id string) v1.HookFunction {
+func (in *stackRunController) preExecHook(step *gqlclient.RunStepFragment) v1.HookFunction {
 	return func() error {
-		if (stage == gqlclient.StepStageApply || stage == gqlclient.StepStageDestroy) && in.requiresApproval() {
+		if (step.Stage == gqlclient.StepStageApply || step.Stage == gqlclient.StepStageDestroy) && in.requiresApproval() {
 			in.waitForApproval()
 		}
 
-		if err := stackrun.StartStackRunStep(in.consoleClient, id); err != nil {
+		if err := stackrun.StartStackRunStep(in.consoleClient, step.ID); err != nil {
 			klog.ErrorS(err, "could not update stack run status")
 		}
 

@@ -1,7 +1,7 @@
 package v1
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 )
 
 // State implements [Tool] interface.
@@ -27,4 +27,8 @@ func (in *DefaultTool) Plan() (*console.StackStateAttributes, error) {
 // Modifier implements [Tool] interface.
 func (in *DefaultTool) Modifier(stage console.StepStage) Modifier {
 	return nil
+}
+
+func New() Tool {
+	return &DefaultTool{}
 }

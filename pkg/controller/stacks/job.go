@@ -6,7 +6,12 @@ import (
 	"os"
 	"strings"
 
-	console "github.com/pluralsh/console-client-go"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -15,9 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/pluralsh/deployment-operator/internal/metrics"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const (
@@ -76,26 +78,41 @@ func init() {
 	}
 }
 
-func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunFragment) (*batchv1.Job, error) {
+func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunMinimalFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
-	jobName := GetRunJobName(run)
+
+	name := GetRunResourceName(run)
+	jobSpec := getRunJobSpec(name, run.JobSpec)
+	namespace := r.GetRunResourceNamespace(jobSpec)
+
 	foundJob := &batchv1.Job{}
-	if err := r.K8sClient.Get(ctx, types.NamespacedName{Name: jobName, Namespace: r.Namespace}, foundJob); err != nil {
+	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {
 			return nil, err
 		}
 
-		logger.V(2).Info("generating job", "namespace", r.Namespace, "name", jobName)
-		job := r.GenerateRunJob(run, jobName)
+		secret, err := r.upsertRunSecret(ctx, name, namespace, run.ID)
+		if err != nil {
+			return nil, err
+		}
 
-		logger.V(2).Info("creating job", "namespace", job.Namespace, "name", job.Name)
-		if err := r.K8sClient.Create(ctx, job); err != nil {
+		job, err := r.GenerateRunJob(run, jobSpec, name, namespace)
+		if err != nil {
+			return nil, err
+		}
+		logger.V(2).Info("creating job for stack run", "id", run.ID, "namespace", job.Namespace, "name", job.Name)
+		if err := r.k8sClient.Create(ctx, job); err != nil {
 			logger.Error(err, "unable to create job")
 			return nil, err
 		}
 
+		if err := utils.TryAddOwnerRef(ctx, r.k8sClient, job, secret, r.scheme); err != nil {
+			logger.Error(err, "error setting owner reference for job secret")
+			return nil, err
+		}
+
 		metrics.Record().StackRunJobCreation()
-		if err := r.ConsoleClient.UpdateStackRun(run.ID, console.StackRunAttributes{
+		if err := r.consoleClient.UpdateStackRun(run.ID, console.StackRunAttributes{
 			Status: run.Status,
 			JobRef: &console.NamespacedName{
 				Name:      job.Name,
@@ -107,22 +124,30 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 
 		return job, nil
 	}
-	return foundJob, nil
 
+	return foundJob, nil
 }
 
-func GetRunJobName(run *console.StackRunFragment) string {
+// GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
+func GetRunResourceName(run *console.StackRunMinimalFragment) string {
 	return fmt.Sprintf("stack-%s", run.ID)
 }
 
-func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name string) *batchv1.Job {
-	var jobSpec *batchv1.JobSpec
-
-	// Use job spec defined in run as base if it is available.
-	if run.JobSpec != nil {
-		jobSpec = getRunJobSpec(name, run.JobSpec)
+// GetRunResourceNamespace returns a resource namespace used for a job and a secret connected to a given run.
+func (r *StackReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (namespace string) {
+	if jobSpec != nil {
+		namespace = jobSpec.Template.Namespace
 	}
 
+	if namespace == "" {
+		namespace = r.namespace
+	}
+
+	return
+}
+
+func (r *StackReconciler) GenerateRunJob(run *console.StackRunMinimalFragment, jobSpec *batchv1.JobSpec, name, namespace string) (*batchv1.Job, error) {
+	var err error
 	// If user-defined job spec was not available initialize it here.
 	if jobSpec == nil {
 		jobSpec = &batchv1.JobSpec{}
@@ -130,15 +155,12 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 
 	// Set requirements like name, namespace, container and volume.
 	jobSpec.Template.ObjectMeta.Name = name
+	jobSpec.Template.ObjectMeta.Namespace = namespace
 
 	if jobSpec.Template.Annotations == nil {
 		jobSpec.Template.Annotations = map[string]string{}
 	}
 	jobSpec.Template.Annotations[podDefaultContainerAnnotation] = DefaultJobContainer
-
-	if jobSpec.Template.ObjectMeta.Namespace == "" {
-		jobSpec.Template.ObjectMeta.Namespace = r.Namespace
-	}
 
 	jobSpec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 
@@ -147,6 +169,11 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 
 	jobSpec.Template.Spec.Containers = r.ensureDefaultContainer(jobSpec.Template.Spec.Containers, run)
 
+	jobSpec.Template.Spec.Containers, err = r.ensureDefaultContainerResourcesRequests(jobSpec.Template.Spec.Containers, run)
+	if err != nil {
+		return nil, err
+	}
+
 	jobSpec.Template.Spec.Volumes = ensureDefaultVolumes(jobSpec.Template.Spec.Volumes)
 
 	jobSpec.Template.Spec.SecurityContext = ensureDefaultPodSecurityContext(jobSpec.Template.Spec.SecurityContext)
@@ -154,12 +181,12 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunFragment, name str
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Namespace:   r.Namespace,
+			Namespace:   namespace,
 			Annotations: map[string]string{jobSelector: name},
 			Labels:      map[string]string{jobSelector: name},
 		},
 		Spec: *jobSpec,
-	}
+	}, nil
 }
 
 func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batchv1.JobSpec {
@@ -196,7 +223,7 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 	return jobSpec
 }
 
-func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, run *console.StackRunFragment) []corev1.Container {
+func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, run *console.StackRunMinimalFragment) []corev1.Container {
 	if index := algorithms.Index(containers, func(container corev1.Container) bool {
 		return container.Name == DefaultJobContainer
 	}); index == -1 {
@@ -206,47 +233,102 @@ func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, 
 			containers[index].Image = r.getDefaultContainerImage(run)
 		}
 
-		containers[index].Args = r.getDefaultContainerArgs(run.ID)
+		containers[index].EnvFrom = r.getDefaultContainerEnvFrom(run)
 
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
 	}
 	return containers
 }
 
-func (r *StackReconciler) getDefaultContainer(run *console.StackRunFragment) corev1.Container {
+func (r *StackReconciler) getDefaultContainer(run *console.StackRunMinimalFragment) corev1.Container {
 	return corev1.Container{
 		Name:  DefaultJobContainer,
 		Image: r.getDefaultContainerImage(run),
-		Args:  r.getDefaultContainerArgs(run.ID),
 		VolumeMounts: []corev1.VolumeMount{
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
 		},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		Env:             make([]corev1.EnvVar, 0),
+		EnvFrom:         r.getDefaultContainerEnvFrom(run),
 	}
 }
 
-func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunFragment) string {
-	image := defaultContainerImages[run.Type]
-	version := defaultContainerVersions[run.Type]
-	if run.Configuration != nil && run.Configuration.Version != "" {
-		version = run.Configuration.Version
+func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunMinimalFragment) string {
+	// In case image is not provided, it will use our default image.
+	// Image name format: <defaultImage>:<tag>
+	// Note: User has to make sure that the tag is correct and matches our naming scheme.
+	//
+	// In case image is provided, it will replace both image and tag with provided values.
+	// Image name format: <image>:<tag>
+	if r.hasCustomTag(run) {
+		return fmt.Sprintf("%s:%s", r.getImage(run), *run.Configuration.Tag)
 	}
 
-	if run.Configuration != nil && run.Configuration.Image != nil && *run.Configuration.Image != "" {
-		image = *run.Configuration.Image
-		return fmt.Sprintf("%s:%s", image, version)
+	// In case there is a custom version and a custom image provided, it will replace both image and version
+	// with provided values.
+	// Image name format: <image>:<version>
+	if r.hasCustomImage(run) && r.hasCustomVersion(run) {
+		return fmt.Sprintf("%s:%s", *run.Configuration.Image, *run.Configuration.Version)
 	}
 
-	return fmt.Sprintf("%s:%s-%s-%s", image, defaultImageTag, strings.ToLower(string(run.Type)), version)
+	// In case only image is provided, do not follow our default naming scheme.
+	// Image name format: <image>:<defaultTag>
+	// Note: User has to make sure that the image contains the tag matching our defaults.
+	if r.hasCustomImage(run) {
+		return fmt.Sprintf("%s:%s", *run.Configuration.Image, r.getTag(run))
+	}
+
+	// In any other case return image in the default format: <defaultImage>:<defaultTag>-<stackType>-<defaultVersionOrVersion>.
+	// In this case only a custom tool version is ever provided to override our defaults.
+	return fmt.Sprintf("%s:%s-%s-%s", r.getImage(run), r.getTag(run), strings.ToLower(string(run.Type)), r.getVersion(run))
 }
 
-func (r *StackReconciler) getDefaultContainerArgs(runID string) []string {
-	return []string{
-		fmt.Sprintf("--console-url=%s", r.ConsoleURL),
-		fmt.Sprintf("--console-token=%s", r.DeployToken),
-		fmt.Sprintf("--stack-run-id=%s", runID),
+func (r *StackReconciler) hasCustomImage(run *console.StackRunMinimalFragment) bool {
+	return run.Configuration.Image != nil && len(*run.Configuration.Image) > 0
+}
+
+func (r *StackReconciler) getImage(run *console.StackRunMinimalFragment) string {
+	if r.hasCustomImage(run) {
+		return *run.Configuration.Image
+	}
+
+	return defaultContainerImages[run.Type]
+}
+
+func (r *StackReconciler) hasCustomVersion(run *console.StackRunMinimalFragment) bool {
+	return run.Configuration.Version != nil && len(*run.Configuration.Version) > 0
+}
+
+func (r *StackReconciler) getVersion(run *console.StackRunMinimalFragment) string {
+	if r.hasCustomVersion(run) {
+		return *run.Configuration.Version
+	}
+
+	return defaultContainerVersions[run.Type]
+}
+
+func (r *StackReconciler) hasCustomTag(run *console.StackRunMinimalFragment) bool {
+	return run.Configuration.Tag != nil && len(*run.Configuration.Tag) > 0
+}
+
+func (r *StackReconciler) getTag(run *console.StackRunMinimalFragment) string {
+	if r.hasCustomTag(run) {
+		return *run.Configuration.Tag
+	}
+
+	return defaultImageTag
+}
+
+func (r *StackReconciler) getDefaultContainerEnvFrom(run *console.StackRunMinimalFragment) []corev1.EnvFromSource {
+	return []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: GetRunResourceName(run),
+				},
+			},
+		},
 	}
 }
 
@@ -306,4 +388,56 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
 	}
+}
+
+func (r *StackReconciler) ensureDefaultContainerResourcesRequests(containers []corev1.Container, run *console.StackRunMinimalFragment) ([]corev1.Container, error) {
+	if run.JobSpec == nil || run.JobSpec.Requests == nil {
+		return containers, nil
+	}
+	if run.JobSpec.Requests.Requests == nil && run.JobSpec.Requests.Limits == nil {
+		return containers, nil
+	}
+
+	for i, container := range containers {
+		if run.JobSpec.Requests.Requests != nil {
+			if len(container.Resources.Requests) == 0 {
+				containers[i].Resources.Requests = map[corev1.ResourceName]resource.Quantity{}
+			}
+			if run.JobSpec.Requests.Requests.CPU != nil {
+				cpu, err := resource.ParseQuantity(*run.JobSpec.Requests.Requests.CPU)
+				if err != nil {
+					return nil, err
+				}
+				containers[i].Resources.Requests[corev1.ResourceCPU] = cpu
+			}
+			if run.JobSpec.Requests.Requests.Memory != nil {
+				memory, err := resource.ParseQuantity(*run.JobSpec.Requests.Requests.Memory)
+				if err != nil {
+					return nil, err
+				}
+				containers[i].Resources.Requests[corev1.ResourceMemory] = memory
+			}
+		}
+		if run.JobSpec.Requests.Limits != nil {
+			if len(container.Resources.Limits) == 0 {
+				containers[i].Resources.Limits = map[corev1.ResourceName]resource.Quantity{}
+			}
+			if run.JobSpec.Requests.Limits.CPU != nil {
+				cpu, err := resource.ParseQuantity(*run.JobSpec.Requests.Limits.CPU)
+				if err != nil {
+					return nil, err
+				}
+				containers[i].Resources.Limits[corev1.ResourceCPU] = cpu
+			}
+			if run.JobSpec.Requests.Limits.Memory != nil {
+				memory, err := resource.ParseQuantity(*run.JobSpec.Requests.Limits.Memory)
+				if err != nil {
+					return nil, err
+				}
+				containers[i].Resources.Limits[corev1.ResourceMemory] = memory
+			}
+		}
+	}
+
+	return containers, nil
 }

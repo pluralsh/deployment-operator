@@ -1,7 +1,7 @@
 package client
 
 import (
-	console "github.com/pluralsh/console-client-go"
+	console "github.com/pluralsh/console/go/client"
 )
 
 func (c *client) SaveClusterBackup(attrs console.BackupAttributes) (*console.ClusterBackupFragment, error) {
