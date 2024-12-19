@@ -9,3 +9,6 @@ FROM $TOFU_IMAGE as tofu
 FROM $HARNESS_BASE_IMAGE as final
 
 COPY --from=tofu /usr/local/bin/tofu /bin/terraform
+
+# Switch to the non-root user
+USER 65532:65532
