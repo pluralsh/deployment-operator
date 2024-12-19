@@ -134,12 +134,6 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 				reterr = err
 			}
 		}()
-		recommendations, err := r.getRecommendationAttributes(ctx, kubecostService, kubecost.Spec.GetPort(), kubecost.Spec.GetInterval(), recommendationThreshold)
-		if err != nil {
-			logger.Error(err, "Unable to fetch recommendations")
-			utils.MarkCondition(kubecost.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
-			return false, nil
-		}
 		clusterCostAttr, err := r.getClusterCost(ctx, kubecostService, kubecost.Spec.GetPort(), kubecost.Spec.GetInterval())
 		if err != nil {
 			logger.Error(err, "Unable to fetch cluster cost")
@@ -151,6 +145,13 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			logger.Error(err, "Unable to fetch namespacesCostAtrr cost")
 			utils.MarkCondition(kubecost.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 			return false, nil
+		}
+
+		recommendations, err := r.getRecommendationAttributes(ctx, kubecostService, kubecost.Spec.GetPort(), kubecost.Spec.GetInterval(), recommendationThreshold)
+		if err != nil {
+			logger.Error(err, "Unable to fetch recommendations")
+			// utils.MarkCondition(kubecost.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
+			// return false, nil
 		}
 
 		// nothing for specified time window
@@ -176,19 +177,24 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 }
 
 func (r *KubecostExtractorReconciler) fetch(host, path string, params map[string]string) ([]byte, error) {
+	query := ""
+	if len(params) > 0 {
+		urlParams := url.Values{}
+		for k, v := range params {
+			urlParams.Add(k, v)
+		}
+		query = "?" + urlParams.Encode()
+	}
+
 	tr := &http.Transport{
 		MaxIdleConns:          10,
 		IdleConnTimeout:       30 * time.Second,
 		DisableCompression:    true,
-		ResponseHeaderTimeout: 60 * time.Second,
-	}
-	client := &http.Client{Transport: tr}
-	urlParams := url.Values{}
-	for k, v := range params {
-		urlParams.Add(k, v)
+		ResponseHeaderTimeout: 120 * time.Second,
 	}
 
-	resp, err := client.Get(fmt.Sprintf("http://%s%s?%s", host, path, urlParams.Encode()))
+	client := &http.Client{Transport: tr}
+	resp, err := client.Get(fmt.Sprintf("http://%s%s%s", host, path, query))
 	if err != nil {
 		return nil, err
 	}
@@ -204,12 +210,8 @@ func (r *KubecostExtractorReconciler) fetch(host, path string, params map[string
 }
 
 func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string) (*allocationResponse, error) {
-	now := time.Now()
-	oneMonthBefore := now.AddDate(0, -1, 0) // 0 years, -1 month, 0 days
-	window := fmt.Sprintf("%d,%d", oneMonthBefore.Unix(), now.Unix())
-
 	queryParams := map[string]string{
-		"window":     window,
+		"window":     "month",
 		"aggregate":  aggregate,
 		"accumulate": "true",
 	}
@@ -281,7 +283,7 @@ func (r *KubecostExtractorReconciler) getNamespacesCost(ctx context.Context, srv
 }
 
 func (r *KubecostExtractorReconciler) getClusterCost(ctx context.Context, srv *corev1.Service, servicePort string, interval time.Duration) (*console.CostAttributes, error) {
-	bytes, err := r.KubeClient.CoreV1().Services(srv.Namespace).ProxyGet("", srv.Name, servicePort, "/model/clusterInfo", nil).DoRaw(ctx)
+	bytes, err := r.fetch(fmt.Sprintf("%s.%s:%s", srv.Name, srv.Namespace, servicePort), "/model/clusterInfo", nil)
 	if err != nil {
 		return nil, err
 	}
