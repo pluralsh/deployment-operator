@@ -360,10 +360,7 @@ func (r *KubecostExtractorReconciler) getNodeCost(ctx context.Context, srv *core
 		if nodeCosts == nil {
 			continue
 		}
-		for name, allocation := range nodeCosts {
-			if name == opencost.IdleSuffix {
-				continue
-			}
+		for _, allocation := range nodeCosts {
 			totalNodeCost += allocation.TotalCost()
 		}
 	}
