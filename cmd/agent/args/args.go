@@ -57,6 +57,7 @@ var (
 	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
 	argProfiler                        = flag.Bool("profiler", false, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
 	argDisableResourceCache            = flag.Bool("disable-resource-cache", false, "Control whether resource cache should be enabled or not.")
+	argEnableKubecostProxy             = flag.Bool("enable-kubecost-proxy", false, "If set, will proxy a Kubecost API request through the K8s API server.")
 
 	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
 	argResyncSeconds           = flag.Int("resync-seconds", 300, "Resync duration in seconds.")
@@ -110,6 +111,10 @@ func Init() {
 
 func DisableHelmTemplateDryRunServer() bool {
 	return *argDisableHelmTemplateDryRunServer
+}
+
+func EnableKubecostProxy() bool {
+	return *argEnableKubecostProxy
 }
 
 func EnableHelmDependencyUpdate() bool {
