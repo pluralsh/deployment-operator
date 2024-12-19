@@ -213,7 +213,7 @@ func (r *KubecostExtractorReconciler) fetch(host, path string, params map[string
 
 func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string) (*allocationResponse, error) {
 	queryParams := map[string]string{
-		"window":     "month",
+		"window":     "30d",
 		"aggregate":  aggregate,
 		"accumulate": "true",
 	}
