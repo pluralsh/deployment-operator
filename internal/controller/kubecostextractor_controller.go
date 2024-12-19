@@ -211,11 +211,14 @@ func (r *KubecostExtractorReconciler) fetch(host, path string, params map[string
 	return buffer.Bytes(), nil
 }
 
-func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string) (*allocationResponse, error) {
+func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string, idle bool) (*allocationResponse, error) {
 	queryParams := map[string]string{
 		"window":     "30d",
 		"aggregate":  aggregate,
 		"accumulate": "true",
+	}
+	if idle {
+		queryParams["shareIdle"] = "true"
 	}
 
 	var response []byte
@@ -239,7 +242,7 @@ func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *co
 func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Context, srv *corev1.Service, servicePort string, recommendationThreshold float64) ([]*console.ClusterRecommendationAttributes, error) {
 	var result []*console.ClusterRecommendationAttributes
 	for _, resourceType := range kubecostResourceTypes {
-		ar, err := r.getAllocation(ctx, srv, servicePort, resourceType)
+		ar, err := r.getAllocation(ctx, srv, servicePort, resourceType, false)
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +270,7 @@ func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Co
 
 func (r *KubecostExtractorReconciler) getNamespacesCost(ctx context.Context, srv *corev1.Service, servicePort string) ([]*console.CostAttributes, error) {
 	var result []*console.CostAttributes
-	ar, err := r.getAllocation(ctx, srv, servicePort, "namespace")
+	ar, err := r.getAllocation(ctx, srv, servicePort, "namespace", false)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +308,7 @@ func (r *KubecostExtractorReconciler) getClusterCost(ctx context.Context, srv *c
 	if err != nil {
 		return nil, err
 	}
-	ar, err := r.getAllocation(ctx, srv, servicePort, "cluster")
+	ar, err := r.getAllocation(ctx, srv, servicePort, "cluster", true)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +330,7 @@ func (r *KubecostExtractorReconciler) getClusterCost(ctx context.Context, srv *c
 }
 
 func (r *KubecostExtractorReconciler) getControlPlaneCost(ctx context.Context, srv *corev1.Service, servicePort string) (*float64, error) {
-	ar, err := r.getAllocation(ctx, srv, servicePort, "controller")
+	ar, err := r.getAllocation(ctx, srv, servicePort, "controller", false)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +352,7 @@ func (r *KubecostExtractorReconciler) getControlPlaneCost(ctx context.Context, s
 
 func (r *KubecostExtractorReconciler) getNodeCost(ctx context.Context, srv *corev1.Service, servicePort string) (*float64, error) {
 	var totalNodeCost float64
-	ar, err := r.getAllocation(ctx, srv, servicePort, "node")
+	ar, err := r.getAllocation(ctx, srv, servicePort, "node", true)
 	if err != nil {
 		return nil, err
 	}
@@ -360,10 +363,7 @@ func (r *KubecostExtractorReconciler) getNodeCost(ctx context.Context, srv *core
 		if nodeCosts == nil {
 			continue
 		}
-		for name, allocation := range nodeCosts {
-			if name == opencost.IdleSuffix {
-				continue
-			}
+		for _, allocation := range nodeCosts {
 			totalNodeCost += allocation.TotalCost()
 		}
 	}
