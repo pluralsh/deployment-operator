@@ -73,7 +73,7 @@ func (r *KubecostExtractorReconciler) RunOnInterval(ctx context.Context, key str
 	r.Tasks.Set(key, cancel)
 
 	go func() {
-		_ = wait.PollUntilContextCancel(ctxCancel, interval+time.Duration(rand.Int63n(int64(kubeCostJitter))), true, condition)
+		_ = wait.PollUntilContextCancel(ctxCancel, interval, true, condition)
 	}()
 }
 
@@ -132,6 +132,7 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	r.RunOnInterval(ctx, req.NamespacedName.String(), kubecost.Spec.GetInterval(), func(ctx context.Context) (done bool, err error) {
+		time.Sleep(time.Duration(rand.Int63n(int64(kubeCostJitter))))
 		// Always patch object when exiting this function, so we can persist any object changes.
 		defer func() {
 			if err := scope.PatchObject(); err != nil && reterr == nil {
