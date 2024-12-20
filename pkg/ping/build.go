@@ -17,10 +17,11 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion *string
 		Distro:         lo.ToPtr(findDistro(append(pods, info.GitVersion))),
 		KubeletVersion: minKubeletVersion,
 	}
-	if scraper.GetAiInsightComponents().IsFresh() && scraper.GetAiInsightComponents().Len() > 0 {
+	if scraper.GetAiInsightComponents().IsFresh() {
 		klog.Info("found ", scraper.GetAiInsightComponents().Len(), " fresh AI insight components")
 
 		scraper.GetAiInsightComponents().SetFresh(false)
+		// send empty list when AiInsightComponents len equal 0
 		insightComponents := make([]*console.ClusterInsightComponentAttributes, 0)
 
 		for _, value := range scraper.GetAiInsightComponents().GetItems() {
