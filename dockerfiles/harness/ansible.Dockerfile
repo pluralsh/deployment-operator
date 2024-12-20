@@ -5,10 +5,11 @@ ARG HARNESS_BASE_IMAGE=$HARNESS_BASE_IMAGE_REPO:$HARNESS_BASE_IMAGE_TAG
 ARG PYTHON_VERSION=3.10
 
 # Use harness base image
-FROM ${HARNESS_BASE_IMAGE} as harness
+FROM ${HARNESS_BASE_IMAGE} AS harness
 
 # Build Ansible from Python Image
-FROM python:${PYTHON_VERSION}-alpine as final
+FROM python:${PYTHON_VERSION}-alpine AS final
+ARG ANSIBLE_VERSION=9.0.0
 
 # Copy Harness bin from the Harness Image
 COPY --from=harness /harness /usr/local/bin/harness
@@ -17,17 +18,17 @@ COPY --from=harness /harness /usr/local/bin/harness
 RUN chown -R 65532:65532 /usr/local/bin/harness
 
 # Install build dependencies, Ansible, and openssh-client
-ARG ANSIBLE_VERSION=9.0.0
 RUN apk add --no-cache --virtual .build-deps \
     gcc \
     musl-dev \
     libffi-dev \
     openssl-dev \
     make \
-    build-base && \
-    pip install --no-cache-dir ansible==${ANSIBLE_VERSION} && \
-    apk add --no-cache openssh-client && \
+    build-base \
+    openssh-client && \
     apk del .build-deps
+
+RUN pip install --no-cache-dir ansible==${ANSIBLE_VERSION}
 
 RUN addgroup --gid 65532 nonroot
 

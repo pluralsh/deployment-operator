@@ -5,10 +5,10 @@ ARG PYTHON_VERSION=3.12
 
 
 # Use harness base image
-FROM ${HARNESS_BASE_IMAGE} as harness
+FROM ${HARNESS_BASE_IMAGE} AS harness
 
 # Build Ansible from Python Image
-FROM registry.access.redhat.com/ubi8/ubi:latest as final
+FROM registry.access.redhat.com/ubi8/ubi:latest AS final
 
 # Set environment variables for FIPS compliance
 ENV OPENSSL_FIPS=1
