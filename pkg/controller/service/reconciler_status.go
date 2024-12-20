@@ -172,23 +172,23 @@ func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) e
 
 	if s.ApplyStats != (stats.ApplyStats{}) {
 		as := s.ApplyStats
-		logger.Info(fmt.Sprintf("apply result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
+		logger.V(4).Info(fmt.Sprintf("apply result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
 			namespace, name, as.Sum(), as.Successful, as.Skipped, as.Failed))
 	}
 	if s.PruneStats != (stats.PruneStats{}) {
 		ps := s.PruneStats
-		logger.Info(fmt.Sprintf("prune result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
+		logger.V(4).Info(fmt.Sprintf("prune result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
 			namespace, name, ps.Sum(), ps.Successful, ps.Skipped, ps.Failed))
 	}
 	if s.DeleteStats != (stats.DeleteStats{}) {
 		ds := s.DeleteStats
-		logger.Info(fmt.Sprintf("delete result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
+		logger.V(4).Info(fmt.Sprintf("delete result for %s/%s: %d attempted, %d successful, %d skipped, %d failed",
 			namespace, name, ds.Sum(), ds.Successful, ds.Skipped, ds.Failed))
 	}
 	if s.WaitStats != (stats.WaitStats{}) {
 		ws := s.WaitStats
-		logger.Info(fmt.Sprintf("reconcile result for %s/%s: %d attempted, %d successful, %d skipped, %d failed, %d timed out",
-			namespace, name, ws.Sum(), ws.Successful, ws.Skipped, ws.Failed, ws.Timeout))
+		logger.Info(fmt.Sprintf("reconcile result for %s/%s: %d attempted, %d successful %d failed",
+			namespace, name, ws.Sum(), ws.Successful, ws.Failed))
 	}
 	return nil
 }

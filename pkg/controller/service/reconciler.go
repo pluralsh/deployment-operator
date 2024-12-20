@@ -290,7 +290,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 				continue
 			}
 
-			logger.Info("sending update for", "service", svc.Node.ID)
+			logger.V(4).Info("sending update for", "service", svc.Node.ID)
 			s.svcQueue.Add(svc.Node.ID)
 		}
 	}
@@ -308,12 +308,12 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	ctx = context.WithValue(ctx, metrics.ContextKeyTimeStart, start)
 
 	logger := log.FromContext(ctx)
-	logger.Info("attempting to sync service", "id", id)
+	logger.V(4).Info("attempting to sync service", "id", id)
 
 	svc, err := s.svcCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
-			logger.Info("service already deleted", "id", id)
+			logger.V(4).Info("service already deleted", "id", id)
 			return reconcile.Result{}, nil
 		}
 		logger.Error(err, fmt.Sprintf("failed to fetch service: %s, ignoring for now", id))
@@ -349,10 +349,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	logger.Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
+	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 
 	if svc.DeletedAt != nil {
-		logger.Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		logger.V(2).Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
 		ch := s.destroyer.Run(ctx, inventory.WrapInventoryInfoObj(s.defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
 			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
 			DryRunStrategy:          common.DryRunNone,
@@ -367,14 +367,14 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	logger.Info("Fetching manifests", "service", svc.Name)
+	logger.V(4).Info("Fetching manifests", "service", svc.Name)
 	manifests, err := s.manifestCache.Fetch(s.utilFactory, svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)
 		return
 	}
 	manifests = postProcess(manifests)
-	logger.Info("Syncing manifests", "count", len(manifests))
+	logger.V(4).Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
 	if err != nil {
 		return
