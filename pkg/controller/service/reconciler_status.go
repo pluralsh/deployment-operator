@@ -187,8 +187,8 @@ func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) e
 	}
 	if s.WaitStats != (stats.WaitStats{}) {
 		ws := s.WaitStats
-		logger.Info(fmt.Sprintf("reconcile result for %s/%s: %d attempted, %d successful %d failed",
-			namespace, name, ws.Sum(), ws.Successful, ws.Failed))
+		logger.Info(fmt.Sprintf("reconcile result for %s/%s: %d attempted, %d successful, %d skipped, %d failed, %d timed out",
+			namespace, name, ws.Sum(), ws.Successful, ws.Skipped, ws.Failed, ws.Timeout))
 	}
 	return nil
 }
