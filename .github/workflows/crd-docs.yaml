@@ -27,7 +27,7 @@ jobs:
       uses: peter-evans/create-pull-request@v5
       with:
         title: "chore: API documentation sync"
-        body: Automated pull request to regenerate API docs for the Plural deployment operator
+        body: Automated pull request to regenerate API docs for the deployment operator.
         commit-message: Update docs for deployment operator
         branch: docs-${{steps.date.outputs.date}}
         labels: release
