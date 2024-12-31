@@ -2,9 +2,6 @@ name: Docs
 on:
   schedule:
     - cron: '0 0 * * *'
-  pull_request: # TODO Remove.
-    branches:
-      - main
 env:
   GOPATH: /home/runner/go/
   GOPROXY: "https://proxy.golang.org"
@@ -40,7 +37,7 @@ jobs:
         commit-message: Update docs for deployment operator
         branch: docs-${{steps.date.outputs.date}}
         labels: release
-        base: update-docs # TODO main
+        base: main
     - name: Enable pull request auto-merge
       if: steps.cpr.outputs.pull-request-operation == 'created'
       uses: peter-evans/enable-pull-request-automerge@v3
