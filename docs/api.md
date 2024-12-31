@@ -10,6 +10,9 @@ Package v1alpha1 contains API Schema definitions for the deployments v1alpha1 AP
 
 ### Resource Types
 - [CustomHealth](#customhealth)
+- [IngressReplica](#ingressreplica)
+- [KubecostExtractor](#kubecostextractor)
+- [MetricsAggregate](#metricsaggregate)
 - [PipelineGate](#pipelinegate)
 - [UpgradeInsights](#upgradeinsights)
 - [VirtualCluster](#virtualcluster)
@@ -30,8 +33,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `region` _string_ | Region is the name of the AWS region cluster lives in. |  | Required: {} <br /> |
-| `accessKeyID` _string_ | AccessKeyID is your access key ID used to authenticate against AWS API. |  | Required: {} <br /> |
-| `secretAccessKeyRef` _[SecretReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#secretreference-v1-core)_ | SecretAccessKeyRef is a reference to the secret that contains secret access key.<br />Since UpgradeInsights is a cluster-scoped resource we can't use local reference.<br />SecretAccessKey must be stored in a key named "secretAccessKey".<br />An example secret can look like this:<br />	apiVersion: v1<br />	kind: Secret<br />	metadata:<br />   name: eks-credentials<br />   namespace: upgrade-insights-test<br />	stringData:<br />   secretAccessKey: "changeme"<br />Then it can be referenced like this:<br />   ...<br />   secretAccessKeyRef:<br />     name: eks-credentials<br />     namespace: upgrade-insights-test |  | Required: {} <br /> |
+| `accessKeyID` _string_ | AccessKeyID is your access key ID used to authenticate against AWS API. |  | Optional: {} <br /> |
+| `secretAccessKeyRef` _[SecretReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#secretreference-v1-core)_ | SecretAccessKeyRef is a reference to the secret that contains secret access key.<br />Since UpgradeInsights is a cluster-scoped resource we can't use local reference.<br />SecretAccessKey must be stored in a key named "secretAccessKey".<br />An example secret can look like this:<br />	apiVersion: v1<br />	kind: Secret<br />	metadata:<br />   name: eks-credentials<br />   namespace: upgrade-insights-test<br />	stringData:<br />   secretAccessKey: "changeme"<br />Then it can be referenced like this:<br />   ...<br />   secretAccessKeyRef:<br />     name: eks-credentials<br />     namespace: upgrade-insights-test |  | Optional: {} <br /> |
 
 
 #### AgentHelmConfiguration
@@ -236,6 +239,99 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `agent` _[AgentHelmConfiguration](#agenthelmconfiguration)_ | Agent allows configuring agent specific helm chart options. |  | Optional: {} <br /> |
 | `vcluster` _[VClusterHelmConfiguration](#vclusterhelmconfiguration)_ | VCluster allows configuring vcluster specific helm chart options. |  | Optional: {} <br /> |
+
+
+#### IngressReplica
+
+
+
+IngressReplica is the Schema for the console ingress replica
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `deployments.plural.sh/v1alpha1` | | |
+| `kind` _string_ | `IngressReplica` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IngressReplicaSpec](#ingressreplicaspec)_ | Spec of the IngressReplica |  | Required: {} <br /> |
+
+
+#### IngressReplicaSpec
+
+
+
+
+
+
+
+_Appears in:_
+- [IngressReplica](#ingressreplica)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ingressRef` _[ObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectreference-v1-core)_ |  |  | Required: {} <br /> |
+| `ingressClassName` _string_ |  |  | Optional: {} <br /> |
+| `tls` _[IngressTLS](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#ingresstls-v1-networking) array_ |  |  | Optional: {} <br /> |
+| `hostMappings` _object (keys:string, values:string)_ |  |  | Required: {} <br /> |
+
+
+#### KubecostExtractor
+
+
+
+KubecostExtractor
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `deployments.plural.sh/v1alpha1` | | |
+| `kind` _string_ | `KubecostExtractor` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[KubecostExtractorSpec](#kubecostextractorspec)_ |  |  |  |
+
+
+#### KubecostExtractorSpec
+
+
+
+
+
+
+
+_Appears in:_
+- [KubecostExtractor](#kubecostextractor)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `interval` _string_ |  | 1h | Optional: {} <br /> |
+| `kubecostServiceRef` _[ObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectreference-v1-core)_ |  |  |  |
+| `kubecostPort` _integer_ |  |  | Optional: {} <br /> |
+| `recommendationThreshold` _string_ | RecommendationThreshold float value for example: `1.2 or 0.001` |  |  |
+
+
+#### MetricsAggregate
+
+
+
+MetricsAggregate
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `deployments.plural.sh/v1alpha1` | | |
+| `kind` _string_ | `MetricsAggregate` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+
+
 
 
 #### PipelineGate
