@@ -19,7 +19,7 @@ jobs:
     - name: 'Checkout'
       uses: actions/checkout@v3
     - name: 'Regenerate Docs'
-      run: PATH=$PATH:$GOPATH/bin make crd-docs
+      run: make crd-docs
     - id: date
       run: echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
     - name: Create Pull Request
