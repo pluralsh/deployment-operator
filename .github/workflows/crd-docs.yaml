@@ -20,13 +20,14 @@ jobs:
       uses: actions/checkout@v3
     - name: 'Regenerate Docs'
       run: make crd-docs
+      working-directory: ./
     - id: date
       run: echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v5
       with:
-        title: Generating Api Docs for ${{steps.date.outputs.date}}
-        body: Automated pull request to regenerate api docs for the Plural deployment operator
+        title: "chore: API documentation sync"
+        body: Automated pull request to regenerate API docs for the Plural deployment operator
         commit-message: Update docs for deployment operator
         branch: docs-${{steps.date.outputs.date}}
         labels: release
