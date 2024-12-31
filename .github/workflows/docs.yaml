@@ -36,7 +36,7 @@ jobs:
         body: Automated pull request to regenerate API docs for the deployment operator.
         commit-message: Update docs for deployment operator
         branch: docs-${{steps.date.outputs.date}}
-        labels: release
+        labels: documentation
         base: main
     - name: Auto-approve
       if: steps.cpr.outputs.pull-request-operation == 'created'
