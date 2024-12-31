@@ -22,7 +22,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Regenerate docs
-      run: make crd-docs
+      run: pwd && make crd-docs
     - name: Save date
       id: date
       run: echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
