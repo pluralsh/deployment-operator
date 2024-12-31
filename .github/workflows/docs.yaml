@@ -24,7 +24,7 @@ jobs:
         go-version-file: go.mod
         cache: false
     - name: Regenerate docs
-      run: pwd && ls -al && make crd-docs
+      run: make crd-docs
     - name: Save date
       id: date
       run: echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
