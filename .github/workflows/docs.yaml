@@ -32,6 +32,7 @@ jobs:
       id: date
       run: echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
     - name: Create pull request
+      id: cpr
       uses: peter-evans/create-pull-request@v5
       with:
         title: "chore: API documentation sync"
@@ -40,3 +41,10 @@ jobs:
         branch: docs-${{steps.date.outputs.date}}
         labels: release
         base: update-docs # TODO main
+    - name: Enable pull request auto-merge
+      if: steps.cpr.outputs.pull-request-operation == 'created'
+      uses: peter-evans/enable-pull-request-automerge@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+        merge-method: squash
