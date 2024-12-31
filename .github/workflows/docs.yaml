@@ -39,4 +39,4 @@ jobs:
         commit-message: Update docs for deployment operator
         branch: docs-${{steps.date.outputs.date}}
         labels: release
-        base: main
+        base: update-docs # TODO main
