@@ -92,6 +92,17 @@ spec:
                 description: 'RecommendationThreshold float value for example: `1.2
                   or 0.001`'
                 type: string
+              recommendationsSettings:
+                properties:
+                  excludeNamespaces:
+                    items:
+                      type: string
+                    type: array
+                  requireAnnotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
             required:
             - kubecostServiceRef
             - recommendationThreshold

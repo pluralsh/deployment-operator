@@ -27,6 +27,13 @@ type KubecostExtractorSpec struct {
 	KubecostPort *int32 `json:"kubecostPort,omitempty"`
 	// RecommendationThreshold float value for example: `1.2 or 0.001`
 	RecommendationThreshold string `json:"recommendationThreshold"`
+	// +kubebuilder:validation:Optional
+	RecommendationsSettings *RecommendationsSettings `json:"recommendationsSettings,omitempty"`
+}
+
+type RecommendationsSettings struct {
+	ExcludeNamespaces  []string          `json:"excludeNamespaces,omitempty"`
+	RequireAnnotations map[string]string `json:"requireAnnotations,omitempty"`
 }
 
 // KubecostExtractorList contains a list of [KubecostExtractor]
