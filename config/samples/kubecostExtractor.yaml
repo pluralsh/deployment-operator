@@ -11,3 +11,9 @@ spec:
   kubecostServiceRef:
     name: kubecost-cost-analyzer
     namespace: kubecost
+  recommendationsSettings:
+    excludeNamespaces:
+      - default
+      - kubecost
+    requireAnnotations:
+      kubectl.kubernetes.io/default-container: grafana
