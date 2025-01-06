@@ -259,7 +259,7 @@ func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
 				return
 			case e, ok := <-ch:
 				if !ok {
-					klog.Error("status watcher event channel closed")
+					klog.V(4).Info("status watcher event channel closed")
 					in.watch(resourceKeySet)
 					return
 				}

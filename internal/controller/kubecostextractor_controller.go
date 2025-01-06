@@ -150,7 +150,7 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			utils.MarkCondition(kubecost.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 		}
 
-		recommendations, err := r.getRecommendationAttributes(ctx, kubecostService, kubecost.Spec.GetPort(), recommendationThreshold)
+		recommendations, err := r.getRecommendationAttributes(ctx, kubecostService, kubecost.Spec.GetPort(), recommendationThreshold, kubecost.Spec.RecommendationsSettings)
 		if err != nil {
 			logger.Error(err, "Unable to fetch recommendations")
 			utils.MarkCondition(kubecost.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
@@ -211,7 +211,7 @@ func (r *KubecostExtractorReconciler) fetch(host, path string, params map[string
 	return buffer.Bytes(), nil
 }
 
-func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string, idle bool) (*allocationResponse, error) {
+func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string, idle bool, recommendations *v1alpha1.RecommendationsSettings) (*allocationResponse, error) {
 	queryParams := map[string]string{
 		"window":     "30d",
 		"aggregate":  aggregate,
@@ -219,6 +219,13 @@ func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *co
 	}
 	if idle {
 		queryParams["shareIdle"] = "true"
+	}
+
+	if recommendations != nil {
+		filter := recommendationsFilter(*recommendations)
+		if len(filter) > 0 {
+			queryParams["filter"] = filter
+		}
 	}
 
 	var response []byte
@@ -239,10 +246,10 @@ func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *co
 	return ar, nil
 }
 
-func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Context, srv *corev1.Service, servicePort string, recommendationThreshold float64) ([]*console.ClusterRecommendationAttributes, error) {
+func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Context, srv *corev1.Service, servicePort string, recommendationThreshold float64, recommendations *v1alpha1.RecommendationsSettings) ([]*console.ClusterRecommendationAttributes, error) {
 	var result []*console.ClusterRecommendationAttributes
 	for _, resourceType := range kubecostResourceTypes {
-		ar, err := r.getAllocation(ctx, srv, servicePort, resourceType, false)
+		ar, err := r.getAllocation(ctx, srv, servicePort, resourceType, false, recommendations)
 		if err != nil {
 			return nil, err
 		}
@@ -270,7 +277,7 @@ func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Co
 
 func (r *KubecostExtractorReconciler) getNamespacesCost(ctx context.Context, srv *corev1.Service, servicePort string) ([]*console.CostAttributes, error) {
 	var result []*console.CostAttributes
-	ar, err := r.getAllocation(ctx, srv, servicePort, "namespace", false)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "namespace", false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +315,7 @@ func (r *KubecostExtractorReconciler) getClusterCost(ctx context.Context, srv *c
 	if err != nil {
 		return nil, err
 	}
-	ar, err := r.getAllocation(ctx, srv, servicePort, "cluster", true)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "cluster", true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +337,7 @@ func (r *KubecostExtractorReconciler) getClusterCost(ctx context.Context, srv *c
 }
 
 func (r *KubecostExtractorReconciler) getControlPlaneCost(ctx context.Context, srv *corev1.Service, servicePort string) (*float64, error) {
-	ar, err := r.getAllocation(ctx, srv, servicePort, "controller", false)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "controller", false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +359,7 @@ func (r *KubecostExtractorReconciler) getControlPlaneCost(ctx context.Context, s
 
 func (r *KubecostExtractorReconciler) getNodeCost(ctx context.Context, srv *corev1.Service, servicePort string) (*float64, error) {
 	var totalNodeCost float64
-	ar, err := r.getAllocation(ctx, srv, servicePort, "node", true)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "node", true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -492,4 +499,24 @@ func convertCostAttributes(allocation opencost.Allocation, nodeCost, controlPlan
 		attr.GpuUtil = allocation.GPUAllocation.GPUUsageAverage
 	}
 	return attr
+}
+
+func recommendationsFilter(recommendations v1alpha1.RecommendationsSettings) string {
+	result := ""
+	if len(recommendations.ExcludeNamespaces) > 0 {
+		result = fmt.Sprintf(`namespace!:"%s"`, strings.Join(recommendations.ExcludeNamespaces, `","`))
+	}
+	if len(recommendations.RequireAnnotations) > 0 {
+		// Build the filter string
+		var parts []string
+		for key, value := range recommendations.RequireAnnotations {
+			parts = append(parts, fmt.Sprintf(`annotation[%s]:"%s"`, key, value))
+		}
+		if len(result) > 0 {
+			return fmt.Sprintf("%s+%s", result, strings.Join(parts, "+"))
+		}
+		return strings.Join(parts, "+")
+	}
+
+	return result
 }

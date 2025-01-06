@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install GO
+      - name: Install Go
         uses: actions/setup-go@v4
         with:
           go-version-file: go.mod

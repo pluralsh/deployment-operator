@@ -3,32 +3,32 @@ name: Publish Harness
 on:
   pull_request:
     branches:
-      - "main"
+    - "main"
   push:
     tags:
-      - 'v*.*.*'
+    - 'v*.*.*'
 
 env:
   GOPATH: /home/runner/go/
   GOPROXY: "https://proxy.golang.org"
 
 jobs:
-# TODO: Enable once some unit tests are added for harness
-#  test:
-#    name: Unit test
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#      - uses: actions/setup-go@v4
-#        with:
-#          go-version-file: go.mod
-#          check-latest: true
-#      - run: PATH=$PATH:$GOPATH/bin make test
+  # TODO: Enable once some unit tests are added for harness
+  #  test:
+  #    name: Unit test
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - uses: actions/checkout@v4
+  #      - uses: actions/setup-go@v4
+  #        with:
+  #          go-version-file: go.mod
+  #          check-latest: true
+  #      - run: PATH=$PATH:$GOPATH/bin make test
 
   publish-harness-base:
     name: Build and push harness base container
     runs-on: ubuntu-20.04
-#    needs: [test]
+    #    needs: [test]
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -81,20 +81,20 @@ jobs:
         build-args: |
           VERSION=${{ steps.meta.outputs.version }}
 
-# TODO: Do we need that for harness?
-#    - name: slack webhook
-#      uses: 8398a7/action-slack@v3
-#      with:
-#        status: ${{ job.status }}
-#        fields: workflow,job,repo,message,commit,author
-#      env:
-#        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }} # required
-#      if: always()
+  # TODO: Do we need that for harness?
+  #    - name: slack webhook
+  #      uses: 8398a7/action-slack@v3
+  #      with:
+  #        status: ${{ job.status }}
+  #        fields: workflow,job,repo,message,commit,author
+  #      env:
+  #        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }} # required
+  #      if: always()
 
   publish-harness-terraform:
     name: Build and push harness terraform container
     runs-on: ubuntu-20.04
-    needs: [publish-harness-base]
+    needs: [ publish-harness-base ]
     env:
       TOFU_VERESION: 1.7.2
     strategy:
@@ -133,186 +133,189 @@ jobs:
       pull-requests: write
       packages: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          # list of Docker images to use as base name for tags
-          images: |
-            ghcr.io/pluralsh/harness
-            docker.io/pluralsh/harness
-          tags: |
-            type=semver,pattern={{version}},suffix=-terraform-${{ matrix.versions.tag }},priority=1000
-            type=sha,suffix=-terraform-${{ matrix.versions.tag }},priority=800
-            type=ref,event=pr,suffix=-terraform-${{ matrix.versions.tag }},priority=600
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to Docker
-        uses: docker/login-action@v3
-        with:
-          username: mjgpluralsh
-          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: "."
-          file: ${{ matrix.versions.terraform >= '1.5.7' && './dockerfiles/harness/opentofu.Dockerfile' || './dockerfiles/harness/terraform.Dockerfile' }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            TOFU_IMAGE_TAG=${{ matrix.versions.tofu }}
-            TERRAFORM_IMAGE_TAG=${{ matrix.versions.terraform }}
-            HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-            HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
-            
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        # list of Docker images to use as base name for tags
+        images: |
+          ghcr.io/pluralsh/harness
+          docker.io/pluralsh/harness
+        tags: |
+          type=semver,pattern={{version}},suffix=-terraform-${{ matrix.versions.tag }},priority=1000
+          type=sha,suffix=-terraform-${{ matrix.versions.tag }},priority=800
+          type=ref,event=pr,suffix=-terraform-${{ matrix.versions.tag }},priority=600
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Login to Docker
+      uses: docker/login-action@v3
+      with:
+        username: mjgpluralsh
+        password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: "."
+        file: ${{ matrix.versions.terraform >= '1.5.7' && './dockerfiles/harness/opentofu.Dockerfile' || './dockerfiles/harness/terraform.Dockerfile' }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          TOFU_IMAGE_TAG=${{ matrix.versions.tofu }}
+          TERRAFORM_IMAGE_TAG=${{ matrix.versions.terraform }}
+          HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
+          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
+
   publish-harness-ansible:
     name: Build and push harness ansible container
     runs-on: ubuntu-20.04
-    needs: [publish-harness-base]
+    needs: [ publish-harness-base ]
     strategy:
       matrix:
         versions:
-          - ansible: '4.10.0'
-            python: '3.9'
-            tag: '4.10'
-          - ansible: '5.7.0'
-            python: '3.10'
-            tag: '5.7'
-          - ansible: '6.7.0'
-            python: '3.10'
-            tag: '6.7'
-          - ansible: '7.7.0'
-            python: '3.11'
-            tag: '7.7'
-          - ansible: '8.7.0'
-            python: '3.11'
-            tag: '8.7'
-          - ansible: '9.0.0'
-            python: '3.12'
-            tag: '9.0'
-          - ansible: '10.0.0'
-            python: '3.12'
-            tag: '10.0'
+        - ansible: '4.10.0'
+          python: '3.9'
+          tag: '4.10'
+        - ansible: '5.7.0'
+          python: '3.10'
+          tag: '5.7'
+        - ansible: '6.7.0'
+          python: '3.10'
+          tag: '6.7'
+        - ansible: '7.7.0'
+          python: '3.11'
+          tag: '7.7'
+        - ansible: '8.7.0'
+          python: '3.11'
+          tag: '8.7'
+        - ansible: '9.0.1'
+          python: '3.12'
+          tag: '9.0'
+        - ansible: '10.0.1'
+          python: '3.12'
+          tag: '10.0'
+        - ansible: '11.0.0'
+          python: '3.12'
+          tag: '11.0'
     permissions:
       contents: write
       discussions: write
       pull-requests: write
       packages: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ghcr.io/pluralsh/harness
-            docker.io/pluralsh/harness
-          tags: |
-            type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.tag }},priority=1000
-            type=sha,suffix=-ansible-${{ matrix.versions.tag }},priority=800
-            type=ref,event=pr,suffix=-ansible-${{ matrix.versions.tag }},priority=600
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to Docker
-        uses: docker/login-action@v3
-        with:
-          username: mjgpluralsh
-          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: "."
-          file: "./dockerfiles/harness/ansible.Dockerfile"
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            ANSIBLE_VERSION=${{ matrix.versions.ansible }}
-            PYTHON_VERSION=${{ matrix.versions.python }}
-            HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-            HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ghcr.io/pluralsh/harness
+          docker.io/pluralsh/harness
+        tags: |
+          type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.tag }},priority=1000
+          type=sha,suffix=-ansible-${{ matrix.versions.tag }},priority=800
+          type=ref,event=pr,suffix=-ansible-${{ matrix.versions.tag }},priority=600
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Login to Docker
+      uses: docker/login-action@v3
+      with:
+        username: mjgpluralsh
+        password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: "."
+        file: "./dockerfiles/harness/ansible.Dockerfile"
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          ANSIBLE_VERSION=${{ matrix.versions.ansible }}
+          PYTHON_VERSION=${{ matrix.versions.python }}
+          HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
+          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
 
   publish-harness-custom:
     name: Build and push harness custom container
     runs-on: ubuntu-20.04
-    needs: [publish-harness-base]
+    needs: [ publish-harness-base ]
     permissions:
       contents: write
       discussions: write
       pull-requests: write
       packages: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ghcr.io/pluralsh/harness
-            docker.io/pluralsh/harness
-          tags: |
-            type=semver,pattern={{version}},suffix=-custom,priority=1000
-            type=sha,suffix=-custom,priority=800
-            type=ref,event=pr,suffix=-custom,priority=600
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to Docker
-        uses: docker/login-action@v3
-        with:
-          username: mjgpluralsh
-          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: "."
-          file: "./dockerfiles/harness/custom.Dockerfile"
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-            HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ghcr.io/pluralsh/harness
+          docker.io/pluralsh/harness
+        tags: |
+          type=semver,pattern={{version}},suffix=-custom,priority=1000
+          type=sha,suffix=-custom,priority=800
+          type=ref,event=pr,suffix=-custom,priority=600
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Login to Docker
+      uses: docker/login-action@v3
+      with:
+        username: mjgpluralsh
+        password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: "."
+        file: "./dockerfiles/harness/custom.Dockerfile"
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
+          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
