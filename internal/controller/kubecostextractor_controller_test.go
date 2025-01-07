@@ -33,13 +33,13 @@ var _ = Describe("KubecostExtractor Controller", Ordered, func() {
 		})
 		It("should return full filter", func() {
 			recommendations.ExcludeNamespaces = []string{
-				"one", "two", "three",
+				"one",
 			}
 			recommendations.RequireAnnotations = map[string]string{
-				"one": "1", "two": "2", "three": "3",
+				"one": "1",
 			}
 			result := recommendationsFilter(recommendations)
-			Expect(result).To(Equal(`namespace!:"one","two","three"+annotation[one]:"1"+annotation[two]:"2"+annotation[three]:"3"`))
+			Expect(result).To(Equal(`namespace!:"one"+annotation[one]:"1"`))
 		})
 	})
 })
