@@ -456,6 +456,8 @@ func (r *KubecostExtractorReconciler) convertClusterRecommendationAttributes(ctx
 		CPUCost:       lo.ToPtr(allocation.CPUCost),
 		MemoryCost:    lo.ToPtr(allocation.RAMCost),
 		GpuCost:       lo.ToPtr(allocation.GPUCost),
+		CPUUtil:       lo.ToPtr(allocation.CPUCoreUsageAverage),
+		MemoryUtil:    lo.ToPtr(allocation.RAMBytesUsageAverage),
 	}
 	if allocation.Properties != nil {
 		namespace, ok := allocation.Properties.NamespaceLabels["kubernetes_io_metadata_name"]
