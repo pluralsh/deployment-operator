@@ -494,6 +494,7 @@ func convertCostAttributes(allocation opencost.Allocation, nodeCost, controlPlan
 		LoadBalancerCost: lo.ToPtr(allocation.LoadBalancerCost),
 		ControlPlaneCost: controlPlaneCost,
 		NodeCost:         nodeCost,
+		StorageCost:      lo.ToPtr(allocation.PVCost()),
 	}
 	if allocation.GPUAllocation != nil {
 		attr.GpuUtil = allocation.GPUAllocation.GPUUsageAverage
