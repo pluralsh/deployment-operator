@@ -1,5 +1,8 @@
 provider_installation {
   direct {
-    include = ["registry.terraform.io/*/*","registry.opentofu.org/*/*"]
+    include = [
+      "registry.terraform.io/*/*",
+      "registry.opentofu.org/*/*"
+    ]
   }
 }
