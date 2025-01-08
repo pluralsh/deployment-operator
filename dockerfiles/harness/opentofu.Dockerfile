@@ -10,10 +10,10 @@ FROM $HARNESS_BASE_IMAGE AS final
 
 COPY --from=tofu /usr/local/bin/tofu /bin/terraform
 
-USER root
-ENV TF_CLI_CONFIG_FILE=/usr/local/etc/plrl.tfrc
-COPY dockerfiles/harness/plrl.tfrc $TF_CLI_CONFIG_FILE
-RUN chown 65532:65532 $TF_CLI_CONFIG_FILE
+# USER root
+# ENV TF_CLI_CONFIG_FILE=/usr/local/etc/plrl.tfrc
+# COPY dockerfiles/harness/plrl.tfrc $TF_CLI_CONFIG_FILE
+# RUN chown 65532:65532 $TF_CLI_CONFIG_FILE
 
 # Switch to the non-root user
 USER 65532:65532

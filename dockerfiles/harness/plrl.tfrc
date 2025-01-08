@@ -1,7 +1,8 @@
 provider_installation {
   direct {
     include = [
-      "registry.terraform.io/*/*"
+      "registry.terraform.io/hashicorp/*"
+      "registry.terraform.io/pluralsh/*"
     ]
 
     exclude = [
