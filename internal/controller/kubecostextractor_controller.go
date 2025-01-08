@@ -25,9 +25,12 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pluralsh/polly/algorithms"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -512,8 +515,10 @@ func recommendationsFilter(recommendations v1alpha1.RecommendationsSettings) str
 	if len(recommendations.RequireAnnotations) > 0 {
 		// Build the filter string
 		var parts []string
-		for key, value := range recommendations.RequireAnnotations {
-			parts = append(parts, fmt.Sprintf(`annotation[%s]:"%s"`, key, value))
+		keys := algorithms.MapKeys(recommendations.RequireAnnotations)
+		sort.Strings(keys)
+		for _, key := range keys {
+			parts = append(parts, fmt.Sprintf(`annotation[%s]:"%s"`, key, recommendations.RequireAnnotations[key]))
 		}
 		if len(result) > 0 {
 			return fmt.Sprintf("%s+%s", result, strings.Join(parts, "+"))

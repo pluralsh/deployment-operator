@@ -7,6 +7,7 @@ import (
 
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -40,6 +41,7 @@ func init() {
 	utilruntime.Must(constraintstatusv1beta1.AddToScheme(scheme))
 	utilruntime.Must(templatesv1.AddToScheme(scheme))
 	utilruntime.Must(rolloutv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -74,7 +76,7 @@ func main() {
 	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
 
 	// Start AI insight component scraper in background
-	scraper.RunAiInsightComponentScraperInBackgroundOrDie(ctx, kubeManager.GetClient())
+	scraper.RunAiInsightComponentScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient)
 
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
