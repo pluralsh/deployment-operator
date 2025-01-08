@@ -6,7 +6,9 @@ import (
 	"sync"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -15,8 +17,10 @@ import (
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -92,7 +96,7 @@ func (s *AiInsightComponents) SetFresh(f bool) {
 	s.fresh = f
 }
 
-func RunAiInsightComponentScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient.Client) {
+func RunAiInsightComponentScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient.Client, discoveryClient *discovery.DiscoveryClient) {
 	klog.Info("starting ", name)
 	scrapeResources := []schema.GroupVersionKind{
 		{Group: "apps", Version: "v1", Kind: "Deployment"},
@@ -100,11 +104,21 @@ func RunAiInsightComponentScraperInBackgroundOrDie(ctx context.Context, k8sClien
 		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
 		{Group: "", Version: "v1", Kind: nodeKind},
 	}
+	certificateGVK := schema.GroupVersionKind{Group: certmanager.GroupName, Version: "v1", Kind: "Certificate"}
+	scrapeResourcesSet := containers.ToSet[schema.GroupVersionKind](scrapeResources)
 
 	err := helpers.BackgroundPollUntilContextCancel(ctx, 15*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
 		GetAiInsightComponents().Clear()
+		apiGroups, err := discoveryClient.ServerGroups()
+		if err == nil {
+			if SupportedCertificateAPIVersionAvailable(apiGroups) {
+				scrapeResourcesSet.Add(certificateGVK)
+			}
+		} else {
+			klog.Error(err, "can't get the supported groups")
+		}
 
-		for _, gvk := range scrapeResources {
+		for _, gvk := range scrapeResourcesSet.List() {
 			if err := setUnhealthyComponents(ctx, k8sClient, gvk); err != nil {
 				klog.Error(err, "can't set update component status")
 			}
@@ -172,4 +186,20 @@ func listResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.G
 		return list.Items, pageInfo, nil
 	}
 	return algorithms.NewPager[unstructured.Unstructured](common2.DefaultPageSize, fetch)
+}
+
+func SupportedCertificateAPIVersionAvailable(discoveredAPIGroups *metav1.APIGroupList) bool {
+	for _, discoveredAPIGroup := range discoveredAPIGroups.Groups {
+		if discoveredAPIGroup.Name != certmanager.GroupName {
+			continue
+		}
+		for _, version := range discoveredAPIGroup.Versions {
+			for _, supportedVersion := range []string{"v1"} {
+				if version.Version == supportedVersion {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
