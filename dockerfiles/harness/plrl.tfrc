@@ -1,12 +1,5 @@
 provider_installation {
   direct {
-    include = [
-      "registry.terraform.io/hashicorp/*"
-      "registry.terraform.io/pluralsh/*"
-    ]
-
-    exclude = [
-      "registry.opentofu.org/*/*"
-    ]
+    include = ["registry.terraform.io/*/*","registry.opentofu.org/*/*"]
   }
 }
