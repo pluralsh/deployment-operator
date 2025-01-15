@@ -10,12 +10,6 @@ import (
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
-	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/client"
-	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/scraper"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +19,13 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
 )
 
 var (
@@ -53,6 +54,16 @@ func main() {
 	args.Init()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
+
+	if args.PyroscopeEnabled() {
+		profiler, err := args.InitPyroscope()
+		if err != nil {
+			setupLog.Error(err, "unable to initialize pyroscope")
+			os.Exit(1)
+		}
+
+		defer profiler.Stop()
+	}
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)

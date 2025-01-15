@@ -48,6 +48,8 @@ const (
 
 	defaultProfilerPath    = "/debug/pprof/"
 	defaultProfilerAddress = ":7777"
+
+	defaultPyroscopeAddress = "http://pyroscope.monitoring.svc.cluster.local:4040"
 )
 
 var (
@@ -56,6 +58,7 @@ var (
 	argEnableLeaderElection            = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
 	argProfiler                        = flag.Bool("profiler", false, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
+	argPyroscope                       = flag.Bool("pyroscope", true, "Enable pyroscope integration for detailed application profiling. By default it will push to http://pyroscope.monitoring.svc.cluster.local:4040")
 	argDisableResourceCache            = flag.Bool("disable-resource-cache", false, "Control whether resource cache should be enabled or not.")
 	argEnableKubecostProxy             = flag.Bool("enable-kubecost-proxy", false, "If set, will proxy a Kubecost API request through the K8s API server.")
 
@@ -77,6 +80,7 @@ var (
 	argControllerCacheTTL = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
 	argRestoreNamespace   = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
 	argServices           = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
+	argPyroscopeAddress   = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
 
 	serviceSet containers.Set[string]
 )
@@ -266,6 +270,14 @@ func LogLevel() klog.Level {
 
 func ResourceCacheEnabled() bool {
 	return !(*argDisableResourceCache)
+}
+
+func PyroscopeEnabled() bool {
+	return *argPyroscope
+}
+
+func PyroscopeAddress() string {
+	return *argPyroscopeAddress
 }
 
 func ensureOrDie(argName string, arg *string) {

@@ -99,7 +99,7 @@ func (in *RetryListerWatcher) listAndWatch() error {
 	}
 
 	resourceVersion := listMetaInterface.GetResourceVersion()
-	items, err := meta.ExtractListWithAlloc(list)
+	items, err := meta.ExtractList(list)
 	if err != nil {
 		return fmt.Errorf("unable to understand list result %#v (%w)", list, err)
 	}
