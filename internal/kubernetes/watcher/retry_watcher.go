@@ -74,8 +74,6 @@ func newRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher,
 	//	break
 	//}
 
-	initialResourceVersion = "0"
-
 	rw := &RetryWatcher{
 		lastResourceVersion: initialResourceVersion,
 		watcherClient:       watcherClient,
