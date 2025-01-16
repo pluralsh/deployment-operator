@@ -3,9 +3,9 @@ package args
 import (
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/grafana/pyroscope-go"
-
 	"k8s.io/klog/v2"
 )
 
@@ -22,7 +22,10 @@ func InitPyroscope() (*pyroscope.Profiler, error) {
 		ServerAddress: PyroscopeAddress(),
 
 		// you can disable logging by setting this to nil
-		Logger: pyroscope.StandardLogger,
+		Logger: nil,
+
+		// Push metrics once every 30 seconds
+		UploadRate: 30 * time.Second,
 
 		// you can provide static tags via a map:
 		Tags: map[string]string{"hostname": os.Getenv("HOSTNAME")},
