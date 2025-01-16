@@ -1,6 +1,6 @@
 module github.com/pluralsh/deployment-operator
 
-go 1.22.7
+go 1.22.11
 
 toolchain go1.23.1
 
