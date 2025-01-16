@@ -77,11 +77,11 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 	}
 
 	// TODO: check if watch supports feeding initial items instead of using list
-	if in.isEmptyResourceVersion() {
-		klog.V(3).InfoS("starting list and watch as initialResourceVersion is empty")
-		err := in.listAndWatch()
-		return in, err
-	}
+	//if in.isEmptyResourceVersion() {
+	//	klog.V(3).InfoS("starting list and watch as initialResourceVersion is empty")
+	//	err := in.listAndWatch()
+	//	return in, err
+	//}
 
 	klog.V(3).InfoS("starting watch", "initialResourceVersion", in.initialResourceVersion)
 	go in.watch(in.initialResourceVersion)

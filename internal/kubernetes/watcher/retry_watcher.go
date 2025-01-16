@@ -48,14 +48,13 @@ type resourceVersionGetter interface {
 // Please note that this is not resilient to etcd cache not having the resource version anymore - you would need to
 // use Informers for that.
 type RetryWatcher struct {
-	mutex               sync.Mutex
-	stopped             bool
 	lastResourceVersion string
 	watcherClient       cache.Watcher
 	resultChan          chan watch.Event
 	stopChan            chan struct{}
 	doneChan            chan struct{}
 	minRestartDelay     time.Duration
+	stopChanLock        sync.Mutex
 }
 
 // NewRetryWatcher creates a new RetryWatcher.
@@ -66,14 +65,16 @@ func NewRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher)
 }
 
 func newRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher, minRestartDelay time.Duration) (*RetryWatcher, error) {
-	switch initialResourceVersion {
-	case "", "0":
-		// TODO: revisit this if we ever get WATCH v2 where it means start "now"
-		//       without doing the synthetic list of objects at the beginning (see #74022)
-		return nil, fmt.Errorf("initial RV %q is not supported due to issues with underlying WATCH", initialResourceVersion)
-	default:
-		break
-	}
+	//switch initialResourceVersion {
+	//case "", "0":
+	//	// TODO: revisit this if we ever get WATCH v2 where it means start "now"
+	//	//       without doing the synthetic list of objects at the beginning (see #74022)
+	//	return nil, fmt.Errorf("initial RV %q is not supported due to issues with underlying WATCH", initialResourceVersion)
+	//default:
+	//	break
+	//}
+
+	initialResourceVersion = "0"
 
 	rw := &RetryWatcher{
 		lastResourceVersion: initialResourceVersion,
@@ -81,6 +82,7 @@ func newRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher,
 		stopChan:            make(chan struct{}),
 		doneChan:            make(chan struct{}),
 		resultChan:          make(chan watch.Event),
+		stopChanLock:        sync.Mutex{},
 		minRestartDelay:     minRestartDelay,
 	}
 
@@ -103,21 +105,24 @@ func (rw *RetryWatcher) send(event watch.Event) bool {
 // If it is not done the second return value holds the time to wait before calling it again.
 func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 	watcher, err := rw.watcherClient.Watch(metav1.ListOptions{
-		ResourceVersion:      rw.lastResourceVersion,
-		AllowWatchBookmarks:  true,
+		ResourceVersion:     rw.lastResourceVersion,
+		AllowWatchBookmarks: true,
 	})
 	// We are very unlikely to hit EOF here since we are just establishing the call,
 	// but it may happen that the apiserver is just shutting down (e.g. being restarted)
 	// This is consistent with how it is handled for informers
-	switch {
-	case err == nil:
+	switch err {
+	case nil:
 		break
-	case errors.Is(err, io.EOF):
+
+	case io.EOF:
 		// watch closed normally
 		return false, 0
-	case errors.Is(err, io.ErrUnexpectedEOF):
+
+	case io.ErrUnexpectedEOF:
 		klog.V(1).InfoS("Watch closed with unexpected EOF", "err", err)
 		return false, 0
+
 	default:
 		msg := "Watch failed"
 		if net.IsProbableEOF(err) || net.IsTimeout(err) {
@@ -194,8 +199,7 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 			case watch.Error:
 				// This round trip allows us to handle unstructured status
 				errObject := apierrors.FromObject(event.Object)
-				var statusErr *apierrors.StatusError
-				ok := errors.As(errObject, &statusErr)
+				statusErr, ok := errObject.(*apierrors.StatusError)
 				if !ok {
 					klog.Error(fmt.Sprintf("Received an error which is not *metav1.Status but %s", dump.Pretty(event.Object)))
 					// Retry unknown errors
@@ -293,15 +297,15 @@ func (rw *RetryWatcher) ResultChan() <-chan watch.Event {
 
 // Stop implements Interface.
 func (rw *RetryWatcher) Stop() {
-	rw.mutex.Lock()
-	defer rw.mutex.Unlock()
+	rw.stopChanLock.Lock()
+	defer rw.stopChanLock.Unlock()
 
-	if rw.stopped {
-		return
+	// Prevent closing an already closed channel to prevent a panic
+	select {
+	case <-rw.stopChan:
+	default:
+		close(rw.stopChan)
 	}
-
-	rw.stopped = true
-	close(rw.stopChan)
 }
 
 // Done allows the caller to be notified when Retry watcher stops.
