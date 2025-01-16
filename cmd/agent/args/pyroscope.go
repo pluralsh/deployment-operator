@@ -24,9 +24,6 @@ func InitPyroscope() (*pyroscope.Profiler, error) {
 		// you can disable logging by setting this to nil
 		Logger: pyroscope.StandardLogger,
 
-		// optionally, if authentication is enabled, specify the API key:
-		// AuthToken:    os.Getenv("PYROSCOPE_AUTH_TOKEN"),
-
 		// you can provide static tags via a map:
 		Tags: map[string]string{"hostname": os.Getenv("HOSTNAME")},
 

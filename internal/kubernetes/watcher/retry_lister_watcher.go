@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,7 +52,7 @@ func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
 		case <-in.Done():
 			klog.V(4).InfoS("funnelItems stopped due to resultChan being closed")
 			return
-		case in.resultChan <- item:
+		case in.resultChan <- lo.FromPtr(item.DeepCopy()):
 			klog.V(4).InfoS("successfully sent item to resultChan")
 		}
 	}
