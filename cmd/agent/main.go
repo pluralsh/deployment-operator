@@ -64,7 +64,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		defer profiler.Stop()
+		defer func() {
+			_ = profiler.Stop()
+		}()
 	}
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
