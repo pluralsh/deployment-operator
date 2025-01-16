@@ -103,8 +103,8 @@ func (rw *RetryWatcher) send(event watch.Event) bool {
 // If it is not done the second return value holds the time to wait before calling it again.
 func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 	watcher, err := rw.watcherClient.Watch(metav1.ListOptions{
-		ResourceVersion:     rw.lastResourceVersion,
-		AllowWatchBookmarks: true,
+		ResourceVersion:      rw.lastResourceVersion,
+		AllowWatchBookmarks:  true,
 	})
 	// We are very unlikely to hit EOF here since we are just establishing the call,
 	// but it may happen that the apiserver is just shutting down (e.g. being restarted)

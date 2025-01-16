@@ -89,6 +89,9 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 }
 
 func (in *RetryListerWatcher) listAndWatch() error {
+	in.listOptions.ResourceVersion = "0"
+	in.listOptions.ResourceVersionMatch = metav1.ResourceVersionMatchNotOlderThan
+
 	list, err := in.listerWatcher.List(in.listOptions)
 	if err != nil {
 		return fmt.Errorf("error listing resources: %w", err)
