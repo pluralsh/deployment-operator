@@ -37,9 +37,13 @@ const (
 	MetricLabelServiceType                = "service_type"
 	MetricLabelServiceReconciliationStage = "service_reconciliation_stage"
 	MetricLabelControllerName             = "controller_name"
+	MetricLabelRetryWatcherGKN            = "group_version_kind"
 
 	ControllerRestartsMetricName        = "agent_controller_restarts_total"
 	ControllerRestartsMetricDescription = "The total number of controller restarts"
+
+	RetryWatchersRunningMetricName        = "agent_retry_watchers_running_total"
+	RetryWatchersRunningMetricDescription = "The total number of running retry watchers"
 )
 
 type ServiceReconciliationStage string
@@ -81,4 +85,6 @@ type Recorder interface {
 	ResourceCacheHit(serviceID string)
 	ResourceCacheMiss(serviceID string)
 	ControllerRestart(name string)
+	RetryWatcherStart(id string)
+	RetryWatcherStop(id string)
 }

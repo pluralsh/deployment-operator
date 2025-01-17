@@ -81,8 +81,6 @@ func newRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher,
 		stopChan:            make(chan struct{}),
 		doneChan:            make(chan struct{}),
 		resultChan:          make(chan watch.Event),
-		mutex:               sync.Mutex{},
-		stopped:             false,
 		minRestartDelay:     minRestartDelay,
 	}
 

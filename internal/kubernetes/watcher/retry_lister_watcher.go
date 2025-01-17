@@ -12,6 +12,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 )
 
 // RetryListerWatcher is a wrapper around [watch.RetryWatcher]
@@ -116,6 +118,8 @@ func (in *RetryListerWatcher) listAndWatch() error {
 // Starts the [watch.RetryWatcher] and funnels all events to our wrapper.
 func (in *RetryListerWatcher) watch(resourceVersion string, initialItems ...apiwatch.Event) {
 	defer close(in.resultChan)
+	metrics.Record().RetryWatcherStart(in.id)
+	defer metrics.Record().RetryWatcherStop(in.id)
 
 	w, err := NewRetryWatcher(resourceVersion, in.listerWatcher)
 	if err != nil {

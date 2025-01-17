@@ -324,7 +324,7 @@ func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn 
 			ctx,
 			gkn,
 		)
-		if retryCount >= 10 {
+		if retryCount >= 2 {
 			klog.V(3).Infof("Watch start abort, reached retry limit: %d: %v", retryCount, gkn)
 			in.stopInformer(gkn)
 			return
