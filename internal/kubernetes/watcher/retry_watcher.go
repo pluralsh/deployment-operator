@@ -54,7 +54,8 @@ type RetryWatcher struct {
 	stopChan            chan struct{}
 	doneChan            chan struct{}
 	minRestartDelay     time.Duration
-	stopChanLock        sync.Mutex
+	mutex               sync.Mutex
+	stopped             bool
 }
 
 // NewRetryWatcher creates a new RetryWatcher.
@@ -80,7 +81,8 @@ func newRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher,
 		stopChan:            make(chan struct{}),
 		doneChan:            make(chan struct{}),
 		resultChan:          make(chan watch.Event),
-		stopChanLock:        sync.Mutex{},
+		mutex:               sync.Mutex{},
+		stopped:             false,
 		minRestartDelay:     minRestartDelay,
 	}
 
@@ -109,18 +111,15 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 	// We are very unlikely to hit EOF here since we are just establishing the call,
 	// but it may happen that the apiserver is just shutting down (e.g. being restarted)
 	// This is consistent with how it is handled for informers
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		break
-
-	case io.EOF:
+	case err == io.EOF:
 		// watch closed normally
 		return false, 0
-
-	case io.ErrUnexpectedEOF:
+	case errors.Is(err, io.ErrUnexpectedEOF):
 		klog.V(1).InfoS("Watch closed with unexpected EOF", "err", err)
 		return false, 0
-
 	default:
 		msg := "Watch failed"
 		if net.IsProbableEOF(err) || net.IsTimeout(err) {
@@ -197,7 +196,8 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 			case watch.Error:
 				// This round trip allows us to handle unstructured status
 				errObject := apierrors.FromObject(event.Object)
-				statusErr, ok := errObject.(*apierrors.StatusError)
+				var statusErr *apierrors.StatusError
+				ok := errors.As(errObject, &statusErr)
 				if !ok {
 					klog.Error(fmt.Sprintf("Received an error which is not *metav1.Status but %s", dump.Pretty(event.Object)))
 					// Retry unknown errors
@@ -295,15 +295,15 @@ func (rw *RetryWatcher) ResultChan() <-chan watch.Event {
 
 // Stop implements Interface.
 func (rw *RetryWatcher) Stop() {
-	rw.stopChanLock.Lock()
-	defer rw.stopChanLock.Unlock()
+	rw.mutex.Lock()
+	defer rw.mutex.Unlock()
 
-	// Prevent closing an already closed channel to prevent a panic
-	select {
-	case <-rw.stopChan:
-	default:
-		close(rw.stopChan)
+	if rw.stopped {
+		return
 	}
+
+	rw.stopped = true
+	close(rw.stopChan)
 }
 
 // Done allows the caller to be notified when Retry watcher stops.
