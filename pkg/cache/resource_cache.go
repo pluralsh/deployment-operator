@@ -242,7 +242,7 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 
 func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
 	if in.resourceKeySet.Intersect(resourceKeySet).Len() == 0 {
-		klog.InfoS("resource keys not found in cache, stopping watch", "resourceKeys", resourceKeySet.List())
+		klog.V(1).InfoS("resource keys not found in cache, stopping watch", "resourceKeys", resourceKeySet.List())
 		return
 	}
 

@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -293,13 +292,13 @@ func (in *ObjectStatusReporter) HasSynced() bool {
 // startInformer adds the specified GroupKindNamespace to the start channel to
 // be started asynchronously.
 func (in *ObjectStatusReporter) startInformer(gkn GroupKindNamespace) {
-	ctx, ok := in.watcherRefs[gkn].Start(in.context)
-	if !ok {
-		klog.V(5).Infof("Watch start skipped (already started): %v", gkn)
-		// already started
-		return
-	}
-	go in.startInformerWithRetry(ctx, gkn)
+	//ctx, ok := in.watcherRefs[gkn].Start(in.context)
+	//if !ok {
+	//	klog.V(5).Infof("Watch start skipped (already started): %v", gkn)
+	//	// already started
+	//	return
+	//}
+	go in.startInformerWithRetry(in.context, gkn)
 }
 
 // stopInformer stops the informer watching the specified GroupKindNamespace.
@@ -320,17 +319,13 @@ func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn 
 	retryCount := 0
 
 	wait.BackoffUntil(func() {
-		err := in.startInformerNow(
-			ctx,
-			gkn,
-		)
 		if retryCount >= 2 {
 			klog.V(3).Infof("Watch start abort, reached retry limit: %d: %v", retryCount, gkn)
 			in.stopInformer(gkn)
 			return
 		}
 
-		if err != nil {
+		if err := in.startInformerNow(ctx, gkn); err != nil {
 			if meta.IsNoMatchError(err) {
 				// CRD (or api extension) not installed, retry
 				klog.V(3).Infof("Watch start error (blocking until CRD is added): %v: %v", gkn, err)
@@ -353,6 +348,7 @@ func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn 
 			in.handleFatalError(eventCh, err)
 			return
 		}
+
 		// Success! - Stop retrying
 		retryCancel()
 	}, backoffManager, true, retryCtx.Done())
@@ -372,17 +368,27 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 		labelSelectorString = in.LabelSelector.String()
 	}
 
-	w, err := watcher.NewRetryListerWatcher(
-		watcher.WithListWatchFunc(
-			func(options metav1.ListOptions) (runtime.Object, error) {
-				options.LabelSelector = labelSelectorString
-				return in.DynamicClient.Resource(gvr).List(ctx, options)
-			}, func(options metav1.ListOptions) (watch.Interface, error) {
-				options.LabelSelector = labelSelectorString
-				return in.DynamicClient.Resource(gvr).Watch(ctx, options)
-			}),
-		watcher.WithID(gkn.String()),
-	)
+	//w, err := watcher.NewRetryListerWatcher(
+	//	ctx,
+	//	watcher.WithListWatchFunc(
+	//		func(options metav1.ListOptions) (runtime.Object, error) {
+	//			options.LabelSelector = labelSelectorString
+	//			return in.DynamicClient.Resource(gvr).List(ctx, options)
+	//		}, func(options metav1.ListOptions) (watch.Interface, error) {
+	//			options.LabelSelector = labelSelectorString
+	//			return in.DynamicClient.Resource(gvr).Watch(ctx, options)
+	//		}),
+	//	watcher.WithID(fmt.Sprintf("%s/%s", in.id, gkn.String())),
+	//)
+
+	w, err := watcher.NewRetryWatcher("", &cache.ListWatch{
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.LabelSelector = labelSelectorString
+			return in.DynamicClient.Resource(gvr).Watch(ctx, options)
+		},
+		DisableChunking: true,
+	})
+
 	if apierrors.IsNotFound(err) && !in.hasGVR(gvr) {
 		return nil, &meta.NoKindMatchError{
 			GroupKind:        gk,
@@ -425,6 +431,13 @@ func (in *ObjectStatusReporter) startInformerNow(
 		return err
 	}
 
+	ctx, ok := in.watcherRefs[gkn].Start(ctx, w)
+	if !ok {
+		klog.V(4).Infof("Watch start skipped (already started): %v", gkn)
+		// already started
+		return fmt.Errorf("watch start skipped (already started): %v", gkn)
+	}
+
 	in.watcherRefs[gkn].SetInformer(w)
 	eventCh := make(chan event.Event)
 
@@ -458,7 +471,7 @@ func (in *ObjectStatusReporter) Run(stopCh <-chan struct{}, echan <-chan watch.E
 			return
 		case e, ok := <-echan:
 			if !ok {
-				klog.Error("event channel closed")
+				klog.V(4).Info("event channel closed")
 				return
 			}
 
