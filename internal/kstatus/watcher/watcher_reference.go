@@ -21,7 +21,7 @@ type watcherReference struct {
 
 // Start returns a wrapped context that can be cancelled.
 // Returns nil & false if already started.
-func (ir *watcherReference) Start(ctx context.Context, w watch.Interface) (context.Context, bool) {
+func (ir *watcherReference) Start(ctx context.Context) (context.Context, bool) {
 	ir.lock.Lock()
 	defer ir.lock.Unlock()
 
@@ -33,7 +33,6 @@ func (ir *watcherReference) Start(ctx context.Context, w watch.Interface) (conte
 	ir.context = ctx
 	ir.cancel = cancel
 	ir.started = true
-	ir.watcher = w
 
 	return ctx, true
 }

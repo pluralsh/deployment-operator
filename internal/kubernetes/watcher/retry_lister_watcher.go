@@ -55,7 +55,7 @@ func dec(key, id string) {
 }
 
 func init() {
-	go log()
+	//go log()
 }
 
 func log() {

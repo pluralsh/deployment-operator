@@ -292,13 +292,13 @@ func (in *ObjectStatusReporter) HasSynced() bool {
 // startInformer adds the specified GroupKindNamespace to the start channel to
 // be started asynchronously.
 func (in *ObjectStatusReporter) startInformer(gkn GroupKindNamespace) {
-	//ctx, ok := in.watcherRefs[gkn].Start(in.context)
-	//if !ok {
-	//	klog.V(5).Infof("Watch start skipped (already started): %v", gkn)
-	//	// already started
-	//	return
-	//}
-	go in.startInformerWithRetry(in.context, gkn)
+	ctx, ok := in.watcherRefs[gkn].Start(in.context)
+	if !ok {
+		klog.V(5).Infof("Watch start skipped (already started): %v", gkn)
+		// already started
+		return
+	}
+	go in.startInformerWithRetry(ctx, gkn)
 }
 
 // stopInformer stops the informer watching the specified GroupKindNamespace.
@@ -429,13 +429,6 @@ func (in *ObjectStatusReporter) startInformerNow(
 	w, err := in.newWatcher(ctx, gkn)
 	if err != nil {
 		return err
-	}
-
-	ctx, ok := in.watcherRefs[gkn].Start(ctx, w)
-	if !ok {
-		klog.V(4).Infof("Watch start skipped (already started): %v", gkn)
-		// already started
-		return fmt.Errorf("watch start skipped (already started): %v", gkn)
 	}
 
 	in.watcherRefs[gkn].SetInformer(w)
