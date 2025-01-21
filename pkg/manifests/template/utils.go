@@ -24,6 +24,7 @@ func clusterConfiguration(cluster *console.GetServiceDeploymentForAgent_ServiceD
 		"CurrentVersion": cluster.CurrentVersion,
 		"KasUrl":         cluster.KasURL,
 		"Metadata":       cluster.Metadata,
+		"Distro":         cluster.Distro,
 	}
 
 	for k, v := range res {
