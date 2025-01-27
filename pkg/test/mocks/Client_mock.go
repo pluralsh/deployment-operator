@@ -1615,9 +1615,9 @@ func (_c *ClientMock_SaveClusterBackup_Call) RunAndReturn(run func(client.Backup
 	return _c
 }
 
-// SaveUpgradeInsights provides a mock function with given fields: attributes
-func (_m *ClientMock) SaveUpgradeInsights(attributes []*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error) {
-	ret := _m.Called(attributes)
+// SaveUpgradeInsights provides a mock function with given fields: attributes, addons
+func (_m *ClientMock) SaveUpgradeInsights(attributes []*client.UpgradeInsightAttributes, addons []*client.CloudAddonAttributes) (*client.SaveUpgradeInsights, error) {
+	ret := _m.Called(attributes, addons)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveUpgradeInsights")
@@ -1625,19 +1625,19 @@ func (_m *ClientMock) SaveUpgradeInsights(attributes []*client.UpgradeInsightAtt
 
 	var r0 *client.SaveUpgradeInsights
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error)); ok {
-		return rf(attributes)
+	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes, []*client.CloudAddonAttributes) (*client.SaveUpgradeInsights, error)); ok {
+		return rf(attributes, addons)
 	}
-	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes) *client.SaveUpgradeInsights); ok {
-		r0 = rf(attributes)
+	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes, []*client.CloudAddonAttributes) *client.SaveUpgradeInsights); ok {
+		r0 = rf(attributes, addons)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*client.SaveUpgradeInsights)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]*client.UpgradeInsightAttributes) error); ok {
-		r1 = rf(attributes)
+	if rf, ok := ret.Get(1).(func([]*client.UpgradeInsightAttributes, []*client.CloudAddonAttributes) error); ok {
+		r1 = rf(attributes, addons)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1652,13 +1652,14 @@ type ClientMock_SaveUpgradeInsights_Call struct {
 
 // SaveUpgradeInsights is a helper method to define mock.On call
 //   - attributes []*client.UpgradeInsightAttributes
-func (_e *ClientMock_Expecter) SaveUpgradeInsights(attributes interface{}) *ClientMock_SaveUpgradeInsights_Call {
-	return &ClientMock_SaveUpgradeInsights_Call{Call: _e.mock.On("SaveUpgradeInsights", attributes)}
+//   - addons []*client.CloudAddonAttributes
+func (_e *ClientMock_Expecter) SaveUpgradeInsights(attributes interface{}, addons interface{}) *ClientMock_SaveUpgradeInsights_Call {
+	return &ClientMock_SaveUpgradeInsights_Call{Call: _e.mock.On("SaveUpgradeInsights", attributes, addons)}
 }
 
-func (_c *ClientMock_SaveUpgradeInsights_Call) Run(run func(attributes []*client.UpgradeInsightAttributes)) *ClientMock_SaveUpgradeInsights_Call {
+func (_c *ClientMock_SaveUpgradeInsights_Call) Run(run func(attributes []*client.UpgradeInsightAttributes, addons []*client.CloudAddonAttributes)) *ClientMock_SaveUpgradeInsights_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]*client.UpgradeInsightAttributes))
+		run(args[0].([]*client.UpgradeInsightAttributes), args[1].([]*client.CloudAddonAttributes))
 	})
 	return _c
 }
@@ -1668,7 +1669,7 @@ func (_c *ClientMock_SaveUpgradeInsights_Call) Return(_a0 *client.SaveUpgradeIns
 	return _c
 }
 
-func (_c *ClientMock_SaveUpgradeInsights_Call) RunAndReturn(run func([]*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error)) *ClientMock_SaveUpgradeInsights_Call {
+func (_c *ClientMock_SaveUpgradeInsights_Call) RunAndReturn(run func([]*client.UpgradeInsightAttributes, []*client.CloudAddonAttributes) (*client.SaveUpgradeInsights, error)) *ClientMock_SaveUpgradeInsights_Call {
 	_c.Call.Return(run)
 	return _c
 }
