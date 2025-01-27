@@ -69,7 +69,7 @@ type Client interface {
 	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStackIds_ClusterStackRuns, error)
 	GetUser(email string) (*console.UserFragment, error)
 	GetGroup(name string) (*console.GroupFragment, error)
-	SaveUpgradeInsights(attributes []*console.UpgradeInsightAttributes) (*console.SaveUpgradeInsights, error)
+	SaveUpgradeInsights(attributes []*console.UpgradeInsightAttributes, addons []*console.CloudAddonAttributes) (*console.SaveUpgradeInsights, error)
 	UpsertVulnerabilityReports(vulnerabilities []*console.VulnerabilityReportAttributes) (*console.UpsertVulnerabilities, error)
 	IngestClusterCost(attr console.CostIngestAttributes) (*console.IngestClusterCost, error)
 }

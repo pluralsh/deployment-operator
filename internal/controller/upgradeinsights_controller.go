@@ -106,12 +106,12 @@ func (in *UpgradeInsightsController) sync(ctx context.Context, ui *v1alpha1.Upgr
 		return err
 	}
 
-	attributes, err := cloudProvider.UpgradeInsights(ctx, *ui)
+	attributes, addons, err := cloudProvider.UpgradeInsights(ctx, *ui)
 	if err != nil {
 		return err
 	}
 
-	_, err = in.ConsoleClient.SaveUpgradeInsights(lo.ToSlicePtr(attributes))
+	_, err = in.ConsoleClient.SaveUpgradeInsights(lo.ToSlicePtr(attributes), lo.ToSlicePtr(addons))
 	return err
 }
 

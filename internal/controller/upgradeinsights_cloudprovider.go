@@ -22,7 +22,7 @@ import (
 )
 
 type CloudProvider interface {
-	UpgradeInsights(context.Context, v1alpha1.UpgradeInsights) ([]console.UpgradeInsightAttributes, error)
+	UpgradeInsights(context.Context, v1alpha1.UpgradeInsights) ([]console.UpgradeInsightAttributes, []console.CloudAddonAttributes, error)
 }
 
 type EKSCloudProvider struct {
@@ -30,38 +30,23 @@ type EKSCloudProvider struct {
 	clusterName string
 }
 
-func (in *EKSCloudProvider) UpgradeInsights(ctx context.Context, ui v1alpha1.UpgradeInsights) ([]console.UpgradeInsightAttributes, error) {
+func (in *EKSCloudProvider) UpgradeInsights(ctx context.Context, ui v1alpha1.UpgradeInsights) ([]console.UpgradeInsightAttributes, []console.CloudAddonAttributes, error) {
 	client, err := in.client(ctx, ui)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	insights, err := in.listInsights(ctx, client)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return algorithms.Map(insights, func(insight *types.Insight) console.UpgradeInsightAttributes {
-		var refreshedAt *string
-		if insight.LastRefreshTime != nil {
-			refreshedAt = lo.ToPtr(insight.LastRefreshTime.Format(time.RFC3339))
-		}
+	addons, err := in.listAddons(ctx, client)
+	if err != nil {
+		return nil, nil, err
+	}
 
-		var transitionedAt *string
-		if insight.LastTransitionTime != nil {
-			transitionedAt = lo.ToPtr(insight.LastTransitionTime.Format(time.RFC3339))
-		}
-
-		return console.UpgradeInsightAttributes{
-			Name:           lo.FromPtr(insight.Name),
-			Version:        insight.KubernetesVersion,
-			Description:    insight.Description,
-			Status:         in.fromInsightStatus(insight.InsightStatus),
-			Details:        in.toInsightDetails(insight),
-			RefreshedAt:    refreshedAt,
-			TransitionedAt: transitionedAt,
-		}
-	}), nil
+	return in.toUpgradeInsightAttributes(insights), in.toClusterAddonsAttributes(addons), nil
 }
 
 func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client) ([]*types.Insight, error) {
@@ -87,6 +72,7 @@ func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client
 		}
 
 		nextToken = out.NextToken
+		result = append(result, out.Insights...)
 	}
 
 	return algorithms.Filter(
@@ -106,6 +92,85 @@ func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client
 		}), func(insight *types.Insight) bool {
 			return insight != nil
 		}), nil
+}
+
+func (in *EKSCloudProvider) listAddons(ctx context.Context, client *eks.Client) ([]*types.Addon, error) {
+	logger := log.FromContext(ctx)
+	var result []string
+
+	out, err := client.ListAddons(ctx, &eks.ListAddonsInput{
+		ClusterName: lo.ToPtr(in.clusterName),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result = out.Addons
+	nextToken := out.NextToken
+	for out.NextToken != nil {
+		out, err = client.ListAddons(ctx, &eks.ListAddonsInput{
+			ClusterName: lo.ToPtr(in.clusterName),
+			NextToken:   nextToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		nextToken = out.NextToken
+		result = append(result, out.Addons...)
+	}
+
+	return algorithms.Filter(
+		algorithms.Map(result, func(addon string) *types.Addon {
+			output, err := client.DescribeAddon(ctx, &eks.DescribeAddonInput{
+				AddonName:   lo.ToPtr(addon),
+				ClusterName: lo.ToPtr(in.clusterName),
+			})
+			// If there is an error getting the details of an addon just ignore.
+			// It will be picked up during the next reconcile.
+			if err != nil {
+				logger.Error(err, "could not describe addon", "clusterName", in.clusterName, "addonName", addon)
+				return nil
+			}
+
+			return output.Addon
+		}), func(addon *types.Addon) bool {
+			return addon != nil
+		}), nil
+}
+
+func (in *EKSCloudProvider) toClusterAddonsAttributes(addons []*types.Addon) []console.CloudAddonAttributes {
+	return algorithms.Map(addons, func(addon *types.Addon) console.CloudAddonAttributes {
+		return console.CloudAddonAttributes{
+			Distro:  lo.ToPtr(console.ClusterDistroEks),
+			Name:    addon.AddonName,
+			Version: addon.AddonVersion,
+		}
+	})
+}
+
+func (in *EKSCloudProvider) toUpgradeInsightAttributes(insights []*types.Insight) []console.UpgradeInsightAttributes {
+	return algorithms.Map(insights, func(insight *types.Insight) console.UpgradeInsightAttributes {
+		var refreshedAt *string
+		if insight.LastRefreshTime != nil {
+			refreshedAt = lo.ToPtr(insight.LastRefreshTime.Format(time.RFC3339))
+		}
+
+		var transitionedAt *string
+		if insight.LastTransitionTime != nil {
+			transitionedAt = lo.ToPtr(insight.LastTransitionTime.Format(time.RFC3339))
+		}
+
+		return console.UpgradeInsightAttributes{
+			Name:           lo.FromPtr(insight.Name),
+			Version:        insight.KubernetesVersion,
+			Description:    insight.Description,
+			Status:         in.fromInsightStatus(insight.InsightStatus),
+			Details:        in.toInsightDetails(insight),
+			RefreshedAt:    refreshedAt,
+			TransitionedAt: transitionedAt,
+		}
+	})
 }
 
 func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *console.UpgradeInsightStatus {
