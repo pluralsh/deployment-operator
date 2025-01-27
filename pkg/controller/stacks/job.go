@@ -210,7 +210,7 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 					Annotations: consoleclient.StringMapFromInterfaceMap(jobSpecFragment.Annotations),
 				},
 				Spec: corev1.PodSpec{
-					Containers: consoleclient.ContainersFromContainerSpecFragments(name, jobSpecFragment.Containers),
+					Containers: consoleclient.ContainersFromContainerSpecFragments(name, jobSpecFragment.Containers, jobSpecFragment.Requests),
 				},
 			},
 		}
