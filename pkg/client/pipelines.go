@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/yaml"
 
 	console "github.com/pluralsh/console/go/client"
@@ -112,7 +113,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 					Annotations: StringMapFromInterfaceMap(jsFragment.Annotations),
 				},
 				Spec: corev1.PodSpec{
-					Containers:    ContainersFromContainerSpecFragments(name, jsFragment.Containers),
+					Containers:    ContainersFromContainerSpecFragments(name, jsFragment.Containers, jsFragment.Requests),
 					RestartPolicy: corev1.RestartPolicyOnFailure,
 				},
 			},
@@ -129,7 +130,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 	return jobSpec
 }
 
-func ContainersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment) []corev1.Container {
+func ContainersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment, resources *console.ContainerResourcesFragment) []corev1.Container {
 	var containers []corev1.Container
 
 	for i, csFragment := range containerSpecFragments {
@@ -169,6 +170,40 @@ func ContainersFromContainerSpecFragments(gateName string, containerSpecFragment
 					},
 				},
 			})
+		}
+
+		if resources != nil {
+			container.Resources = corev1.ResourceRequirements{}
+			if resources.Requests != nil {
+				container.Resources.Requests = corev1.ResourceList{}
+				if resources.Requests.CPU != nil {
+					cpu, err := resource.ParseQuantity(*resources.Requests.CPU)
+					if err == nil {
+						container.Resources.Requests[corev1.ResourceCPU] = cpu
+					}
+				}
+				if resources.Requests.Memory != nil {
+					memory, err := resource.ParseQuantity(*resources.Requests.Memory)
+					if err == nil {
+						container.Resources.Requests[corev1.ResourceMemory] = memory
+					}
+				}
+			}
+			if resources.Limits != nil {
+				container.Resources.Limits = corev1.ResourceList{}
+				if resources.Limits.CPU != nil {
+					cpu, err := resource.ParseQuantity(*resources.Limits.CPU)
+					if err == nil {
+						container.Resources.Limits[corev1.ResourceCPU] = cpu
+					}
+				}
+				if resources.Limits.Memory != nil {
+					memory, err := resource.ParseQuantity(*resources.Limits.Memory)
+					if err == nil {
+						container.Resources.Limits[corev1.ResourceMemory] = memory
+					}
+				}
+			}
 		}
 
 		containers = append(containers, container)
