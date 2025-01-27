@@ -273,6 +273,5 @@ func (in *VirtualClusterStatus) IsVClusterReady() bool {
 }
 
 func (in *VirtualClusterStatus) IsAgentReady() bool {
-	metav1.NewControllerRef()
 	return meta.IsStatusConditionTrue(in.Conditions, AgentConditionType.String())
 }
