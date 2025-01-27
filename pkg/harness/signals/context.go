@@ -6,6 +6,8 @@ import (
 
 type cancelableContext struct {
 	context.Context
+
+	Cancel context.CancelCauseFunc
 }
 
 func NewCancelableContext(parent context.Context, signals ...Signal) context.Context {
@@ -20,5 +22,6 @@ func NewCancelableContext(parent context.Context, signals ...Signal) context.Con
 
 	return &cancelableContext{
 		Context: ctx,
+		Cancel:  cancel,
 	}
 }

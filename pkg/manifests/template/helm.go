@@ -88,7 +88,7 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 		return nil, err
 	}
 
-	log.Println("render helm templates:", "enable dependency update=", args.EnableHelmDependencyUpdate(), "dependencies=", len(c.Dependencies))
+	klog.V(loglevel.LogLevelExtended).InfoS("render helm templates:", "enable dependency update", args.EnableHelmDependencyUpdate(), "dependencies", len(c.Dependencies))
 	if len(c.Dependencies) > 0 && args.EnableHelmDependencyUpdate() {
 		if err := h.dependencyUpdate(config, c.Dependencies); err != nil {
 			return nil, err
