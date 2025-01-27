@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 )
 
 func isTemplated(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) bool {
@@ -25,6 +27,7 @@ func clusterConfiguration(cluster *console.GetServiceDeploymentForAgent_ServiceD
 		"KasUrl":         cluster.KasURL,
 		"Metadata":       cluster.Metadata,
 		"Distro":         cluster.Distro,
+		"ConsoleDNS":     args.ConsoleDNS(),
 	}
 
 	for k, v := range res {
