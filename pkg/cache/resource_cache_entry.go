@@ -39,6 +39,7 @@ type ResourceCacheEntry struct {
 func (in *ResourceCacheEntry) Expire() {
 	in.manifestSHA = nil
 	in.applySHA = nil
+	in.status = nil
 }
 
 // SetSHA updates shaType with SHA calculated based on the provided resource.
