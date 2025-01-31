@@ -9,19 +9,19 @@ import (
 
 var _ = Describe("Kustomize template", func() {
 
-	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
+	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
-		Kustomize: &console.GetServiceDeploymentForAgent_ServiceDeployment_Kustomize{
+		Kustomize: &console.ServiceDeploymentForAgent_Kustomize{
 			Path: "",
 		},
-		Imports: []*console.GetServiceDeploymentForAgent_ServiceDeployment_Imports{
+		Imports: []*console.ServiceDeploymentForAgent_Imports{
 			{
 				ID: "1",
-				Stack: &console.GetServiceDeploymentForAgent_ServiceDeployment_Imports_Stack{
+				Stack: &console.ServiceDeploymentForAgent_Imports_Stack{
 					ID:   lo.ToPtr("1"),
 					Name: "1",
 				},
-				Outputs: []*console.GetServiceDeploymentForAgent_ServiceDeployment_Imports_Outputs{
+				Outputs: []*console.ServiceDeploymentForAgent_Imports_Outputs{
 					{
 						Name:  "ansible_instance_ids",
 						Value: "[\"i-05066719bbd2ea672\",\"i-0810e18d30b5cd564\",\"i-0c2a356e403cd67ec\"]",
@@ -34,11 +34,11 @@ var _ = Describe("Kustomize template", func() {
 			},
 			{
 				ID: "2",
-				Stack: &console.GetServiceDeploymentForAgent_ServiceDeployment_Imports_Stack{
+				Stack: &console.ServiceDeploymentForAgent_Imports_Stack{
 					ID:   lo.ToPtr("2"),
 					Name: "2",
 				},
-				Outputs: []*console.GetServiceDeploymentForAgent_ServiceDeployment_Imports_Outputs{
+				Outputs: []*console.ServiceDeploymentForAgent_Imports_Outputs{
 					{
 						Name:  "stacks_iam_role",
 						Value: "arn:aws:iam::312272277431:role/boot-test-plrl-stacks",

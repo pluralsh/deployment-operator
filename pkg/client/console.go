@@ -48,7 +48,7 @@ type Client interface {
 	SaveClusterBackup(attrs console.BackupAttributes) (*console.ClusterBackupFragment, error)
 	GetClusterBackup(clusterID, namespace, name string) (*console.ClusterBackupFragment, error)
 	GetServices(after *string, first *int64) (*console.PagedClusterServiceIds, error)
-	GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error)
+	GetService(id string) (*console.ServiceDeploymentForAgent, error)
 	GetServiceDeploymentComponents(id string) (*console.GetServiceDeploymentComponents_ServiceDeployment, error)
 	UpdateComponents(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
 	AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error

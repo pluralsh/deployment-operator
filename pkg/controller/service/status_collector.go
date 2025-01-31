@@ -24,7 +24,7 @@ type serviceComponentsStatusCollector struct {
 	DryRun       bool
 }
 
-func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) *serviceComponentsStatusCollector {
+func newServiceComponentsStatusCollector(reconciler *ServiceReconciler, svc *console.ServiceDeploymentForAgent) *serviceComponentsStatusCollector {
 	if svc.DryRun == nil {
 		svc.DryRun = lo.ToPtr(false)
 	}

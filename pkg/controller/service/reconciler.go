@@ -55,7 +55,7 @@ type ServiceReconciler struct {
 	applier          *applier.Applier
 	destroyer        *apply.Destroyer
 	svcQueue         workqueue.TypedRateLimitingInterface[string]
-	svcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
+	svcCache         *client.Cache[console.ServiceDeploymentForAgent]
 	manifestCache    *manifests.ManifestCache
 	utilFactory      util.Factory
 	restoreNamespace string
@@ -98,8 +98,8 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		consoleClient: consoleClient,
 		clientset:     cs,
 		svcQueue:      workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		svcCache: client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (
-			*console.GetServiceDeploymentForAgent_ServiceDeployment, error,
+		svcCache: client.NewCache[console.ServiceDeploymentForAgent](refresh, func(id string) (
+			*console.ServiceDeploymentForAgent, error,
 		) {
 			return consoleClient.GetService(id)
 		}),
@@ -168,7 +168,7 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		Build()
 }
 
-func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) error {
+func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) error {
 	if svc == nil {
 		return nil
 	}
@@ -430,7 +430,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	return
 }
 
-func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.GetServiceDeploymentForAgent_ServiceDeployment_SyncConfig) error {
+func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
 	createNamespace := true
 	var labels map[string]string
 	var annotations map[string]string
