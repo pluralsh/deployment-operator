@@ -11,21 +11,21 @@ import (
 
 var _ = Describe("Raw template", func() {
 
-	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
+	svc := &console.ServiceDeploymentForAgent{
 		Namespace:     "default",
-		Configuration: make([]*console.GetServiceDeploymentForAgent_ServiceDeployment_Configuration, 0),
+		Configuration: make([]*console.ServiceDeploymentForAgent_Configuration, 0),
 	}
 	Context("Render raw template", func() {
 		const name = "nginx"
 		It("should successfully render the raw template", func() {
 			dir := filepath.Join("..", "..", "..", "test", "raw")
-			svc.Configuration = []*console.GetServiceDeploymentForAgent_ServiceDeployment_Configuration{
+			svc.Configuration = []*console.ServiceDeploymentForAgent_Configuration{
 				{
 					Name:  "name",
 					Value: name,
 				},
 			}
-			svc.Cluster = &console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster{
+			svc.Cluster = &console.ServiceDeploymentForAgent_Cluster{
 				ID:   "123",
 				Name: "test",
 			}

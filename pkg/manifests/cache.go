@@ -40,7 +40,7 @@ func NewCache(expiry time.Duration, token, consoleURL string) *ManifestCache {
 	}
 }
 
-func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]*unstructured.Unstructured, error) {
+func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDeploymentForAgent) ([]*unstructured.Unstructured, error) {
 	sha, err := fetchSha(c.consoleURL, c.token, svc.ID)
 	if line, ok := c.cache.Get(svc.ID); ok {
 		if err == nil && line.live(c.expiry) && line.sha == sha {
