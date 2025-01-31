@@ -722,23 +722,23 @@ func (_c *ClientMock_GetNamespace_Call) RunAndReturn(run func(string) (*client.M
 }
 
 // GetService provides a mock function with given fields: id
-func (_m *ClientMock) GetService(id string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error) {
+func (_m *ClientMock) GetService(id string) (*client.ServiceDeploymentForAgent, error) {
 	ret := _m.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetService")
 	}
 
-	var r0 *client.GetServiceDeploymentForAgent_ServiceDeployment
+	var r0 *client.ServiceDeploymentForAgent
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*client.ServiceDeploymentForAgent, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) *client.GetServiceDeploymentForAgent_ServiceDeployment); ok {
+	if rf, ok := ret.Get(0).(func(string) *client.ServiceDeploymentForAgent); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*client.GetServiceDeploymentForAgent_ServiceDeployment)
+			r0 = ret.Get(0).(*client.ServiceDeploymentForAgent)
 		}
 	}
 
@@ -769,12 +769,12 @@ func (_c *ClientMock_GetService_Call) Run(run func(id string)) *ClientMock_GetSe
 	return _c
 }
 
-func (_c *ClientMock_GetService_Call) Return(_a0 *client.GetServiceDeploymentForAgent_ServiceDeployment, _a1 error) *ClientMock_GetService_Call {
+func (_c *ClientMock_GetService_Call) Return(_a0 *client.ServiceDeploymentForAgent, _a1 error) *ClientMock_GetService_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetService_Call) RunAndReturn(run func(string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error)) *ClientMock_GetService_Call {
+func (_c *ClientMock_GetService_Call) RunAndReturn(run func(string) (*client.ServiceDeploymentForAgent, error)) *ClientMock_GetService_Call {
 	_c.Call.Return(run)
 	return _c
 }
