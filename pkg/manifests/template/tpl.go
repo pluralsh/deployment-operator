@@ -5,7 +5,7 @@ import (
 	"github.com/pluralsh/polly/template"
 )
 
-func renderTpl(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]byte, error) {
+func renderTpl(input []byte, svc *console.ServiceDeploymentForAgent) ([]byte, error) {
 	bindings := map[string]interface{}{
 		"Configuration": configMap(svc),
 		"Cluster":       clusterConfiguration(svc.Cluster),

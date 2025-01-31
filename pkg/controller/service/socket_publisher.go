@@ -11,7 +11,7 @@ import (
 
 type socketPublisher struct {
 	svcQueue workqueue.TypedRateLimitingInterface[string]
-	svcCache *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
+	svcCache *client.Cache[console.ServiceDeploymentForAgent]
 	manCache *manifests.ManifestCache
 }
 

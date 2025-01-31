@@ -6,8 +6,8 @@ import (
 	console "github.com/pluralsh/console/go/client"
 )
 
-func (c *client) GetServices(after *string, first *int64) (*console.PagedClusterServiceIds, error) {
-	resp, err := c.consoleClient.PagedClusterServiceIds(c.ctx, after, first, nil, nil)
+func (c *client) GetServices(after *string, first *int64) (*console.PagedClusterServicesForAgent, error) {
+	resp, err := c.consoleClient.PagedClusterServicesForAgent(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -17,7 +17,7 @@ func (c *client) GetServices(after *string, first *int64) (*console.PagedCluster
 	return resp, nil
 }
 
-func (c *client) GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error) {
+func (c *client) GetService(id string) (*console.ServiceDeploymentForAgent, error) {
 	resp, err := c.consoleClient.GetServiceDeploymentForAgent(c.ctx, id)
 	if err != nil {
 		return nil, err

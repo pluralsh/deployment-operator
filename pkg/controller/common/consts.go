@@ -1,5 +1,5 @@
 package common
 
 const (
-	DefaultPageSize = int64(100)
+	DefaultPageSize = int64(50)
 )

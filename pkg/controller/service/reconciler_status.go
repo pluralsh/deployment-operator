@@ -20,7 +20,7 @@ import (
 
 func (s *ServiceReconciler) UpdatePruneStatus(
 	ctx context.Context,
-	svc *console.GetServiceDeploymentForAgent_ServiceDeployment,
+	svc *console.ServiceDeploymentForAgent,
 	ch <-chan event.Event,
 	vcache map[internalschema.GroupName]string,
 ) error {
@@ -63,7 +63,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(
 
 func (s *ServiceReconciler) UpdateApplyStatus(
 	ctx context.Context,
-	svc *console.GetServiceDeploymentForAgent_ServiceDeployment,
+	svc *console.ServiceDeploymentForAgent,
 	ch <-chan event.Event,
 	printStatus bool,
 	vcache map[internalschema.GroupName]string,
