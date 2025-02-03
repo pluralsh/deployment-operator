@@ -6,8 +6,8 @@ import (
 	console "github.com/pluralsh/console/go/client"
 )
 
-func (c *client) GetServices(after *string, first *int64) (*console.PagedClusterServiceIds, error) {
-	resp, err := c.consoleClient.PagedClusterServiceIds(c.ctx, after, first, nil, nil)
+func (c *client) GetServices(after *string, first *int64) (*console.PagedClusterServicesForAgent, error) {
+	resp, err := c.consoleClient.PagedClusterServicesForAgent(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}

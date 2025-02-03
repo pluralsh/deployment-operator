@@ -242,10 +242,10 @@ func (s *ServiceReconciler) ShutdownQueue() {
 	s.svcQueue.ShutDown()
 }
 
-func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentIDEdgeFragment] {
+func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentEdgeFragmentForAgent] {
 	logger := log.FromContext(ctx)
 	logger.Info("create service pager")
-	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentIDEdgeFragment, *algorithms.PageInfo, error) {
+	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentEdgeFragmentForAgent, *algorithms.PageInfo, error) {
 		resp, err := s.consoleClient.GetServices(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch service list from deployments service")
@@ -258,7 +258,7 @@ func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[
 		}
 		return resp.PagedClusterServices.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.ServiceDeploymentIDEdgeFragment](common2.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.ServiceDeploymentEdgeFragmentForAgent](common2.DefaultPageSize, fetch)
 }
 
 func (s *ServiceReconciler) Poll(ctx context.Context) error {
@@ -291,6 +291,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 			}
 
 			logger.V(4).Info("sending update for", "service", svc.Node.ID)
+			s.svcCache.Add(svc.Node.ID, svc.Node)
 			s.svcQueue.Add(svc.Node.ID)
 		}
 	}

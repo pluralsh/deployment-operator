@@ -838,23 +838,23 @@ func (_c *ClientMock_GetServiceDeploymentComponents_Call) RunAndReturn(run func(
 }
 
 // GetServices provides a mock function with given fields: after, first
-func (_m *ClientMock) GetServices(after *string, first *int64) (*client.PagedClusterServiceIds, error) {
+func (_m *ClientMock) GetServices(after *string, first *int64) (*client.PagedClusterServicesForAgent, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetServices")
 	}
 
-	var r0 *client.PagedClusterServiceIds
+	var r0 *client.PagedClusterServicesForAgent
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterServiceIds, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterServicesForAgent, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterServiceIds); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterServicesForAgent); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*client.PagedClusterServiceIds)
+			r0 = ret.Get(0).(*client.PagedClusterServicesForAgent)
 		}
 	}
 
@@ -886,12 +886,12 @@ func (_c *ClientMock_GetServices_Call) Run(run func(after *string, first *int64)
 	return _c
 }
 
-func (_c *ClientMock_GetServices_Call) Return(_a0 *client.PagedClusterServiceIds, _a1 error) *ClientMock_GetServices_Call {
+func (_c *ClientMock_GetServices_Call) Return(_a0 *client.PagedClusterServicesForAgent, _a1 error) *ClientMock_GetServices_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetServices_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterServiceIds, error)) *ClientMock_GetServices_Call {
+func (_c *ClientMock_GetServices_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterServicesForAgent, error)) *ClientMock_GetServices_Call {
 	_c.Call.Return(run)
 	return _c
 }
