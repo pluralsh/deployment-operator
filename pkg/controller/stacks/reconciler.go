@@ -88,10 +88,10 @@ func (r *StackReconciler) ShutdownQueue() {
 	r.stackQueue.ShutDown()
 }
 
-func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*console.StackRunIDEdgeFragment] {
+func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*console.MinimalStackRunEdgeFragment] {
 	logger := log.FromContext(ctx)
 	logger.Info("create stack run pager")
-	fetch := func(page *string, size int64) ([]*console.StackRunIDEdgeFragment, *algorithms.PageInfo, error) {
+	fetch := func(page *string, size int64) ([]*console.MinimalStackRunEdgeFragment, *algorithms.PageInfo, error) {
 		resp, err := r.consoleClient.ListClusterStackRuns(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch stack run")
@@ -104,7 +104,7 @@ func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*con
 		}
 		return resp.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.StackRunIDEdgeFragment](common.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.MinimalStackRunEdgeFragment](common.DefaultPageSize, fetch)
 }
 
 func (r *StackReconciler) Poll(ctx context.Context) error {
@@ -120,6 +120,7 @@ func (r *StackReconciler) Poll(ctx context.Context) error {
 		}
 		for _, stack := range stacks {
 			logger.Info("sending update for", "stack run", stack.Node.ID)
+			r.stackCache.Add(stack.Node.ID, stack.Node)
 			r.stackQueue.Add(stack.Node.ID)
 		}
 	}

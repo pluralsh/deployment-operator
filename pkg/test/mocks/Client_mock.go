@@ -1185,23 +1185,23 @@ func (_c *ClientMock_IsClusterExists_Call) RunAndReturn(run func(string) (bool, 
 }
 
 // ListClusterStackRuns provides a mock function with given fields: after, first
-func (_m *ClientMock) ListClusterStackRuns(after *string, first *int64) (*client.ListClusterStackIds_ClusterStackRuns, error) {
+func (_m *ClientMock) ListClusterStackRuns(after *string, first *int64) (*client.ListClusterMinimalStacks_ClusterStackRuns, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListClusterStackRuns")
 	}
 
-	var r0 *client.ListClusterStackIds_ClusterStackRuns
+	var r0 *client.ListClusterMinimalStacks_ClusterStackRuns
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.ListClusterStackIds_ClusterStackRuns, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.ListClusterMinimalStacks_ClusterStackRuns, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *client.ListClusterStackIds_ClusterStackRuns); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.ListClusterMinimalStacks_ClusterStackRuns); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*client.ListClusterStackIds_ClusterStackRuns)
+			r0 = ret.Get(0).(*client.ListClusterMinimalStacks_ClusterStackRuns)
 		}
 	}
 
@@ -1233,12 +1233,12 @@ func (_c *ClientMock_ListClusterStackRuns_Call) Run(run func(after *string, firs
 	return _c
 }
 
-func (_c *ClientMock_ListClusterStackRuns_Call) Return(_a0 *client.ListClusterStackIds_ClusterStackRuns, _a1 error) *ClientMock_ListClusterStackRuns_Call {
+func (_c *ClientMock_ListClusterStackRuns_Call) Return(_a0 *client.ListClusterMinimalStacks_ClusterStackRuns, _a1 error) *ClientMock_ListClusterStackRuns_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_ListClusterStackRuns_Call) RunAndReturn(run func(*string, *int64) (*client.ListClusterStackIds_ClusterStackRuns, error)) *ClientMock_ListClusterStackRuns_Call {
+func (_c *ClientMock_ListClusterStackRuns_Call) RunAndReturn(run func(*string, *int64) (*client.ListClusterMinimalStacks_ClusterStackRuns, error)) *ClientMock_ListClusterStackRuns_Call {
 	_c.Call.Return(run)
 	return _c
 }
