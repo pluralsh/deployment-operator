@@ -2,10 +2,9 @@ package client
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
 )
 
 func (c *client) PingCluster(attributes console.ClusterPing) error {
@@ -18,15 +17,63 @@ func (c *client) Ping(vsn string) error {
 	return err
 }
 
-func (c *client) RegisterRuntimeServices(svcs map[string]string, serviceId *string) error {
+func initLayouts(layouts *console.OperationalLayoutAttributes) *console.OperationalLayoutAttributes {
+	if layouts == nil {
+		return &console.OperationalLayoutAttributes{
+			Namespaces: &console.ClusterNamespacesAttributes{},
+		}
+	}
+	return layouts
+}
+
+func appendUniqueExternalDNSNamespace(slice []*string, newValue *string) []*string {
+	if slice == nil {
+		slice = make([]*string, 0)
+	}
+	for _, val := range slice {
+		if val == newValue {
+			return slice
+		}
+	}
+	// Append the unique value
+	return append(slice, newValue)
+}
+
+func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serviceId *string) error {
 	inputs := make([]*console.RuntimeServiceAttributes, 0)
-	for name, version := range svcs {
+	var layouts *console.OperationalLayoutAttributes
+	for name, nv := range svcs {
 		inputs = append(inputs, &console.RuntimeServiceAttributes{
 			Name:    name,
-			Version: version,
+			Version: nv.Version,
 		})
+		switch name {
+		case "cert-manager":
+			layouts = initLayouts(layouts)
+			layouts.Namespaces.CertManager = &nv.Namespace
+		case "aws-ebs-csi-driver":
+			layouts = initLayouts(layouts)
+			layouts.Namespaces.EbsCsiDriver = &nv.Namespace
+		case "external-dns":
+			layouts = initLayouts(layouts)
+			layouts.Namespaces.ExternalDNS = appendUniqueExternalDNSNamespace(layouts.Namespaces.ExternalDNS, &nv.Namespace)
+		}
+		if nv.PartOf != "" {
+			switch nv.PartOf {
+			case "Linkerd":
+				layouts = initLayouts(layouts)
+				layouts.Namespaces.Linkerd = &nv.Namespace
+			case "istio":
+				layouts = initLayouts(layouts)
+				layouts.Namespaces.Istio = &nv.Namespace
+			case "cilium":
+				layouts = initLayouts(layouts)
+				layouts.Namespaces.Cilium = &nv.Namespace
+			}
+		}
 	}
-	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, serviceId)
+
+	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, serviceId)
 	return err
 }
 
