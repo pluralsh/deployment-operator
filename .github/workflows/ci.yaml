@@ -40,6 +40,8 @@ jobs:
           go-version-file: go.mod
           check-latest: true
       - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.63.4
   publish:
     name: Build and push Agent container
     runs-on: ubuntu-20.04
