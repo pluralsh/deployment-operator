@@ -7,7 +7,7 @@ toolchain go1.23.1
 require (
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/Yamashou/gqlgenc v0.25.0
+	github.com/Yamashou/gqlgenc v0.25.4
 	github.com/aquasecurity/trivy-db v0.0.0-20231020043206-3770774790ce
 	github.com/aquasecurity/trivy-operator v0.22.0
 	github.com/argoproj/argo-rollouts v1.7.2
@@ -80,7 +80,7 @@ require (
 	cloud.google.com/go/storage v1.43.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/4meepo/tagalign v1.4.1 // indirect
-	github.com/99designs/gqlgen v0.17.49 // indirect
+	github.com/99designs/gqlgen v0.17.54 // indirect
 	github.com/Abirdcfly/dupword v0.1.3 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Antonboom/errname v1.0.0 // indirect
