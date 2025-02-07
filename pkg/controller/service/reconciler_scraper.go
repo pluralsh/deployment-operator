@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
