@@ -1,8 +1,8 @@
 module github.com/pluralsh/deployment-operator
 
-go 1.23.2
+go 1.23.0
 
-toolchain go1.23.2
+toolchain go1.23.4
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.0
