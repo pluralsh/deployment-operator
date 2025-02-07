@@ -71,7 +71,7 @@ type Client interface {
 	CompleteStackRun(id string, attributes console.StackRunAttributes) error
 	UpdateStackRun(id string, attributes console.StackRunAttributes) error
 	UpdateStackRunStep(id string, attributes console.RunStepAttributes) error
-	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStackIds_ClusterStackRuns, error)
+	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterMinimalStacks_ClusterStackRuns, error)
 	GetUser(email string) (*console.UserFragment, error)
 	GetGroup(name string) (*console.GroupFragment, error)
 	SaveUpgradeInsights(attributes []*console.UpgradeInsightAttributes, addons []*console.CloudAddonAttributes) (*console.SaveUpgradeInsights, error)
