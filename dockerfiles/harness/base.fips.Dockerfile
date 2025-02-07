@@ -32,7 +32,7 @@ COPY internal ./internal
 COPY api ./api
 
 
-RUN CGO_ENABLED=1 CC=gcc GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a \
+RUN GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on go build -a \
     -ldflags="-s -w -X github.com/pluralsh/deployment-operator/pkg/harness/environment.Version=${VERSION}" \
     -o harness \
     cmd/harness/*.go
