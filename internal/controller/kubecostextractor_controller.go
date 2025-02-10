@@ -55,6 +55,37 @@ import (
 
 const kubeCostJitter = time.Minute * 5
 
+type ServiceIDCache struct {
+	items      cmap.ConcurrentMap[K8sObjectIdentifier, string]
+	clearAfter time.Duration
+}
+
+// NewServiceIDCache self-cleaning cache
+func NewServiceIDCache(clearAfter time.Duration) *ServiceIDCache {
+	cache := &ServiceIDCache{
+		items:      cmap.NewStringer[K8sObjectIdentifier, string](),
+		clearAfter: clearAfter,
+	}
+
+	// Start the auto-cleaning goroutine
+	go cache.startCleanup()
+	return cache
+}
+
+func (c *ServiceIDCache) Set(key K8sObjectIdentifier, value string) {
+	c.items.Set(key, value)
+}
+func (c *ServiceIDCache) Get(key K8sObjectIdentifier) (string, bool) {
+	return c.items.Get(key)
+}
+
+func (c *ServiceIDCache) startCleanup() {
+	for {
+		time.Sleep(c.clearAfter)
+		c.items.Clear()
+	}
+}
+
 var kubecostResourceTypes = []string{"deployment", "statefulset", "daemonset"}
 
 // KubecostExtractorReconciler reconciles a KubecostExtractor object
@@ -64,6 +95,7 @@ type KubecostExtractorReconciler struct {
 	KubeClient       kubernetes.Interface
 	ExtConsoleClient consoleclient.Client
 	Tasks            cmap.ConcurrentMap[string, context.CancelFunc]
+	ServiceIDCache   *ServiceIDCache
 	Proxy            bool
 }
 
@@ -422,9 +454,9 @@ func (r *KubecostExtractorReconciler) getObjectInfo(ctx context.Context, resourc
 	if err = r.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, obj); err != nil {
 		return
 	}
-	svcId, ok := obj.GetAnnotations()[inventory.OwningInventoryKey]
-	if ok {
-		serviceId = lo.ToPtr(svcId)
+	serviceId, err = r.getServiceID(ctx, obj)
+	if err != nil {
+		return
 	}
 
 	containersResourceRequest := ExtractResourceRequests(obj)
@@ -435,6 +467,36 @@ func (r *KubecostExtractorReconciler) getObjectInfo(ctx context.Context, resourc
 	}
 
 	return
+}
+
+func (r *KubecostExtractorReconciler) getServiceID(ctx context.Context, obj *unstructured.Unstructured) (*string, error) {
+	k8sObjectIdentifier := K8sObjectIdentifier{
+		GVK:       obj.GroupVersionKind(),
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+	id, ok := r.ServiceIDCache.Get(k8sObjectIdentifier)
+	if ok {
+		return lo.ToPtr(id), nil
+	}
+
+	svcId, ok := obj.GetAnnotations()[inventory.OwningInventoryKey]
+	if ok {
+		r.ServiceIDCache.Set(k8sObjectIdentifier, svcId)
+		return lo.ToPtr(svcId), nil
+	}
+	if len(obj.GetOwnerReferences()) > 0 {
+		refObj, err := GetObjectFromOwnerReference(ctx, r.Client, obj.GetOwnerReferences()[0], obj.GetNamespace())
+		if err != nil {
+			return nil, err
+		}
+		svcId, ok := refObj.GetAnnotations()[inventory.OwningInventoryKey]
+		if ok {
+			r.ServiceIDCache.Set(k8sObjectIdentifier, svcId)
+			return lo.ToPtr(svcId), nil
+		}
+	}
+	return nil, nil
 }
 
 type ResourceRequests struct {
