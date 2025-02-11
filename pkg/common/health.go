@@ -76,6 +76,13 @@ var (
 		Status:  HealthStatusProgressing,
 		Message: "Waiting to Autoscale",
 	}
+
+	nonstaleGvks = []schema.GroupVersionKind{
+		{Group: "cert-manager.io", Kind: "Certificate"},
+		{Group: "deployments.plural.sh", Kind: "MetricsAggregate"},
+		{Group: "deployments.plural.sh", Kind: "KubecostExtractor"},
+		{Group: "deployments.plural.sh", Kind: "UpgradeInsights"},
+	}
 )
 
 type hpaCondition struct {
@@ -902,7 +909,7 @@ func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error)
 
 				// status older than 5min
 				cutoffTime := metav1.NewTime(time.Now().Add(-5 * time.Minute))
-				if cond.LastTransitionTime.Before(&cutoffTime) {
+				if cond.LastTransitionTime.Before(&cutoffTime) && staleIsFailing(obj) {
 					status = HealthStatusDegraded
 				}
 
@@ -917,4 +924,16 @@ func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error)
 	}
 
 	return defaultReadyStatus, nil
+}
+
+func staleIsFailing(obj *unstructured.Unstructured) bool {
+	gvk := obj.GetObjectKind().GroupVersionKind()
+
+	for _, val := range nonstaleGvks {
+		if val.Group == gvk.Group && val.Kind == gvk.Kind {
+			return true
+		}
+	}
+
+	return false
 }

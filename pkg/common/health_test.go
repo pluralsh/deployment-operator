@@ -81,6 +81,8 @@ var _ = Describe("Health Test", Ordered, func() {
 				},
 			}
 			obj, err := common.ToUnstructured(customResource)
+			obj.SetAPIVersion("deployments.plural.sh/v1alpha1")
+			obj.SetKind("MetricsAggregate")
 			Expect(err).NotTo(HaveOccurred())
 			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
