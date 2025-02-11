@@ -85,7 +85,7 @@ func (n *NamespaceReconciler) ShutdownQueue() {
 
 func (n *NamespaceReconciler) ListNamespaces(ctx context.Context) *algorithms.Pager[*console.ManagedNamespaceEdgeFragment] {
 	logger := log.FromContext(ctx)
-	logger.Info("create namespace pager")
+	logger.V(4).Info("create namespace pager")
 	fetch := func(page *string, size int64) ([]*console.ManagedNamespaceEdgeFragment, *algorithms.PageInfo, error) {
 		resp, err := n.consoleClient.ListNamespaces(page, &size)
 		if err != nil {
@@ -104,7 +104,7 @@ func (n *NamespaceReconciler) ListNamespaces(ctx context.Context) *algorithms.Pa
 
 func (n *NamespaceReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
-	logger.Info("fetching namespaces")
+	logger.V(4).Info("fetching namespaces")
 	pager := n.ListNamespaces(ctx)
 
 	for pager.HasNext() {
