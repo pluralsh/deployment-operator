@@ -901,8 +901,8 @@ func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error)
 				status := HealthStatusProgressing
 
 				// status older than 5min
-				cutoffTime := time.Now().Add(-5 * time.Minute)
-				if cond.LastTransitionTime.Time.Before(cutoffTime) {
+				cutoffTime := metav1.NewTime(time.Now().Add(-5 * time.Minute))
+				if cond.LastTransitionTime.Before(&cutoffTime) {
 					status = HealthStatusDegraded
 				}
 
