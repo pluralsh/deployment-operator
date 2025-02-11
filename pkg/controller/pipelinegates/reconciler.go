@@ -87,7 +87,7 @@ func (s *GateReconciler) GetPollInterval() time.Duration {
 
 func (s *GateReconciler) ListGates(ctx context.Context) *algorithms.Pager[*console.PipelineGateIDsEdgeFragment] {
 	logger := log.FromContext(ctx)
-	logger.Info("create pipeline gate pager")
+	logger.V(4).Info("create pipeline gate pager")
 	fetch := func(page *string, size int64) ([]*console.PipelineGateIDsEdgeFragment, *algorithms.PageInfo, error) {
 		resp, err := s.consoleClient.GetClusterGates(page, &size)
 		if err != nil {
@@ -106,7 +106,7 @@ func (s *GateReconciler) ListGates(ctx context.Context) *algorithms.Pager[*conso
 
 func (s *GateReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
-	logger.V(1).Info("fetching gates for cluster")
+	logger.V(4).Info("fetching gates for cluster")
 
 	pager := s.ListGates(ctx)
 

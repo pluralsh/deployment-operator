@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
@@ -896,8 +897,15 @@ func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error)
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(s, &sts); err != nil {
 				return defaultReadyStatus, nil
 			}
-			if meta.FindStatusCondition(sts.Conditions, readyCondition) != nil {
+			if cond := meta.FindStatusCondition(sts.Conditions, readyCondition); cond != nil {
 				status := HealthStatusProgressing
+
+				// status older than 5min
+				cutoffTime := metav1.NewTime(time.Now().Add(-5 * time.Minute))
+				if cond.LastTransitionTime.Before(&cutoffTime) {
+					status = HealthStatusDegraded
+				}
+
 				if meta.IsStatusConditionTrue(sts.Conditions, readyCondition) {
 					status = HealthStatusHealthy
 				}
