@@ -10,6 +10,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -21,6 +22,9 @@ const (
 	EnvTimeout            = "TIMEOUT"
 	EnvLogFlushFrequency  = "LOG_FLUSH_FREQUENCY"
 	EnvLogFlushBufferSize = "LOG_FLUSH_BUFFER_SIZE"
+	EnvScannerEnabled     = "SCANNER_ENABLED"
+	EnvScannerType        = "SCANNER_TYPE"
+	EnvScannerPolicy      = "SCANNER_POLICY"
 
 	defaultWorkingDir = "stackrun"
 
@@ -32,6 +36,10 @@ const (
 	defaultLogFlushFrequency         = "5s"
 	defaultLogFlushFrequencyDuration = 5 * time.Second
 	defaultLogFlushBufferSize        = "4096"
+
+	// Scanner related defaults
+	defaultScannerEnabled = true
+	defaultScannerType    = v1.TypeTrivy
 )
 
 var (
@@ -42,6 +50,9 @@ var (
 	argTimeout            = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout is the maximum time each stack run step can run before it will be cancelled")
 	argLogFlushFrequency  = pflag.String("log-flush-frequency", helpers.GetPluralEnv(EnvLogFlushFrequency, defaultLogFlushFrequency), "Frequency at which logs should be flushed if buffer is not full")
 	argLogFlushBufferSize = pflag.Int("log-flush-buffer-size", helpers.ParseIntOrDie(helpers.GetPluralEnv(EnvLogFlushBufferSize, defaultLogFlushBufferSize)), "Buffer size to use for log flushing (in kilobytes)")
+	argScannerEnabled     = pflag.Bool("scanner-enabled", helpers.GetPluralEnvBool(EnvScannerEnabled, defaultScannerEnabled), "Whether security scanner should be enabled or not")
+	argScannerType        = pflag.String("scanner-type", helpers.GetPluralEnv(EnvScannerType, string(defaultScannerType)), "Security scanner type to use. One of: 'trivy'")
+	argScannerPolicy      = pflag.StringSlice("scanner-policy", helpers.GetPluralEnvSlice(EnvScannerPolicy, []string{}), "Comma separated list of paths pointing to policy files or directories containing policy files. Trivy requires custom checks to be written in REGO.")
 )
 
 func init() {
@@ -117,6 +128,24 @@ func LogFlushFrequency() time.Duration {
 
 func LogFlushBufferSize() int {
 	return *argLogFlushBufferSize
+}
+
+func ScannerEnabled() bool {
+	return *argScannerEnabled
+}
+
+func ScannerType() v1.Type {
+	switch *argScannerType {
+	case string(v1.TypeTrivy):
+		return v1.TypeTrivy
+	default:
+		klog.Errorf( "unsupported scanner type provided %s, defaulting to %s", *argScannerType, defaultScannerType)
+		return defaultScannerType
+	}
+}
+
+func ScannerPolicyPaths() []string {
+	return *argScannerPolicy
 }
 
 func ensureOrDie(argName string, arg *string) {
