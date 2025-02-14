@@ -22,7 +22,8 @@ func ToUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
-	return &unstructured.Unstructured{Object: objMap}, nil
+	unstructured := &unstructured.Unstructured{Object: objMap}
+	return unstructured, nil
 }
 
 func Unmarshal(s string) (map[string]interface{}, error) {

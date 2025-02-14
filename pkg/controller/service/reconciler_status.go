@@ -120,7 +120,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 				} else {
 					msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
 						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
-					logger.Info(msg)
+					logger.V(4).Info(msg)
 				}
 			} else if printStatus {
 				logger.Info(resourceIDToString(gk, name),

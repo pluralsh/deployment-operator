@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"os"
 	"strings"
-
-	cmap "github.com/orcaman/concurrent-map/v2"
+	"time"
 
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
@@ -31,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
+
+const serviceIDCacheExpiry = 12 * time.Hour
 
 func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
@@ -252,6 +254,7 @@ func registerKubeReconcilersOrDie(
 		ExtConsoleClient: extConsoleClient,
 		Tasks:            cmap.New[context.CancelFunc](),
 		Proxy:            enableKubecostProxy,
+		ServiceIDCache:   controller.NewServiceIDCache(serviceIDCacheExpiry),
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
