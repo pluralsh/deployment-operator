@@ -27,7 +27,7 @@ func main() {
 		signals.NewConsoleSignal(consoleClient, args.StackRunID()),
 	)
 
-	ctrl, err := controller.NewStackRunController(
+	opts := []controller.Option{
 		controller.WithStackRun(args.StackRunID()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithConsoleToken(args.ConsoleToken()),
@@ -40,7 +40,13 @@ func main() {
 		controller.WithExecOptions(
 			exec.WithTimeout(args.Timeout()),
 		),
-	)
+	}
+
+	if args.ScannerEnabled() {
+		opts = append(opts, controller.WithScanner(args.ScannerType(), args.ScannerPolicyPaths()))
+	}
+
+	ctrl, err := controller.NewStackRunController(opts...)
 	if err != nil {
 		handleFatalError(err)
 	}

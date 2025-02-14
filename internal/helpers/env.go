@@ -31,6 +31,29 @@ func GetPluralEnv(key, fallback string) string {
 	return GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), fallback)
 }
 
+// GetPluralEnvBool - Lookup the plural environment variable. It has to be prefixed with EnvPrefix. If variable
+// with the provided key is not found, fallback will be used.
+func GetPluralEnvBool(key string, fallback bool) bool {
+	switch GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), "") {
+	case "true":
+		return true
+	case "false":
+		return false
+	default:
+		return fallback
+	}
+}
+
+// GetPluralEnvSlice - Lookup the plural environment variable. It has to be prefixed with EnvPrefix. If variable
+// with the provided key is not found, fallback will be used.
+func GetPluralEnvSlice(key string, fallback []string) []string {
+	if v := GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), ""); len(v) > 0 {
+		return strings.Split(v, ",")
+	}
+
+	return fallback
+}
+
 func ParseIntOrDie(value string) int {
 	result, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {

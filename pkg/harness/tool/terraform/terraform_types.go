@@ -1,7 +1,13 @@
 package terraform
 
+import (
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
+)
+
 // Terraform implements tool.Tool interface.
 type Terraform struct {
+	toolv1.DefaultTool
+
 	// dir is a working directory used by harness.
 	dir string
 
