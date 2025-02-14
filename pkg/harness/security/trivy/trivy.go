@@ -1,29 +1,55 @@
 package trivy
 
-type Option func(*Scanner)
+import (
+	"context"
 
-func WithDir(dir string) Option {
-	return func(s *Scanner) {
-		s.dir = dir
+	console "github.com/pluralsh/console/go/client"
+	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
+	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
+)
+
+type Scanner struct {
+	v1.DefaultScanner
+}
+
+func (in *Scanner) Scan(tool console.StackType, options ...v1.ScanOption) (json string, err error) {
+	opts := &v1.ScanOptions{}
+	for _, option := range options {
+		option(opts)
+	}
+
+	return in.scan(tool, opts)
+}
+
+func (in *Scanner) scan(tool console.StackType, options *v1.ScanOptions) (json string, err error) {
+	switch tool {
+	case console.StackTypeTerraform:
+		return in.scanTerraform(options)
+	default:
+		klog.Fatalf("unsupported tool type: %s", tool)
+		return "", nil
 	}
 }
 
-type Scanner struct {
-	// dir is a working directory used by harness.
-	dir string
+func (in *Scanner) scanTerraform(options *v1.ScanOptions) (json string, err error) {
+	output, err := exec.NewExecutable(
+		"trivy",
+		exec.WithArgs([]string{
+			"config",
+			"-f", "json",
+			"--tf-vars", options.Terraform.VariablesFileName,
+			options.Terraform.PlanFileName,
+		}),
+		exec.WithDir(options.Terraform.Dir),
+	).RunWithOutput(context.Background())
 
-	// planFileName is a terraform plan file name.
-	planFileName string
-
-	// variablesFileName is a terraform variables file name.
-	variablesFileName string
+	klog.V(loglevel.LogLevelVerbose).InfoS("trivy output", "output", string(output))
+	return string(output), err
 }
 
-func (t Scanner) Scan() (json string, err error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func New() *Scanner {
-	return &Scanner{}
+func New(policyPaths []string) v1.Scanner {
+	return &Scanner{DefaultScanner: v1.DefaultScanner{PolicyPaths: policyPaths}}
 }

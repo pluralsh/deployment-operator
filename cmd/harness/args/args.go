@@ -39,7 +39,7 @@ const (
 
 	// Scanner related defaults
 	defaultScannerEnabled = true
-	defaultScannerType    = v1.TypeTrivy
+	defaultScannerType    = v1.ScannerTypeTrivy
 )
 
 var (
@@ -134,10 +134,10 @@ func ScannerEnabled() bool {
 	return *argScannerEnabled
 }
 
-func ScannerType() v1.Type {
+func ScannerType() v1.ScannerType {
 	switch *argScannerType {
-	case string(v1.TypeTrivy):
-		return v1.TypeTrivy
+	case string(v1.ScannerTypeTrivy):
+		return v1.ScannerTypeTrivy
 	default:
 		klog.Errorf( "unsupported scanner type provided %s, defaulting to %s", *argScannerType, defaultScannerType)
 		return defaultScannerType

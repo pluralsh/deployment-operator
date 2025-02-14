@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	"k8s.io/klog/v2"
@@ -13,15 +12,11 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/controller"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	"github.com/pluralsh/deployment-operator/pkg/harness/security"
 	"github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
 func main() {
-	scanner := security.NewScanner(args.ScannerType())
-	fmt.Println(scanner)
-
 	consoleClient := client.New(args.ConsoleUrl(), args.ConsoleToken())
 	fetchClient := helpers.Fetch(
 		helpers.FetchWithToken(args.ConsoleToken()),
@@ -32,7 +27,7 @@ func main() {
 		signals.NewConsoleSignal(consoleClient, args.StackRunID()),
 	)
 
-	ctrl, err := controller.NewStackRunController(
+	opts := []controller.Option{
 		controller.WithStackRun(args.StackRunID()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithConsoleToken(args.ConsoleToken()),
@@ -45,7 +40,13 @@ func main() {
 		controller.WithExecOptions(
 			exec.WithTimeout(args.Timeout()),
 		),
-	)
+	}
+
+	if args.ScannerEnabled() {
+		opts = append(opts, controller.WithScanner(args.ScannerType(), args.ScannerPolicyPaths()))
+	}
+
+	ctrl, err := controller.NewStackRunController(opts...)
 	if err != nil {
 		handleFatalError(err)
 	}

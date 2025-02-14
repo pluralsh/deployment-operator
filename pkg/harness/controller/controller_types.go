@@ -7,6 +7,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	securityv1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	stackrunv1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
@@ -19,17 +20,11 @@ type Controller interface {
 type stackRunController struct {
 	sync.Mutex
 
-	// errChan
-	errChan chan error
-
-	// finishedChan
-	finishedChan chan struct{}
-
 	// executor
 	executor *executor
 
-	// stackRunID
-	stackRunID string
+	// scanner
+	scanner securityv1.Scanner
 
 	// stackRun
 	stackRun *stackrunv1.StackRun
@@ -37,14 +32,8 @@ type stackRunController struct {
 	// consoleClient
 	consoleClient console.Client
 
-	// consoleToken
-	consoleToken string
-
 	// fetchClient
 	fetchClient helpers.FetchClient
-
-	// dir
-	dir string
 
 	// execOptions
 	execOptions []exec.Option
@@ -56,12 +45,25 @@ type stackRunController struct {
 
 	// tool handles one of the supported infrastructure management tools.
 	// List of supported tools is based on the gqlclient.StackType.
-	// It is mainly responsible for:
-	// - gathering state
 	tool toolv1.Tool
+
+	// stackRunID
+	stackRunID string
+
+	// consoleToken
+	consoleToken string
+
+	// dir
+	dir string
 
 	// wg
 	wg sync.WaitGroup
+
+	// errChan
+	errChan chan error
+
+	// finishedChan
+	finishedChan chan struct{}
 
 	// stopChan
 	stopChan chan struct{}

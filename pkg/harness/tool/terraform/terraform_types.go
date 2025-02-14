@@ -1,11 +1,13 @@
 package terraform
 
 import (
-	"github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 )
 
 // Terraform implements tool.Tool interface.
 type Terraform struct {
+	toolv1.DefaultTool
+
 	// dir is a working directory used by harness.
 	dir string
 
@@ -20,7 +22,4 @@ type Terraform struct {
 	// variables is a JSON encoded string representing
 	// terraform variable file.
 	variables *string
-
-	// scanner TODO
-	scanner v1.Scanner
 }
