@@ -47,6 +47,8 @@ func (in *stackRunController) postStart(err error) {
 		status = gqlclient.StackStatusSuccessful
 	case errors.Is(err, internalerrors.ErrRemoteCancel):
 		status = gqlclient.StackStatusCancelled
+		// Do not send an error if stack run was cancelled
+		err = nil
 	default:
 		status = gqlclient.StackStatusFailed
 	}
