@@ -35,14 +35,26 @@ func (in *Scanner) scan(tool console.StackType, options *v1.ScanOptions) (json s
 }
 
 func (in *Scanner) scanTerraform(options *v1.ScanOptions) (json string, err error) {
+	args := []string{
+		"config",
+	}
+
+	if len(in.PolicyPaths) > 0 {
+		for _, path := range in.PolicyPaths {
+			args = append(args, []string{"--config-check", path}...)
+		}
+	}
+
+	args = append(args, []string{
+		"-f", "json",
+		"--scanners" ,"secret,misconfig",
+		"--tf-vars", options.Terraform.VariablesFileName,
+		options.Terraform.PlanFileName,
+	}...)
+
 	output, err := exec.NewExecutable(
 		"trivy",
-		exec.WithArgs([]string{
-			"config",
-			"-f", "json",
-			"--tf-vars", options.Terraform.VariablesFileName,
-			options.Terraform.PlanFileName,
-		}),
+		exec.WithArgs(args),
 		exec.WithDir(options.Terraform.Dir),
 	).RunWithOutput(context.Background())
 
