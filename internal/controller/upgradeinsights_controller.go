@@ -11,7 +11,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -32,12 +31,9 @@ type UpgradeInsightsController struct {
 }
 
 func (in *UpgradeInsightsController) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
-	logger := log.FromContext(ctx)
-
 	// Read resource from Kubernetes cluster.
 	ui := &v1alpha1.UpgradeInsights{}
 	if err := in.Get(ctx, req.NamespacedName, ui); err != nil {
-		logger.Error(err, "unable to fetch upgrade insights")
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
@@ -45,13 +41,8 @@ func (in *UpgradeInsightsController) Reconcile(ctx context.Context, req reconcil
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("reconciling UpgradeInsights", "namespace", ui.Namespace, "name", ui.Name)
-	utils.MarkCondition(ui.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
-
 	scope, err := NewDefaultScope(ctx, in.Client, ui)
 	if err != nil {
-		logger.Error(err, "failed to create scope")
-		utils.MarkCondition(ui.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -62,16 +53,19 @@ func (in *UpgradeInsightsController) Reconcile(ctx context.Context, req reconcil
 		}
 	}()
 
+	// Any condition changes prior to scope setup would not be persisted
+	utils.MarkCondition(ui.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(ui.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
+
 	// Handle resource deletion
-	result, err := in.handleDelete(ctx, ui)
+	result := in.handleDelete(ui)
 	if result != nil {
-		return *result, err
+		return *result, nil
 	}
 
 	// Sync UpgradeInsights with the Console API
 	err = in.sync(ctx, ui)
 	if err != nil {
-		logger.Error(err, "unable to save upgrade insights")
 		utils.MarkCondition(ui.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.ErrorConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
@@ -82,18 +76,15 @@ func (in *UpgradeInsightsController) Reconcile(ctx context.Context, req reconcil
 	return requeue(ui.Spec.GetInterval(), jitter), reterr
 }
 
-func (in *UpgradeInsightsController) handleDelete(ctx context.Context, ui *v1alpha1.UpgradeInsights) (*ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
+func (in *UpgradeInsightsController) handleDelete(ui *v1alpha1.UpgradeInsights) *ctrl.Result {
 	// If object is not being deleted
 	if ui.GetDeletionTimestamp().IsZero() {
 		// do nothing
-		return nil, nil
+		return nil
 	}
 
 	// If object is being deleted
-	logger.Info("deleting UpgradeInsights", "namespace", ui.Namespace, "name", ui.Name)
-	return &ctrl.Result{}, nil
+	return &ctrl.Result{}
 }
 
 func (in *UpgradeInsightsController) sync(ctx context.Context, ui *v1alpha1.UpgradeInsights) error {
