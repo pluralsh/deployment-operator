@@ -19,6 +19,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -205,7 +206,12 @@ func (in *stackRunController) prepare() error {
 		return err
 	}
 
-	in.tool = tool.New(in.stackRun.Type, in.dir, in.execWorkDir(), variables)
+	in.tool = tool.New(in.stackRun.Type, toolv1.Config{
+		WorkDir:   in.dir,
+		ExecDir:   in.execWorkDir(),
+		Variables: variables,
+		Scanner:   in.scanner,
+	})
 
 	return nil
 }
