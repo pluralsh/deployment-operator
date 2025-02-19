@@ -53,7 +53,22 @@ const (
 func main() {
 	args.Init()
 	config := ctrl.GetConfigOrDie()
+	// Use protobuf instead of application/json
+	config.ContentType = "application/vnd.kubernetes.protobuf"
+	config.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
 	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
+
+	if args.PyroscopeEnabled() {
+		profiler, err := args.InitPyroscope()
+		if err != nil {
+			setupLog.Error(err, "unable to initialize pyroscope")
+			os.Exit(1)
+		}
+
+		defer func() {
+			_ = profiler.Stop()
+		}()
+	}
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)

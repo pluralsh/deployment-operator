@@ -6,8 +6,8 @@ package applier
 import (
 	"errors"
 	"fmt"
+	"time"
 
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
@@ -17,9 +17,10 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply/info"
 	"sigs.k8s.io/cli-utils/pkg/apply/prune"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
+	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
 	kwatcher "sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 
-	"github.com/pluralsh/deployment-operator/internal/kstatus/watcher"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
@@ -84,13 +85,29 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 		cx.unstructuredClientForMapping = cx.factory.UnstructuredClientForMapping
 	}
 	if cx.statusWatcher == nil {
-		cx.statusWatcher = watcher.NewDynamicStatusWatcher(cx.client, cx.discoClient, cx.mapper, watcher.Options{
-			RESTScopeStrategy: lo.ToPtr(kwatcher.RESTScopeRoot),
+		//cx.statusWatcher = watcher.NewDynamicStatusWatcher(cx.client, cx.discoClient, cx.mapper, watcher.Options{
+		//	RESTScopeStrategy: lo.ToPtr(kwatcher.RESTScopeRoot),
+		//	Filters: &kwatcher.Filters{
+		//		Labels: common.ManagedByAgentLabelSelector(),
+		//		Fields: nil,
+		//	},
+		//})
+
+		cx.statusWatcher = &kwatcher.DefaultStatusWatcher{
+			DynamicClient: cx.client,
+			Mapper:        cx.mapper,
+			ResyncPeriod:  1 * time.Hour,
+			StatusReader:  statusreaders.NewDefaultStatusReader(cx.mapper),
+			ClusterReader: &clusterreader.DynamicClusterReader{
+				DynamicClient: cx.client,
+				Mapper:        cx.mapper,
+			},
+			Indexers: kwatcher.DefaultIndexers(),
 			Filters: &kwatcher.Filters{
 				Labels: common.ManagedByAgentLabelSelector(),
 				Fields: nil,
 			},
-		})
+		}
 	}
 	return &cx, nil
 }
