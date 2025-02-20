@@ -53,8 +53,14 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDepl
 		return nil, fmt.Errorf("could not fetch tarball url for service")
 	}
 
-	log.V(1).Info("fetching tarball", "url", *svc.Tarball)
-	dir, err := fetch(*svc.Tarball, c.token)
+	log.V(1).Info("fetching tarball", "url", *svc.Tarball, "sha", sha)
+
+	tarballURL := *svc.Tarball
+	if sha != "" {
+		tarballURL = fmt.Sprintf("%s?digest=%s", tarballURL, sha)
+	}
+
+	dir, err := fetch(tarballURL, c.token, sha)
 	if err != nil {
 		return nil, err
 	}

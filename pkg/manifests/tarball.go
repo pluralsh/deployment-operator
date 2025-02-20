@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/polly/fs"
+
+	"github.com/pluralsh/deployment-operator/pkg/errors"
 )
 
 var (
@@ -57,10 +58,14 @@ func fetchSha(consoleURL, token, serviceID string) (string, error) {
 	return get(url, token)
 }
 
-func fetch(url, token string) (string, error) {
+func fetch(url, token, digest string) (string, error) {
 	dir, err := os.MkdirTemp("", "manifests")
 	if err != nil {
 		return "", err
+	}
+
+	if digest != "" {
+		url = fmt.Sprintf("%s?digest=%s", url, digest)
 	}
 
 	resp, err := get(url, token)
@@ -68,7 +73,7 @@ func fetch(url, token string) (string, error) {
 		return "", err
 	}
 
-	log.V(1).Info("finished request to", "url", url)
+	log.V(1).Info("finished request to", "url", url, "digest", digest)
 
 	if err := fs.Untar(dir, strings.NewReader(resp)); err != nil {
 		return dir, err
