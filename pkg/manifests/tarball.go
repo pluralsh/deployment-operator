@@ -98,6 +98,8 @@ func fetch(url, token string) (string, error) {
 		return "", err
 	}
 
+	defer resp.Close()
+
 	log.V(1).Info("finished request to", "url", url)
 
 	if err := fs.Untar(dir, resp); err != nil {
