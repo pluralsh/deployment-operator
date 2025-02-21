@@ -24,6 +24,7 @@ func getBody(url, token string) (string, error) {
 	}
 
 	defer resp.Close()
+
 	body, err := io.ReadAll(resp)
 	if err != nil {
 		return "", err
