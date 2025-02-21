@@ -56,14 +56,12 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDepl
 
 	log.V(1).Info("fetching tarball", "url", *svc.Tarball, "sha", sha)
 
-	// Parse the tarball URL safely and add the digest param
 	tarballURL, err := url.Parse(*svc.Tarball)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tarball URL: %w", err)
 	}
 
 	if sha != "" {
-		// Get existing query params and safely append the digest
 		q := tarballURL.Query()
 		q.Set("digest", sha)
 		tarballURL.RawQuery = q.Encode()
