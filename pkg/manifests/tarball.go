@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/errors"
 	"github.com/pluralsh/polly/fs"
+
+	"github.com/pluralsh/deployment-operator/pkg/errors"
 )
 
 var (
