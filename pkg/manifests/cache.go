@@ -71,7 +71,7 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDepl
 	return template.Render(dir, svc, utilFactory)
 }
 
-func buildTarballURL(tarball string, sha string) (*url.URL, error) {
+func buildTarballURL(tarball, sha string) (*url.URL, error) {
 	u, err := url.Parse(tarball)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tarball URL: %w", err)
