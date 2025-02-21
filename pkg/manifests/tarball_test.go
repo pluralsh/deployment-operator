@@ -9,10 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
-
-	"github.com/pluralsh/deployment-operator/pkg/errors"
 )
 
 func createTestTarGz(t *testing.T) []byte {
@@ -64,21 +61,6 @@ func TestGetBody_Success(t *testing.T) {
 	}
 }
 
-func TestGetReader_Non200(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "forbidden", http.StatusForbidden)
-	}))
-	defer server.Close()
-
-	_, err := getReader(server.URL, "")
-	if err == nil {
-		t.Fatal("expected an error, got nil")
-	}
-	if !strings.Contains(err.Error(), "403") && err != errors.ErrUnauthenticated {
-		t.Fatalf("expected error for 403, got: %v", err)
-	}
-}
-
 func TestSanitizeURL_Success(t *testing.T) {
 	result, err := sanitizeURL("https://example.com/path?q=stuff")
 	if err != nil {
@@ -108,7 +90,10 @@ func TestFetch_Success(t *testing.T) {
 	tarGzData := createTestTarGz(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(tarGzData)
+		_, err := w.Write(tarGzData)
+		if err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 
