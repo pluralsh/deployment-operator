@@ -18,33 +18,17 @@ var (
 )
 
 func getBody(url, token string) (string, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	resp, err := getReader(url, token)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Add("Authorization", "Token "+token)
 
-	resp, err := client.Do(req)
+	defer resp.Close()
+	body, err := io.ReadAll(resp)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		if resp.StatusCode == 403 {
-			return "", errors.ErrUnauthenticated
-		}
-
-		if resp.StatusCode == 402 {
-			return "", errors.ErrTransientManifest
-		}
-
-		return "", fmt.Errorf("could not fetch manifest, error code %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
 	return string(body), nil
 }
 
