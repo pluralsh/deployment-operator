@@ -56,18 +56,12 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDepl
 
 	log.V(1).Info("fetching tarball", "url", *svc.Tarball, "sha", sha)
 
-	tarballURL, err := url.Parse(*svc.Tarball)
+	tarballURL, err := buildTarballURL(*svc.Tarball, sha)
 	if err != nil {
-		return nil, fmt.Errorf("invalid tarball URL: %w", err)
+		return nil, err
 	}
 
-	if sha != "" {
-		q := tarballURL.Query()
-		q.Set("digest", sha)
-		tarballURL.RawQuery = q.Encode()
-	}
-
-	dir, err := fetch(tarballURL.String(), c.token, sha)
+	dir, err := fetch(tarballURL.String(), c.token)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +69,21 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDepl
 
 	c.cache.Set(svc.ID, &cacheLine{dir: dir, sha: sha, created: time.Now()})
 	return template.Render(dir, svc, utilFactory)
+}
+
+func buildTarballURL(tarball string, sha string) (*url.URL, error) {
+	u, err := url.Parse(tarball)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tarball URL: %w", err)
+	}
+
+	if sha != "" {
+		q := u.Query()
+		q.Set("digest", sha)
+		u.RawQuery = q.Encode()
+	}
+
+	return u, nil
 }
 
 func (c *ManifestCache) Wipe() {

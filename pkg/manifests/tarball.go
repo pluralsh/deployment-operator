@@ -58,14 +58,10 @@ func fetchSha(consoleURL, token, serviceID string) (string, error) {
 	return get(url, token)
 }
 
-func fetch(url, token, digest string) (string, error) {
+func fetch(url, token string) (string, error) {
 	dir, err := os.MkdirTemp("", "manifests")
 	if err != nil {
 		return "", err
-	}
-
-	if digest != "" {
-		url = fmt.Sprintf("%s?digest=%s", url, digest)
 	}
 
 	resp, err := get(url, token)
@@ -73,7 +69,7 @@ func fetch(url, token, digest string) (string, error) {
 		return "", err
 	}
 
-	log.V(1).Info("finished request to", "url", url, "digest", digest)
+	log.V(1).Info("finished request to", "url", url)
 
 	if err := fs.Untar(dir, strings.NewReader(resp)); err != nil {
 		return dir, err
