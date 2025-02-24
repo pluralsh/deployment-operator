@@ -15,6 +15,8 @@ import (
 // - gathering any available outputs from local files
 // - providing runtime modifiers to alter step command execution arguments, env, etc.
 type Tool interface {
+	// Scan TODO
+	Scan() ([]*console.StackPolicyViolationAttributes, error)
 	// Plan tries to assemble plan information based on local files
 	// created by specific tool after PLAN stage. It then transforms it
 	// into gqlclient.StackStateAttributes.
@@ -37,8 +39,8 @@ type Tool interface {
 }
 
 // DefaultTool implements [Tool] interface.
-type DefaultTool struct{
-	// Scanner TODO
+type DefaultTool struct {
+	// Scanner is a security scanner. See [securityv1.Scanner] for more information.
 	Scanner securityv1.Scanner
 }
 

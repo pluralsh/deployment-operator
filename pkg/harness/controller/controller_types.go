@@ -7,7 +7,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	securityv1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	stackrunv1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
@@ -22,9 +21,6 @@ type stackRunController struct {
 
 	// executor
 	executor *executor
-
-	// scanner
-	scanner securityv1.Scanner
 
 	// stackRun
 	stackRun *stackrunv1.StackRun

@@ -2,6 +2,8 @@ package trivy
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 
 	console "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
@@ -11,11 +13,8 @@ import (
 	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-type Scanner struct {
-	v1.DefaultScanner
-}
-
-func (in *Scanner) Scan(tool console.StackType, options ...v1.ScanOption) (json string, err error) {
+// Scan implements [v1.Scanner.Scan] interface.
+func (in *Scanner) Scan(tool console.StackType, options ...v1.ScanOption) ([]*console.StackPolicyViolationAttributes, error) {
 	opts := &v1.ScanOptions{}
 	for _, option := range options {
 		option(opts)
@@ -24,30 +23,33 @@ func (in *Scanner) Scan(tool console.StackType, options ...v1.ScanOption) (json 
 	return in.scan(tool, opts)
 }
 
-func (in *Scanner) scan(tool console.StackType, options *v1.ScanOptions) (json string, err error) {
+// scan TODO
+func (in *Scanner) scan(tool console.StackType, options *v1.ScanOptions) ([]*console.StackPolicyViolationAttributes, error) {
 	switch tool {
 	case console.StackTypeTerraform:
 		return in.scanTerraform(options)
 	default:
 		klog.Fatalf("unsupported tool type: %s", tool)
-		return "", nil
+		return nil, nil
 	}
 }
 
-func (in *Scanner) scanTerraform(options *v1.ScanOptions) (json string, err error) {
+// scanTerraform TODO
+func (in *Scanner) scanTerraform(options *v1.ScanOptions) ([]*console.StackPolicyViolationAttributes, error) {
 	args := []string{
 		"config",
 	}
 
 	if len(in.PolicyPaths) > 0 {
-		for _, path := range in.PolicyPaths {
-			args = append(args, []string{"--config-check", path}...)
-		}
+		args = append(args, []string{
+			"--config-check", strings.Join(in.PolicyPaths, ","),
+			"--check-namespaces", strings.Join(in.PolicyNamespaces, ","),
+		}...)
 	}
 
 	args = append(args, []string{
 		"-f", "json",
-		"--scanners" ,"secret,misconfig",
+		"-q",
 		"--tf-vars", options.Terraform.VariablesFileName,
 		options.Terraform.PlanFileName,
 	}...)
@@ -57,11 +59,25 @@ func (in *Scanner) scanTerraform(options *v1.ScanOptions) (json string, err erro
 		exec.WithArgs(args),
 		exec.WithDir(options.Terraform.Dir),
 	).RunWithOutput(context.Background())
+	if err != nil {
+		return nil, err
+	}
 
-	klog.V(loglevel.LogLevelVerbose).InfoS("trivy output", "output", string(output))
-	return string(output), err
+	klog.V(loglevel.LogLevelTrace).InfoS("trivy output", "output", string(output))
+	return in.toAttributes(output)
 }
 
-func New(policyPaths []string) v1.Scanner {
-	return &Scanner{DefaultScanner: v1.DefaultScanner{PolicyPaths: policyPaths}}
+// toAttributes TODO
+func (in *Scanner) toAttributes(data []byte) ([]*console.StackPolicyViolationAttributes, error) {
+	report := &Report{}
+	if err := json.Unmarshal(data, report); err != nil {
+		return nil, err
+	}
+
+	return report.Attributes(), nil
+}
+
+// New TODO
+func New(_ *console.PolicyEngineFragment) v1.Scanner {
+	return &Scanner{DefaultScanner: v1.DefaultScanner{}}
 }

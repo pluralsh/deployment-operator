@@ -46,10 +46,6 @@ func (in *Terraform) State() (*console.StackStateAttributes, error) {
 
 // Plan implements [v1.Tool] interface.
 func (in *Terraform) Plan() (*console.StackStateAttributes, error) {
-	if err := in.scan(); err != nil {
-		return nil, err
-	}
-
 	plan, err := in.plan()
 	if err != nil {
 		return nil, err
@@ -133,20 +129,21 @@ func (in *Terraform) state() (*tfjson.State, error) {
 	return state, nil
 }
 
-func (in *Terraform) scan() error {
+func (in *Terraform) Scan() ([]*console.StackPolicyViolationAttributes, error) {
+	result := make([]*console.StackPolicyViolationAttributes, 0)
 	if in.Scanner == nil {
 		klog.V(log.LogLevelDebug).Info("terraform scanner not configured, skipping")
-		return nil
+		return result, nil
 	}
 
-	output, err := in.Scanner.Scan(console.StackTypeTerraform, securityv1.WithTerraform(securityv1.TerraformScanOptions{
+	result, err := in.Scanner.Scan(console.StackTypeTerraform, securityv1.WithTerraform(securityv1.TerraformScanOptions{
 		Dir:               in.dir,
 		PlanFileName:      in.planFileName,
 		VariablesFileName: in.variablesFileName,
 	}))
-	klog.V(log.LogLevelTrace).InfoS("terraform scanner scan", "output", output)
+	klog.V(log.LogLevelTrace).InfoS("terraform scanner scan", "result", result)
 
-	return err
+	return result, err
 }
 
 func (in *Terraform) plan() (string, error) {

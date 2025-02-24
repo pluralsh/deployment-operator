@@ -4,8 +4,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	"github.com/pluralsh/deployment-operator/pkg/harness/security"
-	securityv1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
@@ -48,11 +46,5 @@ func WithExecOptions(options ...exec.Option) Option {
 func WithConsoleToken(token string) Option {
 	return func(s *stackRunController) {
 		s.consoleToken = token
-	}
-}
-
-func WithScanner(t securityv1.ScannerType, policyPaths []string) Option {
-	return func(s *stackRunController) {
-		s.scanner = security.NewScanner(t, policyPaths)
 	}
 }

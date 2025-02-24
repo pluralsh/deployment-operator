@@ -15,6 +15,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/harness/security"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
@@ -210,7 +211,7 @@ func (in *stackRunController) prepare() error {
 		WorkDir:   in.dir,
 		ExecDir:   in.execWorkDir(),
 		Variables: variables,
-		Scanner:   in.scanner,
+		Scanner:   security.NewScanner(in.stackRun.PolicyEngine),
 	})
 
 	return nil

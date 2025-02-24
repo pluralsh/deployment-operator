@@ -1,20 +1,26 @@
 package security
 
 import (
+	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/security/trivy"
 	"github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 )
 
-func NewScanner(t v1.ScannerType, policyPaths []string) v1.Scanner {
+// NewScanner creates a new [Scanner] instance based on the provided config.
+func NewScanner(config *gqlclient.PolicyEngineFragment) v1.Scanner {
+	if config == nil {
+		return nil
+	}
+
 	var s v1.Scanner
 
-	switch t {
-	case v1.ScannerTypeTrivy:
-		s = trivy.New(policyPaths)
+	switch config.Type {
+	case gqlclient.PolicyEngineTypeTrivy:
+		s = trivy.New(config)
 	default:
-		klog.Fatalf("unsupported scanner type: %s", t)
+		klog.Fatalf("unsupported scanner type: %s", config.Type)
 	}
 
 	return s

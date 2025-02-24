@@ -7,7 +7,8 @@ toolchain go1.23.4
 require (
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/Yamashou/gqlgenc v0.25.0
+	github.com/Yamashou/gqlgenc v0.29.0
+	github.com/aquasecurity/trivy v0.53.0
 	github.com/aquasecurity/trivy-db v0.0.0-20231020043206-3770774790ce
 	github.com/aquasecurity/trivy-operator v0.22.0
 	github.com/argoproj/argo-rollouts v1.7.2
@@ -34,7 +35,7 @@ require (
 	github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.29.0
+	github.com/pluralsh/console/go/client v1.31.0
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.1.10
@@ -43,7 +44,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
-	github.com/vektah/gqlparser/v2 v2.5.16
+	github.com/vektah/gqlparser/v2 v2.5.22
 	github.com/vektra/mockery/v2 v2.45.1
 	github.com/vmware-tanzu/velero v1.14.1
 	github.com/yuin/gopher-lua v1.1.1
@@ -80,7 +81,7 @@ require (
 	cloud.google.com/go/storage v1.43.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/4meepo/tagalign v1.4.1 // indirect
-	github.com/99designs/gqlgen v0.17.49 // indirect
+	github.com/99designs/gqlgen v0.17.64 // indirect
 	github.com/Abirdcfly/dupword v0.1.3 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Antonboom/errname v1.0.0 // indirect
@@ -101,7 +102,7 @@ require (
 	github.com/OpenPeeDeeP/depguard/v2 v2.2.0 // indirect
 	github.com/ProtonMail/go-crypto v1.1.5 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
-	github.com/agnivade/levenshtein v1.1.1 // indirect
+	github.com/agnivade/levenshtein v1.2.0 // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/alecthomas/go-check-sumtype v0.3.1 // indirect
 	github.com/alexkohler/nakedret/v2 v2.0.5 // indirect
@@ -114,7 +115,6 @@ require (
 	github.com/aquasecurity/go-version v0.0.0-20240603093900-cf8a8d29271d // indirect
 	github.com/aquasecurity/table v1.8.0 // indirect
 	github.com/aquasecurity/tml v0.6.1 // indirect
-	github.com/aquasecurity/trivy v0.53.0 // indirect
 	github.com/aquasecurity/trivy-checks v0.13.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/ashanbrown/forbidigo v1.6.0 // indirect
@@ -313,7 +313,7 @@ require (
 	github.com/masahiro331/go-ext4-filesystem v0.0.0-20231208112839-4339555a0cd4 // indirect
 	github.com/masahiro331/go-xfs-filesystem v0.0.0-20230608043311-a335f4599b70 // indirect
 	github.com/matoous/godox v0.0.0-20230222163458-006bad1f9d26 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mgechev/revive v1.5.1 // indirect
@@ -454,7 +454,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.66.2 // indirect
-	google.golang.org/protobuf v1.35.1 // indirect
+	google.golang.org/protobuf v1.36.4 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

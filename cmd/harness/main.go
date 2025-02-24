@@ -42,10 +42,6 @@ func main() {
 		),
 	}
 
-	if args.ScannerEnabled() {
-		opts = append(opts, controller.WithScanner(args.ScannerType(), args.ScannerPolicyPaths()))
-	}
-
 	ctrl, err := controller.NewStackRunController(opts...)
 	if err != nil {
 		handleFatalError(err)

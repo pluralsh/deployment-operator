@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	gqlclient "github.com/pluralsh/console/go/client"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
+	securityv1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -81,11 +83,11 @@ func (in *stackRunController) postStepRun(id string, err error) {
 // Unlike postStepRun it does not provide any additional information.
 func (in *stackRunController) postExecHook(step *gqlclient.RunStepFragment) v1.HookFunction {
 	return func() error {
-		if step.Stage != gqlclient.StepStagePlan {
-			return nil
+		if step.Stage == gqlclient.StepStagePlan {
+			return in.afterPlan()
 		}
 
-		return in.uploadPlan()
+		return nil
 	}
 }
 
@@ -133,14 +135,30 @@ func (in *stackRunController) waitForApproval() {
 	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusRunning, 5*time.Second)
 }
 
-func (in *stackRunController) uploadPlan() error {
+func (in *stackRunController) afterPlan() error {
+	// Run tool plan
 	state, err := in.tool.Plan()
 	if err != nil {
 		klog.ErrorS(err, "could not prepare plan")
 	}
 
-	return in.consoleClient.UpdateStackRun(in.stackRunID, gqlclient.StackRunAttributes{
-		State:  state,
-		Status: gqlclient.StackStatusRunning,
-	})
+	// Run security scan if enabled
+	violations, err := in.tool.Scan()
+	if err != nil {
+		klog.ErrorS(err, "could not run security scan")
+	}
+
+	if err = in.consoleClient.UpdateStackRun(in.stackRunID, gqlclient.StackRunAttributes{
+		State:      state,
+		Violations: violations,
+		Status:     gqlclient.StackStatusRunning,
+	}); err != nil {
+		return err
+	}
+
+	if in.stackRun.MaxSeverity() > -1 && securityv1.MaxSeverity(violations) > in.stackRun.MaxSeverity() {
+		return fmt.Errorf("security scanner error: max severity violation exceeded")
+	}
+
+	return nil
 }
