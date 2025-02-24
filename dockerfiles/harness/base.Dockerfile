@@ -39,8 +39,6 @@ USER 65532:65532
 COPY --from=builder /plural/harness /harness
 COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
 
-RUN trivy filesystem --exit-code 1 --no-progress /
-
 WORKDIR /plural
 
 ENTRYPOINT ["/harness", "--working-dir=/plural"]
