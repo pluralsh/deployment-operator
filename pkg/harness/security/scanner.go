@@ -5,7 +5,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/security/trivy"
-	"github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 )
 
 // NewScanner creates a new [Scanner] instance based on the provided config.

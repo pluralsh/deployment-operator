@@ -7,7 +7,7 @@ import (
 	gqlclient "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 
-	"github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 )
 
 type StackRun struct {

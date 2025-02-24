@@ -7,11 +7,11 @@ import (
 
 var (
 	severityToNumber = map[console.VulnSeverity]int{
-		console.VulnSeverityNone:    0,
-		console.VulnSeverityUnknown: 0,
-		console.VulnSeverityLow:     1,
-		console.VulnSeverityMedium:  2,
-		console.VulnSeverityHigh:    3,
+		console.VulnSeverityNone:     0,
+		console.VulnSeverityUnknown:  0,
+		console.VulnSeverityLow:      1,
+		console.VulnSeverityMedium:   2,
+		console.VulnSeverityHigh:     3,
 		console.VulnSeverityCritical: 4,
 	}
 )

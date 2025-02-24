@@ -22,4 +22,4 @@ type DefaultScanner struct {
 }
 
 // Config TODO
-type Config struct {}
+type Config struct{}

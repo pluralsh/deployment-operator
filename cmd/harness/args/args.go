@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	EnvConsoleUrl              = "CONSOLE_URL"
-	EnvConsoleToken            = "CONSOLE_TOKEN"
-	EnvStackRunID              = "STACK_RUN_ID"
-	EnvWorkingDir              = "WORKING_DIR"
-	EnvTimeout                 = "TIMEOUT"
-	EnvLogFlushFrequency       = "LOG_FLUSH_FREQUENCY"
-	EnvLogFlushBufferSize      = "LOG_FLUSH_BUFFER_SIZE"
+	EnvConsoleUrl         = "CONSOLE_URL"
+	EnvConsoleToken       = "CONSOLE_TOKEN"
+	EnvStackRunID         = "STACK_RUN_ID"
+	EnvWorkingDir         = "WORKING_DIR"
+	EnvTimeout            = "TIMEOUT"
+	EnvLogFlushFrequency  = "LOG_FLUSH_FREQUENCY"
+	EnvLogFlushBufferSize = "LOG_FLUSH_BUFFER_SIZE"
 
 	defaultWorkingDir = "stackrun"
 
@@ -35,13 +35,13 @@ const (
 )
 
 var (
-	argConsoleUrl              = pflag.String("console-url", helpers.GetPluralEnv(EnvConsoleUrl, ""), "URL to the extended Console API, i.e. https://console.onplural.sh/ext/gql")
-	argConsoleToken            = pflag.String("console-token", helpers.GetPluralEnv(EnvConsoleToken, ""), "Deploy token to the Console API")
-	argStackRunID              = pflag.String("stack-run-id", helpers.GetPluralEnv(EnvStackRunID, ""), "ID of the Stack Run to execute")
-	argWorkingDir              = pflag.String("working-dir", helpers.GetPluralEnv(EnvWorkingDir, defaultWorkingDir), "Working directory used to prepare the environment")
-	argTimeout                 = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout is the maximum time each stack run step can run before it will be cancelled")
-	argLogFlushFrequency       = pflag.String("log-flush-frequency", helpers.GetPluralEnv(EnvLogFlushFrequency, defaultLogFlushFrequency), "Frequency at which logs should be flushed if buffer is not full")
-	argLogFlushBufferSize      = pflag.Int("log-flush-buffer-size", helpers.ParseIntOrDie(helpers.GetPluralEnv(EnvLogFlushBufferSize, defaultLogFlushBufferSize)), "Buffer size to use for log flushing (in kilobytes)")
+	argConsoleUrl         = pflag.String("console-url", helpers.GetPluralEnv(EnvConsoleUrl, ""), "URL to the extended Console API, i.e. https://console.onplural.sh/ext/gql")
+	argConsoleToken       = pflag.String("console-token", helpers.GetPluralEnv(EnvConsoleToken, ""), "Deploy token to the Console API")
+	argStackRunID         = pflag.String("stack-run-id", helpers.GetPluralEnv(EnvStackRunID, ""), "ID of the Stack Run to execute")
+	argWorkingDir         = pflag.String("working-dir", helpers.GetPluralEnv(EnvWorkingDir, defaultWorkingDir), "Working directory used to prepare the environment")
+	argTimeout            = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout is the maximum time each stack run step can run before it will be cancelled")
+	argLogFlushFrequency  = pflag.String("log-flush-frequency", helpers.GetPluralEnv(EnvLogFlushFrequency, defaultLogFlushFrequency), "Frequency at which logs should be flushed if buffer is not full")
+	argLogFlushBufferSize = pflag.Int("log-flush-buffer-size", helpers.ParseIntOrDie(helpers.GetPluralEnv(EnvLogFlushBufferSize, defaultLogFlushBufferSize)), "Buffer size to use for log flushing (in kilobytes)")
 )
 
 func init() {
