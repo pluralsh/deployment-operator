@@ -56,7 +56,7 @@ var (
 	argEnableHelmDependencyUpdate      = flag.Bool("enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
 	argEnableLeaderElection            = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
-	argProfiler                        = flag.Bool("profiler", false, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
+	argProfiler                        = flag.Bool("profiler", true, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
 	argDisableResourceCache            = flag.Bool("disable-resource-cache", false, "Control whether resource cache should be enabled or not.")
 	argEnableKubecostProxy             = flag.Bool("enable-kubecost-proxy", false, "If set, will proxy a Kubecost API request through the K8s API server.")
 
