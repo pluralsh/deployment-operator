@@ -49,7 +49,7 @@ func (in *EKSCloudProvider) UpgradeInsights(ctx context.Context, ui v1alpha1.Upg
 	return in.toUpgradeInsightAttributes(insights), in.toClusterAddonsAttributes(addons), nil
 }
 
-func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client) ([]*types.Insight, error) {
+func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client) (_ []*types.Insight, retErr error) {
 	logger := log.FromContext(ctx)
 	var result []types.InsightSummary
 
@@ -85,16 +85,17 @@ func (in *EKSCloudProvider) listInsights(ctx context.Context, client *eks.Client
 			// It will be picked up during the next reconcile.
 			if err != nil {
 				logger.Error(err, "could not describe insight", "clusterName", in.clusterName, "id", insight.Id)
+				retErr = err
 				return nil
 			}
 
 			return output.Insight
 		}), func(insight *types.Insight) bool {
 			return insight != nil
-		}), nil
+		}), retErr
 }
 
-func (in *EKSCloudProvider) listAddons(ctx context.Context, client *eks.Client) ([]*types.Addon, error) {
+func (in *EKSCloudProvider) listAddons(ctx context.Context, client *eks.Client) (_ []*types.Addon, retErr error) {
 	logger := log.FromContext(ctx)
 	var result []string
 
@@ -130,13 +131,14 @@ func (in *EKSCloudProvider) listAddons(ctx context.Context, client *eks.Client) 
 			// It will be picked up during the next reconcile.
 			if err != nil {
 				logger.Error(err, "could not describe addon", "clusterName", in.clusterName, "addonName", addon)
+				retErr = err
 				return nil
 			}
 
 			return output.Addon
 		}), func(addon *types.Addon) bool {
 			return addon != nil
-		}), nil
+		}), retErr
 }
 
 func (in *EKSCloudProvider) toClusterAddonsAttributes(addons []*types.Addon) []console.CloudAddonAttributes {
