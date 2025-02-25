@@ -29,6 +29,11 @@ func (in *DefaultTool) Modifier(stage console.StepStage) Modifier {
 	return nil
 }
 
+// Scan implements [Tool] interface.
+func (in *DefaultTool) Scan() ([]*console.StackPolicyViolationAttributes, error) {
+	return []*console.StackPolicyViolationAttributes{}, nil
+}
+
 func New() Tool {
 	return &DefaultTool{}
 }

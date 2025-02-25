@@ -34,9 +34,10 @@ RUN apk update --no-cache && apk add git
 USER 65532:65532
 
 # Set up the environment
-# 3. copy the harness binary
-# 4. copy the terraform binary
+# - copy the harness binary
+# - copy the trivy binary
 COPY --from=builder /plural/harness /harness
+COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
 
 WORKDIR /plural
 

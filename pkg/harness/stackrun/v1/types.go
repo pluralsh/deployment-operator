@@ -6,41 +6,53 @@ import (
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
+
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 )
 
 type StackRun struct {
-	ID          string
-	Status      gqlclient.StackStatus
-	Type        gqlclient.StackType
-	Tarball     string
-	Steps       []*gqlclient.RunStepFragment
-	Files       []*gqlclient.StackFileFragment
-	Environment []*gqlclient.StackEnvironmentFragment
-	ExecWorkDir *string
-	Approval    bool
-	ApprovedAt  *string
-	ManageState bool
-	Creds       *gqlclient.StackRunBaseFragment_PluralCreds
-	StateUrls   *gqlclient.StackRunBaseFragment_StateUrls
-	Variables   map[string]interface{}
+	ID           string
+	Status       gqlclient.StackStatus
+	Type         gqlclient.StackType
+	Tarball      string
+	Steps        []*gqlclient.RunStepFragment
+	Files        []*gqlclient.StackFileFragment
+	Environment  []*gqlclient.StackEnvironmentFragment
+	ExecWorkDir  *string
+	Approval     bool
+	ApprovedAt   *string
+	ManageState  bool
+	Creds        *gqlclient.StackRunBaseFragment_PluralCreds
+	StateUrls    *gqlclient.StackRunBaseFragment_StateUrls
+	Variables    map[string]interface{}
+	PolicyEngine *gqlclient.PolicyEngineFragment
+}
+
+func (in *StackRun) MaxSeverity() int {
+	if in.PolicyEngine == nil || in.PolicyEngine.MaxSeverity == nil {
+		return -1
+	}
+
+	return v1.SeverityInt(*in.PolicyEngine.MaxSeverity)
 }
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
 	return &StackRun{
-		ID:          fragment.ID,
-		Status:      fragment.Status,
-		Type:        fragment.Type,
-		Tarball:     fragment.Tarball,
-		Steps:       fragment.Steps,
-		Files:       fragment.Files,
-		Environment: fragment.Environment,
-		Approval:    fragment.Approval != nil && *fragment.Approval,
-		ApprovedAt:  fragment.ApprovedAt,
-		ExecWorkDir: fragment.Workdir,
-		ManageState: fragment.ManageState != nil && *fragment.ManageState,
-		Creds:       fragment.PluralCreds,
-		StateUrls:   fragment.StateUrls,
-		Variables:   fragment.Variables,
+		ID:           fragment.ID,
+		Status:       fragment.Status,
+		Type:         fragment.Type,
+		Tarball:      fragment.Tarball,
+		Steps:        fragment.Steps,
+		Files:        fragment.Files,
+		Environment:  fragment.Environment,
+		Approval:     fragment.Approval != nil && *fragment.Approval,
+		ApprovedAt:   fragment.ApprovedAt,
+		ExecWorkDir:  fragment.Workdir,
+		ManageState:  fragment.ManageState != nil && *fragment.ManageState,
+		Creds:        fragment.PluralCreds,
+		StateUrls:    fragment.StateUrls,
+		Variables:    fragment.Variables,
+		PolicyEngine: fragment.PolicyEngine,
 	}
 }
 

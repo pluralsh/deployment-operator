@@ -4,6 +4,8 @@ import (
 	"io"
 
 	console "github.com/pluralsh/console/go/client"
+
+	securityv1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 )
 
 // Tool handles one of the supported infrastructure management tools.
@@ -13,7 +15,11 @@ import (
 // - gathering any available outputs from local files
 // - providing runtime modifiers to alter step command execution arguments, env, etc.
 type Tool interface {
-	// Plan ...
+	// Scan TODO
+	Scan() ([]*console.StackPolicyViolationAttributes, error)
+	// Plan tries to assemble plan information based on local files
+	// created by specific tool after PLAN stage. It then transforms it
+	// into gqlclient.StackStateAttributes.
 	Plan() (*console.StackStateAttributes, error)
 	// State tries to assemble state/plan information based on local files
 	// created by specific tool after all steps are finished running. It then
@@ -33,7 +39,10 @@ type Tool interface {
 }
 
 // DefaultTool implements [Tool] interface.
-type DefaultTool struct{}
+type DefaultTool struct {
+	// Scanner is a security scanner. See [securityv1.Scanner] for more information.
+	Scanner securityv1.Scanner
+}
 
 // Modifier can do many different runtime modifications
 // of the provided stack run steps. For example, it can
@@ -70,4 +79,18 @@ type DefaultModifier struct{}
 // It allows combining multiple modifiers into a single one.
 type multiModifier struct {
 	modifiers []Modifier
+}
+
+type Config struct {
+	// WorkDir TODO
+	WorkDir string
+
+	// ExecDir TODO
+	ExecDir string
+
+	// Variables TODO
+	Variables *string
+
+	// Scanner TODO
+	Scanner securityv1.Scanner
 }

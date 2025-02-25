@@ -13,6 +13,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	securityv1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 	tfapi "github.com/pluralsh/deployment-operator/pkg/harness/tool/terraform/api"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -128,6 +129,23 @@ func (in *Terraform) state() (*tfjson.State, error) {
 	return state, nil
 }
 
+func (in *Terraform) Scan() ([]*console.StackPolicyViolationAttributes, error) {
+	result := make([]*console.StackPolicyViolationAttributes, 0)
+	if in.Scanner == nil {
+		klog.V(log.LogLevelDebug).Info("terraform scanner not configured, skipping")
+		return result, nil
+	}
+
+	result, err := in.Scanner.Scan(console.StackTypeTerraform, securityv1.WithTerraform(securityv1.TerraformScanOptions{
+		Dir:               in.dir,
+		PlanFileName:      in.planFileName,
+		VariablesFileName: in.variablesFileName,
+	}))
+	klog.V(log.LogLevelTrace).InfoS("terraform scanner scan", "result", result)
+
+	return result, err
+}
+
 func (in *Terraform) plan() (string, error) {
 	output, err := exec.NewExecutable(
 		"terraform",
@@ -143,6 +161,10 @@ func (in *Terraform) plan() (string, error) {
 }
 
 func (in *Terraform) init() v1.Tool {
+	if len(in.dir) == 0 {
+		klog.Fatal("dir is required")
+	}
+
 	in.planFileName = "terraform.tfplan"
 	helpers.EnsureFileOrDie(path.Join(in.dir, in.planFileName), nil)
 
@@ -155,6 +177,10 @@ func (in *Terraform) init() v1.Tool {
 }
 
 // New creates a Terraform structure that implements v1.Tool interface.
-func New(dir string, variables *string) v1.Tool {
-	return (&Terraform{dir: dir, variables: variables}).init()
+func New(config v1.Config) v1.Tool {
+	return (&Terraform{
+		DefaultTool: v1.DefaultTool{Scanner: config.Scanner},
+		dir:         config.ExecDir,
+		variables:   config.Variables,
+	}).init()
 }
