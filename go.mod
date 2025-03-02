@@ -32,7 +32,7 @@ require (
 	github.com/onsi/gomega v1.35.1
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20240802234259-aa99306df54e
 	github.com/open-policy-agent/gatekeeper/v3 v3.17.1
-	github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41
+	github.com/opencost/opencost/core v0.0.0-20250302124925-a45005f061b8
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/pluralsh/console/go/client v1.31.0
