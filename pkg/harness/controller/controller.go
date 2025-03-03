@@ -150,28 +150,32 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	var output []*gqlclient.StackOutputAttributes
 	var err error
 
-	if in.tool != nil {
-		state, err = in.tool.State()
-		if err != nil {
-			klog.ErrorS(err, "could not prepare state attributes")
-		}
-
-		klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
-
-		output, err = in.tool.Output()
-		if err != nil {
-			klog.ErrorS(err, "could not prepare output attributes")
-		}
-
-		klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
-	}
-
 	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
 	if stackRunErr != nil {
 		serviceErrorAttributes = append(serviceErrorAttributes, &gqlclient.ServiceErrorAttributes{
 			Source:  "harness",
 			Message: stackRunErr.Error(),
 		})
+	}
+
+	if in.tool == nil {
+		return stackrun.CompleteStackRun(in.consoleClient, in.stackRunID, &gqlclient.StackRunAttributes{
+			Errors: serviceErrorAttributes,
+		})
+	}
+
+	state, err = in.tool.State()
+	if err != nil {
+		klog.ErrorS(err, "could not prepare state attributes")
+	}
+	klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
+
+	if !in.stackRun.DryRun {
+		output, err = in.tool.Output()
+		if err != nil {
+			klog.ErrorS(err, "could not prepare output attributes")
+		}
+		klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
 	}
 
 	return stackrun.CompleteStackRun(in.consoleClient, in.stackRunID, &gqlclient.StackRunAttributes{
