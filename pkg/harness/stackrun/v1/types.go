@@ -11,21 +11,27 @@ import (
 )
 
 type StackRun struct {
-	ID           string
+	ID      string
+	Tarball string
+
+	ExecWorkDir *string
+	ApprovedAt  *string
+
+	Approval    bool
+	ManageState bool
+	DryRun      bool
+
+	Variables map[string]interface{}
+
 	Status       gqlclient.StackStatus
 	Type         gqlclient.StackType
-	Tarball      string
-	Steps        []*gqlclient.RunStepFragment
-	Files        []*gqlclient.StackFileFragment
-	Environment  []*gqlclient.StackEnvironmentFragment
-	ExecWorkDir  *string
-	Approval     bool
-	ApprovedAt   *string
-	ManageState  bool
 	Creds        *gqlclient.StackRunBaseFragment_PluralCreds
 	StateUrls    *gqlclient.StackRunBaseFragment_StateUrls
-	Variables    map[string]interface{}
 	PolicyEngine *gqlclient.PolicyEngineFragment
+
+	Steps       []*gqlclient.RunStepFragment
+	Files       []*gqlclient.StackFileFragment
+	Environment []*gqlclient.StackEnvironmentFragment
 }
 
 func (in *StackRun) MaxSeverity() int {
@@ -53,6 +59,7 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		StateUrls:    fragment.StateUrls,
 		Variables:    fragment.Variables,
 		PolicyEngine: fragment.PolicyEngine,
+		DryRun:       fragment.DryRun,
 	}
 }
 
