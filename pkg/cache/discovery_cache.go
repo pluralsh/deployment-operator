@@ -113,10 +113,8 @@ func checkAndUpdateServiceMesh(group string) {
 	switch {
 	case strings.Contains(group, ServiceMeshResourceGroupIstio):
 		serviceMesh = ServiceMeshResourceGroupIstio
-		break
 	case strings.Contains(group, ServiceMeshResourceGroupCilium):
 		serviceMesh = ServiceMeshResourceGroupCilium
-		break
 	case strings.Contains(group, ServiceMeshResourceGroupLinkerd):
 		serviceMesh = ServiceMeshResourceGroupLinkerd
 	}
