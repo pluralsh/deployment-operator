@@ -18,24 +18,57 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 )
 
+type ServiceMeshResourceGroup string
+
 const (
 	// ServiceMeshResourceGroupIstio is a base group name used by Istio
 	// Ref: https://github.com/istio/istio/blob/6186a80cb220ecbd7e1cc82044fe3a6fc2876c63/operator/pkg/apis/register.go#L27-L31
-	ServiceMeshResourceGroupIstio string = "istio.io"
+	ServiceMeshResourceGroupIstio ServiceMeshResourceGroup = "istio.io"
 
 	// ServiceMeshResourceGroupCilium is a base group name used by Cilium
 	// Ref: https://github.com/cilium/cilium/blob/99b4bc0d0b628f22c024f3ea74ef21007a831f52/pkg/k8s/apis/cilium.io/register.go#L7-L8
-	ServiceMeshResourceGroupCilium string = "cilium.io"
+	ServiceMeshResourceGroupCilium ServiceMeshResourceGroup = "cilium.io"
 
 	// ServiceMeshResourceGroupLinkerd is a base group name used by Linkerd
 	// Ref: https://github.com/linkerd/linkerd2/blob/e055c32f31ae7618281fed1eb5c304b0d1389a52/controller/gen/apis/serviceprofile/register.go#L3-L4
-	ServiceMeshResourceGroupLinkerd string = "linkerd.io"
+	ServiceMeshResourceGroupLinkerd ServiceMeshResourceGroup = "linkerd.io"
+
+	// ServiceMeshResourceGroupNone represents an empty or unknown service mesh
+	ServiceMeshResourceGroupNone ServiceMeshResourceGroup = ""
+)
+
+func (in ServiceMeshResourceGroup) String() string {
+	return string(in)
+}
+
+func (in ServiceMeshResourceGroup) Priority() ServiceMeshResourcePriority {
+	switch in {
+	case ServiceMeshResourceGroupIstio:
+		return ServiceMeshResourcePriorityIstio
+	case ServiceMeshResourceGroupCilium:
+		return ServiceMeshResourcePriorityCilium
+	case ServiceMeshResourceGroupLinkerd:
+		return ServiceMeshResourcePriorityLinkerd
+	default:
+		return ServiceMeshResourcePriorityNone
+	}
+}
+
+// ServiceMeshResourcePriority determines the order in which the ServiceMeshResourceGroup
+// is assigned. Lower number means higher priority.
+type ServiceMeshResourcePriority uint8
+
+const (
+	ServiceMeshResourcePriorityIstio ServiceMeshResourcePriority = iota
+	ServiceMeshResourcePriorityCilium
+	ServiceMeshResourcePriorityLinkerd
+	ServiceMeshResourcePriorityNone = 255
 )
 
 var (
 	// Maps a GroupVersion to resource Kind.
 	discoveryCache    cmap.ConcurrentMap[string, bool]
-	serviceMesh       = ""
+	serviceMesh       = ServiceMeshResourceGroupNone
 	serviceMeshRWLock = sync.RWMutex{}
 )
 
@@ -110,12 +143,21 @@ func checkAndUpdateServiceMesh(group string) {
 	serviceMeshRWLock.Lock()
 	defer serviceMeshRWLock.Unlock()
 
+	newServiceMesh := ServiceMeshResourceGroupNone
+
 	switch {
-	case strings.Contains(group, ServiceMeshResourceGroupIstio):
-		serviceMesh = ServiceMeshResourceGroupIstio
-	case strings.Contains(group, ServiceMeshResourceGroupCilium):
-		serviceMesh = ServiceMeshResourceGroupCilium
-	case strings.Contains(group, ServiceMeshResourceGroupLinkerd):
-		serviceMesh = ServiceMeshResourceGroupLinkerd
+	case strings.Contains(group, ServiceMeshResourceGroupIstio.String()):
+		newServiceMesh = ServiceMeshResourceGroupIstio
+	case strings.Contains(group, ServiceMeshResourceGroupCilium.String()):
+		newServiceMesh = ServiceMeshResourceGroupCilium
+	case strings.Contains(group, ServiceMeshResourceGroupLinkerd.String()):
+		newServiceMesh = ServiceMeshResourceGroupLinkerd
+	}
+
+	// Lower number means higher priority, so override only if
+	// new resource group name matches service mesh with lower
+	// priority number.
+	if serviceMesh.Priority() > newServiceMesh.Priority() {
+		serviceMesh = newServiceMesh
 	}
 }
