@@ -364,6 +364,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		})
 
 		metrics.Record().ServiceDeletion(id)
+		s.manifestCache.Expire(id)
 		err = s.UpdatePruneStatus(ctx, svc, ch, map[schema.GroupName]string{})
 		return
 	}

@@ -94,6 +94,10 @@ func (c *ManifestCache) Wipe() {
 }
 
 func (c *ManifestCache) Expire(id string) {
+	// cleanup manifests dir
+	if line, ok := c.cache.Get(id); ok {
+		line.wipe()
+	}
 	c.cache.Remove(id)
 }
 
