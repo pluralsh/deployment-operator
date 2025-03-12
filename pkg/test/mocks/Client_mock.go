@@ -1512,17 +1512,17 @@ func (_c *ClientMock_PingCluster_Call) RunAndReturn(run func(client.ClusterPing)
 	return _c
 }
 
-// RegisterRuntimeServices provides a mock function with given fields: svcs, serviceId
-func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]*pkgclient.NamespaceVersion, serviceId *string) error {
-	ret := _m.Called(svcs, serviceId)
+// RegisterRuntimeServices provides a mock function with given fields: svcs, serviceId, serviceMesh
+func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]*pkgclient.NamespaceVersion, serviceId *string, serviceMesh *client.ServiceMesh) error {
+	ret := _m.Called(svcs, serviceId, serviceMesh)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RegisterRuntimeServices")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(map[string]*pkgclient.NamespaceVersion, *string) error); ok {
-		r0 = rf(svcs, serviceId)
+	if rf, ok := ret.Get(0).(func(map[string]*pkgclient.NamespaceVersion, *string, *client.ServiceMesh) error); ok {
+		r0 = rf(svcs, serviceId, serviceMesh)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1538,13 +1538,14 @@ type ClientMock_RegisterRuntimeServices_Call struct {
 // RegisterRuntimeServices is a helper method to define mock.On call
 //   - svcs map[string]*pkgclient.NamespaceVersion
 //   - serviceId *string
-func (_e *ClientMock_Expecter) RegisterRuntimeServices(svcs interface{}, serviceId interface{}) *ClientMock_RegisterRuntimeServices_Call {
-	return &ClientMock_RegisterRuntimeServices_Call{Call: _e.mock.On("RegisterRuntimeServices", svcs, serviceId)}
+//   - serviceMesh *client.ServiceMesh
+func (_e *ClientMock_Expecter) RegisterRuntimeServices(svcs interface{}, serviceId interface{}, serviceMesh interface{}) *ClientMock_RegisterRuntimeServices_Call {
+	return &ClientMock_RegisterRuntimeServices_Call{Call: _e.mock.On("RegisterRuntimeServices", svcs, serviceId, serviceMesh)}
 }
 
-func (_c *ClientMock_RegisterRuntimeServices_Call) Run(run func(svcs map[string]*pkgclient.NamespaceVersion, serviceId *string)) *ClientMock_RegisterRuntimeServices_Call {
+func (_c *ClientMock_RegisterRuntimeServices_Call) Run(run func(svcs map[string]*pkgclient.NamespaceVersion, serviceId *string, serviceMesh *client.ServiceMesh)) *ClientMock_RegisterRuntimeServices_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(map[string]*pkgclient.NamespaceVersion), args[1].(*string))
+		run(args[0].(map[string]*pkgclient.NamespaceVersion), args[1].(*string), args[2].(*client.ServiceMesh))
 	})
 	return _c
 }
@@ -1554,7 +1555,7 @@ func (_c *ClientMock_RegisterRuntimeServices_Call) Return(_a0 error) *ClientMock
 	return _c
 }
 
-func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[string]*pkgclient.NamespaceVersion, *string) error) *ClientMock_RegisterRuntimeServices_Call {
+func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[string]*pkgclient.NamespaceVersion, *string, *client.ServiceMesh) error) *ClientMock_RegisterRuntimeServices_Call {
 	_c.Call.Return(run)
 	return _c
 }

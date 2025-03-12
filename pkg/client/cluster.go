@@ -2,10 +2,11 @@ package client
 
 import (
 	console "github.com/pluralsh/console/go/client"
-	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
 )
 
 const (
@@ -45,7 +46,7 @@ func appendUniqueExternalDNSNamespace(slice []*string, newValue *string) []*stri
 	return sliceSet.List()
 }
 
-func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serviceId *string) error {
+func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serviceId *string, serviceMesh *console.ServiceMesh) error {
 	inputs := make([]*console.RuntimeServiceAttributes, 0)
 	var layouts *console.OperationalLayoutAttributes
 	for name, nv := range svcs {
@@ -79,6 +80,7 @@ func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serv
 		}
 	}
 
+	layouts.ServiceMesh = serviceMesh
 	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, serviceId)
 	return err
 }

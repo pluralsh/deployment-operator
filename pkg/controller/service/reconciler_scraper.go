@@ -5,9 +5,11 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
@@ -37,7 +39,8 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 			AddRuntimeServiceInfo(ds.Namespace, ds.GetLabels(), runtimeServices)
 		}
 	}
-	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, nil); err != nil {
+
+	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, nil, cache.ServiceMesh()); err != nil {
 		logger.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
 }

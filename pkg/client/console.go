@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	console "github.com/pluralsh/console/go/client"
+
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
@@ -42,7 +43,7 @@ type Client interface {
 	GetCredentials() (url, token string)
 	PingCluster(attributes console.ClusterPing) error
 	Ping(vsn string) error
-	RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serviceId *string) error
+	RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serviceId *string, serviceMesh *console.ServiceMesh) error
 	UpsertVirtualCluster(parentID string, attributes console.ClusterAttributes) (*console.GetClusterWithToken_Cluster, error)
 	IsClusterExists(id string) (bool, error)
 	GetCluster(id string) (*console.TinyClusterFragment, error)
