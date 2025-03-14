@@ -114,6 +114,12 @@ func (r *ClusterDrainReconciler) applyDrain(ctx context.Context, drain *v1alpha1
 			if !found {
 				annotations = make(map[string]string)
 			}
+
+			// already set by this CRD instance
+			if annotations["deployments.plural.sh/drain"] == drain.Name {
+				continue
+			}
+
 			annotations["deployments.plural.sh/drain"] = drain.Name
 
 			// Set the modified annotations back into the object
