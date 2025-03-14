@@ -37,6 +37,21 @@ func initLayouts(layouts *console.OperationalLayoutAttributes) *console.Operatio
 	return layouts
 }
 
+func initServiceMesh(layouts *console.OperationalLayoutAttributes, serviceMesh *console.ServiceMesh) *console.OperationalLayoutAttributes {
+	if serviceMesh == nil {
+		return layouts
+	}
+
+	if layouts == nil {
+		return &console.OperationalLayoutAttributes{
+			ServiceMesh: serviceMesh,
+		}
+	}
+
+	layouts.ServiceMesh = serviceMesh
+	return layouts
+}
+
 func appendUniqueExternalDNSNamespace(slice []*string, newValue *string) []*string {
 	if slice == nil {
 		slice = make([]*string, 0)
@@ -80,11 +95,7 @@ func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serv
 		}
 	}
 
-	if layouts == nil && serviceMesh != nil {
-		layouts = &console.OperationalLayoutAttributes{
-			ServiceMesh: serviceMesh,
-		}
-	}
+	layouts = initServiceMesh(layouts, serviceMesh)
 	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, serviceId)
 	return err
 }
