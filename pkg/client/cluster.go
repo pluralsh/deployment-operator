@@ -81,10 +81,10 @@ func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serv
 	}
 
 	if layouts == nil && serviceMesh != nil {
-		layouts = &console.OperationalLayoutAttributes{
-			ServiceMesh: serviceMesh,
-		}
+		layouts = &console.OperationalLayoutAttributes{}
 	}
+
+	layouts.ServiceMesh = serviceMesh
 	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, serviceId)
 	return err
 }
