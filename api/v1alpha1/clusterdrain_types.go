@@ -53,7 +53,7 @@ type ClusterDrain struct {
 type ClusterDrainList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []CustomHealth `json:"items"`
+	Items           []ClusterDrain `json:"items"`
 }
 
 func init() {

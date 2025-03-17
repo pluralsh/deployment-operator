@@ -3,9 +3,15 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"sync"
+	"time"
 
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,11 +20,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sort"
-	"strconv"
 )
 
 const defaultBatchSize = 50
@@ -52,7 +59,7 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
-	if meta.IsStatusConditionTrue(drain.Status.Conditions, v1alpha1.ReadyConditionType.String()) {
+	if meta.FindStatusCondition(drain.Status.Conditions, v1alpha1.ReadyConditionType.String()) != nil {
 		// Do not requeue; execute once per CR instance
 		return ctrl.Result{}, nil
 	}
@@ -60,6 +67,7 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Fetch workloads matching labelSelector
 	workloads, err := r.getMatchingWorkloads(ctx, drain)
 	if err != nil {
+		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -67,7 +75,7 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	sortWorkloads(workloads)
 
 	// Apply drain logic
-	progress, err := r.applyDrain(ctx, drain, workloads)
+	progress, err := r.applyDrain(ctx, drain, workloads, scope)
 	if err != nil {
 		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
@@ -80,11 +88,17 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 
 // applyDrain annotates workloads in waves, respecting flow control
-func (r *ClusterDrainReconciler) applyDrain(ctx context.Context, drain *v1alpha1.ClusterDrain, workloads []unstructured.Unstructured) ([]v1alpha1.Progress, error) {
+func (r *ClusterDrainReconciler) applyDrain(ctx context.Context, drain *v1alpha1.ClusterDrain, workloads []unstructured.Unstructured, scope Scope[*v1alpha1.ClusterDrain]) ([]v1alpha1.Progress, error) {
+	logger := log.FromContext(ctx)
 	progress := []v1alpha1.Progress{}
+	var waitForWave sync.WaitGroup
+	var mu sync.Mutex
 	var batchSize int
 	if drain.Spec.FlowControl.Percentage != nil {
-		batchSize = *drain.Spec.FlowControl.Percentage * len(workloads) / 100
+		batchSize = (*drain.Spec.FlowControl.Percentage * len(workloads)) / 100
+		if batchSize == 0 {
+			batchSize = 1
+		}
 	}
 	if drain.Spec.FlowControl.MaxConcurrency != nil {
 		batchSize = *drain.Spec.FlowControl.MaxConcurrency
@@ -95,59 +109,126 @@ func (r *ClusterDrainReconciler) applyDrain(ctx context.Context, drain *v1alpha1
 
 	waves := splitIntoWaves(workloads, batchSize)
 
-	var failed []corev1.ObjectReference
 	for i, wave := range waves {
-		for _, obj := range wave {
-			annotations := obj.GetAnnotations()
-			if annotations == nil {
-				annotations = map[string]string{}
-			}
-			annotations["deployments.plural.sh/drain-wave"] = strconv.Itoa(i)
-			obj.SetAnnotations(annotations)
-
-			// Extract and modify PodTemplateSpec annotations
-			annotations, found, err := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
-			if err != nil {
-				return nil, fmt.Errorf("failed to get annotations: %w", err)
-			}
-
-			if !found {
-				annotations = make(map[string]string)
+		waitForWave.Add(1)
+		go func() {
+			defer waitForWave.Done()
+			mu.Lock()
+			p := drainWave(ctx, r.Client, wave, drain.GetName(), i, len(workloads))
+			progress = append(progress, p)
+			sort.Slice(progress, func(i, j int) bool {
+				return progress[i].Wave < progress[j].Wave
+			})
+			// Save progress
+			drain.Status.Progress = progress
+			if err := scope.PatchObject(); err != nil {
+				logger.Error(err, "Failed to patch drain scope", "name", drain.GetName())
 			}
 
-			// already set by this CRD instance
-			if annotations["deployments.plural.sh/drain"] == drain.Name {
-				continue
-			}
-
-			annotations["deployments.plural.sh/drain"] = drain.Name
-
-			// Set the modified annotations back into the object
-			err = unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations")
-			if err != nil {
-				return nil, fmt.Errorf("failed to set annotations: %w", err)
-			}
-
-			if err := r.Update(ctx, &obj); err != nil {
-				failed = append(failed, corev1.ObjectReference{
-					APIVersion: obj.GetObjectKind().GroupVersionKind().GroupVersion().String(),
-					Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
-					Name:       obj.GetName(),
-					Namespace:  obj.GetNamespace(),
-				})
-			}
-		}
-
-		progress = append(progress, v1alpha1.Progress{
-			Wave:       i,
-			Percentage: len(wave) * 100 / len(workloads),
-			Count:      len(wave),
-			Failures:   failed,
-		})
-
+			mu.Unlock()
+		}()
 	}
+	waitForWave.Wait()
 
 	return progress, nil
+}
+
+func drainWave(ctx context.Context, c client.Client, wave []unstructured.Unstructured, name string, waveNumber, workloads int) v1alpha1.Progress {
+	logger := log.FromContext(ctx)
+	var failed []corev1.ObjectReference
+	var waitForResource sync.WaitGroup
+	var mu sync.RWMutex
+
+	for _, obj := range wave {
+		objRef := corev1.ObjectReference{
+			APIVersion: obj.GetObjectKind().GroupVersionKind().GroupVersion().String(),
+			Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
+			Name:       obj.GetName(),
+			Namespace:  obj.GetNamespace(),
+		}
+
+		annotations := obj.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		annotations["deployments.plural.sh/drain-wave"] = strconv.Itoa(waveNumber)
+		obj.SetAnnotations(annotations)
+
+		// Extract and modify PodTemplateSpec annotations
+		annotations, found, err := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
+		if err != nil {
+			logger.Error(err, "failed to get annotations")
+			failed = append(failed, objRef)
+			continue
+		}
+
+		if !found {
+			annotations = make(map[string]string)
+		}
+
+		// already set by this CRD instance
+		if annotations["deployments.plural.sh/drain"] == name {
+			continue
+		}
+
+		annotations["deployments.plural.sh/drain"] = name
+
+		// Set the modified annotations back into the object
+		err = unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations")
+		if err != nil {
+			logger.Error(err, "failed to set annotations")
+			failed = append(failed, objRef)
+			continue
+		}
+
+		if err := c.Update(ctx, &obj); err != nil {
+			failed = append(failed, objRef)
+			continue
+		}
+		waitForResource.Add(1)
+		go func() {
+			defer waitForResource.Done()
+			if err := waitForHealthStatus(ctx, c, &obj); err != nil {
+				mu.Lock()
+				logger.Error(err, "failed to get status")
+				failed = append(failed, objRef)
+				mu.Unlock()
+			}
+		}()
+	}
+
+	waitForResource.Wait()
+
+	return v1alpha1.Progress{
+		Wave:       waveNumber,
+		Percentage: len(wave) * 100 / workloads,
+		Count:      len(wave),
+		Failures:   failed,
+	}
+}
+
+func waitForHealthStatus(ctx context.Context, c client.Client, obj *unstructured.Unstructured) error {
+	start_time := time.Now()
+	for {
+		if err := c.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
+			return err
+		}
+		status := common.ToStatus(obj)
+		if status == nil {
+			return fmt.Errorf("status is nil")
+		}
+
+		switch *status {
+		case console.ComponentStateRunning:
+			return nil
+		case console.ComponentStateFailed:
+			return fmt.Errorf("component %s failed", obj.GetName())
+		}
+
+		if time.Now().Sub(start_time).Minutes() > 5 {
+			return fmt.Errorf("timeout after %d minutes", time.Since(start_time).Minutes())
+		}
+	}
 }
 
 func splitIntoWaves[T any](items []T, batchSize int) [][]T {
@@ -165,7 +246,8 @@ func splitIntoWaves[T any](items []T, batchSize int) [][]T {
 // SetupWithManager registers the controller
 func (r *ClusterDrainReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.ClusterDrain{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
+		For(&v1alpha1.ClusterDrain{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
@@ -206,7 +288,8 @@ func sortWorkloads(workloads []unstructured.Unstructured) {
 		if waveI != waveJ {
 			return waveI < waveJ
 		}
-		return workloads[i].GetNamespace()+workloads[i].GetName() < workloads[j].GetNamespace()+workloads[j].GetName()
+		return workloads[i].GetNamespace() < workloads[j].GetNamespace() ||
+			workloads[i].GetName() < workloads[j].GetName()
 	})
 }
 

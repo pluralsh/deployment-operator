@@ -173,7 +173,7 @@ func (in *ClusterDrainList) DeepCopyInto(out *ClusterDrainList) {
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]CustomHealth, len(*in))
+		*out = make([]ClusterDrain, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
