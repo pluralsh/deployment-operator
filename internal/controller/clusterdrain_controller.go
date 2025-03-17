@@ -208,7 +208,7 @@ func drainWave(ctx context.Context, c client.Client, wave []unstructured.Unstruc
 }
 
 func waitForHealthStatus(ctx context.Context, c client.Client, obj *unstructured.Unstructured) error {
-	start_time := time.Now()
+	startTime := time.Now()
 	for {
 		if err := c.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
 			return err
@@ -225,8 +225,8 @@ func waitForHealthStatus(ctx context.Context, c client.Client, obj *unstructured
 			return fmt.Errorf("component %s failed", obj.GetName())
 		}
 
-		if time.Now().Sub(start_time).Minutes() > 5 {
-			return fmt.Errorf("timeout after %d minutes", time.Since(start_time).Minutes())
+		if time.Since(startTime).Minutes() > 5 {
+			return fmt.Errorf("timeout after %f minutes", time.Since(startTime).Minutes())
 		}
 	}
 }
