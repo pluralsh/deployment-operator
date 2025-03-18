@@ -20,6 +20,9 @@ metadata:
   labels:
 {{ include "deployment-operator.labels" . | indent 4 }}
 rules:
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets", "statefulsets"]
+  verbs: ["get", "list", "watch", "update", "patch"]
 - apiGroups: ["", "*"]
   resources: ["*"]
   verbs: ["get", "list"]
