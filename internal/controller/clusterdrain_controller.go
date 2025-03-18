@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sort"
 	"strconv"
 	"sync"
@@ -31,7 +32,8 @@ import (
 const defaultBatchSize = 50
 
 const (
-	drainAnnotation = "deployment.plural.sh/drain"
+	drainAnnotation    = "deployment.plural.sh/drain"
+	healthStatusJitter = 5
 )
 
 // ClusterDrainReconciler reconciles a ClusterDrain object
@@ -211,9 +213,14 @@ func drainWave(ctx context.Context, c client.Client, wave []unstructured.Unstruc
 	}
 }
 
+func healthStatusDelay() time.Duration {
+	return time.Second + time.Duration(rand.Int63n(int64(healthStatusJitter)))
+}
+
 func waitForHealthStatus(ctx context.Context, c client.Client, obj *unstructured.Unstructured) error {
 	startTime := time.Now()
 	for {
+		time.Sleep(healthStatusDelay())
 		if err := c.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
 			return err
 		}
