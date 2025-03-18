@@ -30,6 +30,10 @@ import (
 
 const defaultBatchSize = 50
 
+const (
+	drainAnnotation = "deployment.plural.sh/drain"
+)
+
 // ClusterDrainReconciler reconciles a ClusterDrain object
 type ClusterDrainReconciler struct {
 	client.Client
@@ -167,11 +171,11 @@ func drainWave(ctx context.Context, c client.Client, wave []unstructured.Unstruc
 		}
 
 		// already set by this CRD instance
-		if annotations["deployments.plural.sh/drain"] == name {
+		if annotations[drainAnnotation] == name {
 			continue
 		}
 
-		annotations["deployments.plural.sh/drain"] = name
+		annotations[drainAnnotation] = name
 
 		// Set the modified annotations back into the object
 		err = unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations")
