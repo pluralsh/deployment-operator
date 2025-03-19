@@ -42,6 +42,7 @@ func Unmarshal(s string) (map[string]interface{}, error) {
 
 // HasUnhealthyPods Generic function to get Pods by owner (Deployment, DaemonSet, or StatefulSet)
 func HasUnhealthyPods(ctx context.Context, k8sClient ctrclient.Client, owner *unstructured.Unstructured) (bool, error) {
+	var opts []ctrclient.ListOption
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "",
@@ -55,9 +56,11 @@ func HasUnhealthyPods(ctx context.Context, k8sClient ctrclient.Client, owner *un
 	}
 
 	ml := ctrclient.MatchingLabels(labels)
+	opts = append(opts, ml)
+	opts = append(opts, ctrclient.Limit(10))
 
 	// Use the label selector to get Pods managed by the owner (Deployment, DaemonSet, or StatefulSet)
-	err = k8sClient.List(ctx, list, ml)
+	err = k8sClient.List(ctx, list, opts...)
 	if err != nil {
 		return false, fmt.Errorf("failed to get pods for owner: %w", err)
 	}
