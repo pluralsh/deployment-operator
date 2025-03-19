@@ -6,10 +6,7 @@ import (
 	"sync"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
-
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
@@ -18,6 +15,7 @@ import (
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -132,7 +130,7 @@ func RunAiInsightComponentScraperInBackgroundOrDie(ctx context.Context, k8sClien
 	}
 }
 
-func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind, opts ...ctrclient.ListOption) error {
+func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind) error {
 	pager := listResources(ctx, k8sClient, gvk)
 	for pager.HasNext() {
 		items, err := pager.NextPage()
@@ -140,7 +138,7 @@ func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk
 			return err
 		}
 		for _, item := range items {
-			health, err := common.GetResourceHealth(&item)
+			health, err := getResourceHealthStatus(ctx, k8sClient, &item)
 			if err != nil {
 				return err
 			}
@@ -154,6 +152,27 @@ func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk
 		}
 	}
 	return nil
+}
+
+func getResourceHealthStatus(ctx context.Context, k8sClient ctrclient.Client, obj *unstructured.Unstructured) (*common.HealthStatus, error) {
+	health, err := common.GetResourceHealth(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	if health.Status == common.HealthStatusProgressing {
+		unhealthyPods, err := common.HasUnhealthyPods(ctx, k8sClient, obj)
+		if err != nil {
+			return nil, err
+		}
+		if unhealthyPods {
+			return &common.HealthStatus{
+				Status: common.HealthStatusDegraded,
+			}, nil
+		}
+
+	}
+	return health, nil
 }
 
 func listResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind) *algorithms.Pager[unstructured.Unstructured] {
