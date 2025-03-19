@@ -59,7 +59,7 @@ func HasUnhealthyPods(ctx context.Context, k8sClient ctrclient.Client, owner *un
 	// Use the label selector to get Pods managed by the owner (Deployment, DaemonSet, or StatefulSet)
 	err = k8sClient.List(ctx, list, ml)
 	if err != nil {
-		return false, fmt.Errorf("failed to get pods for owner: %v", err)
+		return false, fmt.Errorf("failed to get pods for owner: %w", err)
 	}
 	for _, pod := range list.Items {
 		health, err := GetResourceHealth(&pod)
