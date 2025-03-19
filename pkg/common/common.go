@@ -49,7 +49,7 @@ func HasUnhealthyPods(ctx context.Context, k8sClient ctrclient.Client, owner *un
 		Kind:    "Pod",
 	})
 
-	labels, found, err := unstructured.NestedStringMap(owner.Object, "spec", "template", "metadata", "labels")
+	labels, found, err := unstructured.NestedStringMap(owner.Object, "spec", "selector", "matchLabels")
 	if err != nil || !found {
 		return false, nil
 	}
