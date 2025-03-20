@@ -34,6 +34,7 @@ const defaultBatchSize = 50
 const (
 	drainAnnotation    = "deployment.plural.sh/drain"
 	healthStatusJitter = 5
+	threshold          = 15
 )
 
 // ClusterDrainReconciler reconciles a ClusterDrain object
@@ -218,28 +219,42 @@ func healthStatusDelay() time.Duration {
 }
 
 func waitForHealthStatus(ctx context.Context, c client.Client, obj *unstructured.Unstructured) error {
-	startTime := time.Now()
+	timeout := threshold * time.Minute            // Timeout duration
+	ticker := time.NewTicker(healthStatusDelay()) // Ticker to periodically check health status
+	defer ticker.Stop()
+
+	// Create a timeout channel that will trigger after the specified timeout
+	timeoutChan := time.After(timeout)
+
 	for {
-		time.Sleep(healthStatusDelay())
-		if err := c.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
-			return err
-		}
-		status := common.ToStatus(obj)
-		if status == nil {
-			return fmt.Errorf("status is nil")
-		}
+		select {
+		case <-ticker.C:
+			// Fetch the latest object
+			if err := c.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
+				return err
+			}
 
-		switch *status {
-		case console.ComponentStateRunning:
-			return nil
-		case console.ComponentStateFailed:
-			return fmt.Errorf("component %s failed", obj.GetName())
-		}
+			// Check the status of the object
+			status := common.ToStatus(obj)
+			if status == nil {
+				return fmt.Errorf("status is nil")
+			}
 
-		if time.Since(startTime).Minutes() > 5 {
-			return fmt.Errorf("timeout after %f minutes", time.Since(startTime).Minutes())
+			// Handle the different states of the component
+			switch *status {
+			case console.ComponentStateRunning:
+				return nil
+			case console.ComponentStateFailed:
+				return fmt.Errorf("component %s failed", obj.GetName())
+			}
+
+		case <-timeoutChan:
+			return fmt.Errorf("timeout after %f minutes", timeout.Seconds()/60)
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
+
 }
 
 func splitIntoWaves[T any](items []T, batchSize int) [][]T {

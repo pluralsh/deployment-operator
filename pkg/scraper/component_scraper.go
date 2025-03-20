@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	name     = "Ai Insight Component Scraper"
-	nodeKind = "Node"
+	name                       = "Ai Insight Component Scraper"
+	nodeKind                   = "Node"
+	lastProgressTimeAnnotation = "plural.sh/last-progress-time"
 )
 
 var (
@@ -160,18 +161,42 @@ func getResourceHealthStatus(ctx context.Context, k8sClient ctrclient.Client, ob
 		return nil, err
 	}
 
-	if health.Status == common.HealthStatusProgressing {
-		unhealthyPods, err := common.HasUnhealthyPods(ctx, k8sClient, obj)
-		if err != nil {
-			return nil, err
-		}
-		if unhealthyPods {
-			return &common.HealthStatus{
-				Status: common.HealthStatusDegraded,
-			}, nil
-		}
-
+	if obj.GetAnnotations() == nil {
+		obj.SetAnnotations(make(map[string]string))
 	}
+	annotations := obj.GetAnnotations()
+	timeStr, ok := annotations[lastProgressTimeAnnotation]
+
+	// remove entry if no longer progressing
+	if health.Status != common.HealthStatusProgressing {
+		// cleanup progress timestamp
+		if ok {
+			delete(annotations, lastProgressTimeAnnotation)
+			obj.SetAnnotations(annotations)
+			return health, k8sClient.Update(ctx, obj)
+		}
+		return health, nil
+	}
+
+	// add an entry if in progressing state, with the timestamp of when first found
+	if !ok {
+		now := metav1.Now()
+		annotations[lastProgressTimeAnnotation] = now.Time.Format(time.RFC3339)
+		obj.SetAnnotations(annotations)
+		return health, k8sClient.Update(ctx, obj)
+	}
+
+	// mark as failed if it exceeds a threshold
+	cutoffTime := metav1.NewTime(time.Now().Add(-30 * time.Minute))
+	parsedTime, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		return nil, err
+	}
+	metaTime := metav1.Time{Time: parsedTime}
+	if metaTime.Before(&cutoffTime) {
+		health.Status = common.HealthStatusDegraded
+	}
+
 	return health, nil
 }
 
