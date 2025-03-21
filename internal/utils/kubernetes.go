@@ -52,6 +52,24 @@ func TryAddControllerRef(ctx context.Context, client ctrlruntimeclient.Client, o
 	})
 }
 
+func TryToUpdate(ctx context.Context, client ctrlruntimeclient.Client, object ctrlruntimeclient.Object) error {
+	key := ctrlruntimeclient.ObjectKeyFromObject(object)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		original := object.DeepCopyObject().(ctrlruntimeclient.Object)
+		if err := client.Get(ctx, key, object); err != nil {
+			return fmt.Errorf("could not fetch current %s/%s state, got error: %+v", object.GetName(), object.GetNamespace(), err)
+		}
+
+		if reflect.DeepEqual(object, original) {
+			return nil
+		}
+
+		return client.Patch(ctx, original, ctrlruntimeclient.MergeFrom(object))
+	})
+
+}
+
 func TryAddOwnerRef(ctx context.Context, client ctrlruntimeclient.Client, owner ctrlruntimeclient.Object, object ctrlruntimeclient.Object, scheme *runtime.Scheme) error {
 	key := ctrlruntimeclient.ObjectKeyFromObject(object)
 

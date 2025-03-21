@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
+
 	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -24,9 +26,8 @@ import (
 )
 
 const (
-	name                       = "Ai Insight Component Scraper"
-	nodeKind                   = "Node"
-	lastProgressTimeAnnotation = "plural.sh/last-progress-time"
+	name     = "Ai Insight Component Scraper"
+	nodeKind = "Node"
 )
 
 var (
@@ -161,39 +162,24 @@ func getResourceHealthStatus(ctx context.Context, k8sClient ctrclient.Client, ob
 		return nil, err
 	}
 
-	if obj.GetAnnotations() == nil {
-		obj.SetAnnotations(make(map[string]string))
+	progressTime, err := common.GetLastProgressTimestamp(ctx, k8sClient, obj)
+	if err != nil {
+		return nil, err
 	}
-	annotations := obj.GetAnnotations()
-	timeStr, ok := annotations[lastProgressTimeAnnotation]
 
 	// remove entry if no longer progressing
 	if health.Status != common.HealthStatusProgressing {
 		// cleanup progress timestamp
-		if ok {
-			delete(annotations, lastProgressTimeAnnotation)
-			obj.SetAnnotations(annotations)
-			return health, k8sClient.Update(ctx, obj)
-		}
-		return health, nil
-	}
-
-	// add an entry if in progressing state, with the timestamp of when first found
-	if !ok {
-		now := metav1.Now()
-		annotations[lastProgressTimeAnnotation] = now.Time.Format(time.RFC3339)
+		annotations := obj.GetAnnotations()
+		delete(annotations, common.LastProgressTimeAnnotation)
 		obj.SetAnnotations(annotations)
-		return health, k8sClient.Update(ctx, obj)
+		return health, utils.TryToUpdate(ctx, k8sClient, obj)
 	}
 
 	// mark as failed if it exceeds a threshold
 	cutoffTime := metav1.NewTime(time.Now().Add(-30 * time.Minute))
-	parsedTime, err := time.Parse(time.RFC3339, timeStr)
-	if err != nil {
-		return nil, err
-	}
-	metaTime := metav1.Time{Time: parsedTime}
-	if metaTime.Before(&cutoffTime) {
+
+	if progressTime.Before(&cutoffTime) {
 		health.Status = common.HealthStatusDegraded
 	}
 
