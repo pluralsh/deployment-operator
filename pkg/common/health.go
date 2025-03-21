@@ -429,6 +429,16 @@ func getPodHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
 	}
 }
 
+func FindPodStatusCondition(conditions []corev1.PodCondition, conditionType corev1.PodConditionType) *corev1.PodCondition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+
+	return nil
+}
+
 func getCorev1PodHealth(pod *corev1.Pod) (*HealthStatus, error) {
 	// This logic cannot be applied when the pod.Spec.RestartPolicy is: corev1.RestartPolicyOnFailure,
 	// corev1.RestartPolicyNever, otherwise it breaks the resource hook logic.
@@ -446,6 +456,17 @@ func getCorev1PodHealth(pod *corev1.Pod) (*HealthStatus, error) {
 			if waiting != nil && (strings.HasPrefix(waiting.Reason, "Err") || strings.HasSuffix(waiting.Reason, "Error") || strings.HasSuffix(waiting.Reason, "BackOff")) {
 				status = HealthStatusDegraded
 				messages = append(messages, waiting.Message)
+			}
+		}
+
+		if cond := FindPodStatusCondition(pod.Status.Conditions, corev1.PodScheduled); cond != nil {
+			if status == "" && cond.Status == corev1.ConditionFalse {
+				// status older than 5min
+				cutoffTime := metav1.NewTime(time.Now().Add(-5 * time.Minute))
+				if cond.LastTransitionTime.Before(&cutoffTime) {
+					status = HealthStatusDegraded
+					messages = append(messages, cond.Message)
+				}
 			}
 		}
 
