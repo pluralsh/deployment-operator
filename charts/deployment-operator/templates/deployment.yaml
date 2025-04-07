@@ -67,6 +67,11 @@ spec:
           volumeMounts:
             - name: temp
               mountPath: /tmp
+          {{- range $cert := .Values.certs }}
+            - name: {{ $cert.name }}
+              mountPath: /etc/ssl/certs/{{ $cert.file }}
+              subPath: {{ $cert.file }}
+          {{- end }}
           {{ if .Values.additionalVolumeMounts }}
           {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}
           {{ end }}
@@ -174,6 +179,12 @@ spec:
           configMap:
             defaultMode: 0444
             name: {{ include "deployment-operator.fullname" . }}
+        {{- end }}
+        {{- range $cert := .Values.certs }}
+        {{- with $cert.volume }}
+        - name: {{ $cert.name }}
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- end }}
         {{ if .Values.additionalVolumes }}
         {{ toYaml .Values.additionalVolumes | nindent 8 }}
