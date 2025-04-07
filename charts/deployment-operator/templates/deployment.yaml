@@ -69,8 +69,8 @@ spec:
               mountPath: /tmp
           {{- range $cert := .Values.certs }}
             - name: {{ $cert.name }}
-              mountPath: /etc/ssl/certs/{{ $cert.file }}
-              subPath: {{ $cert.file }}
+              mountPath: "/etc/ssl/certs/{{ $cert.file }}"
+              subPath: "{{ $cert.file }}"
           {{- end }}
           {{ if .Values.additionalVolumeMounts }}
           {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}
