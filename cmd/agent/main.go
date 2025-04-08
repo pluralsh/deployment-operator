@@ -25,7 +25,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/scraper"
 )
 
 var (
@@ -64,7 +63,7 @@ func main() {
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
 	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), kubeManager.GetScheme(), extConsoleClient)
-	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy())
+	//registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
 
@@ -77,7 +76,7 @@ func main() {
 	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
 
 	// Start AI insight component scraper in background
-	scraper.RunAiInsightComponentScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient)
+	//scraper.RunAiInsightComponentScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient)
 
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)

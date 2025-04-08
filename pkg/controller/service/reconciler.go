@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -300,11 +301,13 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 		logger.Error(err, "failed to ping cluster after scheduling syncs")
 	}
 
-	s.ScrapeKube(ctx)
+	//s.ScrapeKube(ctx)
 	return nil
 }
 
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
+	fmt.Println("Before function call:")
+	printMemStats()
 	start := time.Now()
 	ctx = context.WithValue(ctx, metrics.ContextKeyTimeStart, start)
 
@@ -371,11 +374,13 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	logger.V(4).Info("Fetching manifests", "service", svc.Name)
+
 	manifests, err := s.manifestCache.Fetch(s.utilFactory, svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)
 		return
 	}
+
 	manifests = postProcess(manifests)
 	logger.V(4).Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
@@ -429,8 +434,28 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	ch := s.applier.Run(ctx, inv, manifests, options)
 	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
-
+	fmt.Println("After function call:")
+	printMemStats()
+	runtime.GC() // Force garbage collection
+	fmt.Println("After GC:")
+	printMemStats()
 	return
+}
+
+func printMemStats() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("Alloc = %v MiB", m.Alloc/1024/1024)
+	fmt.Printf("\tSys = %v MiB", m.Sys/1024/1024)
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+
+}
+
+func logMemoryUsage(servis string) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("servis %s Alloc: %d KB, HeapAlloc: %d KB, Sys: %d KB, NumGC: %d\n", servis,
+		m.Alloc/1024, m.HeapAlloc/1024, m.Sys/1024, m.NumGC)
 }
 
 func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
