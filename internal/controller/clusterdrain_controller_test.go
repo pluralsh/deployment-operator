@@ -18,8 +18,9 @@ import (
 var _ = Describe("ClusterDrain Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
-			resourceName = "default"
-			namespace    = "default"
+			resourceName    = "default"
+			namespace       = "default"
+			operatorService = "deploy-operator"
 		)
 
 		ctx := context.Background()
@@ -31,6 +32,42 @@ var _ = Describe("ClusterDrain Controller", Ordered, func() {
 
 		BeforeAll(func() {
 			By("creating the Deployment, DaemonSet, StatefulSet")
+
+			Expect(common.MaybeCreate(kClient, &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      operatorService,
+					Namespace: namespace,
+					Labels: map[string]string{
+						"selector": "drain",
+					},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: lo.ToPtr(int32(3)),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app": "nginx"},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"app": "nginx"},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "nginx",
+									Image: "nginx:latest",
+								},
+							},
+						},
+					},
+				},
+			}, func(d *appsv1.Deployment) {
+				d.Status.Replicas = 3
+				d.Status.ReadyReplicas = 3
+				d.Status.ObservedGeneration = 3
+				d.Status.UpdatedReplicas = 3
+				d.Status.AvailableReplicas = 3
+			})).To(Succeed())
+
 			Expect(common.MaybeCreate(kClient, &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      resourceName,
@@ -153,6 +190,9 @@ var _ = Describe("ClusterDrain Controller", Ordered, func() {
 			Expect(kClient.Get(ctx, typeNamespacedName, deployment)).NotTo(HaveOccurred())
 			Expect(kClient.Delete(ctx, deployment)).To(Succeed())
 
+			Expect(kClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: operatorService}, deployment)).NotTo(HaveOccurred())
+			Expect(kClient.Delete(ctx, deployment)).To(Succeed())
+
 			daemonset := &appsv1.DaemonSet{}
 			Expect(kClient.Get(ctx, typeNamespacedName, daemonset)).NotTo(HaveOccurred())
 			Expect(kClient.Delete(ctx, daemonset)).To(Succeed())
@@ -183,6 +223,10 @@ var _ = Describe("ClusterDrain Controller", Ordered, func() {
 			Expect(kClient.Get(ctx, typeNamespacedName, deployment)).NotTo(HaveOccurred())
 			Expect(deployment.Spec.Template.Annotations).ToNot(BeEmpty())
 			Expect(deployment.Spec.Template.Annotations[drainAnnotation]).To(Equal(resourceName))
+
+			// skip deployment operator
+			Expect(kClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: operatorService}, deployment)).NotTo(HaveOccurred())
+			Expect(deployment.Spec.Template.Annotations).To(BeEmpty())
 
 			daemonset := &appsv1.DaemonSet{}
 			Expect(kClient.Get(ctx, typeNamespacedName, daemonset)).NotTo(HaveOccurred())

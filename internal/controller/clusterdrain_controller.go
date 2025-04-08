@@ -13,6 +13,7 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/polly/algorithms"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,7 @@ import (
 const defaultBatchSize = 50
 
 const (
+	operatorService    = "deploy-operator"
 	drainAnnotation    = "deployment.plural.sh/drain"
 	healthStatusJitter = 5
 	threshold          = 15
@@ -299,6 +301,12 @@ func (r *ClusterDrainReconciler) getMatchingWorkloads(ctx context.Context, drain
 		list.SetGroupVersionKind(gvk)
 		if err := r.List(ctx, list, &client.ListOptions{LabelSelector: selector}); err != nil {
 			return nil, err
+		}
+		// skip deploy-operator pods
+		if gvk.Kind == "Deployment" {
+			list.Items = algorithms.Filter(list.Items, func(u unstructured.Unstructured) bool {
+				return u.GetName() != operatorService
+			})
 		}
 		allWorkloads = append(allWorkloads, list.Items...)
 	}
