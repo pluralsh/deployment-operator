@@ -4,6 +4,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sort"
 )
 
 type FlowControl struct {
@@ -33,6 +34,7 @@ type Progress struct {
 	Percentage int                      `json:"percentage"`
 	Count      int                      `json:"count"`
 	Failures   []corev1.ObjectReference `json:"failures,omitempty"`
+	Cursor     *corev1.ObjectReference  `json:"cursor,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -62,4 +64,40 @@ func init() {
 
 func (c *ClusterDrain) SetCondition(condition metav1.Condition) {
 	meta.SetStatusCondition(&c.Status.Conditions, condition)
+}
+
+func (c *ClusterDrain) SetWaveProgress(newProgress Progress) bool {
+	if c.Status.Progress == nil {
+		c.Status.Progress = make([]Progress, 1)
+	}
+	existing := c.FindWaveProgress(newProgress.Wave)
+	if existing == nil {
+		c.Status.Progress = append(c.Status.Progress, newProgress)
+		sort.Slice(c.Status.Progress, func(i, j int) bool {
+			return c.Status.Progress[i].Wave < c.Status.Progress[j].Wave
+		})
+		return true
+	}
+	existing.Wave = newProgress.Wave
+	existing.Percentage = newProgress.Percentage
+	existing.Count = newProgress.Count
+	existing.Failures = newProgress.Failures
+	existing.Cursor = newProgress.Cursor
+
+	return true
+}
+
+func (c *ClusterDrain) FindWaveProgress(wave int) *Progress {
+	for i := range c.Status.Progress {
+		if c.Status.Progress[i].Wave == wave {
+			return &c.Status.Progress[i]
+		}
+	}
+
+	return nil
+}
+
+func (p *Progress) SetStatus(failures []corev1.ObjectReference, cursor *corev1.ObjectReference) {
+	p.Failures = failures
+	p.Cursor = cursor
 }

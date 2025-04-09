@@ -13,7 +13,6 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/polly/algorithms"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,11 +32,12 @@ import (
 const defaultBatchSize = 50
 
 const (
-	operatorService    = "deploy-operator"
 	drainAnnotation    = "deployment.plural.sh/drain"
 	healthStatusJitter = 5
 	threshold          = 15
 )
+
+var saveProgressMutex sync.Mutex
 
 // ClusterDrainReconciler reconciles a ClusterDrain object
 type ClusterDrainReconciler struct {
@@ -84,24 +84,20 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	sortWorkloads(workloads)
 
 	// Apply drain logic
-	progress, err := r.applyDrain(ctx, drain, workloads, scope)
+	err = r.applyDrain(ctx, drain, workloads, scope)
 	if err != nil {
 		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	drain.Status.Progress = progress
 	utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 
 	return ctrl.Result{}, nil
 }
 
 // applyDrain annotates workloads in waves, respecting flow control
-func (r *ClusterDrainReconciler) applyDrain(ctx context.Context, drain *v1alpha1.ClusterDrain, workloads []unstructured.Unstructured, scope Scope[*v1alpha1.ClusterDrain]) ([]v1alpha1.Progress, error) {
-	logger := log.FromContext(ctx)
-	progress := []v1alpha1.Progress{}
+func (r *ClusterDrainReconciler) applyDrain(ctx context.Context, drain *v1alpha1.ClusterDrain, workloads []unstructured.Unstructured, scope Scope[*v1alpha1.ClusterDrain]) error {
 	var waitForWave sync.WaitGroup
-	var mu sync.Mutex
 	var batchSize int
 	if drain.Spec.FlowControl.Percentage != nil {
 		batchSize = (*drain.Spec.FlowControl.Percentage * len(workloads)) / 100
@@ -122,33 +118,62 @@ func (r *ClusterDrainReconciler) applyDrain(ctx context.Context, drain *v1alpha1
 		waitForWave.Add(1)
 		go func() {
 			defer waitForWave.Done()
-			mu.Lock()
-			p := drainWave(ctx, r.Client, wave, drain.GetName(), i, len(workloads))
-			progress = append(progress, p)
-			sort.Slice(progress, func(i, j int) bool {
-				return progress[i].Wave < progress[j].Wave
-			})
-			// Save progress
-			drain.Status.Progress = progress
-			if err := scope.PatchObject(); err != nil {
-				logger.Error(err, "Failed to patch drain scope", "name", drain.GetName())
-			}
-
-			mu.Unlock()
+			drainWave(ctx, scope, r.Client, wave, drain, i, len(workloads))
 		}()
 	}
 	waitForWave.Wait()
 
-	return progress, nil
+	return nil
 }
 
-func drainWave(ctx context.Context, c client.Client, wave []unstructured.Unstructured, name string, waveNumber, workloads int) v1alpha1.Progress {
+func saveProgress(ctx context.Context, progress v1alpha1.Progress, drain *v1alpha1.ClusterDrain, scope Scope[*v1alpha1.ClusterDrain]) {
+	saveProgressMutex.Lock()
+	defer saveProgressMutex.Unlock()
+	logger := log.FromContext(ctx)
+	drain.SetWaveProgress(progress)
+	if err := scope.PatchObject(); err != nil {
+		logger.Error(err, "Failed to patch drain scope", "name", drain.GetName())
+	}
+}
+
+// getRemainingItems returns a new slice of items after the cursor
+func getRemainingItems(list []unstructured.Unstructured, cursor *corev1.ObjectReference) []unstructured.Unstructured {
+	if cursor == nil {
+		return list
+	}
+
+	for i, obj := range list {
+		if obj.GetNamespace() == cursor.Namespace && obj.GetName() == cursor.Name {
+			// If it's the last item, return an empty list
+			if i+1 >= len(list) {
+				return []unstructured.Unstructured{}
+			}
+			return list[i+1:]
+		}
+	}
+	// Cursor not found, return entire list or empty based on use-case
+	return []unstructured.Unstructured{}
+}
+
+func drainWave(ctx context.Context, scope Scope[*v1alpha1.ClusterDrain], c client.Client, wave []unstructured.Unstructured, drain *v1alpha1.ClusterDrain, waveNumber, workloads int) {
 	logger := log.FromContext(ctx)
 	var failed []corev1.ObjectReference
-	var waitForResource sync.WaitGroup
-	var mu sync.RWMutex
+	var cursorWave []unstructured.Unstructured
 
-	for _, obj := range wave {
+	progress := v1alpha1.Progress{
+		Wave:       waveNumber,
+		Percentage: len(wave) * 100 / workloads,
+		Count:      len(wave),
+	}
+	cursorWave = wave
+	if waveProgress := drain.FindWaveProgress(waveNumber); waveProgress != nil {
+		cursorWave = getRemainingItems(wave, waveProgress.Cursor)
+		if len(waveProgress.Failures) > 0 {
+			failed = append(failed, waveProgress.Failures...)
+		}
+	}
+
+	for _, obj := range cursorWave {
 		objRef := corev1.ObjectReference{
 			APIVersion: obj.GetObjectKind().GroupVersionKind().GroupVersion().String(),
 			Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
@@ -168,6 +193,8 @@ func drainWave(ctx context.Context, c client.Client, wave []unstructured.Unstruc
 		if err != nil {
 			logger.Error(err, "failed to get annotations")
 			failed = append(failed, objRef)
+			progress.SetStatus(failed, &objRef)
+			saveProgress(ctx, progress, drain, scope)
 			continue
 		}
 
@@ -175,45 +202,33 @@ func drainWave(ctx context.Context, c client.Client, wave []unstructured.Unstruc
 			annotations = make(map[string]string)
 		}
 
-		// already set by this CRD instance
-		if annotations[drainAnnotation] == name {
-			continue
-		}
-
-		annotations[drainAnnotation] = name
+		annotations[drainAnnotation] = drain.GetName()
 
 		// Set the modified annotations back into the object
 		err = unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations")
 		if err != nil {
 			logger.Error(err, "failed to set annotations")
 			failed = append(failed, objRef)
+			progress.SetStatus(failed, &objRef)
+			saveProgress(ctx, progress, drain, scope)
 			continue
 		}
 
 		if err := c.Update(ctx, &obj); err != nil {
 			failed = append(failed, objRef)
+			progress.SetStatus(failed, &objRef)
+			saveProgress(ctx, progress, drain, scope)
 			continue
 		}
-		waitForResource.Add(1)
-		go func() {
-			defer waitForResource.Done()
-			if err := waitForHealthStatus(ctx, c, &obj); err != nil {
-				mu.Lock()
-				logger.Error(err, "failed to get status")
-				failed = append(failed, objRef)
-				mu.Unlock()
-			}
-		}()
+
+		if err := waitForHealthStatus(ctx, c, &obj); err != nil {
+			logger.Error(err, "failed to get status")
+			failed = append(failed, objRef)
+		}
+		progress.SetStatus(failed, &objRef)
+		saveProgress(ctx, progress, drain, scope)
 	}
 
-	waitForResource.Wait()
-
-	return v1alpha1.Progress{
-		Wave:       waveNumber,
-		Percentage: len(wave) * 100 / workloads,
-		Count:      len(wave),
-		Failures:   failed,
-	}
 }
 
 func healthStatusDelay() time.Duration {
@@ -301,12 +316,6 @@ func (r *ClusterDrainReconciler) getMatchingWorkloads(ctx context.Context, drain
 		list.SetGroupVersionKind(gvk)
 		if err := r.List(ctx, list, &client.ListOptions{LabelSelector: selector}); err != nil {
 			return nil, err
-		}
-		// skip deploy-operator pods
-		if gvk.Kind == "Deployment" {
-			list.Items = algorithms.Filter(list.Items, func(u unstructured.Unstructured) bool {
-				return u.GetName() != operatorService
-			})
 		}
 		allWorkloads = append(allWorkloads, list.Items...)
 	}
