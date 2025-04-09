@@ -781,6 +781,8 @@ github.com/aquasecurity/trivy-checks v1.6.1 h1:ANxKl+c9/k3Uk0YNQwpFBx++CG9Goi5T0
 github.com/aquasecurity/trivy-checks v1.6.1/go.mod h1:xjHg4ivIIIFD7FFNpGrqxi1pRgAW1EXeG4VlkGiymjI=
 github.com/aquasecurity/trivy-db v0.0.0-20241209111357-8c398f13db0e h1:O5j5SeCNBrXApgBTOobO06q4LMxJxIhcSGE7H6Y154E=
 github.com/aquasecurity/trivy-db v0.0.0-20241209111357-8c398f13db0e/go.mod h1:gS8VhlNxhraiq60BBnJw9kGtjeMspQ9E8pX24jCL4jg=
+github.com/aquasecurity/trivy-db v0.0.0-20250409120411-e77f981e8af6 h1:IGAL8SoulVb5BCkbPuR3Lrqy4SR8p0NhtiLklynzqj4=
+github.com/aquasecurity/trivy-db v0.0.0-20250409120411-e77f981e8af6/go.mod h1:H1qxH5o8nwGyFuFcV/PjxoYdkHa5jvVEhdnX1mRPouU=
 github.com/aquasecurity/trivy-java-db v0.0.0-20240109071736-184bd7481d48 h1:JVgBIuIYbwG+ekC5lUHUpGJboPYiCcxiz06RCtz8neI=
 github.com/aquasecurity/trivy-java-db v0.0.0-20240109071736-184bd7481d48/go.mod h1:Ldya37FLi0e/5Cjq2T5Bty7cFkzUDwTcPeQua+2M8i8=
 github.com/aquasecurity/trivy-operator v0.22.0 h1:H6lGmhEWxIlWUwG0yq5OKRP9YCsxPx3WeIo6Z+Sq3zw=
@@ -1821,6 +1823,8 @@ github.com/sagikazarmark/slog-shim v0.1.0 h1:diDBnUNK9N/354PgrxMywXnAwEr1QZcOr6g
 github.com/sagikazarmark/slog-shim v0.1.0/go.mod h1:SrcSrq8aKtyuqEI1uvTDTK1arOWRIczQRv+GVI1AkeQ=
 github.com/samber/lo v1.49.0 h1:AGnTnQrg1jpFuwECPUSoxZCfVH5W22b605kWSry3YxM=
 github.com/samber/lo v1.49.0/go.mod h1:dO6KHFzUKXgP8LDhU0oI8d2hekjXnGOu0DB8Jecxd6o=
+github.com/samber/lo v1.49.1 h1:4BIFyVfuQSEpluc7Fua+j1NolZHiEHEpaSEKdsH0tew=
+github.com/samber/lo v1.49.1/go.mod h1:dO6KHFzUKXgP8LDhU0oI8d2hekjXnGOu0DB8Jecxd6o=
 github.com/sanposhiho/wastedassign/v2 v2.1.0 h1:crurBF7fJKIORrV85u9UUpePDYGWnwvv3+A96WvwXT0=
 github.com/sanposhiho/wastedassign/v2 v2.1.0/go.mod h1:+oSmSC+9bQ+VUAxA66nBb0Z7N8CK7mscKTDYC6aIek4=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.1 h1:PKK9DyHxif4LZo+uQSgXNqs0jj5+xZwwfKHgph2lxBw=
