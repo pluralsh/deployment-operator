@@ -57,7 +57,7 @@ func main() {
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)
-	kubeManager := initKubeManagerOrDie(config)
+	kubeManager := initKubeManagerOrDie(ctx, config)
 	consoleManager := initConsoleManagerOrDie()
 
 	// Initialize Pipeline Gate Cache

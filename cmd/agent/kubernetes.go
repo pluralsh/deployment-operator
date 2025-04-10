@@ -32,9 +32,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-const serviceIDCacheExpiry = 12 * time.Hour
+const (
+	serviceIDCacheExpiry         = 12 * time.Hour
+	managerCacheSyncAttemptLimit = 10
+)
 
-func initKubeManagerOrDie(config *rest.Config) manager.Manager {
+func initKubeManagerOrDie(ctx context.Context, config *rest.Config) manager.Manager {
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Logger:                 setupLog,
 		Scheme:                 scheme,
@@ -51,6 +54,7 @@ func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 			},
 		},
 	})
+
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
@@ -64,6 +68,29 @@ func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
+	}
+
+	var counter = make(chan int)
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			setupLog.Error(err, "context done")
+			os.Exit(1)
+		case count := <-counter:
+			if count >= managerCacheSyncAttemptLimit {
+				setupLog.Error(err, "couldn't initialize manager cache")
+				os.Exit(1)
+			}
+
+			if mgr.GetCache().WaitForCacheSync(ctx) {
+				setupLog.Info("cache sync done")
+				break loop
+			}
+
+			setupLog.Info("couldn't initialize manager cache, retrying")
+			counter <- count + 1
+		}
 	}
 
 	return mgr
