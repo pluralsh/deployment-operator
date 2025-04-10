@@ -100,7 +100,12 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 		release = *svc.Helm.Release
 	}
 
-	rel, err := h.templateHelm(config, release, svc.Namespace, values)
+	includeCRDs := true
+	if svc.Helm != nil && svc.Helm.IgnoreCrds != nil {
+		includeCRDs = !*svc.Helm.IgnoreCrds
+	}
+
+	rel, err := h.templateHelm(config, release, svc.Namespace, values, includeCRDs)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +222,7 @@ func (h *helm) valuesFile(svc *console.ServiceDeploymentForAgent, filename strin
 	return currentMap, nil
 }
 
-func (h *helm) templateHelm(conf *action.Configuration, release, namespace string, values map[string]interface{}) (*release.Release, error) {
+func (h *helm) templateHelm(conf *action.Configuration, release, namespace string, values map[string]any, includeCRDs bool) (*release.Release, error) {
 	// load chart from the path
 	chart, err := loader.Load(h.dir)
 	if err != nil {
@@ -233,7 +238,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 	client.Replace = true // Skip the name check
 	client.ClientOnly = true
 	client.Namespace = namespace
-	client.IncludeCRDs = true
+	client.IncludeCRDs = includeCRDs
 	client.IsUpgrade = true
 	vsn, err := kubeVersion(conf)
 	if err != nil {
