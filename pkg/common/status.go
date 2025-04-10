@@ -1,18 +1,23 @@
 package common
 
 import (
+	"context"
+	"time"
+
 	console "github.com/pluralsh/console/go/client"
+	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/samber/lo"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
-
-	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
+func StatusEventToComponentAttributes(ctx context.Context, k8sClient ctrclient.Client, e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
@@ -31,7 +36,7 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 	synced := e.PollResourceInfo.Status == status.CurrentStatus
 
 	if e.PollResourceInfo.Status == status.UnknownStatus {
-		if ToStatus(e.Resource) != nil {
+		if ToStatus(ctx, k8sClient, e.Resource) != nil {
 			synced = true
 		}
 	}
@@ -42,12 +47,12 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 		Name:      e.Resource.GetName(),
 		Version:   version,
 		Synced:    synced,
-		State:     ToStatus(e.Resource),
+		State:     ToStatus(ctx, k8sClient, e.Resource),
 	}
 }
 
-func ToStatus(obj *unstructured.Unstructured) *console.ComponentState {
-	h, err := GetResourceHealth(obj)
+func ToStatus(ctx context.Context, k8sClient ctrclient.Client, obj *unstructured.Unstructured) *console.ComponentState {
+	h, err := GetResourceHealth(ctx, k8sClient, obj)
 	if err != nil {
 		klog.ErrorS(err, "failed to get resource health status", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	}
@@ -71,7 +76,7 @@ func ToStatus(obj *unstructured.Unstructured) *console.ComponentState {
 }
 
 // GetResourceHealth returns the health of a k8s resource
-func GetResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, err error) {
+func GetResourceHealth(ctx context.Context, k8sClient ctrclient.Client, obj *unstructured.Unstructured) (health *HealthStatus, err error) {
 	if obj.GetDeletionTimestamp() != nil {
 		return &HealthStatus{
 			Status:  HealthStatusProgressing,
@@ -87,6 +92,34 @@ func GetResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, er
 			}
 		}
 	}
+
+	if health == nil {
+		health = &HealthStatus{
+			Status: HealthStatusUnknown,
+		}
+	}
+
+	progressTime, err := GetLastProgressTimestamp(ctx, k8sClient, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	// remove entry if no longer progressing
+	if health.Status != HealthStatusProgressing {
+		// cleanup progress timestamp
+		annotations := obj.GetAnnotations()
+		delete(annotations, LastProgressTimeAnnotation)
+		obj.SetAnnotations(annotations)
+		return health, utils.TryToUpdate(ctx, k8sClient, obj)
+	}
+
+	// mark as failed if it exceeds a threshold
+	cutoffTime := metav1.NewTime(time.Now().Add(-15 * time.Minute))
+
+	if progressTime.Before(&cutoffTime) {
+		health.Status = HealthStatusDegraded
+	}
+
 	return health, err
 
 }
