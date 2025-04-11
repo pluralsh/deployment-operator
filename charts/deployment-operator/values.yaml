@@ -7,6 +7,20 @@ additionalVolumeMounts: ~
 
 replicaCount: 1
 
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+    initialDelaySeconds: 10
+    timeout: 3
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+    initialDelaySeconds: 10
+    timeout: 3
+
 args:
   processingTimeout: 5m
   enableHelmDependencyUpdate: false
