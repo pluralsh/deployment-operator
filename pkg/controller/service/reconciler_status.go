@@ -52,7 +52,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(
 		return err
 	}
 
-	components := statusCollector.componentsAttributes(ctx, s.k8sClient, vcache)
+	components := statusCollector.componentsAttributes(vcache)
 	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
 	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
@@ -152,7 +152,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 		return err
 	}
-	components := statusCollector.componentsAttributes(ctx, s.k8sClient, vcache)
+	components := statusCollector.componentsAttributes(vcache)
 	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}

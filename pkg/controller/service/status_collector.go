@@ -15,7 +15,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type serviceComponentsStatusCollector struct {
@@ -59,7 +58,7 @@ func (sc *serviceComponentsStatusCollector) refetch(resource *unstructured.Unstr
 	return response
 }
 
-func (sc *serviceComponentsStatusCollector) fromApplyResult(ctx context.Context, k8sClient ctrclient.Client, e event.ApplyEvent, vcache map[schema.GroupName]string) *console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, vcache map[schema.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
 	}
@@ -89,7 +88,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(ctx context.Context,
 		Name:      e.Resource.GetName(),
 		Version:   version,
 		Synced:    live == desired,
-		State:     common.ToStatus(ctx, k8sClient, e.Resource),
+		State:     common.ToStatus(e.Resource),
 		Content: &console.ComponentContentAttributes{
 			Desired: &desired,
 			Live:    &live,
@@ -97,12 +96,12 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(ctx context.Context,
 	}
 }
 
-func (sc *serviceComponentsStatusCollector) componentsAttributes(ctx context.Context, k8sClient ctrclient.Client, vcache map[schema.GroupName]string) []*console.ComponentAttributes {
+func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[schema.GroupName]string) []*console.ComponentAttributes {
 	components := make([]*console.ComponentAttributes, 0, len(sc.latestStatus))
 
 	if sc.DryRun {
 		for _, v := range sc.applyStatus {
-			if consoleAttr := sc.fromApplyResult(ctx, k8sClient, v, vcache); consoleAttr != nil {
+			if consoleAttr := sc.fromApplyResult(v, vcache); consoleAttr != nil {
 				components = append(components, consoleAttr)
 			}
 		}
@@ -110,7 +109,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(ctx context.Con
 	}
 
 	for _, v := range sc.latestStatus {
-		if attrs := common.StatusEventToComponentAttributes(ctx, k8sClient, v, vcache); attrs != nil {
+		if attrs := common.StatusEventToComponentAttributes(v, vcache); attrs != nil {
 			components = append(components, attrs)
 		}
 	}

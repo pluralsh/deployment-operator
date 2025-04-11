@@ -252,7 +252,7 @@ func waitForHealthStatus(ctx context.Context, c client.Client, obj *unstructured
 			}
 
 			// Check the status of the object
-			status := common.ToStatus(ctx, c, obj)
+			status := common.ToStatus(obj)
 			if status == nil {
 				return fmt.Errorf("status is nil")
 			}

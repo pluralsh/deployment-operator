@@ -54,7 +54,7 @@ func registerConsoleReconcilersOrDie(
 	consoleClient client.Client,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
-		r, err := service.NewServiceReconciler(k8sClient, consoleClient, config, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.RestoreNamespace(), args.ConsoleUrl())
+		r, err := service.NewServiceReconciler(consoleClient, config, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.RestoreNamespace(), args.ConsoleUrl())
 		return r, err
 	})
 
