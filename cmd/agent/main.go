@@ -70,7 +70,7 @@ func main() {
 
 	// Start resource cache in background if enabled.
 	if args.ResourceCacheEnabled() {
-		cache.Init(ctx, config, args.ResourceCacheTTL())
+		cache.Init(ctx, kubeManager.GetClient(), config, args.ResourceCacheTTL())
 	}
 
 	// Start the discovery cache in background.

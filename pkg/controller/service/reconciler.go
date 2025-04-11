@@ -7,23 +7,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/util/workqueue"
-	"k8s.io/kubectl/pkg/cmd/util"
-	"sigs.k8s.io/cli-utils/pkg/apply"
-	"sigs.k8s.io/cli-utils/pkg/common"
-	"sigs.k8s.io/cli-utils/pkg/inventory"
-	"sigs.k8s.io/cli-utils/pkg/object"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
@@ -38,6 +21,23 @@ import (
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
+	"github.com/pluralsh/polly/algorithms"
+	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/kubectl/pkg/cmd/util"
+	"sigs.k8s.io/cli-utils/pkg/apply"
+	"sigs.k8s.io/cli-utils/pkg/common"
+	"sigs.k8s.io/cli-utils/pkg/inventory"
+	"sigs.k8s.io/cli-utils/pkg/object"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -51,6 +51,7 @@ const (
 
 type ServiceReconciler struct {
 	consoleClient    client.Client
+	k8sClient        ctrclient.Client
 	clientset        *kubernetes.Clientset
 	applier          *applier.Applier
 	destroyer        *apply.Destroyer
@@ -63,7 +64,7 @@ type ServiceReconciler struct {
 	pinger           *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
+func NewServiceReconciler(k8sClient ctrclient.Client, consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -110,6 +111,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
+		k8sClient:        k8sClient,
 	}, nil
 }
 

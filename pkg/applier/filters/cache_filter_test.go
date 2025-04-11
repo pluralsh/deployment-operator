@@ -42,7 +42,7 @@ var _ = Describe("Test filters", func() {
 		}
 
 		It("check cache filter", func() {
-			cache.Init(context.Background(), cfg, 100*time.Second)
+			cache.Init(context.Background(), kClient, cfg, 100*time.Second)
 			cacheFilter := CacheFilter{}
 			res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
 			Expect(err).ToNot(HaveOccurred())
