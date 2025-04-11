@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -47,7 +48,8 @@ func init() {
 }
 
 const (
-	httpClientTimout = time.Second * 5
+	httpClientTimout        = time.Second * 5
+	managerCacheInitTimeout = time.Minute
 )
 
 func main() {
@@ -84,6 +86,7 @@ func main() {
 
 	// Start the standard kubernetes manager and block the main thread until context cancel.
 	runKubeManagerOrDie(ctx, kubeManager)
+
 }
 
 func initDiscoveryClientOrDie(config *rest.Config) *discovery.DiscoveryClient {
@@ -105,9 +108,17 @@ func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Ma
 }
 
 func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
-	setupLog.Info("starting kubernetes controller manager")
-	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "unable to start kubernetes controller manager")
+	go func() {
+		setupLog.Info("starting kubernetes controller manager")
+		if err := mgr.Start(ctx); err != nil {
+			setupLog.Error(err, "unable to start kubernetes controller manager")
+			os.Exit(1)
+		}
+	}()
+
+	syncCtx, _ := context.WithTimeout(ctx, managerCacheInitTimeout)
+	if !mgr.GetCache().WaitForCacheSync(syncCtx) {
+		setupLog.Error(fmt.Errorf("manager cache error"), "couldn't initialize cache within given time")
 		os.Exit(1)
 	}
 }
