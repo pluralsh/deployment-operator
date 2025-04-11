@@ -32,12 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-const (
-	serviceIDCacheExpiry         = 12 * time.Hour
-	managerCacheSyncAttemptLimit = 10
-)
+const serviceIDCacheExpiry = 12 * time.Hour
 
-func initKubeManagerOrDie(ctx context.Context, config *rest.Config) manager.Manager {
+func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Logger:                 setupLog,
 		Scheme:                 scheme,
@@ -54,7 +51,6 @@ func initKubeManagerOrDie(ctx context.Context, config *rest.Config) manager.Mana
 			},
 		},
 	})
-
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)

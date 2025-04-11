@@ -47,8 +47,7 @@ func init() {
 }
 
 const (
-	httpClientTimout        = time.Second * 5
-	managerCacheInitTimeout = time.Minute
+	httpClientTimout = time.Second * 5
 )
 
 func main() {
@@ -58,7 +57,7 @@ func main() {
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)
-	kubeManager := initKubeManagerOrDie(ctx, config)
+	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
 
 	// Initialize Pipeline Gate Cache
