@@ -143,7 +143,7 @@ func getRemainingItems(list []unstructured.Unstructured, cursor *corev1.ObjectRe
 	}
 
 	for i, obj := range list {
-		if obj.GetNamespace() == cursor.Namespace && obj.GetName() == cursor.Name {
+		if obj.GetNamespace() == cursor.Namespace && obj.GetName() == cursor.Name && obj.GetObjectKind().GroupVersionKind() == cursor.GroupVersionKind() {
 			// If it's the last item, return an empty list
 			if i+1 >= len(list) {
 				return []unstructured.Unstructured{}
