@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -213,7 +214,7 @@ func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, 
 	return nil
 }
 
-func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
+func postProcess(ctx context.Context, id string, k8sClient ctrclient.Client, mans []*unstructured.Unstructured) []*unstructured.Unstructured {
 	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
 		labels := man.GetLabels()
 		if labels == nil {
@@ -221,7 +222,16 @@ func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured
 		}
 		labels[agentcommon.ManagedByLabel] = agentcommon.AgentLabelValue
 		man.SetLabels(labels)
-		if man.GetKind() != "CustomResourceDefinition" {
+
+		if !object.IsCRD(man) {
+			if strings.Contains(man.GetName(), "_") {
+				inv := defaultInventoryObjTemplate(id)
+				if err := k8sClient.Get(ctx, ctrclient.ObjectKeyFromObject(inv), inv); err == nil {
+					inventory.InvInfoToConfigMap()
+				}
+			}
+			man.SetName(strings.ReplaceAll(man.GetName(), "_", "-"))
+
 			return man
 		}
 
@@ -231,6 +241,7 @@ func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured
 		}
 		annotations[common.LifecycleDeleteAnnotation] = common.PreventDeletion
 		man.SetAnnotations(annotations)
+
 		return man
 	})
 }
@@ -356,7 +367,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	if svc.DeletedAt != nil {
 		logger.V(2).Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := s.destroyer.Run(ctx, inventory.WrapInventoryInfoObj(s.defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
+		ch := s.destroyer.Run(ctx, inventory.WrapInventoryInfoObj(defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
 			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
 			DryRunStrategy:          common.DryRunNone,
 			DeleteTimeout:           20 * time.Second,
@@ -378,7 +389,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)
 		return
 	}
-	manifests = postProcess(manifests)
+
+	manifests = postProcess(ctx, id, s.k8sClient, manifests)
 	logger.V(4).Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
 	if err != nil {
@@ -467,7 +479,7 @@ func (s *ServiceReconciler) SplitObjects(id string, objs []*unstructured.Unstruc
 	}
 	switch len(invs) {
 	case 0:
-		return s.defaultInventoryObjTemplate(id), resources, nil
+		return defaultInventoryObjTemplate(id), resources, nil
 	case 1:
 		return invs[0], resources, nil
 	default:
@@ -475,7 +487,7 @@ func (s *ServiceReconciler) SplitObjects(id string, objs []*unstructured.Unstruc
 	}
 }
 
-func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) *unstructured.Unstructured {
+func defaultInventoryObjTemplate(id string) *unstructured.Unstructured {
 	name := "inventory-" + id
 	namespace := "plrl-deploy-operator"
 
