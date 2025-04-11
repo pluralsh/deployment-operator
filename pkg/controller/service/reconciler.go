@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 	"github.com/pluralsh/polly/algorithms"
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -214,36 +214,73 @@ func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, 
 	return nil
 }
 
-func postProcess(ctx context.Context, id string, k8sClient ctrclient.Client, mans []*unstructured.Unstructured) []*unstructured.Unstructured {
-	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
-		labels := man.GetLabels()
-		if labels == nil {
-			labels = map[string]string{}
+func validateInventory(ctx context.Context, id, name string, k8sClient ctrclient.Client) error {
+	inv := defaultInventoryObjTemplate(id)
+	if err := k8sClient.Get(ctx, ctrclient.ObjectKeyFromObject(inv), inv); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
 		}
-		labels[agentcommon.ManagedByLabel] = agentcommon.AgentLabelValue
-		man.SetLabels(labels)
+		return nil
+	}
+	objMap, exists, err := unstructured.NestedStringMap(inv.Object, "data")
+	if err != nil {
+		return err
+	}
+	if exists {
+		for objStr := range objMap {
+			if strings.Contains(objStr, name) {
+				delete(objMap, objStr)
+				objMap[strings.Replace(objStr, name, strings.ReplaceAll(name, "_", "-"), -1)] = ""
+			}
+		}
+	}
+	if err := unstructured.SetNestedStringMap(inv.Object, objMap, "data"); err != nil {
+		return err
+	}
+	if err := k8sClient.Update(ctx, inv); err != nil {
+		return err
+	}
 
-		if !object.IsCRD(man) {
-			if strings.Contains(man.GetName(), "_") {
-				inv := defaultInventoryObjTemplate(id)
-				if err := k8sClient.Get(ctx, ctrclient.ObjectKeyFromObject(inv), inv); err == nil {
-					inventory.InvInfoToConfigMap()
-				}
+	return nil
+}
+
+func processManifest(ctx context.Context, id string, k8sClient ctrclient.Client, man *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	labels := man.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[agentcommon.ManagedByLabel] = agentcommon.AgentLabelValue
+	man.SetLabels(labels)
+	if !object.IsCRD(man) {
+		if strings.Contains(man.GetName(), "_") {
+			if err := validateInventory(ctx, id, man.GetName(), k8sClient); err != nil {
+				return nil, err
 			}
 			man.SetName(strings.ReplaceAll(man.GetName(), "_", "-"))
-
-			return man
 		}
+		return man, nil
+	}
 
-		annotations := man.GetAnnotations()
-		if annotations == nil {
-			annotations = map[string]string{}
+	annotations := man.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[common.LifecycleDeleteAnnotation] = common.PreventDeletion
+	man.SetAnnotations(annotations)
+
+	return man, nil
+}
+
+func postProcess(ctx context.Context, id string, k8sClient ctrclient.Client, mans []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	result := make([]*unstructured.Unstructured, len(mans))
+	var err error
+	for i := range mans {
+		result[i], err = processManifest(ctx, id, k8sClient, mans[i])
+		if err != nil {
+			return nil, err
 		}
-		annotations[common.LifecycleDeleteAnnotation] = common.PreventDeletion
-		man.SetAnnotations(annotations)
-
-		return man
-	})
+	}
+	return result, nil
 }
 
 func (s *ServiceReconciler) WipeCache() {
@@ -390,7 +427,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	manifests = postProcess(ctx, id, s.k8sClient, manifests)
+	manifests, err = postProcess(ctx, id, s.k8sClient, manifests)
+	if err != nil {
+		logger.Error(err, "failed to post process manifests", "service", svc.Name)
+		return
+	}
 	logger.V(4).Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
 	if err != nil {
