@@ -11,6 +11,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -66,6 +67,9 @@ type ResourceCache struct {
 	// control the lifecycle of opened watches and is using RetryListWatcher
 	// instead of informers to minimize the memory footprint.
 	watcher kwatcher.StatusWatcher
+
+	// k8sClient is required for resource statuses.
+	k8sClient ctrclient.Client
 }
 
 var (
@@ -76,7 +80,7 @@ var (
 // Init must be executed early in [main] in order to ensure that the
 // [ResourceCache] will be initialized properly during the application
 // startup.
-func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
+func Init(ctx context.Context, k8sClient ctrclient.Client, config *rest.Config, ttl time.Duration) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		klog.Error(err, "unable to create dynamic client")
@@ -114,6 +118,7 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		cache:          NewCache[*ResourceCacheEntry](ctx, ttl),
 		resourceKeySet: containers.NewSet[ResourceKey](),
 		watcher:        w,
+		k8sClient:      k8sClient,
 	}
 
 	initialized = true
@@ -223,7 +228,7 @@ func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.Compon
 		return nil, err
 	}
 	in.saveResourceStatus(obj)
-	return common.StatusEventToComponentAttributes(*s, make(map[schema.GroupName]string)), nil
+	return common.StatusEventToComponentAttributes(in.ctx, in.k8sClient, *s, make(map[schema.GroupName]string)), nil
 }
 
 func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured) {
@@ -235,7 +240,7 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 
 	key := object.UnstructuredToObjMetadata(resource).String()
 	cacheEntry, _ := resourceCache.GetCacheEntry(key)
-	cacheEntry.SetStatus(*e)
+	cacheEntry.SetStatus(in.ctx, in.k8sClient, *e)
 	resourceCache.SetCacheEntry(key, cacheEntry)
 
 }
