@@ -7,6 +7,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
@@ -14,7 +15,6 @@ import (
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/polly/containers"
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -110,6 +110,22 @@ func Init(ctx context.Context, k8sClient ctrclient.Client, config *rest.Config, 
 		},
 		ID: "resource-cache",
 	})
+
+	//w := &kwatcher.DefaultStatusWatcher{
+	//	DynamicClient: dynamicClient,
+	//	Mapper:        mapper,
+	//	ResyncPeriod:  1 * time.Hour,
+	//	StatusReader:  statusreaders.NewDefaultStatusReader(mapper),
+	//	ClusterReader: &clusterreader.DynamicClusterReader{
+	//		DynamicClient: dynamicClient,
+	//		Mapper:        mapper,
+	//	},
+	//	Indexers: kwatcher.DefaultIndexers(),
+	//	Filters: &kwatcher.Filters{
+	//		Labels: common.ManagedByAgentLabelSelector(),
+	//		Fields: nil,
+	//	},
+	//}
 
 	resourceCache = &ResourceCache{
 		ctx:            ctx,
@@ -247,7 +263,7 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 
 func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
 	if in.resourceKeySet.Intersect(resourceKeySet).Len() == 0 {
-		klog.InfoS("resource keys not found in cache, stopping watch", "resourceKeys", resourceKeySet.List())
+		klog.V(1).InfoS("resource keys not found in cache, stopping watch", "resourceKeys", resourceKeySet.List())
 		return
 	}
 
