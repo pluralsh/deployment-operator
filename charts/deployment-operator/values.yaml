@@ -11,15 +11,21 @@ livenessProbe:
   httpGet:
     path: /healthz
     port: http
-    initialDelaySeconds: 10
-    timeout: 3
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
 
 readinessProbe:
   httpGet:
     path: /healthz
     port: http
-    initialDelaySeconds: 10
-    timeout: 3
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
 
 args:
   processingTimeout: 5m
