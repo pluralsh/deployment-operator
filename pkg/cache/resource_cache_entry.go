@@ -1,14 +1,12 @@
 package cache
 
 import (
-	"context"
-
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
-	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 type SHAType string
@@ -82,6 +80,6 @@ func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
 
 // SetStatus saves the last seen resource [event.StatusEvent] and converts it to a simpler
 // [console.ComponentAttributes] structure.
-func (in *ResourceCacheEntry) SetStatus(ctx context.Context, k8sClient ctrclient.Client, se event.StatusEvent) {
-	in.status = common.StatusEventToComponentAttributes(ctx, k8sClient, se, make(map[schema.GroupName]string))
+func (in *ResourceCacheEntry) SetStatus(se event.StatusEvent) {
+	in.status = common.StatusEventToComponentAttributes(se, make(map[schema.GroupName]string))
 }

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
+
 	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -138,7 +140,7 @@ func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk
 			return err
 		}
 		for _, item := range items {
-			health, err := common.GetResourceHealth(ctx, k8sClient, &item)
+			health, err := getResourceHealthStatus(ctx, k8sClient, &item)
 			if err != nil {
 				return err
 			}
@@ -152,6 +154,36 @@ func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk
 		}
 	}
 	return nil
+}
+
+func getResourceHealthStatus(ctx context.Context, k8sClient ctrclient.Client, obj *unstructured.Unstructured) (*common.HealthStatus, error) {
+	health, err := common.GetResourceHealth(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	progressTime, err := common.GetLastProgressTimestamp(ctx, k8sClient, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	// remove entry if no longer progressing
+	if health.Status != common.HealthStatusProgressing {
+		// cleanup progress timestamp
+		annotations := obj.GetAnnotations()
+		delete(annotations, common.LastProgressTimeAnnotation)
+		obj.SetAnnotations(annotations)
+		return health, utils.TryToUpdate(ctx, k8sClient, obj)
+	}
+
+	// mark as failed if it exceeds a threshold
+	cutoffTime := metav1.NewTime(time.Now().Add(-30 * time.Minute))
+
+	if progressTime.Before(&cutoffTime) {
+		health.Status = common.HealthStatusDegraded
+	}
+
+	return health, nil
 }
 
 func listResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind) *algorithms.Pager[unstructured.Unstructured] {
