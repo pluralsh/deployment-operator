@@ -129,9 +129,9 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	if !kubecost.DeletionTimestamp.IsZero() {
-		if cancel, exists := r.Tasks.Get(req.NamespacedName.String()); exists {
+		if cancel, exists := r.Tasks.Get(req.String()); exists {
 			cancel()
-			r.Tasks.Remove(req.NamespacedName.String())
+			r.Tasks.Remove(req.String())
 		}
 	}
 
@@ -165,7 +165,7 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	r.RunOnInterval(ctx, req.NamespacedName.String(), kubecost.Spec.GetInterval(), func(ctx context.Context) (done bool, err error) {
+	r.RunOnInterval(ctx, req.String(), kubecost.Spec.GetInterval(), func(ctx context.Context) (done bool, err error) {
 		time.Sleep(time.Duration(rand.Int63n(int64(kubeCostJitter))))
 		// Always patch object when exiting this function, so we can persist any object changes.
 		defer func() {

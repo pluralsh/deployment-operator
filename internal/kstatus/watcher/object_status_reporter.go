@@ -443,7 +443,7 @@ func (in *ObjectStatusReporter) startInformerNow(
 	err = in.funnel.AddInputChannel(eventCh)
 	if err != nil {
 		defer cleanup()
-		return fmt.Errorf("informer failed to build event handler: %w\n", err)
+		return fmt.Errorf("informer failed to build event handler: %w", err)
 	}
 
 	// Start the informer in the background.

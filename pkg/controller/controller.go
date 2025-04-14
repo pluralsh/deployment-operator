@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -156,7 +155,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 }
 
 func (c *Controller) reconcileHandler(ctx context.Context, id string) {
-	log := log.FromContext(ctx)
+	log := logf.FromContext(ctx)
 	reconcileID := uuid.NewUUID()
 	ctx = addReconcileID(ctx, reconcileID)
 

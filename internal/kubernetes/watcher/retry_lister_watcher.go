@@ -131,28 +131,6 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 	return in, nil
 }
 
-func (in *RetryListerWatcher) listAndWatch() error {
-	list, err := in.listerWatcher.List(in.listOptions)
-	if err != nil {
-		return fmt.Errorf("error listing resources: %w", err)
-	}
-
-	listMetaInterface, err := meta.ListAccessor(list)
-	if err != nil {
-		return fmt.Errorf("unable to understand list result %#v: %w", list, err)
-	}
-
-	resourceVersion := listMetaInterface.GetResourceVersion()
-	items, err := meta.ExtractList(list)
-	if err != nil {
-		return fmt.Errorf("unable to understand list result %#v (%w)", list, err)
-	}
-
-	go in.watch(resourceVersion, in.toEvents(items...)...)
-
-	return nil
-}
-
 // Starts the [watch.RetryWatcher] and funnels all events to our wrapper.
 func (in *RetryListerWatcher) watch(resourceVersion string, initialItems ...apiwatch.Event) {
 	defer close(in.resultChan)

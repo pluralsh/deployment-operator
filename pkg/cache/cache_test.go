@@ -56,13 +56,11 @@ var _ = Describe("Resource cache", Ordered, func() {
 			cachedResource, ok := cache.Get(key)
 			Expect(ok).To(BeTrue())
 			Expect(cachedResource).To(Equal(rce))
-			// should expire and clean applySHA and manifestSHA
-			time.Sleep(1 * time.Second)
+			// should expire and remove entry
+			time.Sleep(2 * time.Second)
 			cachedResource, ok = cache.Get(key)
-			Expect(ok).To(BeTrue())
-			Expect(cachedResource.applySHA).Should(BeNil())
-			Expect(cachedResource.manifestSHA).Should(BeNil())
-			Expect(cachedResource.serverSHA).ShouldNot(BeNil())
+			Expect(ok).To(BeFalse(), "cache should expire")
+			Expect(cachedResource).Should(BeNil(), "cache entry should be nil")
 		})
 
 	})

@@ -34,7 +34,6 @@ import (
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
@@ -56,7 +55,7 @@ type ServiceReconciler struct {
 	destroyer        *apply.Destroyer
 	svcQueue         workqueue.TypedRateLimitingInterface[string]
 	svcCache         *client.Cache[console.ServiceDeploymentForAgent]
-	manifestCache    *manifests.ManifestCache
+	manifestCache    *manis.ManifestCache
 	utilFactory      util.Factory
 	restoreNamespace string
 	mapper           meta.RESTMapper
@@ -103,7 +102,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		) {
 			return consoleClient.GetService(id)
 		}),
-		manifestCache:    manifests.NewCache(manifestTTL, deployToken, consoleURL),
+		manifestCache:    manis.NewCache(manifestTTL, deployToken, consoleURL),
 		utilFactory:      f,
 		applier:          a,
 		destroyer:        d,

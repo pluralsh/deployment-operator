@@ -43,6 +43,7 @@ func (c *Cache[T]) Get(key string) (T, bool) {
 
 	if !data.alive(c.ttl) {
 		c.Expire(key)
+		return lo.Empty[T](), false
 	}
 
 	return data.resource, true

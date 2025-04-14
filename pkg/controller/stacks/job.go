@@ -154,8 +154,8 @@ func (r *StackReconciler) GenerateRunJob(run *console.StackRunMinimalFragment, j
 	}
 
 	// Set requirements like name, namespace, container and volume.
-	jobSpec.Template.ObjectMeta.Name = name
-	jobSpec.Template.ObjectMeta.Namespace = namespace
+	jobSpec.Template.Name = name
+	jobSpec.Template.Namespace = namespace
 
 	if jobSpec.Template.Annotations == nil {
 		jobSpec.Template.Annotations = map[string]string{}

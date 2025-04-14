@@ -119,11 +119,11 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 			},
 		}
 		// Add the gatename annotation
-		if jobSpec.Template.ObjectMeta.Annotations == nil {
-			jobSpec.Template.ObjectMeta.Annotations = make(map[string]string)
+		if jobSpec.Template.Annotations == nil {
+			jobSpec.Template.Annotations = make(map[string]string)
 		}
 		gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
-		jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
+		jobSpec.Template.Annotations[gateNameAnnotationKey] = gateName
 	}
 	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(twentyFourHours)
 
