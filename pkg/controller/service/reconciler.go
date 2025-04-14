@@ -231,7 +231,7 @@ func validateInventory(ctx context.Context, id, name string, k8sClient ctrclient
 		for objStr := range objMap {
 			if strings.Contains(objStr, name) {
 				delete(objMap, objStr)
-				objMap[strings.Replace(objStr, name, strings.ReplaceAll(name, "_", "-"), -1)] = ""
+				objMap[strings.ReplaceAll(objStr, name, strings.ReplaceAll(name, "_", "-"))] = ""
 			}
 		}
 	}
