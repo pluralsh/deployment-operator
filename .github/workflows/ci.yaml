@@ -9,6 +9,7 @@ on:
 env:
   GOPATH: /home/runner/go/
   GOPROXY: "https://proxy.golang.org"
+  REGISTRY_IMAGE: pluralsh/deployment-operator
 jobs:
   build:
     name: Build
@@ -43,7 +44,7 @@ jobs:
         with:
           version: v1.63.4
   publish:
-    name: Build and push Agent container
+    name: Build image
 #    needs:
 #      - test
     permissions:
@@ -72,7 +73,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: pluralsh/deployment-operator
+          images: ${{ env.REGISTRY_IMAGE }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -94,7 +95,7 @@ jobs:
         with:
           context: "."
           file: "./Dockerfile"
-          tags: pluralsh/deployment-operator
+          tags: ${{ env.REGISTRY_IMAGE }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ matrix.platforms.platform }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
@@ -150,7 +151,7 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ matrix.images }}@sha256:%s ' *)
+            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ matrix.images }}:${{ steps.meta.outputs.version }}
