@@ -19,17 +19,8 @@ type Controller interface {
 type stackRunController struct {
 	sync.Mutex
 
-	// errChan
-	errChan chan error
-
-	// finishedChan
-	finishedChan chan struct{}
-
 	// executor
 	executor *executor
-
-	// stackRunID
-	stackRunID string
 
 	// stackRun
 	stackRun *stackrunv1.StackRun
@@ -37,14 +28,8 @@ type stackRunController struct {
 	// consoleClient
 	consoleClient console.Client
 
-	// consoleToken
-	consoleToken string
-
 	// fetchClient
 	fetchClient helpers.FetchClient
-
-	// dir
-	dir string
 
 	// execOptions
 	execOptions []exec.Option
@@ -56,12 +41,25 @@ type stackRunController struct {
 
 	// tool handles one of the supported infrastructure management tools.
 	// List of supported tools is based on the gqlclient.StackType.
-	// It is mainly responsible for:
-	// - gathering state
 	tool toolv1.Tool
+
+	// stackRunID
+	stackRunID string
+
+	// consoleToken
+	consoleToken string
+
+	// dir
+	dir string
 
 	// wg
 	wg sync.WaitGroup
+
+	// errChan
+	errChan chan error
+
+	// finishedChan
+	finishedChan chan struct{}
 
 	// stopChan
 	stopChan chan struct{}

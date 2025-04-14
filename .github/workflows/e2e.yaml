@@ -16,7 +16,7 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: Create kind cluster
-        uses: helm/kind-action@v1.10.0
+        uses: helm/kind-action@v1.12.0
       - run: kind get clusters
       - run: go test -v -race ./pkg/cache/... -tags="e2e"
       - run: go test -v -race ./pkg/applier/filters/... -tags="e2e"

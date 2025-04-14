@@ -14,9 +14,9 @@ import (
 var _ = Describe("Kustomize template", func() {
 
 	dir := filepath.Join("..", "..", "..", "test", "kustomize", "overlays")
-	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
+	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
-		Kustomize: &console.GetServiceDeploymentForAgent_ServiceDeployment_Kustomize{
+		Kustomize: &console.ServiceDeploymentForAgent_Kustomize{
 			Path: "",
 		},
 	}
@@ -48,22 +48,22 @@ var _ = Describe("Kustomize liquid template", func() {
 	AfterEach(func() {
 		Expect(os.Remove(filepath.Join(dir, "dev", "kustomization.yaml"))).To(Succeed())
 	})
-	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
+	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
-		Kustomize: &console.GetServiceDeploymentForAgent_ServiceDeployment_Kustomize{
+		Kustomize: &console.ServiceDeploymentForAgent_Kustomize{
 			Path: "",
 		},
 	}
 	Context("Render kustomize liquid template", func() {
 		It("should successfully render the liquid template", func() {
 			svc.Kustomize.Path = "dev"
-			svc.Configuration = []*console.GetServiceDeploymentForAgent_ServiceDeployment_Configuration{
+			svc.Configuration = []*console.ServiceDeploymentForAgent_Configuration{
 				{
 					Name:  "name",
 					Value: name,
 				},
 			}
-			svc.Cluster = &console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster{
+			svc.Cluster = &console.ServiceDeploymentForAgent_Cluster{
 				ID:   "123",
 				Name: "test",
 			}

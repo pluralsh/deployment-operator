@@ -15,10 +15,10 @@ import (
 )
 
 var _ = Describe("Helm template", func() {
-	svc := &console.GetServiceDeploymentForAgent_ServiceDeployment{
+	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
 		Name:      "test",
-		Cluster: &console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster{
+		Cluster: &console.ServiceDeploymentForAgent_Cluster{
 			ID:   "123",
 			Name: "test",
 		},
@@ -68,7 +68,7 @@ var _ = Describe("Helm template", func() {
 			Expect(len(resp)).To(Equal(1))
 
 			// Ignore hooks
-			svc.Helm = &console.GetServiceDeploymentForAgent_ServiceDeployment_Helm{
+			svc.Helm = &console.ServiceDeploymentForAgent_Helm{
 				IgnoreHooks: lo.ToPtr(true),
 			}
 			resp, err = NewHelm(dir).Render(svc, utilFactory)

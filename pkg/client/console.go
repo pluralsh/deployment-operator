@@ -11,6 +11,12 @@ import (
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
+type NamespaceVersion struct {
+	Namespace string
+	Version   string
+	PartOf    string
+}
+
 type client struct {
 	ctx           context.Context
 	consoleClient console.ConsoleClient
@@ -37,7 +43,7 @@ type Client interface {
 	GetCredentials() (url, token string)
 	PingCluster(attributes console.ClusterPing) error
 	Ping(vsn string) error
-	RegisterRuntimeServices(svcs map[string]string, serviceId *string) error
+	RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serviceId *string, serviceMesh *console.ServiceMesh) error
 	UpsertVirtualCluster(parentID string, attributes console.ClusterAttributes) (*console.GetClusterWithToken_Cluster, error)
 	IsClusterExists(id string) (bool, error)
 	GetCluster(id string) (*console.TinyClusterFragment, error)
@@ -47,8 +53,8 @@ type Client interface {
 	UpdateClusterRestore(id string, attrs console.RestoreAttributes) (*console.ClusterRestoreFragment, error)
 	SaveClusterBackup(attrs console.BackupAttributes) (*console.ClusterBackupFragment, error)
 	GetClusterBackup(clusterID, namespace, name string) (*console.ClusterBackupFragment, error)
-	GetServices(after *string, first *int64) (*console.PagedClusterServiceIds, error)
-	GetService(id string) (*console.GetServiceDeploymentForAgent_ServiceDeployment, error)
+	GetServices(after *string, first *int64) (*console.PagedClusterServicesForAgent, error)
+	GetService(id string) (*console.ServiceDeploymentForAgent, error)
 	GetServiceDeploymentComponents(id string) (*console.GetServiceDeploymentComponents_ServiceDeployment, error)
 	UpdateComponents(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
 	AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error
@@ -66,10 +72,10 @@ type Client interface {
 	CompleteStackRun(id string, attributes console.StackRunAttributes) error
 	UpdateStackRun(id string, attributes console.StackRunAttributes) error
 	UpdateStackRunStep(id string, attributes console.RunStepAttributes) error
-	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterStackIds_ClusterStackRuns, error)
+	ListClusterStackRuns(after *string, first *int64) (*console.ListClusterMinimalStacks_ClusterStackRuns, error)
 	GetUser(email string) (*console.UserFragment, error)
 	GetGroup(name string) (*console.GroupFragment, error)
-	SaveUpgradeInsights(attributes []*console.UpgradeInsightAttributes) (*console.SaveUpgradeInsights, error)
+	SaveUpgradeInsights(attributes []*console.UpgradeInsightAttributes, addons []*console.CloudAddonAttributes) (*console.SaveUpgradeInsights, error)
 	UpsertVulnerabilityReports(vulnerabilities []*console.VulnerabilityReportAttributes) (*console.UpsertVulnerabilities, error)
 	IngestClusterCost(attr console.CostIngestAttributes) (*console.IngestClusterCost, error)
 }

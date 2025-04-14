@@ -73,7 +73,7 @@ type helm struct {
 	dir string
 }
 
-func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	// TODO: add some configured values file convention, perhaps using our lua templating from plural-cli
 	values, err := h.values(svc)
 	if err != nil {
@@ -100,7 +100,12 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 		release = *svc.Helm.Release
 	}
 
-	rel, err := h.templateHelm(config, release, svc.Namespace, values)
+	includeCRDs := true
+	if svc.Helm != nil && svc.Helm.IgnoreCrds != nil {
+		includeCRDs = !*svc.Helm.IgnoreCrds
+	}
+
+	rel, err := h.templateHelm(config, release, svc.Namespace, values, includeCRDs)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +170,7 @@ func (h *helm) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 	return manifests, nil
 }
 
-func (h *helm) values(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) (map[string]interface{}, error) {
+func (h *helm) values(svc *console.ServiceDeploymentForAgent) (map[string]interface{}, error) {
 	currentMap, err := h.valuesFile(svc, "values.yaml.liquid")
 	if err != nil {
 		return currentMap, err
@@ -188,7 +193,7 @@ func (h *helm) values(svc *console.GetServiceDeploymentForAgent_ServiceDeploymen
 	return algorithms.Merge(currentMap, overrides), nil
 }
 
-func (h *helm) valuesFile(svc *console.GetServiceDeploymentForAgent_ServiceDeployment, filename string) (map[string]interface{}, error) {
+func (h *helm) valuesFile(svc *console.ServiceDeploymentForAgent, filename string) (map[string]interface{}, error) {
 	filename = filepath.Join(h.dir, filename)
 	currentMap := map[string]interface{}{}
 	if fs.Exists(filename) {
@@ -217,7 +222,7 @@ func (h *helm) valuesFile(svc *console.GetServiceDeploymentForAgent_ServiceDeplo
 	return currentMap, nil
 }
 
-func (h *helm) templateHelm(conf *action.Configuration, release, namespace string, values map[string]interface{}) (*release.Release, error) {
+func (h *helm) templateHelm(conf *action.Configuration, release, namespace string, values map[string]any, includeCRDs bool) (*release.Release, error) {
 	// load chart from the path
 	chart, err := loader.Load(h.dir)
 	if err != nil {
@@ -233,7 +238,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 	client.Replace = true // Skip the name check
 	client.ClientOnly = true
 	client.Namespace = namespace
-	client.IncludeCRDs = true
+	client.IncludeCRDs = includeCRDs
 	client.IsUpgrade = true
 	vsn, err := kubeVersion(conf)
 	if err != nil {

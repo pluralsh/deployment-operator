@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	cmap "github.com/orcaman/concurrent-map/v2"
 	phx "github.com/pluralsh/gophoenix"
 	"k8s.io/klog/v2/textlogger"
 )
@@ -20,14 +21,14 @@ type Publisher interface {
 type Socket struct {
 	clusterId  string
 	client     *phx.Client
-	publishers map[string]Publisher
+	publishers cmap.ConcurrentMap[string, Publisher]
 	channel    *phx.Channel
 	connected  bool
 	joined     bool
 }
 
 func New(clusterId, consoleUrl, deployToken string) (*Socket, error) {
-	socket := &Socket{clusterId: clusterId, publishers: make(map[string]Publisher)}
+	socket := &Socket{clusterId: clusterId, publishers: cmap.New[Publisher]()}
 	client := phx.NewClient(socket)
 
 	uri, err := wssUri(consoleUrl, deployToken)
@@ -46,8 +47,8 @@ func (s *Socket) AddPublisher(event string, publisher Publisher) {
 		return
 	}
 
-	if _, ok := s.publishers[event]; !ok {
-		s.publishers[event] = publisher
+	if !s.publishers.Has(event) {
+		s.publishers.Set(event, publisher)
 	} else {
 		log.V(1).Info("publisher for this event type is already registered", "event", event)
 	}
@@ -112,7 +113,7 @@ func (s *Socket) OnChannelClose(payload interface{}, joinRef int64) {
 }
 
 func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
-	if publisher, ok := s.publishers[event]; ok {
+	if publisher, ok := s.publishers.Get(event); ok {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
 				log.V(1).Info("got new update from websocket", "id", id)

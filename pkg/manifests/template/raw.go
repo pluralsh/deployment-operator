@@ -27,7 +27,7 @@ func NewRaw(dir string) *raw {
 	return &raw{dir}
 }
 
-func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]byte, error) {
+func renderLiquid(input []byte, svc *console.ServiceDeploymentForAgent) ([]byte, error) {
 	bindings := map[string]interface{}{
 		"configuration": configMap(svc),
 		"cluster":       clusterConfiguration(svc.Cluster),
@@ -37,7 +37,7 @@ func renderLiquid(input []byte, svc *console.GetServiceDeploymentForAgent_Servic
 	return template.RenderLiquid(input, bindings)
 }
 
-func (r *raw) Render(svc *console.GetServiceDeploymentForAgent_ServiceDeployment, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
 	res := make([]*unstructured.Unstructured, 0)
 	mapper, err := utilFactory.ToRESTMapper()
 	if err != nil {

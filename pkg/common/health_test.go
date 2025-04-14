@@ -49,12 +49,13 @@ var _ = Describe("Health Test", Ordered, func() {
 			}))
 		})
 
-		It("should get healthy status from CRD with condition block", func() {
+		It("should get progressing status from CRD with condition block", func() {
 			customResource.Status = deploymentsv1alpha1.MetricsAggregateStatus{
 				Conditions: []metav1.Condition{
 					{
-						Type:   "Ready",
-						Status: "False",
+						Type:               "Ready",
+						Status:             "False",
+						LastTransitionTime: metav1.Now(),
 					},
 				},
 			}
@@ -65,6 +66,29 @@ var _ = Describe("Health Test", Ordered, func() {
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
 				Status: common.HealthStatusProgressing,
+			}))
+		})
+
+		It("should get degraded status from CRD with condition block", func() {
+			sixMinutesAgo := metav1.NewTime(time.Now().Add(-6 * time.Minute))
+			customResource.Status = deploymentsv1alpha1.MetricsAggregateStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:               "Ready",
+						Status:             "False",
+						LastTransitionTime: sixMinutesAgo,
+					},
+				},
+			}
+			obj, err := common.ToUnstructured(customResource)
+			obj.SetAPIVersion("deployments.plural.sh/v1alpha1")
+			obj.SetKind("MetricsAggregate")
+			Expect(err).NotTo(HaveOccurred())
+			status, err := common.GetResourceHealth(obj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(status).To(Not(BeNil()))
+			Expect(*status).To(Equal(common.HealthStatus{
+				Status: common.HealthStatusDegraded,
 			}))
 		})
 

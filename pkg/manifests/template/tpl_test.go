@@ -11,7 +11,7 @@ import (
 )
 
 var _ = Describe(".tpl Template Rendering", func() {
-	var svc *console.GetServiceDeploymentForAgent_ServiceDeployment
+	var svc *console.ServiceDeploymentForAgent
 
 	BeforeEach(func() {
 		// Setup the mock service deployment each time
@@ -52,15 +52,15 @@ var _ = Describe(".tpl Template Rendering", func() {
 	})
 })
 
-func mockServiceDeployment() *console.GetServiceDeploymentForAgent_ServiceDeployment {
-	return &console.GetServiceDeploymentForAgent_ServiceDeployment{
+func mockServiceDeployment() *console.ServiceDeploymentForAgent {
+	return &console.ServiceDeploymentForAgent{
 		Namespace: "default",
 		Name:      "test-service",
-		Cluster: &console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster{
+		Cluster: &console.ServiceDeploymentForAgent_Cluster{
 			ID:   "123",
 			Name: "test-cluster",
 		},
-		Configuration: []*console.GetServiceDeploymentForAgent_ServiceDeployment_Configuration{
+		Configuration: []*console.ServiceDeploymentForAgent_Configuration{
 			{Name: "name", Value: "test-config"},
 			{Name: "version", Value: "v1"},
 		},

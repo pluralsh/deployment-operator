@@ -2,6 +2,7 @@ package manifests
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -40,7 +41,7 @@ func NewCache(expiry time.Duration, token, consoleURL string) *ManifestCache {
 	}
 }
 
-func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) ([]*unstructured.Unstructured, error) {
+func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDeploymentForAgent) ([]*unstructured.Unstructured, error) {
 	sha, err := fetchSha(c.consoleURL, c.token, svc.ID)
 	if line, ok := c.cache.Get(svc.ID); ok {
 		if err == nil && line.live(c.expiry) && line.sha == sha {
@@ -53,8 +54,14 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.GetServiceD
 		return nil, fmt.Errorf("could not fetch tarball url for service")
 	}
 
-	log.V(1).Info("fetching tarball", "url", *svc.Tarball)
-	dir, err := fetch(*svc.Tarball, c.token)
+	log.V(1).Info("fetching tarball", "url", *svc.Tarball, "sha", sha)
+
+	tarballURL, err := buildTarballURL(*svc.Tarball, sha)
+	if err != nil {
+		return nil, err
+	}
+
+	dir, err := fetch(tarballURL.String(), c.token)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +69,21 @@ func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.GetServiceD
 
 	c.cache.Set(svc.ID, &cacheLine{dir: dir, sha: sha, created: time.Now()})
 	return template.Render(dir, svc, utilFactory)
+}
+
+func buildTarballURL(tarball, sha string) (*url.URL, error) {
+	u, err := url.Parse(tarball)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tarball URL: %w", err)
+	}
+
+	if sha != "" {
+		q := u.Query()
+		q.Set("digest", sha)
+		u.RawQuery = q.Encode()
+	}
+
+	return u, nil
 }
 
 func (c *ManifestCache) Wipe() {
@@ -72,6 +94,10 @@ func (c *ManifestCache) Wipe() {
 }
 
 func (c *ManifestCache) Expire(id string) {
+	// cleanup manifests dir
+	if line, ok := c.cache.Get(id); ok {
+		line.wipe()
+	}
 	c.cache.Remove(id)
 }
 

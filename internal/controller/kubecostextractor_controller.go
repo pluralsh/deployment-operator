@@ -30,18 +30,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pluralsh/polly/algorithms"
-
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	"github.com/opencost/opencost/core/pkg/opencost"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,9 +50,41 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const kubeCostJitter = time.Minute * 5
+
+type ServiceIDCache struct {
+	items      cmap.ConcurrentMap[K8sObjectIdentifier, string]
+	clearAfter time.Duration
+}
+
+// NewServiceIDCache self-cleaning cache
+func NewServiceIDCache(clearAfter time.Duration) *ServiceIDCache {
+	cache := &ServiceIDCache{
+		items:      cmap.NewStringer[K8sObjectIdentifier, string](),
+		clearAfter: clearAfter,
+	}
+
+	// Start the auto-cleaning goroutine
+	go cache.startCleanup()
+	return cache
+}
+
+func (c *ServiceIDCache) Set(key K8sObjectIdentifier, value string) {
+	c.items.Set(key, value)
+}
+func (c *ServiceIDCache) Get(key K8sObjectIdentifier) (string, bool) {
+	return c.items.Get(key)
+}
+
+func (c *ServiceIDCache) startCleanup() {
+	for {
+		time.Sleep(c.clearAfter)
+		c.items.Clear()
+	}
+}
 
 var kubecostResourceTypes = []string{"deployment", "statefulset", "daemonset"}
 
@@ -65,6 +95,7 @@ type KubecostExtractorReconciler struct {
 	KubeClient       kubernetes.Interface
 	ExtConsoleClient consoleclient.Client
 	Tasks            cmap.ConcurrentMap[string, context.CancelFunc]
+	ServiceIDCache   *ServiceIDCache
 	Proxy            bool
 }
 
@@ -403,7 +434,7 @@ func (r *KubecostExtractorReconciler) getClusterID(ctx context.Context, srv *cor
 	return resp.Data.ClusterID, nil
 }
 
-func (r *KubecostExtractorReconciler) getObjectInfo(ctx context.Context, resourceType console.ScalingRecommendationType, namespace, name string) (container, serviceId *string, err error) {
+func (r *KubecostExtractorReconciler) getObjectInfo(ctx context.Context, resourceType console.ScalingRecommendationType, namespace, name string) (container, serviceId *string, resourceRequest *ResourceRequests, err error) {
 	gvk := schema.GroupVersionKind{
 		Group:   "apps",
 		Version: "v1",
@@ -416,19 +447,114 @@ func (r *KubecostExtractorReconciler) getObjectInfo(ctx context.Context, resourc
 	case console.ScalingRecommendationTypeStatefulset:
 		gvk.Kind = "StatefulSet"
 	default:
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(gvk)
 	if err = r.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, obj); err != nil {
 		return
 	}
-	svcId, ok := obj.GetAnnotations()[inventory.OwningInventoryKey]
-	if ok {
-		serviceId = lo.ToPtr(svcId)
+	serviceId, err = r.getServiceID(ctx, obj)
+	if err != nil {
+		return
+	}
+
+	containersResourceRequest := ExtractResourceRequests(obj)
+	if len(containersResourceRequest) > 0 {
+		// get resource requests from the first container
+		resourceRequests := algorithms.MapValues(containersResourceRequest)
+		resourceRequest = resourceRequests[0]
 	}
 
 	return
+}
+
+func (r *KubecostExtractorReconciler) getServiceID(ctx context.Context, obj *unstructured.Unstructured) (*string, error) {
+	k8sObjectIdentifier := K8sObjectIdentifier{
+		GVK:       obj.GroupVersionKind(),
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+	id, ok := r.ServiceIDCache.Get(k8sObjectIdentifier)
+	if ok {
+		return lo.ToPtr(id), nil
+	}
+
+	svcId, ok := obj.GetAnnotations()[inventory.OwningInventoryKey]
+	if ok {
+		r.ServiceIDCache.Set(k8sObjectIdentifier, svcId)
+		return lo.ToPtr(svcId), nil
+	}
+	if len(obj.GetOwnerReferences()) > 0 {
+		refObj, err := GetObjectFromOwnerReference(ctx, r.Client, obj.GetOwnerReferences()[0], obj.GetNamespace())
+		if err != nil {
+			return nil, err
+		}
+		svcId, ok := refObj.GetAnnotations()[inventory.OwningInventoryKey]
+		if ok {
+			r.ServiceIDCache.Set(k8sObjectIdentifier, svcId)
+			return lo.ToPtr(svcId), nil
+		}
+	}
+	return nil, nil
+}
+
+type ResourceRequests struct {
+	CPU    float64
+	Memory float64
+}
+
+// ExtractResourceRequests fetches CPU and memory requests from an Unstructured Kubernetes workload object.
+func ExtractResourceRequests(obj *unstructured.Unstructured) map[string]*ResourceRequests {
+	// Extract the spec.template.spec.containers field
+	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+	if err != nil || !found {
+		return nil
+	}
+
+	containersResourceRequests := make(map[string]*ResourceRequests)
+
+	// Iterate over containers
+	for _, container := range containers {
+		containerMap, ok := container.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		name, found, _ := unstructured.NestedString(containerMap, "name")
+		if !found {
+			continue
+		}
+
+		requests, found, _ := unstructured.NestedMap(containerMap, "resources", "requests")
+		if !found {
+			continue
+		}
+
+		cpuFloat := float64(0)
+		memoryFloat := float64(0)
+		cpu, ok := requests["cpu"].(string)
+		if ok {
+			cpuQuantity, err := resource.ParseQuantity(cpu)
+			if err == nil {
+				cpuFloat = cpuQuantity.AsApproximateFloat64()
+			}
+		}
+		memory, ok := requests["memory"].(string)
+		if ok {
+			memoryQuantity, err := resource.ParseQuantity(memory)
+			if err == nil {
+				memoryFloat = memoryQuantity.AsApproximateFloat64()
+			}
+		}
+
+		containersResourceRequests[name] = &ResourceRequests{
+			CPU:    cpuFloat,
+			Memory: memoryFloat,
+		}
+	}
+
+	return containersResourceRequests
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -452,15 +578,13 @@ type clusterinfoResponse struct {
 func (r *KubecostExtractorReconciler) convertClusterRecommendationAttributes(ctx context.Context, allocation opencost.Allocation, name, resourceType string) *console.ClusterRecommendationAttributes {
 	resourceTypeEnum := console.ScalingRecommendationType(strings.ToUpper(resourceType))
 	result := &console.ClusterRecommendationAttributes{
-		Type:          lo.ToPtr(resourceTypeEnum),
-		Name:          lo.ToPtr(name),
-		MemoryRequest: lo.ToPtr(allocation.RAMBytesRequestAverage),
-		CPURequest:    lo.ToPtr(allocation.CPUCoreRequestAverage),
-		CPUCost:       lo.ToPtr(allocation.CPUCost),
-		MemoryCost:    lo.ToPtr(allocation.RAMCost),
-		GpuCost:       lo.ToPtr(allocation.GPUCost),
-		CPUUtil:       lo.ToPtr(allocation.CPUCoreUsageAverage),
-		MemoryUtil:    lo.ToPtr(allocation.RAMBytesUsageAverage),
+		Type:       lo.ToPtr(resourceTypeEnum),
+		Name:       lo.ToPtr(name),
+		CPUCost:    lo.ToPtr(allocation.CPUCost),
+		MemoryCost: lo.ToPtr(allocation.RAMCost),
+		GpuCost:    lo.ToPtr(allocation.GPUCost),
+		CPUUtil:    lo.ToPtr(allocation.CPUCoreUsageAverage),
+		MemoryUtil: lo.ToPtr(allocation.RAMBytesUsageAverage),
 	}
 	if allocation.Properties != nil {
 		namespace, ok := allocation.Properties.NamespaceLabels["kubernetes_io_metadata_name"]
@@ -476,13 +600,16 @@ func (r *KubecostExtractorReconciler) convertClusterRecommendationAttributes(ctx
 		namespace = *result.Namespace
 	}
 
-	container, serviceID, err := r.getObjectInfo(ctx, resourceTypeEnum, namespace, name)
+	container, serviceID, resourceRequest, err := r.getObjectInfo(ctx, resourceTypeEnum, namespace, name)
 	if err != nil {
 		return result
 	}
 	result.Container = container
 	result.ServiceID = serviceID
-
+	if resourceRequest != nil {
+		result.CPURequest = lo.ToPtr(resourceRequest.CPU)
+		result.MemoryRequest = lo.ToPtr(resourceRequest.Memory)
+	}
 	return result
 }
 

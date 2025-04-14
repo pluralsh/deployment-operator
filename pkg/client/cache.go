@@ -40,6 +40,10 @@ func (c *Cache[T]) Get(id string) (*T, error) {
 	return c.Set(id)
 }
 
+func (c *Cache[T]) Add(id string, resource *T) {
+	c.cache.Set(id, &cacheLine[T]{resource: resource, created: time.Now()})
+}
+
 func (c *Cache[T]) Set(id string) (*T, error) {
 	c.Lock()
 	defer c.Unlock()

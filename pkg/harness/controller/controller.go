@@ -15,10 +15,12 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/harness/security"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/tool"
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -148,28 +150,32 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	var output []*gqlclient.StackOutputAttributes
 	var err error
 
-	if in.tool != nil {
-		state, err = in.tool.State()
-		if err != nil {
-			klog.ErrorS(err, "could not prepare state attributes")
-		}
-
-		klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
-
-		output, err = in.tool.Output()
-		if err != nil {
-			klog.ErrorS(err, "could not prepare output attributes")
-		}
-
-		klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
-	}
-
 	serviceErrorAttributes := make([]*gqlclient.ServiceErrorAttributes, 0)
 	if stackRunErr != nil {
 		serviceErrorAttributes = append(serviceErrorAttributes, &gqlclient.ServiceErrorAttributes{
 			Source:  "harness",
 			Message: stackRunErr.Error(),
 		})
+	}
+
+	if in.tool == nil {
+		return stackrun.CompleteStackRun(in.consoleClient, in.stackRunID, &gqlclient.StackRunAttributes{
+			Errors: serviceErrorAttributes,
+		})
+	}
+
+	state, err = in.tool.State()
+	if err != nil {
+		klog.ErrorS(err, "could not prepare state attributes")
+	}
+	klog.V(log.LogLevelTrace).InfoS("generated console state", "state", state)
+
+	if !in.stackRun.DryRun {
+		output, err = in.tool.Output()
+		if err != nil {
+			klog.ErrorS(err, "could not prepare output attributes")
+		}
+		klog.V(log.LogLevelTrace).InfoS("generated console output", "output", output)
 	}
 
 	return stackrun.CompleteStackRun(in.consoleClient, in.stackRunID, &gqlclient.StackRunAttributes{
@@ -205,7 +211,12 @@ func (in *stackRunController) prepare() error {
 		return err
 	}
 
-	in.tool = tool.New(in.stackRun.Type, in.dir, in.execWorkDir(), variables)
+	in.tool = tool.New(in.stackRun.Type, toolv1.Config{
+		WorkDir:   in.dir,
+		ExecDir:   in.execWorkDir(),
+		Variables: variables,
+		Scanner:   security.NewScanner(in.stackRun.PolicyEngine),
+	})
 
 	return nil
 }

@@ -31,22 +31,22 @@ var _ = Describe("Reconciler", Ordered, func() {
 			clusterName       = "cluster-test"
 			operatorNamespace = "plrl-deploy-operator"
 		)
-		consoleService := &console.GetServiceDeploymentForAgent_ServiceDeployment{
+		consoleService := &console.ServiceDeploymentForAgent{
 			ID:        serviceId,
 			Name:      serviceName,
 			Namespace: namespace,
 			Tarball:   lo.ToPtr("http://localhost:8081/ext/v1/digests"),
-			Configuration: []*console.GetServiceDeploymentForAgent_ServiceDeployment_Configuration{
+			Configuration: []*console.ServiceDeploymentForAgent_Configuration{
 				{
 					Name:  "name",
 					Value: serviceName,
 				},
 			},
-			Cluster: &console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster{
+			Cluster: &console.ServiceDeploymentForAgent_Cluster{
 				ID:   clusterId,
 				Name: clusterName,
 			},
-			Revision: &console.GetServiceDeploymentForAgent_ServiceDeployment_Revision{
+			Revision: &console.ServiceDeploymentForAgent_Revision{
 				ID: serviceId,
 			},
 		}

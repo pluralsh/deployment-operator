@@ -3,6 +3,7 @@ package args
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -151,6 +152,15 @@ func ConsoleUrl() string {
 	ensureOrDie("console-url", argConsoleUrl)
 
 	return *argConsoleUrl
+}
+
+func ConsoleDNS() string {
+	u, err := url.Parse(*argConsoleUrl)
+	if err != nil {
+		return ""
+	}
+
+	return u.Hostname()
 }
 
 func DeployToken() string {

@@ -72,8 +72,8 @@ func (c *client) GetStackRun(id string) (*gqlclient.StackRunMinimalFragment, err
 	return restore.StackRun, nil
 }
 
-func (c *client) ListClusterStackRuns(after *string, first *int64) (*gqlclient.ListClusterStackIds_ClusterStackRuns, error) {
-	resp, err := c.consoleClient.ListClusterStackIds(c.ctx, after, first, nil, nil)
+func (c *client) ListClusterStackRuns(after *string, first *int64) (*gqlclient.ListClusterMinimalStacks_ClusterStackRuns, error) {
+	resp, err := c.consoleClient.ListClusterMinimalStacks(c.ctx, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}

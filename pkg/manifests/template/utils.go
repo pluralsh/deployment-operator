@@ -4,9 +4,11 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 )
 
-func isTemplated(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) bool {
+func isTemplated(svc *console.ServiceDeploymentForAgent) bool {
 	if svc.Templated != nil {
 		return *svc.Templated
 	}
@@ -14,7 +16,7 @@ func isTemplated(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) bo
 	return true
 }
 
-func clusterConfiguration(cluster *console.GetServiceDeploymentForAgent_ServiceDeployment_Cluster) map[string]interface{} {
+func clusterConfiguration(cluster *console.ServiceDeploymentForAgent_Cluster) map[string]interface{} {
 	res := map[string]interface{}{
 		"ID":             cluster.ID,
 		"Self":           cluster.Self,
@@ -24,6 +26,8 @@ func clusterConfiguration(cluster *console.GetServiceDeploymentForAgent_ServiceD
 		"CurrentVersion": cluster.CurrentVersion,
 		"KasUrl":         cluster.KasURL,
 		"Metadata":       cluster.Metadata,
+		"Distro":         cluster.Distro,
+		"ConsoleDNS":     args.ConsoleDNS(),
 	}
 
 	for k, v := range res {
@@ -35,7 +39,7 @@ func clusterConfiguration(cluster *console.GetServiceDeploymentForAgent_ServiceD
 	return res
 }
 
-func configMap(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[string]string {
+func configMap(svc *console.ServiceDeploymentForAgent) map[string]string {
 	res := map[string]string{}
 	for _, config := range svc.Configuration {
 		res[config.Name] = config.Value
@@ -44,7 +48,7 @@ func configMap(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[
 	return res
 }
 
-func contexts(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[string]map[string]interface{} {
+func contexts(svc *console.ServiceDeploymentForAgent) map[string]map[string]interface{} {
 	res := map[string]map[string]interface{}{}
 	for _, context := range svc.Contexts {
 		res[context.Name] = context.Configuration
@@ -52,7 +56,7 @@ func contexts(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[s
 	return res
 }
 
-func imports(svc *console.GetServiceDeploymentForAgent_ServiceDeployment) map[string]map[string]string {
+func imports(svc *console.ServiceDeploymentForAgent) map[string]map[string]string {
 	res := map[string]map[string]string{}
 	for _, imp := range svc.Imports {
 		res[imp.Stack.Name] = map[string]string{}

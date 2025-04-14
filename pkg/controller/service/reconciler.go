@@ -55,7 +55,7 @@ type ServiceReconciler struct {
 	applier          *applier.Applier
 	destroyer        *apply.Destroyer
 	svcQueue         workqueue.TypedRateLimitingInterface[string]
-	svcCache         *client.Cache[console.GetServiceDeploymentForAgent_ServiceDeployment]
+	svcCache         *client.Cache[console.ServiceDeploymentForAgent]
 	manifestCache    *manifests.ManifestCache
 	utilFactory      util.Factory
 	restoreNamespace string
@@ -98,8 +98,8 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		consoleClient: consoleClient,
 		clientset:     cs,
 		svcQueue:      workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		svcCache: client.NewCache[console.GetServiceDeploymentForAgent_ServiceDeployment](refresh, func(id string) (
-			*console.GetServiceDeploymentForAgent_ServiceDeployment, error,
+		svcCache: client.NewCache[console.ServiceDeploymentForAgent](refresh, func(id string) (
+			*console.ServiceDeploymentForAgent, error,
 		) {
 			return consoleClient.GetService(id)
 		}),
@@ -168,7 +168,7 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		Build()
 }
 
-func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, svc *console.GetServiceDeploymentForAgent_ServiceDeployment) error {
+func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) error {
 	if svc == nil {
 		return nil
 	}
@@ -242,10 +242,10 @@ func (s *ServiceReconciler) ShutdownQueue() {
 	s.svcQueue.ShutDown()
 }
 
-func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentIDEdgeFragment] {
+func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentEdgeFragmentForAgent] {
 	logger := log.FromContext(ctx)
 	logger.Info("create service pager")
-	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentIDEdgeFragment, *algorithms.PageInfo, error) {
+	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentEdgeFragmentForAgent, *algorithms.PageInfo, error) {
 		resp, err := s.consoleClient.GetServices(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch service list from deployments service")
@@ -258,7 +258,7 @@ func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[
 		}
 		return resp.PagedClusterServices.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.ServiceDeploymentIDEdgeFragment](common2.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.ServiceDeploymentEdgeFragmentForAgent](common2.DefaultPageSize, fetch)
 }
 
 func (s *ServiceReconciler) Poll(ctx context.Context) error {
@@ -291,6 +291,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 			}
 
 			logger.V(4).Info("sending update for", "service", svc.Node.ID)
+			s.svcCache.Add(svc.Node.ID, svc.Node)
 			s.svcQueue.Add(svc.Node.ID)
 		}
 	}
@@ -363,6 +364,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		})
 
 		metrics.Record().ServiceDeletion(id)
+		s.svcCache.Expire(id)
+		s.manifestCache.Expire(id)
 		err = s.UpdatePruneStatus(ctx, svc, ch, map[schema.GroupName]string{})
 		return
 	}
@@ -430,7 +433,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	return
 }
 
-func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.GetServiceDeploymentForAgent_ServiceDeployment_SyncConfig) error {
+func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
 	createNamespace := true
 	var labels map[string]string
 	var annotations map[string]string

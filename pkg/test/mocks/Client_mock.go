@@ -6,6 +6,8 @@ import (
 	client "github.com/pluralsh/console/go/client"
 	mock "github.com/stretchr/testify/mock"
 
+	pkgclient "github.com/pluralsh/deployment-operator/pkg/client"
+
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 
 	v1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -722,23 +724,23 @@ func (_c *ClientMock_GetNamespace_Call) RunAndReturn(run func(string) (*client.M
 }
 
 // GetService provides a mock function with given fields: id
-func (_m *ClientMock) GetService(id string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error) {
+func (_m *ClientMock) GetService(id string) (*client.ServiceDeploymentForAgent, error) {
 	ret := _m.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetService")
 	}
 
-	var r0 *client.GetServiceDeploymentForAgent_ServiceDeployment
+	var r0 *client.ServiceDeploymentForAgent
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error)); ok {
+	if rf, ok := ret.Get(0).(func(string) (*client.ServiceDeploymentForAgent, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(string) *client.GetServiceDeploymentForAgent_ServiceDeployment); ok {
+	if rf, ok := ret.Get(0).(func(string) *client.ServiceDeploymentForAgent); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*client.GetServiceDeploymentForAgent_ServiceDeployment)
+			r0 = ret.Get(0).(*client.ServiceDeploymentForAgent)
 		}
 	}
 
@@ -769,12 +771,12 @@ func (_c *ClientMock_GetService_Call) Run(run func(id string)) *ClientMock_GetSe
 	return _c
 }
 
-func (_c *ClientMock_GetService_Call) Return(_a0 *client.GetServiceDeploymentForAgent_ServiceDeployment, _a1 error) *ClientMock_GetService_Call {
+func (_c *ClientMock_GetService_Call) Return(_a0 *client.ServiceDeploymentForAgent, _a1 error) *ClientMock_GetService_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetService_Call) RunAndReturn(run func(string) (*client.GetServiceDeploymentForAgent_ServiceDeployment, error)) *ClientMock_GetService_Call {
+func (_c *ClientMock_GetService_Call) RunAndReturn(run func(string) (*client.ServiceDeploymentForAgent, error)) *ClientMock_GetService_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -838,23 +840,23 @@ func (_c *ClientMock_GetServiceDeploymentComponents_Call) RunAndReturn(run func(
 }
 
 // GetServices provides a mock function with given fields: after, first
-func (_m *ClientMock) GetServices(after *string, first *int64) (*client.PagedClusterServiceIds, error) {
+func (_m *ClientMock) GetServices(after *string, first *int64) (*client.PagedClusterServicesForAgent, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetServices")
 	}
 
-	var r0 *client.PagedClusterServiceIds
+	var r0 *client.PagedClusterServicesForAgent
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterServiceIds, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.PagedClusterServicesForAgent, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterServiceIds); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.PagedClusterServicesForAgent); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*client.PagedClusterServiceIds)
+			r0 = ret.Get(0).(*client.PagedClusterServicesForAgent)
 		}
 	}
 
@@ -886,12 +888,12 @@ func (_c *ClientMock_GetServices_Call) Run(run func(after *string, first *int64)
 	return _c
 }
 
-func (_c *ClientMock_GetServices_Call) Return(_a0 *client.PagedClusterServiceIds, _a1 error) *ClientMock_GetServices_Call {
+func (_c *ClientMock_GetServices_Call) Return(_a0 *client.PagedClusterServicesForAgent, _a1 error) *ClientMock_GetServices_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_GetServices_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterServiceIds, error)) *ClientMock_GetServices_Call {
+func (_c *ClientMock_GetServices_Call) RunAndReturn(run func(*string, *int64) (*client.PagedClusterServicesForAgent, error)) *ClientMock_GetServices_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1185,23 +1187,23 @@ func (_c *ClientMock_IsClusterExists_Call) RunAndReturn(run func(string) (bool, 
 }
 
 // ListClusterStackRuns provides a mock function with given fields: after, first
-func (_m *ClientMock) ListClusterStackRuns(after *string, first *int64) (*client.ListClusterStackIds_ClusterStackRuns, error) {
+func (_m *ClientMock) ListClusterStackRuns(after *string, first *int64) (*client.ListClusterMinimalStacks_ClusterStackRuns, error) {
 	ret := _m.Called(after, first)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListClusterStackRuns")
 	}
 
-	var r0 *client.ListClusterStackIds_ClusterStackRuns
+	var r0 *client.ListClusterMinimalStacks_ClusterStackRuns
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.ListClusterStackIds_ClusterStackRuns, error)); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) (*client.ListClusterMinimalStacks_ClusterStackRuns, error)); ok {
 		return rf(after, first)
 	}
-	if rf, ok := ret.Get(0).(func(*string, *int64) *client.ListClusterStackIds_ClusterStackRuns); ok {
+	if rf, ok := ret.Get(0).(func(*string, *int64) *client.ListClusterMinimalStacks_ClusterStackRuns); ok {
 		r0 = rf(after, first)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*client.ListClusterStackIds_ClusterStackRuns)
+			r0 = ret.Get(0).(*client.ListClusterMinimalStacks_ClusterStackRuns)
 		}
 	}
 
@@ -1233,12 +1235,12 @@ func (_c *ClientMock_ListClusterStackRuns_Call) Run(run func(after *string, firs
 	return _c
 }
 
-func (_c *ClientMock_ListClusterStackRuns_Call) Return(_a0 *client.ListClusterStackIds_ClusterStackRuns, _a1 error) *ClientMock_ListClusterStackRuns_Call {
+func (_c *ClientMock_ListClusterStackRuns_Call) Return(_a0 *client.ListClusterMinimalStacks_ClusterStackRuns, _a1 error) *ClientMock_ListClusterStackRuns_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ClientMock_ListClusterStackRuns_Call) RunAndReturn(run func(*string, *int64) (*client.ListClusterStackIds_ClusterStackRuns, error)) *ClientMock_ListClusterStackRuns_Call {
+func (_c *ClientMock_ListClusterStackRuns_Call) RunAndReturn(run func(*string, *int64) (*client.ListClusterMinimalStacks_ClusterStackRuns, error)) *ClientMock_ListClusterStackRuns_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1510,17 +1512,17 @@ func (_c *ClientMock_PingCluster_Call) RunAndReturn(run func(client.ClusterPing)
 	return _c
 }
 
-// RegisterRuntimeServices provides a mock function with given fields: svcs, serviceId
-func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]string, serviceId *string) error {
-	ret := _m.Called(svcs, serviceId)
+// RegisterRuntimeServices provides a mock function with given fields: svcs, serviceId, serviceMesh
+func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]*pkgclient.NamespaceVersion, serviceId *string, serviceMesh *client.ServiceMesh) error {
+	ret := _m.Called(svcs, serviceId, serviceMesh)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RegisterRuntimeServices")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(map[string]string, *string) error); ok {
-		r0 = rf(svcs, serviceId)
+	if rf, ok := ret.Get(0).(func(map[string]*pkgclient.NamespaceVersion, *string, *client.ServiceMesh) error); ok {
+		r0 = rf(svcs, serviceId, serviceMesh)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1534,15 +1536,16 @@ type ClientMock_RegisterRuntimeServices_Call struct {
 }
 
 // RegisterRuntimeServices is a helper method to define mock.On call
-//   - svcs map[string]string
+//   - svcs map[string]*pkgclient.NamespaceVersion
 //   - serviceId *string
-func (_e *ClientMock_Expecter) RegisterRuntimeServices(svcs interface{}, serviceId interface{}) *ClientMock_RegisterRuntimeServices_Call {
-	return &ClientMock_RegisterRuntimeServices_Call{Call: _e.mock.On("RegisterRuntimeServices", svcs, serviceId)}
+//   - serviceMesh *client.ServiceMesh
+func (_e *ClientMock_Expecter) RegisterRuntimeServices(svcs interface{}, serviceId interface{}, serviceMesh interface{}) *ClientMock_RegisterRuntimeServices_Call {
+	return &ClientMock_RegisterRuntimeServices_Call{Call: _e.mock.On("RegisterRuntimeServices", svcs, serviceId, serviceMesh)}
 }
 
-func (_c *ClientMock_RegisterRuntimeServices_Call) Run(run func(svcs map[string]string, serviceId *string)) *ClientMock_RegisterRuntimeServices_Call {
+func (_c *ClientMock_RegisterRuntimeServices_Call) Run(run func(svcs map[string]*pkgclient.NamespaceVersion, serviceId *string, serviceMesh *client.ServiceMesh)) *ClientMock_RegisterRuntimeServices_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(map[string]string), args[1].(*string))
+		run(args[0].(map[string]*pkgclient.NamespaceVersion), args[1].(*string), args[2].(*client.ServiceMesh))
 	})
 	return _c
 }
@@ -1552,7 +1555,7 @@ func (_c *ClientMock_RegisterRuntimeServices_Call) Return(_a0 error) *ClientMock
 	return _c
 }
 
-func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[string]string, *string) error) *ClientMock_RegisterRuntimeServices_Call {
+func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[string]*pkgclient.NamespaceVersion, *string, *client.ServiceMesh) error) *ClientMock_RegisterRuntimeServices_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1615,9 +1618,9 @@ func (_c *ClientMock_SaveClusterBackup_Call) RunAndReturn(run func(client.Backup
 	return _c
 }
 
-// SaveUpgradeInsights provides a mock function with given fields: attributes
-func (_m *ClientMock) SaveUpgradeInsights(attributes []*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error) {
-	ret := _m.Called(attributes)
+// SaveUpgradeInsights provides a mock function with given fields: attributes, addons
+func (_m *ClientMock) SaveUpgradeInsights(attributes []*client.UpgradeInsightAttributes, addons []*client.CloudAddonAttributes) (*client.SaveUpgradeInsights, error) {
+	ret := _m.Called(attributes, addons)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveUpgradeInsights")
@@ -1625,19 +1628,19 @@ func (_m *ClientMock) SaveUpgradeInsights(attributes []*client.UpgradeInsightAtt
 
 	var r0 *client.SaveUpgradeInsights
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error)); ok {
-		return rf(attributes)
+	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes, []*client.CloudAddonAttributes) (*client.SaveUpgradeInsights, error)); ok {
+		return rf(attributes, addons)
 	}
-	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes) *client.SaveUpgradeInsights); ok {
-		r0 = rf(attributes)
+	if rf, ok := ret.Get(0).(func([]*client.UpgradeInsightAttributes, []*client.CloudAddonAttributes) *client.SaveUpgradeInsights); ok {
+		r0 = rf(attributes, addons)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*client.SaveUpgradeInsights)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]*client.UpgradeInsightAttributes) error); ok {
-		r1 = rf(attributes)
+	if rf, ok := ret.Get(1).(func([]*client.UpgradeInsightAttributes, []*client.CloudAddonAttributes) error); ok {
+		r1 = rf(attributes, addons)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1652,13 +1655,14 @@ type ClientMock_SaveUpgradeInsights_Call struct {
 
 // SaveUpgradeInsights is a helper method to define mock.On call
 //   - attributes []*client.UpgradeInsightAttributes
-func (_e *ClientMock_Expecter) SaveUpgradeInsights(attributes interface{}) *ClientMock_SaveUpgradeInsights_Call {
-	return &ClientMock_SaveUpgradeInsights_Call{Call: _e.mock.On("SaveUpgradeInsights", attributes)}
+//   - addons []*client.CloudAddonAttributes
+func (_e *ClientMock_Expecter) SaveUpgradeInsights(attributes interface{}, addons interface{}) *ClientMock_SaveUpgradeInsights_Call {
+	return &ClientMock_SaveUpgradeInsights_Call{Call: _e.mock.On("SaveUpgradeInsights", attributes, addons)}
 }
 
-func (_c *ClientMock_SaveUpgradeInsights_Call) Run(run func(attributes []*client.UpgradeInsightAttributes)) *ClientMock_SaveUpgradeInsights_Call {
+func (_c *ClientMock_SaveUpgradeInsights_Call) Run(run func(attributes []*client.UpgradeInsightAttributes, addons []*client.CloudAddonAttributes)) *ClientMock_SaveUpgradeInsights_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]*client.UpgradeInsightAttributes))
+		run(args[0].([]*client.UpgradeInsightAttributes), args[1].([]*client.CloudAddonAttributes))
 	})
 	return _c
 }
@@ -1668,7 +1672,7 @@ func (_c *ClientMock_SaveUpgradeInsights_Call) Return(_a0 *client.SaveUpgradeIns
 	return _c
 }
 
-func (_c *ClientMock_SaveUpgradeInsights_Call) RunAndReturn(run func([]*client.UpgradeInsightAttributes) (*client.SaveUpgradeInsights, error)) *ClientMock_SaveUpgradeInsights_Call {
+func (_c *ClientMock_SaveUpgradeInsights_Call) RunAndReturn(run func([]*client.UpgradeInsightAttributes, []*client.CloudAddonAttributes) (*client.SaveUpgradeInsights, error)) *ClientMock_SaveUpgradeInsights_Call {
 	_c.Call.Return(run)
 	return _c
 }

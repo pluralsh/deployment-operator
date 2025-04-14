@@ -55,20 +55,16 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
-            httpGet:
-              path: /healthz
-              port: http
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
-            httpGet:
-              path: /healthz
-              port: http
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{ if .Values.additionalVolumeMounts }}
           volumeMounts:
             - name: temp
               mountPath: /tmp
-            {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}
+          {{ if .Values.additionalVolumeMounts }}
+          {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}
           {{ end }}
         - name: {{ .Chart.Name }}-agentk
           securityContext:

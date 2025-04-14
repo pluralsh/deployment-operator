@@ -88,10 +88,10 @@ func (r *StackReconciler) ShutdownQueue() {
 	r.stackQueue.ShutDown()
 }
 
-func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*console.StackRunIDEdgeFragment] {
+func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*console.MinimalStackRunEdgeFragment] {
 	logger := log.FromContext(ctx)
-	logger.Info("create stack run pager")
-	fetch := func(page *string, size int64) ([]*console.StackRunIDEdgeFragment, *algorithms.PageInfo, error) {
+	logger.V(4).Info("create stack run pager")
+	fetch := func(page *string, size int64) ([]*console.MinimalStackRunEdgeFragment, *algorithms.PageInfo, error) {
 		resp, err := r.consoleClient.ListClusterStackRuns(page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch stack run")
@@ -104,12 +104,12 @@ func (r *StackReconciler) ListStacks(ctx context.Context) *algorithms.Pager[*con
 		}
 		return resp.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.StackRunIDEdgeFragment](common.DefaultPageSize, fetch)
+	return algorithms.NewPager[*console.MinimalStackRunEdgeFragment](common.DefaultPageSize, fetch)
 }
 
 func (r *StackReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
-	logger.Info("fetching stacks")
+	logger.V(4).Info("fetching stacks")
 	pager := r.ListStacks(ctx)
 
 	for pager.HasNext() {
@@ -119,7 +119,8 @@ func (r *StackReconciler) Poll(ctx context.Context) error {
 			return err
 		}
 		for _, stack := range stacks {
-			logger.Info("sending update for", "stack run", stack.Node.ID)
+			logger.V(1).Info("sending update for", "stack run", stack.Node.ID)
+			r.stackCache.Add(stack.Node.ID, stack.Node)
 			r.stackQueue.Add(stack.Node.ID)
 		}
 	}
@@ -129,7 +130,7 @@ func (r *StackReconciler) Poll(ctx context.Context) error {
 
 func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.Info("attempting to sync stack run", "id", id)
+	logger.V(4).Info("attempting to sync stack run", "id", id)
 	stackRun, err := r.stackCache.Get(id)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {

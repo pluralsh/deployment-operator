@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine3.19 as builder
+FROM golang:1.23-alpine3.20 as builder
 
 ARG TARGETARCH
 ARG TARGETOS
@@ -34,9 +34,10 @@ RUN apk update --no-cache && apk add git
 USER 65532:65532
 
 # Set up the environment
-# 3. copy the harness binary
-# 4. copy the terraform binary
+# - copy the harness binary
+# - copy the trivy binary
 COPY --from=builder /plural/harness /harness
+COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
 
 WORKDIR /plural
 

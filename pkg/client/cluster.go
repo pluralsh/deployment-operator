@@ -2,10 +2,20 @@ package client
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
+)
+
+const (
+	certManagerServiceName  = "cert-manager"
+	ebsCsiDriverServiceName = "aws-ebs-csi-driver"
+	externalDNSServiceName  = "external-dns"
+	linkerdServiceName      = "Linkerd"
+	istioServiceName        = "istio"
+	ciliumServiceName       = "cilium"
 )
 
 func (c *client) PingCluster(attributes console.ClusterPing) error {
@@ -18,15 +28,75 @@ func (c *client) Ping(vsn string) error {
 	return err
 }
 
-func (c *client) RegisterRuntimeServices(svcs map[string]string, serviceId *string) error {
+func initLayouts(layouts *console.OperationalLayoutAttributes) *console.OperationalLayoutAttributes {
+	if layouts == nil {
+		return &console.OperationalLayoutAttributes{
+			Namespaces: &console.ClusterNamespacesAttributes{},
+		}
+	}
+	return layouts
+}
+
+func initServiceMesh(layouts *console.OperationalLayoutAttributes, serviceMesh *console.ServiceMesh) *console.OperationalLayoutAttributes {
+	if serviceMesh == nil {
+		return layouts
+	}
+
+	if layouts == nil {
+		return &console.OperationalLayoutAttributes{
+			ServiceMesh: serviceMesh,
+		}
+	}
+
+	layouts.ServiceMesh = serviceMesh
+	return layouts
+}
+
+func appendUniqueExternalDNSNamespace(slice []*string, newValue *string) []*string {
+	if slice == nil {
+		slice = make([]*string, 0)
+	}
+	sliceSet := containers.ToSet[*string](slice)
+	sliceSet.Add(newValue)
+	return sliceSet.List()
+}
+
+func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serviceId *string, serviceMesh *console.ServiceMesh) error {
 	inputs := make([]*console.RuntimeServiceAttributes, 0)
-	for name, version := range svcs {
+	var layouts *console.OperationalLayoutAttributes
+	for name, nv := range svcs {
 		inputs = append(inputs, &console.RuntimeServiceAttributes{
 			Name:    name,
-			Version: version,
+			Version: nv.Version,
 		})
+		switch name {
+		case certManagerServiceName:
+			layouts = initLayouts(layouts)
+			layouts.Namespaces.CertManager = &nv.Namespace
+		case ebsCsiDriverServiceName:
+			layouts = initLayouts(layouts)
+			layouts.Namespaces.EbsCsiDriver = &nv.Namespace
+		case externalDNSServiceName:
+			layouts = initLayouts(layouts)
+			layouts.Namespaces.ExternalDNS = appendUniqueExternalDNSNamespace(layouts.Namespaces.ExternalDNS, &nv.Namespace)
+		}
+		if nv.PartOf != "" {
+			switch nv.PartOf {
+			case linkerdServiceName:
+				layouts = initLayouts(layouts)
+				layouts.Namespaces.Linkerd = &nv.Namespace
+			case istioServiceName:
+				layouts = initLayouts(layouts)
+				layouts.Namespaces.Istio = &nv.Namespace
+			case ciliumServiceName:
+				layouts = initLayouts(layouts)
+				layouts.Namespaces.Cilium = &nv.Namespace
+			}
+		}
 	}
-	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, serviceId)
+
+	layouts = initServiceMesh(layouts, serviceMesh)
+	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, serviceId)
 	return err
 }
 

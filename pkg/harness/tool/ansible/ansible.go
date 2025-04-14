@@ -42,6 +42,14 @@ func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
 }
 
 func (in *Ansible) init() *Ansible {
+	if len(in.workDir) == 0 {
+		klog.Fatal("workdir is required")
+	}
+
+	if len(in.execDir) == 0 {
+		klog.Fatal("execdir is required")
+	}
+
 	in.planFileName = "ansible.plan"
 	in.planFilePath = path.Join(in.execDir, in.planFileName)
 	helpers.EnsureFileOrDie(in.planFilePath, nil)
@@ -50,6 +58,10 @@ func (in *Ansible) init() *Ansible {
 }
 
 // New creates an Ansible structure that implements v1.Tool interface.
-func New(workDir, execDir string) v1.Tool {
-	return (&Ansible{workDir: workDir, execDir: execDir}).init()
+func New(config v1.Config) v1.Tool {
+	return (&Ansible{
+		DefaultTool: v1.DefaultTool{Scanner: config.Scanner},
+		workDir:     config.WorkDir,
+		execDir:     config.ExecDir,
+	}).init()
 }
