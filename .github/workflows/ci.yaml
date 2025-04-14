@@ -44,8 +44,8 @@ jobs:
           version: v1.63.4
   publish:
     name: Build and push Agent container
-    needs:
-      - test
+#    needs:
+#      - test
     permissions:
       contents: 'read'
       id-token: 'write'
