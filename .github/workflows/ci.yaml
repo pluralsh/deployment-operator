@@ -121,7 +121,7 @@ jobs:
       fail-fast: false
       matrix:
         images: [ "ghcr.io/pluralsh/deployment-operator", "docker.io/pluralsh/deployment-operator" ]
-    runs-on: ${{ matrix.platforms.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
