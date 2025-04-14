@@ -46,6 +46,7 @@ jobs:
   build-image:
     name: Build image
     needs:
+      - build
       - test
     permissions:
       contents: 'read'
