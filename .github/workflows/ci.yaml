@@ -45,9 +45,7 @@ jobs:
           version: v1.63.4
   build-image:
     name: Build image
-    needs:
-      - build
-      - test
+    needs: [build, test]
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -112,8 +110,7 @@ jobs:
           retention-days: 1
   publish-image:
     name: Publish image
-    needs:
-      - build-image
+    needs: [build-image]
     strategy:
       fail-fast: false
       matrix:
