@@ -94,7 +94,7 @@ jobs:
         with:
           context: "."
           file: "./Dockerfile"
-          tags: ${{ matrix.images }}
+          tags: pluralsh/deployment-operator
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ matrix.platforms.platform }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
