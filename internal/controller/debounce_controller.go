@@ -61,7 +61,7 @@ func (r *DebounceReconciler) Start(ctx context.Context) {
 				r.lastRequest = time.Now()
 			case <-ticker.C:
 				// Check if enough time has passed since the last request.
-				if time.Since(r.lastRequest) >= r.debounceDuration {
+				if !r.lastRequest.IsZero() && time.Since(r.lastRequest) >= r.debounceDuration {
 					// Process the debounced request.
 					if err := r.processRequest(ctx, latestRequest); err != nil {
 						logger.Error(err, "Error processing request: %v\n")

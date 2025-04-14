@@ -104,7 +104,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 		})
 
 		It("should successfully create resource cache", func() {
-			Init(ctx, kClient, cfg, 100*time.Second)
+			Init(ctx, cfg, 100*time.Second)
 			toAdd := containers.NewSet[ResourceKey]()
 
 			// register resource and watch for changes
@@ -129,7 +129,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 		})
 
 		It("should successfully watch CRD object", func() {
-			Init(ctx, kClient, cfg, 100*time.Second)
+			Init(ctx, cfg, 100*time.Second)
 			toAdd := containers.NewSet[ResourceKey]()
 
 			err = applyYamlFile(ctx, kClient, "../../config/crd/bases/deployments.plural.sh_customhealths.yaml")

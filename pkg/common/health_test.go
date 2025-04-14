@@ -1,7 +1,6 @@
 package common_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"time"
@@ -10,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	testcommon "github.com/pluralsh/deployment-operator/pkg/test/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -18,21 +16,14 @@ var _ = Describe("Health Test", Ordered, func() {
 	Context("Test health functions", func() {
 		customResource := &deploymentsv1alpha1.MetricsAggregate{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: "default",
+				Name: "test",
 			},
 		}
 
-		BeforeAll(func() {
-			Expect(testcommon.MaybeCreate(kClient, customResource, nil)).To(Succeed())
-		})
-
 		It("should get default status from CRD without condition block", func() {
 			obj, err := common.ToUnstructured(customResource)
-			obj.SetKind("MetricsAggregate")
-			obj.SetAPIVersion("deployments.plural.sh/v1alpha1")
 			Expect(err).NotTo(HaveOccurred())
-			status, err := common.GetResourceHealth(context.Background(), kClient, obj)
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
@@ -50,9 +41,7 @@ var _ = Describe("Health Test", Ordered, func() {
 			}
 			obj, err := common.ToUnstructured(customResource)
 			Expect(err).NotTo(HaveOccurred())
-			obj.SetKind("MetricsAggregate")
-			obj.SetAPIVersion("deployments.plural.sh/v1alpha1")
-			status, err := common.GetResourceHealth(context.Background(), kClient, obj)
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
@@ -72,9 +61,7 @@ var _ = Describe("Health Test", Ordered, func() {
 			}
 			obj, err := common.ToUnstructured(customResource)
 			Expect(err).NotTo(HaveOccurred())
-			obj.SetKind("MetricsAggregate")
-			obj.SetAPIVersion("deployments.plural.sh/v1alpha1")
-			status, err := common.GetResourceHealth(context.Background(), kClient, obj)
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
@@ -97,7 +84,7 @@ var _ = Describe("Health Test", Ordered, func() {
 			obj.SetAPIVersion("deployments.plural.sh/v1alpha1")
 			obj.SetKind("MetricsAggregate")
 			Expect(err).NotTo(HaveOccurred())
-			status, err := common.GetResourceHealth(context.Background(), kClient, obj)
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
@@ -111,9 +98,7 @@ var _ = Describe("Health Test", Ordered, func() {
 			}
 			obj, err := common.ToUnstructured(customResource)
 			Expect(err).NotTo(HaveOccurred())
-			obj.SetKind("MetricsAggregate")
-			obj.SetAPIVersion("deployments.plural.sh/v1alpha1")
-			status, err := common.GetResourceHealth(context.Background(), kClient, obj)
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
@@ -126,13 +111,11 @@ var _ = Describe("Health Test", Ordered, func() {
 			customResource.DeletionTimestamp = nil
 			obj, err := common.ToUnstructured(customResource)
 			Expect(err).NotTo(HaveOccurred())
-			obj.SetKind("MetricsAggregate")
-			obj.SetAPIVersion("deployments.plural.sh/v1alpha1")
 			scriptPath := filepath.Join("..", "..", "test", "lua", "test.lua")
 			script, err := os.ReadFile(scriptPath)
 			Expect(err).NotTo(HaveOccurred())
 			common.GetLuaScript().SetValue(string(script))
-			status, err := common.GetResourceHealth(context.Background(), kClient, obj)
+			status, err := common.GetResourceHealth(obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(status).To(Not(BeNil()))
 			Expect(*status).To(Equal(common.HealthStatus{
