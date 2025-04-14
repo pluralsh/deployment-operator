@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"strings"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/object"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -51,6 +52,7 @@ const (
 )
 
 type ServiceReconciler struct {
+	k8sClient        ctrclient.Client
 	consoleClient    client.Client
 	clientset        *kubernetes.Clientset
 	applier          *applier.Applier
@@ -64,7 +66,7 @@ type ServiceReconciler struct {
 	pinger           *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -111,6 +113,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
+		k8sClient:        k8sClient,
 	}, nil
 }
 
