@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -24,15 +25,33 @@ type RetryListerWatcher struct {
 
 	listOptions metav1.ListOptions
 	resultChan  chan apiwatch.Event
+
+	stopped  bool
+	stopChan chan struct{}
+	mutex    sync.Mutex
 }
 
 func (in *RetryListerWatcher) ResultChan() <-chan apiwatch.Event {
 	return in.resultChan
 }
 
+func (in *RetryListerWatcher) Stop() {
+	in.mutex.Lock()
+	defer in.mutex.Unlock()
+
+	if in.RetryWatcher != nil {
+		in.RetryWatcher.Stop()
+	}
+
+	in.stopped = true
+	close(in.stopChan)
+}
+
 func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
 	for {
 		select {
+		case <-in.stopChan:
+			return
 		case <-in.Done():
 			return
 		case e, ok := <-from:
@@ -48,6 +67,9 @@ func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
 func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
 	for _, item := range items {
 		select {
+		case <-in.stopChan:
+			klog.V(0).InfoS("funnelItems stopped due to stopChan being closed")
+			return
 		case <-in.Done():
 			klog.V(4).InfoS("funnelItems stopped due to resultChan being closed")
 			return
@@ -72,18 +94,40 @@ func (in *RetryListerWatcher) isEmptyResourceVersion() bool {
 
 func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 	if err := in.ensureRequiredArgs(); err != nil {
+		close(in.resultChan)
 		return nil, err
 	}
 
+	initialItems := make([]apiwatch.Event, 0)
 	// TODO: check if watch supports feeding initial items instead of using list
 	if in.isEmptyResourceVersion() {
-		klog.V(3).InfoS("starting list and watch as initialResourceVersion is empty")
-		err := in.listAndWatch()
-		return in, err
+		klog.V(3).InfoS("listing initial resources as initialResourceVersion is empty")
+
+		list, err := in.listerWatcher.List(in.listOptions)
+		if err != nil {
+			close(in.resultChan)
+			return in, fmt.Errorf("error listing resources: %w", err)
+		}
+
+		listMetaInterface, err := meta.ListAccessor(list)
+		if err != nil {
+			close(in.resultChan)
+			return in, fmt.Errorf("unable to understand list result %#v: %w", list, err)
+		}
+
+		resourceVersion := listMetaInterface.GetResourceVersion()
+		items, err := meta.ExtractList(list)
+		if err != nil {
+			close(in.resultChan)
+			return in, fmt.Errorf("unable to understand list result %#v (%w)", list, err)
+		}
+
+		in.initialResourceVersion = resourceVersion
+		initialItems = in.toEvents(items...)
 	}
 
-	klog.V(3).InfoS("starting watch", "initialResourceVersion", in.initialResourceVersion)
-	go in.watch(in.initialResourceVersion)
+	klog.V(3).InfoS("starting watch", "resourceVersion", in.initialResourceVersion)
+	go in.watch(in.initialResourceVersion, initialItems...)
 	return in, nil
 }
 
@@ -134,6 +178,7 @@ func (in *RetryListerWatcher) ensureRequiredArgs() error {
 
 func NewRetryListerWatcher(options ...RetryListerWatcherOption) (*RetryListerWatcher, error) {
 	rw := &RetryListerWatcher{
+		stopChan:   make(chan struct{}),
 		resultChan: make(chan apiwatch.Event),
 	}
 

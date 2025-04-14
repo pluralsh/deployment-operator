@@ -227,6 +227,7 @@ func (in *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 	err := in.funnel.AddInputChannel(syncEventCh)
 	if err != nil {
 		// Reporter already stopped.
+		close(syncEventCh)
 		return handleFatalError(fmt.Errorf("reporter failed to start: %w", err))
 	}
 	go func() {
@@ -324,7 +325,7 @@ func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn 
 			ctx,
 			gkn,
 		)
-		if retryCount >= 10 {
+		if retryCount >= 3 {
 			klog.V(3).Infof("Watch start abort, reached retry limit: %d: %v", retryCount, gkn)
 			in.stopInformer(gkn)
 			return
@@ -381,7 +382,7 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 				options.LabelSelector = labelSelectorString
 				return in.DynamicClient.Resource(gvr).Watch(ctx, options)
 			}),
-		watcher.WithID(gkn.String()),
+		watcher.WithID(fmt.Sprintf("%s-%s", in.id, gkn.String())),
 	)
 	if apierrors.IsNotFound(err) && !in.hasGVR(gvr) {
 		return nil, &meta.NoKindMatchError{
@@ -425,27 +426,31 @@ func (in *ObjectStatusReporter) startInformerNow(
 		return err
 	}
 
+	klog.V(3).Infof("Watch starting: %v", gkn)
+	metrics.Record().ResourceCacheWatchStart(gkn.String())
+
 	in.watcherRefs[gkn].SetInformer(w)
 	eventCh := make(chan event.Event)
+	cleanup := func() {
+		// Signal to the caller there will be no more events for this GroupKind.
+		in.watcherRefs[gkn].Stop()
+		close(eventCh)
+		klog.V(3).Infof("Watch stopped: %v", gkn)
+		metrics.Record().ResourceCacheWatchEnd(gkn.String())
+	}
 
 	// Add this event channel to the output multiplexer
 	err = in.funnel.AddInputChannel(eventCh)
 	if err != nil {
-		// Reporter already stopped.
+		defer cleanup()
 		return fmt.Errorf("informer failed to build event handler: %w\n", err)
 	}
 
 	// Start the informer in the background.
 	// Informer will be stopped when the context is cancelled.
 	go func() {
-		klog.V(3).Infof("Watch starting: %v", gkn)
-		metrics.Record().ResourceCacheWatchStart(gkn.String())
+		defer cleanup()
 		in.Run(ctx.Done(), w.ResultChan(), in.eventHandler(ctx, eventCh))
-		metrics.Record().ResourceCacheWatchEnd(gkn.String())
-		klog.V(3).Infof("Watch stopped: %v", gkn)
-		// Signal to the caller there will be no more events for this GroupKind.
-		in.watcherRefs[gkn].Stop()
-		close(eventCh)
 	}()
 
 	return nil

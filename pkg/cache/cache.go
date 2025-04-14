@@ -57,12 +57,10 @@ func (c *Cache[T]) Wipe() {
 }
 
 func (c *Cache[T]) Expire(key string) {
-	expirable, exists := c.cache.Get(key)
+	_, exists := c.cache.Get(key)
 	if !exists {
 		return
 	}
 
-	expirable.resource.Expire()
-	expirable.created = time.Now()
-	c.cache.Set(key, expirable)
+	c.cache.Remove(key)
 }
