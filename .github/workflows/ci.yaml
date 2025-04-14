@@ -44,7 +44,14 @@ jobs:
           version: v1.63.4
   publish:
     name: Build and push Agent container
-    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        platforms:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.platforms.runner }}
     needs:
     - test
     permissions:
@@ -93,7 +100,7 @@ jobs:
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        platforms: linux/amd64,linux/arm64
+        platforms: ${{ matrix.platforms.platform }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         build-args: |
