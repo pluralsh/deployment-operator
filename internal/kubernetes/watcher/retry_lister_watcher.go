@@ -157,7 +157,7 @@ func (in *RetryListerWatcher) ensureRequiredArgs() error {
 func NewRetryListerWatcher(options ...RetryListerWatcherOption) (*RetryListerWatcher, error) {
 	rw := &RetryListerWatcher{
 		stopChan:   make(chan struct{}),
-		resultChan: make(chan apiwatch.Event),
+		resultChan: make(chan apiwatch.Event, 1),
 	}
 
 	for _, option := range options {
