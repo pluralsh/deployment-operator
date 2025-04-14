@@ -43,10 +43,10 @@ jobs:
       - uses: golangci/golangci-lint-action@v6
         with:
           version: v1.63.4
-  publish:
+  build-image:
     name: Build image
-#    needs:
-#      - test
+    needs:
+      - test
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -109,9 +109,10 @@ jobs:
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
-  merge:
+  publish-image:
+    name: Publish image
     needs:
-      - publish
+      - build-image
     strategy:
       fail-fast: false
       matrix:
