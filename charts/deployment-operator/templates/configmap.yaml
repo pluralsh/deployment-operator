@@ -11,7 +11,7 @@ data:
 
 
 {{- range $cert := .Values.certs }}
-{{- if and $cert.create $cert.name $cert.certData $cert.file }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,8 +19,5 @@ metadata:
   labels:
     {{- include "deployment-operator.labels" $ | nindent 4 }}
 data:
-  {{ $cert.file }}: {{ $cert.certData | quote }}
-{{- else if $cert.create }}
-{{- fail (printf "Certificate %s is missing required fields (name, certData or file)" $cert.name | default "unknown") }}
-{{- end }}
+  {{ $cert.file }}: {{ $cert.data | quote }}
 {{- end }}

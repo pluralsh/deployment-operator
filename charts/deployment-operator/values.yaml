@@ -17,18 +17,8 @@ additionalVolumeMounts: ~
 #
 # Example usage:
 #  - name: ca-pemstore
-#    create: true
-#    certData: xyz
+#    data: xyz
 #    file: my-cert.pem
-#    volume:
-#      configMap:
-#        name: ca-pemstore
-#  - name: ca-int-pemstore
-#    create: false
-#    file: int-cert.pem
-#    volume:
-#      persistentVolumeClaim:
-#        claimName: ca-int-pemstore
 certs: []
 
 replicaCount: 1
