@@ -58,7 +58,6 @@ jobs:
             runner: ubuntu-24.04
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
-        images: [ "ghcr.io/pluralsh/deployment-operator", "docker.io/pluralsh/deployment-operator" ]
     runs-on: ${{ matrix.platforms.runner }}
     steps:
       - name: Checkout
@@ -73,7 +72,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ matrix.images }}
+          images: pluralsh/deployment-operator
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
