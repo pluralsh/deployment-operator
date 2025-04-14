@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -319,13 +320,17 @@ func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn 
 	retryCount := 0
 
 	wait.BackoffUntil(func() {
-		if retryCount >= 2 {
+		err := in.startInformerNow(
+			ctx,
+			gkn,
+		)
+		if retryCount >= 10 {
 			klog.V(3).Infof("Watch start abort, reached retry limit: %d: %v", retryCount, gkn)
 			in.stopInformer(gkn)
 			return
 		}
 
-		if err := in.startInformerNow(ctx, gkn); err != nil {
+		if err != nil {
 			if meta.IsNoMatchError(err) {
 				// CRD (or api extension) not installed, retry
 				klog.V(3).Infof("Watch start error (blocking until CRD is added): %v: %v", gkn, err)
@@ -348,7 +353,6 @@ func (in *ObjectStatusReporter) startInformerWithRetry(ctx context.Context, gkn 
 			in.handleFatalError(eventCh, err)
 			return
 		}
-
 		// Success! - Stop retrying
 		retryCancel()
 	}, backoffManager, true, retryCtx.Done())
@@ -368,27 +372,17 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 		labelSelectorString = in.LabelSelector.String()
 	}
 
-	//w, err := watcher.NewRetryListerWatcher(
-	//	ctx,
-	//	watcher.WithListWatchFunc(
-	//		func(options metav1.ListOptions) (runtime.Object, error) {
-	//			options.LabelSelector = labelSelectorString
-	//			return in.DynamicClient.Resource(gvr).List(ctx, options)
-	//		}, func(options metav1.ListOptions) (watch.Interface, error) {
-	//			options.LabelSelector = labelSelectorString
-	//			return in.DynamicClient.Resource(gvr).Watch(ctx, options)
-	//		}),
-	//	watcher.WithID(fmt.Sprintf("%s/%s", in.id, gkn.String())),
-	//)
-
-	w, err := watcher.NewRetryWatcher("", &cache.ListWatch{
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = labelSelectorString
-			return in.DynamicClient.Resource(gvr).Watch(ctx, options)
-		},
-		DisableChunking: true,
-	})
-
+	w, err := watcher.NewRetryListerWatcher(
+		watcher.WithListWatchFunc(
+			func(options metav1.ListOptions) (runtime.Object, error) {
+				options.LabelSelector = labelSelectorString
+				return in.DynamicClient.Resource(gvr).List(ctx, options)
+			}, func(options metav1.ListOptions) (watch.Interface, error) {
+				options.LabelSelector = labelSelectorString
+				return in.DynamicClient.Resource(gvr).Watch(ctx, options)
+			}),
+		watcher.WithID(gkn.String()),
+	)
 	if apierrors.IsNotFound(err) && !in.hasGVR(gvr) {
 		return nil, &meta.NoKindMatchError{
 			GroupKind:        gk,
@@ -464,7 +458,7 @@ func (in *ObjectStatusReporter) Run(stopCh <-chan struct{}, echan <-chan watch.E
 			return
 		case e, ok := <-echan:
 			if !ok {
-				klog.V(4).Info("event channel closed")
+				klog.Error("event channel closed")
 				return
 			}
 

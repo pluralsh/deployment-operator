@@ -1,7 +1,6 @@
 package watcher
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -13,9 +12,9 @@ func WithListerWatcher(listerWatcher cache.ListerWatcher) RetryListerWatcherOpti
 	}
 }
 
-func WithListOptions(options v1.ListOptions) RetryListerWatcherOption {
+func WithListOptions() RetryListerWatcherOption {
 	return func(rlw *RetryListerWatcher) {
-		rlw.listOptions = options
+
 	}
 }
 

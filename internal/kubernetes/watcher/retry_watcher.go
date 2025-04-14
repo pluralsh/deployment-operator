@@ -48,14 +48,14 @@ type resourceVersionGetter interface {
 // Please note that this is not resilient to etcd cache not having the resource version anymore - you would need to
 // use Informers for that.
 type RetryWatcher struct {
+	mutex               sync.Mutex
+	stopped             bool
 	lastResourceVersion string
 	watcherClient       cache.Watcher
 	resultChan          chan watch.Event
 	stopChan            chan struct{}
 	doneChan            chan struct{}
 	minRestartDelay     time.Duration
-	mutex               sync.Mutex
-	stopped             bool
 }
 
 // NewRetryWatcher creates a new RetryWatcher.
@@ -66,14 +66,14 @@ func NewRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher)
 }
 
 func newRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher, minRestartDelay time.Duration) (*RetryWatcher, error) {
-	//switch initialResourceVersion {
-	//case "", "0":
-	//	// TODO: revisit this if we ever get WATCH v2 where it means start "now"
-	//	//       without doing the synthetic list of objects at the beginning (see #74022)
-	//	return nil, fmt.Errorf("initial RV %q is not supported due to issues with underlying WATCH", initialResourceVersion)
-	//default:
-	//	break
-	//}
+	switch initialResourceVersion {
+	case "", "0":
+		// TODO: revisit this if we ever get WATCH v2 where it means start "now"
+		//       without doing the synthetic list of objects at the beginning (see #74022)
+		return nil, fmt.Errorf("initial RV %q is not supported due to issues with underlying WATCH", initialResourceVersion)
+	default:
+		break
+	}
 
 	rw := &RetryWatcher{
 		lastResourceVersion: initialResourceVersion,
@@ -112,7 +112,7 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 	switch {
 	case err == nil:
 		break
-	case err == io.EOF:
+	case errors.Is(err, io.EOF):
 		// watch closed normally
 		return false, 0
 	case errors.Is(err, io.ErrUnexpectedEOF):
