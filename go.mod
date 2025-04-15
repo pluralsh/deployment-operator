@@ -5,6 +5,7 @@ go 1.23.5
 toolchain go1.23.6
 
 require (
+	github.com/DataDog/dd-trace-go/v2 v2.1.0-dev.1
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Yamashou/gqlgenc v0.29.0
@@ -26,6 +27,7 @@ require (
 	github.com/gofrs/flock v0.12.1
 	github.com/golangci/golangci-lint v1.63.4
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49
+	github.com/grafana/pyroscope-go v1.2.0
 	github.com/hashicorp/terraform-json v0.24.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.21.0
@@ -93,7 +95,6 @@ require (
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/Crocmagnon/fatcontext v0.5.3 // indirect
 	github.com/DataDog/datadog-go/v5 v5.6.0 // indirect
-	github.com/DataDog/dd-trace-go/v2 v2.1.0-dev.1 // indirect
 	github.com/DataDog/gostackparse v0.7.0 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
 	github.com/GaijinEntertainment/go-exhaustruct/v3 v3.3.0 // indirect
@@ -262,7 +263,6 @@ require (
 	github.com/gostaticanalysis/forcetypeassert v0.1.0 // indirect
 	github.com/gostaticanalysis/nilerr v0.1.1 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
-	github.com/grafana/pyroscope-go v1.2.0 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
