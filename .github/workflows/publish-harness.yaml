@@ -89,10 +89,6 @@ jobs:
   publish-base-image:
     name: Publish base image
     needs: [build-base-image]
-    strategy:
-      fail-fast: false
-      matrix:
-        images: [ "ghcr.io/pluralsh/stackrun-harness-base", "docker.io/pluralsh/stackrun-harness-base" ]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.meta.outputs.version }}
@@ -120,7 +116,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ matrix.images }}
+          images: |
+            ghcr.io/pluralsh/stackrun-harness-base
+            docker.io/pluralsh/stackrun-harness-base
           tags: |
             type=semver,pattern={{version}},priority=1000
             type=sha,priority=800
