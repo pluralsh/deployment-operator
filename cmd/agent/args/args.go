@@ -51,6 +51,7 @@ const (
 	defaultProfilerAddress = ":7777"
 
 	defaultPyroscopeAddress = "http://pyroscope.monitoring.svc.cluster.local:4040"
+	defaultDatadogAddress   = "http://datadog.monitoring.svc.cluster.local:8125"
 )
 
 var (
@@ -59,7 +60,8 @@ var (
 	argEnableLeaderElection            = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
 	argProfiler                        = flag.Bool("profiler", false, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
-	argPyroscope                       = flag.Bool("pyroscope", true, "Enable pyroscope integration for detailed application profiling. By default it will push to http://pyroscope.monitoring.svc.cluster.local:4040")
+	argPyroscope                       = flag.Bool("pyroscope", false, "Enable pyroscope integration for detailed application profiling. By default it will push to http://pyroscope.monitoring.svc.cluster.local:4040")
+	argDatadog                         = flag.Bool("datadog", true, "Enable datadog integration for detailed application profiling. By default it will push to http://datadog.monitoring.svc.cluster.local:8125")
 	argDisableResourceCache            = flag.Bool("disable-resource-cache", false, "Control whether resource cache should be enabled or not.")
 	argEnableKubecostProxy             = flag.Bool("enable-kubecost-proxy", false, "If set, will proxy a Kubecost API request through the K8s API server.")
 
@@ -82,6 +84,7 @@ var (
 	argRestoreNamespace   = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
 	argServices           = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
 	argPyroscopeAddress   = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
+	argDatadogAddress     = flag.String("datadog-address", defaultDatadogAddress, "The address of the Datadog server.")
 
 	serviceSet containers.Set[string]
 )
@@ -288,6 +291,14 @@ func PyroscopeEnabled() bool {
 
 func PyroscopeAddress() string {
 	return *argPyroscopeAddress
+}
+
+func DatadogEnabled() bool {
+	return *argDatadog
+}
+
+func DatadogAddress() string {
+	return *argDatadogAddress
 }
 
 func ensureOrDie(argName string, arg *string) {
