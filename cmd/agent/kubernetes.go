@@ -37,9 +37,7 @@ const serviceIDCacheExpiry = 12 * time.Hour
 
 func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
-		NewClient: func(config *rest.Config, options ctrlclient.Options) (ctrlclient.Client, error) {
-			return ctrlclient.New(config, options) // completely bypass the cache
-		},
+		NewClient:              ctrlclient.New,
 		Logger:                 setupLog,
 		Scheme:                 scheme,
 		LeaderElection:         args.EnableLeaderElection(),
