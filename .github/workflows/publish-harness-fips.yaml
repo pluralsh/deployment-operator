@@ -133,7 +133,7 @@ jobs:
 
   publish-harness-ansible:
     name: Build and push harness ansible FIPS container
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     needs: [ publish-base-image ]
     strategy:
       matrix:
