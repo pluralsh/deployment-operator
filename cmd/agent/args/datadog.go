@@ -14,6 +14,8 @@ func InitDatadog() error {
 	if err := tracer.Start(
 		tracer.WithRuntimeMetrics(),
 		tracer.WithDogstatsdAddr(fmt.Sprintf("%s:%s", DatadogHost(), "8125")),
+		tracer.WithService("deployment-operator"),
+		tracer.WithEnv(fmt.Sprintf("cluster-%s", ClusterId())),
 	); err != nil {
 		return err
 	}
