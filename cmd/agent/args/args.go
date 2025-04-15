@@ -51,7 +51,7 @@ const (
 	defaultProfilerAddress = ":7777"
 
 	defaultPyroscopeAddress = "http://pyroscope.monitoring.svc.cluster.local:4040"
-	defaultDatadogAddress   = "http://datadog.monitoring.svc.cluster.local:8125"
+	defaultDatadogAddress   = "datadog-agent.monitoring.svc.cluster.local:8125"
 )
 
 var (

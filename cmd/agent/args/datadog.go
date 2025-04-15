@@ -15,6 +15,7 @@ func InitDatadog() error {
 		profiler.WithEnv(fmt.Sprintf("cluster-%s", ClusterId())),
 		//profiler.WithVersion("<APPLICATION_VERSION>"),
 		profiler.WithTags(fmt.Sprintf("cluster_id:%s", ClusterId()), fmt.Sprintf("console_url:%s", ConsoleUrl())),
+		profiler.WithAgentAddr(DatadogAddress()),
 		profiler.WithProfileTypes(
 			profiler.CPUProfile,
 			profiler.HeapProfile,
