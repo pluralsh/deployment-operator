@@ -52,6 +52,7 @@ const (
 
 	defaultPyroscopeAddress = "http://pyroscope.monitoring.svc.cluster.local:4040"
 	defaultDatadogHost      = "datadog-agent.monitoring.svc.cluster.local"
+	defaultDatadogEnv       = "plrl-dev-aws"
 )
 
 var (
@@ -85,6 +86,7 @@ var (
 	argServices           = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
 	argPyroscopeAddress   = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
 	argDatadogHost        = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
+	argDatadogEnv         = flag.String("datadog-env", defaultDatadogEnv, "The environment of the Datadog server.")
 
 	serviceSet containers.Set[string]
 )
@@ -299,6 +301,10 @@ func DatadogEnabled() bool {
 
 func DatadogHost() string {
 	return *argDatadogHost
+}
+
+func DatadogEnv() string {
+	return *argDatadogEnv
 }
 
 func ensureOrDie(argName string, arg *string) {

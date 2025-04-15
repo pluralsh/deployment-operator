@@ -11,7 +11,7 @@ import (
 func InitDatadog() error {
 	klog.Info("initializing datadog")
 
-	env := fmt.Sprintf("cluster-%s", ClusterId())
+	env := DatadogEnv()
 	service := "deployment-operator"
 	agentAddr := fmt.Sprintf("%s:%s", DatadogHost(), "8126")
 	dogstatsdAddr := fmt.Sprintf("%s:%s", DatadogHost(), "8125")
