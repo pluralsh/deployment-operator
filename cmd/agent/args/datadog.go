@@ -30,7 +30,7 @@ func InitDatadog() error {
 		profiler.WithService(service),
 		profiler.WithEnv(env),
 		profiler.WithTags(fmt.Sprintf("cluster_id:%s", ClusterId()), fmt.Sprintf("console_url:%s", ConsoleUrl())),
-		profiler.WithAgentAddr(dogstatsdAddr),
+		profiler.WithAgentAddr(agentAddr),
 		profiler.WithProfileTypes(
 			profiler.CPUProfile,
 			profiler.HeapProfile,
