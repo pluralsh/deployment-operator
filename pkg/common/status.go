@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	cleanupAfter       = 3 * time.Minute
-	cutoffProgressTime = 1 * time.Minute
+	cleanupAfter       = 3 * time.Hour
+	cutoffProgressTime = 10 * time.Minute
 )
 
 var healthStatus cmap.ConcurrentMap[string, Progress]

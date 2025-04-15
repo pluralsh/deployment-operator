@@ -37,7 +37,7 @@ const serviceIDCacheExpiry = 12 * time.Hour
 
 func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
-		NewClient:              ctrlclient.New,
+		NewClient:              ctrlclient.New, // client reads directly from the API server
 		Logger:                 setupLog,
 		Scheme:                 scheme,
 		LeaderElection:         args.EnableLeaderElection(),
