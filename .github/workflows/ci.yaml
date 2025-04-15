@@ -45,7 +45,7 @@ jobs:
           version: v1.63.4
   build-image:
     name: Build image
-    #needs: [build, test]
+    needs: [build, test]
     permissions:
       contents: 'read'
       id-token: 'write'
