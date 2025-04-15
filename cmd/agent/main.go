@@ -68,9 +68,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		// Trace kubernetes client calls
-		config.WrapTransport = kubernetestrace.WrapRoundTripper
-
 		defer func() {
 			_ = profiler.Stop()
 		}()
@@ -82,6 +79,9 @@ func main() {
 			setupLog.Error(err, "unable to initialize datadog")
 			os.Exit(1)
 		}
+
+		// Trace kubernetes client calls
+		config.WrapTransport = kubernetestrace.WrapRoundTripper
 
 		defer func() {
 			datadogtracer.Stop()
