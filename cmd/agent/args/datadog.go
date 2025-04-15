@@ -18,8 +18,8 @@ func InitDatadog() error {
 
 	if err := tracer.Start(
 		tracer.WithRuntimeMetrics(),
-		tracer.WithDogstatsdAddr(agentAddr),
-		tracer.WithAgentAddr(dogstatsdAddr),
+		tracer.WithDogstatsdAddr(dogstatsdAddr),
+		tracer.WithAgentAddr(agentAddr),
 		tracer.WithService(service),
 		tracer.WithEnv(env),
 	); err != nil {
