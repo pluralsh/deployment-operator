@@ -11,21 +11,26 @@ import (
 func InitDatadog() error {
 	klog.Info("initializing datadog")
 
+	env := fmt.Sprintf("cluster-%s", ClusterId())
+	service := "deployment-operator"
+	agentAddr := fmt.Sprintf("%s:%s", DatadogHost(), "8126")
+	dogstatsdAddr := fmt.Sprintf("%s:%s", DatadogHost(), "8125")
+
 	if err := tracer.Start(
 		tracer.WithRuntimeMetrics(),
-		tracer.WithDogstatsdAddr(fmt.Sprintf("%s:%s", DatadogHost(), "8125")),
-		tracer.WithService("deployment-operator"),
-		tracer.WithEnv(fmt.Sprintf("cluster-%s", ClusterId())),
+		tracer.WithDogstatsdAddr(agentAddr),
+		tracer.WithAgentAddr(dogstatsdAddr),
+		tracer.WithService(service),
+		tracer.WithEnv(env),
 	); err != nil {
 		return err
 	}
 
 	return profiler.Start(
-		profiler.WithService("deployment-operator"),
-		profiler.WithEnv(fmt.Sprintf("cluster-%s", ClusterId())),
-		//profiler.WithVersion("<APPLICATION_VERSION>"),
+		profiler.WithService(service),
+		profiler.WithEnv(env),
 		profiler.WithTags(fmt.Sprintf("cluster_id:%s", ClusterId()), fmt.Sprintf("console_url:%s", ConsoleUrl())),
-		profiler.WithAgentAddr(fmt.Sprintf("%s:%s", DatadogHost(), "8126")),
+		profiler.WithAgentAddr(dogstatsdAddr),
 		profiler.WithProfileTypes(
 			profiler.CPUProfile,
 			profiler.HeapProfile,

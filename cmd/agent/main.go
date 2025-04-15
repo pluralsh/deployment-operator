@@ -5,7 +5,8 @@ import (
 	"os"
 	"time"
 
-	datadogprofilder "github.com/DataDog/dd-trace-go/v2/profiler"
+	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	datadogprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -78,7 +79,10 @@ func main() {
 			os.Exit(1)
 		}
 
-		defer datadogprofilder.Stop()
+		defer func() {
+			datadogtracer.Stop()
+			datadogprofiler.Stop()
+		}()
 	}
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
