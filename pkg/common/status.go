@@ -36,14 +36,11 @@ func init() {
 		ticker := time.NewTicker(cleanupAfter)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				cleanupTime := time.Now().Add(-cleanupAfter)
-				for k, v := range healthStatus.Items() {
-					if v.PingTime.Before(cleanupTime) {
-						healthStatus.Remove(k)
-					}
+		for range ticker.C {
+			cleanupTime := time.Now().Add(-cleanupAfter)
+			for k, v := range healthStatus.Items() {
+				if v.PingTime.Before(cleanupTime) {
+					healthStatus.Remove(k)
 				}
 			}
 		}
