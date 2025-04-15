@@ -30,8 +30,6 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.platforms.runner }}
-    outputs:
-      version: ${{ steps.meta.outputs.version }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -96,6 +94,8 @@ jobs:
       matrix:
         images: [ "ghcr.io/pluralsh/stackrun-harness-base", "docker.io/pluralsh/stackrun-harness-base" ]
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
@@ -215,7 +215,7 @@ jobs:
         build-args: |
           TERRAFORM_IMAGE_TAG=${{ matrix.versions.full }}
           HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
+          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-base-image.outputs.version }}
 
   publish-harness-ansible:
     name: Build and push harness ansible container
@@ -299,7 +299,7 @@ jobs:
           ANSIBLE_VERSION=${{ matrix.versions.ansible }}
           PYTHON_VERSION=${{ matrix.versions.python }}
           HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
+          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-base-image.outputs.version }}
 
   publish-harness-custom:
     name: Build and push harness custom container
@@ -354,4 +354,4 @@ jobs:
         cache-to: type=gha,mode=max
         build-args: |
           HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
-          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-harness-base.outputs.version }}
+          HARNESS_BASE_IMAGE_TAG=${{ needs.publish-base-image.outputs.version }}
