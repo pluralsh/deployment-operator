@@ -51,7 +51,7 @@ const (
 	defaultProfilerAddress = ":7777"
 
 	defaultPyroscopeAddress = "http://pyroscope.monitoring.svc.cluster.local:4040"
-	defaultDatadogAddress   = "datadog-agent.monitoring.svc.cluster.local:8125"
+	defaultDatadogHost      = "datadog-agent.monitoring.svc.cluster.local"
 )
 
 var (
@@ -84,7 +84,7 @@ var (
 	argRestoreNamespace   = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
 	argServices           = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
 	argPyroscopeAddress   = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
-	argDatadogAddress     = flag.String("datadog-address", defaultDatadogAddress, "The address of the Datadog server.")
+	argDatadogHost        = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
 
 	serviceSet containers.Set[string]
 )
@@ -297,8 +297,8 @@ func DatadogEnabled() bool {
 	return *argDatadog
 }
 
-func DatadogAddress() string {
-	return *argDatadogAddress
+func DatadogHost() string {
+	return *argDatadogHost
 }
 
 func ensureOrDie(argName string, arg *string) {
