@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	datadogprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
@@ -66,6 +67,9 @@ func main() {
 			setupLog.Error(err, "unable to initialize pyroscope")
 			os.Exit(1)
 		}
+
+		// Trace kubernetes client calls
+		config.WrapTransport = kubernetestrace.WrapRoundTripper
 
 		defer func() {
 			_ = profiler.Stop()
