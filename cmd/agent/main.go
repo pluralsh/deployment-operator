@@ -76,8 +76,7 @@ func main() {
 	if args.DatadogEnabled() {
 		err := args.InitDatadog()
 		if err != nil {
-			setupLog.Error(err, "unable to initialize datadog")
-			os.Exit(1)
+			panic("unable to initialize datadog")
 		}
 
 		// Trace kubernetes client calls

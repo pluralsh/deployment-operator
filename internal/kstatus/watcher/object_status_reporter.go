@@ -374,6 +374,7 @@ func (in *ObjectStatusReporter) newWatcher(ctx context.Context, gkn GroupKindNam
 	}
 
 	w, err := watcher.NewRetryListerWatcher(
+		ctx,
 		watcher.WithListWatchFunc(
 			func(options metav1.ListOptions) (runtime.Object, error) {
 				options.LabelSelector = labelSelectorString
@@ -433,7 +434,7 @@ func (in *ObjectStatusReporter) startInformerNow(
 	eventCh := make(chan event.Event)
 	cleanup := func() {
 		// Signal to the caller there will be no more events for this GroupKind.
-		in.watcherRefs[gkn].Stop()
+		in.stopInformer(gkn)
 		close(eventCh)
 		klog.V(3).Infof("Watch stopped: %v", gkn)
 		metrics.Record().ResourceCacheWatchEnd(gkn.String())
