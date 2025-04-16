@@ -37,6 +37,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -298,6 +299,7 @@ func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Co
 			if resourceCosts == nil {
 				continue
 			}
+			parentResourceMap := containers.NewSet[string]()
 			for name, allocation := range resourceCosts {
 				resourceName := name
 				splitName := strings.Split(name, "/")
@@ -309,7 +311,10 @@ func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Co
 				}
 				totalCost := allocation.TotalCost()
 				if totalCost > recommendationThreshold {
-					result = append(result, r.convertClusterRecommendationAttributes(ctx, allocation, name, resourceType))
+					if !parentResourceMap.Has(resourceName) {
+						result = append(result, r.convertClusterRecommendationAttributes(ctx, allocation, name, resourceType))
+						parentResourceMap.Add(resourceName)
+					}
 				}
 			}
 		}
@@ -596,7 +601,7 @@ func (r *KubecostExtractorReconciler) convertClusterRecommendationAttributes(ctx
 
 	result := &console.ClusterRecommendationAttributes{
 		Type:       lo.ToPtr(resourceTypeEnum),
-		Name:       lo.ToPtr(name),
+		Name:       lo.ToPtr(resourceName),
 		CPUCost:    lo.ToPtr(allocation.CPUCost),
 		MemoryCost: lo.ToPtr(allocation.RAMCost),
 		GpuCost:    lo.ToPtr(allocation.GPUCost),
