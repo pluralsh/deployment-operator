@@ -94,10 +94,6 @@ jobs:
   publish-image:
     name: Publish image
     needs: [build-image]
-    strategy:
-      fail-fast: false
-      matrix:
-        images: [ "ghcr.io/pluralsh/deployment-operator", "docker.io/pluralsh/deployment-operator" ]
     runs-on: ubuntu-latest
     steps:
       - name: Download digests
@@ -123,16 +119,15 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ matrix.images }}
+          images: |
+            docker.io/pluralsh/deployment-operator
+            ghcr.io/pluralsh/deployment-operator
           tags: type=semver,pattern={{version}}
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
-      - name: Inspect image
-        run: |
-          docker buildx imagetools inspect ${{ matrix.images }}:${{ steps.meta.outputs.version }}
       - name: slack webhook
         uses: 8398a7/action-slack@v3
         with:
