@@ -595,7 +595,6 @@ func (r *KubecostExtractorReconciler) convertClusterRecommendationAttributes(ctx
 	resourceName := name
 	splitName := strings.Split(name, "/")
 	if len(splitName) == 2 {
-		name = splitName[1]         // pod name
 		resourceName = splitName[0] // parent resource
 	}
 
