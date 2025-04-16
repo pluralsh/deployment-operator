@@ -3,7 +3,9 @@ package watcher
 import (
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +50,9 @@ func (in *RetryListerWatcher) Stop() {
 }
 
 func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
+	span := tracer.StartSpan("funnel", tracer.ResourceName("RetryListerWatcher"), tracer.Tag("id", in.id), tracer.StartTime(time.Now()))
+	defer span.Finish(tracer.FinishTime(time.Now()))
+
 	for {
 		select {
 		case <-in.stopChan:
@@ -157,7 +162,7 @@ func (in *RetryListerWatcher) ensureRequiredArgs() error {
 func NewRetryListerWatcher(options ...RetryListerWatcherOption) (*RetryListerWatcher, error) {
 	rw := &RetryListerWatcher{
 		stopChan:   make(chan struct{}),
-		resultChan: make(chan apiwatch.Event, 1),
+		resultChan: make(chan apiwatch.Event),
 	}
 
 	for _, option := range options {
