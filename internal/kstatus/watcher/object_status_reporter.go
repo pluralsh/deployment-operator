@@ -244,7 +244,7 @@ func (in *ObjectStatusReporter) Start(ctx context.Context) <-chan event.Event {
 	go wait.PollUntilContextCancel(ctx, 5*time.Second, false, func(_ context.Context) (done bool, err error) {
 		stopped := true
 		for _, ref := range in.watcherRefs {
-			if ref.started {
+			if ref.Started() {
 				stopped = false
 			}
 		}
