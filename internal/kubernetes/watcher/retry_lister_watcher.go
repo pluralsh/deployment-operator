@@ -100,22 +100,27 @@ func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
 			select {
 			case <-in.ctx.Done():
 				return
-			default:
+			case <-in.stopChan:
+				return
+			case in.resultChan <- e:
+				// Successfully sent
 			}
 
-			in.resultChan <- e
 		}
 	}
 }
 
 func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
+	span := tracer.StartSpan("funnelItems", tracer.ResourceName("RetryListerWatcher"), tracer.Tag("id", in.id), tracer.StartTime(time.Now()))
+	defer span.Finish(tracer.FinishTime(time.Now()))
+
 	for _, item := range items {
 		select {
+		case <-in.ctx.Done():
+			klog.V(4).InfoS("funnelItems stopped due to context being closed")
+			return
 		case <-in.stopChan:
 			klog.V(0).InfoS("funnelItems stopped due to stopChan being closed")
-			return
-		case <-in.Done():
-			klog.V(4).InfoS("funnelItems stopped due to resultChan being closed")
 			return
 		case in.resultChan <- item:
 			klog.V(4).InfoS("successfully sent item to resultChan")
@@ -160,7 +165,7 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 		}
 
 		resourceVersion := listMetaInterface.GetResourceVersion()
-		items, err := meta.ExtractList(list)
+		items, err := meta.ExtractListWithAlloc(list)
 		if err != nil {
 			return in, fmt.Errorf("unable to understand list result %#v (%w)", list, err)
 		}
