@@ -228,7 +228,6 @@ func drainWave(ctx context.Context, scope Scope[*v1alpha1.ClusterDrain], c clien
 		progress.SetStatus(failed, &objRef)
 		saveProgress(ctx, progress, drain, scope)
 	}
-
 }
 
 func healthStatusDelay() time.Duration {
@@ -271,7 +270,6 @@ func waitForHealthStatus(ctx context.Context, c client.Client, obj *unstructured
 			return ctx.Err()
 		}
 	}
-
 }
 
 func splitIntoWaves[T any](items []T, batchSize int) [][]T {

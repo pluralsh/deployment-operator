@@ -208,7 +208,6 @@ func (c *Controller) reconcile(ctx context.Context, req string) (_ reconcile.Res
 			// Update last reconcile time on successful reconcile
 			c.lastReconcileTime = time.Now()
 		}
-
 	}()
 	return c.Do.Reconcile(ctx, req)
 }

@@ -38,7 +38,6 @@ func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 	resp, err := c.consoleClient.GetClusterGate(c.ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("gate with id %s not found", id)
-
 	}
 	return resp.ClusterGate, nil
 }

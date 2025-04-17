@@ -140,7 +140,6 @@ func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
 		svcCache: s.svcCache,
 		manCache: s.manifestCache,
 	}
-
 }
 
 func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*applier.Applier, error) {
@@ -189,7 +188,6 @@ func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, 
 		}
 	}
 	for _, obj := range objs {
-
 		// Look up the scope of the resource so we know if the resource
 		// should have a namespace set or not.
 		scope, err := object.LookupResourceScope(obj, crdObjs, s.mapper)

@@ -18,7 +18,6 @@ func (c *gvkCache) Store(gvk schema.GroupVersionKind, namespaced bool) {
 }
 
 func (c *gvkCache) Namespaced(gvk schema.GroupVersionKind) bool {
-
 	val, ok := c.cache.Get(gvk)
 	return ok && val
 }

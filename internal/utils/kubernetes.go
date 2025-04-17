@@ -67,7 +67,6 @@ func TryToUpdate(ctx context.Context, client ctrlruntimeclient.Client, object ct
 
 		return client.Patch(ctx, original, ctrlruntimeclient.MergeFrom(object))
 	})
-
 }
 
 func TryAddOwnerRef(ctx context.Context, client ctrlruntimeclient.Client, owner ctrlruntimeclient.Object, object ctrlruntimeclient.Object, scheme *runtime.Scheme) error {

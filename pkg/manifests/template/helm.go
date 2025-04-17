@@ -287,7 +287,6 @@ func kubeVersion(conf *action.Configuration) (*chartutil.KubeVersion, error) {
 }
 
 func (h *helm) dependencyUpdate(conf *action.Configuration, dependencies []*chart.Dependency) error {
-
 	for _, dep := range dependencies {
 		if err := AddRepo(dep.Name, dep.Repository); err != nil {
 			return err
@@ -344,7 +343,6 @@ func UpdateRepos() error {
 	}
 
 	return updateCharts(repos, true)
-
 }
 
 func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) error {
