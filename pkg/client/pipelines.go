@@ -131,8 +131,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 }
 
 func ContainersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment, resources *console.ContainerResourcesFragment) []corev1.Container {
-	var containers []corev1.Container
-
+	containers := make([]corev1.Container, 0, len(containerSpecFragments))
 	for i, csFragment := range containerSpecFragments {
 		if csFragment == nil {
 			continue

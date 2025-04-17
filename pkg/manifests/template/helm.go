@@ -333,7 +333,7 @@ func UpdateRepos() error {
 	case len(f.Repositories) == 0:
 		return errNoRepositories
 	}
-	var repos []*repo.ChartRepository
+	repos := make([]*repo.ChartRepository, 0, len(f.Repositories))
 	for _, cfg := range f.Repositories {
 		r, err := repo.NewChartRepository(cfg, getter.All(settings))
 		if err != nil {
@@ -341,7 +341,6 @@ func UpdateRepos() error {
 		}
 		r.CachePath = settings.RepositoryCache
 		repos = append(repos, r)
-
 	}
 
 	return updateCharts(repos, true)
