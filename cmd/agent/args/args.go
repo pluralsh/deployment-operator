@@ -19,7 +19,12 @@ import (
 )
 
 const (
-	EnvDeployToken = "DEPLOY_TOKEN"
+	EnvDeployToken          = "DEPLOY_TOKEN"
+	EnvDatadogEnabled       = "DATADOG_ENABLED"
+	EnvPyroscopeEnabled     = "PYROSCOPE_ENABLED"
+	EnvProfilerEnabled      = "PROFILER_ENABLED"
+	EnvResourceCacheEnabled = "RESOURCE_CACHE_ENABLED"
+	EnvLocal                = "LOCAL"
 
 	defaultProbeAddress   = ":9001"
 	defaultMetricsAddress = ":8000"
@@ -59,11 +64,11 @@ var (
 	argDisableHelmTemplateDryRunServer = flag.Bool("disable-helm-dry-run-server", false, "Disable helm template in dry-run=server mode.")
 	argEnableHelmDependencyUpdate      = flag.Bool("enable-helm-dependency-update", false, "Enable update Helm chart's dependencies.")
 	argEnableLeaderElection            = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-	argLocal                           = flag.Bool("local", false, "Whether you're running the operator locally.")
-	argProfiler                        = flag.Bool("profiler", false, "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
-	argPyroscope                       = flag.Bool("pyroscope", false, "Enable pyroscope integration for detailed application profiling. By default it will push to http://pyroscope.monitoring.svc.cluster.local:4040")
-	argDatadog                         = flag.Bool("datadog", true, "Enable datadog integration for detailed application profiling. By default it will push to http://datadog.monitoring.svc.cluster.local:8125")
-	argDisableResourceCache            = flag.Bool("disable-resource-cache", false, "Control whether resource cache should be enabled or not.")
+	argLocal                           = flag.Bool("local", helpers.GetPluralEnvBool(EnvLocal, false), "Whether you're running the operator locally.")
+	argProfiler                        = flag.Bool("profiler", helpers.GetPluralEnvBool(EnvProfilerEnabled, false), "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
+	argPyroscope                       = flag.Bool("pyroscope", helpers.GetPluralEnvBool(EnvPyroscopeEnabled, false), "Enable pyroscope integration for detailed application profiling. By default it will push to http://pyroscope.monitoring.svc.cluster.local:4040")
+	argDatadog                         = flag.Bool("datadog", helpers.GetPluralEnvBool(EnvDatadogEnabled, false), "Enable datadog integration for detailed application profiling. By default it will push to http://datadog.monitoring.svc.cluster.local:8125")
+	argDisableResourceCache            = flag.Bool("disable-resource-cache", !helpers.GetPluralEnvBool(EnvResourceCacheEnabled, true), "Control whether resource cache should be enabled or not.")
 	argEnableKubecostProxy             = flag.Bool("enable-kubecost-proxy", false, "If set, will proxy a Kubecost API request through the K8s API server.")
 
 	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
