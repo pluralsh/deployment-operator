@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -76,7 +77,7 @@ func (in *RetryListerWatcher) isEmptyResourceVersion() bool {
 
 func (in *RetryListerWatcher) ensureRequiredArgs() error {
 	if in.listerWatcher == nil {
-		return fmt.Errorf("listerWatcher must not be nil")
+		return errors.New("listerWatcher must not be nil")
 	}
 
 	return nil

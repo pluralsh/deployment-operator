@@ -1,10 +1,8 @@
 package client
 
 import (
+	stderrors "errors"
 	"fmt"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-	"sigs.k8s.io/yaml"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -13,7 +11,9 @@ import (
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 const twentyFourHours = int32(86400)
@@ -29,7 +29,7 @@ func (c *client) GetClusterGates(after *string, first *int64) (*console.PagedClu
 		return nil, err
 	}
 	if resp.PagedClusterGates == nil {
-		return nil, fmt.Errorf("the response from PagedClusterGates is nil")
+		return nil, stderrors.New("the response from PagedClusterGates is nil")
 	}
 	return resp, nil
 }

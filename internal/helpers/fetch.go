@@ -51,15 +51,15 @@ func (in *fetchClient) untar(resp *http.Response) (string, error) {
 }
 
 func (in *fetchClient) handleStatusCode(resp *http.Response) error {
-	if resp.StatusCode == 200 {
+	if resp.StatusCode == http.StatusOK {
 		return nil
 	}
 
-	if resp.StatusCode == 403 {
+	if resp.StatusCode == http.StatusForbidden {
 		return errors.ErrUnauthenticated
 	}
 
-	if resp.StatusCode == 402 {
+	if resp.StatusCode == http.StatusPaymentRequired {
 		return errors.ErrTransientManifest
 	}
 
@@ -73,7 +73,7 @@ func (in *fetchClient) handleCloseResponseBody(resp *http.Response) {
 }
 
 func (in *fetchClient) request(url string) (*http.Request, error) {
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
