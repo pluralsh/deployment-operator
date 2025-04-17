@@ -109,7 +109,6 @@ func registerKubeReconcilersOrDie(
 	discoveryClient discovery.DiscoveryInterface,
 	enableKubecostProxy bool,
 ) {
-
 	rolloutsClient, dynamicClient, kubeClient, metricsClient := initKubeClientsOrDie(config)
 
 	backupController := &controller.BackupReconciler{

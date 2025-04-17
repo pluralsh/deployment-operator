@@ -268,7 +268,6 @@ func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *co
 		response, err = r.KubeClient.CoreV1().Services(srv.Namespace).ProxyGet("", srv.Name, servicePort, "/model/allocation", queryParams).DoRaw(ctx)
 	} else {
 		response, err = r.fetch(fmt.Sprintf("%s.%s:%s", srv.Name, srv.Namespace, servicePort), "/model/allocation", queryParams)
-
 	}
 	if err != nil {
 		return nil, err
@@ -421,7 +420,6 @@ func (r *KubecostExtractorReconciler) getClusterID(ctx context.Context, srv *cor
 		response, err = r.KubeClient.CoreV1().Services(srv.Namespace).ProxyGet("", srv.Name, servicePort, "/model/clusterInfo", nil).DoRaw(ctx)
 	} else {
 		response, err = r.fetch(fmt.Sprintf("%s.%s:%s", srv.Name, srv.Namespace, servicePort), "/model/clusterInfo", nil)
-
 	}
 	if err != nil {
 		return "", err

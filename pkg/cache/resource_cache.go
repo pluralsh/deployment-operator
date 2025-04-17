@@ -237,7 +237,6 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 	cacheEntry, _ := resourceCache.GetCacheEntry(key)
 	cacheEntry.SetStatus(*e)
 	resourceCache.SetCacheEntry(key, cacheEntry)
-
 }
 
 func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {

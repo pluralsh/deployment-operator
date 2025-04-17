@@ -38,7 +38,6 @@ func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 	resp, err := c.consoleClient.GetClusterGate(c.ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("gate with id %s not found", id)
-
 	}
 	return resp.ClusterGate, nil
 }
@@ -131,8 +130,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 }
 
 func ContainersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment, resources *console.ContainerResourcesFragment) []corev1.Container {
-	var containers []corev1.Container
-
+	containers := make([]corev1.Container, 0, len(containerSpecFragments))
 	for i, csFragment := range containerSpecFragments {
 		if csFragment == nil {
 			continue

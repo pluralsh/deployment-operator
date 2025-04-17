@@ -5,6 +5,7 @@ run:
 linters:
   default: none
   enable:
+    - copyloopvar
     - errcheck
     - errname
     - errorlint
@@ -15,8 +16,10 @@ linters:
     - importas
     - ineffassign
     - misspell
+    - prealloc
     - staticcheck
     - unused
+    - whitespace
   exclusions:
     generated: lax
     presets:

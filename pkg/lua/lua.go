@@ -38,7 +38,6 @@ func ExecuteLua(vals map[string]interface{}, tplate string) (map[string]interfac
 	}
 
 	return output, nil
-
 }
 
 func GetFuncMap() template.FuncMap {
@@ -59,7 +58,6 @@ func MapLua(tbl *lua.LTable, st interface{}) error {
 
 // NewMapper returns a new mapper.
 func NewMapper() *Mapper {
-
 	return &Mapper{}
 }
 

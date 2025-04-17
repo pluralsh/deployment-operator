@@ -96,7 +96,6 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	logger.Info("upsert constraint", "number", *res.UpsertPolicyConstraints)
 	return ctrl.Result{}, nil
-
 }
 
 // SetupWithManager sets up the controller with the Manager.

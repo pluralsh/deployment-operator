@@ -375,7 +375,6 @@ func getBatchv1JobHealth(job *batchv1.Job) (*HealthStatus, error) {
 		Status:  HealthStatusHealthy,
 		Message: message,
 	}, nil
-
 }
 
 func getNodeHealth(obj *unstructured.Unstructured) (*HealthStatus, error) {
@@ -732,7 +731,6 @@ func getAppsv1DeploymentHealth(deployment *appsv1.Deployment) (*HealthStatus, er
 		Status:  HealthStatusProgressing,
 		Message: "Waiting for rollout to finish: observed deployment generation less than desired generation",
 	}, nil
-
 }
 
 func getAppsv1DeploymentCondition(status appsv1.DeploymentStatus, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {

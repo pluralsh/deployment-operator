@@ -92,7 +92,6 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		})
 
 		return ctrl.Result{}, err
-
 	}
 
 	if hasFailed(job) {
