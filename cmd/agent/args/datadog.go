@@ -2,6 +2,7 @@ package args
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/DataDog/dd-trace-go/v2/profiler"
@@ -31,13 +32,15 @@ func InitDatadog() error {
 		profiler.WithEnv(env),
 		profiler.WithTags(fmt.Sprintf("cluster_id:%s", ClusterId()), fmt.Sprintf("console_url:%s", ConsoleUrl())),
 		profiler.WithAgentAddr(agentAddr),
+		profiler.WithPeriod(30*time.Second),
+		profiler.CPUDuration(30*time.Second),
 		profiler.WithProfileTypes(
 			profiler.CPUProfile,
 			profiler.HeapProfile,
 			// The profiles below are disabled by default to keep overhead
 			// low, but can be enabled as needed.
 
-			profiler.BlockProfile,
+			//profiler.BlockProfile,
 			profiler.MutexProfile,
 			profiler.GoroutineProfile,
 		),

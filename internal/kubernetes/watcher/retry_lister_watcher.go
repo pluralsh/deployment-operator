@@ -105,7 +105,6 @@ func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
 			case in.resultChan <- e:
 				// Successfully sent
 			}
-
 		}
 	}
 }
