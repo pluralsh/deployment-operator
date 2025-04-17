@@ -33,10 +33,6 @@ jobs:
 
       - name: Test deployment-operator chart installation
         run: |
-          # Add local chart repo
-          helm package ./charts/deployment-operator
-          helm repo index --url deployop=https://localhost .
-          
           # Install the chart - this should succeed without errors
           helm install deployment-operator ./charts/deployment-operator \
             --set secrets.deployToken=test-token \
