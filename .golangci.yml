@@ -15,6 +15,7 @@ linters:
     - importas
     - ineffassign
     - misspell
+    - prealloc
     - staticcheck
     - unused
   exclusions:
