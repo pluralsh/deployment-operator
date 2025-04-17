@@ -56,9 +56,6 @@ const (
 func main() {
 	args.Init()
 	config := ctrl.GetConfigOrDie()
-	// Use protobuf instead of application/json
-	config.ContentType = "application/vnd.kubernetes.protobuf"
-	config.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
 	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
 
 	if args.PyroscopeEnabled() {
