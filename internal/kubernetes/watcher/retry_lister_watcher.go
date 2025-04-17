@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,9 +82,6 @@ func (in *RetryListerWatcher) ensureRequiredArgs() error {
 }
 
 func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
-	span := tracer.StartSpan("funnel", tracer.ResourceName("RetryListerWatcher"), tracer.Tag("id", in.id), tracer.StartTime(time.Now()))
-	defer span.Finish(tracer.FinishTime(time.Now()))
-
 	for {
 		select {
 		case <-in.ctx.Done():
@@ -111,9 +106,6 @@ func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
 }
 
 func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
-	span := tracer.StartSpan("funnelItems", tracer.ResourceName("RetryListerWatcher"), tracer.Tag("id", in.id), tracer.StartTime(time.Now()))
-	defer span.Finish(tracer.FinishTime(time.Now()))
-
 	for _, item := range items {
 		select {
 		case <-in.ctx.Done():
