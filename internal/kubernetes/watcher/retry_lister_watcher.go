@@ -144,19 +144,19 @@ func (in *RetryListerWatcher) initialItemsList() ([]apiwatch.Event, error) {
 }
 
 // Starts the [watch.RetryWatcher] and funnels all events to our wrapper.
-func (in *RetryListerWatcher) watch(resourceVersion string) {
+func (in *RetryListerWatcher) watch() {
 	defer close(in.doneChan)
 	defer close(in.resultChan)
 
-	w, err := NewRetryWatcher(resourceVersion, in.listerWatcher)
+	initialItems, err := in.initialItemsList()
 	if err != nil {
-		klog.ErrorS(err, "unable to create retry watcher", "resourceVersion", resourceVersion)
+		klog.ErrorS(err, "unable to list initial items", "resourceVersion", in.initialResourceVersion)
 		return
 	}
 
-	initialItems, err := in.initialItemsList()
+	w, err := NewRetryWatcher(in.initialResourceVersion, in.listerWatcher)
 	if err != nil {
-		klog.ErrorS(err, "unable to list initial items", "resourceVersion", resourceVersion)
+		klog.ErrorS(err, "unable to create retry watcher", "resourceVersion", in.initialResourceVersion)
 		return
 	}
 
@@ -171,7 +171,7 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 	}
 
 	klog.V(3).InfoS("starting watch", "resourceVersion", in.initialResourceVersion)
-	go in.watch(in.initialResourceVersion)
+	go in.watch()
 	return in, nil
 }
 
