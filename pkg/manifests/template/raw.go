@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,8 +98,9 @@ func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Fa
 	unique := map[string]struct{}{}
 	final := make([]unstructured.Unstructured, 0, len(res))
 	for _, item := range res {
-		if _, ok := unique[string(item.GetUID())]; !ok {
-			unique[string(item.GetUID())] = struct{}{}
+		key := cache.ResourceKeyFromUnstructured(&item).ObjectIdentifier()
+		if _, ok := unique[key]; !ok {
+			unique[key] = struct{}{}
 			final = append(final, item)
 		}
 	}
