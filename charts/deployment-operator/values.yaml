@@ -5,6 +5,22 @@
 additionalVolumes: ~
 additionalVolumeMounts: ~
 
+# Allows mounting custom certs to deployment operator.
+# Certificates are mounted to the "/etc/ssl/certs" directory.
+# An array of files can be provided. Every file will be mounted
+# on a specific subpath to ensure that multiple files can be mounted
+# without overriding each other.
+#
+# In order to override default "ca-certificates.crt" simply
+# provide a "file: ca-certificates.crt" when providing custom certs.
+# It will be mounted on a subpath to override only this single file.
+#
+# Example usage:
+#  - name: ca-pemstore
+#    data: xyz
+#    file: my-cert.pem
+certs: []
+
 replicaCount: 1
 
 livenessProbe:
