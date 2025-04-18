@@ -60,15 +60,6 @@ func (in *RetryListerWatcher) Done() <-chan struct{} {
 	return in.doneChan
 }
 
-func (in *RetryListerWatcher) toEvents(objects ...runtime.Object) []apiwatch.Event {
-	return algorithms.Map(objects, func(object runtime.Object) apiwatch.Event {
-		return apiwatch.Event{
-			Type:   apiwatch.Added,
-			Object: object,
-		}
-	})
-}
-
 func (in *RetryListerWatcher) isEmptyResourceVersion() bool {
 	return len(in.initialResourceVersion) == 0 || in.initialResourceVersion == "0"
 }
@@ -105,7 +96,7 @@ func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
 	}
 }
 
-func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
+func (in *RetryListerWatcher) funnelItems(items []apiwatch.Event) {
 	for _, item := range items {
 		select {
 		case <-in.ctx.Done():
@@ -120,19 +111,57 @@ func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
 	}
 }
 
+func (in *RetryListerWatcher) initialItemsList() ([]apiwatch.Event, error) {
+	if !in.isEmptyResourceVersion() {
+		return []apiwatch.Event{}, nil
+	}
+
+	klog.V(3).InfoS("listing initial resources as initialResourceVersion is empty")
+
+	list, err := in.listerWatcher.List(in.listOptions)
+	if err != nil {
+		return nil, fmt.Errorf("error listing resources: %w", err)
+	}
+
+	listMetaInterface, err := meta.ListAccessor(list)
+	if err != nil {
+		return nil, fmt.Errorf("unable to understand list result %#v: %w", list, err)
+	}
+
+	resourceVersion := listMetaInterface.GetResourceVersion()
+	items, err := meta.ExtractList(list)
+	if err != nil {
+		return nil, fmt.Errorf("unable to understand list result %#v (%w)", list, err)
+	}
+
+	in.initialResourceVersion = resourceVersion
+	return algorithms.Map(items, func(object runtime.Object) apiwatch.Event {
+		return apiwatch.Event{
+			Type:   apiwatch.Added,
+			Object: object,
+		}
+	}), nil
+}
+
 // Starts the [watch.RetryWatcher] and funnels all events to our wrapper.
-func (in *RetryListerWatcher) watch(resourceVersion string, initialItems ...apiwatch.Event) {
+func (in *RetryListerWatcher) watch() {
 	defer close(in.doneChan)
 	defer close(in.resultChan)
 
-	w, err := NewRetryWatcher(resourceVersion, in.listerWatcher)
+	initialItems, err := in.initialItemsList()
 	if err != nil {
-		klog.ErrorS(err, "unable to create retry watcher", "resourceVersion", resourceVersion)
+		klog.ErrorS(err, "unable to list initial items", "resourceVersion", in.initialResourceVersion)
+		return
+	}
+
+	w, err := NewRetryWatcher(in.initialResourceVersion, in.listerWatcher)
+	if err != nil {
+		klog.ErrorS(err, "unable to create retry watcher", "resourceVersion", in.initialResourceVersion)
 		return
 	}
 
 	in.RetryWatcher = w
-	in.funnelItems(initialItems...)
+	in.funnelItems(initialItems)
 	in.funnel(w.ResultChan())
 }
 
@@ -141,33 +170,8 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 		return nil, err
 	}
 
-	initialItems := make([]apiwatch.Event, 0)
-	// TODO: check if watch supports feeding initial items instead of using list
-	if in.isEmptyResourceVersion() {
-		klog.V(3).InfoS("listing initial resources as initialResourceVersion is empty")
-
-		list, err := in.listerWatcher.List(in.listOptions)
-		if err != nil {
-			return in, fmt.Errorf("error listing resources: %w", err)
-		}
-
-		listMetaInterface, err := meta.ListAccessor(list)
-		if err != nil {
-			return in, fmt.Errorf("unable to understand list result %#v: %w", list, err)
-		}
-
-		resourceVersion := listMetaInterface.GetResourceVersion()
-		items, err := meta.ExtractListWithAlloc(list)
-		if err != nil {
-			return in, fmt.Errorf("unable to understand list result %#v (%w)", list, err)
-		}
-
-		in.initialResourceVersion = resourceVersion
-		initialItems = in.toEvents(items...)
-	}
-
 	klog.V(3).InfoS("starting watch", "resourceVersion", in.initialResourceVersion)
-	go in.watch(in.initialResourceVersion, initialItems...)
+	go in.watch()
 	return in, nil
 }
 

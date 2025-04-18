@@ -6,7 +6,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 )
 
-func VersionCache(manifests []*unstructured.Unstructured) map[schema.GroupName]string {
+func VersionCache(manifests []unstructured.Unstructured) map[schema.GroupName]string {
 	res := map[schema.GroupName]string{}
 	for _, man := range manifests {
 		gvk := man.GroupVersionKind()

@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/kustomize/kyaml/kio"
+	"sigs.k8s.io/kustomize/kyaml/kio/filters"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 )
 
@@ -29,7 +30,7 @@ type StreamManifestReader struct {
 	ReaderOptions
 }
 
-func streamManifests(in io.Reader, mapper meta.RESTMapper, name, namespace string) ([]*unstructured.Unstructured, error) {
+func streamManifests(in io.Reader, mapper meta.RESTMapper, name, namespace string) ([]unstructured.Unstructured, error) {
 	readerOptions := ReaderOptions{
 		Mapper:           mapper,
 		Namespace:        namespace,
@@ -41,31 +42,36 @@ func streamManifests(in io.Reader, mapper meta.RESTMapper, name, namespace strin
 		ReaderOptions: readerOptions,
 	}
 
-	return mReader.Read([]*unstructured.Unstructured{})
+	return mReader.Read()
 }
 
 // Read reads the manifests and returns them as Info objects.
-func (r *StreamManifestReader) Read(objs []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
-	nodes, err := (&kio.ByteReader{
-		Reader: r.Reader,
-	}).Read()
+func (r *StreamManifestReader) Read() ([]unstructured.Unstructured, error) {
+	nodes, err := (&kio.ByteReader{Reader: r.Reader}).Read()
 	if err != nil {
-		return objs, err
+		return nil, err
 	}
 
+	objs := make([]unstructured.Unstructured, 0, len(nodes))
 	for _, n := range nodes {
 		err = manifestreader.RemoveAnnotations(n, kioutil.IndexAnnotation)
 		if err != nil {
 			return objs, err
 		}
+
 		u, err := manifestreader.KyamlNodeToUnstructured(n)
 		if err != nil {
 			return objs, err
 		}
-		objs = append(objs, u)
+
+		if n == nil {
+			continue
+		}
+
+		if _, found := n.GetAnnotations()[filters.LocalConfigAnnotation]; !found {
+			objs = append(objs, *u)
+		}
 	}
 
-	objs = manifestreader.FilterLocalConfig(objs)
-	err = setNamespaces(r.Mapper, objs, r.Namespace, r.EnforceNamespace)
-	return objs, err
+	return setNamespaces(r.Mapper, objs, r.Namespace, r.EnforceNamespace)
 }
