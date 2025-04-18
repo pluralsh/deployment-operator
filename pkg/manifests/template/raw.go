@@ -3,12 +3,12 @@ package template
 import (
 	"bytes"
 	"fmt"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"os"
 	"path/filepath"
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/polly/template"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
