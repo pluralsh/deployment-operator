@@ -166,7 +166,7 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		Build()
 }
 
-func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) error {
+func (s *ServiceReconciler) enforceNamespace(objs []unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) error {
 	if svc == nil {
 		return nil
 	}
@@ -180,24 +180,24 @@ func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, 
 		return nil
 	}
 
-	var crdObjs []*unstructured.Unstructured
 	// find any crds in the set of resources.
+	crdObjs := make([]*unstructured.Unstructured, 0, len(objs))
 	for _, obj := range objs {
-		if object.IsCRD(obj) {
-			crdObjs = append(crdObjs, obj)
+		if object.IsCRD(&obj) {
+			crdObjs = append(crdObjs, &obj)
 		}
 	}
-	for _, obj := range objs {
+	for i := range objs {
 		// Look up the scope of the resource so we know if the resource
 		// should have a namespace set or not.
-		scope, err := object.LookupResourceScope(obj, crdObjs, s.mapper)
+		scope, err := object.LookupResourceScope(&objs[i], crdObjs, s.mapper)
 		if err != nil {
 			return err
 		}
 
 		switch scope {
 		case meta.RESTScopeNamespace:
-			obj.SetNamespace(svc.Namespace)
+			objs[i].SetNamespace(svc.Namespace)
 		case meta.RESTScopeRoot:
 			return fmt.Errorf("the service %s with 'enforceNamespace' flag has cluster-scoped resources", svc.ID)
 		default:
@@ -208,8 +208,8 @@ func (s *ServiceReconciler) enforceNamespace(objs []*unstructured.Unstructured, 
 	return nil
 }
 
-func postProcess(mans []*unstructured.Unstructured) []*unstructured.Unstructured {
-	return lo.Map(mans, func(man *unstructured.Unstructured, ind int) *unstructured.Unstructured {
+func postProcess(mans []unstructured.Unstructured) []unstructured.Unstructured {
+	return lo.Map(mans, func(man unstructured.Unstructured, ind int) unstructured.Unstructured {
 		labels := man.GetLabels()
 		if labels == nil {
 			labels = map[string]string{}
@@ -351,7 +351,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	if svc.DeletedAt != nil {
 		logger.V(2).Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := s.destroyer.Run(ctx, inventory.WrapInventoryInfoObj(s.defaultInventoryObjTemplate(id)), apply.DestroyerOptions{
+		ch := s.destroyer.Run(ctx, inventory.WrapInventoryInfoObj(lo.ToPtr(s.defaultInventoryObjTemplate(id))), apply.DestroyerOptions{
 			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
 			DryRunStrategy:          common.DryRunNone,
 			DeleteTimeout:           20 * time.Second,
@@ -379,7 +379,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	if err != nil {
 		return
 	}
-	inv := inventory.WrapInventoryInfoObj(invObj)
+	inv := inventory.WrapInventoryInfoObj(&invObj)
 
 	metrics.Record().ServiceReconciliation(
 		id,
@@ -450,11 +450,11 @@ func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console
 	return nil
 }
 
-func (s *ServiceReconciler) SplitObjects(id string, objs []*unstructured.Unstructured) (*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	invs := make([]*unstructured.Unstructured, 0, 1)
-	resources := make([]*unstructured.Unstructured, 0, len(objs))
+func (s *ServiceReconciler) SplitObjects(id string, objs []unstructured.Unstructured) (unstructured.Unstructured, []unstructured.Unstructured, error) {
+	invs := make([]unstructured.Unstructured, 0, 1)
+	resources := make([]unstructured.Unstructured, 0, len(objs))
 	for _, obj := range objs {
-		if inventory.IsInventoryObject(obj) {
+		if inventory.IsInventoryObject(&obj) {
 			invs = append(invs, obj)
 		} else {
 			resources = append(resources, obj)
@@ -466,15 +466,15 @@ func (s *ServiceReconciler) SplitObjects(id string, objs []*unstructured.Unstruc
 	case 1:
 		return invs[0], resources, nil
 	default:
-		return nil, nil, fmt.Errorf("expecting zero or one inventory object, found %d", len(invs))
+		return unstructured.Unstructured{}, nil, fmt.Errorf("expecting zero or one inventory object, found %d", len(invs))
 	}
 }
 
-func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) *unstructured.Unstructured {
+func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) unstructured.Unstructured {
 	name := "inventory-" + id
 	namespace := "plrl-deploy-operator"
 
-	return &unstructured.Unstructured{
+	return unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",

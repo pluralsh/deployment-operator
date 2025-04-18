@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/containers"
 	"github.com/pluralsh/polly/template"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,8 +36,8 @@ func renderLiquid(input []byte, svc *console.ServiceDeploymentForAgent) ([]byte,
 	return template.RenderLiquid(input, bindings)
 }
 
-func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
-	res := make([]*unstructured.Unstructured, 0)
+func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
+	res := make([]unstructured.Unstructured, 0)
 	mapper, err := utilFactory.ToRESTMapper()
 	if err != nil {
 		return nil, err
@@ -83,7 +82,7 @@ func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Fa
 			Reader:        r,
 			ReaderOptions: readerOptions,
 		}
-		items, err := mReader.Read([]*unstructured.Unstructured{})
+		items, err := mReader.Read()
 
 		if err != nil {
 			return fmt.Errorf("failed to parse %s: %w", rpath, err)
@@ -94,7 +93,15 @@ func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Fa
 	}); err != nil {
 		return nil, err
 	}
-	newSet := containers.ToSet[*unstructured.Unstructured](res)
-	res = newSet.List()
-	return res, nil
+
+	unique := map[string]struct{}{}
+	final := make([]unstructured.Unstructured, 0, len(res))
+	for _, item := range res {
+		if _, ok := unique[string(item.GetUID())]; !ok {
+			unique[string(item.GetUID())] = struct{}{}
+			final = append(final, item)
+		}
+	}
+
+	return final, nil
 }

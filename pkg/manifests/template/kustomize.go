@@ -14,7 +14,6 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/templates"
-	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/kustomize/kustomize/v5/commands/build"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
@@ -27,7 +26,7 @@ func NewKustomize(dir string) Template {
 	return &kustomize{dir}
 }
 
-func (k *kustomize) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (k *kustomize) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
 	out := &bytes.Buffer{}
 	h := build.MakeHelp("plural", "kustomize")
 	help := &build.Help{
@@ -86,12 +85,12 @@ func (k *kustomize) Render(svc *console.ServiceDeploymentForAgent, utilFactory u
 		return nil, err
 	}
 
-	readerOptions := manifestreader.ReaderOptions{
+	readerOptions := ReaderOptions{
 		Mapper:           mapper,
 		Namespace:        svc.Namespace,
 		EnforceNamespace: false,
 	}
-	mReader := &manifestreader.StreamManifestReader{
+	mReader := &StreamManifestReader{
 		ReaderName:    "kustomize",
 		Reader:        r,
 		ReaderOptions: readerOptions,

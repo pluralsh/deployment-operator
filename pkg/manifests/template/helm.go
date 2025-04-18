@@ -73,7 +73,7 @@ type helm struct {
 	dir string
 }
 
-func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
 	// TODO: add some configured values file convention, perhaps using our lua templating from plural-cli
 	values, err := h.values(svc)
 	if err != nil {
