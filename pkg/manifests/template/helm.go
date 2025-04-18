@@ -332,25 +332,25 @@ func UpdateRepos() error {
 	case len(f.Repositories) == 0:
 		return errNoRepositories
 	}
-	repos := make([]*repo.ChartRepository, 0, len(f.Repositories))
+	repos := make([]repo.ChartRepository, 0, len(f.Repositories))
 	for _, cfg := range f.Repositories {
 		r, err := repo.NewChartRepository(cfg, getter.All(settings))
 		if err != nil {
 			return err
 		}
 		r.CachePath = settings.RepositoryCache
-		repos = append(repos, r)
+		repos = append(repos, *r)
 	}
 
 	return updateCharts(repos, true)
 }
 
-func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) error {
+func updateCharts(repos []repo.ChartRepository, failOnRepoUpdateFail bool) error {
 	var wg sync.WaitGroup
 	var repoFailList []string
 	for _, re := range repos {
 		wg.Add(1)
-		go func(re *repo.ChartRepository) {
+		go func(re repo.ChartRepository) {
 			defer wg.Done()
 			if _, err := re.DownloadIndexFile(); err != nil {
 				klog.ErrorS(err, "unable to get an update from the chart repository", "name", re.Config.Name, "url", re.Config.URL)
