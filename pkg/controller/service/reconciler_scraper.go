@@ -65,7 +65,6 @@ func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[s
 			acc[name].Namespace = namespace
 		}
 	}
-
 }
 
 func addVersion(services map[string]*client.NamespaceVersion, name, vsn string) {

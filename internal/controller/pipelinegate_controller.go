@@ -91,7 +91,6 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			reterr = err
 			return
 		}
-
 	}()
 
 	// INITIAL STATE
@@ -298,7 +297,6 @@ func Job(ctx context.Context, r runtimeclient.Client, job *batchv1.Job, log logr
 		return job, nil
 	}
 	return foundJob, nil
-
 }
 
 func generateJob(jobSpec batchv1.JobSpec, jobRef console.NamespacedName) *batchv1.Job {

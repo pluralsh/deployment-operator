@@ -177,7 +177,7 @@ func (in *Helm) initConfiguration() error {
 
 func (in *Helm) initChart() error {
 	installAction := action.NewInstall(in.configuration)
-	path, err := installAction.ChartPathOptions.LocateChart(fmt.Sprintf("%s/%s", in.releaseName, in.chartName), template.HelmSettings())
+	path, err := installAction.LocateChart(fmt.Sprintf("%s/%s", in.releaseName, in.chartName), template.HelmSettings())
 	if err != nil {
 		return err
 	}

@@ -88,7 +88,7 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 		return nil, err
 	}
 
-	log.Println("render helm templates:", "enable dependency update=", args.EnableHelmDependencyUpdate(), "dependencies=", len(c.Dependencies))
+	klog.V(loglevel.LogLevelExtended).InfoS("render helm templates:", "enable dependency update", args.EnableHelmDependencyUpdate(), "dependencies", len(c.Dependencies))
 	if len(c.Dependencies) > 0 && args.EnableHelmDependencyUpdate() {
 		if err := h.dependencyUpdate(config, c.Dependencies); err != nil {
 			return nil, err
@@ -287,7 +287,6 @@ func kubeVersion(conf *action.Configuration) (*chartutil.KubeVersion, error) {
 }
 
 func (h *helm) dependencyUpdate(conf *action.Configuration, dependencies []*chart.Dependency) error {
-
 	for _, dep := range dependencies {
 		if err := AddRepo(dep.Name, dep.Repository); err != nil {
 			return err
@@ -333,7 +332,7 @@ func UpdateRepos() error {
 	case len(f.Repositories) == 0:
 		return errNoRepositories
 	}
-	var repos []*repo.ChartRepository
+	repos := make([]*repo.ChartRepository, 0, len(f.Repositories))
 	for _, cfg := range f.Repositories {
 		r, err := repo.NewChartRepository(cfg, getter.All(settings))
 		if err != nil {
@@ -341,11 +340,9 @@ func UpdateRepos() error {
 		}
 		r.CachePath = settings.RepositoryCache
 		repos = append(repos, r)
-
 	}
 
 	return updateCharts(repos, true)
-
 }
 
 func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) error {

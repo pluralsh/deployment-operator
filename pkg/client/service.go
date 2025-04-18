@@ -1,7 +1,7 @@
 package client
 
 import (
-	"fmt"
+	"errors"
 
 	console "github.com/pluralsh/console/go/client"
 )
@@ -12,7 +12,7 @@ func (c *client) GetServices(after *string, first *int64) (*console.PagedCluster
 		return nil, err
 	}
 	if resp.GetPagedClusterServices() == nil {
-		return nil, fmt.Errorf("the response from PagedClusterServiceIds is nil")
+		return nil, errors.New("the response from PagedClusterServiceIds is nil")
 	}
 	return resp, nil
 }

@@ -63,6 +63,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 			Expect(cachedResource.applySHA).Should(BeNil())
 			Expect(cachedResource.manifestSHA).Should(BeNil())
 			Expect(cachedResource.serverSHA).ShouldNot(BeNil())
+
 		})
 
 	})

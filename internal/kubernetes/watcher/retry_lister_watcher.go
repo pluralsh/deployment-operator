@@ -1,7 +1,10 @@
 package watcher
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -16,45 +19,45 @@ import (
 // RetryListerWatcher is a wrapper around [watch.RetryWatcher]
 // that ...
 type RetryListerWatcher struct {
+	sync.Mutex
 	*RetryWatcher
+
+	ctx context.Context
 
 	id                     string
 	initialResourceVersion string
 	listerWatcher          cache.ListerWatcher
+	listOptions            metav1.ListOptions
 
-	listOptions metav1.ListOptions
-	resultChan  chan apiwatch.Event
+	resultChan chan apiwatch.Event
+
+	stopped  bool
+	stopChan chan struct{}
+	doneChan chan struct{}
 }
 
 func (in *RetryListerWatcher) ResultChan() <-chan apiwatch.Event {
 	return in.resultChan
 }
 
-func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
-	for {
-		select {
-		case <-in.Done():
-			return
-		case e, ok := <-from:
-			if !ok {
-				return
-			}
-
-			in.resultChan <- e
-		}
+func (in *RetryListerWatcher) Stop() {
+	if in.RetryWatcher != nil {
+		in.RetryWatcher.Stop()
 	}
+
+	in.Lock()
+	defer in.Unlock()
+
+	if in.stopped {
+		return
+	}
+
+	in.stopped = true
+	close(in.stopChan)
 }
 
-func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
-	for _, item := range items {
-		select {
-		case <-in.Done():
-			klog.V(4).InfoS("funnelItems stopped due to resultChan being closed")
-			return
-		case in.resultChan <- item:
-			klog.V(4).InfoS("successfully sent item to resultChan")
-		}
-	}
+func (in *RetryListerWatcher) Done() <-chan struct{} {
+	return in.doneChan
 }
 
 func (in *RetryListerWatcher) toEvents(objects ...runtime.Object) []apiwatch.Event {
@@ -70,47 +73,56 @@ func (in *RetryListerWatcher) isEmptyResourceVersion() bool {
 	return len(in.initialResourceVersion) == 0 || in.initialResourceVersion == "0"
 }
 
-func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
-	if err := in.ensureRequiredArgs(); err != nil {
-		return nil, err
+func (in *RetryListerWatcher) ensureRequiredArgs() error {
+	if in.listerWatcher == nil {
+		return errors.New("listerWatcher must not be nil")
 	}
-
-	// TODO: check if watch supports feeding initial items instead of using list
-	if in.isEmptyResourceVersion() {
-		klog.V(3).InfoS("starting list and watch as initialResourceVersion is empty")
-		err := in.listAndWatch()
-		return in, err
-	}
-
-	klog.V(3).InfoS("starting watch", "initialResourceVersion", in.initialResourceVersion)
-	go in.watch(in.initialResourceVersion)
-	return in, nil
-}
-
-func (in *RetryListerWatcher) listAndWatch() error {
-	list, err := in.listerWatcher.List(in.listOptions)
-	if err != nil {
-		return fmt.Errorf("error listing resources: %w", err)
-	}
-
-	listMetaInterface, err := meta.ListAccessor(list)
-	if err != nil {
-		return fmt.Errorf("unable to understand list result %#v: %w", list, err)
-	}
-
-	resourceVersion := listMetaInterface.GetResourceVersion()
-	items, err := meta.ExtractList(list)
-	if err != nil {
-		return fmt.Errorf("unable to understand list result %#v (%w)", list, err)
-	}
-
-	go in.watch(resourceVersion, in.toEvents(items...)...)
 
 	return nil
 }
 
+func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
+	for {
+		select {
+		case <-in.ctx.Done():
+			return
+		case <-in.stopChan:
+			return
+		case e, ok := <-from:
+			if !ok || in.stopped {
+				return
+			}
+
+			select {
+			case <-in.ctx.Done():
+				return
+			case <-in.stopChan:
+				return
+			case in.resultChan <- e:
+				// Successfully sent
+			}
+		}
+	}
+}
+
+func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
+	for _, item := range items {
+		select {
+		case <-in.ctx.Done():
+			klog.V(4).InfoS("funnelItems stopped due to context being closed")
+			return
+		case <-in.stopChan:
+			klog.V(0).InfoS("funnelItems stopped due to stopChan being closed")
+			return
+		case in.resultChan <- item:
+			klog.V(4).InfoS("successfully sent item to resultChan")
+		}
+	}
+}
+
 // Starts the [watch.RetryWatcher] and funnels all events to our wrapper.
 func (in *RetryListerWatcher) watch(resourceVersion string, initialItems ...apiwatch.Event) {
+	defer close(in.doneChan)
 	defer close(in.resultChan)
 
 	w, err := NewRetryWatcher(resourceVersion, in.listerWatcher)
@@ -124,17 +136,47 @@ func (in *RetryListerWatcher) watch(resourceVersion string, initialItems ...apiw
 	in.funnel(w.ResultChan())
 }
 
-func (in *RetryListerWatcher) ensureRequiredArgs() error {
-	if in.listerWatcher == nil {
-		return fmt.Errorf("listerWatcher must not be nil")
+func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
+	if err := in.ensureRequiredArgs(); err != nil {
+		return nil, err
 	}
 
-	return nil
+	initialItems := make([]apiwatch.Event, 0)
+	// TODO: check if watch supports feeding initial items instead of using list
+	if in.isEmptyResourceVersion() {
+		klog.V(3).InfoS("listing initial resources as initialResourceVersion is empty")
+
+		list, err := in.listerWatcher.List(in.listOptions)
+		if err != nil {
+			return in, fmt.Errorf("error listing resources: %w", err)
+		}
+
+		listMetaInterface, err := meta.ListAccessor(list)
+		if err != nil {
+			return in, fmt.Errorf("unable to understand list result %#v: %w", list, err)
+		}
+
+		resourceVersion := listMetaInterface.GetResourceVersion()
+		items, err := meta.ExtractListWithAlloc(list)
+		if err != nil {
+			return in, fmt.Errorf("unable to understand list result %#v (%w)", list, err)
+		}
+
+		in.initialResourceVersion = resourceVersion
+		initialItems = in.toEvents(items...)
+	}
+
+	klog.V(3).InfoS("starting watch", "resourceVersion", in.initialResourceVersion)
+	go in.watch(in.initialResourceVersion, initialItems...)
+	return in, nil
 }
 
-func NewRetryListerWatcher(options ...RetryListerWatcherOption) (*RetryListerWatcher, error) {
+func NewRetryListerWatcher(ctx context.Context, options ...RetryListerWatcherOption) (*RetryListerWatcher, error) {
 	rw := &RetryListerWatcher{
 		resultChan: make(chan apiwatch.Event),
+		stopChan:   make(chan struct{}),
+		doneChan:   make(chan struct{}),
+		ctx:        ctx,
 	}
 
 	for _, option := range options {

@@ -99,3 +99,10 @@ func (ir *watcherReference) Restart() {
 	ir.started = false
 	ir.context = nil
 }
+
+func (ir *watcherReference) Started() bool {
+	ir.lock.Lock()
+	defer ir.lock.Unlock()
+
+	return ir.started
+}

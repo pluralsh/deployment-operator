@@ -45,15 +45,15 @@ func getReader(url, token string) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		_, _ = io.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		if resp.StatusCode == 403 {
+		if resp.StatusCode == http.StatusForbidden {
 			return nil, errors.ErrUnauthenticated
 		}
 
-		if resp.StatusCode == 402 {
+		if resp.StatusCode == http.StatusPaymentRequired {
 			return nil, errors.ErrTransientManifest
 		}
 

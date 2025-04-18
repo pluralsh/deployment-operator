@@ -171,7 +171,6 @@ func convertObjectToString(obj *unstructured.Unstructured) string {
 
 // GetHealthCheckFunc returns built-in health check function or nil if health check is not supported
 func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
-
 	if healthFunc := GetHealthCheckFuncByGroupVersionKind(gvk); healthFunc != nil {
 		return healthFunc
 	}
