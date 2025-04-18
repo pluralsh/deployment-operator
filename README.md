@@ -31,6 +31,23 @@ use (
 Now the Go Workspace settings will allow me to use the local version of the `polly` source code when compiling and testing  
 
 
+# Helm Chart Tests
+
+To test that the deployment-operator Helm chart can be successfully installed, run:
+
+```sh
+./test/helm/test-chart-install.sh
+```
+
+This script will:
+1. Create a temporary Kind cluster
+2. Validate the chart using `helm lint`
+3. Verify template rendering with `helm template`
+4. Perform a dry-run installation with `helm install --dry-run`
+5. Automatically clean up the cluster when the test completes
+
+See [test/helm/README.md](test/helm/README.md) for more details.
+
 
 # Unit Tests
 ## Pre Reqs
