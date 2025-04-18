@@ -112,7 +112,7 @@ func (in *RetryListerWatcher) funnelItems(items []apiwatch.Event) {
 }
 
 func (in *RetryListerWatcher) initialItemsList() ([]apiwatch.Event, error) {
-	if in.isEmptyResourceVersion() {
+	if !in.isEmptyResourceVersion() {
 		return []apiwatch.Event{}, nil
 	}
 
