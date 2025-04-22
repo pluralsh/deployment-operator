@@ -183,7 +183,7 @@ spec:
         {{- range $cert := .Values.certs }}
         - name: {{ $cert.name }}
           configMap:
-            name: {{ $cert.name }}
+            name: {{ include "deployment-operator.fullname" $ }}-{{ $cert.name }}
         {{- end }}
         {{ if .Values.additionalVolumes }}
         {{ toYaml .Values.additionalVolumes | nindent 8 }}
