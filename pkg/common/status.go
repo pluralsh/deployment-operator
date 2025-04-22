@@ -1,16 +1,56 @@
 package common
 
 import (
+	"fmt"
+	"time"
+
+	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
+	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
-
-	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 )
+
+const (
+	cleanupAfter       = 3 * time.Hour
+	cutoffProgressTime = 10 * time.Minute
+)
+
+var healthStatus cmap.ConcurrentMap[string, Progress]
+
+var supportedProgressingKinds = containers.ToSet[schema.GroupVersionKind]([]schema.GroupVersionKind{
+	{Group: "apps", Version: "v1", Kind: "DaemonSet"},
+	{Group: "apps", Version: "v1", Kind: "StatefulSet"},
+	{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
+})
+
+func init() {
+	healthStatus = cmap.New[Progress]()
+
+	go func() {
+		ticker := time.NewTicker(cleanupAfter)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			cleanupTime := time.Now().Add(-cleanupAfter)
+			for k, v := range healthStatus.Items() {
+				if v.PingTime.Before(cleanupTime) {
+					healthStatus.Remove(k)
+				}
+			}
+		}
+	}()
+}
+
+type Progress struct {
+	LastProgress time.Time
+	PingTime     time.Time
+}
 
 func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
@@ -73,6 +113,7 @@ func ToStatus(obj *unstructured.Unstructured) *console.ComponentState {
 // GetResourceHealth returns the health of a k8s resource
 func GetResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, err error) {
 	if obj.GetDeletionTimestamp() != nil {
+		healthStatus.Remove(convertObjectToString(obj))
 		return &HealthStatus{
 			Status:  HealthStatusProgressing,
 			Message: "Pending deletion",
@@ -87,13 +128,49 @@ func GetResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, er
 			}
 		}
 	}
-	return health, err
 
+	if health == nil {
+		health = &HealthStatus{
+			Status: HealthStatusUnknown,
+		}
+	}
+
+	if supportedProgressingKinds.Has(obj.GroupVersionKind()) {
+		currentTime := time.Now()
+		strObject := convertObjectToString(obj)
+		if health.Status != HealthStatusProgressing {
+			healthStatus.Remove(strObject)
+			return health, nil
+		}
+
+		progressTime, ok := healthStatus.Get(strObject)
+		if !ok {
+			progressTime = Progress{
+				LastProgress: currentTime,
+			}
+		}
+		progressTime.PingTime = currentTime
+		healthStatus.Set(strObject, progressTime)
+
+		// mark as failed if it exceeds a threshold
+		cutoffTime := time.Now().Add(-cutoffProgressTime)
+
+		if progressTime.LastProgress.Before(cutoffTime) {
+			health.Status = HealthStatusDegraded
+		}
+
+		return health, nil
+	}
+
+	return health, err
+}
+
+func convertObjectToString(obj *unstructured.Unstructured) string {
+	return fmt.Sprintf("%s/%s/%s", obj.GetNamespace(), obj.GetName(), obj.GetObjectKind().GroupVersionKind())
 }
 
 // GetHealthCheckFunc returns built-in health check function or nil if health check is not supported
 func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (*HealthStatus, error) {
-
 	if healthFunc := GetHealthCheckFuncByGroupVersionKind(gvk); healthFunc != nil {
 		return healthFunc
 	}

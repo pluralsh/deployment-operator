@@ -6,13 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/utils"
+	controllercommon "github.com/pluralsh/deployment-operator/pkg/controller/common"
 
 	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
-	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -23,6 +19,9 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 const (
@@ -140,11 +139,11 @@ func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk
 			return err
 		}
 		for _, item := range items {
-			health, err := getResourceHealthStatus(ctx, k8sClient, &item)
+			health, err := agentcommon.GetResourceHealth(&item)
 			if err != nil {
 				return err
 			}
-			if health.Status == common.HealthStatusDegraded {
+			if health.Status == agentcommon.HealthStatusDegraded {
 				GetAiInsightComponents().AddItem(Component{
 					Gvk:       gvk,
 					Name:      item.GetName(),
@@ -154,36 +153,6 @@ func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk
 		}
 	}
 	return nil
-}
-
-func getResourceHealthStatus(ctx context.Context, k8sClient ctrclient.Client, obj *unstructured.Unstructured) (*common.HealthStatus, error) {
-	health, err := common.GetResourceHealth(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	progressTime, err := common.GetLastProgressTimestamp(ctx, k8sClient, obj)
-	if err != nil {
-		return nil, err
-	}
-
-	// remove entry if no longer progressing
-	if health.Status != common.HealthStatusProgressing {
-		// cleanup progress timestamp
-		annotations := obj.GetAnnotations()
-		delete(annotations, common.LastProgressTimeAnnotation)
-		obj.SetAnnotations(annotations)
-		return health, utils.TryToUpdate(ctx, k8sClient, obj)
-	}
-
-	// mark as failed if it exceeds a threshold
-	cutoffTime := metav1.NewTime(time.Now().Add(-30 * time.Minute))
-
-	if progressTime.Before(&cutoffTime) {
-		health.Status = common.HealthStatusDegraded
-	}
-
-	return health, nil
 }
 
 func listResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind) *algorithms.Pager[unstructured.Unstructured] {
@@ -215,7 +184,7 @@ func listResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.G
 		}
 		return list.Items, pageInfo, nil
 	}
-	return algorithms.NewPager[unstructured.Unstructured](common2.DefaultPageSize, fetch)
+	return algorithms.NewPager[unstructured.Unstructured](controllercommon.DefaultPageSize, fetch)
 }
 
 func SupportedCertificateAPIVersionAvailable(discoveredAPIGroups *metav1.APIGroupList) bool {

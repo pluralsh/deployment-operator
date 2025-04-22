@@ -12,12 +12,6 @@ import (
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
-	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,15 +21,24 @@ import (
 	"k8s.io/client-go/rest"
 	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 const serviceIDCacheExpiry = 12 * time.Hour
 
 func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
+		NewClient:              ctrlclient.New, // client reads directly from the API server
 		Logger:                 setupLog,
 		Scheme:                 scheme,
 		LeaderElection:         args.EnableLeaderElection(),
@@ -106,7 +109,6 @@ func registerKubeReconcilersOrDie(
 	discoveryClient discovery.DiscoveryInterface,
 	enableKubecostProxy bool,
 ) {
-
 	rolloutsClient, dynamicClient, kubeClient, metricsClient := initKubeClientsOrDie(config)
 
 	backupController := &controller.BackupReconciler{

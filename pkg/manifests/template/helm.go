@@ -73,7 +73,7 @@ type helm struct {
 	dir string
 }
 
-func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]*unstructured.Unstructured, error) {
+func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
 	// TODO: add some configured values file convention, perhaps using our lua templating from plural-cli
 	values, err := h.values(svc)
 	if err != nil {
@@ -88,7 +88,7 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 		return nil, err
 	}
 
-	log.Println("render helm templates:", "enable dependency update=", args.EnableHelmDependencyUpdate(), "dependencies=", len(c.Dependencies))
+	klog.V(loglevel.LogLevelExtended).InfoS("render helm templates:", "enable dependency update", args.EnableHelmDependencyUpdate(), "dependencies", len(c.Dependencies))
 	if len(c.Dependencies) > 0 && args.EnableHelmDependencyUpdate() {
 		if err := h.dependencyUpdate(config, c.Dependencies); err != nil {
 			return nil, err
@@ -100,7 +100,12 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 		release = *svc.Helm.Release
 	}
 
-	rel, err := h.templateHelm(config, release, svc.Namespace, values)
+	includeCRDs := true
+	if svc.Helm != nil && svc.Helm.IgnoreCrds != nil {
+		includeCRDs = !*svc.Helm.IgnoreCrds
+	}
+
+	rel, err := h.templateHelm(config, release, svc.Namespace, values, includeCRDs)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +222,7 @@ func (h *helm) valuesFile(svc *console.ServiceDeploymentForAgent, filename strin
 	return currentMap, nil
 }
 
-func (h *helm) templateHelm(conf *action.Configuration, release, namespace string, values map[string]interface{}) (*release.Release, error) {
+func (h *helm) templateHelm(conf *action.Configuration, release, namespace string, values map[string]any, includeCRDs bool) (*release.Release, error) {
 	// load chart from the path
 	chart, err := loader.Load(h.dir)
 	if err != nil {
@@ -233,7 +238,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 	client.Replace = true // Skip the name check
 	client.ClientOnly = true
 	client.Namespace = namespace
-	client.IncludeCRDs = true
+	client.IncludeCRDs = includeCRDs
 	client.IsUpgrade = true
 	vsn, err := kubeVersion(conf)
 	if err != nil {
@@ -282,7 +287,6 @@ func kubeVersion(conf *action.Configuration) (*chartutil.KubeVersion, error) {
 }
 
 func (h *helm) dependencyUpdate(conf *action.Configuration, dependencies []*chart.Dependency) error {
-
 	for _, dep := range dependencies {
 		if err := AddRepo(dep.Name, dep.Repository); err != nil {
 			return err
@@ -328,27 +332,25 @@ func UpdateRepos() error {
 	case len(f.Repositories) == 0:
 		return errNoRepositories
 	}
-	var repos []*repo.ChartRepository
+	repos := make([]repo.ChartRepository, 0, len(f.Repositories))
 	for _, cfg := range f.Repositories {
 		r, err := repo.NewChartRepository(cfg, getter.All(settings))
 		if err != nil {
 			return err
 		}
 		r.CachePath = settings.RepositoryCache
-		repos = append(repos, r)
-
+		repos = append(repos, *r)
 	}
 
 	return updateCharts(repos, true)
-
 }
 
-func updateCharts(repos []*repo.ChartRepository, failOnRepoUpdateFail bool) error {
+func updateCharts(repos []repo.ChartRepository, failOnRepoUpdateFail bool) error {
 	var wg sync.WaitGroup
 	var repoFailList []string
 	for _, re := range repos {
 		wg.Add(1)
-		go func(re *repo.ChartRepository) {
+		go func(re repo.ChartRepository) {
 			defer wg.Done()
 			if _, err := re.DownloadIndexFile(); err != nil {
 				klog.ErrorS(err, "unable to get an update from the chart repository", "name", re.Config.Name, "url", re.Config.URL)

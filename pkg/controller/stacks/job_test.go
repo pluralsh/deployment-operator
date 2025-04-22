@@ -275,5 +275,4 @@ func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
 		TTLSecondsAfterFinished: lo.ToPtr(int32(60 * 60)),
 		BackoffLimit:            lo.ToPtr(int32(0)),
 	}
-
 }

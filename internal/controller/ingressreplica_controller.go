@@ -77,7 +77,7 @@ func (r *IngressReplicaReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		newIngress = genIngress(ingressReplica, oldIngress)
-		if err := r.Client.Create(ctx, newIngress); err != nil {
+		if err := r.Create(ctx, newIngress); err != nil {
 			logger.Error(err, "failed to create new Ingress")
 			utils.MarkCondition(ingressReplica.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 			return ctrl.Result{}, err
@@ -90,7 +90,7 @@ func (r *IngressReplicaReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// update a new ingress
 	if !ingressReplica.Status.IsSHAEqual(sha) {
 		updateIngress(ingressReplica, newIngress, oldIngress)
-		if err := r.Client.Update(ctx, newIngress); err != nil {
+		if err := r.Update(ctx, newIngress); err != nil {
 			logger.Error(err, "failed to update new Ingress")
 			utils.MarkCondition(ingressReplica.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 			return ctrl.Result{}, err

@@ -31,14 +31,13 @@ func ExecuteLua(vals map[string]interface{}, tplate string) (map[string]interfac
 	}
 	outTable, ok := L.GetGlobal("healthStatus").(*lua.LTable)
 	if !ok {
-		return nil, fmt.Errorf("the output variable is missing in the lua script")
+		return nil, errors.New("the output variable is missing in the lua script")
 	}
 	if err := MapLua(outTable, &output); err != nil {
 		return nil, err
 	}
 
 	return output, nil
-
 }
 
 func GetFuncMap() template.FuncMap {
@@ -59,7 +58,6 @@ func MapLua(tbl *lua.LTable, st interface{}) error {
 
 // NewMapper returns a new mapper.
 func NewMapper() *Mapper {
-
 	return &Mapper{}
 }
 

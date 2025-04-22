@@ -7,9 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
-func Untar(dst string, r io.Reader) error {
+func untar(dst string, r io.Reader) error {
 	log.V(1).Info("beginning to untar stream")
 
 	gzr, err := gzip.NewReader(r)
@@ -23,7 +24,6 @@ func Untar(dst string, r io.Reader) error {
 	for {
 		header, err := tr.Next()
 		switch {
-
 		// if no more files are found return
 		case err == io.EOF:
 			return nil
@@ -45,7 +45,6 @@ func Untar(dst string, r io.Reader) error {
 
 		// check the file type
 		switch header.Typeflag {
-
 		// if its a dir and it doesn't exist create it
 		case tar.TypeDir:
 			if err := makeDir(target, madeDir); err != nil {
@@ -65,13 +64,13 @@ func Untar(dst string, r io.Reader) error {
 			}
 
 			// copy over contents
-			if _, err := io.Copy(f, tr); err != nil {
+			_, err = copyBuffered(f, tr)
+			if err1 := f.Close(); err == nil {
+				err = err1
+			}
+			if err != nil {
 				return err
 			}
-
-			// manually close here after each file operation; defering would cause each file close
-			// to wait until all operations have completed.
-			f.Close()
 		}
 	}
 }
@@ -89,4 +88,41 @@ func makeDir(target string, made map[string]bool) error {
 
 	made[target] = true
 	return nil
+}
+
+var bufPool = &sync.Pool{
+	New: func() interface{} {
+		buffer := make([]byte, 64*1024)
+		return &buffer
+	},
+}
+
+func copyBuffered(dst io.Writer, src io.Reader) (written int64, err error) {
+	buf := bufPool.Get().(*[]byte)
+	defer bufPool.Put(buf)
+
+	for {
+		nr, er := src.Read(*buf)
+		if nr > 0 {
+			nw, ew := dst.Write((*buf)[0:nr])
+			if nw > 0 {
+				written += int64(nw)
+			}
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
+		}
+	}
+	return written, err
 }

@@ -98,7 +98,7 @@ func (pgs *PipelineGateStatus) IsClosed() bool {
 }
 
 func (pgs *PipelineGateStatus) HasJobRef() bool {
-	return !(pgs.JobRef == nil || *pgs.JobRef == console.NamespacedName{})
+	return pgs.JobRef != nil && *pgs.JobRef != console.NamespacedName{}
 }
 
 func (pgs *PipelineGateStatus) GetConsoleGateState() *console.GateState {

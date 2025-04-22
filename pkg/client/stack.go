@@ -1,7 +1,7 @@
 package client
 
 import (
-	"fmt"
+	stderrors "errors"
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
@@ -78,7 +78,7 @@ func (c *client) ListClusterStackRuns(after *string, first *int64) (*gqlclient.L
 		return nil, err
 	}
 	if resp.ClusterStackRuns == nil {
-		return nil, fmt.Errorf("the response from ListClusterStackIds is nil")
+		return nil, stderrors.New("the response from ListClusterStackIds is nil")
 	}
 	return resp.ClusterStackRuns, nil
 }

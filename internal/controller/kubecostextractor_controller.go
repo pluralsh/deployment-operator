@@ -37,6 +37,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -129,9 +130,9 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	if !kubecost.DeletionTimestamp.IsZero() {
-		if cancel, exists := r.Tasks.Get(req.NamespacedName.String()); exists {
+		if cancel, exists := r.Tasks.Get(req.String()); exists {
 			cancel()
-			r.Tasks.Remove(req.NamespacedName.String())
+			r.Tasks.Remove(req.String())
 		}
 	}
 
@@ -165,7 +166,7 @@ func (r *KubecostExtractorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	r.RunOnInterval(ctx, req.NamespacedName.String(), kubecost.Spec.GetInterval(), func(ctx context.Context) (done bool, err error) {
+	r.RunOnInterval(ctx, req.String(), kubecost.Spec.GetInterval(), func(ctx context.Context) (done bool, err error) {
 		time.Sleep(time.Duration(rand.Int63n(int64(kubeCostJitter))))
 		// Always patch object when exiting this function, so we can persist any object changes.
 		defer func() {
@@ -245,12 +246,16 @@ func (r *KubecostExtractorReconciler) fetch(host, path string, params map[string
 	return buffer.Bytes(), nil
 }
 
-func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate string, idle bool, recommendations *v1alpha1.RecommendationsSettings) (*allocationResponse, error) {
+func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *corev1.Service, servicePort, aggregate, multiAggregation string, idle bool, recommendations *v1alpha1.RecommendationsSettings) (*allocationResponse, error) {
 	queryParams := map[string]string{
 		"window":     "30d",
 		"aggregate":  aggregate,
 		"accumulate": "true",
 	}
+	if multiAggregation != "" {
+		queryParams["aggregate"] = multiAggregation
+	}
+
 	if idle {
 		queryParams["shareIdle"] = "true"
 	}
@@ -268,7 +273,6 @@ func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *co
 		response, err = r.KubeClient.CoreV1().Services(srv.Namespace).ProxyGet("", srv.Name, servicePort, "/model/allocation", queryParams).DoRaw(ctx)
 	} else {
 		response, err = r.fetch(fmt.Sprintf("%s.%s:%s", srv.Name, srv.Namespace, servicePort), "/model/allocation", queryParams)
-
 	}
 	if err != nil {
 		return nil, err
@@ -283,7 +287,7 @@ func (r *KubecostExtractorReconciler) getAllocation(ctx context.Context, srv *co
 func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Context, srv *corev1.Service, servicePort string, recommendationThreshold float64, recommendations *v1alpha1.RecommendationsSettings) ([]*console.ClusterRecommendationAttributes, error) {
 	var result []*console.ClusterRecommendationAttributes
 	for _, resourceType := range kubecostResourceTypes {
-		ar, err := r.getAllocation(ctx, srv, servicePort, resourceType, false, recommendations)
+		ar, err := r.getAllocation(ctx, srv, servicePort, "", fmt.Sprintf("%s,%s", resourceType, "pod"), false, recommendations)
 		if err != nil {
 			return nil, err
 		}
@@ -294,13 +298,22 @@ func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Co
 			if resourceCosts == nil {
 				continue
 			}
+			parentResourceMap := containers.NewSet[string]()
 			for name, allocation := range resourceCosts {
-				if name == opencost.IdleSuffix || name == opencost.UnallocatedSuffix {
+				resourceName := name
+				splitName := strings.Split(name, "/")
+				if len(splitName) == 2 {
+					resourceName = splitName[0]
+				}
+				if resourceName == opencost.IdleSuffix || resourceName == opencost.UnallocatedSuffix {
 					continue
 				}
 				totalCost := allocation.TotalCost()
 				if totalCost > recommendationThreshold {
-					result = append(result, r.convertClusterRecommendationAttributes(ctx, allocation, name, resourceType))
+					if !parentResourceMap.Has(resourceName) {
+						result = append(result, r.convertClusterRecommendationAttributes(ctx, allocation, name, resourceType))
+						parentResourceMap.Add(resourceName)
+					}
 				}
 			}
 		}
@@ -311,7 +324,7 @@ func (r *KubecostExtractorReconciler) getRecommendationAttributes(ctx context.Co
 
 func (r *KubecostExtractorReconciler) getNamespacesCost(ctx context.Context, srv *corev1.Service, servicePort string) ([]*console.CostAttributes, error) {
 	var result []*console.CostAttributes
-	ar, err := r.getAllocation(ctx, srv, servicePort, "namespace", false, nil)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "namespace", "", false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +362,7 @@ func (r *KubecostExtractorReconciler) getClusterCost(ctx context.Context, srv *c
 	if err != nil {
 		return nil, err
 	}
-	ar, err := r.getAllocation(ctx, srv, servicePort, "cluster", true, nil)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "cluster", "", true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +384,7 @@ func (r *KubecostExtractorReconciler) getClusterCost(ctx context.Context, srv *c
 }
 
 func (r *KubecostExtractorReconciler) getControlPlaneCost(ctx context.Context, srv *corev1.Service, servicePort string) (*float64, error) {
-	ar, err := r.getAllocation(ctx, srv, servicePort, "controller", false, nil)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "controller", "", false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +406,7 @@ func (r *KubecostExtractorReconciler) getControlPlaneCost(ctx context.Context, s
 
 func (r *KubecostExtractorReconciler) getNodeCost(ctx context.Context, srv *corev1.Service, servicePort string) (*float64, error) {
 	var totalNodeCost float64
-	ar, err := r.getAllocation(ctx, srv, servicePort, "node", true, nil)
+	ar, err := r.getAllocation(ctx, srv, servicePort, "node", "", true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +434,6 @@ func (r *KubecostExtractorReconciler) getClusterID(ctx context.Context, srv *cor
 		response, err = r.KubeClient.CoreV1().Services(srv.Namespace).ProxyGet("", srv.Name, servicePort, "/model/clusterInfo", nil).DoRaw(ctx)
 	} else {
 		response, err = r.fetch(fmt.Sprintf("%s.%s:%s", srv.Name, srv.Namespace, servicePort), "/model/clusterInfo", nil)
-
 	}
 	if err != nil {
 		return "", err
@@ -577,9 +589,16 @@ type clusterinfoResponse struct {
 
 func (r *KubecostExtractorReconciler) convertClusterRecommendationAttributes(ctx context.Context, allocation opencost.Allocation, name, resourceType string) *console.ClusterRecommendationAttributes {
 	resourceTypeEnum := console.ScalingRecommendationType(strings.ToUpper(resourceType))
+
+	resourceName := name
+	splitName := strings.Split(name, "/")
+	if len(splitName) == 2 {
+		resourceName = splitName[0] // parent resource
+	}
+
 	result := &console.ClusterRecommendationAttributes{
 		Type:       lo.ToPtr(resourceTypeEnum),
-		Name:       lo.ToPtr(name),
+		Name:       lo.ToPtr(resourceName),
 		CPUCost:    lo.ToPtr(allocation.CPUCost),
 		MemoryCost: lo.ToPtr(allocation.RAMCost),
 		GpuCost:    lo.ToPtr(allocation.GPUCost),
@@ -600,7 +619,7 @@ func (r *KubecostExtractorReconciler) convertClusterRecommendationAttributes(ctx
 		namespace = *result.Namespace
 	}
 
-	container, serviceID, resourceRequest, err := r.getObjectInfo(ctx, resourceTypeEnum, namespace, name)
+	container, serviceID, resourceRequest, err := r.getObjectInfo(ctx, resourceTypeEnum, namespace, resourceName)
 	if err != nil {
 		return result
 	}

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -39,10 +41,13 @@ type Applier struct {
 	infoHelper    info.Helper
 }
 
-func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects object.UnstructuredSet, options apply.ApplierOptions) <-chan event.Event {
+func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects []unstructured.Unstructured, options apply.ApplierOptions) <-chan event.Event {
 	eventChannel := make(chan event.Event)
 	go func() {
 		defer close(eventChannel)
+
+		pointers := lo.ToSlicePtr(objects)
+
 		// Validate the resources to make sure we catch those problems early
 		// before anything has been updated in the cluster.
 		vCollector := &validation.Collector{}
@@ -50,10 +55,10 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects objec
 			Collector: vCollector,
 			Mapper:    a.mapper,
 		}
-		validator.Validate(objects)
+		validator.Validate(pointers)
 
 		// Decide which objects to apply and which to prune
-		applyObjs, pruneObjs, err := a.prepareObjects(invInfo, objects, options)
+		applyObjs, pruneObjs, err := a.prepareObjects(invInfo, pointers, options)
 		if err != nil {
 			handleError(eventChannel, err)
 			return
@@ -87,7 +92,7 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects objec
 				InvPolicy: options.InventoryPolicy,
 			},
 			filter.LocalNamespacesFilter{
-				LocalNamespaces: localNamespaces(invInfo, object.UnstructuredSetToObjMetadataSet(objects)),
+				LocalNamespaces: localNamespaces(invInfo, object.UnstructuredSetToObjMetadataSet(pointers)),
 			},
 			filter.DependencyFilter{
 				TaskContext:       taskContext,

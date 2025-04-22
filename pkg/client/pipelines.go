@@ -1,10 +1,8 @@
 package client
 
 import (
+	stderrors "errors"
 	"fmt"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-	"sigs.k8s.io/yaml"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -13,7 +11,9 @@ import (
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 const twentyFourHours = int32(86400)
@@ -29,7 +29,7 @@ func (c *client) GetClusterGates(after *string, first *int64) (*console.PagedClu
 		return nil, err
 	}
 	if resp.PagedClusterGates == nil {
-		return nil, fmt.Errorf("the response from PagedClusterGates is nil")
+		return nil, stderrors.New("the response from PagedClusterGates is nil")
 	}
 	return resp, nil
 }
@@ -38,7 +38,6 @@ func (c *client) GetClusterGate(id string) (*console.PipelineGateFragment, error
 	resp, err := c.consoleClient.GetClusterGate(c.ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("gate with id %s not found", id)
-
 	}
 	return resp.ClusterGate, nil
 }
@@ -119,11 +118,11 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 			},
 		}
 		// Add the gatename annotation
-		if jobSpec.Template.ObjectMeta.Annotations == nil {
-			jobSpec.Template.ObjectMeta.Annotations = make(map[string]string)
+		if jobSpec.Template.Annotations == nil {
+			jobSpec.Template.Annotations = make(map[string]string)
 		}
 		gateNameAnnotationKey := v1alpha1.GroupVersion.Group + "/gatename"
-		jobSpec.Template.ObjectMeta.Annotations[gateNameAnnotationKey] = gateName
+		jobSpec.Template.Annotations[gateNameAnnotationKey] = gateName
 	}
 	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(twentyFourHours)
 
@@ -131,8 +130,7 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 }
 
 func ContainersFromContainerSpecFragments(gateName string, containerSpecFragments []*console.ContainerSpecFragment, resources *console.ContainerResourcesFragment) []corev1.Container {
-	var containers []corev1.Container
-
+	containers := make([]corev1.Container, 0, len(containerSpecFragments))
 	for i, csFragment := range containerSpecFragments {
 		if csFragment == nil {
 			continue
