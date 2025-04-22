@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-func Untar(dst string, r io.Reader) error {
+func untar(dst string, r io.Reader) error {
 	log.V(1).Info("beginning to untar stream")
 
 	gzr, err := gzip.NewReader(r)
@@ -102,7 +102,6 @@ func copyBuffered(dst io.Writer, src io.Reader) (written int64, err error) {
 	defer bufPool.Put(buf)
 
 	for {
-
 		nr, er := src.Read(*buf)
 		if nr > 0 {
 			nw, ew := dst.Write((*buf)[0:nr])
@@ -126,5 +125,4 @@ func copyBuffered(dst io.Writer, src io.Reader) (written int64, err error) {
 		}
 	}
 	return written, err
-
 }
