@@ -8,8 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/pluralsh/polly/fs"
-
 	"github.com/pluralsh/deployment-operator/pkg/errors"
 )
 
@@ -87,7 +85,7 @@ func fetch(url, token string) (string, error) {
 
 	log.V(1).Info("finished request to", "url", url)
 
-	if err := fs.Untar(dir, resp); err != nil {
+	if err := untar(dir, resp); err != nil {
 		return dir, err
 	}
 
