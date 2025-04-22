@@ -37,6 +37,7 @@ import (
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 const (
@@ -60,6 +61,7 @@ type ServiceReconciler struct {
 	restoreNamespace string
 	mapper           meta.RESTMapper
 	pinger           *ping.Pinger
+	apiExtClient     *apiextensionsclient.Clientset
 }
 
 func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
@@ -70,7 +72,6 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 	if err != nil {
 		return nil, err
 	}
-
 	f := utils.NewFactory(config)
 	mapper, err := f.ToRESTMapper()
 	if err != nil {
@@ -80,7 +81,10 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 	if err != nil {
 		return nil, err
 	}
-
+	apiExtClient, err := apiextensionsclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
 	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
 
 	a, err := newApplier(invFactory, f)
@@ -109,6 +113,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
+		apiExtClient:     apiExtClient,
 	}, nil
 }
 
