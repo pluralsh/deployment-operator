@@ -38,7 +38,7 @@ func (s *ServiceReconciler) UpdatePruneStatus(
 			gk := e.StatusEvent.Identifier.GroupKind
 			name := e.StatusEvent.Identifier.Name
 			if e.StatusEvent.Error != nil {
-				err = fmt.Errorf("%s status %s: %s\n", resourceIDToString(gk, name),
+				err = fmt.Errorf("%s status %s: %s", resourceIDToString(gk, name),
 					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
 				logger.Error(err, "status error")
 			} else {
@@ -114,7 +114,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 						sha.Expire()
 						cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
 					}
-					err = fmt.Errorf("%s apply %s: %s\n", resourceIDToString(gk, name),
+					err = fmt.Errorf("%s apply %s: %s", resourceIDToString(gk, name),
 						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
 					logger.Error(err, "apply error")
 				} else {
@@ -132,7 +132,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 			gk := e.StatusEvent.Identifier.GroupKind
 			name := e.StatusEvent.Identifier.Name
 			if e.StatusEvent.Error != nil {
-				err = fmt.Errorf("%s status %s: %s\n", resourceIDToString(gk, name),
+				err = fmt.Errorf("%s status %s: %s", resourceIDToString(gk, name),
 					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
 				logger.Error(err, "status error")
 			} else if printStatus {

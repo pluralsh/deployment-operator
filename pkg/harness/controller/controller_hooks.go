@@ -69,8 +69,8 @@ func (in *stackRunController) postStart(err error) {
 func (in *stackRunController) postStepRun(id string, err error) {
 	var status gqlclient.StepStatus
 
-	switch {
-	case err == nil:
+	switch err {
+	case nil:
 		status = gqlclient.StepStatusSuccessful
 	default:
 		status = gqlclient.StepStatusFailed

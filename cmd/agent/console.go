@@ -4,18 +4,18 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/client-go/rest"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
 	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
@@ -47,7 +47,7 @@ const (
 )
 
 func registerConsoleReconcilersOrDie(
-	mgr *controller.Manager,
+	mgr *consolectrl.Manager,
 	config *rest.Config,
 	k8sClient ctrclient.Client,
 	scheme *runtime.Scheme,

@@ -6,13 +6,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
-	"github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("ConstraintPodStatus Controller", Ordered, func() {
@@ -41,7 +41,7 @@ var _ = Describe("ConstraintPodStatus Controller", Ordered, func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: namespace,
-						Labels:    map[string]string{v1beta1.ConstraintNameLabel: templateName, v1beta1.ConstraintKindLabel: kind, v1beta1.ConstraintTemplateNameLabel: templateName},
+						Labels:    map[string]string{constraintstatusv1beta1.ConstraintNameLabel: templateName, constraintstatusv1beta1.ConstraintKindLabel: kind, constraintstatusv1beta1.ConstraintTemplateNameLabel: templateName},
 					},
 					Status: constraintstatusv1beta1.ConstraintPodStatusStatus{},
 				}

@@ -1,7 +1,7 @@
 package client
 
 import (
-	"fmt"
+	"errors"
 
 	console "github.com/pluralsh/console/go/client"
 )
@@ -21,7 +21,7 @@ func (c *client) ListNamespaces(after *string, first *int64) (*console.ListClust
 		return nil, err
 	}
 	if resp.ClusterManagedNamespaces == nil {
-		return nil, fmt.Errorf("the response from ListNamespaces is nil")
+		return nil, errors.New("the response from ListNamespaces is nil")
 	}
 	return resp.ClusterManagedNamespaces, nil
 }

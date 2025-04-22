@@ -63,7 +63,7 @@ func GetLastProgressTimestamp(ctx context.Context, k8sClient ctrclient.Client, o
 	}()
 
 	if !ok {
-		annotations[LastProgressTimeAnnotation] = progressTime.Time.Format(time.RFC3339)
+		annotations[LastProgressTimeAnnotation] = progressTime.Format(time.RFC3339)
 		obj.SetAnnotations(annotations)
 		return
 	}

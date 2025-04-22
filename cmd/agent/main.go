@@ -5,6 +5,9 @@ import (
 	"os"
 	"time"
 
+	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
+	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	datadogprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -54,6 +57,33 @@ func main() {
 	args.Init()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
+
+	if args.PyroscopeEnabled() {
+		profiler, err := args.InitPyroscope()
+		if err != nil {
+			setupLog.Error(err, "unable to initialize pyroscope")
+			os.Exit(1)
+		}
+
+		defer func() {
+			_ = profiler.Stop()
+		}()
+	}
+
+	if args.DatadogEnabled() {
+		err := args.InitDatadog()
+		if err != nil {
+			panic("unable to initialize datadog")
+		}
+
+		// Trace kubernetes client calls
+		config.WrapTransport = kubernetestrace.WrapRoundTripper
+
+		defer func() {
+			datadogtracer.Stop()
+			datadogprofiler.Stop()
+		}()
+	}
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)

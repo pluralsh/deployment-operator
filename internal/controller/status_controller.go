@@ -7,7 +7,6 @@ import (
 	cliutilscommon "sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -85,7 +84,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 func (r *StatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}).
-		WithEventFilter(predicate.NewPredicateFuncs(func(o client.Object) bool {
+		WithEventFilter(predicate.NewPredicateFuncs(func(o k8sClient.Object) bool {
 			_, exists := o.GetLabels()[cliutilscommon.InventoryLabel]
 			return exists
 		})).
@@ -126,7 +125,7 @@ func (r *StatusReconciler) inventoryID(c *corev1.ConfigMap) string {
 	return c.Labels[cliutilscommon.InventoryLabel]
 }
 
-func NewStatusReconciler(c client.Client) (*StatusReconciler, error) {
+func NewStatusReconciler(c k8sClient.Client) (*StatusReconciler, error) {
 	return &StatusReconciler{
 		Client:         c,
 		inventoryCache: make(cache.InventoryResourceKeys),

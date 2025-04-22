@@ -90,6 +90,7 @@ func (cb *commonBuilder) finalize() (*commonBuilder, error) {
 				Labels: common.ManagedByAgentLabelSelector(),
 				Fields: nil,
 			},
+			ID: "applier",
 		})
 	}
 	return &cx, nil

@@ -10,13 +10,9 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,6 +23,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 const defaultBatchSize = 50
@@ -59,7 +59,7 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	scope, err := NewDefaultScope(ctx, r.Client, drain)
 	if err != nil {
 		logger.Error(err, "Failed to create drain scope")
-		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
+		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 	defer func() {
@@ -76,7 +76,7 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Fetch workloads matching labelSelector
 	workloads, err := r.getMatchingWorkloads(ctx, drain)
 	if err != nil {
-		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
+		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -86,11 +86,11 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Apply drain logic
 	err = r.applyDrain(ctx, drain, workloads, scope)
 	if err != nil {
-		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
+		utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(drain.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 
 	return ctrl.Result{}, nil
 }
@@ -228,7 +228,6 @@ func drainWave(ctx context.Context, scope Scope[*v1alpha1.ClusterDrain], c clien
 		progress.SetStatus(failed, &objRef)
 		saveProgress(ctx, progress, drain, scope)
 	}
-
 }
 
 func healthStatusDelay() time.Duration {
@@ -271,7 +270,6 @@ func waitForHealthStatus(ctx context.Context, c client.Client, obj *unstructured
 			return ctx.Err()
 		}
 	}
-
 }
 
 func splitIntoWaves[T any](items []T, batchSize int) [][]T {

@@ -1,7 +1,10 @@
 package watcher
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -16,40 +19,91 @@ import (
 // RetryListerWatcher is a wrapper around [watch.RetryWatcher]
 // that ...
 type RetryListerWatcher struct {
+	sync.Mutex
 	*RetryWatcher
+
+	ctx context.Context
 
 	id                     string
 	initialResourceVersion string
 	listerWatcher          cache.ListerWatcher
+	listOptions            metav1.ListOptions
 
-	listOptions metav1.ListOptions
-	resultChan  chan apiwatch.Event
+	resultChan chan apiwatch.Event
+
+	stopped  bool
+	stopChan chan struct{}
+	doneChan chan struct{}
 }
 
 func (in *RetryListerWatcher) ResultChan() <-chan apiwatch.Event {
 	return in.resultChan
 }
 
+func (in *RetryListerWatcher) Stop() {
+	if in.RetryWatcher != nil {
+		in.RetryWatcher.Stop()
+	}
+
+	in.Lock()
+	defer in.Unlock()
+
+	if in.stopped {
+		return
+	}
+
+	in.stopped = true
+	close(in.stopChan)
+}
+
+func (in *RetryListerWatcher) Done() <-chan struct{} {
+	return in.doneChan
+}
+
+func (in *RetryListerWatcher) isEmptyResourceVersion() bool {
+	return len(in.initialResourceVersion) == 0 || in.initialResourceVersion == "0"
+}
+
+func (in *RetryListerWatcher) ensureRequiredArgs() error {
+	if in.listerWatcher == nil {
+		return errors.New("listerWatcher must not be nil")
+	}
+
+	return nil
+}
+
 func (in *RetryListerWatcher) funnel(from <-chan apiwatch.Event) {
 	for {
 		select {
-		case <-in.Done():
+		case <-in.ctx.Done():
+			return
+		case <-in.stopChan:
 			return
 		case e, ok := <-from:
-			if !ok {
+			if !ok || in.stopped {
 				return
 			}
 
-			in.resultChan <- e
+			select {
+			case <-in.ctx.Done():
+				return
+			case <-in.stopChan:
+				return
+			case in.resultChan <- e:
+				// Successfully sent
+			}
 		}
 	}
 }
 
-func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
+func (in *RetryListerWatcher) funnelItems(items []apiwatch.Event) {
 	for _, item := range items {
 		select {
-		case <-in.Done():
-			klog.V(4).InfoS("funnelItems stopped due to resultChan being closed")
+		case <-in.ctx.Done():
+			klog.V(4).InfoS("funnelItems stopped due to context being closed")
+			return
+		case <-in.stopChan:
+			klog.V(0).InfoS("funnelItems stopped due to stopChan being closed")
 			return
 		case in.resultChan <- item:
 			klog.V(4).InfoS("successfully sent item to resultChan")
@@ -57,17 +111,58 @@ func (in *RetryListerWatcher) funnelItems(items ...apiwatch.Event) {
 	}
 }
 
-func (in *RetryListerWatcher) toEvents(objects ...runtime.Object) []apiwatch.Event {
-	return algorithms.Map(objects, func(object runtime.Object) apiwatch.Event {
+func (in *RetryListerWatcher) initialItemsList() ([]apiwatch.Event, error) {
+	if !in.isEmptyResourceVersion() {
+		return []apiwatch.Event{}, nil
+	}
+
+	klog.V(3).InfoS("listing initial resources as initialResourceVersion is empty")
+
+	list, err := in.listerWatcher.List(in.listOptions)
+	if err != nil {
+		return nil, fmt.Errorf("error listing resources: %w", err)
+	}
+
+	listMetaInterface, err := meta.ListAccessor(list)
+	if err != nil {
+		return nil, fmt.Errorf("unable to understand list result %#v: %w", list, err)
+	}
+
+	resourceVersion := listMetaInterface.GetResourceVersion()
+	items, err := meta.ExtractList(list)
+	if err != nil {
+		return nil, fmt.Errorf("unable to understand list result %#v (%w)", list, err)
+	}
+
+	in.initialResourceVersion = resourceVersion
+	return algorithms.Map(items, func(object runtime.Object) apiwatch.Event {
 		return apiwatch.Event{
 			Type:   apiwatch.Added,
 			Object: object,
 		}
-	})
+	}), nil
 }
 
-func (in *RetryListerWatcher) isEmptyResourceVersion() bool {
-	return len(in.initialResourceVersion) == 0 || in.initialResourceVersion == "0"
+// Starts the [watch.RetryWatcher] and funnels all events to our wrapper.
+func (in *RetryListerWatcher) watch() {
+	defer close(in.doneChan)
+	defer close(in.resultChan)
+
+	initialItems, err := in.initialItemsList()
+	if err != nil {
+		klog.ErrorS(err, "unable to list initial items", "resourceVersion", in.initialResourceVersion)
+		return
+	}
+
+	w, err := NewRetryWatcher(in.initialResourceVersion, in.listerWatcher)
+	if err != nil {
+		klog.ErrorS(err, "unable to create retry watcher", "resourceVersion", in.initialResourceVersion)
+		return
+	}
+
+	in.RetryWatcher = w
+	in.funnelItems(initialItems)
+	in.funnel(w.ResultChan())
 }
 
 func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
@@ -75,66 +170,17 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 		return nil, err
 	}
 
-	// TODO: check if watch supports feeding initial items instead of using list
-	if in.isEmptyResourceVersion() {
-		klog.V(3).InfoS("starting list and watch as initialResourceVersion is empty")
-		err := in.listAndWatch()
-		return in, err
-	}
-
-	klog.V(3).InfoS("starting watch", "initialResourceVersion", in.initialResourceVersion)
-	go in.watch(in.initialResourceVersion)
+	klog.V(3).InfoS("starting watch", "resourceVersion", in.initialResourceVersion)
+	go in.watch()
 	return in, nil
 }
 
-func (in *RetryListerWatcher) listAndWatch() error {
-	list, err := in.listerWatcher.List(in.listOptions)
-	if err != nil {
-		return fmt.Errorf("error listing resources: %w", err)
-	}
-
-	listMetaInterface, err := meta.ListAccessor(list)
-	if err != nil {
-		return fmt.Errorf("unable to understand list result %#v: %w", list, err)
-	}
-
-	resourceVersion := listMetaInterface.GetResourceVersion()
-	items, err := meta.ExtractList(list)
-	if err != nil {
-		return fmt.Errorf("unable to understand list result %#v (%w)", list, err)
-	}
-
-	go in.watch(resourceVersion, in.toEvents(items...)...)
-
-	return nil
-}
-
-// Starts the [watch.RetryWatcher] and funnels all events to our wrapper.
-func (in *RetryListerWatcher) watch(resourceVersion string, initialItems ...apiwatch.Event) {
-	defer close(in.resultChan)
-
-	w, err := NewRetryWatcher(resourceVersion, in.listerWatcher)
-	if err != nil {
-		klog.ErrorS(err, "unable to create retry watcher", "resourceVersion", resourceVersion)
-		return
-	}
-
-	in.RetryWatcher = w
-	in.funnelItems(initialItems...)
-	in.funnel(w.ResultChan())
-}
-
-func (in *RetryListerWatcher) ensureRequiredArgs() error {
-	if in.listerWatcher == nil {
-		return fmt.Errorf("listerWatcher must not be nil")
-	}
-
-	return nil
-}
-
-func NewRetryListerWatcher(options ...RetryListerWatcherOption) (*RetryListerWatcher, error) {
+func NewRetryListerWatcher(ctx context.Context, options ...RetryListerWatcherOption) (*RetryListerWatcher, error) {
 	rw := &RetryListerWatcher{
 		resultChan: make(chan apiwatch.Event),
+		stopChan:   make(chan struct{}),
+		doneChan:   make(chan struct{}),
+		ctx:        ctx,
 	}
 
 	for _, option := range options {
