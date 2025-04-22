@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -62,9 +63,10 @@ type ServiceReconciler struct {
 	mapper           meta.RESTMapper
 	pinger           *ping.Pinger
 	apiExtClient     *apiextensionsclient.Clientset
+	k8sClient        ctrclient.Client
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -114,6 +116,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
 		apiExtClient:     apiExtClient,
+		k8sClient:        k8sClient,
 	}, nil
 }
 
