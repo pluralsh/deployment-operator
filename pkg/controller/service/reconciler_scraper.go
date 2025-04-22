@@ -6,14 +6,13 @@ import (
 	"sort"
 	"strings"
 
-	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
-
 	"github.com/Masterminds/semver/v3"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
@@ -48,8 +47,8 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 	if err == nil {
 
 	}
-
-	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, nil, cache.ServiceMesh()); err != nil {
+	deprecated := []console.DeprecatedCustomResourceAttributes{}
+	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, deprecated, nil, cache.ServiceMesh()); err != nil {
 		logger.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
 }
