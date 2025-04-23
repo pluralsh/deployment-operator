@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -22,6 +21,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/object"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
