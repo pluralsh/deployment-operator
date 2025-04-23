@@ -103,7 +103,7 @@ func (in *RetryListerWatcher) funnelItems(items []apiwatch.Event) {
 			klog.V(4).InfoS("funnelItems stopped due to context being closed")
 			return
 		case <-in.stopChan:
-			klog.V(0).InfoS("funnelItems stopped due to stopChan being closed")
+			klog.V(4).InfoS("funnelItems stopped due to stopChan being closed")
 			return
 		case in.resultChan <- item:
 			klog.V(4).InfoS("successfully sent item to resultChan")
