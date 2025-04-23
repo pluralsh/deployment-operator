@@ -180,7 +180,6 @@ func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Conte
 				deprecatedCustomResourceAttributes = append(deprecatedCustomResourceAttributes, attr)
 			}
 		}
-
 	}
 	return deprecatedCustomResourceAttributes
 }
