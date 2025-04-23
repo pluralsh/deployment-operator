@@ -11,7 +11,10 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -43,12 +46,7 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 		}
 	}
 
-	_, err = s.GetVersionedCrd(ctx)
-	if err == nil {
-
-	}
-	deprecated := []console.DeprecatedCustomResourceAttributes{}
-	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, deprecated, nil, cache.ServiceMesh()); err != nil {
+	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, s.getDeprecatedCustomResources(ctx), nil, cache.ServiceMesh()); err != nil {
 		logger.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
 }
@@ -101,7 +99,7 @@ func addVersion(services map[string]*client.NamespaceVersion, name, vsn string) 
 	}
 }
 
-func (s *ServiceReconciler) GetVersionedCrd(ctx context.Context) (map[string][]v1.NormalizedVersion, error) {
+func (s *ServiceReconciler) getVersionedCrd(ctx context.Context) (map[string][]v1.NormalizedVersion, error) {
 	crdList, err := s.apiExtClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -126,4 +124,74 @@ func (s *ServiceReconciler) GetVersionedCrd(ctx context.Context) (map[string][]v
 	}
 
 	return crdVersionsMap, nil
+}
+
+func (s *ServiceReconciler) getDeprecatedCustomResources(ctx context.Context) []console.DeprecatedCustomResourceAttributes {
+	logger := log.FromContext(ctx)
+	crds, err := s.getVersionedCrd(ctx)
+	if err != nil {
+		logger.Error(err, "failed to retrieve versioned CRDs")
+		return nil
+	}
+
+	var deprecated []console.DeprecatedCustomResourceAttributes
+	for groupKind, versions := range crds {
+		gkList := strings.Split(groupKind, "/")
+		if len(gkList) != 2 {
+			continue
+		}
+		group := gkList[0]
+		kind := gkList[1]
+		d := s.getDeprecatedCustomResourceObjects(ctx, versions, group, kind)
+		deprecated = append(deprecated, d...)
+	}
+	return deprecated
+}
+
+func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Context, versions []v1.NormalizedVersion, group, kind string) []console.DeprecatedCustomResourceAttributes {
+	var deprecatedCustomResourceAttributes []console.DeprecatedCustomResourceAttributes
+	versionPairs := getVersionPairs(versions)
+	for _, version := range versionPairs {
+		latest := version[0]
+		previous := version[1]
+		gvk := schema.GroupVersionKind{
+			Group:   group,
+			Version: previous,
+			Kind:    kind,
+		}
+
+		pager := scraper.ListResources(ctx, s.k8sClient, gvk, nil)
+		for pager.HasNext() {
+			items, err := pager.NextPage()
+			if err != nil {
+				break
+			}
+			for _, item := range items {
+				attr := console.DeprecatedCustomResourceAttributes{
+					Group:       group,
+					Kind:        kind,
+					Name:        item.GetName(),
+					Version:     previous,
+					NextVersion: latest,
+				}
+				if item.GetNamespace() != "" {
+					attr.Namespace = lo.ToPtr(item.GetNamespace())
+				}
+				deprecatedCustomResourceAttributes = append(deprecatedCustomResourceAttributes, attr)
+			}
+		}
+
+	}
+	return deprecatedCustomResourceAttributes
+}
+
+func getVersionPairs(versions []v1.NormalizedVersion) [][2]string {
+	var pairs [][2]string
+
+	for i := 0; i < len(versions)-1; i++ {
+		pair := [2]string{versions[i].Raw, versions[i+1].Raw}
+		pairs = append(pairs, pair)
+	}
+
+	return pairs
 }

@@ -6,9 +6,8 @@ import (
 	"sync"
 	"time"
 
-	controllercommon "github.com/pluralsh/deployment-operator/pkg/controller/common"
-
 	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
+	controllercommon "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -132,7 +131,15 @@ func RunAiInsightComponentScraperInBackgroundOrDie(ctx context.Context, k8sClien
 }
 
 func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind) error {
-	pager := listResources(ctx, k8sClient, gvk)
+	var opts []ctrclient.ListOption
+	manageByOperatorLabels := map[string]string{
+		agentcommon.ManagedByLabel: agentcommon.AgentLabelValue,
+	}
+	ml := ctrclient.MatchingLabels(manageByOperatorLabels)
+	if gvk != corev1.SchemeGroupVersion.WithKind(nodeKind) {
+		opts = append(opts, ml)
+	}
+	pager := ListResources(ctx, k8sClient, gvk, opts)
 	for pager.HasNext() {
 		items, err := pager.NextPage()
 		if err != nil {
@@ -155,16 +162,7 @@ func setUnhealthyComponents(ctx context.Context, k8sClient ctrclient.Client, gvk
 	return nil
 }
 
-func listResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind) *algorithms.Pager[unstructured.Unstructured] {
-	var opts []ctrclient.ListOption
-	manageByOperatorLabels := map[string]string{
-		agentcommon.ManagedByLabel: agentcommon.AgentLabelValue,
-	}
-	ml := ctrclient.MatchingLabels(manageByOperatorLabels)
-	if gvk != corev1.SchemeGroupVersion.WithKind(nodeKind) {
-		opts = append(opts, ml)
-	}
-
+func ListResources(ctx context.Context, k8sClient ctrclient.Client, gvk schema.GroupVersionKind, opts []ctrclient.ListOption) *algorithms.Pager[unstructured.Unstructured] {
 	fetch := func(page *string, size int64) ([]unstructured.Unstructured, *algorithms.PageInfo, error) {
 		list := &unstructured.UnstructuredList{}
 		list.SetGroupVersionKind(gvk)
