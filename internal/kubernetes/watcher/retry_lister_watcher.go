@@ -150,7 +150,8 @@ func (in *RetryListerWatcher) watch() {
 
 	initialItems, err := in.initialItemsList()
 	if err != nil {
-		klog.ErrorS(err, "unable to list initial items", "resourceVersion", in.initialResourceVersion)
+		// this is constantly thrown when context is canceled
+		klog.V(3).ErrorS(err, "unable to list initial items", "resourceVersion", in.initialResourceVersion)
 		return
 	}
 
