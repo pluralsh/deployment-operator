@@ -9,13 +9,13 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/samber/lo"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
-
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/internal/metrics"
 )
 
 type ServiceMeshResourceGroup string
@@ -35,6 +35,9 @@ const (
 
 	// ServiceMeshResourceGroupNone represents an empty or unknown service mesh
 	ServiceMeshResourceGroupNone ServiceMeshResourceGroup = ""
+
+	appNameLabel = "app.kubernetes.io/name"
+	ebpfAppName  = "opentelemetry-ebpf"
 )
 
 func (in ServiceMeshResourceGroup) String() string {
@@ -80,7 +83,11 @@ func DiscoveryCache() cmap.ConcurrentMap[string, bool] {
 	return discoveryCache
 }
 
-func ServiceMesh() *client.ServiceMesh {
+func ServiceMesh(hasEBPFDaemonSet bool) *client.ServiceMesh {
+	if hasEBPFDaemonSet {
+		return lo.ToPtr(client.ServiceMeshEbpf)
+	}
+
 	serviceMeshRWLock.RLock()
 	defer serviceMeshRWLock.RUnlock()
 
@@ -160,4 +167,9 @@ func checkAndUpdateServiceMesh(group string) {
 	if serviceMesh.Priority() > newServiceMesh.Priority() {
 		serviceMesh = newServiceMesh
 	}
+}
+
+func IsEBPFDaemonSet(ds appsv1.DaemonSet) bool {
+	value, ok := ds.Labels[appNameLabel]
+	return ok && value == ebpfAppName
 }
