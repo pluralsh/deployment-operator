@@ -96,7 +96,7 @@ func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serv
 	}
 
 	layouts = initServiceMesh(layouts, serviceMesh)
-	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, serviceId)
+	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, nil, serviceId)
 	return err
 }
 
