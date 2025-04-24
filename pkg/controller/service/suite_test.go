@@ -22,13 +22,11 @@ import (
 	"runtime"
 	"testing"
 
-	"k8s.io/client-go/rest"
-
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"

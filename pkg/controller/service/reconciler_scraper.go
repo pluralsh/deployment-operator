@@ -46,7 +46,7 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 		}
 	}
 
-	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, s.getDeprecatedCustomResources(ctx), nil, cache.ServiceMesh()); err != nil {
+	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, s.GetDeprecatedCustomResources(ctx), nil, cache.ServiceMesh()); err != nil {
 		logger.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
 }
@@ -126,7 +126,7 @@ func (s *ServiceReconciler) getVersionedCrd(ctx context.Context) (map[string][]v
 	return crdVersionsMap, nil
 }
 
-func (s *ServiceReconciler) getDeprecatedCustomResources(ctx context.Context) []console.DeprecatedCustomResourceAttributes {
+func (s *ServiceReconciler) GetDeprecatedCustomResources(ctx context.Context) []console.DeprecatedCustomResourceAttributes {
 	logger := log.FromContext(ctx)
 	crds, err := s.getVersionedCrd(ctx)
 	if err != nil {
@@ -152,11 +152,9 @@ func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Conte
 	var deprecatedCustomResourceAttributes []console.DeprecatedCustomResourceAttributes
 	versionPairs := getVersionPairs(versions)
 	for _, version := range versionPairs {
-		latest := version[0]
-		previous := version[1]
 		gvk := schema.GroupVersionKind{
 			Group:   group,
-			Version: previous,
+			Version: version.PreviousVersion,
 			Kind:    kind,
 		}
 
@@ -171,8 +169,8 @@ func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Conte
 					Group:       group,
 					Kind:        kind,
 					Name:        item.GetName(),
-					Version:     previous,
-					NextVersion: latest,
+					Version:     version.PreviousVersion,
+					NextVersion: version.LatestVersion,
 				}
 				if item.GetNamespace() != "" {
 					attr.Namespace = lo.ToPtr(item.GetNamespace())
@@ -184,13 +182,24 @@ func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Conte
 	return deprecatedCustomResourceAttributes
 }
 
-func getVersionPairs(versions []v1.NormalizedVersion) [][2]string {
-	var pairs [][2]string
+type VersionPair struct {
+	LatestVersion   string
+	PreviousVersion string
+}
 
-	for i := 0; i < len(versions)-1; i++ {
-		pair := [2]string{versions[i].Raw, versions[i+1].Raw}
-		pairs = append(pairs, pair)
+func getVersionPairs(versions []v1.NormalizedVersion) []VersionPair {
+	// Helper function for creating VersionPair
+	createVersionPair := func(latest, previous v1.NormalizedVersion) VersionPair {
+		return VersionPair{
+			LatestVersion:   latest.Raw,
+			PreviousVersion: previous.Raw,
+		}
 	}
 
-	return pairs
+	versionPairs := make([]VersionPair, 0, len(versions)-1) // Preallocate slice capacity
+	for i := 0; i < len(versions)-1; i++ {
+		versionPair := createVersionPair(versions[i], versions[i+1])
+		versionPairs = append(versionPairs, versionPair)
+	}
+	return versionPairs
 }
