@@ -7,6 +7,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
@@ -240,7 +241,7 @@ func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, com
 }
 
 func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAttributes) error {
-	return s.consoleClient.UpdateServiceErrors(id, []*console.ServiceErrorAttributes{err})
+	return s.consoleClient.UpdateServiceErrors(id, lo.Ternary(err != nil, []*console.ServiceErrorAttributes{err}, []*console.ServiceErrorAttributes{}))
 }
 
 func resourceIDToString(gk schema.GroupKind, name string) string {
