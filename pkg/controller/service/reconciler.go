@@ -62,7 +62,7 @@ type ServiceReconciler struct {
 	pinger           *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -102,7 +102,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		) {
 			return consoleClient.GetService(id)
 		}),
-		manifestCache:    manis.NewCache(manifestTTL, deployToken, consoleURL),
+		manifestCache:    manis.NewCache(manifestTTL, manifestTTLJitter, deployToken, consoleURL),
 		utilFactory:      f,
 		applier:          a,
 		destroyer:        d,

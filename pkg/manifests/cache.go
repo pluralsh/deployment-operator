@@ -2,6 +2,7 @@ package manifests
 
 import (
 	"fmt"
+	"math/rand"
 	"net/url"
 	"os"
 	"time"
@@ -26,25 +27,27 @@ type cacheLine struct {
 }
 
 type ManifestCache struct {
-	cache      cmap.ConcurrentMap[string, *cacheLine]
-	token      string
-	consoleURL string
-	expiry     time.Duration
+	cache        cmap.ConcurrentMap[string, *cacheLine]
+	token        string
+	consoleURL   string
+	expiry       time.Duration
+	expiryJitter time.Duration
 }
 
-func NewCache(expiry time.Duration, token, consoleURL string) *ManifestCache {
+func NewCache(expiry, expiryJitter time.Duration, token, consoleURL string) *ManifestCache {
 	return &ManifestCache{
-		cache:      cmap.New[*cacheLine](),
-		token:      token,
-		expiry:     expiry,
-		consoleURL: consoleURL,
+		cache:        cmap.New[*cacheLine](),
+		token:        token,
+		expiry:       expiry,
+		expiryJitter: expiryJitter,
+		consoleURL:   consoleURL,
 	}
 }
 
 func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDeploymentForAgent) ([]unstructured.Unstructured, error) {
 	sha, err := fetchSha(c.consoleURL, c.token, svc.ID)
 	if line, ok := c.cache.Get(svc.ID); ok {
-		if err == nil && line.live(c.expiry) && line.sha == sha {
+		if err == nil && line.live(c.expiry, c.expiryJitter) && line.sha == sha {
 			return template.Render(line.dir, svc, utilFactory)
 		}
 		line.wipe()
@@ -101,8 +104,8 @@ func (c *ManifestCache) Expire(id string) {
 	c.cache.Remove(id)
 }
 
-func (l *cacheLine) live(dur time.Duration) bool {
-	return l.created.After(time.Now().Add(-dur))
+func (l *cacheLine) live(expiry, jitter time.Duration) bool {
+	return l.created.After(time.Now().Add(-expiry).Add(-time.Duration(rand.Int63n(int64(jitter)))))
 }
 
 func (l *cacheLine) wipe() {
