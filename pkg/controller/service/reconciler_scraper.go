@@ -115,6 +115,10 @@ func (s *ServiceReconciler) getVersionedCrd(ctx context.Context) (map[string][]v
 			if !ok {
 				continue
 			}
+			// flag enabling/disabling this version from being served via REST APIs
+			if !v.Served {
+				continue
+			}
 			parsedVersions = append(parsedVersions, *parsed)
 		}
 		sort.Slice(parsedVersions, func(i, j int) bool {
