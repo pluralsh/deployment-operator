@@ -62,7 +62,7 @@ type ServiceReconciler struct {
 	pinger           *ping.Pinger
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -102,7 +102,7 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		) {
 			return consoleClient.GetService(id)
 		}),
-		manifestCache:    manis.NewCache(manifestTTL, deployToken, consoleURL),
+		manifestCache:    manis.NewCache(manifestTTL, manifestTTLJitter, deployToken, consoleURL),
 		utilFactory:      f,
 		applier:          a,
 		destroyer:        d,
@@ -273,7 +273,6 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 	}
 
 	pager := s.ListServices(ctx)
-
 	for pager.HasNext() {
 		services, err := pager.NextPage()
 		if err != nil {
@@ -281,8 +280,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 			return err
 		}
 		for _, svc := range services {
-			// If services arg is provided, we can skip
-			// services that are not on the list.
+			// If services arg is provided, we can skip services that are not on the list.
 			if args.SkipService(svc.Node.ID) {
 				continue
 			}
@@ -328,9 +326,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	defer func() {
 		if err != nil {
 			logger.Error(err, "process item")
-			if !errors.Is(err, plrlerrors.ErrExpected) {
-				s.UpdateErrorStatus(ctx, id, err)
-			}
+		}
+
+		// Update the error status if the error is not expected or nil (to clear the status).
+		if !errors.Is(err, plrlerrors.ErrExpected) {
+			s.UpdateErrorStatus(ctx, id, err)
 		}
 
 		metrics.Record().ServiceReconciliation(

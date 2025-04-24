@@ -47,6 +47,9 @@ const (
 	defaultManifestCacheTTL         = "1h"
 	defaultManifestCacheTTLDuration = time.Hour
 
+	defaultManifestCacheJitter         = "10m"
+	defaultManifestCacheJitterDuration = 10 * time.Minute
+
 	defaultControllerCacheTTL         = "2m"
 	defaultControllerCacheTTLDuration = 2 * time.Minute
 
@@ -83,15 +86,16 @@ var (
 	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "DEPRECATED: Time interval to poll resources from the Console API.")
 	argPollInterval      = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
 	// TODO: ensure this arg can be safely renamed without causing breaking changes.
-	argPollJitter         = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
-	argResourceCacheTTL   = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
-	argManifestCacheTTL   = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
-	argControllerCacheTTL = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
-	argRestoreNamespace   = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
-	argServices           = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
-	argPyroscopeAddress   = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
-	argDatadogHost        = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
-	argDatadogEnv         = flag.String("datadog-env", defaultDatadogEnv, "The environment of the Datadog server.")
+	argPollJitter          = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
+	argResourceCacheTTL    = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
+	argManifestCacheTTL    = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
+	argManifestCacheJitter = flag.String("manifest-cache-jitter", defaultManifestCacheJitter, "Randomly selected jitter time up to the provided duration will be added to the manifest cache TTL.")
+	argControllerCacheTTL  = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
+	argRestoreNamespace    = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
+	argServices            = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
+	argPyroscopeAddress    = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
+	argDatadogHost         = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
+	argDatadogEnv          = flag.String("datadog-env", defaultDatadogEnv, "The environment of the Datadog server.")
 
 	serviceSet containers.Set[string]
 )
@@ -253,6 +257,16 @@ func ManifestCacheTTL() time.Duration {
 	}
 
 	return duration
+}
+
+func ManifestCacheJitter() time.Duration {
+	jitter, err := time.ParseDuration(*argManifestCacheJitter)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse manifest-cache-jitter", "value", *argManifestCacheJitter, "default", defaultManifestCacheJitterDuration)
+		return defaultManifestCacheJitterDuration
+	}
+
+	return jitter
 }
 
 func ControllerCacheTTL() time.Duration {

@@ -40,7 +40,7 @@ func (c *client) UpdateComponents(id, revisionID string, sha *string, components
 	return err
 }
 
-func (c *client) AddServiceErrors(id string, errs []*console.ServiceErrorAttributes) error {
+func (c *client) UpdateServiceErrors(id string, errs []*console.ServiceErrorAttributes) error {
 	_, err := c.consoleClient.AddServiceError(c.ctx, id, errs)
 	return err
 }
