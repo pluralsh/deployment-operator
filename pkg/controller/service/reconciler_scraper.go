@@ -2,10 +2,17 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	console "github.com/pluralsh/console/go/client"
+	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/pluralsh/deployment-operator/pkg/cache"
@@ -47,8 +54,7 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 
 	serviceMesh := cache.ServiceMesh(hasEBPFDaemonSet)
 	logger.Info("detected service mesh", "serviceMesh", serviceMesh)
-
-	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, nil, serviceMesh); err != nil {
+	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, s.GetDeprecatedCustomResources(ctx), nil, serviceMesh); err != nil {
 		logger.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
 }
