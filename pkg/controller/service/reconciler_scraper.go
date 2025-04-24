@@ -32,15 +32,20 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 		}
 	}
 
+	hasEBPFDaemonSet := false
 	daemonSets, err := s.clientset.AppsV1().DaemonSets("").List(ctx, metav1.ListOptions{})
 	if err == nil {
 		logger.Info("aggregating from daemonsets")
 		for _, ds := range daemonSets.Items {
 			AddRuntimeServiceInfo(ds.Namespace, ds.GetLabels(), runtimeServices)
+
+			if cache.IsEBPFDaemonSet(ds) {
+				hasEBPFDaemonSet = true
+			}
 		}
 	}
 
-	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, nil, cache.ServiceMesh()); err != nil {
+	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, nil, cache.ServiceMesh(hasEBPFDaemonSet)); err != nil {
 		logger.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
 }
