@@ -214,10 +214,8 @@ func FormatActionGroupEvent(ctx context.Context, age event.ActionGroupEvent) err
 }
 
 func (s *ServiceReconciler) UpdateErrorStatus(ctx context.Context, id string, err error) {
-	logger := log.FromContext(ctx)
-
-	if err := s.AddErrors(id, errorAttributes("sync", err)); err != nil {
-		logger.Error(err, "Failed to update service status, ignoring for now")
+	if err := s.UpdateErrors(id, errorAttributes("sync", err)); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to update service status, ignoring for now")
 	}
 }
 
@@ -241,8 +239,8 @@ func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, com
 	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs)
 }
 
-func (s *ServiceReconciler) AddErrors(id string, err *console.ServiceErrorAttributes) error {
-	return s.consoleClient.AddServiceErrors(id, []*console.ServiceErrorAttributes{err})
+func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAttributes) error {
+	return s.consoleClient.UpdateServiceErrors(id, []*console.ServiceErrorAttributes{err})
 }
 
 func resourceIDToString(gk schema.GroupKind, name string) string {
