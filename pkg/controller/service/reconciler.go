@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/object"
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -37,6 +38,7 @@ import (
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 const (
@@ -60,9 +62,11 @@ type ServiceReconciler struct {
 	restoreNamespace string
 	mapper           meta.RESTMapper
 	pinger           *ping.Pinger
+	apiExtClient     *apiextensionsclient.Clientset
+	k8sClient        ctrclient.Client
 }
 
-func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -80,7 +84,10 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 	if err != nil {
 		return nil, err
 	}
-
+	apiExtClient, err := apiextensionsclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
 	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
 
 	a, err := newApplier(invFactory, f)
@@ -109,6 +116,8 @@ func NewServiceReconciler(consoleClient client.Client, config *rest.Config, refr
 		pinger:           ping.New(consoleClient, discoveryClient, f),
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
+		apiExtClient:     apiExtClient,
+		k8sClient:        k8sClient,
 	}, nil
 }
 
@@ -273,6 +282,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 	}
 
 	pager := s.ListServices(ctx)
+
 	for pager.HasNext() {
 		services, err := pager.NextPage()
 		if err != nil {
@@ -280,7 +290,8 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 			return err
 		}
 		for _, svc := range services {
-			// If services arg is provided, we can skip services that are not on the list.
+			// If services arg is provided, we can skip
+			// services that are not on the list.
 			if args.SkipService(svc.Node.ID) {
 				continue
 			}

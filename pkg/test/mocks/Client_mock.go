@@ -1465,17 +1465,17 @@ func (_c *ClientMock_PingCluster_Call) RunAndReturn(run func(goclient.ClusterPin
 	return _c
 }
 
-// RegisterRuntimeServices provides a mock function with given fields: svcs, serviceId, serviceMesh
-func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]*client.NamespaceVersion, serviceId *string, serviceMesh *goclient.ServiceMesh) error {
-	ret := _m.Called(svcs, serviceId, serviceMesh)
+// RegisterRuntimeServices provides a mock function with given fields: svcs, deprecated, serviceId, serviceMesh
+func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]*client.NamespaceVersion, deprecated []goclient.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *goclient.ServiceMesh) error {
+	ret := _m.Called(svcs, deprecated, serviceId, serviceMesh)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RegisterRuntimeServices")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(map[string]*client.NamespaceVersion, *string, *goclient.ServiceMesh) error); ok {
-		r0 = rf(svcs, serviceId, serviceMesh)
+	if rf, ok := ret.Get(0).(func(map[string]*client.NamespaceVersion, []goclient.DeprecatedCustomResourceAttributes, *string, *goclient.ServiceMesh) error); ok {
+		r0 = rf(svcs, deprecated, serviceId, serviceMesh)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1490,15 +1490,16 @@ type ClientMock_RegisterRuntimeServices_Call struct {
 
 // RegisterRuntimeServices is a helper method to define mock.On call
 //   - svcs map[string]*client.NamespaceVersion
+//   - deprecated []goclient.DeprecatedCustomResourceAttributes
 //   - serviceId *string
 //   - serviceMesh *goclient.ServiceMesh
-func (_e *ClientMock_Expecter) RegisterRuntimeServices(svcs interface{}, serviceId interface{}, serviceMesh interface{}) *ClientMock_RegisterRuntimeServices_Call {
-	return &ClientMock_RegisterRuntimeServices_Call{Call: _e.mock.On("RegisterRuntimeServices", svcs, serviceId, serviceMesh)}
+func (_e *ClientMock_Expecter) RegisterRuntimeServices(svcs interface{}, deprecated interface{}, serviceId interface{}, serviceMesh interface{}) *ClientMock_RegisterRuntimeServices_Call {
+	return &ClientMock_RegisterRuntimeServices_Call{Call: _e.mock.On("RegisterRuntimeServices", svcs, deprecated, serviceId, serviceMesh)}
 }
 
-func (_c *ClientMock_RegisterRuntimeServices_Call) Run(run func(svcs map[string]*client.NamespaceVersion, serviceId *string, serviceMesh *goclient.ServiceMesh)) *ClientMock_RegisterRuntimeServices_Call {
+func (_c *ClientMock_RegisterRuntimeServices_Call) Run(run func(svcs map[string]*client.NamespaceVersion, deprecated []goclient.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *goclient.ServiceMesh)) *ClientMock_RegisterRuntimeServices_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(map[string]*client.NamespaceVersion), args[1].(*string), args[2].(*goclient.ServiceMesh))
+		run(args[0].(map[string]*client.NamespaceVersion), args[1].([]goclient.DeprecatedCustomResourceAttributes), args[2].(*string), args[3].(*goclient.ServiceMesh))
 	})
 	return _c
 }
@@ -1508,7 +1509,7 @@ func (_c *ClientMock_RegisterRuntimeServices_Call) Return(_a0 error) *ClientMock
 	return _c
 }
 
-func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[string]*client.NamespaceVersion, *string, *goclient.ServiceMesh) error) *ClientMock_RegisterRuntimeServices_Call {
+func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[string]*client.NamespaceVersion, []goclient.DeprecatedCustomResourceAttributes, *string, *goclient.ServiceMesh) error) *ClientMock_RegisterRuntimeServices_Call {
 	_c.Call.Return(run)
 	return _c
 }

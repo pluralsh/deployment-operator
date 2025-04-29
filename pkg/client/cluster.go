@@ -3,6 +3,7 @@ package client
 import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -61,7 +62,7 @@ func appendUniqueExternalDNSNamespace(slice []*string, newValue *string) []*stri
 	return sliceSet.List()
 }
 
-func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serviceId *string, serviceMesh *console.ServiceMesh) error {
+func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, deprecated []console.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *console.ServiceMesh) error {
 	inputs := make([]*console.RuntimeServiceAttributes, 0)
 	var layouts *console.OperationalLayoutAttributes
 	for name, nv := range svcs {
@@ -96,7 +97,7 @@ func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, serv
 	}
 
 	layouts = initServiceMesh(layouts, serviceMesh)
-	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, nil, serviceId)
+	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, lo.ToSlicePtr(deprecated), serviceId)
 	return err
 }
 
