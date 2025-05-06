@@ -293,6 +293,10 @@ func (rw *RetryWatcher) ResultChan() <-chan watch.Event {
 
 // Stop implements Interface.
 func (rw *RetryWatcher) Stop() {
+	if rw == nil {
+		return
+	}
+
 	rw.mutex.Lock()
 	defer rw.mutex.Unlock()
 

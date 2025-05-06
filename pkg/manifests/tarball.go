@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/errors"
+	"github.com/pluralsh/polly/retry"
 )
 
 var (
@@ -38,6 +39,14 @@ func getReader(url, token string) (io.ReadCloser, error) {
 	}
 	req.Header.Add("Authorization", "Token "+token)
 
+	retries := retry.NewExponential(50*time.Millisecond, 100*time.Millisecond, 2.0)
+	resp, err := retry.Retry(retries, func() (io.ReadCloser, error) {
+		return doRequest(req)
+	})
+	return resp, err
+}
+
+func doRequest(req *http.Request) (io.ReadCloser, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
