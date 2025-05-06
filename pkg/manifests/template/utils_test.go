@@ -11,8 +11,9 @@ var _ = Describe("Kustomize template", func() {
 
 	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
-		Kustomize: &console.ServiceDeploymentForAgent_Kustomize{
-			Path: "",
+		Kustomize: &console.KustomizeFragment{
+			Path:       "",
+			EnableHelm: lo.ToPtr(false),
 		},
 		Imports: []*console.ServiceDeploymentForAgent_Imports{
 			{
