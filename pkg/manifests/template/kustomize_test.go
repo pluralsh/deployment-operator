@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 )
 
 var _ = Describe("Kustomize template", func() {
@@ -16,8 +17,9 @@ var _ = Describe("Kustomize template", func() {
 	dir := filepath.Join("..", "..", "..", "test", "kustomize", "overlays")
 	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
-		Kustomize: &console.ServiceDeploymentForAgent_Kustomize{
-			Path: "",
+		Kustomize: &console.KustomizeFragment{
+			Path:       "",
+			EnableHelm: lo.ToPtr(false),
 		},
 	}
 	Context("Render kustomize template", func() {
@@ -50,8 +52,9 @@ var _ = Describe("Kustomize liquid template", func() {
 	})
 	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
-		Kustomize: &console.ServiceDeploymentForAgent_Kustomize{
-			Path: "",
+		Kustomize: &console.KustomizeFragment{
+			Path:       "",
+			EnableHelm: lo.ToPtr(false),
 		},
 	}
 	Context("Render kustomize liquid template", func() {
