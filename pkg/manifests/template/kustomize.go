@@ -73,7 +73,12 @@ func (k *kustomize) Render(svc *console.ServiceDeploymentForAgent, utilFactory u
 		return nil, err
 	}
 
-	command.SetArgs([]string{dir})
+	args := []string{dir}
+	if svc.Kustomize != nil && svc.Kustomize.EnableHelm != nil && *svc.Kustomize.EnableHelm {
+		args = append(args, "--enable-helm")
+	}
+
+	command.SetArgs(args)
 	if err := command.Execute(); err != nil {
 		return nil, err
 	}
