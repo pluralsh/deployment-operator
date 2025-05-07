@@ -313,7 +313,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result reconcile.Result, err error) {
 	start := time.Now()
 	ctx = context.WithValue(ctx, metrics.ContextKeyTimeStart, start)
-
+	done := false
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("attempting to sync service", "id", id)
 
@@ -340,7 +340,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		}
 
 		// Update the error status if the error is not expected or nil (to clear the status).
-		if !errors.Is(err, plrlerrors.ErrExpected) {
+		if !errors.Is(err, plrlerrors.ErrExpected) && !done {
 			s.UpdateErrorStatus(ctx, id, err)
 		}
 
@@ -436,7 +436,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	ch := s.applier.Run(ctx, inv, manifests, options)
-	err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
+	done, err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
 }
