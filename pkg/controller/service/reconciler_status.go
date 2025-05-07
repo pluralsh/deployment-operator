@@ -68,9 +68,10 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 	ch <-chan event.Event,
 	printStatus bool,
 	vcache map[internalschema.GroupName]string,
-) error {
+) (bool, error) {
 	logger := log.FromContext(ctx)
 	start, err := metrics.FromContext[time.Time](ctx, metrics.ContextKeyTimeStart)
+	done := false
 	if err != nil {
 		klog.Fatalf("programmatic error! context does not have value for the key %s", metrics.ContextKeyTimeStart)
 	}
@@ -89,10 +90,10 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		switch e.Type {
 		case event.ActionGroupType:
 			if err := FormatActionGroupEvent(ctx, e.ActionGroupEvent); err != nil {
-				return err
+				return done, err
 			}
 		case event.ErrorType:
-			return e.ErrorEvent.Err
+			return done, e.ErrorEvent.Err
 		case event.ApplyType:
 			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
 			gk := e.ApplyEvent.Identifier.GroupKind
@@ -151,11 +152,14 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 	)
 
 	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
-		return err
+		return done, err
 	}
+
 	components := statusCollector.componentsAttributes(vcache)
 	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
+	} else {
+		done = true
 	}
 
 	metrics.Record().ServiceReconciliation(
@@ -165,7 +169,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationUpdateStatusFinish),
 	)
 
-	return err
+	return done, err
 }
 
 func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) error {
