@@ -165,7 +165,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationUpdateStatusFinish),
 	)
 
-	return nil
+	return err
 }
 
 func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) error {
