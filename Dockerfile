@@ -3,6 +3,9 @@ FROM golang:1.24-alpine3.21 AS builder
 ARG HELM_VERSION=v3.17.3
 ARG TARGETARCH
 
+# Install curl
+RUN apk add --no-cache curl
+
 WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
