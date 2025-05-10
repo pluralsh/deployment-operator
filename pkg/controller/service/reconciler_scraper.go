@@ -53,7 +53,12 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 	}
 
 	serviceMesh := cache.ServiceMesh(hasEBPFDaemonSet)
-	logger.Info("detected service mesh", "serviceMesh", serviceMesh)
+	if serviceMesh == nil {
+		logger.Info("no service mesh detected")
+	} else {
+		logger.Info("detected service mesh", "serviceMesh", serviceMesh)
+	}
+
 	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, s.GetDeprecatedCustomResources(ctx), nil, serviceMesh); err != nil {
 		logger.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
