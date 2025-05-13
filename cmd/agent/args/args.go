@@ -47,8 +47,8 @@ const (
 	defaultManifestCacheTTL         = "1h"
 	defaultManifestCacheTTLDuration = time.Hour
 
-	defaultManifestCacheJitter         = "10m"
-	defaultManifestCacheJitterDuration = 10 * time.Minute
+	defaultManifestCacheJitter         = "30m"
+	defaultManifestCacheJitterDuration = 30 * time.Minute
 
 	defaultControllerCacheTTL         = "2m"
 	defaultControllerCacheTTLDuration = 2 * time.Minute
