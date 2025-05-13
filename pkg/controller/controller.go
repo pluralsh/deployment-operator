@@ -82,6 +82,7 @@ func (c *Controller) Start(ctx context.Context) {
 				// Run a worker thread that just dequeues items, processes them, and marks them done.
 				// It enforces that the reconcileHandler is never invoked concurrently with the same object.
 				for c.processNextWorkItem(ctx) {
+					time.Sleep(time.Duration(rand.Int63n(int64(c.PollJitter))))
 				}
 			}()
 		}
@@ -111,12 +112,10 @@ func (c *Controller) startPoller(ctx context.Context) {
 	defer c.Do.Shutdown()
 
 	// It ensures that controllers won't poll the API at the same time.
-	jitterInterval := time.Duration(rand.Int63n(int64(c.PollJitter)))
 	pollInterval := c.PollInterval
 	if controllerPollInterval := c.Do.GetPollInterval(); controllerPollInterval > 0 {
 		pollInterval = controllerPollInterval
 	}
-	pollInterval += jitterInterval
 
 	klog.V(internallog.LogLevelTrace).InfoS("Starting controller poller", "ctrl", c.Name, "pollInterval", pollInterval)
 	_ = wait.PollUntilContextCancel(ctx, pollInterval, true, func(_ context.Context) (bool, error) {
@@ -127,6 +126,8 @@ func (c *Controller) startPoller(ctx context.Context) {
 		if err := c.Do.Poll(ctx); err != nil {
 			klog.ErrorS(err, "poller failed")
 		}
+
+		time.Sleep(time.Duration(rand.Int63n(int64(c.PollJitter))))
 
 		// never stop
 		return false, nil

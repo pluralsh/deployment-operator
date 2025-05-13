@@ -47,8 +47,8 @@ const (
 	defaultManifestCacheTTL         = "1h"
 	defaultManifestCacheTTLDuration = time.Hour
 
-	defaultManifestCacheJitter         = "10m"
-	defaultManifestCacheJitterDuration = 10 * time.Minute
+	defaultManifestCacheJitter         = "30m"
+	defaultManifestCacheJitterDuration = 30 * time.Minute
 
 	defaultControllerCacheTTL         = "2m"
 	defaultControllerCacheTTLDuration = 2 * time.Minute
@@ -74,7 +74,7 @@ var (
 	argDisableResourceCache            = flag.Bool("disable-resource-cache", !helpers.GetPluralEnvBool(EnvResourceCacheEnabled, true), "Control whether resource cache should be enabled or not.")
 	argEnableKubecostProxy             = flag.Bool("enable-kubecost-proxy", false, "If set, will proxy a Kubecost API request through the K8s API server.")
 
-	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 20, "Maximum number of concurrent reconciles which can be run.")
+	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 50, "Maximum number of concurrent reconciles which can be run.")
 	argResyncSeconds           = flag.Int("resync-seconds", 300, "Resync duration in seconds.")
 
 	argClusterId         = flag.String("cluster-id", "", "The ID of the cluster being connected to.")
