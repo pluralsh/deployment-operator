@@ -1,8 +1,6 @@
 package client
 
 import (
-	"strings"
-
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -20,6 +18,10 @@ const (
 	istioServiceName        = "istio"
 	ciliumServiceName       = "cilium"
 )
+
+var mapRuntimeService = map[string]string{
+	"istiod": istioServiceName,
+}
 
 func (c *client) PingCluster(attributes console.ClusterPing) error {
 	_, err := c.consoleClient.PingCluster(c.ctx, attributes)
@@ -70,8 +72,9 @@ func (c *client) RegisterRuntimeServices(svcs map[string]NamespaceVersion, depre
 	inputs := make([]console.RuntimeServiceAttributes, 0, len(svcs))
 	var layouts *console.OperationalLayoutAttributes
 	for name, nv := range svcs {
-		if strings.HasPrefix(name, istioServiceName) {
-			name = istioServiceName
+		serviceName, ok := mapRuntimeService[name]
+		if ok {
+			name = serviceName
 		}
 		inputs = append(inputs, console.RuntimeServiceAttributes{
 			Name:    name,
@@ -102,7 +105,6 @@ func (c *client) RegisterRuntimeServices(svcs map[string]NamespaceVersion, depre
 			}
 		}
 	}
-	inputs = containers.ToSet(inputs).List()
 	inputsPointers := lo.ToSlicePtr(inputs)
 	layouts = initServiceMesh(layouts, serviceMesh)
 	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputsPointers, layouts, lo.ToSlicePtr(deprecated), serviceId)

@@ -7,7 +7,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -51,13 +50,13 @@ type ConstraintReconciler struct {
 	Scheme        *runtime.Scheme
 	ConsoleClient consoleclient.Client
 	Reader        k8sClient.Reader
-	Constraints   map[string]*console.PolicyConstraintAttributes
+	Constraints   map[string]console.PolicyConstraintAttributes
 }
 
 func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
 	logger := log.FromContext(ctx)
 	if r.Constraints == nil {
-		r.Constraints = map[string]*console.PolicyConstraintAttributes{}
+		r.Constraints = map[string]console.PolicyConstraintAttributes{}
 	}
 
 	cps := new(constraintstatusv1beta1.ConstraintPodStatus)
@@ -74,7 +73,7 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	instance, template, err := r.ConstraintPodStatusToUnstructured(ctx, cps)
+	instance, err := r.ConstraintPodStatusToUnstructured(ctx, cps)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -83,14 +82,14 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 
-	pca, err := GenerateAPIConstraint(instance, template)
+	pca, err := GenerateAPIConstraint(instance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	logger.Info("recording constraint", "name", pca.Name)
-	r.Constraints[pca.Name] = pca
-	res, err := r.ConsoleClient.UpsertConstraints(algorithms.MapValues[string, *console.PolicyConstraintAttributes](r.Constraints))
+	r.Constraints[pca.Name] = *pca
+	res, err := r.ConsoleClient.UpsertConstraints(algorithms.MapValues[string, console.PolicyConstraintAttributes](r.Constraints))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -105,7 +104,7 @@ func (r *ConstraintReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templatesv1.ConstraintTemplate) (*console.PolicyConstraintAttributes, error) {
+func GenerateAPIConstraint(instance *unstructured.Unstructured) (*console.PolicyConstraintAttributes, error) {
 	pca := &console.PolicyConstraintAttributes{
 		Name:           instance.GetName(),
 		ViolationCount: lo.ToPtr(int64(0)),
@@ -166,38 +165,26 @@ func GenerateAPIConstraint(instance *unstructured.Unstructured, template *templa
 	return pca, nil
 }
 
-func (r *ConstraintReconciler) ConstraintPodStatusToUnstructured(ctx context.Context, cps *constraintstatusv1beta1.ConstraintPodStatus) (*unstructured.Unstructured, *templatesv1.ConstraintTemplate, error) {
+func (r *ConstraintReconciler) ConstraintPodStatusToUnstructured(ctx context.Context, cps *constraintstatusv1beta1.ConstraintPodStatus) (*unstructured.Unstructured, error) {
 	logger := log.FromContext(ctx)
 	labels := cps.GetLabels()
 	name, ok := labels[constraintstatusv1beta1.ConstraintNameLabel]
 	if !ok {
 		err := fmt.Errorf("constraint status resource with no name label: %s", cps.GetName())
 		logger.Error(err, missingLabelError)
-		return nil, nil, err
+		return nil, err
 	}
 	kind, ok := labels[constraintstatusv1beta1.ConstraintKindLabel]
 	if !ok {
 		err := fmt.Errorf("constraint status resource with no kind label: %s", cps.GetName())
 		logger.Error(err, missingLabelError)
-		return nil, nil, err
-	}
-
-	templateName, ok := labels[constraintstatusv1beta1.ConstraintTemplateNameLabel]
-	if !ok {
-		err := fmt.Errorf("constraint status resource with no template label: %s", cps.GetName())
-		logger.Error(err, missingLabelError)
-		return nil, nil, err
-	}
-
-	template := new(templatesv1.ConstraintTemplate)
-	if err := r.Get(ctx, types.NamespacedName{Name: templateName}, template); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(schema.GroupVersionKind{Group: constraintstatusv1beta1.ConstraintsGroup, Version: "v1beta1", Kind: kind})
 	u.SetName(name)
-	return u, template, nil
+	return u, nil
 }
 
 func toEnforcement(val string) *console.ConstraintEnforcement {
