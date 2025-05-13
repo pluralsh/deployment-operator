@@ -22,7 +22,8 @@ import (
 func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 	logger := log.FromContext(ctx)
 	logger.Info("attempting to collect all runtime services for the cluster")
-	runtimeServices := map[string]*client.NamespaceVersion{}
+	// Pre-allocate map with estimated capacity to avoid reallocations
+	runtimeServices := make(map[string]client.NamespaceVersion, 100)
 	deployments, err := s.clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 	if err == nil {
 		logger.Info("aggregating from deployments")
@@ -64,52 +65,57 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 	}
 }
 
-func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]*client.NamespaceVersion) {
+func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]client.NamespaceVersion) {
 	if labels == nil {
 		return
 	}
 
-	if vsn, ok := labels["app.kubernetes.io/version"]; ok {
-		if name, ok := labels["app.kubernetes.io/name"]; ok {
-			addVersion(acc, name, vsn)
-			acc[name].Namespace = namespace
-			if partOf, ok := labels["app.kubernetes.io/part-of"]; ok {
-				acc[name].PartOf = partOf
-			}
-			return
-		}
+	vsn, ok := labels["app.kubernetes.io/version"]
+	if !ok {
+		return
+	}
 
-		if name, ok := labels["app.kubernetes.io/part-of"]; ok {
-			addVersion(acc, name, vsn)
-			acc[name].Namespace = namespace
+	if name, ok := labels["app.kubernetes.io/name"]; ok {
+		acc[name] = addVersion(acc[name], vsn)
+		entry := acc[name]
+		entry.Namespace = namespace
+		if partOf, ok := labels["app.kubernetes.io/part-of"]; ok {
+			entry.PartOf = partOf
 		}
+		acc[name] = entry
+		return
+	}
+
+	if name, ok := labels["app.kubernetes.io/part-of"]; ok {
+		acc[name] = addVersion(acc[name], vsn)
+		entry := acc[name]
+		entry.Namespace = namespace
+		acc[name] = entry
 	}
 }
 
-func addVersion(services map[string]*client.NamespaceVersion, name, vsn string) {
-	old, ok := services[name]
-	if !ok {
-		services[name] = &client.NamespaceVersion{
-			Version: vsn,
-		}
-		return
+func addVersion(entry client.NamespaceVersion, vsn string) client.NamespaceVersion {
+	if entry.Version == "" {
+		entry.Version = vsn
+		return entry
 	}
 
-	parsedOld, err := semver.NewVersion(strings.TrimPrefix(old.Version, "v"))
+	parsedOld, err := semver.NewVersion(strings.TrimPrefix(entry.Version, "v"))
 	if err != nil {
-		services[name].Version = vsn
-		return
+		entry.Version = vsn
+		return entry
 	}
 
 	parsedNew, err := semver.NewVersion(strings.TrimPrefix(vsn, "v"))
 	if err != nil {
-		services[name].Version = vsn
-		return
+		entry.Version = vsn
+		return entry
 	}
 
 	if parsedNew.LessThan(parsedOld) {
-		services[name].Version = vsn
+		entry.Version = vsn
 	}
+	return entry
 }
 
 func (s *ServiceReconciler) getVersionedCrd(ctx context.Context) (map[string][]v1.NormalizedVersion, error) {
@@ -122,7 +128,8 @@ func (s *ServiceReconciler) getVersionedCrd(ctx context.Context) (map[string][]v
 		kind := crd.Spec.Names.Kind
 		group := crd.Spec.Group
 		groupKind := fmt.Sprintf("%s/%s", group, kind)
-		var parsedVersions []v1.NormalizedVersion
+		// Pre-allocate slice with capacity based on the number of versions in the CRD
+		parsedVersions := make([]v1.NormalizedVersion, 0, len(crd.Spec.Versions))
 		for _, v := range crd.Spec.Versions {
 			parsed, ok := v1.ParseVersion(v.Name)
 			if !ok {
@@ -151,7 +158,8 @@ func (s *ServiceReconciler) GetDeprecatedCustomResources(ctx context.Context) []
 		return nil
 	}
 
-	var deprecated []console.DeprecatedCustomResourceAttributes
+	// Pre-allocate slice with estimated capacity based on the number of CRDs
+	deprecated := make([]console.DeprecatedCustomResourceAttributes, 0, len(crds)*2)
 	for groupKind, versions := range crds {
 		gkList := strings.Split(groupKind, "/")
 		if len(gkList) != 2 {
@@ -166,8 +174,9 @@ func (s *ServiceReconciler) GetDeprecatedCustomResources(ctx context.Context) []
 }
 
 func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Context, versions []v1.NormalizedVersion, group, kind string) []console.DeprecatedCustomResourceAttributes {
-	var deprecatedCustomResourceAttributes []console.DeprecatedCustomResourceAttributes
+	// Pre-allocate slice with estimated capacity based on the number of version pairs
 	versionPairs := getVersionPairs(versions)
+	deprecatedCustomResourceAttributes := make([]console.DeprecatedCustomResourceAttributes, 0, len(versionPairs)*5)
 	for _, version := range versionPairs {
 		gvk := schema.GroupVersionKind{
 			Group:   group,

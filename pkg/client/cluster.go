@@ -1,6 +1,8 @@
 package client
 
 import (
+	"strings"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -55,18 +57,23 @@ func initServiceMesh(layouts *console.OperationalLayoutAttributes, serviceMesh *
 
 func appendUniqueExternalDNSNamespace(slice []*string, newValue *string) []*string {
 	if slice == nil {
-		slice = make([]*string, 0)
+		// Pre-allocate slice with initial capacity
+		slice = make([]*string, 0, 4)
 	}
 	sliceSet := containers.ToSet[*string](slice)
 	sliceSet.Add(newValue)
 	return sliceSet.List()
 }
 
-func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, deprecated []console.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *console.ServiceMesh) error {
-	inputs := make([]*console.RuntimeServiceAttributes, 0)
+func (c *client) RegisterRuntimeServices(svcs map[string]NamespaceVersion, deprecated []console.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *console.ServiceMesh) error {
+	// Pre-allocate slice with capacity based on the number of services
+	inputs := make([]console.RuntimeServiceAttributes, 0, len(svcs))
 	var layouts *console.OperationalLayoutAttributes
 	for name, nv := range svcs {
-		inputs = append(inputs, &console.RuntimeServiceAttributes{
+		if strings.HasPrefix(name, istioServiceName) {
+			name = istioServiceName
+		}
+		inputs = append(inputs, console.RuntimeServiceAttributes{
 			Name:    name,
 			Version: nv.Version,
 		})
@@ -95,9 +102,10 @@ func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, depr
 			}
 		}
 	}
-
+	inputs = containers.ToSet(inputs).List()
+	inputsPointers := lo.ToSlicePtr(inputs)
 	layouts = initServiceMesh(layouts, serviceMesh)
-	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, lo.ToSlicePtr(deprecated), serviceId)
+	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputsPointers, layouts, lo.ToSlicePtr(deprecated), serviceId)
 	return err
 }
 
