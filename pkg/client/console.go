@@ -43,7 +43,7 @@ type Client interface {
 	GetCredentials() (url, token string)
 	PingCluster(attributes console.ClusterPing) error
 	Ping(vsn string) error
-	RegisterRuntimeServices(svcs map[string]*NamespaceVersion, deprecated []console.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *console.ServiceMesh) error
+	RegisterRuntimeServices(svcs map[string]NamespaceVersion, deprecated []console.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *console.ServiceMesh) error
 	UpsertVirtualCluster(parentID string, attributes console.ClusterAttributes) (*console.GetClusterWithToken_Cluster, error)
 	IsClusterExists(id string) (bool, error)
 	GetCluster(id string) (*console.TinyClusterFragment, error)
@@ -63,7 +63,7 @@ type Client interface {
 	GetClusterGate(id string) (*console.PipelineGateFragment, error)
 	GetClusterGates(after *string, first *int64) (*console.PagedClusterGateIDs, error)
 	UpdateGate(id string, attributes console.GateUpdateAttributes) error
-	UpsertConstraints(constraints []*console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
+	UpsertConstraints(constraints []console.PolicyConstraintAttributes) (*console.UpsertPolicyConstraints, error)
 	GetNamespace(id string) (*console.ManagedNamespaceFragment, error)
 	ListNamespaces(after *string, first *int64) (*console.ListClusterNamespaces_ClusterManagedNamespaces, error)
 	GetStackRunBase(id string) (*v1.StackRun, error)

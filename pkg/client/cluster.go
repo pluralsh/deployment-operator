@@ -19,6 +19,10 @@ const (
 	ciliumServiceName       = "cilium"
 )
 
+var mapRuntimeService = map[string]string{
+	"istiod": istioServiceName,
+}
+
 func (c *client) PingCluster(attributes console.ClusterPing) error {
 	_, err := c.consoleClient.PingCluster(c.ctx, attributes)
 	return err
@@ -55,18 +59,24 @@ func initServiceMesh(layouts *console.OperationalLayoutAttributes, serviceMesh *
 
 func appendUniqueExternalDNSNamespace(slice []*string, newValue *string) []*string {
 	if slice == nil {
-		slice = make([]*string, 0)
+		// Pre-allocate slice with initial capacity
+		slice = make([]*string, 0, 4)
 	}
 	sliceSet := containers.ToSet[*string](slice)
 	sliceSet.Add(newValue)
 	return sliceSet.List()
 }
 
-func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, deprecated []console.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *console.ServiceMesh) error {
-	inputs := make([]*console.RuntimeServiceAttributes, 0)
+func (c *client) RegisterRuntimeServices(svcs map[string]NamespaceVersion, deprecated []console.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *console.ServiceMesh) error {
+	// Pre-allocate slice with capacity based on the number of services
+	inputs := make([]console.RuntimeServiceAttributes, 0, len(svcs))
 	var layouts *console.OperationalLayoutAttributes
 	for name, nv := range svcs {
-		inputs = append(inputs, &console.RuntimeServiceAttributes{
+		serviceName, ok := mapRuntimeService[name]
+		if ok {
+			name = serviceName
+		}
+		inputs = append(inputs, console.RuntimeServiceAttributes{
 			Name:    name,
 			Version: nv.Version,
 		})
@@ -95,9 +105,9 @@ func (c *client) RegisterRuntimeServices(svcs map[string]*NamespaceVersion, depr
 			}
 		}
 	}
-
+	inputsPointers := lo.ToSlicePtr(inputs)
 	layouts = initServiceMesh(layouts, serviceMesh)
-	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputs, layouts, lo.ToSlicePtr(deprecated), serviceId)
+	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputsPointers, layouts, lo.ToSlicePtr(deprecated), serviceId)
 	return err
 }
 

@@ -1466,7 +1466,7 @@ func (_c *ClientMock_PingCluster_Call) RunAndReturn(run func(goclient.ClusterPin
 }
 
 // RegisterRuntimeServices provides a mock function with given fields: svcs, deprecated, serviceId, serviceMesh
-func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]*client.NamespaceVersion, deprecated []goclient.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *goclient.ServiceMesh) error {
+func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]client.NamespaceVersion, deprecated []goclient.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *goclient.ServiceMesh) error {
 	ret := _m.Called(svcs, deprecated, serviceId, serviceMesh)
 
 	if len(ret) == 0 {
@@ -1474,7 +1474,7 @@ func (_m *ClientMock) RegisterRuntimeServices(svcs map[string]*client.NamespaceV
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(map[string]*client.NamespaceVersion, []goclient.DeprecatedCustomResourceAttributes, *string, *goclient.ServiceMesh) error); ok {
+	if rf, ok := ret.Get(0).(func(map[string]client.NamespaceVersion, []goclient.DeprecatedCustomResourceAttributes, *string, *goclient.ServiceMesh) error); ok {
 		r0 = rf(svcs, deprecated, serviceId, serviceMesh)
 	} else {
 		r0 = ret.Error(0)
@@ -1489,7 +1489,7 @@ type ClientMock_RegisterRuntimeServices_Call struct {
 }
 
 // RegisterRuntimeServices is a helper method to define mock.On call
-//   - svcs map[string]*client.NamespaceVersion
+//   - svcs map[string]client.NamespaceVersion
 //   - deprecated []goclient.DeprecatedCustomResourceAttributes
 //   - serviceId *string
 //   - serviceMesh *goclient.ServiceMesh
@@ -1497,9 +1497,9 @@ func (_e *ClientMock_Expecter) RegisterRuntimeServices(svcs interface{}, depreca
 	return &ClientMock_RegisterRuntimeServices_Call{Call: _e.mock.On("RegisterRuntimeServices", svcs, deprecated, serviceId, serviceMesh)}
 }
 
-func (_c *ClientMock_RegisterRuntimeServices_Call) Run(run func(svcs map[string]*client.NamespaceVersion, deprecated []goclient.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *goclient.ServiceMesh)) *ClientMock_RegisterRuntimeServices_Call {
+func (_c *ClientMock_RegisterRuntimeServices_Call) Run(run func(svcs map[string]client.NamespaceVersion, deprecated []goclient.DeprecatedCustomResourceAttributes, serviceId *string, serviceMesh *goclient.ServiceMesh)) *ClientMock_RegisterRuntimeServices_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(map[string]*client.NamespaceVersion), args[1].([]goclient.DeprecatedCustomResourceAttributes), args[2].(*string), args[3].(*goclient.ServiceMesh))
+		run(args[0].(map[string]client.NamespaceVersion), args[1].([]goclient.DeprecatedCustomResourceAttributes), args[2].(*string), args[3].(*goclient.ServiceMesh))
 	})
 	return _c
 }
@@ -1509,7 +1509,7 @@ func (_c *ClientMock_RegisterRuntimeServices_Call) Return(_a0 error) *ClientMock
 	return _c
 }
 
-func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[string]*client.NamespaceVersion, []goclient.DeprecatedCustomResourceAttributes, *string, *goclient.ServiceMesh) error) *ClientMock_RegisterRuntimeServices_Call {
+func (_c *ClientMock_RegisterRuntimeServices_Call) RunAndReturn(run func(map[string]client.NamespaceVersion, []goclient.DeprecatedCustomResourceAttributes, *string, *goclient.ServiceMesh) error) *ClientMock_RegisterRuntimeServices_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1929,7 +1929,7 @@ func (_c *ClientMock_UpdateStackRunStep_Call) RunAndReturn(run func(string, gocl
 }
 
 // UpsertConstraints provides a mock function with given fields: constraints
-func (_m *ClientMock) UpsertConstraints(constraints []*goclient.PolicyConstraintAttributes) (*goclient.UpsertPolicyConstraints, error) {
+func (_m *ClientMock) UpsertConstraints(constraints []goclient.PolicyConstraintAttributes) (*goclient.UpsertPolicyConstraints, error) {
 	ret := _m.Called(constraints)
 
 	if len(ret) == 0 {
@@ -1938,10 +1938,10 @@ func (_m *ClientMock) UpsertConstraints(constraints []*goclient.PolicyConstraint
 
 	var r0 *goclient.UpsertPolicyConstraints
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]*goclient.PolicyConstraintAttributes) (*goclient.UpsertPolicyConstraints, error)); ok {
+	if rf, ok := ret.Get(0).(func([]goclient.PolicyConstraintAttributes) (*goclient.UpsertPolicyConstraints, error)); ok {
 		return rf(constraints)
 	}
-	if rf, ok := ret.Get(0).(func([]*goclient.PolicyConstraintAttributes) *goclient.UpsertPolicyConstraints); ok {
+	if rf, ok := ret.Get(0).(func([]goclient.PolicyConstraintAttributes) *goclient.UpsertPolicyConstraints); ok {
 		r0 = rf(constraints)
 	} else {
 		if ret.Get(0) != nil {
@@ -1949,7 +1949,7 @@ func (_m *ClientMock) UpsertConstraints(constraints []*goclient.PolicyConstraint
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]*goclient.PolicyConstraintAttributes) error); ok {
+	if rf, ok := ret.Get(1).(func([]goclient.PolicyConstraintAttributes) error); ok {
 		r1 = rf(constraints)
 	} else {
 		r1 = ret.Error(1)
@@ -1964,14 +1964,14 @@ type ClientMock_UpsertConstraints_Call struct {
 }
 
 // UpsertConstraints is a helper method to define mock.On call
-//   - constraints []*goclient.PolicyConstraintAttributes
+//   - constraints []goclient.PolicyConstraintAttributes
 func (_e *ClientMock_Expecter) UpsertConstraints(constraints interface{}) *ClientMock_UpsertConstraints_Call {
 	return &ClientMock_UpsertConstraints_Call{Call: _e.mock.On("UpsertConstraints", constraints)}
 }
 
-func (_c *ClientMock_UpsertConstraints_Call) Run(run func(constraints []*goclient.PolicyConstraintAttributes)) *ClientMock_UpsertConstraints_Call {
+func (_c *ClientMock_UpsertConstraints_Call) Run(run func(constraints []goclient.PolicyConstraintAttributes)) *ClientMock_UpsertConstraints_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]*goclient.PolicyConstraintAttributes))
+		run(args[0].([]goclient.PolicyConstraintAttributes))
 	})
 	return _c
 }
@@ -1981,7 +1981,7 @@ func (_c *ClientMock_UpsertConstraints_Call) Return(_a0 *goclient.UpsertPolicyCo
 	return _c
 }
 
-func (_c *ClientMock_UpsertConstraints_Call) RunAndReturn(run func([]*goclient.PolicyConstraintAttributes) (*goclient.UpsertPolicyConstraints, error)) *ClientMock_UpsertConstraints_Call {
+func (_c *ClientMock_UpsertConstraints_Call) RunAndReturn(run func([]goclient.PolicyConstraintAttributes) (*goclient.UpsertPolicyConstraints, error)) *ClientMock_UpsertConstraints_Call {
 	_c.Call.Return(run)
 	return _c
 }
