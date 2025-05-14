@@ -1,6 +1,7 @@
 package template
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -27,6 +28,11 @@ func Render(dir string, svc *console.ServiceDeploymentForAgent, utilFactory util
 	renderer := RendererRaw
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			fmt.Printf("error walking path %s: %s\n", path, err)
+			return nil
+		}
+
 		for _, file := range []string{ChartFileName, "values.yaml"} {
 			if !info.IsDir() && info.Name() == file {
 				renderer = RendererHelm

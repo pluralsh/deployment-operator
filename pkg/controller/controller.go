@@ -52,6 +52,8 @@ type Controller struct {
 
 	// lastReconcileTime is the last time Reconciler.Reconcile was called.
 	lastReconcileTime time.Time
+
+	DeQueueJitter time.Duration
 }
 
 func (c *Controller) SetupWithManager(manager *Manager) {
@@ -60,6 +62,8 @@ func (c *Controller) SetupWithManager(manager *Manager) {
 	c.RecoverPanic = manager.RecoverPanic
 	c.PollInterval = manager.PollInterval
 	c.PollJitter = manager.PollJitter
+	c.DeQueueJitter = 5 * time.Second
+	c.lastPollTime = time.Now()
 }
 
 // Start implements controller.Controller.
@@ -82,7 +86,7 @@ func (c *Controller) Start(ctx context.Context) {
 				// Run a worker thread that just dequeues items, processes them, and marks them done.
 				// It enforces that the reconcileHandler is never invoked concurrently with the same object.
 				for c.processNextWorkItem(ctx) {
-					time.Sleep(time.Duration(rand.Int63n(int64(c.PollJitter))))
+					time.Sleep(time.Duration(rand.Int63n(int64(c.DeQueueJitter))))
 				}
 			}()
 		}
@@ -127,6 +131,7 @@ func (c *Controller) startPoller(ctx context.Context) {
 			klog.ErrorS(err, "poller failed")
 		}
 
+		c.lastPollTime = time.Now()
 		time.Sleep(time.Duration(rand.Int63n(int64(c.PollJitter))))
 
 		// never stop
