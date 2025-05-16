@@ -12,7 +12,13 @@ import (
 )
 
 var (
-	client = &http.Client{Timeout: 15 * time.Second}
+	timeout = 60 * time.Second
+	client  = &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: timeout,
+		},
+	}
 )
 
 func getBody(url, token string) (string, error) {
