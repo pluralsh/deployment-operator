@@ -62,7 +62,7 @@ func (c *Controller) SetupWithManager(manager *Manager) {
 	c.RecoverPanic = manager.RecoverPanic
 	c.PollInterval = manager.PollInterval
 	c.PollJitter = manager.PollJitter
-	c.DeQueueJitter = 5 * time.Second
+	c.DeQueueJitter = time.Second
 	c.lastPollTime = time.Now()
 }
 

@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"os"
 	"time"
-
-	"github.com/pluralsh/deployment-operator/pkg/errors"
 )
 
 var (
@@ -44,36 +42,41 @@ func getReader(url, token string) (io.ReadCloser, error) {
 	}
 	req.Header.Add("Authorization", "Token "+token)
 
-	// disabling retries for now to test if it is a cause of thundering herds
-	// retries := retry.NewExponential(50*time.Millisecond, 100*time.Millisecond, 2.0)
-	// resp, err := retry.Retry(retries, func() (io.ReadCloser, error) {
-	// 	return doRequest(req)
-	// })
-	return doRequest(req)
+	for i := 0; i < 3; i++ {
+		resp, retriable, err := doRequest(req)
+		if err != nil && !retriable {
+			return nil, err
+		}
+		if err != nil && retriable {
+			time.Sleep(time.Duration(50*(i+1)) * time.Millisecond)
+			continue
+		}
+
+		return resp, nil
+	}
+	return nil, fmt.Errorf("could not fetch manifest, retries exhaused: %w", err)
 }
 
-func doRequest(req *http.Request) (io.ReadCloser, error) {
+func doRequest(req *http.Request) (io.ReadCloser, bool, error) {
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		if resp.StatusCode == http.StatusForbidden {
-			return nil, errors.ErrUnauthenticated
+		err := fmt.Errorf("could not fetch manifest, error code %d", resp.StatusCode)
+
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return nil, true, err
 		}
 
-		if resp.StatusCode == http.StatusPaymentRequired {
-			return nil, errors.ErrTransientManifest
-		}
-
-		return nil, fmt.Errorf("could not fetch manifest, error code %d", resp.StatusCode)
+		return nil, false, err
 	}
 
-	return resp.Body, nil
+	return resp.Body, false, nil
 }
 
 func fetchSha(consoleURL, token, serviceID string) (string, error) {
