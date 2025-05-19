@@ -36,6 +36,10 @@ type ComponentCache struct {
 	pool *sqlitex.Pool
 }
 
+func GetComponentCache() *ComponentCache {
+	return cache
+}
+
 func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAttributes, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
@@ -157,14 +161,14 @@ func (in *ComponentCache) Close() error {
 	return nil
 }
 
-func (in *ComponentCache) init() (*ComponentCache, error) {
+func (in *ComponentCache) init() error {
 	connectionString := ""
 
 	if in.mode == CacheModeFile {
 		if len(in.filePath) == 0 {
 			tempDir, err := os.MkdirTemp("", "component-cache-*")
 			if err != nil {
-				return in, err
+				return err
 			}
 
 			in.filePath = filepath.Join(tempDir, "cache.db")
@@ -179,15 +183,15 @@ func (in *ComponentCache) init() (*ComponentCache, error) {
 		PoolSize: in.poolSize,
 	})
 	if err != nil {
-		return in, err
+		return err
 	}
 
 	in.pool = pool
 	if err = in.initTable(); err != nil {
-		return in, err
+		return err
 	}
 
-	return in, nil
+	return nil
 }
 
 func (in *ComponentCache) initTable() error {
@@ -237,9 +241,9 @@ func WithFilePath(path string) Option {
 	}
 }
 
-func NewComponentCache(args ...Option) (*ComponentCache, error) {
+func Init(args ...Option) error {
 	if cache != nil {
-		return cache, nil
+		return nil
 	}
 
 	cache = &ComponentCache{

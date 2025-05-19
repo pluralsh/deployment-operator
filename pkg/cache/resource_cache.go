@@ -7,6 +7,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
@@ -114,6 +115,11 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		cache:          NewCache[*ResourceCacheEntry](ctx, ttl),
 		resourceKeySet: containers.NewSet[ResourceKey](),
 		watcher:        w,
+	}
+
+	if err := db.Init(); err != nil {
+		klog.Error(err, "unable to create component cache database")
+		os.Exit(1)
 	}
 
 	initialized = true
@@ -233,9 +239,14 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 		return
 	}
 
+	children, err := db.GetComponentCache().Children(string(e.Resource.GetUID()))
+	if err != nil {
+		klog.Error(err, "unable to get children for resource")
+	}
+
 	key := object.UnstructuredToObjMetadata(resource).String()
 	cacheEntry, _ := resourceCache.GetCacheEntry(key)
-	cacheEntry.SetStatus(*e)
+	cacheEntry.SetStatus(*e, children)
 	resourceCache.SetCacheEntry(key, cacheEntry)
 }
 

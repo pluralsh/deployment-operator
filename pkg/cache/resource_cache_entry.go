@@ -2,6 +2,7 @@ package cache
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 
@@ -80,6 +81,7 @@ func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
 
 // SetStatus saves the last seen resource [event.StatusEvent] and converts it to a simpler
 // [console.ComponentAttributes] structure.
-func (in *ResourceCacheEntry) SetStatus(se event.StatusEvent) {
-	in.status = common.StatusEventToComponentAttributes(se, make(map[schema.GroupName]string))
+func (in *ResourceCacheEntry) SetStatus(se event.StatusEvent, children []console.ComponentChildAttributes) {
+	status := common.StatusEventToComponentAttributes(se, make(map[schema.GroupName]string))
+	status.Children = lo.ToSlicePtr(children)
 }
