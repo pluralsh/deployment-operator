@@ -79,13 +79,13 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, client.ComponentChildAttributes{
 				UID:       stmt.ColumnText(0),
-				Group:     lo.ToPtr(stmt.ColumnText(1)),
+				Group:     lo.EmptyableToPtr(stmt.ColumnText(1)),
 				Version:   stmt.ColumnText(2),
 				Kind:      stmt.ColumnText(3),
-				Namespace: lo.ToPtr(stmt.ColumnText(4)),
+				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
 				Name:      stmt.ColumnText(5),
-				State:     lo.ToPtr(client.ComponentState(stmt.ColumnText(6))),
-				ParentUID: lo.ToPtr(stmt.ColumnText(7)),
+				State:     lo.EmptyableToPtr(client.ComponentState(stmt.ColumnText(6))),
+				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
 			})
 			return nil
 		},

@@ -49,13 +49,13 @@ const (
 
 	componentChildren = `
 		WITH RECURSIVE descendants AS (
-			SELECT uid, 'group', version, kind, namespace, name, health, 1 as level
+			SELECT uid, 'group', version, kind, namespace, name, health, parent_uid, 1 as level
 			FROM Component 
 			WHERE parent_uid = ?
 			
 			UNION ALL
 			
-			SELECT c.uid, c.'group', c.version, c.kind, c.namespace, c.name, c.health, d.level + 1
+			SELECT c.uid, c.'group', c.version, c.kind, c.namespace, c.name, c.health, c.parent_uid, d.level + 1
 			FROM descendants d
 			JOIN Component c ON c.parent_uid = d.uid
 			WHERE d.level < 4
