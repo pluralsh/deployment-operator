@@ -47,7 +47,7 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 	query := `
 		SELECT uid, 'group', version, kind, namespace, name, health
 		FROM Component 
-		WHERE parent = (
+		WHERE parent_uid = (
 			SELECT uid FROM Component WHERE uid = ?
 		)
 	`
@@ -82,7 +82,7 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	query := `
 		INSERT INTO Component (
 			uid,
-			parent,
+			parent_uid,
 			'group',
 			version,
 			kind, 
@@ -99,7 +99,7 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 			?,
 			?
 		) ON CONFLICT(uid) DO UPDATE SET
-			parent = excluded.parent,
+			parent_uid = excluded.parent_uid,
 			'group' = excluded.'group',
 			version = excluded.version,
 			kind = excluded.kind,
@@ -189,7 +189,7 @@ func (in *ComponentCache) initTable() error {
 	query := `
 		CREATE TABLE IF NOT EXISTS Component (
 			id INTEGER PRIMARY KEY,
-			parent TEXT,
+			parent_uid TEXT,
 			uid TEXT UNIQUE,
 			'group' TEXT,
 			version TEXT,
@@ -197,9 +197,9 @@ func (in *ComponentCache) initTable() error {
 			namespace TEXT,
 			'name' TEXT,
 			health TEXT,
-			FOREIGN KEY(parent) REFERENCES Component(uid)
+			FOREIGN KEY(parent_uid) REFERENCES Component(uid)
 		);
-		CREATE INDEX IF NOT EXISTS idx_parent ON Component(parent);
+		CREATE INDEX IF NOT EXISTS idx_parent ON Component(parent_uid);
 		CREATE INDEX IF NOT EXISTS idx_uid ON Component(uid);
 	`
 
