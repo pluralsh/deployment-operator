@@ -4,14 +4,15 @@ import (
 	"testing"
 
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 )
 
 func TestNewComponentCache(t *testing.T) {
 	t.Run("default initialization", func(t *testing.T) {
-		_, err := db.NewComponentCache(db.WithMode(db.CacheModeMemory))
+		_, err := db.NewComponentCache(db.WithMode(db.CacheModeFile))
 		require.NoError(t, err)
 	})
 }

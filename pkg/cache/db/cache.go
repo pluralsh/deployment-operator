@@ -2,6 +2,9 @@ package db
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -21,12 +24,14 @@ const (
 type CacheMode string
 
 const (
-	CacheModeMemory CacheMode = "file:memory:?mode=memory"
+	CacheModeMemory CacheMode = "file::memory:?mode=memory&cache=shared"
+	CacheModeFile   CacheMode = "file"
 )
 
 type ComponentCache struct {
 	poolSize int
 	mode     CacheMode
+	filePath string
 
 	pool *sqlitex.Pool
 }
@@ -40,7 +45,7 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 	defer in.pool.Put(conn)
 
 	query := `
-		SELECT uid, group, version, kind, namespace, name, health
+		SELECT uid, 'group', version, kind, namespace, name, health
 		FROM Component 
 		WHERE parent = (
 			SELECT id FROM Component WHERE uid = ?
@@ -110,8 +115,49 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	})
 }
 
+// Close closes the connection pool and cleans up temporary file if necessary
+func (in *ComponentCache) Close() error {
+	if in.pool != nil {
+		if err := in.pool.Close(); err != nil {
+			return err
+		}
+	}
+
+	// Clean up temp file if we created one
+	if in.mode == CacheModeFile && len(in.filePath) > 0 {
+		// Remove the file
+		if err := os.Remove(in.filePath); err != nil {
+			return err
+		}
+
+		// If the file was in a temp directory we created, remove that too
+		if dir := filepath.Dir(in.filePath); strings.HasPrefix(dir, os.TempDir()) {
+			return os.RemoveAll(dir)
+		}
+	}
+
+	return nil
+}
+
 func (in *ComponentCache) init() (*ComponentCache, error) {
-	pool, err := sqlitex.NewPool(string(in.mode), sqlitex.PoolOptions{
+	connectionString := ""
+
+	if in.mode == CacheModeFile {
+		if len(in.filePath) == 0 {
+			tempDir, err := os.MkdirTemp("", "component-cache-*")
+			if err != nil {
+				return in, err
+			}
+
+			in.filePath = filepath.Join(tempDir, "cache.db")
+		}
+
+		connectionString = "file:" + in.filePath + "?mode=rwc"
+	} else {
+		connectionString = string(in.mode)
+	}
+
+	pool, err := sqlitex.NewPool(connectionString, sqlitex.PoolOptions{
 		PoolSize: in.poolSize,
 	})
 	if err != nil {
