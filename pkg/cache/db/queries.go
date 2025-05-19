@@ -60,7 +60,7 @@ const (
 			JOIN Component c ON c.parent_uid = d.uid
 			WHERE d.level < 4
 		)
-		SELECT uid, 'group', version, kind, namespace, name, health
+		SELECT uid, 'group', version, kind, namespace, name, health, parent_uid
 		FROM descendants
 	`
 )
