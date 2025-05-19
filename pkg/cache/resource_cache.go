@@ -101,11 +101,7 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		UseCustomObjectFilter: true,
 		ObjectFilter:          nil,
 		RESTScopeStrategy:     lo.ToPtr(kwatcher.RESTScopeRoot),
-		Filters: &kwatcher.Filters{
-			Labels: common.ManagedByAgentLabelSelector(),
-			Fields: nil,
-		},
-		ID: "resource-cache",
+		ID:                    "resource-cache",
 	})
 
 	resourceCache = &ResourceCache{
