@@ -78,7 +78,7 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 		INSERT OR REPLACE INTO Component (
 			uid,
 			parent,
-			group,
+			'group',
 			version,
 			kind,
 			namespace,
@@ -138,11 +138,11 @@ func (in *ComponentCache) initTable() error {
 			id INTEGER PRIMARY KEY,
 			parent INTEGER,
 			uid TEXT,
-			group TEXT,
+			'group' TEXT,
 			version TEXT,
 			kind TEXT, 
 			namespace TEXT,
-			name TEXT,
+			'name' TEXT,
 			health TEXT,
 			FOREIGN KEY(parent) REFERENCES Component(id)
 		);
@@ -150,7 +150,7 @@ func (in *ComponentCache) initTable() error {
 		CREATE INDEX IF NOT EXISTS idx_uid ON Component(uid);
 	`
 
-	return sqlitex.Execute(conn, query, nil)
+	return sqlitex.ExecuteScript(conn, query, nil)
 }
 
 type Option func(*ComponentCache)
