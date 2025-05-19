@@ -74,7 +74,7 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 	}
 	defer in.pool.Put(conn)
 
-	err = sqlitex.Execute(conn, componentChildren, &sqlitex.ExecOptions{
+	err = sqlitex.ExecuteTransient(conn, componentChildren, &sqlitex.ExecOptions{
 		Args: []interface{}{uid},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, client.ComponentChildAttributes{
