@@ -16,16 +16,16 @@ const (
 
 func TestNewComponentCache(t *testing.T) {
 	t.Run("default initialization", func(t *testing.T) {
-		cache, err := db.NewComponentCache(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
+		err := db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
 		require.NoError(t, err)
-		defer cache.Close()
+		defer db.GetComponentCache().Close()
 	})
 }
 
 func TestComponentCache_Set_Children(t *testing.T) {
-	cache, err := db.NewComponentCache()
+	err := db.Init()
 	require.NoError(t, err)
-	defer cache.Close()
+	defer db.GetComponentCache().Close()
 
 	uid := "test-uid"
 	state := client.ComponentState("Healthy")
@@ -43,7 +43,7 @@ func TestComponentCache_Set_Children(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	childComponent := client.ComponentChildAttributes{
@@ -57,10 +57,10 @@ func TestComponentCache_Set_Children(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(childComponent)
+	err = db.GetComponentCache().Set(childComponent)
 	require.NoError(t, err)
 
-	children, err := cache.Children(uid)
+	children, err := db.GetComponentCache().Children(uid)
 	require.NoError(t, err)
 	require.Len(t, children, 1)
 	assert.Equal(t, "child-uid", children[0].UID)
@@ -68,9 +68,9 @@ func TestComponentCache_Set_Children(t *testing.T) {
 }
 
 func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
-	cache, err := db.NewComponentCache()
+	err := db.Init()
 	require.NoError(t, err)
-	defer cache.Close()
+	defer db.GetComponentCache().Close()
 
 	state := client.ComponentState("Healthy")
 	group := "test-group"
@@ -88,7 +88,7 @@ func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 1
@@ -104,7 +104,7 @@ func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 2
@@ -120,7 +120,7 @@ func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 3
@@ -136,7 +136,7 @@ func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 4
@@ -152,7 +152,7 @@ func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 5
@@ -168,18 +168,18 @@ func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
-	children, err := cache.Children(rootUID)
+	children, err := db.GetComponentCache().Children(rootUID)
 	require.NoError(t, err)
 	require.Len(t, children, 4)
 }
 
 func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
-	cache, err := db.NewComponentCache()
+	err := db.Init()
 	require.NoError(t, err)
-	defer cache.Close()
+	defer db.GetComponentCache().Close()
 
 	state := client.ComponentState("Healthy")
 	group := "test-group"
@@ -197,7 +197,7 @@ func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 1
@@ -213,7 +213,7 @@ func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 2
@@ -229,7 +229,7 @@ func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 3
@@ -245,7 +245,7 @@ func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 4
@@ -261,7 +261,7 @@ func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	uid44 := "uid-44"
@@ -276,7 +276,7 @@ func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 5
@@ -292,10 +292,10 @@ func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
 		State:     &state,
 	}
 
-	err = cache.Set(component)
+	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
-	children, err := cache.Children(rootUID)
+	children, err := db.GetComponentCache().Children(rootUID)
 	require.NoError(t, err)
 	require.Len(t, children, 5)
 }
