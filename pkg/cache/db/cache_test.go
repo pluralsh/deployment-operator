@@ -16,14 +16,16 @@ const (
 
 func TestNewComponentCache(t *testing.T) {
 	t.Run("default initialization", func(t *testing.T) {
-		_, err := db.NewComponentCache(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
+		cache, err := db.NewComponentCache(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
 		require.NoError(t, err)
+		defer cache.Close()
 	})
 }
 
 func TestComponentCache_Set_Children(t *testing.T) {
 	cache, err := db.NewComponentCache()
 	require.NoError(t, err)
+	defer cache.Close()
 
 	uid := "test-uid"
 	state := client.ComponentState("Healthy")
@@ -63,4 +65,237 @@ func TestComponentCache_Set_Children(t *testing.T) {
 	require.Len(t, children, 1)
 	assert.Equal(t, "child-uid", children[0].UID)
 	assert.Equal(t, uid, *children[0].ParentUID)
+}
+
+func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
+	cache, err := db.NewComponentCache()
+	require.NoError(t, err)
+	defer cache.Close()
+
+	state := client.ComponentState("Healthy")
+	group := "test-group"
+	namespace := "test-namespace"
+
+	// Root
+	rootUID := "root-uid"
+	component := client.ComponentChildAttributes{
+		UID:       rootUID,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "test-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 1
+	uid1 := "uid-1"
+	component = client.ComponentChildAttributes{
+		UID:       uid1,
+		ParentUID: &rootUID,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 2
+	uid2 := "uid-2"
+	component = client.ComponentChildAttributes{
+		UID:       uid2,
+		ParentUID: &uid1,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 3
+	uid3 := "uid-3"
+	component = client.ComponentChildAttributes{
+		UID:       uid3,
+		ParentUID: &uid2,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 4
+	uid4 := "uid-4"
+	component = client.ComponentChildAttributes{
+		UID:       uid4,
+		ParentUID: &uid3,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 5
+	uid5 := "uid-5"
+	component = client.ComponentChildAttributes{
+		UID:       uid5,
+		ParentUID: &uid4,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	children, err := cache.Children(rootUID)
+	require.NoError(t, err)
+	require.Len(t, children, 4)
+}
+
+func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
+	cache, err := db.NewComponentCache()
+	require.NoError(t, err)
+	defer cache.Close()
+
+	state := client.ComponentState("Healthy")
+	group := "test-group"
+	namespace := "test-namespace"
+
+	// Root
+	rootUID := "test-uid"
+	component := client.ComponentChildAttributes{
+		UID:       rootUID,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "test-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 1
+	uid1 := "uid-1"
+	component = client.ComponentChildAttributes{
+		UID:       uid1,
+		ParentUID: &rootUID,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 2
+	uid2 := "uid-2"
+	component = client.ComponentChildAttributes{
+		UID:       uid2,
+		ParentUID: &uid1,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 3
+	uid3 := "uid-3"
+	component = client.ComponentChildAttributes{
+		UID:       uid3,
+		ParentUID: &uid2,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 4
+	uid4 := "uid-4"
+	component = client.ComponentChildAttributes{
+		UID:       uid4,
+		ParentUID: &uid3,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	uid44 := "uid-44"
+	component = client.ComponentChildAttributes{
+		UID:       uid44,
+		ParentUID: &uid3,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	// Level 5
+	uid5 := "uid-5"
+	component = client.ComponentChildAttributes{
+		UID:       uid5,
+		ParentUID: &uid4,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+
+	err = cache.Set(component)
+	require.NoError(t, err)
+
+	children, err := cache.Children(rootUID)
+	require.NoError(t, err)
+	require.Len(t, children, 5)
 }

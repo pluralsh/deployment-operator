@@ -45,11 +45,20 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 	defer in.pool.Put(conn)
 
 	query := `
-		SELECT uid, 'group', version, kind, namespace, name, health
-		FROM Component 
-		WHERE parent_uid = (
-			SELECT uid FROM Component WHERE uid = ?
+		WITH RECURSIVE descendants AS (
+			SELECT uid, 'group', version, kind, namespace, name, health, 1 as level
+			FROM Component 
+			WHERE parent_uid = (SELECT uid FROM Component WHERE uid = ?)
+	
+			UNION ALL
+	
+			SELECT c.uid, c.'group', c.version, c.kind, c.namespace, c.name, c.health, d.level + 1
+			FROM Component c
+			JOIN descendants d ON c.parent_uid = d.uid
+			WHERE d.level < 4
 		)
+		SELECT uid, 'group', version, kind, namespace, name, health
+		FROM descendants
 	`
 
 	err = sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
@@ -142,6 +151,8 @@ func (in *ComponentCache) Close() error {
 			return os.RemoveAll(dir)
 		}
 	}
+
+	cache = nil
 
 	return nil
 }
