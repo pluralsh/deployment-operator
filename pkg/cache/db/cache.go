@@ -74,7 +74,7 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 	}
 	defer in.pool.Put(conn)
 
-	err = sqlitex.Execute(conn, component_children, &sqlitex.ExecOptions{
+	err = sqlitex.Execute(conn, componentChildren, &sqlitex.ExecOptions{
 		Args: []interface{}{uid},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, client.ComponentChildAttributes{
@@ -105,7 +105,7 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteTransient(conn, set_component, &sqlitex.ExecOptions{
+	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			component.UID,
 			lo.FromPtr(component.ParentUID),
@@ -201,7 +201,7 @@ func (in *ComponentCache) initTable() error {
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteScript(conn, create_table, nil)
+	return sqlitex.ExecuteScript(conn, createTable, nil)
 }
 
 // Option represents a function that configures the ComponentCache
