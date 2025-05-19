@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	applyevent "sigs.k8s.io/cli-utils/pkg/apply/event"
@@ -30,7 +31,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var allCoreObjMetadata = containers.ToSet([]ResourceKey{
@@ -139,11 +139,6 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		cache:          NewCache[*ResourceCacheEntry](ctx, ttl),
 		resourceKeySet: containers.NewSet[ResourceKey](),
 		watcher:        w,
-	}
-
-	if err := db.Init(); err != nil {
-		klog.Error(err, "unable to create component cache database")
-		os.Exit(1)
 	}
 
 	initialized = true

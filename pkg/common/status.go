@@ -6,8 +6,6 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
-	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -15,6 +13,9 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
+
+	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 )
 
 const (
@@ -71,7 +72,13 @@ func SyncComponentChildAttributes(u *unstructured.Unstructured) {
 		}
 	}
 
+	// Ignore pod relationships and not save
+	// them in the component cache
 	gvk := u.GroupVersionKind()
+	if gvk.Kind == PodKind {
+		return
+	}
+
 	_ = db.GetComponentCache().Set(console.ComponentChildAttributes{
 		UID:       string(u.GetUID()),
 		Name:      u.GetName(),
@@ -107,6 +114,11 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 			synced = true
 		}
 	}
+	children, err := db.GetComponentCache().Children(string(e.Resource.GetUID()))
+	if err != nil {
+		klog.Error(err, "unable to get children for resource")
+	}
+
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,
 		Kind:      gvk.Kind,
@@ -115,6 +127,7 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 		Version:   version,
 		Synced:    synced,
 		State:     ToStatus(e.Resource),
+		Children:  lo.ToSlicePtr(children),
 	}
 }
 

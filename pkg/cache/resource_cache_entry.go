@@ -84,4 +84,6 @@ func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
 func (in *ResourceCacheEntry) SetStatus(se event.StatusEvent, children []console.ComponentChildAttributes) {
 	status := common.StatusEventToComponentAttributes(se, make(map[schema.GroupName]string))
 	status.Children = lo.ToSlicePtr(children)
+
+	in.status = status
 }

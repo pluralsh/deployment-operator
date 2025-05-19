@@ -14,6 +14,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
@@ -102,6 +103,11 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[sche
 	if sc.DryRun {
 		for _, v := range sc.applyStatus {
 			if consoleAttr := sc.fromApplyResult(v, vcache); consoleAttr != nil {
+				children, err := db.GetComponentCache().Children(string(v.Resource.GetUID()))
+				if err == nil {
+					consoleAttr.Children = lo.ToSlicePtr(children)
+				}
+
 				components = append(components, consoleAttr)
 			}
 		}
@@ -110,6 +116,11 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[sche
 
 	for _, v := range sc.latestStatus {
 		if attrs := common.StatusEventToComponentAttributes(v, vcache); attrs != nil {
+			children, err := db.GetComponentCache().Children(string(v.Resource.GetUID()))
+			if err == nil {
+				attrs.Children = lo.ToSlicePtr(children)
+			}
+
 			components = append(components, attrs)
 		}
 	}
