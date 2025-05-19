@@ -281,6 +281,8 @@ func (in *ResourceCache) reconcile(e event.Event) {
 		return
 	}
 
+	common.SaveComponentChildAttributes(e.Resource.Resource)
+
 	if !in.shouldCacheResource(e.Resource) {
 		in.deleteCacheEntry(e.Resource)
 		return

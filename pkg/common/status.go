@@ -7,6 +7,7 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
 	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -50,6 +51,32 @@ func init() {
 type Progress struct {
 	LastProgress time.Time
 	PingTime     time.Time
+}
+
+func SaveComponentChildAttributes(u *unstructured.Unstructured) {
+	ownerRefs := u.GetOwnerReferences()
+	var ownerRef *string
+	if len(ownerRefs) > 0 {
+		ownerRef = lo.ToPtr(string(ownerRefs[0].UID))
+		for _, ref := range ownerRefs {
+			if ref.Controller != nil && *ref.Controller {
+				ownerRef = lo.ToPtr(string(ref.UID))
+				break
+			}
+		}
+	}
+
+	gvk := u.GroupVersionKind()
+	_ = db.GetComponentCache().Set(console.ComponentChildAttributes{
+		UID:       string(u.GetUID()),
+		Name:      u.GetName(),
+		Namespace: lo.ToPtr(u.GetNamespace()),
+		Group:     lo.ToPtr(gvk.Group),
+		Version:   gvk.Version,
+		Kind:      gvk.Kind,
+		State:     ToStatus(u),
+		ParentUID: ownerRef,
+	})
 }
 
 func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
