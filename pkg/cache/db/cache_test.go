@@ -14,6 +14,19 @@ const (
 	dbFile = "/tmp/component-cache.db"
 )
 
+func createComponentChild(uid string, parentUID *string, group, namespace string, state client.ComponentState) client.ComponentChildAttributes {
+	return client.ComponentChildAttributes{
+		UID:       uid,
+		ParentUID: parentUID,
+		Group:     &group,
+		Version:   "v1",
+		Kind:      "Test",
+		Namespace: &namespace,
+		Name:      "child-component",
+		State:     &state,
+	}
+}
+
 func TestNewComponentCache(t *testing.T) {
 	t.Run("default initialization", func(t *testing.T) {
 		err := db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
@@ -32,30 +45,12 @@ func TestComponentCache_Set_Children(t *testing.T) {
 	group := "test-group"
 	namespace := "test-namespace"
 
-	component := client.ComponentChildAttributes{
-		UID:       uid,
-		ParentUID: nil,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "test-component",
-		State:     &state,
-	}
+	component := createComponentChild(uid, nil, group, namespace, state)
 
 	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
-	childComponent := client.ComponentChildAttributes{
-		UID:       "child-uid",
-		ParentUID: &uid,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "child-component",
-		State:     &state,
-	}
+	childComponent := createComponentChild("child-uid", &uid, group, namespace, state)
 
 	err = db.GetComponentCache().Set(childComponent)
 	require.NoError(t, err)
@@ -78,95 +73,42 @@ func TestComponentCache_Set_Children_Multilevel(t *testing.T) {
 
 	// Root
 	rootUID := "root-uid"
-	component := client.ComponentChildAttributes{
-		UID:       rootUID,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "test-component",
-		State:     &state,
-	}
+	component := createComponentChild(rootUID, nil, group, namespace, state)
 
 	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 1
 	uid1 := "uid-1"
-	component = client.ComponentChildAttributes{
-		UID:       uid1,
-		ParentUID: &rootUID,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "child-component",
-		State:     &state,
-	}
+	component = createComponentChild(uid1, &rootUID, group, namespace, state)
 
 	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 2
 	uid2 := "uid-2"
-	component = client.ComponentChildAttributes{
-		UID:       uid2,
-		ParentUID: &uid1,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "child-component",
-		State:     &state,
-	}
+	component = createComponentChild(uid2, &uid1, group, namespace, state)
 
 	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 3
 	uid3 := "uid-3"
-	component = client.ComponentChildAttributes{
-		UID:       uid3,
-		ParentUID: &uid2,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "child-component",
-		State:     &state,
-	}
+	component = createComponentChild(uid3, &uid2, group, namespace, state)
 
 	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 4
 	uid4 := "uid-4"
-	component = client.ComponentChildAttributes{
-		UID:       uid4,
-		ParentUID: &uid3,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "child-component",
-		State:     &state,
-	}
+	component = createComponentChild(uid4, &uid3, group, namespace, state)
 
 	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
 
 	// Level 5
 	uid5 := "uid-5"
-	component = client.ComponentChildAttributes{
-		UID:       uid5,
-		ParentUID: &uid4,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "child-component",
-		State:     &state,
-	}
+	component = createComponentChild(uid5, &uid4, group, namespace, state)
 
 	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)
@@ -265,16 +207,7 @@ func TestComponentCache_Set_Children_MultilevelWithDuplicates(t *testing.T) {
 	require.NoError(t, err)
 
 	uid44 := "uid-44"
-	component = client.ComponentChildAttributes{
-		UID:       uid44,
-		ParentUID: &uid3,
-		Group:     &group,
-		Version:   "v1",
-		Kind:      "Test",
-		Namespace: &namespace,
-		Name:      "child-component",
-		State:     &state,
-	}
+	component = createComponentChild(uid44, &uid3, group, namespace, state)
 
 	err = db.GetComponentCache().Set(component)
 	require.NoError(t, err)

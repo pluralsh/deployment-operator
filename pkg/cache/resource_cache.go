@@ -7,11 +7,12 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
