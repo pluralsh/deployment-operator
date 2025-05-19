@@ -137,6 +137,10 @@ func (in *ComponentCache) Delete(uid string) error {
 
 // Close closes the connection pool and cleans up temporary file if necessary
 func (in *ComponentCache) Close() error {
+	defer func() {
+		cache = nil
+	}()
+
 	if in.pool != nil {
 		if err := in.pool.Close(); err != nil {
 			return err
@@ -155,8 +159,6 @@ func (in *ComponentCache) Close() error {
 			return os.RemoveAll(dir)
 		}
 	}
-
-	cache = nil
 
 	return nil
 }
@@ -239,7 +241,6 @@ func Init(args ...Option) error {
 	cache = &ComponentCache{
 		poolSize: defaultPoolSize,
 		mode:     CacheModeFile,
-		filePath: "/home/lukasz/component-cache.db",
 	}
 
 	for _, arg := range args {
