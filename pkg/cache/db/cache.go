@@ -1,3 +1,5 @@
+// Package db provides a SQLite-based caching mechanism for storing and managing component relationships
+// and their attributes in a hierarchical structure. It supports both in-memory and file-based storage modes.
 package db
 
 import (
@@ -13,59 +15,66 @@ import (
 )
 
 var (
+	// cache holds the singleton instance of ComponentCache
 	cache *ComponentCache
 )
 
 const (
+	// defaultPoolSize defines the default maximum number of concurrent SQLite connections
 	defaultPoolSize = 50
-	defaultMode     = CacheModeMemory
+	// defaultMode defines the default storage mode (memory-based cache)
+	defaultMode = CacheModeMemory
 )
 
+// CacheMode defines the storage mode for the component cache
 type CacheMode string
 
 const (
+	// CacheModeMemory stores the cache in memory using SQLite's in-memory database
 	CacheModeMemory CacheMode = "file::memory:?mode=memory&cache=shared"
-	CacheModeFile   CacheMode = "file"
+	// CacheModeFile stores the cache in a file on disk
+	CacheModeFile CacheMode = "file"
 )
 
+// ComponentCache manages a SQLite connection pool for caching component relationships and attributes
 type ComponentCache struct {
+	// maximum number of concurrent connections
 	poolSize int
-	mode     CacheMode
+
+	// storage mode (memory or file)
+	mode CacheMode
+
+	// path to the cache file (only used in file mode)
 	filePath string
 
+	// SQLite connection pool
 	pool *sqlitex.Pool
 }
 
+// GetComponentCache returns the singleton instance of ComponentCache.
+// If the cache hasn't been initialized, it will return nil.
+// Use Init() to initialize the cache before calling this function.
 func GetComponentCache() *ComponentCache {
 	return cache
 }
 
+// Children retrieves all child components and their descendants (up to 4 levels deep) for a given component UID.
+// It returns a slice of ComponentChildAttributes containing information about each child component.
+//
+// Parameters:
+//   - uid: The unique identifier of the parent component
+//
+// Returns:
+//   - []ComponentChildAttributes: A slice containing the child components and their attributes
+//   - error: An error if the database operation fails or if the connection cannot be established
 func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAttributes, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
 	}
-
 	defer in.pool.Put(conn)
 
-	query := `
-		WITH RECURSIVE descendants AS (
-			SELECT uid, 'group', version, kind, namespace, name, health, 1 as level
-			FROM Component 
-			WHERE parent_uid = (SELECT uid FROM Component WHERE uid = ?)
-	
-			UNION ALL
-	
-			SELECT c.uid, c.'group', c.version, c.kind, c.namespace, c.name, c.health, d.level + 1
-			FROM Component c
-			JOIN descendants d ON c.parent_uid = d.uid
-			WHERE d.level < 4
-		)
-		SELECT uid, 'group', version, kind, namespace, name, health
-		FROM descendants
-	`
-
-	err = sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
+	err = sqlitex.Execute(conn, component_children, &sqlitex.ExecOptions{
 		Args: []interface{}{uid},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, client.ComponentChildAttributes{
@@ -85,6 +94,10 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 	return result, err
 }
 
+// Set stores or updates a component's attributes in the cache.
+// It takes a ComponentChildAttributes parameter containing the component's data.
+// If a component with the same UID exists, it will be updated; otherwise, a new entry is created.
+// Returns an error if the database operation fails or if the connection cannot be established.
 func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
@@ -92,36 +105,7 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	}
 	defer in.pool.Put(conn)
 
-	query := `
-		INSERT INTO Component (
-			uid,
-			parent_uid,
-			'group',
-			version,
-			kind, 
-			namespace,
-			name,
-			health
-		) VALUES (
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?
-		) ON CONFLICT(uid) DO UPDATE SET
-			parent_uid = excluded.parent_uid,
-			'group' = excluded.'group',
-			version = excluded.version,
-			kind = excluded.kind,
-			namespace = excluded.namespace,
-			name = excluded.name,
-			health = excluded.health
-	`
-
-	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
+	return sqlitex.ExecuteTransient(conn, set_component, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			component.UID,
 			lo.FromPtr(component.ParentUID),
@@ -135,6 +119,9 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	})
 }
 
+// Delete removes a component from the cache by its unique identifier.
+// It takes a uid string parameter identifying the component to delete.
+// Returns an error if the operation fails or if the connection cannot be established.
 func (in *ComponentCache) Delete(uid string) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
@@ -143,7 +130,6 @@ func (in *ComponentCache) Delete(uid string) error {
 	defer in.pool.Put(conn)
 
 	query := `DELETE FROM Component WHERE uid = ?`
-
 	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
 		Args: []any{uid},
 	})
@@ -213,48 +199,38 @@ func (in *ComponentCache) initTable() error {
 	if err != nil {
 		return err
 	}
-
 	defer in.pool.Put(conn)
-	query := `
-		CREATE TABLE IF NOT EXISTS Component (
-			id INTEGER PRIMARY KEY,
-			parent_uid TEXT,
-			uid TEXT UNIQUE,
-			'group' TEXT,
-			version TEXT,
-			kind TEXT, 
-			namespace TEXT,
-			'name' TEXT,
-			health TEXT,
-			FOREIGN KEY(parent_uid) REFERENCES Component(uid)
-		);
-		CREATE INDEX IF NOT EXISTS idx_parent ON Component(parent_uid);
-		CREATE INDEX IF NOT EXISTS idx_uid ON Component(uid);
-	`
 
-	return sqlitex.ExecuteScript(conn, query, nil)
+	return sqlitex.ExecuteScript(conn, create_table, nil)
 }
 
+// Option represents a function that configures the ComponentCache
 type Option func(*ComponentCache)
 
+// WithPoolSize sets the maximum number of concurrent connections in the pool
 func WithPoolSize(size int) Option {
 	return func(in *ComponentCache) {
 		in.poolSize = size
 	}
 }
 
+// WithMode sets the storage mode for the cache (memory or file)
 func WithMode(mode CacheMode) Option {
 	return func(in *ComponentCache) {
 		in.mode = mode
 	}
 }
 
+// WithFilePath sets the path where the cache file will be stored (only used in file mode)
 func WithFilePath(path string) Option {
 	return func(in *ComponentCache) {
 		in.filePath = path
 	}
 }
 
+// Init initializes the component cache with the provided options.
+// If the cache is already initialized, it returns nil.
+// Default values are used for any options not provided.
 func Init(args ...Option) error {
 	if cache != nil {
 		return nil
