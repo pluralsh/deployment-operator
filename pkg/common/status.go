@@ -53,7 +53,12 @@ type Progress struct {
 	PingTime     time.Time
 }
 
-func SaveComponentChildAttributes(u *unstructured.Unstructured) {
+func SyncComponentChildAttributes(u *unstructured.Unstructured) {
+	if u.GetDeletionTimestamp() != nil {
+		_ = db.GetComponentCache().Delete(string(u.GetUID()))
+		return
+	}
+
 	ownerRefs := u.GetOwnerReferences()
 	var ownerRef *string
 	if len(ownerRefs) > 0 {

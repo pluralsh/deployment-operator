@@ -281,7 +281,7 @@ func (in *ResourceCache) reconcile(e event.Event) {
 		return
 	}
 
-	common.SaveComponentChildAttributes(e.Resource.Resource)
+	common.SyncComponentChildAttributes(e.Resource.Resource)
 
 	labels := e.Resource.Resource.GetLabels()
 	if val, ok := labels[common.ManagedByLabel]; !ok || val != common.AgentLabelValue {

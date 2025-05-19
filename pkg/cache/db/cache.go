@@ -135,6 +135,20 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	})
 }
 
+func (in *ComponentCache) Delete(uid string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	query := `DELETE FROM Component WHERE uid = ?`
+
+	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
+		Args: []any{uid},
+	})
+}
+
 // Close closes the connection pool and cleans up temporary file if necessary
 func (in *ComponentCache) Close() error {
 	if in.pool != nil {
