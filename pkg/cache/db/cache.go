@@ -48,7 +48,7 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 		SELECT uid, 'group', version, kind, namespace, name, health
 		FROM Component 
 		WHERE parent = (
-			SELECT id FROM Component WHERE uid = ?
+			SELECT uid FROM Component WHERE uid = ?
 		)
 	`
 
@@ -80,12 +80,12 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	defer in.pool.Put(conn)
 
 	query := `
-		INSERT OR REPLACE INTO Component (
+		INSERT INTO Component (
 			uid,
 			parent,
 			'group',
 			version,
-			kind,
+			kind, 
 			namespace,
 			name,
 			health
@@ -98,13 +98,20 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 			?,
 			?,
 			?
-		)
+		) ON CONFLICT(uid) DO UPDATE SET
+			parent = excluded.parent,
+			'group' = excluded.'group',
+			version = excluded.version,
+			kind = excluded.kind,
+			namespace = excluded.namespace,
+			name = excluded.name,
+			health = excluded.health
 	`
 
 	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			component.UID,
-			component.ParentUID,
+			lo.FromPtr(component.ParentUID),
 			lo.FromPtr(component.Group),
 			component.Version,
 			component.Kind,
@@ -182,15 +189,15 @@ func (in *ComponentCache) initTable() error {
 	query := `
 		CREATE TABLE IF NOT EXISTS Component (
 			id INTEGER PRIMARY KEY,
-			parent INTEGER,
-			uid TEXT,
+			parent TEXT,
+			uid TEXT UNIQUE,
 			'group' TEXT,
 			version TEXT,
 			kind TEXT, 
 			namespace TEXT,
 			'name' TEXT,
 			health TEXT,
-			FOREIGN KEY(parent) REFERENCES Component(id)
+			FOREIGN KEY(parent) REFERENCES Component(uid)
 		);
 		CREATE INDEX IF NOT EXISTS idx_parent ON Component(parent);
 		CREATE INDEX IF NOT EXISTS idx_uid ON Component(uid);
@@ -210,6 +217,12 @@ func WithPoolSize(size int) Option {
 func WithMode(mode CacheMode) Option {
 	return func(in *ComponentCache) {
 		in.mode = mode
+	}
+}
+
+func WithFilePath(path string) Option {
+	return func(in *ComponentCache) {
+		in.filePath = path
 	}
 }
 

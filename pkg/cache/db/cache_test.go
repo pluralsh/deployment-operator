@@ -10,9 +10,13 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 )
 
+const (
+	dbFile = "/tmp/component-cache.db"
+)
+
 func TestNewComponentCache(t *testing.T) {
 	t.Run("default initialization", func(t *testing.T) {
-		_, err := db.NewComponentCache(db.WithMode(db.CacheModeFile))
+		_, err := db.NewComponentCache(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
 		require.NoError(t, err)
 	})
 }
