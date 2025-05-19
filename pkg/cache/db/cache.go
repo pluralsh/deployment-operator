@@ -238,7 +238,8 @@ func Init(args ...Option) error {
 
 	cache = &ComponentCache{
 		poolSize: defaultPoolSize,
-		mode:     defaultMode,
+		mode:     CacheModeFile,
+		filePath: "/home/lukasz/component-cache.db",
 	}
 
 	for _, arg := range args {

@@ -29,7 +29,34 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+var allCoreObjMetadata = containers.ToSet([]ResourceKey{
+	// Core API group ("")
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Service"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "ConfigMap"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Secret"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "PersistentVolumeClaim"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+
+	// Apps group
+	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "Deployment"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "DaemonSet"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "StatefulSet"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "ReplicaSet"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+
+	// Batch group
+	{GroupKind: runtimeschema.GroupKind{Group: "batch", Kind: "Job"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "batch", Kind: "CronJob"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+
+	// RBAC group
+	{GroupKind: runtimeschema.GroupKind{Group: "rbac.authorization.k8s.io", Kind: "Role"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "rbac.authorization.k8s.io", Kind: "ClusterRole"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+
+	// Networking group
+	{GroupKind: runtimeschema.GroupKind{Group: "networking.k8s.io", Kind: "NetworkPolicy"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "networking.k8s.io", Kind: "Ingress"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+})
 
 // ResourceCache is responsible for creating a global resource cache of the
 // inventory items registered via [ResourceCache.Register] method. In particular, it
@@ -159,7 +186,7 @@ func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[ResourceK
 		klog.V(4).Info("resource cache not initialized")
 		return
 	}
-
+	inventoryResourceKeys = inventoryResourceKeys.Union(allCoreObjMetadata)
 	toAdd := inventoryResourceKeys.Difference(in.resourceKeySet)
 
 	if len(toAdd) > 0 {
@@ -175,6 +202,7 @@ func (in *ResourceCache) Unregister(inventoryResourceKeys containers.Set[Resourc
 	}
 
 	toRemove := in.resourceKeySet.Difference(inventoryResourceKeys)
+	toRemove = toRemove.Difference(allCoreObjMetadata)
 
 	for key := range toRemove {
 		in.resourceKeySet.Remove(key)
