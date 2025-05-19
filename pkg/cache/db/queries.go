@@ -1,7 +1,7 @@
 package db
 
 const (
-	create_table = `
+	createTable = `
 		CREATE TABLE IF NOT EXISTS Component (
 			id INTEGER PRIMARY KEY,
 			parent_uid TEXT,
@@ -18,7 +18,7 @@ const (
 		CREATE INDEX IF NOT EXISTS idx_uid ON Component(uid);
 	`
 
-	set_component = `
+	setComponent = `
 		INSERT INTO Component (
 			uid,
 			parent_uid,
@@ -47,7 +47,7 @@ const (
 			health = excluded.health
 	`
 
-	component_children = `
+	componentChildren = `
 		WITH RECURSIVE descendants AS (
 			SELECT uid, 'group', version, kind, namespace, name, health, 1 as level
 			FROM Component 
