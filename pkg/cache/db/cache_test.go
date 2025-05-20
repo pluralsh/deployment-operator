@@ -164,7 +164,7 @@ func TestComponentCache(t *testing.T) {
 		require.Len(t, children, 4)
 	})
 
-	t.Run("cache should save and return multi-level structure with siblings", func(t *testing.T) {
+	t.Run("cache should save and return multi-level structure", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
