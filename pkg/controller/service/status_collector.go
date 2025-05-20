@@ -83,6 +83,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 	}
 
 	return &console.ComponentAttributes{
+		UID:       lo.ToPtr(string(e.Resource.GetUID())),
 		Group:     gvk.Group,
 		Kind:      gvk.Kind,
 		Namespace: e.Resource.GetNamespace(),

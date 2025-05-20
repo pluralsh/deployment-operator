@@ -116,6 +116,7 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 	}
 
 	return &console.ComponentAttributes{
+		UID:       lo.ToPtr(string(e.Resource.GetUID())),
 		Group:     gvk.Group,
 		Kind:      gvk.Kind,
 		Namespace: e.Resource.GetNamespace(),
