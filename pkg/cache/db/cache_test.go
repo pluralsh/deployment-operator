@@ -16,14 +16,12 @@ const (
 
 func TestComponentCache(t *testing.T) {
 	t.Run("cache should initialize", func(t *testing.T) {
-		err := db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
-		require.NoError(t, err)
+		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
 		defer db.GetComponentCache().Close()
 	})
 
 	t.Run("cache should save and return simple parent and child structure", func(t *testing.T) {
-		err := db.Init()
-		require.NoError(t, err)
+		db.Init()
 		defer db.GetComponentCache().Close()
 
 		uid := "test-uid"
@@ -42,7 +40,7 @@ func TestComponentCache(t *testing.T) {
 			State:     &state,
 		}
 
-		err = db.GetComponentCache().Set(component)
+		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		childComponent := client.ComponentChildAttributes{
@@ -67,8 +65,7 @@ func TestComponentCache(t *testing.T) {
 	})
 
 	t.Run("cache should save and return multi-level structure respecting max depth", func(t *testing.T) {
-		err := db.Init()
-		require.NoError(t, err)
+		db.Init()
 		defer db.GetComponentCache().Close()
 
 		state := client.ComponentState("Healthy")
@@ -87,7 +84,7 @@ func TestComponentCache(t *testing.T) {
 			State:     &state,
 		}
 
-		err = db.GetComponentCache().Set(component)
+		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 1
@@ -176,8 +173,7 @@ func TestComponentCache(t *testing.T) {
 	})
 
 	t.Run("cache should save and return multi-level structure with siblings respecting max depth", func(t *testing.T) {
-		err := db.Init()
-		require.NoError(t, err)
+		db.Init()
 		defer db.GetComponentCache().Close()
 
 		state := client.ComponentState("Healthy")
@@ -196,7 +192,7 @@ func TestComponentCache(t *testing.T) {
 			State:     &state,
 		}
 
-		err = db.GetComponentCache().Set(component)
+		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 1

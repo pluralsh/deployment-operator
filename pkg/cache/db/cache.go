@@ -9,6 +9,7 @@ import (
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
+	"k8s.io/klog/v2"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -227,9 +228,9 @@ func WithFilePath(path string) Option {
 // Init initializes the component cache with the provided options.
 // If the cache is already initialized, it returns nil.
 // Default values are used for any options not provided.
-func Init(args ...Option) error {
+func Init(args ...Option) {
 	if cache != nil {
-		return nil
+		return
 	}
 
 	cache = &ComponentCache{
@@ -241,5 +242,7 @@ func Init(args ...Option) error {
 		arg(cache)
 	}
 
-	return cache.init()
+	if err := cache.init(); err != nil {
+		klog.Fatalf("failed to initialize component cache: %v", err)
+	}
 }

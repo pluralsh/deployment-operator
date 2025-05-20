@@ -116,8 +116,7 @@ func BenchmarkMemoryCache(b *testing.B) {
 	}
 
 	// Initialize the cache once for all benchmarks
-	err := db.Init()
-	require.NoError(b, err)
+	db.Init()
 
 	// Store the cache reference to avoid race conditions
 	cache := db.GetComponentCache()
@@ -217,8 +216,7 @@ func BenchmarkFileCache(b *testing.B) {
 	_ = os.Remove(benchDBFile)
 
 	// Initialize the cache once for all benchmarks
-	err := db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(benchDBFile))
-	require.NoError(b, err)
+	db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(benchDBFile))
 
 	// Store the cache reference to avoid race conditions
 	cache := db.GetComponentCache()

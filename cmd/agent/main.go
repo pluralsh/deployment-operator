@@ -102,11 +102,7 @@ func main() {
 	// Start resource cache in background if enabled.
 	if args.ResourceCacheEnabled() {
 		cache.Init(ctx, config, args.ResourceCacheTTL())
-	}
-
-	if err := db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath("/tmp/cmp-cache.db")); err != nil {
-		klog.Error(err, "unable to create component cache database")
-		os.Exit(1)
+		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath("/tmp/cmp-cache.db")) // TODO: use in-memory
 	}
 
 	// Start the discovery cache in background.
