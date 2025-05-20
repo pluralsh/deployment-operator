@@ -15,14 +15,14 @@ func (in *PlanArgsModifier) Args(args []string) []string {
 	if !lo.Contains(args, "plan") {
 		return args
 	}
-	result := append(args, fmt.Sprintf("-out=%s", in.planFileName))
+	args = append(args, fmt.Sprintf("-out=%s", in.planFileName))
 	if in.parallelism != nil {
-		result = append(result, fmt.Sprintf("-parallelism=%d", *in.parallelism))
+		args = append(args, fmt.Sprintf("-parallelism=%d", *in.parallelism))
 	}
 	if in.refresh != nil {
-		result = append(result, fmt.Sprintf("-refresh=%t", *in.refresh))
+		args = append(args, fmt.Sprintf("-refresh=%t", *in.refresh))
 	}
-	return result
+	return args
 }
 
 func NewPlanArgsModifier(planFileName string, parallelism *int64, refresh *bool) v1.Modifier {
@@ -39,14 +39,14 @@ func (in *ApplyArgsModifier) Args(args []string) []string {
 		return args
 	}
 
-	result := append(args, in.planFileName)
+	args = append(args, in.planFileName)
 	if in.parallelism != nil {
-		result = append(result, fmt.Sprintf("-parallelism=%d", *in.parallelism))
+		args = append(args, fmt.Sprintf("-parallelism=%d", *in.parallelism))
 	}
 	if in.refresh != nil {
-		result = append(result, fmt.Sprintf("-refresh=%t", *in.refresh))
+		args = append(args, fmt.Sprintf("-refresh=%t", *in.refresh))
 	}
-	return result
+	return args
 }
 
 func NewApplyArgsModifier(dir, planFileName string, parallelism *int64, refresh *bool) v1.Modifier {
