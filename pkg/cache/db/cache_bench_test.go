@@ -35,8 +35,8 @@ const (
 // setupTestData creates a hierarchy of components for benchmarking
 func setupTestData(b *testing.B, cache *db.ComponentCache) {
 	state := client.ComponentState("Healthy")
-	group := "test-group"
-	namespace := "test-namespace"
+	group := testGroup
+	namespace := testNamespace
 
 	// Create root component
 	rootUID := "root-uid"
@@ -125,8 +125,8 @@ func BenchmarkMemoryCache(b *testing.B) {
 	// Run the Set benchmark
 	b.Run("Set", func(b *testing.B) {
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		b.ResetTimer()
 		i := 0
@@ -177,8 +177,8 @@ func BenchmarkMemoryCache(b *testing.B) {
 	// Run the SetAndChildren benchmark
 	b.Run("SetAndChildren", func(b *testing.B) {
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -230,8 +230,8 @@ func BenchmarkFileCache(b *testing.B) {
 	// Run the Set benchmark
 	b.Run("Set", func(b *testing.B) {
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -280,8 +280,8 @@ func BenchmarkFileCache(b *testing.B) {
 	// Run the SetAndChildren benchmark
 	b.Run("SetAndChildren", func(b *testing.B) {
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
