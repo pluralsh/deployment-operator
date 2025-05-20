@@ -308,11 +308,13 @@ func (in *ResourceCache) reconcile(e event.Event) {
 	if e.Resource == nil {
 		return
 	}
-	common.SyncComponentChildAttributes(e.Resource.Resource)
+	if e.Resource.Resource != nil {
+		common.SyncComponentChildAttributes(e.Resource.Resource)
 
-	labels := e.Resource.Resource.GetLabels()
-	if val, ok := labels[common.ManagedByLabel]; !ok || val != common.AgentLabelValue {
-		return
+		labels := e.Resource.Resource.GetLabels()
+		if val, ok := labels[common.ManagedByLabel]; !ok || val != common.AgentLabelValue {
+			return
+		}
 	}
 
 	if !in.shouldCacheResource(e.Resource) {
