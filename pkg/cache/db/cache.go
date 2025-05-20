@@ -6,7 +6,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -152,11 +151,6 @@ func (in *ComponentCache) Close() error {
 		// Remove the file
 		if err := os.Remove(in.filePath); err != nil {
 			return err
-		}
-
-		// If the file was in a temp directory we created, remove that too
-		if dir := filepath.Dir(in.filePath); strings.HasPrefix(dir, os.TempDir()) {
-			return os.RemoveAll(dir)
 		}
 	}
 
