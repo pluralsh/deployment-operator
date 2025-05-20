@@ -102,7 +102,7 @@ func main() {
 	// Start resource cache in background if enabled.
 	if args.ResourceCacheEnabled() {
 		cache.Init(ctx, config, args.ResourceCacheTTL())
-		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath("/tmp/cmp-cache.db")) // TODO: use in-memory
+		db.Init()
 	}
 
 	// Start the discovery cache in background.

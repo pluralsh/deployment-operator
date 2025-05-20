@@ -195,11 +195,7 @@ func (in *ComponentCache) init() error {
 	}
 
 	in.pool = pool
-	if err = in.initTable(); err != nil {
-		return err
-	}
-
-	return nil
+	return in.initTable()
 }
 
 func (in *ComponentCache) initTable() error {
