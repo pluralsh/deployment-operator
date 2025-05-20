@@ -294,4 +294,65 @@ func TestComponentCache(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, children, 5)
 	})
+
+	t.Run("cache should support cascade deletion", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		uid := "test-uid"
+		state := client.ComponentState("Healthy")
+		group := "test-group"
+		namespace := "test-namespace"
+
+		component := client.ComponentChildAttributes{
+			UID:       uid,
+			ParentUID: nil,
+			Group:     &group,
+			Version:   "v1",
+			Kind:      "Test",
+			Namespace: &namespace,
+			Name:      "test-component",
+			State:     &state,
+		}
+		err := db.GetComponentCache().Set(component)
+		require.NoError(t, err)
+
+		childUid := "child-uid"
+		childComponent := client.ComponentChildAttributes{
+			UID:       childUid,
+			ParentUID: &uid,
+			Group:     &group,
+			Version:   "v1",
+			Kind:      "Test",
+			Namespace: &namespace,
+			Name:      "child-component",
+			State:     &state,
+		}
+		err = db.GetComponentCache().Set(childComponent)
+		require.NoError(t, err)
+
+		grandchildComponent := client.ComponentChildAttributes{
+			UID:       "grandchild-uid",
+			ParentUID: &childUid,
+			Group:     &group,
+			Version:   "v1",
+			Kind:      "Test",
+			Namespace: &namespace,
+			Name:      "child-component",
+			State:     &state,
+		}
+		err = db.GetComponentCache().Set(grandchildComponent)
+		require.NoError(t, err)
+
+		children, err := db.GetComponentCache().Children(uid)
+		require.NoError(t, err)
+		require.Len(t, children, 2)
+
+		err = db.GetComponentCache().Delete(childUid)
+		require.NoError(t, err)
+
+		children, err = db.GetComponentCache().Children(uid)
+		require.NoError(t, err)
+		require.Len(t, children, 0)
+	})
 }
