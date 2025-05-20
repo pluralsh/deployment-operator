@@ -47,7 +47,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testName,
 			State:     &state,
 		}
-
 		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -61,7 +60,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(childComponent)
 		require.NoError(t, err)
 
@@ -72,7 +70,7 @@ func TestComponentCache(t *testing.T) {
 		assert.Equal(t, uid, *children[0].ParentUID)
 	})
 
-	t.Run("cache should save and return multi-level structure respecting max depth", func(t *testing.T) {
+	t.Run("cache should save and return multi-level structure", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
@@ -91,7 +89,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testName,
 			State:     &state,
 		}
-
 		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -107,7 +104,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -123,7 +119,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -139,7 +134,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -155,7 +149,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -171,7 +164,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -180,7 +172,7 @@ func TestComponentCache(t *testing.T) {
 		require.Len(t, children, 4)
 	})
 
-	t.Run("cache should save and return multi-level structure with siblings respecting max depth", func(t *testing.T) {
+	t.Run("cache should save and return multi-level structure", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
@@ -199,7 +191,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testName,
 			State:     &state,
 		}
-
 		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -215,7 +206,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -231,7 +221,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -247,7 +236,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -263,7 +251,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -278,7 +265,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -294,7 +280,6 @@ func TestComponentCache(t *testing.T) {
 			Name:      testChildName,
 			State:     &state,
 		}
-
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -362,5 +347,80 @@ func TestComponentCache(t *testing.T) {
 		children, err = db.GetComponentCache().Children(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 0)
+	})
+
+	t.Run("cache should support cascade deletion", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		uid := "test-uid"
+		state := client.ComponentState("Healthy")
+		group := "test-group"
+		namespace := "test-namespace"
+
+		component := client.ComponentChildAttributes{
+			UID:       uid,
+			ParentUID: nil,
+			Group:     &group,
+			Version:   "v1",
+			Kind:      "Test",
+			Namespace: &namespace,
+			Name:      "test-component",
+			State:     &state,
+		}
+		err := db.GetComponentCache().Set(component)
+		require.NoError(t, err)
+
+		childUid := "child-uid"
+		childComponent := client.ComponentChildAttributes{
+			UID:       childUid,
+			ParentUID: &uid,
+			Group:     &group,
+			Version:   "v1",
+			Kind:      "Test",
+			Namespace: &namespace,
+			Name:      "child-component",
+			State:     &state,
+		}
+		err = db.GetComponentCache().Set(childComponent)
+		require.NoError(t, err)
+
+		grandchildComponent := client.ComponentChildAttributes{
+			UID:       "grandchild-uid",
+			ParentUID: &childUid,
+			Group:     &group,
+			Version:   "v1",
+			Kind:      "Test",
+			Namespace: &namespace,
+			Name:      "child-component",
+			State:     &state,
+		}
+		err = db.GetComponentCache().Set(grandchildComponent)
+		require.NoError(t, err)
+
+		child2Uid := "child2-uid"
+		child2Component := client.ComponentChildAttributes{
+			UID:       child2Uid,
+			ParentUID: &uid,
+			Group:     &group,
+			Version:   "v1",
+			Kind:      "Test",
+			Namespace: &namespace,
+			Name:      "child-component",
+			State:     &state,
+		}
+		err = db.GetComponentCache().Set(child2Component)
+		require.NoError(t, err)
+
+		children, err := db.GetComponentCache().Children(uid)
+		require.NoError(t, err)
+		require.Len(t, children, 3)
+
+		err = db.GetComponentCache().Delete(childUid)
+		require.NoError(t, err)
+
+		children, err = db.GetComponentCache().Children(uid)
+		require.NoError(t, err)
+		require.Len(t, children, 1)
 	})
 }
