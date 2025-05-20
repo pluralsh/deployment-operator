@@ -22,4 +22,10 @@ type Terraform struct {
 	// variables is a JSON encoded string representing
 	// terraform variable file.
 	variables *string
+
+	// parallelism is the number of concurrent operations to run
+	parallelism *int64
+
+	// refresh is whether to refresh the state
+	refresh *bool
 }

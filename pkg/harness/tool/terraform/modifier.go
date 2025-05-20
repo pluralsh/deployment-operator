@@ -15,12 +15,18 @@ func (in *PlanArgsModifier) Args(args []string) []string {
 	if !lo.Contains(args, "plan") {
 		return args
 	}
-
-	return append(args, fmt.Sprintf("-out=%s", in.planFileName))
+	result := append(args, fmt.Sprintf("-out=%s", in.planFileName))
+	if in.parallelism != nil {
+		result = append(result, fmt.Sprintf("-parallelism=%d", *in.parallelism))
+	}
+	if in.refresh != nil {
+		result = append(result, fmt.Sprintf("-refresh=%t", *in.refresh))
+	}
+	return result
 }
 
-func NewPlanArgsModifier(planFileName string) v1.Modifier {
-	return &PlanArgsModifier{planFileName: planFileName}
+func NewPlanArgsModifier(planFileName string, parallelism *int64, refresh *bool) v1.Modifier {
+	return &PlanArgsModifier{planFileName: planFileName, parallelism: parallelism, refresh: refresh}
 }
 
 // Args implements [v1.ArgsModifier] type.
@@ -33,9 +39,16 @@ func (in *ApplyArgsModifier) Args(args []string) []string {
 		return args
 	}
 
-	return append(args, in.planFileName)
+	result := append(args, in.planFileName)
+	if in.parallelism != nil {
+		result = append(result, fmt.Sprintf("-parallelism=%d", *in.parallelism))
+	}
+	if in.refresh != nil {
+		result = append(result, fmt.Sprintf("-refresh=%t", *in.refresh))
+	}
+	return result
 }
 
-func NewApplyArgsModifier(dir, planFileName string) v1.Modifier {
-	return &ApplyArgsModifier{planFileName: planFileName, dir: dir}
+func NewApplyArgsModifier(dir, planFileName string, parallelism *int64, refresh *bool) v1.Modifier {
+	return &ApplyArgsModifier{planFileName: planFileName, dir: dir, parallelism: parallelism, refresh: refresh}
 }

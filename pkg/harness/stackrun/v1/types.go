@@ -32,6 +32,9 @@ type StackRun struct {
 	Steps       []*gqlclient.RunStepFragment
 	Files       []*gqlclient.StackFileFragment
 	Environment []*gqlclient.StackEnvironmentFragment
+
+	Parallelism *int64
+	Refresh     bool
 }
 
 func (in *StackRun) MaxSeverity() int {
@@ -60,6 +63,8 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		Variables:    fragment.Variables,
 		PolicyEngine: fragment.PolicyEngine,
 		DryRun:       fragment.DryRun,
+		Parallelism:  fragment.Configuration.Terraform.Parallelism,
+		Refresh:      fragment.Configuration.Terraform.Refresh != nil && *fragment.Configuration.Terraform.Refresh,
 	}
 }
 

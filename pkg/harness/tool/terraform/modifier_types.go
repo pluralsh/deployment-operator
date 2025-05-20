@@ -10,6 +10,12 @@ type PlanArgsModifier struct {
 
 	// planFileName
 	planFileName string
+
+	// parallelism is the number of concurrent operations to run
+	parallelism *int64
+
+	// refresh is whether to refresh the state
+	refresh *bool
 }
 
 // ApplyArgsModifier implements [v1.ArgsModifier] interface.
@@ -21,4 +27,10 @@ type ApplyArgsModifier struct {
 
 	// dir
 	dir string
+
+	// parallelism is the number of concurrent operations to run
+	parallelism *int64
+
+	// refresh is whether to refresh the state
+	refresh *bool
 }
