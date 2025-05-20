@@ -305,6 +305,9 @@ func (in *ResourceCache) reconcile(e event.Event) {
 		return
 	}
 
+	if e.Resource == nil {
+		return
+	}
 	common.SyncComponentChildAttributes(e.Resource.Resource)
 
 	labels := e.Resource.Resource.GetLabels()
