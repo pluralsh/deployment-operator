@@ -181,7 +181,7 @@ func TestComponentCache(t *testing.T) {
 		namespace := testNamespace
 
 		// Root
-		rootUID := "test-uid"
+		rootUID := testUID
 		component := client.ComponentChildAttributes{
 			UID:       rootUID,
 			Group:     &group,
@@ -292,7 +292,7 @@ func TestComponentCache(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
-		uid := "test-uid"
+		uid := testUID
 		state := client.ComponentState("Healthy")
 		group := testGroup
 		namespace := testNamespace
@@ -353,19 +353,19 @@ func TestComponentCache(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
-		uid := "test-uid"
+		uid := testUID
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		component := client.ComponentChildAttributes{
 			UID:       uid,
 			ParentUID: nil,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "test-component",
+			Name:      testName,
 			State:     &state,
 		}
 		err := db.GetComponentCache().Set(component)
@@ -376,10 +376,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       childUid,
 			ParentUID: &uid,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 		err = db.GetComponentCache().Set(childComponent)
@@ -389,10 +389,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       "grandchild-uid",
 			ParentUID: &childUid,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 		err = db.GetComponentCache().Set(grandchildComponent)
@@ -403,10 +403,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       child2Uid,
 			ParentUID: &uid,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 		err = db.GetComponentCache().Set(child2Component)
