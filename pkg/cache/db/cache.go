@@ -88,7 +88,7 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 				Kind:      stmt.ColumnText(3),
 				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
 				Name:      stmt.ColumnText(5),
-				State:     lo.EmptyableToPtr(client.ComponentState(stmt.ColumnText(6))),
+				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
 				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
 			})
 			return nil
@@ -118,7 +118,7 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 			component.Kind,
 			lo.FromPtr(component.Namespace),
 			component.Name,
-			lo.FromPtr(component.State),
+			ToComponentState(component.State),
 		},
 	})
 }

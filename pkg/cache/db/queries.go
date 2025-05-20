@@ -11,7 +11,7 @@ const (
 			kind TEXT, 
 			namespace TEXT,
 			'name' TEXT,
-			health TEXT,
+			health INT,
 			FOREIGN KEY(parent_uid) REFERENCES Component(uid)
 		);
 		CREATE INDEX IF NOT EXISTS idx_parent ON Component(parent_uid);
