@@ -170,7 +170,7 @@ func (in *ComponentCache) Close() error {
 }
 
 func (in *ComponentCache) init() error {
-	connectionString := ""
+	var connectionString string
 
 	if in.mode == CacheModeFile {
 		if len(in.filePath) == 0 {

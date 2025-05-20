@@ -11,7 +11,15 @@ import (
 )
 
 const (
-	dbFile = "/tmp/component-cache.db"
+	dbFile        = "/tmp/component-cache.db"
+	testUID       = "test-uid"
+	testGroup     = "test-group"
+	testNamespace = "test-namespace"
+	testKind      = "Test"
+	testVersion   = "v1"
+	testName      = "test-component"
+	testChildUID  = "child-uid"
+	testChildName = "child-component"
 )
 
 func TestComponentCache(t *testing.T) {
@@ -24,19 +32,19 @@ func TestComponentCache(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
-		uid := "test-uid"
+		uid := testUID
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		component := client.ComponentChildAttributes{
 			UID:       uid,
 			ParentUID: nil,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "test-component",
+			Name:      testName,
 			State:     &state,
 		}
 
@@ -44,13 +52,13 @@ func TestComponentCache(t *testing.T) {
 		require.NoError(t, err)
 
 		childComponent := client.ComponentChildAttributes{
-			UID:       "child-uid",
+			UID:       testChildUID,
 			ParentUID: &uid,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -60,7 +68,7 @@ func TestComponentCache(t *testing.T) {
 		children, err := db.GetComponentCache().Children(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 1)
-		assert.Equal(t, "child-uid", children[0].UID)
+		assert.Equal(t, testChildUID, children[0].UID)
 		assert.Equal(t, uid, *children[0].ParentUID)
 	})
 
@@ -69,18 +77,18 @@ func TestComponentCache(t *testing.T) {
 		defer db.GetComponentCache().Close()
 
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		// Root
 		rootUID := "root-uid"
 		component := client.ComponentChildAttributes{
 			UID:       rootUID,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "test-component",
+			Name:      testName,
 			State:     &state,
 		}
 
@@ -93,10 +101,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid1,
 			ParentUID: &rootUID,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -109,10 +117,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid2,
 			ParentUID: &uid1,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -125,10 +133,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid3,
 			ParentUID: &uid2,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -141,10 +149,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid4,
 			ParentUID: &uid3,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -157,10 +165,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid5,
 			ParentUID: &uid4,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -177,18 +185,18 @@ func TestComponentCache(t *testing.T) {
 		defer db.GetComponentCache().Close()
 
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		// Root
 		rootUID := "test-uid"
 		component := client.ComponentChildAttributes{
 			UID:       rootUID,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "test-component",
+			Name:      testName,
 			State:     &state,
 		}
 
@@ -201,10 +209,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid1,
 			ParentUID: &rootUID,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -217,10 +225,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid2,
 			ParentUID: &uid1,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -233,10 +241,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid3,
 			ParentUID: &uid2,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -249,10 +257,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid4,
 			ParentUID: &uid3,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -264,10 +272,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid44,
 			ParentUID: &uid3,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -280,10 +288,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       uid5,
 			ParentUID: &uid4,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 
@@ -301,17 +309,17 @@ func TestComponentCache(t *testing.T) {
 
 		uid := "test-uid"
 		state := client.ComponentState("Healthy")
-		group := "test-group"
-		namespace := "test-namespace"
+		group := testGroup
+		namespace := testNamespace
 
 		component := client.ComponentChildAttributes{
 			UID:       uid,
 			ParentUID: nil,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "test-component",
+			Name:      testName,
 			State:     &state,
 		}
 		err := db.GetComponentCache().Set(component)
@@ -322,10 +330,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       childUid,
 			ParentUID: &uid,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 		err = db.GetComponentCache().Set(childComponent)
@@ -335,10 +343,10 @@ func TestComponentCache(t *testing.T) {
 			UID:       "grandchild-uid",
 			ParentUID: &childUid,
 			Group:     &group,
-			Version:   "v1",
-			Kind:      "Test",
+			Version:   testVersion,
+			Kind:      testKind,
 			Namespace: &namespace,
-			Name:      "child-component",
+			Name:      testChildName,
 			State:     &state,
 		}
 		err = db.GetComponentCache().Set(grandchildComponent)
