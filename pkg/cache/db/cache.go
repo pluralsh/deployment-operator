@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -17,6 +18,9 @@ import (
 var (
 	// cache holds the singleton instance of ComponentCache
 	cache *ComponentCache
+
+	// mutex ensures thread-safe access to the cache instance
+	mutex sync.Mutex
 )
 
 const (
@@ -137,9 +141,16 @@ func (in *ComponentCache) Delete(uid string) error {
 
 // Close closes the connection pool and cleans up temporary file if necessary
 func (in *ComponentCache) Close() error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	defer func() {
 		cache = nil
 	}()
+
+	if cache == nil {
+		return nil
+	}
 
 	if in.pool != nil {
 		if err := in.pool.Close(); err != nil {
@@ -229,13 +240,16 @@ func WithFilePath(path string) Option {
 // If the cache is already initialized, it returns nil.
 // Default values are used for any options not provided.
 func Init(args ...Option) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	if cache != nil {
 		return
 	}
 
 	cache = &ComponentCache{
 		poolSize: defaultPoolSize,
-		mode:     CacheModeFile,
+		mode:     defaultMode,
 	}
 
 	for _, arg := range args {

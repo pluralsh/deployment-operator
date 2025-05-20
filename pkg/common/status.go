@@ -114,10 +114,6 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 			synced = true
 		}
 	}
-	children, err := db.GetComponentCache().Children(string(e.Resource.GetUID()))
-	if err != nil {
-		klog.Error(err, "unable to get children for resource")
-	}
 
 	return &console.ComponentAttributes{
 		Group:     gvk.Group,
@@ -127,7 +123,6 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 		Version:   version,
 		Synced:    synced,
 		State:     ToStatus(e.Resource),
-		Children:  lo.ToSlicePtr(children),
 	}
 }
 
