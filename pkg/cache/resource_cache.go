@@ -12,8 +12,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/clusterreader"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/polling/statusreaders"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
-
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -217,6 +215,7 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
 	if err := sha.SetSHA(*resource, shaType); err == nil {
+		sha.uid = string(resource.GetUID())
 		resourceCache.SetCacheEntry(key, sha)
 	}
 }
@@ -259,14 +258,9 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 		return
 	}
 
-	children, err := db.GetComponentCache().Children(string(e.Resource.GetUID()))
-	if err != nil {
-		klog.Error(err, "unable to get children for resource")
-	}
-
 	key := object.UnstructuredToObjMetadata(resource).String()
 	cacheEntry, _ := resourceCache.GetCacheEntry(key)
-	cacheEntry.SetStatus(*e, children)
+	cacheEntry.SetStatus(*e)
 	resourceCache.SetCacheEntry(key, cacheEntry)
 }
 
