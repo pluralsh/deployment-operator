@@ -132,6 +132,9 @@ tolerations: []
 
 affinity: {}
 
+global:
+  registry: ~
+
 agentk:
   image:
     repository: ghcr.io/pluralsh/agentk
