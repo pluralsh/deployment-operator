@@ -241,6 +241,17 @@ func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, com
 		errs = append(errs, err)
 	}
 
+	for _, component := range components {
+		if component.State != nil && *component.State == console.ComponentStateRunning {
+			for _, child := range component.Children {
+				if child.State != nil && *child.State != console.ComponentStateRunning {
+					component.State = child.State
+					break
+				}
+			}
+		}
+	}
+
 	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs)
 }
 

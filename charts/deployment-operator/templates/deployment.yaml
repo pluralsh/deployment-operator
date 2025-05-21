@@ -34,7 +34,11 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           {{ $tag := .Values.image.tag | default .Chart.AppVersion }}
+          {{ if .Values.global.registry }}
+          image: "{{ .Values.global.registry }}/deployment-operator:{{ $tag }}"
+          {{ else }}
           image: "{{ .Values.image.repository }}:{{ $tag }}"
+          {{ end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
           - secretRef:
@@ -74,7 +78,11 @@ spec:
         - name: {{ .Chart.Name }}-agentk
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          {{ if .Values.global.registry }}
+          image: {{ .Values.global.registry }}/agentk:{{ .Values.agentk.image.tag }}
+          {{ else }}
           image: {{ .Values.agentk.image.repository }}:{{ .Values.agentk.image.tag }}
+          {{ end }}
           imagePullPolicy: {{ .Values.agentk.image.pullPolicy }}
           terminationMessagePolicy: {{ .Values.agentk.terminationMessagePolicy }}
           {{ $kasAddress := replace "gql" "kas" (default "" .Values.consoleUrl) | replace "https" "wss" }}
