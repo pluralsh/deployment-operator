@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -22,6 +23,63 @@ const (
 	testChildName = "child-component"
 )
 
+type CreateComponentOption func(component *client.ComponentChildAttributes)
+
+func WithGroup(group string) CreateComponentOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Group = &group
+	}
+}
+
+func WithVersion(version string) CreateComponentOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Version = version
+	}
+}
+
+func WithKind(kind string) CreateComponentOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Kind = kind
+	}
+}
+
+func WithNamespace(namespace string) CreateComponentOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Namespace = &namespace
+	}
+}
+
+func WithName(name string) CreateComponentOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Name = name
+	}
+}
+
+func WithState(state client.ComponentState) CreateComponentOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.State = &state
+	}
+}
+
+func createComponent(uid string, parentUID *string, option ...CreateComponentOption) client.ComponentChildAttributes {
+	result := client.ComponentChildAttributes{
+		UID:       uid,
+		ParentUID: parentUID,
+		Group:     lo.ToPtr(testGroup),
+		Version:   testVersion,
+		Kind:      testKind,
+		Namespace: lo.ToPtr(testNamespace),
+		Name:      testName,
+		State:     lo.ToPtr(client.ComponentStateRunning),
+	}
+
+	for _, opt := range option {
+		opt(&result)
+	}
+
+	return result
+}
+
 func TestComponentCache(t *testing.T) {
 	t.Run("cache should initialize", func(t *testing.T) {
 		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
@@ -33,33 +91,12 @@ func TestComponentCache(t *testing.T) {
 		defer db.GetComponentCache().Close()
 
 		uid := testUID
-		state := client.ComponentState("Healthy")
-		group := testGroup
-		namespace := testNamespace
 
-		component := client.ComponentChildAttributes{
-			UID:       uid,
-			ParentUID: nil,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testName,
-			State:     &state,
-		}
+		component := createComponent(uid, nil)
 		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
-		childComponent := client.ComponentChildAttributes{
-			UID:       testChildUID,
-			ParentUID: &uid,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		childComponent := createComponent(testChildUID, &uid)
 		err = db.GetComponentCache().Set(childComponent)
 		require.NoError(t, err)
 
@@ -74,96 +111,39 @@ func TestComponentCache(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
-		state := client.ComponentState("Healthy")
-		group := testGroup
-		namespace := testNamespace
-
 		// Root
 		rootUID := "root-uid"
-		component := client.ComponentChildAttributes{
-			UID:       rootUID,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testName,
-			State:     &state,
-		}
+		component := createComponent(rootUID, nil)
 		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 1
 		uid1 := "uid-1"
-		component = client.ComponentChildAttributes{
-			UID:       uid1,
-			ParentUID: &rootUID,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid1, &rootUID)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 2
 		uid2 := "uid-2"
-		component = client.ComponentChildAttributes{
-			UID:       uid2,
-			ParentUID: &uid1,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid2, &uid1)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 3
 		uid3 := "uid-3"
-		component = client.ComponentChildAttributes{
-			UID:       uid3,
-			ParentUID: &uid2,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid3, &uid2)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 4
 		uid4 := "uid-4"
-		component = client.ComponentChildAttributes{
-			UID:       uid4,
-			ParentUID: &uid3,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid4, &uid3)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 5
 		uid5 := "uid-5"
-		component = client.ComponentChildAttributes{
-			UID:       uid5,
-			ParentUID: &uid4,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid5, &uid4)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -172,114 +152,48 @@ func TestComponentCache(t *testing.T) {
 		require.Len(t, children, 4)
 	})
 
-	t.Run("cache should save and return multi-level structure", func(t *testing.T) {
+	t.Run("cache should save and return multi-level structure with multiple children", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
-		state := client.ComponentState("Healthy")
-		group := testGroup
-		namespace := testNamespace
-
 		// Root
 		rootUID := testUID
-		component := client.ComponentChildAttributes{
-			UID:       rootUID,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testName,
-			State:     &state,
-		}
+		component := createComponent(rootUID, nil)
 		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 1
 		uid1 := "uid-1"
-		component = client.ComponentChildAttributes{
-			UID:       uid1,
-			ParentUID: &rootUID,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid1, &rootUID)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 2
 		uid2 := "uid-2"
-		component = client.ComponentChildAttributes{
-			UID:       uid2,
-			ParentUID: &uid1,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid2, &uid1)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 3
 		uid3 := "uid-3"
-		component = client.ComponentChildAttributes{
-			UID:       uid3,
-			ParentUID: &uid2,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid3, &uid2)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 4
 		uid4 := "uid-4"
-		component = client.ComponentChildAttributes{
-			UID:       uid4,
-			ParentUID: &uid3,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid4, &uid3)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		uid44 := "uid-44"
-		component = client.ComponentChildAttributes{
-			UID:       uid44,
-			ParentUID: &uid3,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid44, &uid3)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		// Level 5
 		uid5 := "uid-5"
-		component = client.ComponentChildAttributes{
-			UID:       uid5,
-			ParentUID: &uid4,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		component = createComponent(uid5, &uid4)
 		err = db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
@@ -288,52 +202,21 @@ func TestComponentCache(t *testing.T) {
 		require.Len(t, children, 5)
 	})
 
-	t.Run("cache should support cascade deletion", func(t *testing.T) {
+	t.Run("cache should support basic cascade deletion", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
 		uid := testUID
-		state := client.ComponentState("Healthy")
-		group := testGroup
-		namespace := testNamespace
-
-		component := client.ComponentChildAttributes{
-			UID:       uid,
-			ParentUID: nil,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testName,
-			State:     &state,
-		}
+		component := createComponent(uid, nil)
 		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		childUid := "child-uid"
-		childComponent := client.ComponentChildAttributes{
-			UID:       childUid,
-			ParentUID: &uid,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		childComponent := createComponent(childUid, &uid)
 		err = db.GetComponentCache().Set(childComponent)
 		require.NoError(t, err)
 
-		grandchildComponent := client.ComponentChildAttributes{
-			UID:       "grandchild-uid",
-			ParentUID: &childUid,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		grandchildComponent := createComponent("grandchild-uid", &childUid)
 		err = db.GetComponentCache().Set(grandchildComponent)
 		require.NoError(t, err)
 
@@ -349,66 +232,26 @@ func TestComponentCache(t *testing.T) {
 		require.Len(t, children, 0)
 	})
 
-	t.Run("cache should support cascade deletion", func(t *testing.T) {
+	t.Run("cache should support multi-level cascade deletion", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
 		uid := testUID
-		state := client.ComponentState("Healthy")
-		group := testGroup
-		namespace := testNamespace
-
-		component := client.ComponentChildAttributes{
-			UID:       uid,
-			ParentUID: nil,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testName,
-			State:     &state,
-		}
+		component := createComponent(uid, nil)
 		err := db.GetComponentCache().Set(component)
 		require.NoError(t, err)
 
 		childUid := "child-uid"
-		childComponent := client.ComponentChildAttributes{
-			UID:       childUid,
-			ParentUID: &uid,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		childComponent := createComponent(childUid, &uid)
 		err = db.GetComponentCache().Set(childComponent)
 		require.NoError(t, err)
 
-		grandchildComponent := client.ComponentChildAttributes{
-			UID:       "grandchild-uid",
-			ParentUID: &childUid,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		grandchildComponent := createComponent("grandchild-uid", &childUid)
 		err = db.GetComponentCache().Set(grandchildComponent)
 		require.NoError(t, err)
 
 		child2Uid := "child2-uid"
-		child2Component := client.ComponentChildAttributes{
-			UID:       child2Uid,
-			ParentUID: &uid,
-			Group:     &group,
-			Version:   testVersion,
-			Kind:      testKind,
-			Namespace: &namespace,
-			Name:      testChildName,
-			State:     &state,
-		}
+		child2Component := createComponent(child2Uid, &uid)
 		err = db.GetComponentCache().Set(child2Component)
 		require.NoError(t, err)
 
@@ -422,5 +265,47 @@ func TestComponentCache(t *testing.T) {
 		children, err = db.GetComponentCache().Children(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 1)
+	})
+
+	t.Run("cache should correctly store and return group", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		group := testGroup
+
+		uid := testUID
+		component := createComponent(uid, nil)
+		err := db.GetComponentCache().Set(component)
+		require.NoError(t, err)
+
+		child := createComponent(testChildUID, &uid, WithGroup(group))
+		err = db.GetComponentCache().Set(child)
+		require.NoError(t, err)
+
+		children, err := db.GetComponentCache().Children(uid)
+		require.NoError(t, err)
+		require.Len(t, children, 1)
+		require.Equal(t, group, *children[0].Group)
+
+		// Test empty group
+		emptyGroup := ""
+		child.Group = &emptyGroup
+		err = db.GetComponentCache().Set(child)
+		require.NoError(t, err)
+
+		children, err = db.GetComponentCache().Children(uid)
+		require.NoError(t, err)
+		require.Len(t, children, 1)
+		require.Nil(t, children[0].Group)
+
+		// Test nil group
+		child.Group = nil
+		err = db.GetComponentCache().Set(child)
+		require.NoError(t, err)
+
+		children, err = db.GetComponentCache().Children(uid)
+		require.NoError(t, err)
+		require.Len(t, children, 1)
+		require.Nil(t, children[0].Group)
 	})
 }
