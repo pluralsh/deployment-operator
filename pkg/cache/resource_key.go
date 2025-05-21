@@ -3,10 +3,12 @@ package cache
 import (
 	"slices"
 
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/object"
 )
 
@@ -67,4 +69,19 @@ func ResourceKeyFromUnstructured(obj *unstructured.Unstructured) ResourceKey {
 func ResourceKeyFromString(key string) (ResourceKey, error) {
 	objMetadata, err := object.ParseObjMetadata(key)
 	return ResourceKey(objMetadata), err
+}
+
+func ResourceKeyFromComponentAttributes(attributes *console.ComponentAttributes) ResourceKey {
+	if attributes == nil {
+		return ResourceKey(object.NilObjMetadata)
+	}
+
+	return ResourceKey(object.ObjMetadata{
+		Name:      attributes.Name,
+		Namespace: attributes.Namespace,
+		GroupKind: schema.GroupKind{
+			Group: attributes.Group,
+			Kind:  attributes.Kind,
+		},
+	})
 }

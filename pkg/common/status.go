@@ -6,7 +6,6 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
-	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -14,6 +13,9 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
+
+	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 )
 
 const (
@@ -52,6 +54,43 @@ type Progress struct {
 	PingTime     time.Time
 }
 
+func SyncComponentChildAttributes(u *unstructured.Unstructured) {
+	if u.GetDeletionTimestamp() != nil {
+		_ = db.GetComponentCache().Delete(string(u.GetUID()))
+		return
+	}
+
+	ownerRefs := u.GetOwnerReferences()
+	var ownerRef *string
+	if len(ownerRefs) > 0 {
+		ownerRef = lo.ToPtr(string(ownerRefs[0].UID))
+		for _, ref := range ownerRefs {
+			if ref.Controller != nil && *ref.Controller {
+				ownerRef = lo.ToPtr(string(ref.UID))
+				break
+			}
+		}
+	}
+
+	// Ignore pod relationships and not save
+	// them in the component cache
+	gvk := u.GroupVersionKind()
+	if gvk.Kind == PodKind {
+		return
+	}
+
+	_ = db.GetComponentCache().Set(console.ComponentChildAttributes{
+		UID:       string(u.GetUID()),
+		Name:      u.GetName(),
+		Namespace: lo.ToPtr(u.GetNamespace()),
+		Group:     lo.ToPtr(gvk.Group),
+		Version:   gvk.Version,
+		Kind:      gvk.Kind,
+		State:     ToStatus(u),
+		ParentUID: ownerRef,
+	})
+}
+
 func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {
 		return nil
@@ -75,7 +114,9 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 			synced = true
 		}
 	}
+
 	return &console.ComponentAttributes{
+		UID:       lo.ToPtr(string(e.Resource.GetUID())),
 		Group:     gvk.Group,
 		Kind:      gvk.Kind,
 		Namespace: e.Resource.GetNamespace(),

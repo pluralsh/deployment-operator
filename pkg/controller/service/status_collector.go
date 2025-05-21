@@ -14,6 +14,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
@@ -82,6 +83,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 	}
 
 	return &console.ComponentAttributes{
+		UID:       lo.ToPtr(string(e.Resource.GetUID())),
 		Group:     gvk.Group,
 		Kind:      gvk.Kind,
 		Namespace: e.Resource.GetNamespace(),
@@ -133,6 +135,24 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[sche
 			e.Version = v
 		}
 		components = append(components, e)
+	}
+
+	// Augment components with children
+	for i := range components {
+		c := components[i]
+		resourceKey := cache.ResourceKeyFromComponentAttributes(c)
+		entry, exists := cache.GetResourceCache().GetCacheEntry(resourceKey.ObjectIdentifier())
+		if !exists {
+			continue
+		}
+
+		children, err := db.GetComponentCache().Children(entry.GetUID())
+		if err != nil {
+			klog.ErrorS(err, "failed to get children for component", "component", c.Name)
+			continue
+		}
+
+		components[i].Children = lo.ToSlicePtr(children)
 	}
 
 	return components

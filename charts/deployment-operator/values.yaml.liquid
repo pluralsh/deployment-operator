@@ -12,6 +12,11 @@ image:
   tag: {{ configuration.tag }}
 {% endif %}
 
+{% if configuration.registry %}
+global:
+  registry: {{ configuration.registry }}
+{% endif %}
+
 agentk:
   config:
     kasAddress: {{ configuration.kasAddress }}

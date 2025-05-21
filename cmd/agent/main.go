@@ -26,6 +26,7 @@ import (
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/scraper"
@@ -101,6 +102,7 @@ func main() {
 	// Start resource cache in background if enabled.
 	if args.ResourceCacheEnabled() {
 		cache.Init(ctx, config, args.ResourceCacheTTL())
+		db.Init()
 	}
 
 	// Start the discovery cache in background.
