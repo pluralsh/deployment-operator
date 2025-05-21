@@ -80,9 +80,9 @@ func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 func (in *Terraform) Modifier(stage console.StepStage) v1.Modifier {
 	switch stage {
 	case console.StepStagePlan:
-		return NewPlanArgsModifier(in.planFileName, in.parallelism, in.refresh)
+		return NewPlanArgsModifier(in.planFileName)
 	case console.StepStageApply:
-		return NewApplyArgsModifier(in.dir, in.planFileName, in.parallelism, in.refresh)
+		return NewApplyArgsModifier(in.dir, in.planFileName)
 	}
 
 	return v1.NewDefaultModifier()
@@ -149,7 +149,7 @@ func (in *Terraform) Scan() ([]*console.StackPolicyViolationAttributes, error) {
 func (in *Terraform) plan() (string, error) {
 	output, err := exec.NewExecutable(
 		"terraform",
-		exec.WithArgs([]string{"show", in.planFileName, fmt.Sprintf("-parallelism=%d", *in.parallelism), fmt.Sprintf("-refresh=%t", *in.refresh)}),
+		exec.WithArgs([]string{"show", in.planFileName}),
 		exec.WithDir(in.dir),
 	).RunWithOutput(context.Background())
 	if err != nil {
