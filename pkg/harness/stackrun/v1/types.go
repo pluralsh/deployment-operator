@@ -32,6 +32,9 @@ type StackRun struct {
 	Steps       []*gqlclient.RunStepFragment
 	Files       []*gqlclient.StackFileFragment
 	Environment []*gqlclient.StackEnvironmentFragment
+
+	Parallelism *int64
+	Refresh     *bool
 }
 
 func (in *StackRun) MaxSeverity() int {
@@ -43,7 +46,7 @@ func (in *StackRun) MaxSeverity() int {
 }
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
-	return &StackRun{
+	run := &StackRun{
 		ID:           fragment.ID,
 		Status:       fragment.Status,
 		Type:         fragment.Type,
@@ -61,6 +64,13 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		PolicyEngine: fragment.PolicyEngine,
 		DryRun:       fragment.DryRun,
 	}
+
+	if tf := fragment.Configuration.Terraform; tf != nil {
+		run.Parallelism = tf.Parallelism
+		run.Refresh = tf.Refresh
+	}
+
+	return run
 }
 
 // Env parses the StackRun.Environment as a list of strings.
@@ -77,7 +87,16 @@ func (in *StackRun) Env() []string {
 		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_URL=%s", lo.FromPtr(in.Creds.URL)))
 	}
 
-	return env
+	var tfArgs []string
+	if in.Parallelism != nil {
+		tfArgs = append(tfArgs, fmt.Sprintf("-parallelism=%d", *in.Parallelism))
+	}
+
+	if in.Refresh != nil {
+		tfArgs = append(tfArgs, fmt.Sprintf("-refresh=%t", *in.Refresh))
+	}
+
+	return append(env, tfArgs...)
 }
 
 // Vars parses the StackRun.Variables map as a valid JSON.
