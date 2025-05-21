@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
@@ -106,6 +107,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 
 		It("should successfully create resource cache", func() {
 			Init(ctx, cfg, 100*time.Second)
+			db.Init()
 			toAdd := containers.NewSet[ResourceKey]()
 
 			// register resource and watch for changes
@@ -131,6 +133,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 
 		It("should successfully watch CRD object", func() {
 			Init(ctx, cfg, 100*time.Second)
+			db.Init()
 			toAdd := containers.NewSet[ResourceKey]()
 
 			err = applyYamlFile(ctx, kClient, "../../config/crd/bases/deployments.plural.sh_customhealths.yaml")

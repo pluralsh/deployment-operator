@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	applyevent "sigs.k8s.io/cli-utils/pkg/apply/event"
@@ -29,6 +30,32 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
+
+var allCoreObjMetadata = containers.ToSet([]ResourceKey{
+	// Core API group ("")
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Service"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "ConfigMap"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Secret"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "PersistentVolumeClaim"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+
+	// Apps group
+	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "Deployment"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "DaemonSet"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "StatefulSet"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "ReplicaSet"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+
+	// Batch group
+	{GroupKind: runtimeschema.GroupKind{Group: "batch", Kind: "Job"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "batch", Kind: "CronJob"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+
+	// RBAC group
+	{GroupKind: runtimeschema.GroupKind{Group: "rbac.authorization.k8s.io", Kind: "Role"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "rbac.authorization.k8s.io", Kind: "ClusterRole"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+
+	// Networking group
+	{GroupKind: runtimeschema.GroupKind{Group: "networking.k8s.io", Kind: "NetworkPolicy"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "networking.k8s.io", Kind: "Ingress"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+})
 
 // ResourceCache is responsible for creating a global resource cache of the
 // inventory items registered via [ResourceCache.Register] method. In particular, it
@@ -100,11 +127,7 @@ func Init(ctx context.Context, config *rest.Config, ttl time.Duration) {
 		UseCustomObjectFilter: true,
 		ObjectFilter:          nil,
 		RESTScopeStrategy:     lo.ToPtr(kwatcher.RESTScopeRoot),
-		Filters: &kwatcher.Filters{
-			Labels: common.ManagedByAgentLabelSelector(),
-			Fields: nil,
-		},
-		ID: "resource-cache",
+		ID:                    "resource-cache",
 	})
 
 	resourceCache = &ResourceCache{
@@ -157,7 +180,7 @@ func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[ResourceK
 		klog.V(4).Info("resource cache not initialized")
 		return
 	}
-
+	inventoryResourceKeys = inventoryResourceKeys.Union(allCoreObjMetadata)
 	toAdd := inventoryResourceKeys.Difference(in.resourceKeySet)
 
 	if len(toAdd) > 0 {
@@ -173,6 +196,7 @@ func (in *ResourceCache) Unregister(inventoryResourceKeys containers.Set[Resourc
 	}
 
 	toRemove := in.resourceKeySet.Difference(inventoryResourceKeys)
+	toRemove = toRemove.Difference(allCoreObjMetadata)
 
 	for key := range toRemove {
 		in.resourceKeySet.Remove(key)
@@ -191,6 +215,7 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
 	if err := sha.SetSHA(*resource, shaType); err == nil {
+		sha.uid = string(resource.GetUID())
 		resourceCache.SetCacheEntry(key, sha)
 	}
 }
@@ -272,6 +297,18 @@ func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
 func (in *ResourceCache) reconcile(e event.Event) {
 	if e.Type != event.ResourceUpdateEvent {
 		return
+	}
+
+	if e.Resource == nil {
+		return
+	}
+	if e.Resource.Resource != nil {
+		common.SyncComponentChildAttributes(e.Resource.Resource)
+
+		labels := e.Resource.Resource.GetLabels()
+		if val, ok := labels[common.ManagedByLabel]; !ok || val != common.AgentLabelValue {
+			return
+		}
 	}
 
 	if !in.shouldCacheResource(e.Resource) {

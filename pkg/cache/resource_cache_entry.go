@@ -1,3 +1,5 @@
+// Package cache provides caching mechanisms for storing and managing resource states,
+// including their SHAs and status information from different stages of deployment.
 package cache
 
 import (
@@ -18,8 +20,13 @@ const (
 )
 
 // ResourceCacheEntry contains latest SHAs for a single resource from multiple stages
-// as well as the last seen status of the resource.
+// as well as the last seen status of the resource. It tracks different types of SHAs:
+// manifest SHA from the repository, apply SHA post-server-side apply, and server SHA from resource watch.
+// This allows for drift detection and state management of Kubernetes resources.
 type ResourceCacheEntry struct {
+	// uid is a k8s resource UID
+	uid string
+
 	// manifestSHA is SHA of the resource manifest from the repository.
 	manifestSHA *string
 
@@ -33,6 +40,12 @@ type ResourceCacheEntry struct {
 
 	// status is a simplified Console structure containing last seen status of cache resource.
 	status *console.ComponentAttributes
+}
+
+// GetUID returns the Kubernetes resource UID pointer stored in the cache entry.
+// The UID uniquely identifies the resource within the Kubernetes cluster.
+func (in *ResourceCacheEntry) GetUID() string {
+	return in.uid
 }
 
 // Expire implements [Expirable] interface.
@@ -61,7 +74,8 @@ func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType
 	return nil
 }
 
-// SetManifestSHA updates manifest SHA.
+// SetManifestSHA updates the manifest SHA stored in the cache entry.
+// The manifest SHA represents the hash of the resource manifest from the repository.
 func (in *ResourceCacheEntry) SetManifestSHA(manifestSHA string) {
 	in.manifestSHA = &manifestSHA
 }

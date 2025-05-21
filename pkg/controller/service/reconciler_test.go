@@ -12,17 +12,20 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("Reconciler", Ordered, func() {
 	Context("When reconciling a resource", func() {
+		db.Init()
 		const (
 			namespace         = "default"
 			serviceId         = "1"
