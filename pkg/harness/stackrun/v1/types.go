@@ -46,6 +46,13 @@ func (in *StackRun) MaxSeverity() int {
 }
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
+	var parallelism *int64
+	var refresh bool
+
+	if tf := fragment.Configuration.Terraform; tf != nil {
+		parallelism = tf.Parallelism
+		refresh = tf.Refresh != nil && *tf.Refresh
+	}
 	return &StackRun{
 		ID:           fragment.ID,
 		Status:       fragment.Status,
@@ -63,8 +70,8 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		Variables:    fragment.Variables,
 		PolicyEngine: fragment.PolicyEngine,
 		DryRun:       fragment.DryRun,
-		Parallelism:  fragment.Configuration.Terraform.Parallelism,
-		Refresh:      fragment.Configuration.Terraform.Refresh != nil && *fragment.Configuration.Terraform.Refresh,
+		Parallelism:  parallelism,
+		Refresh:      refresh,
 	}
 }
 
@@ -77,19 +84,17 @@ func (in *StackRun) Env() []string {
 		env[i] = fmt.Sprintf("%s=%s", e.Name, e.Value)
 	}
 
-	var tfArgs []string
 	if in.Creds != nil {
-		tfArgs = append(tfArgs, fmt.Sprintf("TF_CLI_ARGS=%s", lo.FromPtr(in.Creds.Token)))
+		env = append(env, fmt.Sprintf("PLURAL_ACCESS_TOKEN=%s", lo.FromPtr(in.Creds.Token)))
 		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_URL=%s", lo.FromPtr(in.Creds.URL)))
 	}
 
+	var tfArgs []string
 	if in.Parallelism != nil {
 		tfArgs = append(tfArgs, fmt.Sprintf("-parallelism=%d", *in.Parallelism))
-		env = append(env, fmt.Sprintf("PARALLELISM=%d", *in.Parallelism))
 	}
 
 	tfArgs = append(tfArgs, fmt.Sprintf("-refresh=%t", in.Refresh))
-	env = append(env, fmt.Sprintf("REFRESH=%t", in.Refresh))
 
 	return append(env, tfArgs...)
 }
