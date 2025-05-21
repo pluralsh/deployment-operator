@@ -46,14 +46,7 @@ func (in *StackRun) MaxSeverity() int {
 }
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
-	var parallelism *int64
-	var refresh *bool
-
-	if tf := fragment.Configuration.Terraform; tf != nil {
-		parallelism = tf.Parallelism
-		refresh = tf.Refresh
-	}
-	return &StackRun{
+	run := &StackRun{
 		ID:           fragment.ID,
 		Status:       fragment.Status,
 		Type:         fragment.Type,
@@ -70,9 +63,14 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		Variables:    fragment.Variables,
 		PolicyEngine: fragment.PolicyEngine,
 		DryRun:       fragment.DryRun,
-		Parallelism:  parallelism,
-		Refresh:      refresh,
 	}
+
+	if tf := fragment.Configuration.Terraform; tf != nil {
+		run.Parallelism = tf.Parallelism
+		run.Refresh = tf.Refresh
+	}
+
+	return run
 }
 
 // Env parses the StackRun.Environment as a list of strings.
