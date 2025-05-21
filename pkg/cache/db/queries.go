@@ -6,11 +6,11 @@ const (
 			id INTEGER PRIMARY KEY,
 			parent_uid TEXT,
 			uid TEXT UNIQUE,
-			'group' TEXT,
+			"group" TEXT,
 			version TEXT,
 			kind TEXT, 
 			namespace TEXT,
-			'name' TEXT,
+			name TEXT,
 			health INT,
 			FOREIGN KEY(parent_uid) REFERENCES Component(uid)
 		);
@@ -39,7 +39,7 @@ const (
 			?
 		) ON CONFLICT(uid) DO UPDATE SET
 			parent_uid = excluded.parent_uid,
-			'group' = excluded.'group',
+			"group" = excluded."group",
 			version = excluded.version,
 			kind = excluded.kind,
 			namespace = excluded.namespace,
@@ -49,18 +49,18 @@ const (
 
 	componentChildren = `
 		WITH RECURSIVE descendants AS (
-			SELECT uid, 'group', version, kind, namespace, name, health, parent_uid, 1 as level
+			SELECT uid, "group", version, kind, namespace, name, health, parent_uid, 1 as level
 			FROM Component 
 			WHERE parent_uid = ?
 			
 			UNION ALL
 			
-			SELECT c.uid, c.'group', c.version, c.kind, c.namespace, c.name, c.health, c.parent_uid, d.level + 1
+			SELECT c.uid, c."group", c.version, c.kind, c.namespace, c.name, c.health, c.parent_uid, d.level + 1
 			FROM descendants d
 			JOIN Component c ON c.parent_uid = d.uid
 			WHERE d.level < 4
 		)
-		SELECT uid, 'group', version, kind, namespace, name, health, parent_uid
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM descendants
 	`
 )
