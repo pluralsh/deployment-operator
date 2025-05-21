@@ -3,7 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -26,6 +28,7 @@ import (
 const (
 	missingLabelError    = "missing label while attempting to map a constraint status resource"
 	bundleDataAnnotation = "policy.plural.sh/constraintData"
+	constraintChunkSize  = 15
 )
 
 type BundleData struct {
@@ -89,11 +92,15 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	logger.Info("recording constraint", "name", pca.Name)
 	r.Constraints[pca.Name] = *pca
-	res, err := r.ConsoleClient.UpsertConstraints(algorithms.MapValues[string, console.PolicyConstraintAttributes](r.Constraints))
-	if err != nil {
-		return ctrl.Result{}, err
+
+	for _, chunk := range lo.Chunk(algorithms.MapValues[string, console.PolicyConstraintAttributes](r.Constraints), constraintChunkSize) {
+		res, err := r.ConsoleClient.UpsertConstraints(chunk)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		logger.Info("upsert constraint", "number", *res.UpsertPolicyConstraints)
+		time.Sleep(time.Duration(rand.Int63n(int64(500 * time.Millisecond))))
 	}
-	logger.Info("upsert constraint", "number", *res.UpsertPolicyConstraints)
 	return ctrl.Result{}, nil
 }
 
