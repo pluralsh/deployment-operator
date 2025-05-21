@@ -95,7 +95,7 @@ func (in *StackRun) Env() []string {
 	}
 
 	if in.Refresh != nil {
-		tfArgs = append(tfArgs, fmt.Sprintf("-refresh=%t", in.Refresh))
+		tfArgs = append(tfArgs, fmt.Sprintf("-refresh=%t", *in.Refresh))
 	}
 
 	return append(env, tfArgs...)
