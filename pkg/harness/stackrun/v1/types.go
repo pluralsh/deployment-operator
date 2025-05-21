@@ -34,7 +34,7 @@ type StackRun struct {
 	Environment []*gqlclient.StackEnvironmentFragment
 
 	Parallelism *int64
-	Refresh     bool
+	Refresh     *bool
 }
 
 func (in *StackRun) MaxSeverity() int {
@@ -47,11 +47,11 @@ func (in *StackRun) MaxSeverity() int {
 
 func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFragment) *StackRun {
 	var parallelism *int64
-	var refresh bool
+	var refresh *bool
 
 	if tf := fragment.Configuration.Terraform; tf != nil {
 		parallelism = tf.Parallelism
-		refresh = tf.Refresh != nil && *tf.Refresh
+		refresh = tf.Refresh
 	}
 	return &StackRun{
 		ID:           fragment.ID,
@@ -94,7 +94,9 @@ func (in *StackRun) Env() []string {
 		tfArgs = append(tfArgs, fmt.Sprintf("-parallelism=%d", *in.Parallelism))
 	}
 
-	tfArgs = append(tfArgs, fmt.Sprintf("-refresh=%t", in.Refresh))
+	if in.Refresh != nil {
+		tfArgs = append(tfArgs, fmt.Sprintf("-refresh=%t", in.Refresh))
+	}
 
 	return append(env, tfArgs...)
 }
