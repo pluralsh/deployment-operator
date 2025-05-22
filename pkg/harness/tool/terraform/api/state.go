@@ -29,10 +29,10 @@ func ResourceConfiguration(resource *tfjson.StateResource) string {
 	return string(attributeValuesString)
 }
 
-func ResourceSensitiveValues(resource *tfjson.StateResource) (map[string]any, error) {
-	sensitiveValues := make(map[string]interface{})
-	err := json.Unmarshal(resource.SensitiveValues, &sensitiveValues)
-	return sensitiveValues, err
+func ResourceSensitiveValues(resource *tfjson.StateResource) map[string]any {
+	sensitiveValues := make(map[string]any)
+	_ = json.Unmarshal(resource.SensitiveValues, &sensitiveValues)
+	return sensitiveValues
 }
 
 func ResourceLinks(resource *tfjson.StateResource) []string {

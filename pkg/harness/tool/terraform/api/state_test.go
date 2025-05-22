@@ -34,8 +34,7 @@ func TestParseStateFile(t *testing.T) {
 
 		assert.Equal(t, len(state.Values.RootModule.Resources), 1)
 
-		sensitiveValues, err := api.ResourceSensitiveValues(state.Values.RootModule.Resources[0])
-		assert.NoError(t, err)
+		sensitiveValues := api.ResourceSensitiveValues(state.Values.RootModule.Resources[0])
 		assert.Equal(t, 1, len(sensitiveValues))
 		assert.Contains(t, sensitiveValues, "kubeconfig")
 		assert.Contains(t, sensitiveValues["kubeconfig"], "client_key")
