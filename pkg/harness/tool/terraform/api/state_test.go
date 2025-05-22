@@ -53,6 +53,8 @@ func TestParseStateFile(t *testing.T) {
 		assert.Equal(t, len(state.Values.RootModule.Resources), 1)
 
 		configuration := api.ResourceConfiguration(state.Values.RootModule.Resources[0])
+		assert.Contains(t, configuration, "host")
+		assert.Contains(t, configuration, "username")
 		assert.NotContains(t, configuration, "client_key")
 		assert.NotContains(t, configuration, "password")
 		assert.NotContains(t, configuration, "token")
