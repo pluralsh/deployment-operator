@@ -7,6 +7,7 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog/v2"
 )
 
@@ -25,11 +26,7 @@ func OutputValueString(value interface{}) string {
 }
 
 func excludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) map[string]any {
-	out := make(map[string]interface{})
-	for k, v := range values {
-		out[k] = v
-	}
-
+	out := maps.Clone(values)
 	for k, v := range sensitiveValues {
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
