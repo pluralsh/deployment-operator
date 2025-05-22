@@ -24,6 +24,25 @@ func TestParseStateFile(t *testing.T) {
 		assert.Equal(t, "1.11.4", state.TerraformVersion)
 	})
 
+	t.Run("should parse valid state file and read sensitive values", func(t *testing.T) {
+		data, err := os.ReadFile("./state.json")
+		assert.NoError(t, err)
+
+		var state tfjson.State
+		err = state.UnmarshalJSON(data)
+		assert.NoError(t, err)
+
+		assert.Equal(t, len(state.Values.RootModule.Resources), 1)
+
+		sensitiveValues, err := api.ResourceSensitiveValues(state.Values.RootModule.Resources[0])
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(sensitiveValues))
+		assert.Contains(t, sensitiveValues, "kubeconfig")
+		assert.Contains(t, sensitiveValues["kubeconfig"], "client_key")
+		assert.Contains(t, sensitiveValues["kubeconfig"], "password")
+		assert.Contains(t, sensitiveValues["kubeconfig"], "token")
+	})
+
 	t.Run("should parse valid state file and filter out sensitive values", func(t *testing.T) {
 		data, err := os.ReadFile("./state.json")
 		assert.NoError(t, err)
