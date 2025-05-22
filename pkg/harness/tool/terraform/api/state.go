@@ -24,8 +24,34 @@ func OutputValueString(value interface{}) string {
 	return string(result)
 }
 
+func excludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) map[string]any {
+	out := make(map[string]interface{})
+	for k, v := range values {
+		out[k] = v
+	}
+
+	for k, v := range sensitiveValues {
+		if v, ok := v.(map[string]interface{}); ok {
+			if bv, ok := out[k]; ok {
+				if bv, ok := bv.(map[string]interface{}); ok {
+					out[k] = excludeSensitiveValues(bv, v)
+					continue
+				}
+			}
+		}
+
+		if v, ok := v.(bool); ok && v {
+			delete(out, k)
+		}
+	}
+	return out
+}
+
 func ResourceConfiguration(resource *tfjson.StateResource) string {
-	attributeValuesString, _ := json.Marshal(resource.AttributeValues)
+	values := resource.AttributeValues
+	sensitiveValues := ResourceSensitiveValues(resource)
+	resultValues := excludeSensitiveValues(values, sensitiveValues)
+	attributeValuesString, _ := json.Marshal(resultValues)
 	return string(attributeValuesString)
 }
 
