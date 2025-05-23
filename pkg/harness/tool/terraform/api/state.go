@@ -7,7 +7,6 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
-	"golang.org/x/exp/maps"
 	"k8s.io/klog/v2"
 )
 
@@ -25,13 +24,26 @@ func OutputValueString(value interface{}) string {
 	return string(result)
 }
 
-func excludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) map[string]any {
-	out := maps.Clone(values)
+func cloneMap(m map[string]any) map[string]any {
+	result := make(map[string]any)
+	for k, v := range m {
+		switch val := v.(type) {
+		case map[string]any:
+			result[k] = cloneMap(val)
+		default:
+			result[k] = v
+		}
+	}
+	return result
+}
+
+func ExcludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) map[string]any {
+	out := cloneMap(values)
 	for k, v := range sensitiveValues {
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = excludeSensitiveValues(bv, v)
+					out[k] = ExcludeSensitiveValues(bv, v)
 					continue
 				}
 			}
@@ -47,7 +59,7 @@ func excludeSensitiveValues(values map[string]any, sensitiveValues map[string]an
 func ResourceConfiguration(resource *tfjson.StateResource) string {
 	values := resource.AttributeValues
 	sensitiveValues := ResourceSensitiveValues(resource)
-	resultValues := excludeSensitiveValues(values, sensitiveValues)
+	resultValues := ExcludeSensitiveValues(values, sensitiveValues)
 	attributeValuesString, _ := json.Marshal(resultValues)
 	return string(attributeValuesString)
 }
