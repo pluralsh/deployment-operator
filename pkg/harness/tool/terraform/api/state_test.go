@@ -102,6 +102,76 @@ func TestExcludeSensitiveValues(t *testing.T) {
 			},
 		}, result)
 	})
+
+	t.Run("should handle array values", func(t *testing.T) {
+		values := map[string]any{
+			"public":  []string{"one", "two"},
+			"private": []string{"secret1", "secret2"},
+		}
+		sensitiveValues := map[string]any{
+			"private": true,
+		}
+		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		assert.Equal(t, map[string]any{
+			"public": []string{"one", "two"},
+		}, result)
+	})
+
+	t.Run("should handle multiple nested levels", func(t *testing.T) {
+		values := map[string]any{
+			"level1": map[string]any{
+				"level2": map[string]any{
+					"level3": map[string]any{
+						"public":  "value",
+						"private": "secret",
+					},
+				},
+			},
+		}
+		sensitiveValues := map[string]any{
+			"level1": map[string]any{
+				"level2": map[string]any{
+					"level3": map[string]any{
+						"private": true,
+					},
+				},
+			},
+		}
+		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		assert.Equal(t, map[string]any{
+			"level1": map[string]any{
+				"level2": map[string]any{
+					"level3": map[string]any{
+						"public": "value",
+					},
+				},
+			},
+		}, result)
+	})
+
+	t.Run("should handle mixed sensitive value types", func(t *testing.T) {
+		values := map[string]any{
+			"public": "value",
+			"nested": map[string]any{
+				"array":   []string{"one", "two"},
+				"private": "secret",
+			},
+			"sensitive_array": []string{"secret1", "secret2"},
+		}
+		sensitiveValues := map[string]any{
+			"nested": map[string]any{
+				"private": true,
+			},
+			"sensitive_array": true,
+		}
+		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		assert.Equal(t, map[string]any{
+			"public": "value",
+			"nested": map[string]any{
+				"array": []string{"one", "two"},
+			},
+		}, result)
+	})
 }
 
 func TestToStackStateResourceAttributes(t *testing.T) {
