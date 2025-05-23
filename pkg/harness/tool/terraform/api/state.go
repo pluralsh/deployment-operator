@@ -37,18 +37,19 @@ func CloneMap(m map[string]any) map[string]any {
 
 func ExcludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) map[string]any {
 	out := CloneMap(values)
-	for k, v := range sensitiveValues {
-		if v, ok := v.(map[string]any); ok {
-			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]any); ok {
-					out[k] = ExcludeSensitiveValues(bv, v)
+	for key, sensitiveValue := range sensitiveValues {
+		switch typedSensitiveValue := sensitiveValue.(type) {
+		case map[string]any:
+			if outValue, ok := out[key]; ok {
+				if typedOutValue, ok := outValue.(map[string]any); ok {
+					out[key] = ExcludeSensitiveValues(typedOutValue, typedSensitiveValue)
 					continue
 				}
 			}
-		}
-
-		if v, ok := v.(bool); ok && v {
-			delete(out, k)
+		case bool:
+			if typedSensitiveValue == true {
+				delete(out, key)
+			}
 		}
 	}
 	return out
