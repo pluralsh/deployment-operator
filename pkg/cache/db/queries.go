@@ -64,5 +64,5 @@ const (
 		FROM descendants
 	`
 
-	healthyComponentsRatio = `SELECT AVG(health = 0) as ratio FROM Component`
+	healthyComponentsRatio = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as ratio FROM Component`
 )
