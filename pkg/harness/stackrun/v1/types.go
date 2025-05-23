@@ -87,16 +87,16 @@ func (in *StackRun) Env() []string {
 		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_URL=%s", lo.FromPtr(in.Creds.URL)))
 	}
 
-	var tfArgs []string
+	tfArgs := "TF_CLI_ARGS="
 	if in.Parallelism != nil {
-		tfArgs = append(tfArgs, fmt.Sprintf("-parallelism=%d", *in.Parallelism))
+		tfArgs += fmt.Sprintf("-parallelism=%d ", *in.Parallelism)
 	}
 
 	if in.Refresh != nil {
-		tfArgs = append(tfArgs, fmt.Sprintf("-refresh=%t", *in.Refresh))
+		tfArgs += fmt.Sprintf("-refresh=%t", *in.Refresh)
 	}
 
-	return append(env, tfArgs...)
+	return append(env, tfArgs)
 }
 
 // Vars parses the StackRun.Variables map as a valid JSON.
