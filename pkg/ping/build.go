@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/deployment-operator/pkg/scraper"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/version"
@@ -11,11 +12,17 @@ import (
 )
 
 func pingAttributes(info *version.Info, pods []string, minKubeletVersion *string) console.ClusterPing {
+	hs, err := db.GetComponentCache().HealthScore()
+	if err != nil {
+		klog.ErrorS(err, "failed to get health score")
+	}
+
 	vs := strings.Split(info.GitVersion, "-")
 	cp := console.ClusterPing{
 		CurrentVersion: strings.TrimPrefix(vs[0], "v"),
 		Distro:         lo.ToPtr(findDistro(append(pods, info.GitVersion))),
 		KubeletVersion: minKubeletVersion,
+		HealthScore:    &hs,
 	}
 	if scraper.GetAiInsightComponents().IsFresh() {
 		klog.Info("found ", scraper.GetAiInsightComponents().Len(), " fresh AI insight components")
