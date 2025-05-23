@@ -47,7 +47,7 @@ func ExcludeSensitiveValues(values map[string]any, sensitiveValues map[string]an
 				}
 			}
 		case bool:
-			if typedSensitiveValue == true {
+			if typedSensitiveValue {
 				delete(out, key)
 			}
 		}
