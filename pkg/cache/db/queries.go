@@ -63,4 +63,6 @@ const (
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM descendants
 	`
+
+	healthyComponentsRatio = `SELECT AVG(health = 0) as ratio FROM Component`
 )

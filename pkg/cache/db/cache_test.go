@@ -308,4 +308,42 @@ func TestComponentCache(t *testing.T) {
 		require.Len(t, children, 1)
 		require.Nil(t, children[0].Group)
 	})
+
+	t.Run("cache should calculate correct health score", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		uid := testUID
+		component := createComponent(uid, nil, WithState(client.ComponentStateRunning))
+		err := db.GetComponentCache().Set(component)
+		require.NoError(t, err)
+
+		child1 := createComponent("child1", &uid, WithState(client.ComponentStateRunning))
+		err = db.GetComponentCache().Set(child1)
+		require.NoError(t, err)
+
+		child2 := createComponent("child2", &uid, WithState(client.ComponentStateFailed))
+		err = db.GetComponentCache().Set(child2)
+		require.NoError(t, err)
+
+		score, err := db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, 66.66666666666666, score)
+
+		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed))
+		err = db.GetComponentCache().Set(child3)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, float64(50), score)
+
+		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed))
+		err = db.GetComponentCache().Set(child4)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, float64(40), score)
+	})
 }

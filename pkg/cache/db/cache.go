@@ -123,6 +123,27 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	})
 }
 
+// HealthScore returns a percentage of healthy components to total components in the cluster.
+// The percentage is calculated as the number of healthy components divided by the total number of components.
+// Returns a float64 value between 0 and 100, where 100 indicates all components are healthy.
+// Returns an error if the database operation fails or if the connection cannot be established.
+func (in *ComponentCache) HealthScore() (float64, error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	defer in.pool.Put(conn)
+
+	var ratio float64
+	err = sqlitex.ExecuteTransient(conn, healthyComponentsRatio, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			ratio = stmt.ColumnFloat(0)
+			return nil
+		},
+	})
+	return ratio * 100, err
+}
+
 // Delete removes a component from the cache by its unique identifier.
 // It takes a uid string parameter identifying the component to delete.
 // Returns an error if the operation fails or if the connection cannot be established.
