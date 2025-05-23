@@ -1,0 +1,22 @@
+{{ if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "deployment-operator.fullname" . }}-podmonitor
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+spec:
+  podMetricsEndpoints:
+    - port: metrics
+      path: '/metrics'
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "deployment-operator.fullname" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  podTargetLabels:
+    - app.kubernetes.io/name
+    - app.kubernetes.io/instance
+{{ end }}
