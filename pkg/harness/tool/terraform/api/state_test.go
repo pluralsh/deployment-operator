@@ -61,6 +61,56 @@ func TestParseStateFile(t *testing.T) {
 	})
 }
 
+func TestCloneMap(t *testing.T) {
+	t.Run("should handle empty map", func(t *testing.T) {
+		input := map[string]any{}
+		result := api.CloneMap(input)
+		assert.Equal(t, input, result)
+	})
+
+	t.Run("should clone simple map", func(t *testing.T) {
+		input := map[string]any{
+			"key1": "value1",
+			"key2": 42,
+		}
+		result := api.CloneMap(input)
+		assert.Equal(t, input, result)
+	})
+
+	t.Run("should clone nested map", func(t *testing.T) {
+		input := map[string]any{
+			"key1": "value1",
+			"nested": map[string]any{
+				"inner1": "value2",
+				"inner2": 42,
+			},
+		}
+		result := api.CloneMap(input)
+		assert.Equal(t, input, result)
+
+		// Modify original to verify deep copy
+		nested := input["nested"].(map[string]any)
+		nested["inner1"] = "modified"
+		assert.NotEqual(t, input, result)
+	})
+
+	t.Run("should clone map with slice values", func(t *testing.T) {
+		input := map[string]any{
+			"key1": []string{"value1", "value2"},
+			"nested": map[string]any{
+				"inner1": []int{1, 2, 3},
+			},
+		}
+		result := api.CloneMap(input)
+		assert.Equal(t, input, result)
+
+		// Modify original to verify deep copy
+		inputSlice := input["key1"].([]string)
+		inputSlice[0] = "modified"
+		assert.NotEqual(t, input, result)
+	})
+}
+
 func TestExcludeSensitiveValues(t *testing.T) {
 	t.Run("should handle empty maps", func(t *testing.T) {
 		values := map[string]any{}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/mitchellh/copystructure"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
@@ -24,21 +25,16 @@ func OutputValueString(value interface{}) string {
 	return string(result)
 }
 
-func cloneMap(m map[string]any) map[string]any {
-	result := make(map[string]any)
-	for k, v := range m {
-		switch val := v.(type) {
-		case map[string]any:
-			result[k] = cloneMap(val)
-		default:
-			result[k] = v
-		}
+func CloneMap(m map[string]interface{}) map[string]interface{} {
+	c, err := copystructure.Copy(m)
+	if err != nil {
+		return m
 	}
-	return result
+	return c.(map[string]interface{})
 }
 
 func ExcludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) map[string]any {
-	out := cloneMap(values)
+	out := CloneMap(values)
 	for k, v := range sensitiveValues {
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
