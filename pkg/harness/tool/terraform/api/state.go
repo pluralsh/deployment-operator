@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"maps"
 
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/mitchellh/copystructure"
@@ -11,7 +12,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func OutputValueString(value interface{}) string {
+func OutputValueString(value any) string {
 	if v, ok := value.(string); ok {
 		return v
 	}
@@ -25,20 +26,21 @@ func OutputValueString(value interface{}) string {
 	return string(result)
 }
 
-func CloneMap(m map[string]interface{}) map[string]interface{} {
+func CloneMap(m map[string]any) map[string]any {
 	c, err := copystructure.Copy(m)
 	if err != nil {
-		return m
+		return maps.Clone(m) // Return shallow copy if deep copy fails.
 	}
-	return c.(map[string]interface{})
+
+	return c.(map[string]any)
 }
 
 func ExcludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) map[string]any {
 	out := CloneMap(values)
 	for k, v := range sensitiveValues {
-		if v, ok := v.(map[string]interface{}); ok {
+		if v, ok := v.(map[string]any); ok {
 			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
+				if bv, ok := bv.(map[string]any); ok {
 					out[k] = ExcludeSensitiveValues(bv, v)
 					continue
 				}
