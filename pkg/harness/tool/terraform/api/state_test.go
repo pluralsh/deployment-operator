@@ -61,6 +61,49 @@ func TestParseStateFile(t *testing.T) {
 	})
 }
 
+func TestExcludeSensitiveValues(t *testing.T) {
+	t.Run("should handle empty maps", func(t *testing.T) {
+		values := map[string]any{}
+		sensitiveValues := map[string]any{}
+		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		assert.Equal(t, values, result)
+	})
+
+	t.Run("should exclude sensitive values", func(t *testing.T) {
+		values := map[string]any{
+			"public":  "value",
+			"private": "secret",
+		}
+		sensitiveValues := map[string]any{
+			"private": true,
+		}
+		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		assert.Equal(t, map[string]any{"public": "value"}, result)
+	})
+
+	t.Run("should exclude nested sensitive values", func(t *testing.T) {
+		values := map[string]any{
+			"public": "value",
+			"nested": map[string]any{
+				"public":  "value",
+				"private": "secret",
+			},
+		}
+		sensitiveValues := map[string]any{
+			"nested": map[string]any{
+				"private": true,
+			},
+		}
+		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		assert.Equal(t, map[string]any{
+			"public": "value",
+			"nested": map[string]any{
+				"public": "value",
+			},
+		}, result)
+	})
+}
+
 func TestToStackStateResourceAttributes(t *testing.T) {
 	t.Run("should return nil for nil input", func(t *testing.T) {
 		result := api.ToStackStateResourceAttributes(nil)
