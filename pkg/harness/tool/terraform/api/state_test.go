@@ -115,8 +115,8 @@ func TestExcludeSensitiveValues(t *testing.T) {
 	t.Run("should handle empty maps", func(t *testing.T) {
 		values := map[string]any{}
 		sensitiveValues := map[string]any{}
-		result := api.ExcludeSensitiveValues(values, sensitiveValues)
-		assert.Equal(t, values, result)
+		api.ExcludeSensitiveValues(values, sensitiveValues)
+		assert.Equal(t, values, map[string]any{})
 	})
 
 	t.Run("should exclude sensitive values", func(t *testing.T) {
@@ -127,8 +127,8 @@ func TestExcludeSensitiveValues(t *testing.T) {
 		sensitiveValues := map[string]any{
 			"private": true,
 		}
-		result := api.ExcludeSensitiveValues(values, sensitiveValues)
-		assert.Equal(t, map[string]any{"public": "value"}, result)
+		api.ExcludeSensitiveValues(values, sensitiveValues)
+		assert.Equal(t, map[string]any{"public": "value"}, values)
 	})
 
 	t.Run("should exclude nested sensitive values", func(t *testing.T) {
@@ -144,13 +144,13 @@ func TestExcludeSensitiveValues(t *testing.T) {
 				"private": true,
 			},
 		}
-		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		api.ExcludeSensitiveValues(values, sensitiveValues)
 		assert.Equal(t, map[string]any{
 			"public": "value",
 			"nested": map[string]any{
 				"public": "value",
 			},
-		}, result)
+		}, values)
 	})
 
 	t.Run("should handle array values", func(t *testing.T) {
@@ -161,10 +161,10 @@ func TestExcludeSensitiveValues(t *testing.T) {
 		sensitiveValues := map[string]any{
 			"private": true,
 		}
-		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		api.ExcludeSensitiveValues(values, sensitiveValues)
 		assert.Equal(t, map[string]any{
 			"public": []string{"one", "two"},
-		}, result)
+		}, values)
 	})
 
 	t.Run("should handle multiple nested levels", func(t *testing.T) {
@@ -187,7 +187,7 @@ func TestExcludeSensitiveValues(t *testing.T) {
 				},
 			},
 		}
-		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		api.ExcludeSensitiveValues(values, sensitiveValues)
 		assert.Equal(t, map[string]any{
 			"level1": map[string]any{
 				"level2": map[string]any{
@@ -196,7 +196,7 @@ func TestExcludeSensitiveValues(t *testing.T) {
 					},
 				},
 			},
-		}, result)
+		}, values)
 	})
 
 	t.Run("should handle mixed sensitive value types", func(t *testing.T) {
@@ -214,13 +214,13 @@ func TestExcludeSensitiveValues(t *testing.T) {
 			},
 			"sensitive_array": true,
 		}
-		result := api.ExcludeSensitiveValues(values, sensitiveValues)
+		api.ExcludeSensitiveValues(values, sensitiveValues)
 		assert.Equal(t, map[string]any{
 			"public": "value",
 			"nested": map[string]any{
 				"array": []string{"one", "two"},
 			},
-		}, result)
+		}, values)
 	})
 }
 

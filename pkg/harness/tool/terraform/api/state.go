@@ -35,31 +35,28 @@ func CloneMap(m map[string]any) map[string]any {
 	return c.(map[string]any)
 }
 
-func ExcludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) map[string]any {
-	out := CloneMap(values)
+func ExcludeSensitiveValues(values map[string]any, sensitiveValues map[string]any) {
 	for key, sensitiveValue := range sensitiveValues {
 		switch typedSensitiveValue := sensitiveValue.(type) {
 		case map[string]any:
-			if outValue, ok := out[key]; ok {
+			if outValue, ok := values[key]; ok {
 				if typedOutValue, ok := outValue.(map[string]any); ok {
-					out[key] = ExcludeSensitiveValues(typedOutValue, typedSensitiveValue)
+					ExcludeSensitiveValues(typedOutValue, typedSensitiveValue)
 					continue
 				}
 			}
 		case bool:
 			if typedSensitiveValue {
-				delete(out, key)
+				delete(values, key)
 			}
 		}
 	}
-	return out
 }
 
 func ResourceConfiguration(resource *tfjson.StateResource) string {
-	values := resource.AttributeValues
-	sensitiveValues := ResourceSensitiveValues(resource)
-	resultValues := ExcludeSensitiveValues(values, sensitiveValues)
-	attributeValuesString, _ := json.Marshal(resultValues)
+	values := CloneMap(resource.AttributeValues)
+	ExcludeSensitiveValues(values, ResourceSensitiveValues(resource))
+	attributeValuesString, _ := json.Marshal(values)
 	return string(attributeValuesString)
 }
 
