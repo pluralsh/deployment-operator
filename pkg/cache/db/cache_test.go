@@ -328,7 +328,7 @@ func TestComponentCache(t *testing.T) {
 
 		score, err := db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, 66, score)
+		assert.Equal(t, int64(66), score)
 
 		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed))
 		err = db.GetComponentCache().Set(child3)
@@ -336,7 +336,7 @@ func TestComponentCache(t *testing.T) {
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, 50, score)
+		assert.Equal(t, int64(50), score)
 
 		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed))
 		err = db.GetComponentCache().Set(child4)
@@ -344,6 +344,6 @@ func TestComponentCache(t *testing.T) {
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, 40, score)
+		assert.Equal(t, int64(40), score)
 	})
 }

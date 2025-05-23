@@ -127,17 +127,17 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 // The percentage is calculated as the number of healthy components divided by the total number of components.
 // Returns an int value between 0 and 100, where 100 indicates all components are healthy.
 // Returns an error if the database operation fails or if the connection cannot be established.
-func (in *ComponentCache) HealthScore() (int, error) {
+func (in *ComponentCache) HealthScore() (int64, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return 0, err
 	}
 	defer in.pool.Put(conn)
 
-	var ratio int
+	var ratio int64
 	err = sqlitex.ExecuteTransient(conn, healthyComponentsRatio, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			ratio = stmt.ColumnInt(0)
+			ratio = stmt.ColumnInt64(0)
 			return nil
 		},
 	})
