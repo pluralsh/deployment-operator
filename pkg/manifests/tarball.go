@@ -44,11 +44,11 @@ func getReader(url, token string) (io.ReadCloser, error) {
 
 	for i := 0; i < 3; i++ {
 		resp, retriable, err := doRequest(req)
-		if err != nil && !retriable {
-			return nil, err
-		}
-
 		if err != nil {
+			if !retriable {
+				return nil, err
+			}
+
 			time.Sleep(time.Duration(50*(i+1)) * time.Millisecond)
 			continue
 		}
