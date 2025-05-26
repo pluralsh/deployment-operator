@@ -47,7 +47,8 @@ func getReader(url, token string) (io.ReadCloser, error) {
 		if err != nil && !retriable {
 			return nil, err
 		}
-		if err != nil && retriable {
+
+		if err != nil {
 			time.Sleep(time.Duration(50*(i+1)) * time.Millisecond)
 			continue
 		}
