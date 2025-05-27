@@ -20,8 +20,8 @@ import (
 //
 // 1. SetComponent: In-memory is ~60x faster than file-based
 // 2. ComponentChildren: In-memory is ~1.1x faster than file-based
-// 3. Delete: In-memory is ~1.6x faster than file-based
-// 4. SetAndChildren: In-memory is ~3.4x faster than file-based
+// 3. DeleteComponent: In-memory is ~1.6x faster than file-based
+// 4. SetComponentAndComponentChildren AndChildren: In-memory is ~3.4x faster than file-based
 //
 // The performance difference is most significant for write operations (SetComponent)
 // because file-based operations involve disk I/O, which is much slower than memory access.
@@ -161,12 +161,12 @@ func BenchmarkMemoryCache(b *testing.B) {
 		}
 	})
 
-	// Run the Delete benchmark
-	b.Run("Delete", func(b *testing.B) {
+	// Run the DeleteComponent benchmark
+	b.Run("DeleteComponent", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			// Delete a level 1 component (which should cascade to its children)
-			err := cache.Delete("level1-uid-" + string(rune('a'+i%10)))
+			// DeleteComponent a level 1 component (which should cascade to its children)
+			err := cache.DeleteComponent("level1-uid-" + string(rune('a'+i%10)))
 			require.NoError(b, err)
 		}
 	})
@@ -174,8 +174,8 @@ func BenchmarkMemoryCache(b *testing.B) {
 	// Setup test data again for the combined benchmark
 	setupTestData(b, cache)
 
-	// Run the SetAndChildren benchmark
-	b.Run("SetAndChildren", func(b *testing.B) {
+	// Run the SetComponentAndComponentChildren benchmark
+	b.Run("SetComponentAndComponentChildren", func(b *testing.B) {
 		state := client.ComponentState("Healthy")
 		group := testGroup
 		namespace := testNamespace
@@ -264,12 +264,12 @@ func BenchmarkFileCache(b *testing.B) {
 		}
 	})
 
-	// Run the Delete benchmark
-	b.Run("Delete", func(b *testing.B) {
+	// Run the DeleteComponent benchmark
+	b.Run("DeleteComponent", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			// Delete a level 1 component (which should cascade to its children)
-			err := cache.Delete("level1-uid-" + string(rune('a'+i%10)))
+			// DeleteComponent a level 1 component (which should cascade to its children)
+			err := cache.DeleteComponent("level1-uid-" + string(rune('a'+i%10)))
 			require.NoError(b, err)
 		}
 	})

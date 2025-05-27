@@ -74,5 +74,5 @@ const (
 		FROM descendants
 	`
 
-	healthyComponentsRatio = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as ratio FROM Component`
+	clusterHealthScore = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as score FROM Component`
 )

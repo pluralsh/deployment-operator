@@ -56,7 +56,7 @@ type Progress struct {
 
 func SyncComponentChildAttributes(u *unstructured.Unstructured) {
 	if u.GetDeletionTimestamp() != nil {
-		_ = db.GetComponentCache().Delete(string(u.GetUID()))
+		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
 		return
 	}
 

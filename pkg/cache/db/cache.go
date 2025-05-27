@@ -135,7 +135,7 @@ func (in *ComponentCache) ClusterHealthScore() (int64, error) {
 	defer in.pool.Put(conn)
 
 	var ratio int64
-	err = sqlitex.ExecuteTransient(conn, healthyComponentsRatio, &sqlitex.ExecOptions{
+	err = sqlitex.ExecuteTransient(conn, clusterHealthScore, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			ratio = stmt.ColumnInt64(0)
 			return nil
@@ -144,10 +144,10 @@ func (in *ComponentCache) ClusterHealthScore() (int64, error) {
 	return ratio, err
 }
 
-// Delete removes a component from the cache by its unique identifier.
+// DeleteComponent removes a component from the cache by its unique identifier.
 // It takes a uid string parameter identifying the component to delete.
 // Returns an error if the operation fails or if the connection cannot be established.
-func (in *ComponentCache) Delete(uid string) error {
+func (in *ComponentCache) DeleteComponent(uid string) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err

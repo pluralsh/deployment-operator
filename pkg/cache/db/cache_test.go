@@ -224,7 +224,7 @@ func TestComponentCache(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, children, 2)
 
-		err = db.GetComponentCache().Delete(childUid)
+		err = db.GetComponentCache().DeleteComponent(childUid)
 		require.NoError(t, err)
 
 		children, err = db.GetComponentCache().ComponentChildren(uid)
@@ -259,7 +259,7 @@ func TestComponentCache(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, children, 3)
 
-		err = db.GetComponentCache().Delete(childUid)
+		err = db.GetComponentCache().DeleteComponent(childUid)
 		require.NoError(t, err)
 
 		children, err = db.GetComponentCache().ComponentChildren(uid)
