@@ -300,12 +300,12 @@ func (in *ResourceCache) reconcile(e event.Event) {
 		return
 	}
 
-	//todo
 	if e.Resource == nil {
 		return
 	}
+
 	if e.Resource.Resource != nil {
-		common.SyncComponentChildAttributes(e.Resource.Resource)
+		common.SyncComponentCache(e.Resource.Resource)
 
 		labels := e.Resource.Resource.GetLabels()
 		if val, ok := labels[common.ManagedByLabel]; !ok || val != common.AgentLabelValue {
