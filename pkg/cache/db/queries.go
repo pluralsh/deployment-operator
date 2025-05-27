@@ -75,4 +75,11 @@ const (
 	`
 
 	clusterHealthScore = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as score FROM Component`
+
+	nodeStatistics = `
+		SELECT node, COUNT(*)
+		FROM pods
+		WHERE createdAt < NOW() - '5 minutes'
+		GROUP BY node
+	`
 )
