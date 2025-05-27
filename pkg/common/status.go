@@ -63,7 +63,6 @@ func SyncComponentCache(u *unstructured.Unstructured) {
 	}
 
 	SyncComponent(u, gvk) // Sync all components besides pods
-
 }
 
 func SyncComponent(u *unstructured.Unstructured, gvk schema.GroupVersionKind) {
@@ -107,10 +106,10 @@ func SyncPod(u *unstructured.Unstructured) {
 		return
 	}
 
-	nodeName := "" // TODO
-
-	_ = db.GetComponentCache().SetPod(
-		u.GetName(), u.GetNamespace(), string(u.GetUID()), nodeName, u.GetCreationTimestamp().String())
+	if nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName"); nodeName != "" {
+		_ = db.GetComponentCache().SetPod(
+			u.GetName(), u.GetNamespace(), string(u.GetUID()), nodeName, u.GetCreationTimestamp().String())
+	}
 }
 
 func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
