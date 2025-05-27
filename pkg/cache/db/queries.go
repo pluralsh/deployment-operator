@@ -97,9 +97,9 @@ const (
 	`
 
 	nodeStatistics = `
-		SELECT node, COUNT(*)
-		FROM pods
-		WHERE createdAt < NOW() - '5 minutes'
-		GROUP BY node
+	SELECT node, COUNT(*)
+	FROM Pod
+	WHERE datetime(createdAt) > datetime('now', '-5 minutes')
+	GROUP BY node
 	`
 )

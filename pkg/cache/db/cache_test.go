@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -21,6 +22,8 @@ const (
 	testName      = "test-component"
 	testChildUID  = "child-uid"
 	testChildName = "child-component"
+	testNode      = "test-node"
+	timeLayout    = "2006-01-02T15:04:05Z"
 )
 
 type CreateComponentOption func(component *client.ComponentChildAttributes)
@@ -354,4 +357,32 @@ func TestPendingPodsCache(t *testing.T) {
 		defer db.GetComponentCache().Close()
 	})
 
+	t.Run("cache should store pods with all required attributes", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		err := db.GetComponentCache().SetPod(
+			"pending-pod-1",
+			testNamespace,
+			"pod-1-uid",
+			testNode,
+			time.Now().UTC().Format(timeLayout),
+		)
+		require.NoError(t, err)
+
+		err = db.GetComponentCache().SetPod(
+			"pending-pod-2",
+			testNamespace,
+			"pod-2-uid",
+			testNode,
+			time.Now().UTC().Format(timeLayout),
+		)
+		require.NoError(t, err)
+
+		stats, err := db.GetComponentCache().NodeStatistics()
+		require.NoError(t, err)
+		require.Len(t, stats, 1)
+		assert.Equal(t, testNode, *stats[0].Name)
+		assert.Equal(t, int64(2), *stats[0].PendingPods)
+	})
 }
