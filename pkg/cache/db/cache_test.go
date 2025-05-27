@@ -427,4 +427,30 @@ func TestPendingPodsCache(t *testing.T) {
 		assert.Equal(t, testNode, *stats[0].Name)
 		assert.Equal(t, int64(2), *stats[0].PendingPods)
 	})
+
+	t.Run("cache should delete pod", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		err := db.GetComponentCache().SetPod(
+			"pending-pod-1",
+			testNamespace,
+			"pod-1-uid",
+			testNode,
+			hourAgoTimestamp,
+		)
+		require.NoError(t, err)
+
+		stats, err := db.GetComponentCache().NodeStatistics()
+		require.NoError(t, err)
+		require.Len(t, stats, 1)
+		assert.Equal(t, int64(1), *stats[0].PendingPods)
+
+		err = db.GetComponentCache().DeletePod("pod-1-uid")
+		require.NoError(t, err)
+
+		stats, err = db.GetComponentCache().NodeStatistics()
+		require.NoError(t, err)
+		require.Len(t, stats, 0)
+	})
 }

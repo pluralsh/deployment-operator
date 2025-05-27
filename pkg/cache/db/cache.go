@@ -182,6 +182,22 @@ func (in *ComponentCache) SetPod(name, namespace, uid, node, createdAt string) e
 	})
 }
 
+// DeletePod removes a pod from the cache by its unique identifier.
+// It takes a uid string parameter identifying the pod to delete.
+// Returns an error if the operation fails or if the connection cannot be established.
+func (in *ComponentCache) DeletePod(uid string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	query := `DELETE FROM Pod WHERE uid = ?`
+	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
+		Args: []any{uid},
+	})
+}
+
 // NodeStatistics returns a list of node statistics including the node name and count of pending pods
 // that were created more than 5 minutes ago. Each NodeStatisticAttributes contains the node name and
 // the number of pending pods for that node. The health field is currently not implemented.
