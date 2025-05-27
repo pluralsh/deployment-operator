@@ -216,17 +216,17 @@ func (in *ComponentCache) init() error {
 	}
 
 	in.pool = pool
-	return in.initTable()
+	return in.initTables()
 }
 
-func (in *ComponentCache) initTable() error {
+func (in *ComponentCache) initTables() error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteScript(conn, createTable, nil)
+	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
 // Option represents a function that configures the ComponentCache

@@ -1,7 +1,7 @@
 package db
 
 const (
-	createTable = `
+	createTables = `
 		CREATE TABLE IF NOT EXISTS Component (
 			id INTEGER PRIMARY KEY,
 			parent_uid TEXT,
@@ -16,6 +16,16 @@ const (
 		);
 		CREATE INDEX IF NOT EXISTS idx_parent ON Component(parent_uid);
 		CREATE INDEX IF NOT EXISTS idx_uid ON Component(uid);
+
+		CREATE TABLE IF NOT EXISTS Pod (
+			id INTEGER PRIMARY KEY,
+			name TEXT,
+			namespace TEXT,
+			uid TEXT UNIQUE,
+			node TEXT,
+			createdAt TEXT
+		);
+		CREATE INDEX IF NOT EXISTS idx_pod_uid ON Pod(uid);
 	`
 
 	setComponent = `
