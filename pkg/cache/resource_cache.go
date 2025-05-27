@@ -33,6 +33,7 @@ import (
 
 var allCoreObjMetadata = containers.ToSet([]ResourceKey{
 	// Core API group ("")
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Pod"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Service"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "ConfigMap"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Secret"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
@@ -299,6 +300,7 @@ func (in *ResourceCache) reconcile(e event.Event) {
 		return
 	}
 
+	//todo
 	if e.Resource == nil {
 		return
 	}
