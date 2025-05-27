@@ -21,9 +21,13 @@ const (
 	testVersion   = "v1"
 	testName      = "test-component"
 	testChildUID  = "child-uid"
-	testChildName = "child-component"
 	testNode      = "test-node"
 	timeLayout    = "2006-01-02T15:04:05Z"
+)
+
+var (
+	nowTimestamp     = time.Now().UTC().Format(timeLayout)
+	hourAgoTimestamp = time.Now().Add(-time.Hour).UTC().Format(timeLayout)
 )
 
 type CreateComponentOption func(component *client.ComponentChildAttributes)
@@ -366,7 +370,7 @@ func TestPendingPodsCache(t *testing.T) {
 			testNamespace,
 			"pod-1-uid",
 			testNode,
-			time.Now().UTC().Format(timeLayout),
+			hourAgoTimestamp,
 		)
 		require.NoError(t, err)
 
@@ -375,7 +379,45 @@ func TestPendingPodsCache(t *testing.T) {
 			testNamespace,
 			"pod-2-uid",
 			testNode,
-			time.Now().UTC().Format(timeLayout),
+			hourAgoTimestamp,
+		)
+		require.NoError(t, err)
+
+		stats, err := db.GetComponentCache().NodeStatistics()
+		require.NoError(t, err)
+		require.Len(t, stats, 1)
+		assert.Equal(t, testNode, *stats[0].Name)
+		assert.Equal(t, int64(2), *stats[0].PendingPods)
+	})
+
+	t.Run("cache should ignore fresh pending pods that were created within last 5 minutes", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		err := db.GetComponentCache().SetPod(
+			"fresh-pending-pod",
+			testNamespace,
+			"pod-uid",
+			testNode,
+			nowTimestamp,
+		)
+		require.NoError(t, err)
+
+		err = db.GetComponentCache().SetPod(
+			"pending-pod-1",
+			testNamespace,
+			"pod-1-uid",
+			testNode,
+			hourAgoTimestamp,
+		)
+		require.NoError(t, err)
+
+		err = db.GetComponentCache().SetPod(
+			"pending-pod-2",
+			testNamespace,
+			"pod-2-uid",
+			testNode,
+			hourAgoTimestamp,
 		)
 		require.NoError(t, err)
 
