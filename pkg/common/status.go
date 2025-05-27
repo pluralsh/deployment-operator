@@ -79,7 +79,7 @@ func SyncComponentChildAttributes(u *unstructured.Unstructured) {
 		return
 	}
 
-	_ = db.GetComponentCache().Set(console.ComponentChildAttributes{
+	_ = db.GetComponentCache().SetComponent(console.ComponentChildAttributes{
 		UID:       string(u.GetUID()),
 		Name:      u.GetName(),
 		Namespace: lo.ToPtr(u.GetNamespace()),

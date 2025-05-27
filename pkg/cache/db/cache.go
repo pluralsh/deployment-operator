@@ -62,7 +62,7 @@ func GetComponentCache() *ComponentCache {
 	return cache
 }
 
-// Children retrieves all child components and their descendants (up to 4 levels deep) for a given component UID.
+// ComponentChildren retrieves all child components and their descendants (up to 4 levels deep) for a given component UID.
 // It returns a slice of ComponentChildAttributes containing information about each child component.
 //
 // Parameters:
@@ -71,7 +71,7 @@ func GetComponentCache() *ComponentCache {
 // Returns:
 //   - []ComponentChildAttributes: A slice containing the child components and their attributes
 //   - error: An error if the database operation fails or if the connection cannot be established
-func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAttributes, err error) {
+func (in *ComponentCache) ComponentChildren(uid string) (result []client.ComponentChildAttributes, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
@@ -98,11 +98,11 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 	return result, err
 }
 
-// Set stores or updates a component's attributes in the cache.
+// SetComponent stores or updates a component's attributes in the cache.
 // It takes a ComponentChildAttributes parameter containing the component's data.
 // If a component with the same UID exists, it will be updated; otherwise, a new entry is created.
 // Returns an error if the database operation fails or if the connection cannot be established.
-func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
+func (in *ComponentCache) SetComponent(component client.ComponentChildAttributes) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
@@ -123,11 +123,11 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	})
 }
 
-// HealthScore returns a percentage of healthy components to total components in the cluster.
+// ClusterHealthScore returns a percentage of healthy components to total components in the cluster.
 // The percentage is calculated as the number of healthy components divided by the total number of components.
 // Returns an int value between 0 and 100, where 100 indicates all components are healthy.
 // Returns an error if the database operation fails or if the connection cannot be established.
-func (in *ComponentCache) HealthScore() (int64, error) {
+func (in *ComponentCache) ClusterHealthScore() (int64, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return 0, err

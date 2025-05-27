@@ -16,16 +16,16 @@ import (
 // deleting components, and a combined workload of setting and retrieving.
 //
 // Results show that the in-memory cache is generally faster than the file-based cache,
-// especially for write operations like Set. Here's a summary of the performance comparison:
+// especially for write operations like SetComponent. Here's a summary of the performance comparison:
 //
-// 1. Set: In-memory is ~60x faster than file-based
-// 2. Children: In-memory is ~1.1x faster than file-based
+// 1. SetComponent: In-memory is ~60x faster than file-based
+// 2. ComponentChildren: In-memory is ~1.1x faster than file-based
 // 3. Delete: In-memory is ~1.6x faster than file-based
 // 4. SetAndChildren: In-memory is ~3.4x faster than file-based
 //
-// The performance difference is most significant for write operations (Set)
+// The performance difference is most significant for write operations (SetComponent)
 // because file-based operations involve disk I/O, which is much slower than memory access.
-// Read operations (Children) show a smaller performance gap because SQLite's query
+// Read operations (ComponentChildren) show a smaller performance gap because SQLite's query
 // optimization works well for both storage modes.
 
 const (
@@ -50,7 +50,7 @@ func setupTestData(b *testing.B, cache *db.ComponentCache) {
 		State:     &state,
 	}
 
-	err := cache.Set(rootComponent)
+	err := cache.SetComponent(rootComponent)
 	require.NoError(b, err)
 
 	// Create 10 first-level children
@@ -67,7 +67,7 @@ func setupTestData(b *testing.B, cache *db.ComponentCache) {
 			State:     &state,
 		}
 
-		err := cache.Set(component)
+		err := cache.SetComponent(component)
 		require.NoError(b, err)
 
 		// Create 5 second-level children for each first-level child
@@ -84,7 +84,7 @@ func setupTestData(b *testing.B, cache *db.ComponentCache) {
 				State:     &state,
 			}
 
-			err := cache.Set(childComponent)
+			err := cache.SetComponent(childComponent)
 			require.NoError(b, err)
 
 			// Create 3 third-level children for each second-level child
@@ -101,7 +101,7 @@ func setupTestData(b *testing.B, cache *db.ComponentCache) {
 					State:     &state,
 				}
 
-				err := cache.Set(grandchildComponent)
+				err := cache.SetComponent(grandchildComponent)
 				require.NoError(b, err)
 			}
 		}
@@ -122,8 +122,8 @@ func BenchmarkMemoryCache(b *testing.B) {
 	cache := db.GetComponentCache()
 	defer cache.Close()
 
-	// Run the Set benchmark
-	b.Run("Set", func(b *testing.B) {
+	// Run the SetComponent benchmark
+	b.Run("SetComponent", func(b *testing.B) {
 		state := client.ComponentState("Healthy")
 		group := testGroup
 		namespace := testNamespace
@@ -143,7 +143,7 @@ func BenchmarkMemoryCache(b *testing.B) {
 			}
 			i++
 
-			err := cache.Set(component)
+			err := cache.SetComponent(component)
 			require.NoError(b, err)
 		}
 	})
@@ -151,11 +151,11 @@ func BenchmarkMemoryCache(b *testing.B) {
 	// Setup test data for the remaining benchmarks
 	setupTestData(b, cache)
 
-	// Run the Children benchmark
-	b.Run("Children", func(b *testing.B) {
+	// Run the ComponentChildren benchmark
+	b.Run("ComponentChildren", func(b *testing.B) {
 		b.ResetTimer()
 		for b.Loop() {
-			children, err := cache.Children("root-uid")
+			children, err := cache.ComponentChildren("root-uid")
 			require.NoError(b, err)
 			require.NotEmpty(b, children)
 		}
@@ -196,11 +196,11 @@ func BenchmarkMemoryCache(b *testing.B) {
 				State:     &state,
 			}
 
-			err := cache.Set(component)
+			err := cache.SetComponent(component)
 			require.NoError(b, err)
 
 			// Retrieve children
-			children, err := cache.Children("root-uid")
+			children, err := cache.ComponentChildren("root-uid")
 			require.NoError(b, err)
 			require.NotEmpty(b, children)
 		}
@@ -227,8 +227,8 @@ func BenchmarkFileCache(b *testing.B) {
 		_ = os.Remove(benchDBFile)
 	}()
 
-	// Run the Set benchmark
-	b.Run("Set", func(b *testing.B) {
+	// Run the SetComponent benchmark
+	b.Run("SetComponent", func(b *testing.B) {
 		state := client.ComponentState("Healthy")
 		group := testGroup
 		namespace := testNamespace
@@ -246,7 +246,7 @@ func BenchmarkFileCache(b *testing.B) {
 				State:     &state,
 			}
 
-			err := cache.Set(component)
+			err := cache.SetComponent(component)
 			require.NoError(b, err)
 		}
 	})
@@ -254,11 +254,11 @@ func BenchmarkFileCache(b *testing.B) {
 	// Setup test data for the remaining benchmarks
 	setupTestData(b, cache)
 
-	// Run the Children benchmark
-	b.Run("Children", func(b *testing.B) {
+	// Run the ComponentChildren benchmark
+	b.Run("ComponentChildren", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			children, err := cache.Children("root-uid")
+			children, err := cache.ComponentChildren("root-uid")
 			require.NoError(b, err)
 			require.NotEmpty(b, children)
 		}
@@ -299,11 +299,11 @@ func BenchmarkFileCache(b *testing.B) {
 				State:     &state,
 			}
 
-			err := cache.Set(component)
+			err := cache.SetComponent(component)
 			require.NoError(b, err)
 
 			// Retrieve children
-			children, err := cache.Children("root-uid")
+			children, err := cache.ComponentChildren("root-uid")
 			require.NoError(b, err)
 			require.NotEmpty(b, children)
 		}

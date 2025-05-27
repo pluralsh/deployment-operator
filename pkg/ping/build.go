@@ -12,7 +12,7 @@ import (
 )
 
 func pingAttributes(info *version.Info, pods []string, minKubeletVersion *string) console.ClusterPing {
-	hs, err := db.GetComponentCache().HealthScore()
+	hs, err := db.GetComponentCache().ClusterHealthScore()
 	if err != nil {
 		klog.ErrorS(err, "failed to get health score")
 	}
