@@ -139,11 +139,11 @@ func (in *ComponentCache) DeleteComponent(uid string) error {
 	})
 }
 
-// ClusterHealthScore returns a percentage of healthy components to total components in the cluster.
+// HealthScore returns a percentage of healthy components to total components in the cluster.
 // The percentage is calculated as the number of healthy components divided by the total number of components.
 // Returns an int value between 0 and 100, where 100 indicates all components are healthy.
 // Returns an error if the database operation fails or if the connection cannot be established.
-func (in *ComponentCache) ClusterHealthScore() (int64, error) {
+func (in *ComponentCache) HealthScore() (int64, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return 0, err

@@ -333,7 +333,7 @@ func TestComponentCache(t *testing.T) {
 		err = db.GetComponentCache().SetComponent(child2)
 		require.NoError(t, err)
 
-		score, err := db.GetComponentCache().ClusterHealthScore()
+		score, err := db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(66), score)
 
@@ -341,7 +341,7 @@ func TestComponentCache(t *testing.T) {
 		err = db.GetComponentCache().SetComponent(child3)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().ClusterHealthScore()
+		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(50), score)
 
@@ -349,7 +349,7 @@ func TestComponentCache(t *testing.T) {
 		err = db.GetComponentCache().SetComponent(child4)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().ClusterHealthScore()
+		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(40), score)
 	})
