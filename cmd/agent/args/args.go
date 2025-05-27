@@ -29,6 +29,12 @@ const (
 	defaultProbeAddress   = ":9001"
 	defaultMetricsAddress = ":8000"
 
+	defaultWorkqueueBaseDelay         = "5ms"
+	defaultWorkqueueBaseDelayDuration = 5 * time.Millisecond
+
+	defaultWorkqueueMaxDelay         = "1000s"
+	defaultWorkqueueMaxDelayDuration = 1000 * time.Second
+
 	defaultProcessingTimeout         = "1m"
 	defaultProcessingTimeoutDuration = time.Minute
 
@@ -96,8 +102,11 @@ var (
 	argPyroscopeAddress    = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
 	argDatadogHost         = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
 	argDatadogEnv          = flag.String("datadog-env", defaultDatadogEnv, "The environment of the Datadog server.")
-
-	serviceSet containers.Set[string]
+	argWorkqueueBaseDelay  = flag.String("workqueue-base-delay", defaultWorkqueueBaseDelay, "The base delay for the workqueue.")
+	argWorkqueueMaxDelay   = flag.String("workqueue-max-delay", defaultWorkqueueMaxDelay, "The maximum delay for the workqueue.")
+	argWorkqueueQPS        = flag.Int("workqueue-qps", 10, "The maximum number of items to process per second.")
+	argWorkqueueBurst      = flag.Int("workqueue-burst", 50, "The maximum number of items to process at a time.")
+	serviceSet             containers.Set[string]
 )
 
 func Init() {
@@ -331,4 +340,32 @@ func ensureOrDie(argName string, arg *string) {
 		pflag.PrintDefaults()
 		panic(fmt.Sprintf("%s arg is required", argName))
 	}
+}
+
+func WorkqueueBaseDelay() time.Duration {
+	baseDelay, err := time.ParseDuration(*argWorkqueueBaseDelay)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse workqueue-base-delay", "value", *argWorkqueueBaseDelay, "default", defaultWorkqueueBaseDelayDuration)
+		return defaultWorkqueueBaseDelayDuration
+	}
+
+	return baseDelay
+}
+
+func WorkqueueMaxDelay() time.Duration {
+	delay, err := time.ParseDuration(*argWorkqueueMaxDelay)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse workqueue-max-delay", "value", *argWorkqueueMaxDelay, "default", defaultWorkqueueMaxDelayDuration)
+		return defaultWorkqueueMaxDelayDuration
+	}
+
+	return delay
+}
+
+func WorkqueueQPS() int {
+	return *argWorkqueueQPS
+}
+
+func WorkqueueBurst() int {
+	return *argWorkqueueBurst
 }
