@@ -212,15 +212,27 @@ func (in *ComponentCache) NodeStatistics() ([]*client.NodeStatisticAttributes, e
 	result := make([]*client.NodeStatisticAttributes, 0)
 	err = sqlitex.ExecuteTransient(conn, nodeStatistics, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
+			pendingPods := stmt.ColumnInt64(1)
 			result = append(result, &client.NodeStatisticAttributes{
 				Name:        lo.ToPtr(stmt.ColumnText(0)),
-				PendingPods: lo.ToPtr(stmt.ColumnInt64(1)),
-				Health:      nil, // TODO
+				PendingPods: &pendingPods,
+				Health:      nodeHealth(pendingPods),
 			})
 			return nil
 		},
 	})
 	return result, err
+}
+
+func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {
+	switch {
+	case pendingPods == 0:
+		return lo.ToPtr(client.NodeStatisticHealthHealthy)
+	case pendingPods <= 3:
+		return lo.ToPtr(client.NodeStatisticHealthWarning)
+	default:
+		return lo.ToPtr(client.NodeStatisticHealthFailed)
+	}
 }
 
 // Close closes the connection pool and cleans up temporary file if necessary
