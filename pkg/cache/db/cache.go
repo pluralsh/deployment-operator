@@ -182,7 +182,7 @@ func (in *ComponentCache) SetPod(name, namespace, uid, node, createdAt string) e
 	})
 }
 
-// NodeStatistics returns a map of node names to their pod counts for pods older than 5 minutes.
+// NodeStatistics returns a map of node names to their pending pod counts for pods older than 5 minutes.
 // Returns a map where keys are node names and values are the number of pods on that node.
 // Returns an error if the database operation fails or if the connection cannot be established.
 func (in *ComponentCache) NodeStatistics() ([]*client.NodeStatisticAttributes, error) {

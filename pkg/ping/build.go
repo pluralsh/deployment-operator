@@ -17,12 +17,18 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion *string
 		klog.ErrorS(err, "failed to get health score")
 	}
 
+	ns, err := db.GetComponentCache().NodeStatistics()
+	if err != nil {
+		klog.ErrorS(err, "failed to get node statistics")
+	}
+
 	vs := strings.Split(info.GitVersion, "-")
 	cp := console.ClusterPing{
 		CurrentVersion: strings.TrimPrefix(vs[0], "v"),
 		Distro:         lo.ToPtr(findDistro(append(pods, info.GitVersion))),
 		KubeletVersion: minKubeletVersion,
 		HealthScore:    &hs,
+		NodeStatistics: ns,
 	}
 	if scraper.GetAiInsightComponents().IsFresh() {
 		klog.Info("found ", scraper.GetAiInsightComponents().Len(), " fresh AI insight components")
