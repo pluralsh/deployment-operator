@@ -347,3 +347,11 @@ func TestComponentCache(t *testing.T) {
 		assert.Equal(t, int64(40), score)
 	})
 }
+
+func TestPendingPodsCache(t *testing.T) {
+	t.Run("cache should initialize", func(t *testing.T) {
+		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
+		defer db.GetComponentCache().Close()
+	})
+
+}

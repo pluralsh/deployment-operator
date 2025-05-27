@@ -76,6 +76,26 @@ const (
 
 	clusterHealthScore = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as score FROM Component`
 
+	setPod = `
+		INSERT INTO Pod (
+			name,
+			namespace,
+			uid,
+			node,
+			createdAt
+		) VALUES (
+			?,
+			?,
+			?,
+			?,
+			?
+		) ON CONFLICT(uid) DO UPDATE SET
+			name = excluded.name,
+			namespace = excluded.namespace,
+			node = excluded.node,
+			createdAt = excluded.createdAt
+	`
+
 	nodeStatistics = `
 		SELECT node, COUNT(*)
 		FROM pods

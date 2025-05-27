@@ -160,6 +160,28 @@ func (in *ComponentCache) ClusterHealthScore() (int64, error) {
 	return ratio, err
 }
 
+// SetPod stores or updates a pod's attributes in the cache.
+// It takes pod name, namespace, uid, node name and creation timestamp as parameters.
+// If a pod with the same UID exists, it will be updated; otherwise, a new entry is created.
+// Returns an error if the database operation fails or if the connection cannot be established.
+func (in *ComponentCache) SetPod(name, namespace, uid, node, createdAt string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, setPod, &sqlitex.ExecOptions{
+		Args: []interface{}{
+			name,
+			namespace,
+			uid,
+			node,
+			createdAt,
+		},
+	})
+}
+
 // NodeStatistics returns a map of node names to their pod counts for pods older than 5 minutes.
 // Returns a map where keys are node names and values are the number of pods on that node.
 // Returns an error if the database operation fails or if the connection cannot be established.
