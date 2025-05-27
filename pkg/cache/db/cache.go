@@ -182,8 +182,9 @@ func (in *ComponentCache) SetPod(name, namespace, uid, node, createdAt string) e
 	})
 }
 
-// NodeStatistics returns a map of node names to their pending pod counts for pods older than 5 minutes.
-// Returns a map where keys are node names and values are the number of pods on that node.
+// NodeStatistics returns a list of node statistics including the node name and count of pending pods
+// that were created more than 5 minutes ago. Each NodeStatisticAttributes contains the node name and
+// the number of pending pods for that node. The health field is currently not implemented.
 // Returns an error if the database operation fails or if the connection cannot be established.
 func (in *ComponentCache) NodeStatistics() ([]*client.NodeStatisticAttributes, error) {
 	conn, err := in.pool.Take(context.Background())
