@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
@@ -57,6 +59,7 @@ type ServiceReconciler struct {
 	applier          *applier.Applier
 	destroyer        *apply.Destroyer
 	svcQueue         workqueue.TypedRateLimitingInterface[string]
+	typedRateLimiter workqueue.TypedRateLimiter[string]
 	svcCache         *client.Cache[console.ServiceDeploymentForAgent]
 	manifestCache    *manis.ManifestCache
 	utilFactory      util.Factory
@@ -67,7 +70,7 @@ type ServiceReconciler struct {
 	k8sClient        ctrclient.Client
 }
 
-func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter time.Duration, restoreNamespace, consoleURL string) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay time.Duration, restoreNamespace, consoleURL string, workqueueQPS, workqueueBurst int) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -101,10 +104,16 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 		return nil, err
 	}
 
+	// Create a bucket rate limiter
+	typedRateLimiter := workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](workqueueBaseDelay, workqueueMaxDelay),
+		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(workqueueQPS), workqueueBurst)},
+	)
+
 	return &ServiceReconciler{
-		consoleClient: consoleClient,
-		clientset:     cs,
-		svcQueue:      workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
+		consoleClient:    consoleClient,
+		clientset:        cs,
+		svcQueue:         workqueue.NewTypedRateLimitingQueue(typedRateLimiter),
+		typedRateLimiter: typedRateLimiter,
 		svcCache: client.NewCache[console.ServiceDeploymentForAgent](refresh, func(id string) (
 			*console.ServiceDeploymentForAgent, error,
 		) {
@@ -132,7 +141,7 @@ func (s *ServiceReconciler) Restart() {
 	s.svcCache.Wipe()
 
 	// Initialize
-	s.svcQueue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
+	s.svcQueue = workqueue.NewTypedRateLimitingQueue(s.typedRateLimiter)
 }
 
 func (s *ServiceReconciler) Shutdown() {
