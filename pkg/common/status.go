@@ -6,6 +6,7 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -15,7 +16,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
 	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 )
 
 const (
@@ -54,9 +54,20 @@ type Progress struct {
 	PingTime     time.Time
 }
 
-func SyncComponentChildAttributes(u *unstructured.Unstructured) {
+func SyncComponentCache(u *unstructured.Unstructured) {
+	gvk := u.GroupVersionKind()
+
+	if gvk.Kind == PodKind {
+		SyncPod(u) // Sync pending pods
+		return
+	}
+
+	SyncComponent(u, gvk) // Sync all components besides pods
+}
+
+func SyncComponent(u *unstructured.Unstructured, gvk schema.GroupVersionKind) {
 	if u.GetDeletionTimestamp() != nil {
-		_ = db.GetComponentCache().Delete(string(u.GetUID()))
+		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
 		return
 	}
 
@@ -72,14 +83,7 @@ func SyncComponentChildAttributes(u *unstructured.Unstructured) {
 		}
 	}
 
-	// Ignore pod relationships and not save
-	// them in the component cache
-	gvk := u.GroupVersionKind()
-	if gvk.Kind == PodKind {
-		return
-	}
-
-	_ = db.GetComponentCache().Set(console.ComponentChildAttributes{
+	_ = db.GetComponentCache().SetComponent(console.ComponentChildAttributes{
 		UID:       string(u.GetUID()),
 		Name:      u.GetName(),
 		Namespace: lo.ToPtr(u.GetNamespace()),
@@ -89,6 +93,23 @@ func SyncComponentChildAttributes(u *unstructured.Unstructured) {
 		State:     ToStatus(u),
 		ParentUID: ownerRef,
 	})
+}
+
+func SyncPod(u *unstructured.Unstructured) {
+	if u.GetDeletionTimestamp() != nil {
+		_ = db.GetComponentCache().DeletePod(string(u.GetUID()))
+		return
+	}
+
+	if health := ToStatus(u); lo.FromPtr(health) == console.ComponentStateRunning {
+		_ = db.GetComponentCache().DeletePod(string(u.GetUID()))
+		return
+	}
+
+	if nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName"); nodeName != "" {
+		_ = db.GetComponentCache().SetPod(
+			u.GetName(), u.GetNamespace(), string(u.GetUID()), nodeName, u.GetCreationTimestamp().Unix())
+	}
 }
 
 func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {

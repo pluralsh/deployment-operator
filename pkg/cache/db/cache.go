@@ -62,7 +62,7 @@ func GetComponentCache() *ComponentCache {
 	return cache
 }
 
-// Children retrieves all child components and their descendants (up to 4 levels deep) for a given component UID.
+// ComponentChildren retrieves all child components and their descendants (up to 4 levels deep) for a given component UID.
 // It returns a slice of ComponentChildAttributes containing information about each child component.
 //
 // Parameters:
@@ -71,7 +71,7 @@ func GetComponentCache() *ComponentCache {
 // Returns:
 //   - []ComponentChildAttributes: A slice containing the child components and their attributes
 //   - error: An error if the database operation fails or if the connection cannot be established
-func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAttributes, err error) {
+func (in *ComponentCache) ComponentChildren(uid string) (result []client.ComponentChildAttributes, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
@@ -98,11 +98,11 @@ func (in *ComponentCache) Children(uid string) (result []client.ComponentChildAt
 	return result, err
 }
 
-// Set stores or updates a component's attributes in the cache.
+// SetComponent stores or updates a component's attributes in the cache.
 // It takes a ComponentChildAttributes parameter containing the component's data.
 // If a component with the same UID exists, it will be updated; otherwise, a new entry is created.
 // Returns an error if the database operation fails or if the connection cannot be established.
-func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
+func (in *ComponentCache) SetComponent(component client.ComponentChildAttributes) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
@@ -123,6 +123,22 @@ func (in *ComponentCache) Set(component client.ComponentChildAttributes) error {
 	})
 }
 
+// DeleteComponent removes a component from the cache by its unique identifier.
+// It takes a uid string parameter identifying the component to delete.
+// Returns an error if the operation fails or if the connection cannot be established.
+func (in *ComponentCache) DeleteComponent(uid string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	query := `DELETE FROM component WHERE uid = ?`
+	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
+		Args: []any{uid},
+	})
+}
+
 // HealthScore returns a percentage of healthy components to total components in the cluster.
 // The percentage is calculated as the number of healthy components divided by the total number of components.
 // Returns an int value between 0 and 100, where 100 indicates all components are healthy.
@@ -135,7 +151,7 @@ func (in *ComponentCache) HealthScore() (int64, error) {
 	defer in.pool.Put(conn)
 
 	var ratio int64
-	err = sqlitex.ExecuteTransient(conn, healthyComponentsRatio, &sqlitex.ExecOptions{
+	err = sqlitex.ExecuteTransient(conn, clusterHealthScore, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			ratio = stmt.ColumnInt64(0)
 			return nil
@@ -144,20 +160,79 @@ func (in *ComponentCache) HealthScore() (int64, error) {
 	return ratio, err
 }
 
-// Delete removes a component from the cache by its unique identifier.
-// It takes a uid string parameter identifying the component to delete.
-// Returns an error if the operation fails or if the connection cannot be established.
-func (in *ComponentCache) Delete(uid string) error {
+// SetPod stores or updates a pod's attributes in the cache.
+// It takes pod name, namespace, uid, node name and creation timestamp as parameters.
+// If a pod with the same UID exists, it will be updated; otherwise, a new entry is created.
+// Returns an error if the database operation fails or if the connection cannot be established.
+func (in *ComponentCache) SetPod(name, namespace, uid, node string, createdAt int64) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
 	}
 	defer in.pool.Put(conn)
 
-	query := `DELETE FROM Component WHERE uid = ?`
+	return sqlitex.ExecuteTransient(conn, setPod, &sqlitex.ExecOptions{
+		Args: []interface{}{
+			name,
+			namespace,
+			uid,
+			node,
+			createdAt,
+		},
+	})
+}
+
+// DeletePod removes a pod from the cache by its unique identifier.
+// It takes a uid string parameter identifying the pod to delete.
+// Returns an error if the operation fails or if the connection cannot be established.
+func (in *ComponentCache) DeletePod(uid string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	query := `DELETE FROM pod WHERE uid = ?`
 	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
 		Args: []any{uid},
 	})
+}
+
+// NodeStatistics returns a list of node statistics including the node name and count of pending pods
+// that were created more than 5 minutes ago. Each NodeStatisticAttributes contains the node name and
+// the number of pending pods for that node. The health field is currently not implemented.
+// Returns an error if the database operation fails or if the connection cannot be established.
+func (in *ComponentCache) NodeStatistics() ([]*client.NodeStatisticAttributes, error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer in.pool.Put(conn)
+
+	result := make([]*client.NodeStatisticAttributes, 0)
+	err = sqlitex.ExecuteTransient(conn, nodeStatistics, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			pendingPods := stmt.ColumnInt64(1)
+			result = append(result, &client.NodeStatisticAttributes{
+				Name:        lo.ToPtr(stmt.ColumnText(0)),
+				PendingPods: &pendingPods,
+				Health:      nodeHealth(pendingPods),
+			})
+			return nil
+		},
+	})
+	return result, err
+}
+
+func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {
+	switch {
+	case pendingPods == 0:
+		return lo.ToPtr(client.NodeStatisticHealthHealthy)
+	case pendingPods <= 3:
+		return lo.ToPtr(client.NodeStatisticHealthWarning)
+	default:
+		return lo.ToPtr(client.NodeStatisticHealthFailed)
+	}
 }
 
 // Close closes the connection pool and cleans up temporary file if necessary
@@ -216,17 +291,17 @@ func (in *ComponentCache) init() error {
 	}
 
 	in.pool = pool
-	return in.initTable()
+	return in.initTables()
 }
 
-func (in *ComponentCache) initTable() error {
+func (in *ComponentCache) initTables() error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteScript(conn, createTable, nil)
+	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
 // Option represents a function that configures the ComponentCache
