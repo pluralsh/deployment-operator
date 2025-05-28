@@ -23,7 +23,7 @@ const (
 			namespace TEXT,
 			uid TEXT UNIQUE,
 			node TEXT,
-			createdAt TEXT
+			createdAt TIMESTAMP
 		);
 		CREATE INDEX IF NOT EXISTS idx_pod_uid ON Pod(uid);
 	`
@@ -99,7 +99,7 @@ const (
 	nodeStatistics = `
 		SELECT node, COUNT(*)
 		FROM Pod
-		WHERE DATETIME(createdAt) < DATETIME('now', '-5 minutes')
+		WHERE createdAt <= strftime('%s', 'now', '-5 minutes')
 		GROUP BY node
 	`
 )

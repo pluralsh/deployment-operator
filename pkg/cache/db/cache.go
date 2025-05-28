@@ -164,7 +164,7 @@ func (in *ComponentCache) HealthScore() (int64, error) {
 // It takes pod name, namespace, uid, node name and creation timestamp as parameters.
 // If a pod with the same UID exists, it will be updated; otherwise, a new entry is created.
 // Returns an error if the database operation fails or if the connection cannot be established.
-func (in *ComponentCache) SetPod(name, namespace, uid, node, createdAt string) error {
+func (in *ComponentCache) SetPod(name, namespace, uid, node string, createdAt int64) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err

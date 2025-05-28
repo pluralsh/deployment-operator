@@ -108,7 +108,7 @@ func SyncPod(u *unstructured.Unstructured) {
 
 	if nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName"); nodeName != "" {
 		_ = db.GetComponentCache().SetPod(
-			u.GetName(), u.GetNamespace(), string(u.GetUID()), nodeName, u.GetCreationTimestamp().String())
+			u.GetName(), u.GetNamespace(), string(u.GetUID()), nodeName, u.GetCreationTimestamp().Unix())
 	}
 }
 
