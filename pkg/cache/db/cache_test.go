@@ -22,12 +22,11 @@ const (
 	testName      = "test-component"
 	testChildUID  = "child-uid"
 	testNode      = "test-node"
-	timeLayout    = "2006-01-02T15:04:05Z"
 )
 
 var (
-	nowTimestamp     = time.Now().UTC().Format(timeLayout)
-	hourAgoTimestamp = time.Now().Add(-time.Hour).UTC().Format(timeLayout)
+	nowTimestamp     = time.Now().Unix()
+	hourAgoTimestamp = time.Now().Add(-time.Hour).Unix()
 )
 
 type CreateComponentOption func(component *client.ComponentChildAttributes)
