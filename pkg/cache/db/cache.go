@@ -133,7 +133,7 @@ func (in *ComponentCache) DeleteComponent(uid string) error {
 	}
 	defer in.pool.Put(conn)
 
-	query := `DELETE FROM Component WHERE uid = ?`
+	query := `DELETE FROM component WHERE uid = ?`
 	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
 		Args: []any{uid},
 	})
@@ -192,7 +192,7 @@ func (in *ComponentCache) DeletePod(uid string) error {
 	}
 	defer in.pool.Put(conn)
 
-	query := `DELETE FROM Pod WHERE uid = ?`
+	query := `DELETE FROM pod WHERE uid = ?`
 	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
 		Args: []any{uid},
 	})
