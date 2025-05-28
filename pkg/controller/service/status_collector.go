@@ -146,7 +146,7 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[sche
 			continue
 		}
 
-		children, err := db.GetComponentCache().Children(entry.GetUID())
+		children, err := db.GetComponentCache().ComponentChildren(entry.GetUID())
 		if err != nil {
 			klog.ErrorS(err, "failed to get children for component", "component", c.Name)
 			continue
