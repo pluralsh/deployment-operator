@@ -106,10 +106,10 @@ func SyncPod(u *unstructured.Unstructured) {
 		return
 	}
 
-	// Add pod to the cache even if the node name is empty to track pods that are not scheduled yet
-	nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName")
-	_ = db.GetComponentCache().SetPod(
-		u.GetName(), u.GetNamespace(), string(u.GetUID()), nodeName, u.GetCreationTimestamp().String())
+	if nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName"); nodeName != "" {
+		_ = db.GetComponentCache().SetPod(
+			u.GetName(), u.GetNamespace(), string(u.GetUID()), nodeName, u.GetCreationTimestamp().String())
+	}
 }
 
 func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
