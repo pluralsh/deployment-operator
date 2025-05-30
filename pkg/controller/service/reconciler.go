@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
@@ -40,7 +42,6 @@ import (
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 const (
@@ -391,6 +392,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	manifests, err := s.manifestCache.Fetch(s.utilFactory, svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)
+		// clear the error so that it won't get propagated to the API as service error
+		err = nil
 		return
 	}
 	manifests = postProcess(manifests)
