@@ -28,6 +28,7 @@ require (
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49
 	github.com/grafana/pyroscope-go v1.2.0
 	github.com/hashicorp/terraform-json v0.24.0
+	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.22.1
 	github.com/onsi/gomega v1.36.2
@@ -49,7 +50,7 @@ require (
 	github.com/vektra/mockery/v2 v2.45.1
 	github.com/vmware-tanzu/velero v1.14.1
 	github.com/yuin/gopher-lua v1.1.1
-	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
+	golang.org/x/exp v0.0.0-20250531010427-b6e5de432a8b
 	golang.org/x/time v0.11.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.17.3
@@ -350,7 +351,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mgechev/revive v1.5.1 // indirect
-	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
@@ -494,16 +494,16 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20241108190413-2d47ceb2692f // indirect
-	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/oauth2 v0.25.0 // indirect
-	golang.org/x/sync v0.12.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/term v0.30.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
-	golang.org/x/tools v0.30.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/term v0.32.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/tools v0.33.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240716161551-93cc26a95ae9 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/api v0.216.0 // indirect
