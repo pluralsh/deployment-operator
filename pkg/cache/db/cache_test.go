@@ -366,17 +366,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	})
 }
 
-type podAttributes struct {
-	Name      string
-	Namespace string
-	UID       string
-	Node      string
-	Timestamp int64
-}
-
-type CreatePodOption func()
-
-func createPod(name, uid string, timestamp int64, option ...CreatePodOption) error {
+func createPod(name, uid string, timestamp int64) error {
 	return db.GetComponentCache().SetPod(
 		name,
 		testNamespace,
