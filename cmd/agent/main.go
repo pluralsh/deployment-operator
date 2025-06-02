@@ -101,15 +101,13 @@ func main() {
 
 	// Start resource cache in background if enabled.
 	if args.ResourceCacheEnabled() {
-		cache.Init(ctx, config, args.ResourceCacheTTL())
 		db.Init()
+		cache.Init(ctx, config, args.ResourceCacheTTL())
+		scraper.RunServerGroupsScraperInBackgroundOrDie(ctx, config)
 	}
 
 	// Start the discovery cache in background.
 	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
-
-	// Start AI insight component scraper in background
-	scraper.RunAiInsightComponentScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient)
 
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
