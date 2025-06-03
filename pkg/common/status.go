@@ -6,7 +6,6 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -14,6 +13,8 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 
 	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 )
@@ -54,23 +55,8 @@ type Progress struct {
 	PingTime     time.Time
 }
 
-func SyncComponentCache(u *unstructured.Unstructured) {
-	gvk := u.GroupVersionKind()
-
-	if gvk.Kind == PodKind {
-		SyncPod(u) // Sync pending pods
-		return
-	}
-
-	SyncComponent(u, gvk) // Sync all components besides pods
-}
-
-func SyncComponent(u *unstructured.Unstructured, gvk schema.GroupVersionKind) {
-	if u.GetDeletionTimestamp() != nil {
-		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
-		return
-	}
-
+func SyncDBCache(u *unstructured.Unstructured) {
+	state := ToStatus(u)
 	ownerRefs := u.GetOwnerReferences()
 	var ownerRef *string
 	if len(ownerRefs) > 0 {
@@ -83,32 +69,65 @@ func SyncComponent(u *unstructured.Unstructured, gvk schema.GroupVersionKind) {
 		}
 	}
 
-	_ = db.GetComponentCache().SetComponent(console.ComponentChildAttributes{
+	// Sync pods separately, as they have a different sync logic
+	if u.GetKind() == PodKind {
+		SyncPod(u, state, ownerRef)
+		return
+	}
+
+	SyncComponent(u, state, ownerRef) // Sync all components besides pods
+}
+
+func SyncComponent(u *unstructured.Unstructured, state *console.ComponentState, ownerRef *string) {
+	if u.GetDeletionTimestamp() != nil {
+		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
+		return
+	}
+
+	gvk := u.GroupVersionKind()
+	err := db.GetComponentCache().SetComponent(console.ComponentChildAttributes{
 		UID:       string(u.GetUID()),
 		Name:      u.GetName(),
 		Namespace: lo.ToPtr(u.GetNamespace()),
 		Group:     lo.ToPtr(gvk.Group),
 		Version:   gvk.Version,
 		Kind:      gvk.Kind,
-		State:     ToStatus(u),
+		State:     state,
 		ParentUID: ownerRef,
 	})
+	if err != nil {
+		klog.ErrorS(err, "failed to set component in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
+	}
 }
 
-func SyncPod(u *unstructured.Unstructured) {
+func SyncPod(u *unstructured.Unstructured, state *console.ComponentState, ownerRef *string) {
 	if u.GetDeletionTimestamp() != nil {
-		_ = db.GetComponentCache().DeletePod(string(u.GetUID()))
+		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
 		return
 	}
 
-	if health := ToStatus(u); lo.FromPtr(health) == console.ComponentStateRunning {
-		_ = db.GetComponentCache().DeletePod(string(u.GetUID()))
+	if lo.FromPtr(state) == console.ComponentStateRunning {
+		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
 		return
 	}
 
-	if nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName"); nodeName != "" {
-		_ = db.GetComponentCache().SetPod(
-			u.GetName(), u.GetNamespace(), string(u.GetUID()), nodeName, u.GetCreationTimestamp().Unix())
+	nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName")
+	if len(nodeName) == 0 {
+		// If the pod is not assigned to a node, we don't need to keep it in the component cache
+		return
+	}
+
+	err := db.GetComponentCache().SetPod(
+		u.GetName(),
+		u.GetNamespace(),
+		string(u.GetUID()),
+		lo.FromPtr(ownerRef),
+		nodeName,
+		u.GetCreationTimestamp().Unix(),
+		state,
+	)
+	if err != nil {
+		klog.ErrorS(err, "failed to set pod in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
 	}
 }
 
