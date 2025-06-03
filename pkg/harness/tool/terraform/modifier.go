@@ -16,11 +16,19 @@ func (in *PlanArgsModifier) Args(args []string) []string {
 		return args
 	}
 
+	if in.parallelism != nil {
+		args = append(args, fmt.Sprintf("-parallelism=%d", *in.parallelism))
+	}
+
+	if in.refresh != nil {
+		args = append(args, fmt.Sprintf("-refresh=%t", *in.refresh))
+	}
+
 	return append(args, fmt.Sprintf("-out=%s", in.planFileName))
 }
 
-func NewPlanArgsModifier(planFileName string) v1.Modifier {
-	return &PlanArgsModifier{planFileName: planFileName}
+func (tf *Terraform) NewPlanArgsModifier(planFileName string) v1.Modifier {
+	return &PlanArgsModifier{planFileName: planFileName, parallelism: tf.parallelism, refresh: tf.refresh}
 }
 
 // Args implements [v1.ArgsModifier] type.
@@ -33,9 +41,13 @@ func (in *ApplyArgsModifier) Args(args []string) []string {
 		return args
 	}
 
+	if in.parallelism != nil {
+		args = append(args, fmt.Sprintf("-parallelism=%d", *in.parallelism))
+	}
+
 	return append(args, in.planFileName)
 }
 
-func NewApplyArgsModifier(dir, planFileName string) v1.Modifier {
-	return &ApplyArgsModifier{planFileName: planFileName, dir: dir}
+func (tf *Terraform) NewApplyArgsModifier(dir, planFileName string) v1.Modifier {
+	return &ApplyArgsModifier{planFileName: planFileName, dir: dir, parallelism: tf.parallelism, refresh: tf.refresh}
 }

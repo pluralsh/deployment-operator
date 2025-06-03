@@ -80,9 +80,9 @@ func (in *Terraform) Output() ([]*console.StackOutputAttributes, error) {
 func (in *Terraform) Modifier(stage console.StepStage) v1.Modifier {
 	switch stage {
 	case console.StepStagePlan:
-		return NewPlanArgsModifier(in.planFileName)
+		return in.NewPlanArgsModifier(in.planFileName)
 	case console.StepStageApply:
-		return NewApplyArgsModifier(in.dir, in.planFileName)
+		return in.NewApplyArgsModifier(in.dir, in.planFileName)
 	}
 
 	return v1.NewDefaultModifier()
@@ -182,5 +182,7 @@ func New(config v1.Config) v1.Tool {
 		DefaultTool: v1.DefaultTool{Scanner: config.Scanner},
 		dir:         config.ExecDir,
 		variables:   config.Variables,
+		parallelism: config.Run.Parallelism,
+		refresh:     config.Run.Refresh,
 	}).init()
 }
