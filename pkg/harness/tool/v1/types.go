@@ -6,6 +6,8 @@ import (
 	console "github.com/pluralsh/console/go/client"
 
 	securityv1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
+
+	stackrunv1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
 // Tool handles one of the supported infrastructure management tools.
@@ -93,4 +95,6 @@ type Config struct {
 
 	// Scanner TODO
 	Scanner securityv1.Scanner
+
+	Run *stackrunv1.StackRun
 }
