@@ -28,6 +28,7 @@ require (
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49
 	github.com/grafana/pyroscope-go v1.2.0
 	github.com/hashicorp/terraform-json v0.24.0
+	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.22.1
 	github.com/onsi/gomega v1.36.2
@@ -41,6 +42,7 @@ require (
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.2.0
 	github.com/prometheus/client_golang v1.21.1
+	github.com/sahilm/fuzzy v0.1.1
 	github.com/samber/lo v1.49.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.6
@@ -350,7 +352,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mgechev/revive v1.5.1 // indirect
-	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
