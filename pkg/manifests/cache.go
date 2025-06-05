@@ -9,11 +9,7 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2/textlogger"
-	"k8s.io/kubectl/pkg/cmd/util"
-
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 )
 
 var (
@@ -45,34 +41,34 @@ func NewCache(expiry, expiryJitter time.Duration, token, consoleURL string) *Man
 	}
 }
 
-func (c *ManifestCache) Fetch(utilFactory util.Factory, svc *console.ServiceDeploymentForAgent) ([]unstructured.Unstructured, error) {
+func (c *ManifestCache) Fetch(svc *console.ServiceDeploymentForAgent) (string, error) {
 	sha, err := fetchSha(c.consoleURL, c.token, svc.ID)
 	if line, ok := c.cache.Get(svc.ID); ok {
 		if err == nil && line.live() && line.sha == sha {
-			return template.Render(line.dir, svc, utilFactory)
+			return line.dir, nil
 		}
 		line.wipe()
 	}
 
 	if svc.Tarball == nil {
-		return nil, fmt.Errorf("could not fetch tarball url for service")
+		return "", fmt.Errorf("could not fetch tarball url for service")
 	}
 
 	log.V(1).Info("fetching tarball", "url", *svc.Tarball, "sha", sha)
 
 	tarballURL, err := buildTarballURL(*svc.Tarball, sha)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	dir, err := fetch(tarballURL.String(), c.token)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	log.V(1).Info("using cache dir", "dir", dir)
 
 	c.cache.Set(svc.ID, &cacheLine{dir: dir, sha: sha, created: time.Now(), expiry: c.ExpiryWithJitter()})
-	return template.Render(dir, svc, utilFactory)
+	return dir, nil
 }
 
 func buildTarballURL(tarball, sha string) (*url.URL, error) {

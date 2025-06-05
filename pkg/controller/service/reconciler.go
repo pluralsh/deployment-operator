@@ -40,6 +40,7 @@ import (
 	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -389,13 +390,20 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	logger.V(4).Info("Fetching manifests", "service", svc.Name)
-	manifests, err := s.manifestCache.Fetch(s.utilFactory, svc)
+	dir, err := s.manifestCache.Fetch(svc)
 	if err != nil {
-		logger.Error(err, "failed to parse manifests", "service", svc.Name)
+		logger.Error(err, "failed to fetch manifests", "service", svc.Name)
 		// clear the error so that it won't get propagated to the API as service error
 		err = nil
 		return
 	}
+
+	manifests, err := template.Render(dir, svc, s.utilFactory)
+	if err != nil {
+		logger.Error(err, "failed to render manifests", "service", svc.Name)
+		return
+	}
+
 	manifests = postProcess(manifests)
 	logger.V(4).Info("Syncing manifests", "count", len(manifests))
 	invObj, manifests, err := s.SplitObjects(id, manifests)
