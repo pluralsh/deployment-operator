@@ -10,6 +10,12 @@ type PlanArgsModifier struct {
 
 	// planFileName
 	planFileName string
+
+	// parallelism
+	parallelism *int64
+
+	// refresh
+	refresh *bool
 }
 
 // ApplyArgsModifier implements [v1.ArgsModifier] interface.
@@ -21,4 +27,10 @@ type ApplyArgsModifier struct {
 
 	// dir
 	dir string
+
+	// parallelism
+	parallelism *int64
+
+	// refresh
+	refresh *bool
 }

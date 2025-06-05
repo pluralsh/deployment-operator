@@ -31,13 +31,15 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
-var allCoreObjMetadata = containers.ToSet([]ResourceKey{
+// extraCoreResourcesWatchSet is a set of core resources that should be watched
+var extraCoreResourcesWatchSet = containers.ToSet([]ResourceKey{
 	// Core API group ("")
 	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Pod"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Service"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "ConfigMap"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Secret"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "PersistentVolumeClaim"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
+	{GroupKind: runtimeschema.GroupKind{Group: "", Kind: "Node"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 
 	// Apps group
 	{GroupKind: runtimeschema.GroupKind{Group: "apps", Kind: "Deployment"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
@@ -181,7 +183,7 @@ func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[ResourceK
 		klog.V(4).Info("resource cache not initialized")
 		return
 	}
-	inventoryResourceKeys = inventoryResourceKeys.Union(allCoreObjMetadata)
+	inventoryResourceKeys = inventoryResourceKeys.Union(extraCoreResourcesWatchSet)
 	toAdd := inventoryResourceKeys.Difference(in.resourceKeySet)
 
 	if len(toAdd) > 0 {
@@ -197,7 +199,7 @@ func (in *ResourceCache) Unregister(inventoryResourceKeys containers.Set[Resourc
 	}
 
 	toRemove := in.resourceKeySet.Difference(inventoryResourceKeys)
-	toRemove = toRemove.Difference(allCoreObjMetadata)
+	toRemove = toRemove.Difference(extraCoreResourcesWatchSet)
 
 	for key := range toRemove {
 		in.resourceKeySet.Remove(key)
@@ -305,7 +307,7 @@ func (in *ResourceCache) reconcile(e event.Event) {
 	}
 
 	if e.Resource.Resource != nil {
-		common.SyncComponentCache(e.Resource.Resource)
+		common.SyncDBCache(e.Resource.Resource)
 
 		labels := e.Resource.Resource.GetLabels()
 		if val, ok := labels[common.ManagedByLabel]; !ok || val != common.AgentLabelValue {

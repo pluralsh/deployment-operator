@@ -8,12 +8,14 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	console "github.com/pluralsh/console/go/client"
-	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
-	"github.com/pluralsh/deployment-operator/pkg/scraper"
+
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -184,7 +186,7 @@ func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Conte
 			Kind:    kind,
 		}
 
-		pager := scraper.ListResources(ctx, s.k8sClient, gvk, nil)
+		pager := common.ListResources(ctx, s.k8sClient, gvk, nil)
 		for pager.HasNext() {
 			items, err := pager.NextPage()
 			if err != nil {

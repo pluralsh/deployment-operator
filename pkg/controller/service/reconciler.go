@@ -392,9 +392,9 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	logger.V(4).Info("Fetching manifests", "service", svc.Name)
 	dir, err := s.manifestCache.Fetch(svc)
 	if err != nil {
-		logger.Error(err, "failed to fetch manifests", "service", svc.Name)
-		// clear the error so that it won't get propagated to the API as service error
-		err = nil
+		logger.Error(err, "failed to parse manifests", "service", svc.Name)
+		// mark as the expected error so that it won't get propagated to the API as a service error
+		err = plrlerrors.ErrExpected
 		return
 	}
 

@@ -12,20 +12,12 @@ const (
 			namespace TEXT,
 			name TEXT,
 			health INT,
+			node TEXT,
+			createdAt TIMESTAMP,
 			FOREIGN KEY(parent_uid) REFERENCES component(uid)
 		);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
 		CREATE INDEX IF NOT EXISTS idx_uid ON component(uid);
-
-		CREATE TABLE IF NOT EXISTS pod (
-			id INTEGER PRIMARY KEY,
-			name TEXT,
-			namespace TEXT,
-			uid TEXT UNIQUE,
-			node TEXT,
-			createdAt TIMESTAMP
-		);
-		CREATE INDEX IF NOT EXISTS idx_pod_uid ON pod(uid);
 	`
 
 	setComponent = `
@@ -37,7 +29,9 @@ const (
 			kind, 
 			namespace,
 			name,
-			health
+			health,
+		    node,
+		    createdAt
 		) VALUES (
 			?,
 			?,
@@ -46,7 +40,9 @@ const (
 			?,
 			?,
 			?,
-			?
+			?,
+			?,
+		    ?
 		) ON CONFLICT(uid) DO UPDATE SET
 			parent_uid = excluded.parent_uid,
 			"group" = excluded."group",
@@ -54,7 +50,9 @@ const (
 			kind = excluded.kind,
 			namespace = excluded.namespace,
 			name = excluded.name,
-			health = excluded.health
+			health = excluded.health,
+			node = excluded.node,
+			createdAt = excluded.createdAt
 	`
 
 	componentChildren = `
@@ -76,30 +74,46 @@ const (
 
 	clusterHealthScore = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as score FROM component`
 
-	setPod = `
-		INSERT INTO pod (
-			name,
-			namespace,
-			uid,
-			node,
-			createdAt
-		) VALUES (
-			?,
-			?,
-			?,
-			?,
-			?
-		) ON CONFLICT(uid) DO UPDATE SET
-			name = excluded.name,
-			namespace = excluded.namespace,
-			node = excluded.node,
-			createdAt = excluded.createdAt
-	`
-
 	nodeStatistics = `
 		SELECT node, COUNT(*)
-		FROM pod
-		WHERE createdAt <= strftime('%s', 'now', '-5 minutes')
+		FROM component
+		WHERE kind = 'Pod' AND createdAt <= strftime('%s', 'now', '-5 minutes')
 		GROUP BY node
+	`
+
+	failedComponents = `
+		WITH RECURSIVE component_chain AS (
+			-- Start with parent components of specified kinds
+			SELECT *, 1 as level, uid as root_uid
+			FROM component 
+			WHERE kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')
+			
+			UNION ALL
+			
+			-- Get children of components in the chain, carrying the root component UID
+			SELECT c.*, cc.level + 1, cc.root_uid
+			FROM component c
+			JOIN component_chain cc ON c.parent_uid = cc.uid
+			WHERE cc.level < 4
+		),
+		-- Find all failed components in the chain
+		failed_roots AS (
+			-- Get root UIDs where any component in the chain is failed
+			SELECT DISTINCT root_uid
+			FROM component_chain
+			WHERE health = 2
+		)
+		-- Return both the failed components and their original parent components
+		SELECT DISTINCT cc.uid, cc."group", cc.version, cc.kind, cc.namespace, cc.name
+		FROM component_chain cc
+		WHERE cc.health = 2  -- The component itself is failed
+		   OR cc.uid IN (    -- OR it's a direct parent of a failed component
+			  SELECT parent_uid 
+			  FROM component_chain 
+			  WHERE health = 2 AND parent_uid IS NOT NULL
+		   )
+		   OR (cc.uid IN (  -- OR it's the original root component of a chain with failures
+			  SELECT root_uid FROM failed_roots
+		   ) AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate'))
 	`
 )

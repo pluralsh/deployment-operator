@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/sahilm/fuzzy"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 	"zombiezen.com/go/sqlite"
@@ -98,6 +99,33 @@ func (in *ComponentCache) ComponentChildren(uid string) (result []client.Compone
 	return result, err
 }
 
+func (in *ComponentCache) ComponentInsights() (result []client.ClusterInsightComponentAttributes, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, failedComponents, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			name := stmt.ColumnText(5)
+			namespace := stmt.ColumnText(4)
+			kind := stmt.ColumnText(3)
+			result = append(result, client.ClusterInsightComponentAttributes{
+				Group:     lo.ToPtr(stmt.ColumnText(1)),
+				Version:   stmt.ColumnText(2),
+				Kind:      kind,
+				Namespace: lo.EmptyableToPtr(namespace),
+				Name:      name,
+				Priority:  in.toInsightComponentPriority(name, namespace, kind),
+			})
+			return nil
+		},
+	})
+
+	return result, err
+}
+
 // SetComponent stores or updates a component's attributes in the cache.
 // It takes a ComponentChildAttributes parameter containing the component's data.
 // If a component with the same UID exists, it will be updated; otherwise, a new entry is created.
@@ -119,6 +147,8 @@ func (in *ComponentCache) SetComponent(component client.ComponentChildAttributes
 			lo.FromPtr(component.Namespace),
 			component.Name,
 			ToComponentState(component.State),
+			nil,
+			nil,
 		},
 	})
 }
@@ -164,37 +194,26 @@ func (in *ComponentCache) HealthScore() (int64, error) {
 // It takes pod name, namespace, uid, node name and creation timestamp as parameters.
 // If a pod with the same UID exists, it will be updated; otherwise, a new entry is created.
 // Returns an error if the database operation fails or if the connection cannot be established.
-func (in *ComponentCache) SetPod(name, namespace, uid, node string, createdAt int64) error {
+func (in *ComponentCache) SetPod(name, namespace, uid, parentUID, node string, createdAt int64, state *client.ComponentState) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteTransient(conn, setPod, &sqlitex.ExecOptions{
+	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{
-			name,
-			namespace,
 			uid,
+			parentUID,
+			"",
+			"v1",
+			"Pod",
+			namespace,
+			name,
+			ToComponentState(state),
 			node,
 			createdAt,
 		},
-	})
-}
-
-// DeletePod removes a pod from the cache by its unique identifier.
-// It takes a uid string parameter identifying the pod to delete.
-// Returns an error if the operation fails or if the connection cannot be established.
-func (in *ComponentCache) DeletePod(uid string) error {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return err
-	}
-	defer in.pool.Put(conn)
-
-	query := `DELETE FROM pod WHERE uid = ?`
-	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
-		Args: []any{uid},
 	})
 }
 
@@ -302,6 +321,45 @@ func (in *ComponentCache) initTables() error {
 	defer in.pool.Put(conn)
 
 	return sqlitex.ExecuteScript(conn, createTables, nil)
+}
+
+func (in *ComponentCache) toInsightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
+	kindToPriorityMap := map[string]client.InsightComponentPriority{
+		"Ingress":     client.InsightComponentPriorityCritical,
+		"Certificate": client.InsightComponentPriorityCritical, // cert-manager Certificate
+		"StatefulSet": client.InsightComponentPriorityHigh,
+		"DaemonSet":   client.InsightComponentPriorityMedium,
+		"Deployment":  client.InsightComponentPriorityLow,
+	}
+
+	resourceToPriorityMap := map[string]client.InsightComponentPriority{
+		"certmanager":   client.InsightComponentPriorityCritical,
+		"coredns":       client.InsightComponentPriorityCritical,
+		"kubeproxy":     client.InsightComponentPriorityCritical,
+		"istio":         client.InsightComponentPriorityCritical,
+		"linkerd":       client.InsightComponentPriorityCritical,
+		"csinode":       client.InsightComponentPriorityCritical,
+		"csicontroller": client.InsightComponentPriorityCritical,
+		"nodeexporter":  client.InsightComponentPriorityHigh,
+	}
+
+	const certaintyThreshold = 200
+	for resource, priority := range resourceToPriorityMap {
+		matches := fuzzy.Find(resource, []string{name, namespace}) // Fuzzy match to find similar resources
+
+		// Only consider first score threshold as it is the best match
+		if len(matches) > 0 && matches[0].Score >= certaintyThreshold {
+			return lo.ToPtr(priority)
+		}
+	}
+
+	// Check if the kind is directly mapped to a priority
+	if priority, exists := kindToPriorityMap[kind]; exists {
+		return lo.ToPtr(priority)
+	}
+
+	// Default to low priority if no matches found
+	return lo.ToPtr(client.InsightComponentPriorityLow)
 }
 
 // Option represents a function that configures the ComponentCache

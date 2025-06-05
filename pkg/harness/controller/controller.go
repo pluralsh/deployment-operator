@@ -216,6 +216,7 @@ func (in *stackRunController) prepare() error {
 		ExecDir:   in.execWorkDir(),
 		Variables: variables,
 		Scanner:   security.NewScanner(in.stackRun.PolicyEngine),
+		Run:       in.stackRun,
 	})
 
 	return nil
