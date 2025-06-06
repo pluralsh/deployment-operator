@@ -12,6 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/polly/luautils"
+	lua "github.com/yuin/gopher-lua"
+
 	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
 	console "github.com/pluralsh/console/go/client"
@@ -74,11 +77,16 @@ type helm struct {
 }
 
 func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
-	// TODO: add some configured values file convention, perhaps using our lua templating from plural-cli
 	values, err := h.values(svc)
 	if err != nil {
 		return nil, err
 	}
+	luaValues, err := h.luaValues(svc)
+	if err != nil {
+		return nil, err
+	}
+	values = algorithms.Merge(values, luaValues)
+
 	config, err := GetActionConfig(svc.Namespace)
 	if err != nil {
 		return nil, err
@@ -170,18 +178,75 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 	return manifests, nil
 }
 
+func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]interface{}, error) {
+	// Initialize empty results
+	newValues := make(map[string]interface{})
+	var valuesFiles []string
+
+	if svc == nil {
+		return nil, fmt.Errorf("no service found")
+	}
+	if svc.Helm == nil {
+		return newValues, nil
+	}
+	if svc.Helm.LuaScript == nil {
+		return newValues, nil
+	}
+	p := luautils.NewProcessor(h.dir)
+	defer p.L.Close()
+
+	// Register global values and valuesFiles in Lua
+	valuesTable := p.L.NewTable()
+	p.L.SetGlobal("values", valuesTable)
+
+	valuesFilesTable := p.L.NewTable()
+	p.L.SetGlobal("valuesFiles", valuesFilesTable)
+
+	// Execute the Lua script
+	err := p.L.DoString(*svc.Helm.LuaScript)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := luautils.MapLua(p.L.GetGlobal("values").(*lua.LTable), &newValues); err != nil {
+		return nil, err
+	}
+
+	if err := luautils.MapLua(p.L.GetGlobal("valuesFiles").(*lua.LTable), &valuesFiles); err != nil {
+		return nil, err
+	}
+
+	for _, file := range valuesFiles {
+		currentMap, err := h.valuesFile(svc, file)
+		if err == nil {
+			newValues = algorithms.Merge(newValues, currentMap)
+		}
+	}
+
+	return newValues, nil
+}
+
 func (h *helm) values(svc *console.ServiceDeploymentForAgent) (map[string]interface{}, error) {
 	currentMap, err := h.valuesFile(svc, "values.yaml.liquid")
 	if err != nil {
 		return currentMap, err
 	}
-	if svc.Helm != nil && svc.Helm.ValuesFiles != nil && len(svc.Helm.ValuesFiles) > 0 {
-		for _, f := range svc.Helm.ValuesFiles {
-			nextMap, err := h.valuesFile(svc, lo.FromPtr(f))
-			if err != nil {
-				return currentMap, err
+	if svc.Helm != nil {
+		if svc.Helm.ValuesFiles != nil && len(svc.Helm.ValuesFiles) > 0 {
+			for _, f := range svc.Helm.ValuesFiles {
+				nextMap, err := h.valuesFile(svc, lo.FromPtr(f))
+				if err != nil {
+					return currentMap, err
+				}
+				currentMap = algorithms.Merge(currentMap, nextMap)
 			}
-			currentMap = algorithms.Merge(currentMap, nextMap)
+		}
+		if svc.Helm.Values != nil {
+			valuesMap := map[string]interface{}{}
+			if err := yaml.Unmarshal([]byte(*svc.Helm.Values), &valuesMap); err != nil {
+				return nil, err
+			}
+			currentMap = algorithms.Merge(currentMap, valuesMap)
 		}
 	}
 
