@@ -232,7 +232,6 @@ func (h *helm) values(svc *console.ServiceDeploymentForAgent) (map[string]interf
 		return currentMap, err
 	}
 	if svc.Helm != nil {
-
 		for _, f := range svc.Helm.ValuesFiles {
 			nextMap, err := h.valuesFile(svc, lo.FromPtr(f))
 			if err != nil {
