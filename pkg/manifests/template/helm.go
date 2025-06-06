@@ -186,12 +186,10 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 	if svc == nil {
 		return nil, fmt.Errorf("no service found")
 	}
-	if svc.Helm == nil {
+	if svc.Helm == nil || svc.Helm.LuaScript == nil {
 		return newValues, nil
 	}
-	if svc.Helm.LuaScript == nil {
-		return newValues, nil
-	}
+
 	p := luautils.NewProcessor(h.dir)
 	defer p.L.Close()
 
