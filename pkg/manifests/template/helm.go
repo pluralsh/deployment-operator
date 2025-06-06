@@ -232,15 +232,15 @@ func (h *helm) values(svc *console.ServiceDeploymentForAgent) (map[string]interf
 		return currentMap, err
 	}
 	if svc.Helm != nil {
-		if svc.Helm.ValuesFiles != nil && len(svc.Helm.ValuesFiles) > 0 {
-			for _, f := range svc.Helm.ValuesFiles {
-				nextMap, err := h.valuesFile(svc, lo.FromPtr(f))
-				if err != nil {
-					return currentMap, err
-				}
-				currentMap = algorithms.Merge(currentMap, nextMap)
+
+		for _, f := range svc.Helm.ValuesFiles {
+			nextMap, err := h.valuesFile(svc, lo.FromPtr(f))
+			if err != nil {
+				return currentMap, err
 			}
+			currentMap = algorithms.Merge(currentMap, nextMap)
 		}
+
 		if svc.Helm.Values != nil {
 			valuesMap := map[string]interface{}{}
 			if err := yaml.Unmarshal([]byte(*svc.Helm.Values), &valuesMap); err != nil {
