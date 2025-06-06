@@ -80,8 +80,23 @@ var _ = Describe("Helm template", func() {
 			resp, err = NewHelm(dir).Render(svc, utilFactory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(2))
+
+			// check lua script
+			dir = filepath.Join("..", "..", "..", "test", "helm", "lua")
+
+			svc.Helm.LuaScript = lo.ToPtr(`
+			-- Define values
+			values = {}
+			values["name"] = "new-name"
+			values["namespace"] = "new-namespace"
+`)
+
+			resp, err = NewHelm(dir).Render(svc, utilFactory)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(resp)).To(Equal(1))
+
+			Expect(resp[0].GetName()).To(Equal("new-name"))
+			Expect(resp[0].GetNamespace()).To(Equal("new-namespace"))
 		})
-
 	})
-
 })
