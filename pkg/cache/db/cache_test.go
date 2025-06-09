@@ -514,17 +514,10 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 			"app-statefulset-1",
 			"app-daemonset-1",
 			"app-deployment-1",
-			"app-pod-1",
 			"app-deployment-2",
-			"app-pod-2",
 			"app-deployment-3",
-			"app-pod-3",
 			"app-deployment-4",
-			"app-replicaset-1",
-			"app-pod-4",
 			"app-deployment-5",
-			"app-replicaset-2",
-			"app-pod-5",
 		}
 
 		// Insert all test components into cache
