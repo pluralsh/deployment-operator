@@ -106,7 +106,7 @@ const (
 		-- Return both the failed components and their original parent components
 		SELECT DISTINCT cc.uid, cc."group", cc.version, cc.kind, cc.namespace, cc.name
 		FROM component_chain cc
-		WHERE cc.health = 2  -- The component itself is failed
+		WHERE (cc.health = 2  -- The component itself is failed
 		   OR cc.uid IN (    -- OR it's a direct parent of a failed component
 			  SELECT parent_uid 
 			  FROM component_chain 
@@ -114,6 +114,7 @@ const (
 		   )
 		   OR (cc.uid IN (  -- OR it's the original root component of a chain with failures
 			  SELECT root_uid FROM failed_roots
-		   ) AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate'))
+		   ) AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')))
+           AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')
 	`
 )
