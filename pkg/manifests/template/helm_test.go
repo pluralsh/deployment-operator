@@ -110,7 +110,7 @@ var _ = Describe("Helm template", func() {
 
 `)
 
-			resp, err = NewHelm(dir).Render(svc, utilFactory)
+			_, err = NewHelm(dir).Render(svc, utilFactory)
 			Expect(err).To(HaveOccurred())
 			fmt.Println(err.Error())
 			Expect(err.Error()).To(Equal("lua script error: <string>:5: Something went wrong!"))
