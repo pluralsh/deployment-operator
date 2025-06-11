@@ -83,6 +83,10 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 	}
 	luaValues, err := h.luaValues(svc)
 	if err != nil {
+		var apiErr *lua.ApiError
+		if errors.As(err, &apiErr) {
+			return nil, fmt.Errorf("lua script error: %s", apiErr.Object.String())
+		}
 		return nil, err
 	}
 	values = algorithms.Merge(values, luaValues)

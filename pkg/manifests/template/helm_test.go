@@ -2,6 +2,7 @@ package template
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -97,6 +98,22 @@ var _ = Describe("Helm template", func() {
 
 			Expect(resp[0].GetName()).To(Equal("new-name"))
 			Expect(resp[0].GetNamespace()).To(Equal("new-namespace"))
+
+			// check lua script when throw error
+			dir = filepath.Join("..", "..", "..", "test", "helm", "lua")
+
+			svc.Helm.LuaScript = lo.ToPtr(`
+			-- Define values
+			values = {}
+			-- Terminate with a simple error message
+			error("Something went wrong!")
+
+`)
+
+			_, err = NewHelm(dir).Render(svc, utilFactory)
+			Expect(err).To(HaveOccurred())
+			fmt.Println(err.Error())
+			Expect(err.Error()).To(Equal("lua script error: <string>:5: Something went wrong!"))
 		})
 	})
 })
