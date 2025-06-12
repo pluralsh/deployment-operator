@@ -1810,6 +1810,14 @@ github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34 h1:ab2PN+6if/
 github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34/go.mod h1:IagWXKFYu6NTHzcJx2dJyrIlZ1Sv2PH3fhOtplA9qOs=
 github.com/pluralsh/polly v0.2.3 h1:94S61B2gkpK8fUCMl10n36xX6Fh2kf2rlRWLr5UWS1g=
 github.com/pluralsh/polly v0.2.3/go.mod h1:GpeJrbPW0XedsoTXYRPhS5mc6GqIYLocOaRRSsZGisQ=
+github.com/pluralsh/polly v0.2.4 h1:OyxUq324sTE/ZM5AVUZAgeZCLxM77gfqlB6uIOGihFo=
+github.com/pluralsh/polly v0.2.4/go.mod h1:GpeJrbPW0XedsoTXYRPhS5mc6GqIYLocOaRRSsZGisQ=
+github.com/pluralsh/polly v0.2.5 h1:JO6rqZChuV+SQ4xry07XctZDW3DqYaWqEWsrio8k88A=
+github.com/pluralsh/polly v0.2.5/go.mod h1:GpeJrbPW0XedsoTXYRPhS5mc6GqIYLocOaRRSsZGisQ=
+github.com/pluralsh/polly v0.2.6 h1:BS2ubNJoXM2HwVEJxcgpew/j9ErYEzk91ArkqUavr5w=
+github.com/pluralsh/polly v0.2.6/go.mod h1:GpeJrbPW0XedsoTXYRPhS5mc6GqIYLocOaRRSsZGisQ=
+github.com/pluralsh/polly v0.2.7 h1:Sk0rW9jGH82jdCFGpz2B8X4qz+LcBxadl2ToUFoS9Q0=
+github.com/pluralsh/polly v0.2.7/go.mod h1:GpeJrbPW0XedsoTXYRPhS5mc6GqIYLocOaRRSsZGisQ=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
