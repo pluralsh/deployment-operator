@@ -72,7 +72,7 @@ const (
 		FROM descendants
 	`
 
-	clusterHealthScore = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as score FROM component`
+	clusterHealthScore = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as score FROM component WHERE kind = 'Pod'`
 
 	nodeStatistics = `
 		SELECT node, COUNT(*)

@@ -332,15 +332,15 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		defer db.GetComponentCache().Close()
 
 		uid := testUID
-		component := createComponent(uid, nil, WithState(client.ComponentStateRunning))
+		component := createComponent(uid, nil, WithState(client.ComponentStateRunning), WithKind("Pod"))
 		err := db.GetComponentCache().SetComponent(component)
 		require.NoError(t, err)
 
-		child1 := createComponent("child1", &uid, WithState(client.ComponentStateRunning))
+		child1 := createComponent("child1", &uid, WithState(client.ComponentStateRunning), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child1)
 		require.NoError(t, err)
 
-		child2 := createComponent("child2", &uid, WithState(client.ComponentStateFailed))
+		child2 := createComponent("child2", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child2)
 		require.NoError(t, err)
 
@@ -348,7 +348,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, int64(66), score)
 
-		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed))
+		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child3)
 		require.NoError(t, err)
 
@@ -356,8 +356,17 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, int64(50), score)
 
-		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed))
+		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child4)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(40), score)
+
+		// Adding a child with a different kind than pod should not affect the health score.
+		child5 := createComponent("child5", &uid, WithState(client.ComponentStateFailed), WithKind("Deployment"))
+		err = db.GetComponentCache().SetComponent(child5)
 		require.NoError(t, err)
 
 		score, err = db.GetComponentCache().HealthScore()
