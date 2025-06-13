@@ -27,13 +27,17 @@ func NewRaw(dir string) *raw {
 	return &raw{dir}
 }
 
-func renderLiquid(input []byte, svc *console.ServiceDeploymentForAgent) ([]byte, error) {
-	bindings := map[string]interface{}{
+func bindings(svc *console.ServiceDeploymentForAgent) map[string]interface{} {
+	return map[string]interface{}{
 		"configuration": configMap(svc),
 		"cluster":       clusterConfiguration(svc.Cluster),
 		"contexts":      contexts(svc),
 		"imports":       imports(svc),
 	}
+}
+
+func renderLiquid(input []byte, svc *console.ServiceDeploymentForAgent) ([]byte, error) {
+	bindings := bindings(svc)
 	return template.RenderLiquid(input, bindings)
 }
 

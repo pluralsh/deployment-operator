@@ -98,19 +98,22 @@ var _ = Describe("Helm template", func() {
 
 			Expect(resp[0].GetName()).To(Equal("new-name"))
 			Expect(resp[0].GetNamespace()).To(Equal("new-namespace"))
+		})
 
+		It("should successfully render handle lua errors", func() {
 			// check lua script when throw error
-			dir = filepath.Join("..", "..", "..", "test", "helm", "lua")
+			dir := filepath.Join("..", "..", "..", "test", "helm", "lua")
 
+			svc.Helm = &console.ServiceDeploymentForAgent_Helm{
+				IgnoreHooks: lo.ToPtr(false),
+			}
 			svc.Helm.LuaScript = lo.ToPtr(`
 			-- Define values
 			values = {}
 			-- Terminate with a simple error message
-			error("Something went wrong!")
+			error("Something went wrong!")`)
 
-`)
-
-			_, err = NewHelm(dir).Render(svc, utilFactory)
+			_, err := NewHelm(dir).Render(svc, utilFactory)
 			Expect(err).To(HaveOccurred())
 			fmt.Println(err.Error())
 			Expect(err.Error()).To(Equal("lua script error: <string>:5: Something went wrong!"))

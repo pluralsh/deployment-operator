@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -77,16 +78,17 @@ type helm struct {
 }
 
 func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
-	values, err := h.values(svc)
-	if err != nil {
-		return nil, err
-	}
-	luaValues, err := h.luaValues(svc)
+	luaValues, luaValuesFiles, err := h.luaValues(svc)
 	if err != nil {
 		var apiErr *lua.ApiError
 		if errors.As(err, &apiErr) {
 			return nil, fmt.Errorf("lua script error: %s", apiErr.Object.String())
 		}
+		return nil, err
+	}
+
+	values, err := h.values(svc, lo.ToSlicePtr(luaValuesFiles))
+	if err != nil {
 		return nil, err
 	}
 	values = algorithms.Merge(values, luaValues)
@@ -151,6 +153,12 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 		return nil, err
 	}
 
+	h.stitchManifests(manifests, rel)
+
+	return manifests, nil
+}
+
+func (h *helm) stitchManifests(manifests []unstructured.Unstructured, rel *release.Release) {
 	for _, manifest := range manifests {
 		// Set recommended Helm labels. See: https://helm.sh/docs/chart_best_practices/labels/.
 		labels := manifest.GetLabels()
@@ -178,20 +186,19 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 		annotations[helmReleaseNamespaceAnnotation] = rel.Namespace
 		manifest.SetAnnotations(annotations)
 	}
-
-	return manifests, nil
 }
 
-func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]interface{}, error) {
+func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]interface{}, []string, error) {
 	// Initialize empty results
 	newValues := make(map[string]interface{})
 	var valuesFiles []string
 
 	if svc == nil {
-		return nil, fmt.Errorf("no service found")
+		return nil, valuesFiles, fmt.Errorf("no service found")
 	}
+
 	if svc.Helm == nil || svc.Helm.LuaScript == nil {
-		return newValues, nil
+		return newValues, valuesFiles, nil
 	}
 
 	p := luautils.NewProcessor(h.dir)
@@ -204,37 +211,40 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 	valuesFilesTable := p.L.NewTable()
 	p.L.SetGlobal("valuesFiles", valuesFilesTable)
 
+	for name, binding := range bindings(svc) {
+		p.L.SetGlobal(name, luautils.GoValueToLuaValue(p.L, binding))
+	}
+
 	// Execute the Lua script
 	err := p.L.DoString(*svc.Helm.LuaScript)
 	if err != nil {
-		return nil, err
+		return nil, valuesFiles, err
 	}
 
 	if err := luautils.MapLua(p.L.GetGlobal("values").(*lua.LTable), &newValues); err != nil {
-		return nil, err
+		return nil, valuesFiles, err
 	}
 
 	if err := luautils.MapLua(p.L.GetGlobal("valuesFiles").(*lua.LTable), &valuesFiles); err != nil {
-		return nil, err
+		return nil, valuesFiles, err
 	}
 
-	for _, file := range valuesFiles {
-		currentMap, err := h.valuesFile(svc, file)
-		if err == nil {
-			newValues = algorithms.Merge(newValues, currentMap)
-		}
+	finalValues := make(map[string]interface{}, len(newValues))
+	for k, v := range newValues {
+		finalValues[k] = luautils.SanitizeValue(v)
 	}
 
-	return newValues, nil
+	return finalValues, valuesFiles, nil
 }
 
-func (h *helm) values(svc *console.ServiceDeploymentForAgent) (map[string]interface{}, error) {
+func (h *helm) values(svc *console.ServiceDeploymentForAgent, additionalValues []*string) (map[string]interface{}, error) {
 	currentMap, err := h.valuesFile(svc, "values.yaml.liquid")
 	if err != nil {
 		return currentMap, err
 	}
 	if svc.Helm != nil {
-		for _, f := range svc.Helm.ValuesFiles {
+		allValues := slices.Concat(svc.Helm.ValuesFiles, additionalValues)
+		for _, f := range allValues {
 			nextMap, err := h.valuesFile(svc, lo.FromPtr(f))
 			if err != nil {
 				return currentMap, err
