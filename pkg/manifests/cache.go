@@ -61,7 +61,7 @@ func (c *ManifestCache) Fetch(svc *console.ServiceDeploymentForAgent) (string, e
 		return "", err
 	}
 
-	dir, err := fetch(tarballURL.String(), c.token)
+	dir, err := fetch(tarballURL.String(), c.token, sha)
 	if err != nil {
 		return "", err
 	}

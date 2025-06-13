@@ -97,7 +97,7 @@ func TestFetch_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	dir, err := fetch(server.URL, "dummy-token")
+	dir, err := fetch(server.URL, "dummy-token", "")
 	if err != nil {
 		t.Fatalf("fetch failed: %v", err)
 	}

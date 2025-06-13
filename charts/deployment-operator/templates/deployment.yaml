@@ -67,6 +67,9 @@ spec:
           volumeMounts:
             - name: temp
               mountPath: /tmp
+            - name: kube-dir
+              mountPath: /.kube
+              readOnly: false
           {{- range $cert := .Values.certs }}
             - name: {{ $cert.name }}
               mountPath: "/etc/ssl/certs/{{ $cert.file }}"
@@ -153,6 +156,8 @@ spec:
             {{ end }}
       volumes:
         - name: temp
+          emptyDir: {}
+        - name: kube-dir
           emptyDir: {}
         - name: service-account-token-volume
           projected:
