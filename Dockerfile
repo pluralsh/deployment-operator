@@ -31,7 +31,9 @@ RUN curl -L https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz 
 FROM alpine:3.21
 WORKDIR /workspace
 
-RUN mkdir /.kube && chown 65532:65532 /.kube
+RUN mkdir /.kube && \
+    chown 65532:65532 /.kube && \
+    chmod 700 /.kube
 
 COPY --from=builder /workspace/deployment-agent .
 # Copy Helm binary from builder
