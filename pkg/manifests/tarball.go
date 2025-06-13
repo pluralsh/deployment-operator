@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const pluralDigestHeader = "x-plrl-digest"
+
 var (
 	timeout = 60 * time.Second
 	client  = &http.Client{
@@ -20,7 +22,7 @@ var (
 )
 
 func getBody(url, token string) (string, error) {
-	resp, err := getReader(url, token)
+	resp, _, err := getReader(url, token)
 	if err != nil {
 		return "", err
 	}
@@ -35,33 +37,33 @@ func getBody(url, token string) (string, error) {
 	return string(body), nil
 }
 
-func getReader(url, token string) (io.ReadCloser, error) {
+func getReader(url, token string) (io.ReadCloser, http.Header, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req.Header.Add("Authorization", "Token "+token)
 
 	for i := 0; i < 3; i++ {
-		resp, retriable, err := doRequest(req)
+		resp, header, retriable, err := doRequest(req)
 		if err != nil {
 			if !retriable {
-				return nil, err
+				return nil, nil, err
 			}
 
 			time.Sleep(time.Duration(50*(i+1)) * time.Millisecond)
 			continue
 		}
 
-		return resp, nil
+		return resp, header, nil
 	}
-	return nil, fmt.Errorf("could not fetch manifest, retries exhaused: %w", err)
+	return nil, nil, fmt.Errorf("could not fetch manifest, retries exhaused: %w", err)
 }
 
-func doRequest(req *http.Request) (io.ReadCloser, bool, error) {
+func doRequest(req *http.Request) (io.ReadCloser, http.Header, bool, error) {
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -71,13 +73,13 @@ func doRequest(req *http.Request) (io.ReadCloser, bool, error) {
 		err := fmt.Errorf("could not fetch manifest, error code %d", resp.StatusCode)
 
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return nil, true, err
+			return nil, nil, true, err
 		}
 
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
-	return resp.Body, false, nil
+	return resp.Body, resp.Header, false, nil
 }
 
 func fetchSha(consoleURL, token, serviceID string) (string, error) {
@@ -89,18 +91,21 @@ func fetchSha(consoleURL, token, serviceID string) (string, error) {
 	return getBody(url, token)
 }
 
-func fetch(url, token string) (string, error) {
+func fetch(url, token, sha string) (string, error) {
 	dir, err := os.MkdirTemp("", "manifests")
 	if err != nil {
 		return "", err
 	}
 
-	resp, err := getReader(url, token)
+	resp, header, err := getReader(url, token)
 	if err != nil {
 		return "", err
 	}
-
 	defer resp.Close()
+	tarballSha := header.Get(pluralDigestHeader)
+	if tarballSha != "" && sha != tarballSha {
+		return "", fmt.Errorf("tarball sha expected %s actual %s", sha, tarballSha)
+	}
 
 	log.V(1).Info("finished request to", "url", url)
 
