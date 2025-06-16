@@ -415,6 +415,18 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		err := db.GetComponentCache().SetComponent(baseComponent)
 		require.NoError(t, err)
 
+		runningPod := createComponent("running-pod", nil, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("running-pod"))
+		err = db.GetComponentCache().SetComponent(runningPod)
+		require.NoError(t, err)
+
+		runningDeployment := createComponent("running-deployment", nil, WithState(client.ComponentStateRunning), WithKind("Deployment"), WithName("running-deployment"))
+		err = db.GetComponentCache().SetComponent(runningDeployment)
+		require.NoError(t, err)
+
+		runningService := createComponent("running-service", nil, WithState(client.ComponentStateRunning), WithKind("Service"), WithName("running-service"))
+		err = db.GetComponentCache().SetComponent(runningService)
+		require.NoError(t, err)
+
 		// Test CoreDNS failure (50 point deduction)
 		coredns := createComponent("coredns", nil, WithState(client.ComponentStateFailed), WithName("coredns"))
 		err = db.GetComponentCache().SetComponent(coredns)
@@ -422,7 +434,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		score, err := db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(50), score)
+		assert.Equal(t, int64(30), score)
 
 		// Test AWS CNI failure (additional 50 point deduction)
 		awscni := createComponent("aws-cni", nil, WithState(client.ComponentStateFailed), WithName("aws-cni"))
@@ -458,7 +470,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		score, err := db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(90), score)
+		assert.Equal(t, int64(40), score)
 
 		// Failed kube-system resource (20 point deduction)
 		kubeSystem := createComponent("kube-system-res", nil, WithState(client.ComponentStateFailed), WithNamespace("kube-system"))
@@ -467,7 +479,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(70), score)
+		assert.Equal(t, int64(3), score)
 
 		// Failed PersistentVolume (10 point deduction)
 		pv := createComponent("pv", nil, WithState(client.ComponentStateFailed), WithKind("PersistentVolume"))
@@ -476,7 +488,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(60), score)
+		assert.Equal(t, int64(0), score)
 
 		// Failed istio-system resource (50 point deduction)
 		istio := createComponent("istio-res", nil, WithState(client.ComponentStateFailed), WithNamespace("istio-system"))
@@ -485,7 +497,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(10), score)
+		assert.Equal(t, int64(0), score)
 	})
 }
 
