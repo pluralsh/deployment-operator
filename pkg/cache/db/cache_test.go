@@ -332,37 +332,172 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		defer db.GetComponentCache().Close()
 
 		uid := testUID
-		component := createComponent(uid, nil, WithState(client.ComponentStateRunning))
+		component := createComponent(uid, nil, WithState(client.ComponentStateRunning), WithKind("Pod"))
 		err := db.GetComponentCache().SetComponent(component)
 		require.NoError(t, err)
 
-		child1 := createComponent("child1", &uid, WithState(client.ComponentStateRunning))
+		child1 := createComponent("child1", &uid, WithState(client.ComponentStateRunning), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child1)
 		require.NoError(t, err)
 
-		child2 := createComponent("child2", &uid, WithState(client.ComponentStateFailed))
+		child2 := createComponent("child2", &uid, WithState(client.ComponentStateRunning), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child2)
 		require.NoError(t, err)
 
 		score, err := db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(66), score)
+		assert.Equal(t, int64(100), score)
 
-		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed))
+		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child3)
 		require.NoError(t, err)
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(50), score)
+		assert.Equal(t, int64(75), score)
 
-		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed))
+		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed), WithKind("Deployment"))
 		err = db.GetComponentCache().SetComponent(child4)
 		require.NoError(t, err)
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
+		assert.Equal(t, int64(60), score)
+
+		// Invalid certificate should deduct an additional 10 points.
+		child5 := createComponent("child5", &uid, WithState(client.ComponentStateFailed), WithKind("Certificate"))
+		err = db.GetComponentCache().SetComponent(child5)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
 		assert.Equal(t, int64(40), score)
+
+		// Failing resources in kube-system namespace should deduct an additional 20 points.
+		child6 := createComponent("child6", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"), WithNamespace("kube-system"))
+		err = db.GetComponentCache().SetComponent(child6)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(12), score)
+
+		// Failing persistent volume should deduct an additional 10 points.
+		// The score should not go below 0.
+		child7 := createComponent("child7", &uid, WithState(client.ComponentStateFailed), WithKind("PersistentVolume"))
+		err = db.GetComponentCache().SetComponent(child7)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), score)
+	})
+
+	t.Run("cache should calculate correct health score for components with no children", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		uid := testUID
+		component := createComponent(uid, nil, WithState(client.ComponentStateRunning))
+		err := db.GetComponentCache().SetComponent(component)
+		require.NoError(t, err)
+
+		score, err := db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(100), score)
+	})
+
+	t.Run("cache should calculate health score with critical system component failures", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		baseComponent := createComponent(testUID, nil, WithState(client.ComponentStateRunning))
+		err := db.GetComponentCache().SetComponent(baseComponent)
+		require.NoError(t, err)
+
+		runningPod := createComponent("running-pod", nil, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("running-pod"))
+		err = db.GetComponentCache().SetComponent(runningPod)
+		require.NoError(t, err)
+
+		runningDeployment := createComponent("running-deployment", nil, WithState(client.ComponentStateRunning), WithKind("Deployment"), WithName("running-deployment"))
+		err = db.GetComponentCache().SetComponent(runningDeployment)
+		require.NoError(t, err)
+
+		runningService := createComponent("running-service", nil, WithState(client.ComponentStateRunning), WithKind("Service"), WithName("running-service"))
+		err = db.GetComponentCache().SetComponent(runningService)
+		require.NoError(t, err)
+
+		// Test CoreDNS failure (50 point deduction)
+		coredns := createComponent("coredns", nil, WithState(client.ComponentStateFailed), WithName("coredns"))
+		err = db.GetComponentCache().SetComponent(coredns)
+		require.NoError(t, err)
+
+		score, err := db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(30), score)
+
+		// Test AWS CNI failure (additional 50 point deduction)
+		awscni := createComponent("aws-cni", nil, WithState(client.ComponentStateFailed), WithName("aws-cni"))
+		err = db.GetComponentCache().SetComponent(awscni)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), score)
+
+		// Test ingress-nginx service failure (would deduct 50 but already at 0)
+		ingress := createComponent("ingress", nil, WithState(client.ComponentStateFailed), WithKind("Service"), WithName("ingress-nginx-controller"), WithNamespace("ingress-nginx"))
+		err = db.GetComponentCache().SetComponent(ingress)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), score)
+	})
+
+	t.Run("cache should calculate health score with combined resource failures", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		baseComponent := createComponent(testUID, nil, WithState(client.ComponentStateRunning))
+		err := db.GetComponentCache().SetComponent(baseComponent)
+		require.NoError(t, err)
+
+		// Failed Certificate (10 point deduction)
+		cert := createComponent("cert", nil, WithState(client.ComponentStateFailed), WithKind("Certificate"))
+		err = db.GetComponentCache().SetComponent(cert)
+		require.NoError(t, err)
+
+		score, err := db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(40), score)
+
+		// Failed kube-system resource (20 point deduction)
+		kubeSystem := createComponent("kube-system-res", nil, WithState(client.ComponentStateFailed), WithNamespace("kube-system"))
+		err = db.GetComponentCache().SetComponent(kubeSystem)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(3), score)
+
+		// Failed PersistentVolume (10 point deduction)
+		pv := createComponent("pv", nil, WithState(client.ComponentStateFailed), WithKind("PersistentVolume"))
+		err = db.GetComponentCache().SetComponent(pv)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), score)
+
+		// Failed istio-system resource (50 point deduction)
+		istio := createComponent("istio-res", nil, WithState(client.ComponentStateFailed), WithNamespace("istio-system"))
+		err = db.GetComponentCache().SetComponent(istio)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), score)
 	})
 }
 
