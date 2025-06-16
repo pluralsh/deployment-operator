@@ -243,6 +243,10 @@ func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, com
 
 	for _, component := range components {
 		if component.State != nil && *component.State == console.ComponentStateRunning {
+			// Skip checking child pods for the Job. The database cache contains only failed pods, and the Job may succeed after a retry.
+			if component.Kind == "Job" {
+				continue
+			}
 			for _, child := range component.Children {
 				if child.State != nil && *child.State != console.ComponentStateRunning {
 					component.State = child.State
