@@ -72,7 +72,25 @@ const (
 		FROM descendants
 	`
 
-	clusterHealthScore = `SELECT CAST(AVG(health = 0) * 100 as INTEGER) as score FROM component WHERE kind = 'Pod'`
+	clusterHealthScore = `
+		WITH base_score AS (
+			SELECT CAST(AVG(CASE WHEN health = 0 THEN 100 ELSE 0 END) as INTEGER) as score
+			FROM component 
+		),
+		deductions AS (
+			SELECT 
+				SUM(CASE
+					WHEN kind = 'Certificate' AND health = 2 THEN 10
+					WHEN namespace = 'kube-system' AND health = 2 THEN 20
+					WHEN kind = 'PersistentVolume' AND health = 2 THEN 10
+					WHEN (namespace = 'istio-system' OR name LIKE '%coredns%' OR name LIKE '%aws-cni%') AND health = 2 THEN 50
+					WHEN (namespace LIKE '%ingress%' OR namespace LIKE '%traefik%') AND kind = 'Service' AND health = 2 THEN 50
+					ELSE 0
+				END) as total_deductions
+			FROM component
+		)
+		SELECT MAX(0, (SELECT score FROM base_score) - (SELECT COALESCE(total_deductions, 0) FROM deductions)) as score
+	`
 
 	nodeStatistics = `
 		SELECT node, COUNT(*)

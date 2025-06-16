@@ -340,13 +340,13 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		err = db.GetComponentCache().SetComponent(child1)
 		require.NoError(t, err)
 
-		child2 := createComponent("child2", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"))
+		child2 := createComponent("child2", &uid, WithState(client.ComponentStateRunning), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child2)
 		require.NoError(t, err)
 
 		score, err := db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(66), score)
+		assert.Equal(t, int64(100), score)
 
 		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"))
 		err = db.GetComponentCache().SetComponent(child3)
@@ -354,24 +354,43 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(50), score)
+		assert.Equal(t, int64(75), score)
 
-		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"))
+		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed), WithKind("Deployment"))
 		err = db.GetComponentCache().SetComponent(child4)
 		require.NoError(t, err)
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
-		assert.Equal(t, int64(40), score)
+		assert.Equal(t, int64(60), score)
 
-		// Adding a child with a different kind than pod should not affect the health score.
-		child5 := createComponent("child5", &uid, WithState(client.ComponentStateFailed), WithKind("Deployment"))
+		// Invalid certificate should deduct an additional 10 points.
+		child5 := createComponent("child5", &uid, WithState(client.ComponentStateFailed), WithKind("Certificate"))
 		err = db.GetComponentCache().SetComponent(child5)
 		require.NoError(t, err)
 
 		score, err = db.GetComponentCache().HealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(40), score)
+
+		// Failing resources in kube-system namespace should deduct an additional 20 points.
+		child6 := createComponent("child6", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"), WithNamespace("kube-system"))
+		err = db.GetComponentCache().SetComponent(child6)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(12), score)
+
+		// Failing persistent volume should deduct an additional 10 points.
+		// The score should not go below 0.
+		child7 := createComponent("child7", &uid, WithState(client.ComponentStateFailed), WithKind("PersistentVolume"))
+		err = db.GetComponentCache().SetComponent(child7)
+		require.NoError(t, err)
+
+		score, err = db.GetComponentCache().HealthScore()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), score)
 	})
 }
 
