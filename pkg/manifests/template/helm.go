@@ -197,7 +197,7 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 		return nil, valuesFiles, fmt.Errorf("no service found")
 	}
 
-	if svc.Helm == nil || svc.Helm.LuaScript == nil {
+	if svc.Helm == nil || (svc.Helm.LuaScript == nil && svc.Helm.LuaFile == nil) {
 		return newValues, valuesFiles, nil
 	}
 
@@ -215,8 +215,22 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 		p.L.SetGlobal(name, luautils.GoValueToLuaValue(p.L, binding))
 	}
 
+	var luaString string
+	switch {
+	case svc.Helm.LuaScript != nil && len(*svc.Helm.LuaScript) > 0:
+		luaString = *svc.Helm.LuaScript
+	case svc.Helm.LuaFile != nil:
+		luaContents, err := os.ReadFile(filepath.Join(h.dir, *svc.Helm.LuaFile))
+		if err != nil {
+			return nil, valuesFiles, fmt.Errorf("failed to read lua file %s: %w", *svc.Helm.LuaFile, err)
+		}
+		luaString = string(luaContents)
+	default:
+		return nil, valuesFiles, fmt.Errorf("no lua script or file provided")
+	}
+
 	// Execute the Lua script
-	err := p.L.DoString(*svc.Helm.LuaScript)
+	err := p.L.DoString(luaString)
 	if err != nil {
 		return nil, valuesFiles, err
 	}

@@ -19,6 +19,8 @@ package controller
 import (
 	"context"
 
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/containers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,10 +54,12 @@ func (r *CrdRegisterControllerReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
 	if !crd.DeletionTimestamp.IsZero() {
+		r.maybeDeregisterResource(crd)
 		return ctrl.Result{}, nil
 	}
 	group := crd.Spec.Group
 
+	keys := containers.NewSet[cache.ResourceKey]()
 	for _, v := range crd.Spec.Versions {
 		version := v.Name
 		gvk := schema.GroupVersionKind{
@@ -68,6 +72,13 @@ func (r *CrdRegisterControllerReconciler) Reconcile(ctx context.Context, req ctr
 			continue
 		}
 
+		if crd.Labels != nil {
+			if _, ok := crd.Labels[common.ManagedByLabel]; ok {
+				logger.Info("Registering resource in resource cache", "group", group, "kind", gvk.Kind, "version", version)
+				keys.Add(cache.ResourceKeyFromGroupVersionKind(gvk))
+			}
+		}
+
 		if !r.registeredControllers.Has(gvk) {
 			logger.Info("Register controller for", "group", group)
 			if err := reconcile(r.Mgr); err != nil {
@@ -77,7 +88,22 @@ func (r *CrdRegisterControllerReconciler) Reconcile(ctx context.Context, req ctr
 			r.registeredControllers.Add(gvk)
 		}
 	}
+	cache.GetResourceCache().Register(keys)
 	return ctrl.Result{}, nil
+}
+
+func (r *CrdRegisterControllerReconciler) maybeDeregisterResource(crd *apiextensionsv1.CustomResourceDefinition) {
+	keys := containers.NewSet[cache.ResourceKey]()
+	for _, v := range crd.Spec.Versions {
+		version := v.Name
+		gvk := schema.GroupVersionKind{
+			Group:   crd.Spec.Group,
+			Kind:    crd.Spec.Names.Kind,
+			Version: version,
+		}
+		keys.Add(cache.ResourceKeyFromGroupVersionKind(gvk))
+	}
+	cache.GetResourceCache().Unregister(keys)
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -55,6 +55,17 @@ func (in InventoryResourceKeys) Values() ResourceKeys {
 	return slices.Concat(lo.Values(in)...)
 }
 
+func ResourceKeyFromGroupVersionKind(gvk schema.GroupVersionKind) ResourceKey {
+	return ResourceKey(object.ObjMetadata{
+		GroupKind: schema.GroupKind{
+			Group: gvk.Group,
+			Kind:  gvk.Kind,
+		},
+		Name:      "*",
+		Namespace: "*",
+	})
+}
+
 func ResourceKeyFromObjMetadata(set object.ObjMetadataSet) ResourceKeys {
 	return algorithms.Map(set, func(obj object.ObjMetadata) ResourceKey { return ResourceKey(obj) })
 }

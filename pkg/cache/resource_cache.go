@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -76,6 +77,7 @@ var extraCoreResourcesWatchSet = containers.ToSet([]ResourceKey{
 type ResourceCache struct {
 	// ctx can be used to stop all tasks running in background.
 	ctx context.Context
+	mu  sync.Mutex
 
 	// dynamicClient is required to list/watch resources.
 	dynamicClient dynamic.Interface
@@ -183,6 +185,9 @@ func (in *ResourceCache) Register(inventoryResourceKeys containers.Set[ResourceK
 		klog.V(4).Info("resource cache not initialized")
 		return
 	}
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
 	inventoryResourceKeys = inventoryResourceKeys.Union(extraCoreResourcesWatchSet)
 	toAdd := inventoryResourceKeys.Difference(in.resourceKeySet)
 
@@ -197,6 +202,8 @@ func (in *ResourceCache) Unregister(inventoryResourceKeys containers.Set[Resourc
 		klog.V(4).Info("resource cache not initialized")
 		return
 	}
+	in.mu.Lock()
+	defer in.mu.Unlock()
 
 	toRemove := in.resourceKeySet.Difference(inventoryResourceKeys)
 	toRemove = toRemove.Difference(extraCoreResourcesWatchSet)
@@ -298,16 +305,16 @@ func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
 }
 
 func (in *ResourceCache) reconcile(e event.Event) {
-	if e.Type != event.ResourceUpdateEvent {
-		return
-	}
-
 	if e.Resource == nil {
 		return
 	}
 
 	if e.Resource.Resource != nil {
 		common.SyncDBCache(e.Resource.Resource)
+
+		if e.Type != event.ResourceUpdateEvent {
+			return
+		}
 
 		labels := e.Resource.Resource.GetLabels()
 		if val, ok := labels[common.ManagedByLabel]; !ok || val != common.AgentLabelValue {
