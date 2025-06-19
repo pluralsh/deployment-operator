@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
 	"github.com/pluralsh/polly/containers"
 	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
@@ -15,14 +14,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
-
-// extraResourcesWatchSet is a set of additional resources that should be watched
-// in addition to the core resources. It is used to ensure that we are watching
-// resources that are not part of the core Kubernetes API but are still important
-var extraResourcesWatchSet = containers.ToSet([]cache.ResourceKey{
-	// Cert Manager group
-	{GroupKind: runtimeschema.GroupKind{Group: certmanager.GroupName, Kind: ""}, Name: "*", Namespace: "*"},
-})
 
 const (
 	serverGroupsScraperPollingInterval = 15 * time.Minute
@@ -38,25 +29,29 @@ func RunServerGroupsScraperInBackgroundOrDie(ctx context.Context, config *rest.C
 
 	// Start background polling to check if CRDs for extra resources exist
 	err = helpers.BackgroundPollUntilContextCancel(ctx, serverGroupsScraperPollingInterval, false, true, func(_ context.Context) (done bool, err error) {
-		apiGroups, err := discoveryClient.ServerGroups()
+		resources, err := discoveryClient.ServerPreferredResources()
 		if err != nil {
-			klog.ErrorS(err, "failed to get server groups")
+			klog.ErrorS(err, "failed to get server groups and resources")
 			return false, nil
 		}
 
 		supportedResources := containers.NewSet[cache.ResourceKey]()
-		for _, group := range apiGroups.Groups {
-			rk := cache.ResourceKey{
-				GroupKind: runtimeschema.GroupKind{
-					Group: group.Name,
-					Kind:  "", // We are interested in the group only, kind is not specified
-				},
-				Name:      "*",
-				Namespace: "*",
+		for _, l := range resources {
+			if l == nil {
+				continue
 			}
 
-			if extraResourcesWatchSet.Has(rk) {
-				// If the resource is in the extra resources watch set, add it to the supported resources
+			for _, resource := range l.APIResources {
+				rk := cache.ResourceKey{
+					GroupKind: runtimeschema.GroupKind{
+						Group: resource.Group,
+						Kind:  resource.Kind,
+					},
+					Name:      "*",
+					Namespace: "*",
+				}
+
+				// try watching everything
 				supportedResources.Add(rk)
 			}
 		}

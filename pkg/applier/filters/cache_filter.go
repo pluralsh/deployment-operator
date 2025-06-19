@@ -27,15 +27,16 @@ func (c CacheFilter) Filter(obj *unstructured.Unstructured) error {
 	}
 
 	key := cache.ResourceKeyFromUnstructured(obj)
-	sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
-	if exists && !sha.RequiresApply(newManifestSHA) {
+	id := key.ObjectIdentifier()
+	entry, exists := cache.GetResourceCache().GetCacheEntry(id)
+	if exists && !entry.RequiresApply(newManifestSHA) {
 		metrics.Record().ResourceCacheHit(serviceID)
-		return fmt.Errorf("skipping cached object %s", key.ObjectIdentifier())
+		return fmt.Errorf("skipping cached object %s", id)
 	}
 
 	metrics.Record().ResourceCacheMiss(serviceID)
-	sha.SetManifestSHA(newManifestSHA)
-	cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
+	entry.SetManifestSHA(newManifestSHA)
+	cache.GetResourceCache().SetCacheEntry(id, entry)
 
 	return nil
 }
