@@ -42,6 +42,10 @@ func RunServerGroupsScraperInBackgroundOrDie(ctx context.Context, config *rest.C
 			}
 
 			for _, resource := range l.APIResources {
+				if cache.GroupBlacklist.Has(resource.Group) {
+					continue
+				}
+
 				rk := cache.ResourceKey{
 					GroupKind: runtimeschema.GroupKind{
 						Group: resource.Group,

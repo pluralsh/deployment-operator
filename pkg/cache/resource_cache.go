@@ -61,6 +61,10 @@ var extraCoreResourcesWatchSet = containers.ToSet([]ResourceKey{
 	{GroupKind: runtimeschema.GroupKind{Group: "networking.k8s.io", Kind: "Ingress"}, Name: resourceKeyPlaceholder, Namespace: resourceKeyPlaceholder},
 })
 
+var GroupBlacklist = containers.ToSet([]string{
+	"aquasecurity.github.io",
+})
+
 // ResourceCache is responsible for creating a global resource cache of the
 // inventory items registered via [ResourceCache.Register] method. In particular, it
 // does:
@@ -310,7 +314,11 @@ func (in *ResourceCache) reconcile(e event.Event) {
 	}
 
 	if e.Resource.Resource != nil {
-		common.SyncDBCache(e.Resource.Resource)
+		apiVersion := e.Resource.Resource.GetAPIVersion()
+		group, _ := common.ParseAPIVersion(apiVersion)
+		if !GroupBlacklist.Has(group) {
+			common.SyncDBCache(e.Resource.Resource)
+		}
 
 		if e.Type != event.ResourceUpdateEvent {
 			return
