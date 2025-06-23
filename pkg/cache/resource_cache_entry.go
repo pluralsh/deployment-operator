@@ -70,7 +70,7 @@ func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType
 
 	switch shaType {
 	case ManifestSHA:
-		in.CommitManifestSHA()
+		in.transientManifestSha = &sha
 	case ApplySHA:
 		in.applySHA = &sha
 	case ServerSHA:

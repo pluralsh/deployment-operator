@@ -229,9 +229,22 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
 	if err := sha.SetSHA(*resource, shaType); err == nil {
+		klog.ErrorS(err, "could not set SHA for resource", "key", key, "shaType", shaType)
 		sha.uid = string(resource.GetUID())
 		resourceCache.SetCacheEntry(key, sha)
 	}
+}
+
+func CommitManifestSHA(resource *unstructured.Unstructured) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return
+	}
+
+	key := object.UnstructuredToObjMetadata(resource).String()
+	sha, _ := resourceCache.GetCacheEntry(key)
+	sha.CommitManifestSHA()
+	resourceCache.SetCacheEntry(key, sha)
 }
 
 // GetCacheStatus returns cached status based on the provided key. If no status is found in cache,
