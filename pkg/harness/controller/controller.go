@@ -161,6 +161,7 @@ func (in *stackRunController) completeStackRun(status gqlclient.StackStatus, sta
 	if in.tool == nil {
 		return stackrun.CompleteStackRun(in.consoleClient, in.stackRunID, &gqlclient.StackRunAttributes{
 			Errors: serviceErrorAttributes,
+			Status: gqlclient.StackStatusFailed,
 		})
 	}
 
