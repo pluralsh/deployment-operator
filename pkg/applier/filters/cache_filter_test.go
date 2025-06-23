@@ -6,12 +6,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -56,6 +57,9 @@ var _ = Describe("Test filters", func() {
 			Expect(ok).To(BeTrue())
 			Expect(sha.SetSHA(unstructuredPod, cache.ApplySHA)).ToNot(HaveOccurred())
 			Expect(sha.SetSHA(unstructuredPod, cache.ServerSHA)).ToNot(HaveOccurred())
+
+			// simulate apply commit
+			sha.CommitManifestSHA()
 			cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
 
 			// should filter out
