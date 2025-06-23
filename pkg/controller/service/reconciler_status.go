@@ -101,6 +101,7 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 			namespace := e.ApplyEvent.Identifier.Namespace
 			if e.ApplyEvent.Status == event.ApplySuccessful {
 				cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ApplySHA)
+				cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ManifestSHA)
 			}
 			if e.ApplyEvent.Error != nil {
 				if e.ApplyEvent.Status == event.ApplyFailed {
