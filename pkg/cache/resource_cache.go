@@ -229,7 +229,6 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
 	if err := sha.SetSHA(*resource, shaType); err == nil {
-		klog.ErrorS(err, "could not set SHA for resource", "key", key, "shaType", shaType)
 		sha.uid = string(resource.GetUID())
 		resourceCache.SetCacheEntry(key, sha)
 	}
