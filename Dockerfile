@@ -35,13 +35,9 @@ RUN mkdir /.kube && \
     chown 65532:65532 /.kube && \
     chmod 700 /.kube
 
-# Install curl
-RUN apk add --no-cache curl
-
 COPY --from=builder /workspace/deployment-agent .
 # Copy Helm binary from builder
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
-COPY check-health.sh /workspace/check-health.sh
 
 USER 65532:65532
 

@@ -24,8 +24,9 @@ certs: []
 replicaCount: 1
 
 livenessProbe:
-  exec:
-    command: ["/bin/sh", "/workspace/check-health.sh"]
+  httpGet:
+    path: /healthz
+    port: http
   initialDelaySeconds: 15
   periodSeconds: 10
   timeoutSeconds: 3
