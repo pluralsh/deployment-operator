@@ -38,6 +38,7 @@ RUN mkdir /.kube && \
 COPY --from=builder /workspace/deployment-agent .
 # Copy Helm binary from builder
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
+COPY check-health.sh /workspace/check-health.sh
 
 USER 65532:65532
 
