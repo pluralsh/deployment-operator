@@ -19,15 +19,15 @@ func untar(dst string, r io.Reader) (err error) {
 		return
 	}
 	defer func(gzr *gzip.Reader) {
-		err := gzr.Close()
-		if err != nil {
-			return
+		closeErr := gzr.Close()
+		if closeErr != nil && err == nil {
+			err = closeErr
 		}
-		empty, err := IsDirEmpty(dst)
-		if err != nil {
-			return
+		empty, dirErr := IsDirEmpty(dst)
+		if dirErr != nil && err == nil {
+			err = dirErr
 		}
-		if empty {
+		if empty && err == nil {
 			err = fmt.Errorf("untar failed, directory is empty")
 		}
 	}(gzr)
