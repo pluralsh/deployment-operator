@@ -3,6 +3,7 @@ package manifests
 import (
 	"archive/tar"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,7 +29,6 @@ func untar(dst string, r io.Reader) (err error) {
 		}
 		if empty {
 			err = fmt.Errorf("untar failed, directory is empty")
-			return
 		}
 	}(gzr)
 
@@ -95,7 +95,7 @@ func IsDirEmpty(path string) (bool, error) {
 
 	// Read directory contents
 	contents, err := dir.Readdirnames(1) // Read at least 1 name
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false, err
 	}
 
