@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -36,6 +38,16 @@ import (
 
 const serviceIDCacheExpiry = 12 * time.Hour
 
+func emptyDiskHealthCheck(_ *http.Request) error {
+	testFile := filepath.Join("/tmp", "healthcheck.tmp")
+	data := []byte("ok")
+	if err := os.WriteFile(testFile, data, 0644); err != nil {
+		return fmt.Errorf("/tmp is not writable: %w", err)
+	}
+	_ = os.Remove(testFile)
+	return nil
+}
+
 func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		NewClient:              ctrlclient.New, // client reads directly from the API server
@@ -59,7 +71,7 @@ func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 		os.Exit(1)
 	}
 
-	if err = mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+	if err = mgr.AddHealthzCheck("ping", emptyDiskHealthCheck); err != nil {
 		setupLog.Error(err, "unable to create health check")
 		os.Exit(1)
 	}
