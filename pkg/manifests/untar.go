@@ -10,69 +10,96 @@ import (
 	"sync"
 )
 
-func untar(dst string, r io.Reader) error {
+func untar(dst string, r io.Reader) (err error) {
 	log.V(1).Info("beginning to untar stream")
 
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
-		return err
+		return
 	}
-	defer gzr.Close()
+	defer func(gzr *gzip.Reader) {
+		err := gzr.Close()
+		if err != nil {
+			return
+		}
+		empty, err := IsDirEmpty(dst)
+		if err != nil {
+			return
+		}
+		if empty {
+			err = fmt.Errorf("untar failed, directory is empty")
+			return
+		}
+	}(gzr)
 
 	tr := tar.NewReader(gzr)
 	madeDir := map[string]bool{}
+
 	for {
 		header, err := tr.Next()
 		switch {
-		// if no more files are found return
 		case err == io.EOF:
 			return nil
-
-		// return any other error
 		case err != nil:
-			return err
-
-		// if the header is nil, just skip it (not sure how this happens)
+			return fmt.Errorf("error reading tar entry: %w", err)
 		case header == nil:
 			continue
 		}
 
-		// the target location where the dir/file should be created
 		target := filepath.Join(dst, header.Name)
-		// the following switch could also be done using fi.Mode(), not sure if there
-		// a benefit of using one vs. the other.
-		// fi := header.FileInfo()
 
-		// check the file type
 		switch header.Typeflag {
-		// if its a dir and it doesn't exist create it
 		case tar.TypeDir:
 			if err := makeDir(target, madeDir); err != nil {
-				return err
+				return fmt.Errorf("error creating directory %s: %w", target, err)
 			}
 
-		// if it's a file create it
 		case tar.TypeReg:
 			if err := makeDir(filepath.Dir(target), madeDir); err != nil {
-				return err
+				return fmt.Errorf("error creating parent directory for file %s: %w", target, err)
 			}
 
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
-				fmt.Println("could not open file")
-				return err
+				log.Error(err, "failed to open file for writing", "path", target)
+				return fmt.Errorf("failed to open file %s: %w", target, err)
 			}
 
-			// copy over contents
-			_, err = copyBuffered(f, tr)
-			if err1 := f.Close(); err == nil {
-				err = err1
+			_, copyErr := copyBuffered(f, tr)
+			closeErr := f.Close()
+
+			if copyErr != nil {
+				return fmt.Errorf("error copying to file %s: %w", target, copyErr)
 			}
-			if err != nil {
-				return err
+			if closeErr != nil {
+				log.Error(closeErr, "failed to close file", "path", target)
 			}
+
+		default:
+			log.V(1).Info("skipping unsupported tar entry", "type", header.Typeflag, "name", header.Name)
 		}
 	}
+}
+func IsDirEmpty(path string) (bool, error) {
+	// Open the directory
+	dir, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer func(dir *os.File) {
+		err := dir.Close()
+		if err != nil {
+			return
+		}
+	}(dir)
+
+	// Read directory contents
+	contents, err := dir.Readdirnames(1) // Read at least 1 name
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+
+	return len(contents) == 0, nil
 }
 
 func makeDir(target string, made map[string]bool) error {
@@ -81,8 +108,11 @@ func makeDir(target string, made map[string]bool) error {
 	}
 
 	if _, err := os.Stat(target); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to stat directory %q: %w", target, err)
+		}
 		if err := os.MkdirAll(target, 0755); err != nil {
-			return err
+			return fmt.Errorf("failed to create directory %q: %w", target, err)
 		}
 	}
 
@@ -91,38 +121,35 @@ func makeDir(target string, made map[string]bool) error {
 }
 
 var bufPool = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		buffer := make([]byte, 64*1024)
 		return &buffer
 	},
 }
 
-func copyBuffered(dst io.Writer, src io.Reader) (written int64, err error) {
+func copyBuffered(dst io.Writer, src io.Reader) (int64, error) {
 	buf := bufPool.Get().(*[]byte)
 	defer bufPool.Put(buf)
 
+	var written int64
 	for {
 		nr, er := src.Read(*buf)
 		if nr > 0 {
-			nw, ew := dst.Write((*buf)[0:nr])
-			if nw > 0 {
-				written += int64(nw)
-			}
+			nw, ew := dst.Write((*buf)[:nr])
 			if ew != nil {
-				err = ew
-				break
+				return written, fmt.Errorf("write error: %w", ew)
 			}
 			if nr != nw {
-				err = io.ErrShortWrite
-				break
+				return written, io.ErrShortWrite
 			}
+			written += int64(nw)
 		}
 		if er != nil {
-			if er != io.EOF {
-				err = er
+			if er == io.EOF {
+				break
 			}
-			break
+			return written, fmt.Errorf("read error: %w", er)
 		}
 	}
-	return written, err
+	return written, nil
 }

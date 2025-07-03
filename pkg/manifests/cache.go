@@ -43,8 +43,11 @@ func NewCache(expiry, expiryJitter time.Duration, token, consoleURL string) *Man
 
 func (c *ManifestCache) Fetch(svc *console.ServiceDeploymentForAgent) (string, error) {
 	sha, err := fetchSha(c.consoleURL, c.token, svc.ID)
+	if err != nil {
+		return "", err
+	}
 	if line, ok := c.cache.Get(svc.ID); ok {
-		if err == nil && line.live() && line.sha == sha {
+		if line.live() && line.sha == sha {
 			return line.dir, nil
 		}
 		line.wipe()
