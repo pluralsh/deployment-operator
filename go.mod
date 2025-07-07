@@ -40,7 +40,7 @@ require (
 	github.com/pluralsh/console/go/client v1.46.1
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
-	github.com/pluralsh/polly v0.3.0
+	github.com/pluralsh/polly v0.3.1
 	github.com/prometheus/client_golang v1.21.1
 	github.com/sahilm/fuzzy v0.1.1
 	github.com/samber/lo v1.50.0
