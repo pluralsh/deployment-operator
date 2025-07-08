@@ -100,7 +100,6 @@ var _ = Describe("Template", func() {
 
 			resp, err := Render(dir, svc, utilFactory)
 			Expect(err).NotTo(HaveOccurred())
-			// 3 from kustomize + 1 from raw
 			Expect(len(resp)).To(Equal(4))
 		})
 	})
