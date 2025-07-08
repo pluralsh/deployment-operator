@@ -37,7 +37,7 @@ require (
 	github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.46.1
+	github.com/pluralsh/console/go/client v1.46.3
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.3.0
@@ -539,7 +539,6 @@ require (
 replace (
 	github.com/containerd/containerd => github.com/containerd/containerd v1.7.27
 	github.com/open-policy-agent/opa => github.com/open-policy-agent/opa v1.4.0
-	github.com/pluralsh/console/go/client => ../console/go/client
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.31.1
 	k8s.io/kubelet => k8s.io/kubelet v0.31.1
 )
