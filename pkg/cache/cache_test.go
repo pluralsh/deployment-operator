@@ -60,9 +60,9 @@ var _ = Describe("Resource cache", Ordered, func() {
 			time.Sleep(1 * time.Second)
 			cachedResource, ok = cache.Get(key)
 			Expect(ok).To(BeTrue())
-			Expect(cachedResource.applySHA).Should(BeNil())
-			Expect(cachedResource.manifestSHA).Should(BeNil())
-			Expect(cachedResource.serverSHA).ShouldNot(BeNil())
+			Expect(cachedResource.GetApplySHA()).Should(BeNil())
+			Expect(cachedResource.GetManifestSHA()).Should(BeNil())
+			Expect(cachedResource.GetSeverSHA()).ShouldNot(BeNil())
 
 		})
 

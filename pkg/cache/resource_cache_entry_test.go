@@ -47,9 +47,9 @@ var _ = Describe("Resource cache entry", Ordered, func() {
 			Expect(rce.RequiresApply("U33NQLAAPDEC5RDDKQ2KUHCUHIQUOC4PLMCQ5QVBYZ53B6V5UI5A====")).Should(BeFalse())
 
 			rce.Expire()
-			Expect(rce.applySHA).Should(BeNil())
-			Expect(rce.manifestSHA).Should(BeNil())
-			Expect(rce.serverSHA).ShouldNot(BeNil())
+			Expect(rce.GetApplySHA()).Should(BeNil())
+			Expect(rce.GetManifestSHA()).Should(BeNil())
+			Expect(rce.GetSeverSHA()).ShouldNot(BeNil())
 		})
 
 	})

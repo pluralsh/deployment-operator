@@ -52,6 +52,27 @@ type ResourceCacheEntry struct {
 	mux sync.Mutex
 }
 
+func (in *ResourceCacheEntry) GetSeverSHA() *string {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	return in.serverSHA
+}
+
+func (in *ResourceCacheEntry) GetApplySHA() *string {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	return in.applySHA
+}
+
+func (in *ResourceCacheEntry) GetManifestSHA() *string {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	return in.manifestSHA
+}
+
 // GetUID returns the Kubernetes resource UID pointer stored in the cache entry.
 // The UID uniquely identifies the resource within the Kubernetes cluster.
 func (in *ResourceCacheEntry) GetUID() string {

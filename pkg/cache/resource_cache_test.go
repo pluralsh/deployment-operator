@@ -126,7 +126,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 			})).To(Succeed())
 			rce, err := getResourceCacheWithRetry(5, key)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(rce.serverSHA).NotTo(BeNil())
+			Expect(rce.GetSeverSHA()).NotTo(BeNil())
 			GetResourceCache().Unregister(toAdd)
 			GetResourceCache().SetCacheEntry(key, &ResourceCacheEntry{})
 		})
@@ -174,7 +174,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 			})).To(Succeed())
 			rce, err := getResourceCacheWithRetry(5, crdObjectKey)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(rce.serverSHA).NotTo(BeNil())
+			Expect(rce.GetSeverSHA()).NotTo(BeNil())
 		})
 	})
 
