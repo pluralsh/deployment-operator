@@ -128,7 +128,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rce.serverSHA).NotTo(BeNil())
 			GetResourceCache().Unregister(toAdd)
-			GetResourceCache().SetCacheEntry(key, ResourceCacheEntry{})
+			GetResourceCache().SetCacheEntry(key, &ResourceCacheEntry{})
 		})
 
 		It("should successfully watch CRD object", func() {
@@ -180,7 +180,7 @@ var _ = Describe("Resource cache", Ordered, func() {
 
 })
 
-func getResourceCacheWithRetry(attempts int, key string) (ResourceCacheEntry, error) {
+func getResourceCacheWithRetry(attempts int, key string) (*ResourceCacheEntry, error) {
 	for i := 0; i <= attempts; i++ {
 		rce, ok := GetResourceCache().GetCacheEntry(key)
 		if ok {
@@ -188,7 +188,7 @@ func getResourceCacheWithRetry(attempts int, key string) (ResourceCacheEntry, er
 		}
 		time.Sleep(time.Second)
 	}
-	return ResourceCacheEntry{}, fmt.Errorf("couldn't get resource cache item after %d attempts", attempts)
+	return &ResourceCacheEntry{}, fmt.Errorf("couldn't get resource cache item after %d attempts", attempts)
 }
 
 func updateWithRetry(ctx context.Context, k8sClient client.Client, obj client.Object, updateFunc func(client.Object) client.Object) error {
