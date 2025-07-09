@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -25,6 +26,7 @@ type Cache[T Expirable] struct {
 	cache cmap.ConcurrentMap[string, cacheLine[T]]
 	ttl   time.Duration
 	ctx   context.Context
+	mux   sync.Mutex
 }
 
 func NewCache[T Expirable](ctx context.Context, ttl time.Duration) *Cache[T] {
@@ -57,6 +59,9 @@ func (c *Cache[T]) Wipe() {
 }
 
 func (c *Cache[T]) Expire(key string) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
 	expirable, exists := c.cache.Get(key)
 	if !exists {
 		return
