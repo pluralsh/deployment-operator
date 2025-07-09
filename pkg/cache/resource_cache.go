@@ -252,7 +252,7 @@ func (in *ResourceCache) SyncCacheStatus(key object.ObjMetadata) error {
 	}
 
 	entry, exists := in.cache.Get(key.String())
-	if exists && entry.status != nil {
+	if exists && entry.GetStatus() != nil {
 		return nil
 	}
 
@@ -277,11 +277,11 @@ func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.Compon
 	}
 
 	entry, exists := in.cache.Get(key.String())
-	if !exists || entry.status == nil {
+	if !exists || entry.GetStatus() == nil {
 		return nil, fmt.Errorf("status for %s not found in cache", key.String())
 	}
 
-	return entry.status, nil
+	return entry.GetStatus(), nil
 }
 
 func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured) {

@@ -52,6 +52,13 @@ type ResourceCacheEntry struct {
 	mux sync.Mutex
 }
 
+func (in *ResourceCacheEntry) GetStatus() *console.ComponentAttributes {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	return in.status
+}
+
 func (in *ResourceCacheEntry) GetSeverSHA() *string {
 	in.mux.Lock()
 	defer in.mux.Unlock()
