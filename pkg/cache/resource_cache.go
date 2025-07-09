@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/object"
 
 	"github.com/pluralsh/deployment-operator/internal/kstatus/watcher"
-	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
@@ -246,39 +245,43 @@ func CommitManifestSHA(resource *unstructured.Unstructured) {
 	resourceCache.SetCacheEntry(key, sha)
 }
 
-// GetCacheStatus returns cached status based on the provided key. If no status is found in cache,
-// it will make an API call, fetch the latest resource and extract the status.
+// SyncCacheStatus retrieves the status of a resource from the cache or from the Kubernetes API if not present.
+func (in *ResourceCache) SyncCacheStatus(key object.ObjMetadata) error {
+	if !initialized {
+		return fmt.Errorf("resource cache not initialized")
+	}
+
+	entry, exists := in.cache.Get(key.String())
+	if exists && entry.status != nil {
+		return nil
+	}
+
+	mapping, err := in.mapper.RESTMapping(key.GroupKind)
+	if err != nil {
+		return err
+	}
+
+	gvr := mapping.Resource
+	obj, err := in.dynamicClient.Resource(gvr).Namespace(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	in.saveResourceStatus(obj)
+	return nil
+}
+
 func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.ComponentAttributes, error) {
 	if !initialized {
 		return nil, fmt.Errorf("resource cache not initialized")
 	}
 
 	entry, exists := in.cache.Get(key.String())
-	in.mu.Lock()
-	if exists && entry.status != nil {
-		defer in.mu.Unlock()
-		return entry.status, nil
-	}
-	in.mu.Unlock()
-
-	mapping, err := in.mapper.RESTMapping(key.GroupKind)
-	if err != nil {
-		return nil, err
+	if !exists || entry.status == nil {
+		return nil, fmt.Errorf("status for %s not found in cache", key.String())
 	}
 
-	gvr := mapping.Resource
-	obj, err := in.dynamicClient.Resource(gvr).Namespace(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	in.saveResourceStatus(obj)
-
-	s, err := in.toStatusEvent(obj)
-	if err != nil {
-		return nil, err
-	}
-	return common.StatusEventToComponentAttributes(*s, make(map[schema.GroupName]string)), nil
+	return entry.status, nil
 }
 
 func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured) {
