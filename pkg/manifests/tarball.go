@@ -65,15 +65,15 @@ func doRequest(req *http.Request) (io.ReadCloser, http.Header, bool, error) {
 	if err != nil {
 		return nil, nil, false, err
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
 		errMsg, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, nil, false, fmt.Errorf("could not read response body: %w", err)
 		}
 
-		err = fmt.Errorf("could not fetch manifest, error %s, code %d", string(errMsg), resp.StatusCode)
+		err = fmt.Errorf("could not fetch manifest, error: %s, code: %d", string(errMsg), resp.StatusCode)
 
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return nil, nil, true, err
