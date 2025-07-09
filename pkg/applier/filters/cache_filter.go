@@ -35,7 +35,7 @@ func (c CacheFilter) Filter(obj *unstructured.Unstructured) error {
 	}
 
 	metrics.Record().ResourceCacheMiss(serviceID)
-	entry.SetManifestSHA(newManifestSHA)
+	entry.SetTransientManifestSHA(newManifestSHA)
 	cache.GetResourceCache().SetCacheEntry(id, entry)
 
 	return nil

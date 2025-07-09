@@ -42,6 +42,8 @@ var _ = Describe("Resource cache entry", Ordered, func() {
 			Expect(rce.SetSHA(unstructuredPod, ServerSHA)).ToNot(HaveOccurred())
 
 			Expect(rce.RequiresApply("test")).Should(BeTrue())
+
+			rce.CommitManifestSHA()
 			Expect(rce.RequiresApply("U33NQLAAPDEC5RDDKQ2KUHCUHIQUOC4PLMCQ5QVBYZ53B6V5UI5A====")).Should(BeFalse())
 
 			rce.Expire()

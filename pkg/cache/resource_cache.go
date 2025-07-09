@@ -234,6 +234,18 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	}
 }
 
+func CommitManifestSHA(resource *unstructured.Unstructured) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return
+	}
+
+	key := object.UnstructuredToObjMetadata(resource).String()
+	sha, _ := resourceCache.GetCacheEntry(key)
+	sha.CommitManifestSHA()
+	resourceCache.SetCacheEntry(key, sha)
+}
+
 // GetCacheStatus returns cached status based on the provided key. If no status is found in cache,
 // it will make an API call, fetch the latest resource and extract the status.
 func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.ComponentAttributes, error) {

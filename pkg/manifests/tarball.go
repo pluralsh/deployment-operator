@@ -110,7 +110,7 @@ func fetch(url, token, sha string) (string, error) {
 	log.V(1).Info("finished request to", "url", url)
 
 	if err := untar(dir, resp); err != nil {
-		return dir, err
+		return "", err
 	}
 
 	return dir, nil

@@ -30,7 +30,12 @@ type ResourceCacheEntry struct {
 	uid string
 
 	// manifestSHA is SHA of the resource manifest from the repository.
+	// It is used to detect changes in the manifest that are not yet applied.
 	manifestSHA *string
+
+	// transientManifestSha is a temporary SHA of the resource manifest from the repository.
+	// It is saved by the filters.CacheFilter and committed after the resource is applied.
+	transientManifestSha *string
 
 	// applySHA is SHA of the resource post-server-side apply.
 	// Taking only metadata w/ name, namespace, annotations and labels and non-status non-metadata fields.
@@ -59,6 +64,7 @@ func (in *ResourceCacheEntry) Expire() {
 	defer in.mux.Unlock()
 
 	in.manifestSHA = nil
+	in.transientManifestSha = nil
 	in.applySHA = nil
 	in.status = nil
 }
@@ -75,7 +81,7 @@ func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType
 
 	switch shaType {
 	case ManifestSHA:
-		in.manifestSHA = &sha
+		in.transientManifestSha = &sha
 	case ApplySHA:
 		in.applySHA = &sha
 	case ServerSHA:
@@ -85,13 +91,21 @@ func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType
 	return nil
 }
 
-// SetManifestSHA updates the manifest SHA stored in the cache entry.
+// CommitManifestSHA updates the manifest SHA stored in the cache entry.
 // The manifest SHA represents the hash of the resource manifest from the repository.
-func (in *ResourceCacheEntry) SetManifestSHA(manifestSHA string) {
+func (in *ResourceCacheEntry) CommitManifestSHA() {
 	in.mux.Lock()
 	defer in.mux.Unlock()
 
-	in.manifestSHA = &manifestSHA
+	in.manifestSHA = in.transientManifestSha
+	in.transientManifestSha = nil
+}
+
+func (in *ResourceCacheEntry) SetTransientManifestSHA(transientManifestSHA string) {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	in.transientManifestSha = &transientManifestSHA
 }
 
 // RequiresApply checks if there is any drift
