@@ -157,28 +157,28 @@ func GetResourceCache() *ResourceCache {
 	return resourceCache
 }
 
-// GetCacheEntry returns a [ResourceCacheEntry] and an information if it exists.
-func (in *ResourceCache) GetCacheEntry(key string) (ResourceCacheEntry, bool) {
+// GetCacheEntry returns a [ResourceCacheEntry] and information if it exists.
+func (in *ResourceCache) GetCacheEntry(key string) (*ResourceCacheEntry, bool) {
 	if !initialized {
 		klog.V(4).Info("resource cache not initialized")
-		return ResourceCacheEntry{}, false
+		return &ResourceCacheEntry{}, false
 	}
 
 	if sha, exists := in.cache.Get(key); exists && sha != nil {
-		return *sha, true
+		return sha, true
 	}
 
-	return ResourceCacheEntry{}, false
+	return &ResourceCacheEntry{}, false
 }
 
 // SetCacheEntry updates cache key with the provided value of [ResourceCacheEntry].
-func (in *ResourceCache) SetCacheEntry(key string, value ResourceCacheEntry) {
+func (in *ResourceCache) SetCacheEntry(key string, value *ResourceCacheEntry) {
 	if !initialized {
 		klog.V(4).Info("resource cache not initialized")
 		return
 	}
 
-	in.cache.Set(key, &value)
+	in.cache.Set(key, value)
 }
 
 // Register updates watched resources. It uses a set to ensure that only unique resources
@@ -229,7 +229,7 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
 	if err := sha.SetSHA(*resource, shaType); err == nil {
-		sha.uid = string(resource.GetUID())
+		sha.SetUID(string(resource.GetUID()))
 		resourceCache.SetCacheEntry(key, sha)
 	}
 }
@@ -254,9 +254,12 @@ func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.Compon
 	}
 
 	entry, exists := in.cache.Get(key.String())
+	in.mu.Lock()
 	if exists && entry.status != nil {
+		defer in.mu.Unlock()
 		return entry.status, nil
 	}
+	in.mu.Unlock()
 
 	mapping, err := in.mapper.RESTMapping(key.GroupKind)
 	if err != nil {
@@ -269,11 +272,12 @@ func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.Compon
 		return nil, err
 	}
 
+	in.saveResourceStatus(obj)
+
 	s, err := in.toStatusEvent(obj)
 	if err != nil {
 		return nil, err
 	}
-	in.saveResourceStatus(obj)
 	return common.StatusEventToComponentAttributes(*s, make(map[schema.GroupName]string)), nil
 }
 

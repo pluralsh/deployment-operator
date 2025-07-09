@@ -58,6 +58,14 @@ func (in *ResourceCacheEntry) GetUID() string {
 	return in.uid
 }
 
+// SetUID sets the Kubernetes resource UID in the cache entry.
+func (in *ResourceCacheEntry) SetUID(uid string) {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	in.uid = uid
+}
+
 // Expire implements [Expirable] interface.
 func (in *ResourceCacheEntry) Expire() {
 	in.mux.Lock()
