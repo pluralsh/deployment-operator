@@ -8,8 +8,10 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/samber/lo"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 type Expirable interface {
@@ -58,7 +60,20 @@ func (c *Cache[T]) Get(key string) (T, bool) {
 }
 
 func (c *Cache[T]) Set(key string, value T) {
-	c.cache.Set(key, cacheLine[T]{resource: value, created: time.Now().Add(-time.Duration(rand.Int63n(int64(c.jitter))))})
+	c.cache.Set(key, cacheLine[T]{resource: value, created: c.createdAt()})
+}
+
+func (c *Cache[T]) SetPreservingAge(key string, value T) {
+	c.cache.Upsert(
+		key,
+		cacheLine[T]{resource: value},
+		func(exist bool, valueInMap, newValue cacheLine[T]) cacheLine[T] {
+			return lo.Ternary(
+				exist,
+				cacheLine[T]{newValue.resource, valueInMap.created},
+				cacheLine[T]{newValue.resource, c.createdAt()},
+			)
+		})
 }
 
 func (c *Cache[T]) Wipe() {
@@ -74,7 +89,12 @@ func (c *Cache[T]) Expire(key string) {
 		return
 	}
 
+	klog.V(log.LogLevelDebug).InfoS("expiring resource cache entry", "key", key, "resource", expirable.resource, "created", expirable.created)
 	expirable.resource.Expire()
-	expirable.created = time.Now()
+	expirable.created = c.createdAt()
 	c.cache.Set(key, expirable)
+}
+
+func (c *Cache[T]) createdAt() time.Time {
+	return time.Now().Add(-time.Duration(rand.Int63n(int64(c.jitter))))
 }

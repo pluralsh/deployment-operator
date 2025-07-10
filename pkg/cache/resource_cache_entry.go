@@ -106,25 +106,37 @@ func (in *ResourceCacheEntry) Expire() {
 }
 
 // SetSHA updates shaType with SHA calculated based on the provided resource.
-func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
+func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType SHAType) (changed bool, err error) {
 	in.mux.Lock()
 	defer in.mux.Unlock()
 
 	sha, err := HashResource(resource)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	switch shaType {
 	case ManifestSHA:
+		if in.transientManifestSha == &sha {
+			changed = true
+		}
+
 		in.transientManifestSha = &sha
 	case ApplySHA:
+		if in.applySHA == &sha {
+			changed = true
+		}
+
 		in.applySHA = &sha
 	case ServerSHA:
+		if in.serverSHA == &sha {
+			changed = true
+		}
+
 		in.serverSHA = &sha
 	}
 
-	return nil
+	return changed, nil
 }
 
 // CommitManifestSHA updates the manifest SHA stored in the cache entry.

@@ -180,6 +180,16 @@ func (in *ResourceCache) SetCacheEntry(key string, value *ResourceCacheEntry) {
 	in.cache.Set(key, value)
 }
 
+// SetCacheEntryPreservingAge updates cache key with the provided value of [ResourceCacheEntry]
+func (in *ResourceCache) SetCacheEntryPreservingAge(key string, value *ResourceCacheEntry) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return
+	}
+
+	in.cache.SetPreservingAge(key, value)
+}
+
 // Register updates watched resources. It uses a set to ensure that only unique resources
 // are stored. It only supports registering new resources that are not currently being watched.
 // If empty set is provided, it won't do anything.
@@ -227,8 +237,16 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
-	if err := sha.SetSHA(*resource, shaType); err == nil {
-		sha.SetUID(string(resource.GetUID()))
+	changed, err := sha.SetSHA(*resource, shaType)
+	if err != nil {
+		return
+	}
+
+	sha.SetUID(string(resource.GetUID()))
+
+	if !changed {
+		resourceCache.SetCacheEntryPreservingAge(key, sha)
+	} else {
 		resourceCache.SetCacheEntry(key, sha)
 	}
 }
@@ -294,7 +312,7 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 	key := object.UnstructuredToObjMetadata(resource).String()
 	cacheEntry, _ := resourceCache.GetCacheEntry(key)
 	cacheEntry.SetStatus(*e)
-	resourceCache.SetCacheEntry(key, cacheEntry)
+	resourceCache.SetCacheEntryPreservingAge(key, cacheEntry)
 }
 
 func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {
