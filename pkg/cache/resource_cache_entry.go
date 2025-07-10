@@ -107,13 +107,13 @@ func (in *ResourceCacheEntry) Expire() {
 
 // SetSHA updates shaType with SHA calculated based on the provided resource.
 func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType SHAType) (changed bool, err error) {
-	in.mux.Lock()
-	defer in.mux.Unlock()
-
 	sha, err := HashResource(resource)
 	if err != nil {
 		return false, err
 	}
+
+	in.mux.Lock()
+	defer in.mux.Unlock()
 
 	switch shaType {
 	case ManifestSHA:
