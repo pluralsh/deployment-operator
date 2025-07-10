@@ -48,9 +48,12 @@ var _ = Describe("Resource cache", Ordered, func() {
 			res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
 			Expect(err).ToNot(HaveOccurred())
 			unstructuredPod := unstructured.Unstructured{Object: res}
-			Expect(rce.SetSHA(unstructuredPod, ApplySHA)).ToNot(HaveOccurred())
-			Expect(rce.SetSHA(unstructuredPod, ManifestSHA)).ToNot(HaveOccurred())
-			Expect(rce.SetSHA(unstructuredPod, ServerSHA)).ToNot(HaveOccurred())
+			_, err = rce.SetSHA(unstructuredPod, ApplySHA)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = rce.SetSHA(unstructuredPod, ManifestSHA)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = rce.SetSHA(unstructuredPod, ServerSHA)
+			Expect(err).ToNot(HaveOccurred())
 
 			cache.Set(key, rce)
 			cachedResource, ok := cache.Get(key)

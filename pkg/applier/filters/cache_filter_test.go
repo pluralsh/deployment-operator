@@ -55,8 +55,10 @@ var _ = Describe("Test filters", func() {
 			key := cache.ResourceKeyFromUnstructured(&unstructuredPod)
 			sha, ok := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
 			Expect(ok).To(BeTrue())
-			Expect(sha.SetSHA(unstructuredPod, cache.ApplySHA)).ToNot(HaveOccurred())
-			Expect(sha.SetSHA(unstructuredPod, cache.ServerSHA)).ToNot(HaveOccurred())
+			_, err = sha.SetSHA(unstructuredPod, cache.ApplySHA)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = sha.SetSHA(unstructuredPod, cache.ManifestSHA)
+			Expect(err).ToNot(HaveOccurred())
 
 			// simulate apply commit
 			sha.CommitManifestSHA()
