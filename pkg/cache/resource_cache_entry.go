@@ -166,6 +166,9 @@ func (in *ResourceCacheEntry) SetTransientManifestSHA(transientManifestSHA strin
 // or between last two manifestSHA read from the repository.
 // If any drift is detected, then server-side apply should be done.
 func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
 	return in.serverSHA == nil ||
 		in.applySHA == nil ||
 		in.manifestSHA == nil ||
