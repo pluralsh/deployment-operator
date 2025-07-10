@@ -117,19 +117,19 @@ func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType
 
 	switch shaType {
 	case ManifestSHA:
-		if in.transientManifestSha == &sha {
+		if in.transientManifestSha != nil && *in.transientManifestSha != sha {
 			changed = true
 		}
 
 		in.transientManifestSha = &sha
 	case ApplySHA:
-		if in.applySHA == &sha {
+		if in.applySHA != nil && *in.applySHA != sha {
 			changed = true
 		}
 
 		in.applySHA = &sha
 	case ServerSHA:
-		if in.serverSHA == &sha {
+		if in.serverSHA != nil && *in.serverSHA != sha {
 			changed = true
 		}
 
@@ -145,7 +145,12 @@ func (in *ResourceCacheEntry) CommitManifestSHA() {
 	in.mux.Lock()
 	defer in.mux.Unlock()
 
-	in.manifestSHA = in.transientManifestSha
+	if in.transientManifestSha == nil {
+		return
+	}
+
+	value := *in.transientManifestSha
+	in.manifestSHA = &value
 	in.transientManifestSha = nil
 }
 
