@@ -57,7 +57,7 @@ var _ = Describe("Test filters", func() {
 			Expect(ok).To(BeTrue())
 			_, err = sha.SetSHA(unstructuredPod, cache.ApplySHA)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = sha.SetSHA(unstructuredPod, cache.ManifestSHA)
+			_, err = sha.SetSHA(unstructuredPod, cache.ServerSHA)
 			Expect(err).ToNot(HaveOccurred())
 
 			// simulate apply commit
