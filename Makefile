@@ -159,7 +159,7 @@ velero-crds:
 
 .PHONY: test
 test: envtest ## run tests
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test $$(go list ./... | grep -v /e2e) -v -tags="cache"
+	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test $$(go list ./... | grep -v /e2e) -race -v -tags="cache"
 
 .PHONY: lint
 lint: $(PRE) ## run linters

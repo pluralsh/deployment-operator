@@ -120,11 +120,22 @@ func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[sche
 	statusKeys := maps.Keys(sc.latestStatus)
 	diff := containers.ToSet(applyKeys).Difference(containers.ToSet(statusKeys))
 	for key := range diff {
+		if err := cache.GetResourceCache().SyncCacheStatus(key); err != nil {
+			klog.ErrorS(err, "failed to sync cache status")
+		}
+
 		e, err := cache.GetResourceCache().GetCacheStatus(key)
 		if err != nil {
-			klog.ErrorS(err, "failed to get cache status")
-			continue
+			e = &console.ComponentAttributes{
+				State:     lo.ToPtr(console.ComponentStatePending),
+				Synced:    false,
+				Group:     key.GroupKind.Group,
+				Kind:      key.GroupKind.Kind,
+				Namespace: key.Namespace,
+				Name:      key.Name,
+			}
 		}
+
 		gname := schema.GroupName{
 			Group: e.Group,
 			Kind:  e.Kind,

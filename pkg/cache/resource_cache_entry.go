@@ -3,6 +3,8 @@
 package cache
 
 import (
+	"sync"
+
 	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
@@ -45,6 +47,37 @@ type ResourceCacheEntry struct {
 
 	// status is a simplified Console structure containing last seen status of cache resource.
 	status *console.ComponentAttributes
+
+	// mux is a mutex to protect concurrent access to the cache entry.
+	mux sync.Mutex
+}
+
+func (in *ResourceCacheEntry) GetStatus() *console.ComponentAttributes {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	return in.status
+}
+
+func (in *ResourceCacheEntry) GetSeverSHA() *string {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	return in.serverSHA
+}
+
+func (in *ResourceCacheEntry) GetApplySHA() *string {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	return in.applySHA
+}
+
+func (in *ResourceCacheEntry) GetManifestSHA() *string {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	return in.manifestSHA
 }
 
 // GetUID returns the Kubernetes resource UID pointer stored in the cache entry.
@@ -53,8 +86,19 @@ func (in *ResourceCacheEntry) GetUID() string {
 	return in.uid
 }
 
+// SetUID sets the Kubernetes resource UID in the cache entry.
+func (in *ResourceCacheEntry) SetUID(uid string) {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	in.uid = uid
+}
+
 // Expire implements [Expirable] interface.
 func (in *ResourceCacheEntry) Expire() {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
 	in.manifestSHA = nil
 	in.transientManifestSha = nil
 	in.applySHA = nil
@@ -62,32 +106,58 @@ func (in *ResourceCacheEntry) Expire() {
 }
 
 // SetSHA updates shaType with SHA calculated based on the provided resource.
-func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType SHAType) error {
+func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType SHAType) (changed bool, err error) {
 	sha, err := HashResource(resource)
 	if err != nil {
-		return err
+		return false, err
 	}
+
+	in.mux.Lock()
+	defer in.mux.Unlock()
 
 	switch shaType {
 	case ManifestSHA:
+		if in.transientManifestSha != nil && *in.transientManifestSha != sha {
+			changed = true
+		}
+
 		in.transientManifestSha = &sha
 	case ApplySHA:
+		if in.applySHA != nil && *in.applySHA != sha {
+			changed = true
+		}
+
 		in.applySHA = &sha
 	case ServerSHA:
+		if in.serverSHA != nil && *in.serverSHA != sha {
+			changed = true
+		}
+
 		in.serverSHA = &sha
 	}
 
-	return nil
+	return changed, nil
 }
 
 // CommitManifestSHA updates the manifest SHA stored in the cache entry.
 // The manifest SHA represents the hash of the resource manifest from the repository.
 func (in *ResourceCacheEntry) CommitManifestSHA() {
-	in.manifestSHA = in.transientManifestSha
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
+	if in.transientManifestSha == nil {
+		return
+	}
+
+	value := *in.transientManifestSha
+	in.manifestSHA = &value
 	in.transientManifestSha = nil
 }
 
 func (in *ResourceCacheEntry) SetTransientManifestSHA(transientManifestSHA string) {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
 	in.transientManifestSha = &transientManifestSHA
 }
 
@@ -96,6 +166,9 @@ func (in *ResourceCacheEntry) SetTransientManifestSHA(transientManifestSHA strin
 // or between last two manifestSHA read from the repository.
 // If any drift is detected, then server-side apply should be done.
 func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
 	return in.serverSHA == nil ||
 		in.applySHA == nil ||
 		in.manifestSHA == nil ||
@@ -106,5 +179,8 @@ func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
 // SetStatus saves the last seen resource [event.StatusEvent] and converts it to a simpler
 // [console.ComponentAttributes] structure.
 func (in *ResourceCacheEntry) SetStatus(se event.StatusEvent) {
+	in.mux.Lock()
+	defer in.mux.Unlock()
+
 	in.status = common.StatusEventToComponentAttributes(se, make(map[schema.GroupName]string))
 }

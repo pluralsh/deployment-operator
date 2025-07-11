@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/object"
 
 	"github.com/pluralsh/deployment-operator/internal/kstatus/watcher"
-	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
@@ -157,28 +156,38 @@ func GetResourceCache() *ResourceCache {
 	return resourceCache
 }
 
-// GetCacheEntry returns a [ResourceCacheEntry] and an information if it exists.
-func (in *ResourceCache) GetCacheEntry(key string) (ResourceCacheEntry, bool) {
+// GetCacheEntry returns a [ResourceCacheEntry] and information if it exists.
+func (in *ResourceCache) GetCacheEntry(key string) (*ResourceCacheEntry, bool) {
 	if !initialized {
 		klog.V(4).Info("resource cache not initialized")
-		return ResourceCacheEntry{}, false
+		return &ResourceCacheEntry{}, false
 	}
 
 	if sha, exists := in.cache.Get(key); exists && sha != nil {
-		return *sha, true
+		return sha, true
 	}
 
-	return ResourceCacheEntry{}, false
+	return &ResourceCacheEntry{}, false
 }
 
 // SetCacheEntry updates cache key with the provided value of [ResourceCacheEntry].
-func (in *ResourceCache) SetCacheEntry(key string, value ResourceCacheEntry) {
+func (in *ResourceCache) SetCacheEntry(key string, value *ResourceCacheEntry) {
 	if !initialized {
 		klog.V(4).Info("resource cache not initialized")
 		return
 	}
 
-	in.cache.Set(key, &value)
+	in.cache.Set(key, value)
+}
+
+// SetCacheEntryPreservingAge updates cache key with the provided value of [ResourceCacheEntry]
+func (in *ResourceCache) SetCacheEntryPreservingAge(key string, value *ResourceCacheEntry) {
+	if !initialized {
+		klog.V(4).Info("resource cache not initialized")
+		return
+	}
+
+	in.cache.SetPreservingAge(key, value)
 }
 
 // Register updates watched resources. It uses a set to ensure that only unique resources
@@ -228,8 +237,16 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 
 	key := object.UnstructuredToObjMetadata(resource).String()
 	sha, _ := resourceCache.GetCacheEntry(key)
-	if err := sha.SetSHA(*resource, shaType); err == nil {
-		sha.uid = string(resource.GetUID())
+	changed, err := sha.SetSHA(*resource, shaType)
+	if err != nil {
+		return
+	}
+
+	sha.SetUID(string(resource.GetUID()))
+
+	if !changed {
+		resourceCache.SetCacheEntryPreservingAge(key, sha)
+	} else {
 		resourceCache.SetCacheEntry(key, sha)
 	}
 }
@@ -246,35 +263,43 @@ func CommitManifestSHA(resource *unstructured.Unstructured) {
 	resourceCache.SetCacheEntry(key, sha)
 }
 
-// GetCacheStatus returns cached status based on the provided key. If no status is found in cache,
-// it will make an API call, fetch the latest resource and extract the status.
+// SyncCacheStatus retrieves the status of a resource from the cache or from the Kubernetes API if not present.
+func (in *ResourceCache) SyncCacheStatus(key object.ObjMetadata) error {
+	if !initialized {
+		return fmt.Errorf("resource cache not initialized")
+	}
+
+	entry, exists := in.cache.Get(key.String())
+	if exists && entry.GetStatus() != nil {
+		return nil
+	}
+
+	mapping, err := in.mapper.RESTMapping(key.GroupKind)
+	if err != nil {
+		return err
+	}
+
+	gvr := mapping.Resource
+	obj, err := in.dynamicClient.Resource(gvr).Namespace(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	in.saveResourceStatus(obj)
+	return nil
+}
+
 func (in *ResourceCache) GetCacheStatus(key object.ObjMetadata) (*console.ComponentAttributes, error) {
 	if !initialized {
 		return nil, fmt.Errorf("resource cache not initialized")
 	}
 
 	entry, exists := in.cache.Get(key.String())
-	if exists && entry.status != nil {
-		return entry.status, nil
+	if !exists || entry.GetStatus() == nil {
+		return nil, fmt.Errorf("status for %s not found in cache", key.String())
 	}
 
-	mapping, err := in.mapper.RESTMapping(key.GroupKind)
-	if err != nil {
-		return nil, err
-	}
-
-	gvr := mapping.Resource
-	obj, err := in.dynamicClient.Resource(gvr).Namespace(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	s, err := in.toStatusEvent(obj)
-	if err != nil {
-		return nil, err
-	}
-	in.saveResourceStatus(obj)
-	return common.StatusEventToComponentAttributes(*s, make(map[schema.GroupName]string)), nil
+	return entry.GetStatus(), nil
 }
 
 func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured) {
@@ -287,7 +312,7 @@ func (in *ResourceCache) saveResourceStatus(resource *unstructured.Unstructured)
 	key := object.UnstructuredToObjMetadata(resource).String()
 	cacheEntry, _ := resourceCache.GetCacheEntry(key)
 	cacheEntry.SetStatus(*e)
-	resourceCache.SetCacheEntry(key, cacheEntry)
+	resourceCache.SetCacheEntryPreservingAge(key, cacheEntry)
 }
 
 func (in *ResourceCache) watch(resourceKeySet containers.Set[ResourceKey]) {

@@ -47,8 +47,8 @@ const (
 	defaultPollJitter         = "15s"
 	defaultPollJitterDuration = 15 * time.Second
 
-	defaultResourceCacheTTL         = "1h"
-	defaultResourceCacheTTLDuration = time.Hour
+	defaultResourceCacheTTL         = "30m"
+	defaultResourceCacheTTLDuration = 30 * time.Minute
 
 	defaultManifestCacheTTL         = "3h"
 	defaultManifestCacheTTLDuration = 3 * time.Hour

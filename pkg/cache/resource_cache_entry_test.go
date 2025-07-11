@@ -37,9 +37,12 @@ var _ = Describe("Resource cache entry", Ordered, func() {
 			res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
 			Expect(err).ToNot(HaveOccurred())
 			unstructuredPod := unstructured.Unstructured{Object: res}
-			Expect(rce.SetSHA(unstructuredPod, ApplySHA)).ToNot(HaveOccurred())
-			Expect(rce.SetSHA(unstructuredPod, ManifestSHA)).ToNot(HaveOccurred())
-			Expect(rce.SetSHA(unstructuredPod, ServerSHA)).ToNot(HaveOccurred())
+			_, err = rce.SetSHA(unstructuredPod, ApplySHA)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = rce.SetSHA(unstructuredPod, ManifestSHA)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = rce.SetSHA(unstructuredPod, ServerSHA)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(rce.RequiresApply("test")).Should(BeTrue())
 
@@ -47,9 +50,9 @@ var _ = Describe("Resource cache entry", Ordered, func() {
 			Expect(rce.RequiresApply("U33NQLAAPDEC5RDDKQ2KUHCUHIQUOC4PLMCQ5QVBYZ53B6V5UI5A====")).Should(BeFalse())
 
 			rce.Expire()
-			Expect(rce.applySHA).Should(BeNil())
-			Expect(rce.manifestSHA).Should(BeNil())
-			Expect(rce.serverSHA).ShouldNot(BeNil())
+			Expect(rce.GetApplySHA()).Should(BeNil())
+			Expect(rce.GetManifestSHA()).Should(BeNil())
+			Expect(rce.GetSeverSHA()).ShouldNot(BeNil())
 		})
 
 	})

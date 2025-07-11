@@ -43,7 +43,7 @@ var _ = Describe("Test filters", func() {
 		}
 
 		It("check cache filter", func() {
-			cache.Init(context.Background(), cfg, 100*time.Second)
+			cache.Init(context.Background(), cfg, 10*time.Minute)
 			cacheFilter := CacheFilter{}
 			res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
 			Expect(err).ToNot(HaveOccurred())
@@ -55,12 +55,13 @@ var _ = Describe("Test filters", func() {
 			key := cache.ResourceKeyFromUnstructured(&unstructuredPod)
 			sha, ok := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
 			Expect(ok).To(BeTrue())
-			Expect(sha.SetSHA(unstructuredPod, cache.ApplySHA)).ToNot(HaveOccurred())
-			Expect(sha.SetSHA(unstructuredPod, cache.ServerSHA)).ToNot(HaveOccurred())
+			_, err = sha.SetSHA(unstructuredPod, cache.ApplySHA)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = sha.SetSHA(unstructuredPod, cache.ServerSHA)
+			Expect(err).ToNot(HaveOccurred())
 
 			// simulate apply commit
 			sha.CommitManifestSHA()
-			cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
 
 			// should filter out
 			Expect(cacheFilter.Filter(&unstructuredPod)).To(HaveOccurred())
