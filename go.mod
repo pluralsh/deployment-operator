@@ -40,7 +40,7 @@ require (
 	github.com/pluralsh/console/go/client v1.46.1
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
-	github.com/pluralsh/polly v0.3.1
+	github.com/pluralsh/polly v0.3.2
 	github.com/prometheus/client_golang v1.21.1
 	github.com/sahilm/fuzzy v0.1.1
 	github.com/samber/lo v1.50.0
@@ -86,7 +86,7 @@ require (
 	cloud.google.com/go/iam v1.2.2 // indirect
 	cloud.google.com/go/monitoring v1.21.2 // indirect
 	cloud.google.com/go/storage v1.49.0 // indirect
-	dario.cat/mergo v1.0.1 // indirect
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/4meepo/tagalign v1.4.1 // indirect
 	github.com/99designs/gqlgen v0.17.64 // indirect
 	github.com/Abirdcfly/dupword v0.1.3 // indirect

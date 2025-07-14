@@ -201,18 +201,18 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 		return newValues, valuesFiles, nil
 	}
 
-	p := luautils.NewProcessor(h.dir)
-	defer p.L.Close()
+	L := luautils.NewLuaState(h.dir)
+	defer L.Close()
 
 	// Register global values and valuesFiles in Lua
-	valuesTable := p.L.NewTable()
-	p.L.SetGlobal("values", valuesTable)
+	valuesTable := L.NewTable()
+	L.SetGlobal("values", valuesTable)
 
-	valuesFilesTable := p.L.NewTable()
-	p.L.SetGlobal("valuesFiles", valuesFilesTable)
+	valuesFilesTable := L.NewTable()
+	L.SetGlobal("valuesFiles", valuesFilesTable)
 
 	for name, binding := range bindings(svc) {
-		p.L.SetGlobal(name, luautils.GoValueToLuaValue(p.L, binding))
+		L.SetGlobal(name, luautils.GoValueToLuaValue(L, binding))
 	}
 
 	var luaString string
@@ -230,16 +230,16 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 	}
 
 	// Execute the Lua script
-	err := p.L.DoString(luaString)
+	err := L.DoString(luaString)
 	if err != nil {
 		return nil, valuesFiles, err
 	}
 
-	if err := luautils.MapLua(p.L.GetGlobal("values").(*lua.LTable), &newValues); err != nil {
+	if err := luautils.MapLua(L.GetGlobal("values").(*lua.LTable), &newValues); err != nil {
 		return nil, valuesFiles, err
 	}
 
-	if err := luautils.MapLua(p.L.GetGlobal("valuesFiles").(*lua.LTable), &valuesFiles); err != nil {
+	if err := luautils.MapLua(L.GetGlobal("valuesFiles").(*lua.LTable), &valuesFiles); err != nil {
 		return nil, valuesFiles, err
 	}
 
