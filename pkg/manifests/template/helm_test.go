@@ -20,8 +20,10 @@ var _ = Describe("Helm template", func() {
 		Namespace: "default",
 		Name:      "test",
 		Cluster: &console.ServiceDeploymentForAgent_Cluster{
-			ID:   "123",
-			Name: "test",
+			ID:             "123",
+			Name:           "test",
+			Version:        lo.ToPtr("1.2.3"),
+			CurrentVersion: lo.ToPtr("4.5.6"),
 		},
 	}
 
@@ -90,6 +92,8 @@ var _ = Describe("Helm template", func() {
 			values = {}
 			values["name"] = "new-name"
 			values["namespace"] = "new-namespace"
+			values["version"] = cluster.version
+			values["currentVersion"] = cluster.currentVersion
 `)
 
 			resp, err = NewHelm(dir).Render(svc, utilFactory)
@@ -98,6 +102,9 @@ var _ = Describe("Helm template", func() {
 
 			Expect(resp[0].GetName()).To(Equal("new-name"))
 			Expect(resp[0].GetNamespace()).To(Equal("new-namespace"))
+
+			Expect(resp[0].GetLabels()["version"]).To(Equal("1.2.3"))
+			Expect(resp[0].GetLabels()["currentVersion"]).To(Equal("4.5.6"))
 		})
 
 		It("should successfully render handle lua errors", func() {
