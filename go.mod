@@ -9,7 +9,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Yamashou/gqlgenc v0.29.0
 	github.com/aquasecurity/trivy v0.59.1
-	github.com/aquasecurity/trivy-db v0.0.0-20241209111357-8c398f13db0e
+	github.com/aquasecurity/trivy-db v0.0.0-20250716122853-45f09ec4df9c
 	github.com/aquasecurity/trivy-operator v0.22.0
 	github.com/argoproj/argo-rollouts v1.7.2
 	github.com/aws/aws-sdk-go-v2 v1.34.0
