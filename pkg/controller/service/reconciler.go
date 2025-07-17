@@ -207,7 +207,6 @@ func (s *ServiceReconciler) ignoreUpdateFields(ctx context.Context, objs []unstr
 			}
 		}
 	}
-	newObjs := make([]unstructured.Unstructured, len(objs))
 
 	for i := range objs {
 		obj := objs[i]
@@ -228,17 +227,16 @@ func (s *ServiceReconciler) ignoreUpdateFields(ctx context.Context, objs []unstr
 			}
 		}
 
-		newObjs[i] = obj
 		if len(ignorePaths) > 0 {
 			newObj, err := IgnoreJSONPaths(ctx, s.k8sClient, obj, ignorePaths)
 			if err != nil {
 				return nil, err
 			}
-			newObjs[i] = newObj
+			objs[i] = newObj
 		}
 	}
 
-	return newObjs, nil
+	return objs, nil
 }
 
 func (s *ServiceReconciler) enforceNamespace(objs []unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) error {
