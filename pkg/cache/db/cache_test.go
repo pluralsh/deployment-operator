@@ -822,3 +822,37 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 		require.Nil(t, insights, "Expected non-nil insights object from empty cache")
 	})
 }
+
+func TestComponentCountsCache(t *testing.T) {
+	t.Run("cache should initialize", func(t *testing.T) {
+		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
+		defer db.GetComponentCache().Close()
+	})
+
+	t.Run("cache should return counts of nodes, pods and namespaces", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		testComponents := []client.ComponentChildAttributes{
+			// Components with names very similar to critical priority resources
+			createComponent("a", nil, WithKind("Namespace"), WithState(client.ComponentStateRunning), WithName("a")),
+			createComponent("b", nil, WithKind("Namespace"), WithState(client.ComponentStateRunning), WithName("b")),
+			createComponent("c", nil, WithKind("Namespace"), WithState(client.ComponentStateRunning), WithName("c")),
+			createComponent("node-1", nil, WithKind("Node"), WithState(client.ComponentStateRunning), WithName("node-1")),
+			createComponent("node-2", nil, WithKind("Node"), WithState(client.ComponentStateRunning), WithName("node-2")),
+			createComponent("node-3", nil, WithKind("Node"), WithState(client.ComponentStateRunning), WithName("node-3")),
+		}
+
+		// Insert all test components into cache
+		for _, tc := range testComponents {
+			err := db.GetComponentCache().SetComponent(tc)
+			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
+		}
+
+		nodes, namespaces, err := db.GetComponentCache().ComponentCounts()
+		require.NoError(t, err, "Failed to get component counts")
+
+		assert.Equal(t, nodes, int64(3))
+		assert.Equal(t, namespaces, int64(3))
+	})
+}

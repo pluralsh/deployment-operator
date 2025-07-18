@@ -135,4 +135,9 @@ const (
 		   ) AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')))
            AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')
 	`
+	serverCounts = `
+	SELECT
+  		COUNT(DISTINCT CASE WHEN kind = 'Node' THEN uid END) AS node_count,
+  		COUNT(DISTINCT CASE WHEN kind = 'Namespace' THEN uid END) AS namespace_count
+	FROM component`
 )
