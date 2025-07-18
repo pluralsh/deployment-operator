@@ -243,6 +243,23 @@ func (in *ComponentCache) NodeStatistics() ([]*client.NodeStatisticAttributes, e
 	return result, err
 }
 
+func (in *ComponentCache) ComponentCounts() (nodeCount, namespaceCount int64, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, serverCounts, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			nodeCount = stmt.ColumnInt64(0)
+			namespaceCount = stmt.ColumnInt64(1)
+			return nil
+		},
+	})
+	return
+}
+
 func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {
 	switch {
 	case pendingPods == 0:

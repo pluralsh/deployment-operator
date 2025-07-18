@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -84,7 +83,7 @@ func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	return mgr
 }
 
-func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clientset, dynamicClient *dynamic.DynamicClient, kubeClient *kubernetes.Clientset, metricsClient metricsclientset.Interface) {
+func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clientset, dynamicClient *dynamic.DynamicClient, kubeClient *kubernetes.Clientset) {
 	rolloutsClient, err := roclientset.NewForConfig(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create rollouts client")
@@ -103,13 +102,7 @@ func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clie
 		os.Exit(1)
 	}
 
-	metricsClient, err = metricsclientset.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create metrics client")
-		os.Exit(1)
-	}
-
-	return rolloutsClient, dynamicClient, kubeClient, metricsClient
+	return rolloutsClient, dynamicClient, kubeClient
 }
 
 func registerKubeReconcilersOrDie(
@@ -121,7 +114,7 @@ func registerKubeReconcilersOrDie(
 	discoveryClient discovery.DiscoveryInterface,
 	enableKubecostProxy bool,
 ) {
-	rolloutsClient, dynamicClient, kubeClient, metricsClient := initKubeClientsOrDie(config)
+	rolloutsClient, dynamicClient, kubeClient := initKubeClientsOrDie(config)
 
 	backupController := &controller.BackupReconciler{
 		Client:        manager.GetClient(),
@@ -256,7 +249,6 @@ func registerKubeReconcilersOrDie(
 		Client:          manager.GetClient(),
 		Scheme:          manager.GetScheme(),
 		DiscoveryClient: discoveryClient,
-		MetricsClient:   metricsClient,
 	}).SetupWithManager(ctx, manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
