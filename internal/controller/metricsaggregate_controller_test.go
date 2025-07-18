@@ -128,7 +128,6 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 				Client:          kClient,
 				Scheme:          kClient.Scheme(),
 				DiscoveryClient: discoveryClient,
-				MetricsClient:   metricsClient,
 			}
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: metricsAggregate})
 			Expect(err).NotTo(HaveOccurred())
