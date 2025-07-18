@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
-
 	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	datadogprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
@@ -111,14 +109,8 @@ func main() {
 	// Start the discovery cache in background.
 	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
 
-	metricsClient, err := metricsclientset.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create metrics client")
-		os.Exit(1)
-	}
-
 	// Start the metrics scarper in background.
-	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient, metricsClient)
+	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient, config)
 
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/rest"
+
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -48,10 +50,15 @@ func (s *Metrics) Get() v1alpha1.MetricsAggregateStatus {
 	return s.metrics
 }
 
-func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient.Client, discoveryClient *discovery.DiscoveryClient, metricsClient metricsclientset.Interface) {
+func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient.Client, discoveryClient *discovery.DiscoveryClient, config *rest.Config) {
 	klog.Info("starting ", name)
 
-	err := helpers.BackgroundPollUntilContextCancel(ctx, time.Minute, true, true, func(_ context.Context) (done bool, err error) {
+	metricsClient, err := metricsclientset.NewForConfig(config)
+	if err != nil {
+		panic(fmt.Errorf("failed to create metrics client: %w", err))
+	}
+
+	err = helpers.BackgroundPollUntilContextCancel(ctx, time.Minute, true, true, func(_ context.Context) (done bool, err error) {
 		apiGroups, err := discoveryClient.ServerGroups()
 		if err == nil {
 			metricsAPIAvailable := common.SupportedMetricsAPIVersionAvailable(apiGroups)
