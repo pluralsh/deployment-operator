@@ -56,7 +56,8 @@ var _ = Describe("Reconciler", Ordered, func() {
 				DiffNormalizers: []*console.DiffNormalizerFragment{
 					{
 						Kind:         lo.ToPtr("Pod"),
-						JSONPointers: []*string{lo.ToPtr("/spec/replicas")},
+						JSONPointers: []*string{lo.ToPtr("/spec/containers/0/image")},
+						Backfill:     lo.ToPtr(true),
 					},
 				},
 			},
