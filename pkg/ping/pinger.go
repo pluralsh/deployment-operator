@@ -43,16 +43,20 @@ func (p *Pinger) Ping() error {
 	}
 
 	var podNames []string
+	var podCount *int64
 	// can find some distro information by checking what's running in kube-system
 	if pods, err := cs.CoreV1().Pods("kube-system").List(context.Background(), metav1.ListOptions{}); err == nil {
 		podNames = lo.Map(pods.Items, func(pod corev1.Pod, ind int) string {
 			return pod.Name
 		})
 	}
+	if pods, err := cs.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{}); err == nil {
+		podCount = lo.ToPtr(int64(len(pods.Items)))
+	}
 
 	minKubeletVersion := p.minimumKubeletVersion(cs)
 
-	attrs := pingAttributes(info, podNames, minKubeletVersion)
+	attrs := pingAttributes(info, podNames, minKubeletVersion, podCount)
 	if err := p.consoleClient.PingCluster(attrs); err != nil {
 		attrs.Distro = nil
 		return p.consoleClient.PingCluster(attrs) // fallback to no distro to support old console servers
