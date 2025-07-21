@@ -40,7 +40,7 @@ var supportedMetricsAPIVersions = []string{
 	"v1beta1",
 }
 
-func GetMetricsAggregateStatus(ctx context.Context, client k8sClient.Client, metricsClient metricsclientset.Interface) (*v1alpha1.MetricsAggregateStatus, error) {
+func GetMetricsAggregateStatus(ctx context.Context, client k8sClient.Client, metricsClient metricsclientset.Interface, metricsAPIAvailable bool) (*v1alpha1.MetricsAggregateStatus, error) {
 	status := &v1alpha1.MetricsAggregateStatus{}
 	nodeList := &corev1.NodeList{}
 	if err := client.List(ctx, nodeList); err != nil {
@@ -51,43 +51,51 @@ func GetMetricsAggregateStatus(ctx context.Context, client k8sClient.Client, met
 	for _, n := range nodeList.Items {
 		// Total number, contains system reserved resources
 		availableResources[n.Name] = n.Status.Capacity
-	}
-
-	nodeDeploymentNodesMetrics := make([]v1beta1.NodeMetrics, 0)
-	allNodeMetricsList, err := metricsClient.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, m := range allNodeMetricsList.Items {
-		if _, ok := availableResources[m.Name]; ok {
-			nodeDeploymentNodesMetrics = append(nodeDeploymentNodesMetrics, m)
+		memCap := n.Status.Capacity.Memory()
+		if memCap != nil {
+			status.MemoryAvailableBytes += memCap.Value()
+		}
+		cpuCap := n.Status.Capacity.Cpu()
+		if cpuCap != nil {
+			status.CPUAvailableMillicores += cpuCap.MilliValue()
 		}
 	}
-
-	nodeMetrics, err := ConvertNodeMetrics(nodeDeploymentNodesMetrics, availableResources)
-	if err != nil {
-		return nil, err
-	}
-
-	// save metrics
 	status.Nodes = len(nodeList.Items)
-	var cpuAvailableMillicores, cpuTotalMillicores, memoryAvailableBytes, memoryTotalBytes int64
-	for _, nm := range nodeMetrics {
-		cpuAvailableMillicores += nm.CPUAvailableMillicores
-		cpuTotalMillicores += nm.CPUTotalMillicores
-		memoryAvailableBytes += nm.MemoryAvailableBytes
-		memoryTotalBytes += nm.MemoryTotalBytes
-	}
-	status.CPUAvailableMillicores = cpuAvailableMillicores
-	status.CPUTotalMillicores = cpuTotalMillicores
-	status.MemoryAvailableBytes = memoryAvailableBytes
-	status.MemoryTotalBytes = memoryTotalBytes
 
-	fraction := float64(status.CPUTotalMillicores) / float64(status.CPUAvailableMillicores) * 100
-	status.CPUUsedPercentage = int64(fraction)
-	fraction = float64(status.MemoryTotalBytes) / float64(status.MemoryAvailableBytes) * 100
-	status.MemoryUsedPercentage = int64(fraction)
+	if metricsAPIAvailable {
+		nodeDeploymentNodesMetrics := make([]v1beta1.NodeMetrics, 0)
+		allNodeMetricsList, err := metricsClient.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, m := range allNodeMetricsList.Items {
+			if _, ok := availableResources[m.Name]; ok {
+				nodeDeploymentNodesMetrics = append(nodeDeploymentNodesMetrics, m)
+			}
+		}
+		nodeMetrics, err := ConvertNodeMetrics(nodeDeploymentNodesMetrics, availableResources)
+		if err != nil {
+			return nil, err
+		}
+		// save metrics
+		var cpuAvailableMillicores, cpuTotalMillicores, memoryAvailableBytes, memoryTotalBytes int64
+		for _, nm := range nodeMetrics {
+			cpuAvailableMillicores += nm.CPUAvailableMillicores
+			cpuTotalMillicores += nm.CPUTotalMillicores
+			memoryAvailableBytes += nm.MemoryAvailableBytes
+			memoryTotalBytes += nm.MemoryTotalBytes
+		}
+		status.CPUAvailableMillicores = cpuAvailableMillicores
+		status.CPUTotalMillicores = cpuTotalMillicores
+		status.MemoryAvailableBytes = memoryAvailableBytes
+		status.MemoryTotalBytes = memoryTotalBytes
+
+		fraction := float64(status.CPUTotalMillicores) / float64(status.CPUAvailableMillicores) * 100
+		status.CPUUsedPercentage = int64(fraction)
+		fraction = float64(status.MemoryTotalBytes) / float64(status.MemoryAvailableBytes) * 100
+		status.MemoryUsedPercentage = int64(fraction)
+	}
 
 	return status, nil
 }

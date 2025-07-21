@@ -62,14 +62,13 @@ func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient
 		apiGroups, err := discoveryClient.ServerGroups()
 		if err == nil {
 			metricsAPIAvailable := common.SupportedMetricsAPIVersionAvailable(apiGroups)
-			if metricsAPIAvailable {
-				status, err := common.GetMetricsAggregateStatus(ctx, k8sClient, metricsClient)
-				if err == nil && status != nil {
-					GetMetrics().Add(*status)
-				} else if err != nil {
-					klog.Error(err, "failed to get metrics")
-				}
+			status, err := common.GetMetricsAggregateStatus(ctx, k8sClient, metricsClient, metricsAPIAvailable)
+			if err == nil && status != nil {
+				GetMetrics().Add(*status)
+			} else if err != nil {
+				klog.Error(err, "failed to get metrics")
 			}
+
 		}
 		return false, nil
 	})
