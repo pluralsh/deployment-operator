@@ -26,17 +26,17 @@ func IgnoreJSONPaths(obj unstructured.Unstructured, ignorePaths []string) (unstr
 
 	patchJSON, err := json.Marshal(ops)
 	if err != nil {
-		return obj, fmt.Errorf("failed to marshal patch: %w", err)
+		return obj, fmt.Errorf("failed to marshal json patch representation: %w", err)
 	}
 
 	raw, err := json.Marshal(obj.Object)
 	if err != nil {
-		return obj, fmt.Errorf("failed to marshal object: %w", err)
+		return obj, fmt.Errorf("failed to marshal base kubernetes object for patch: %w", err)
 	}
 
 	patch, err := jsonpatch.DecodePatch(patchJSON)
 	if err != nil {
-		return obj, fmt.Errorf("failed to decode patch: %w", err)
+		return obj, fmt.Errorf("failed to decode json patch object: %w", err)
 	}
 
 	modified, err := patch.Apply(raw)
