@@ -17,7 +17,7 @@ import (
 )
 
 var _ = Describe("DiffNormalizers", Ordered, func() {
-	Context("IgnoreJSONPaths", func() {
+	Context("BackFillJSONPaths", func() {
 		const (
 			resourceName = "default-ignore-json-paths"
 			namespace    = "default"
@@ -79,9 +79,9 @@ spec:
 			Expect(kClient.Delete(ctx, resource)).To(Succeed())
 		})
 
-		It("should skip update", func() {
+		It("should back fill image", func() {
 			ignorePaths := []string{"/spec/containers/0/image"}
-			desired, err := service.IgnoreJSONPaths(context.Background(), kClient, desired, ignorePaths)
+			desired, err := service.BackFillJSONPaths(context.Background(), kClient, desired, ignorePaths)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedPod := &corev1.Pod{}

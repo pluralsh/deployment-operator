@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-openapi/jsonpointer"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -13,7 +15,45 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func IgnoreJSONPaths(ctx context.Context, c client.Client, obj unstructured.Unstructured, ignorePaths []string) (unstructured.Unstructured, error) {
+func IgnoreJSONPaths(obj unstructured.Unstructured, ignorePaths []string) (unstructured.Unstructured, error) {
+	var ops []map[string]string
+	for _, path := range ignorePaths {
+		ops = append(ops, map[string]string{
+			"op":   "remove",
+			"path": path,
+		})
+	}
+
+	patchJSON, err := json.Marshal(ops)
+	if err != nil {
+		return obj, fmt.Errorf("failed to marshal patch: %w", err)
+	}
+
+	raw, err := json.Marshal(obj.Object)
+	if err != nil {
+		return obj, fmt.Errorf("failed to marshal object: %w", err)
+	}
+
+	patch, err := jsonpatch.DecodePatch(patchJSON)
+	if err != nil {
+		return obj, fmt.Errorf("failed to decode patch: %w", err)
+	}
+
+	modified, err := patch.Apply(raw)
+	if err != nil {
+		return obj, fmt.Errorf("failed to apply patch: %w", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(modified, &result); err != nil {
+		return obj, fmt.Errorf("failed to unmarshal patched object: %w", err)
+	}
+
+	obj.Object = result
+	return obj, nil
+}
+
+func BackFillJSONPaths(ctx context.Context, c client.Client, obj unstructured.Unstructured, ignorePaths []string) (unstructured.Unstructured, error) {
 	current := &unstructured.Unstructured{}
 	current.SetGroupVersionKind(obj.GroupVersionKind())
 
@@ -58,19 +98,20 @@ type normalizerKey struct {
 	Kind      string
 	Name      string
 	Namespace string
+	BackFill  bool
 }
 
-func matchesKey(obj unstructured.Unstructured, key normalizerKey) bool {
+func matchesKey(obj unstructured.Unstructured, key normalizerKey) (bool, bool) {
 	if key.Kind != "" && obj.GetKind() != key.Kind {
-		return false
+		return false, key.BackFill
 	}
 	if key.Name != "" && obj.GetName() != key.Name {
-		return false
+		return false, key.BackFill
 	}
 	if key.Namespace != "" && obj.GetNamespace() != key.Namespace {
-		return false
+		return false, key.BackFill
 	}
-	return true
+	return true, key.BackFill
 }
 
 // flexEqual compares two values with special handling for numeric types.
