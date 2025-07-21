@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -51,7 +52,9 @@ const (
 	RestoreConfigMapName = "restore-config-map"
 	// The field manager name for the ones agentk owns, see
 	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
-	fieldManager = "application/apply-patch"
+	fieldManager                 = "application/apply-patch"
+	IgnoreFieldsAnnotationName   = "deployments.plural.sh/ignore-fields"
+	BackFillFieldsAnnotationName = "deployments.plural.sh/backfill-fields"
 )
 
 type ServiceReconciler struct {
@@ -184,6 +187,76 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		WithFactory(f).
 		WithInventoryClient(invClient).
 		Build()
+}
+
+func (s *ServiceReconciler) ignoreUpdateFields(ctx context.Context, objs []unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) ([]unstructured.Unstructured, error) {
+	normalizerMap := make(map[normalizerKey][]string)
+
+	if svc == nil {
+		return objs, nil
+	}
+	if svc.SyncConfig != nil {
+		for _, dn := range svc.SyncConfig.DiffNormalizers {
+			kind := lo.FromPtr(dn.Kind)
+			name := lo.FromPtr(dn.Name)
+			ns := lo.FromPtr(dn.Namespace)
+			bf := lo.FromPtr(dn.Backfill)
+			key := normalizerKey{Kind: kind, Name: name, Namespace: ns, BackFill: bf}
+			for _, ptr := range dn.JSONPointers {
+				if ptr != nil && *ptr != "" {
+					normalizerMap[key] = append(normalizerMap[key], *ptr)
+				}
+			}
+		}
+	}
+
+	for i := range objs {
+		obj := objs[i]
+		var ignorePaths []string
+		var backFillPaths []string
+		backFillPaths = getJsonPaths(obj, BackFillFieldsAnnotationName)
+		ignorePaths = getJsonPaths(obj, IgnoreFieldsAnnotationName)
+
+		for key, paths := range normalizerMap {
+			match, backFill := matchesKey(obj, key)
+			if match && !backFill {
+				ignorePaths = append(ignorePaths, paths...)
+			}
+			if match && backFill {
+				backFillPaths = append(backFillPaths, paths...)
+			}
+		}
+
+		if len(backFillPaths) > 0 {
+			newObj, err := BackFillJSONPaths(ctx, s.k8sClient, obj, backFillPaths)
+			if err != nil {
+				return nil, err
+			}
+			objs[i] = newObj
+		}
+		if len(ignorePaths) > 0 {
+			newObj, err := IgnoreJSONPaths(objs[i], ignorePaths)
+			if err != nil {
+				return nil, err
+			}
+			objs[i] = newObj
+		}
+	}
+
+	return objs, nil
+}
+
+func getJsonPaths(obj unstructured.Unstructured, annotation string) []string {
+	var ignorePaths []string
+	if annotation := obj.GetAnnotations()[annotation]; annotation != "" {
+		for _, p := range strings.Split(annotation, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				ignorePaths = append(ignorePaths, p)
+			}
+		}
+	}
+	return ignorePaths
 }
 
 func (s *ServiceReconciler) enforceNamespace(objs []unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) error {
@@ -427,6 +500,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	err = s.enforceNamespace(manifests, svc)
+	if err != nil {
+		return
+	}
+
+	manifests, err = s.ignoreUpdateFields(ctx, manifests, svc)
 	if err != nil {
 		return
 	}
