@@ -68,7 +68,6 @@ func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient
 			} else if err != nil {
 				klog.Error(err, "failed to get metrics")
 			}
-
 		}
 		return false, nil
 	})
