@@ -16,7 +16,7 @@ import (
 )
 
 func IgnoreJSONPaths(obj unstructured.Unstructured, ignorePaths []string) (unstructured.Unstructured, error) {
-	var ops []map[string]string
+	ops := make([]map[string]string, 0)
 	for _, path := range ignorePaths {
 		ops = append(ops, map[string]string{
 			"op":   "remove",
