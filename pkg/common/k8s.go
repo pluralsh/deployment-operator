@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	metricsapi "k8s.io/metrics/pkg/apis/metrics"
-
 	"strings"
+
+	configv1 "github.com/openshift/api/config/v1"
+	metricsapi "k8s.io/metrics/pkg/apis/metrics"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -149,4 +150,22 @@ func SupportedMetricsAPIVersionAvailable(discoveredAPIGroups *metav1.APIGroupLis
 		}
 	}
 	return false
+}
+
+func IsRunningOnOpenShift(discoveredAPIGroups *metav1.APIGroupList) bool {
+	for _, group := range discoveredAPIGroups.Groups {
+		if group.Name == "config.openshift.io" {
+			return true
+		}
+	}
+	return false
+}
+
+func GetOpenShiftVersion(c k8sClient.Client) (string, error) {
+	cv := &configv1.ClusterVersion{}
+	err := c.Get(context.Background(), k8sClient.ObjectKey{Name: "version"}, cv)
+	if err != nil {
+		return "", err
+	}
+	return cv.Status.Desired.Version, nil
 }

@@ -1754,6 +1754,8 @@ github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJw
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
 github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41 h1:WQOP5mHuj+GyhBphedhm0DeTkiM+308BftppaS81S/M=
 github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41/go.mod h1:ZC/gMqBdeujs9pokZNdX2bfFZmGrOkdzPuyLLgSK4Is=
+github.com/openshift/api v0.0.0-20231025170628-b8a18fdc040d h1:076BQ9iaz/giM0wRT9grdbkYsdy6WHQ2vg/asQ3lv6c=
+github.com/openshift/api v0.0.0-20231025170628-b8a18fdc040d/go.mod h1:qNtV0315F+f8ld52TLtPvrfivZpdimOzTi3kn9IVbtU=
 github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=
 github.com/opentracing/opentracing-go v1.2.0/go.mod h1:GxEUsuufX4nBwe+T+Wl9TAgYrxe9dPLANfrWvHYVTgc=
 github.com/orcaman/concurrent-map/v2 v2.0.1 h1:jOJ5Pg2w1oeB6PeDurIYf6k9PQ+aTITr/6lP/L/zp6c=

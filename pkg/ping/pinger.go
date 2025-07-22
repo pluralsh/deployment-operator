@@ -3,7 +3,11 @@ package ping
 import (
 	"context"
 
+	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/Masterminds/semver/v3"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,21 +15,21 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/util"
-
-	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type Pinger struct {
 	consoleClient   client.Client
 	discoveryClient *discovery.DiscoveryClient
 	factory         util.Factory
+	k8sClient       ctrclient.Client
 }
 
-func New(console client.Client, discovery *discovery.DiscoveryClient, factory util.Factory) *Pinger {
+func New(console client.Client, discovery *discovery.DiscoveryClient, factory util.Factory, k8sClient ctrclient.Client) *Pinger {
 	return &Pinger{
 		consoleClient:   console,
 		discoveryClient: discovery,
 		factory:         factory,
+		k8sClient:       k8sClient,
 	}
 }
 
@@ -56,7 +60,18 @@ func (p *Pinger) Ping() error {
 
 	minKubeletVersion := p.minimumKubeletVersion(cs)
 
-	attrs := pingAttributes(info, podNames, minKubeletVersion, podCount)
+	var openShiftVersion *string
+	apiGroups, err := p.discoveryClient.ServerGroups()
+	if err == nil {
+		if common.IsRunningOnOpenShift(apiGroups) {
+			version, err := common.GetOpenShiftVersion(p.k8sClient)
+			if err == nil {
+				openShiftVersion = lo.ToPtr(version)
+			}
+		}
+	}
+
+	attrs := pingAttributes(info, podNames, minKubeletVersion, openShiftVersion, podCount)
 	if err := p.consoleClient.PingCluster(attrs); err != nil {
 		attrs.Distro = nil
 		return p.consoleClient.PingCluster(attrs) // fallback to no distro to support old console servers
