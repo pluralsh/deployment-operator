@@ -167,5 +167,14 @@ func GetOpenShiftVersion(c k8sClient.Client) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// Try to find the latest completed version in history
+	for _, hist := range cv.Status.History {
+		if hist.State == configv1.CompletedUpdate {
+			return hist.Version, nil
+		}
+	}
+
+	// Fallback: use desired version
 	return cv.Status.Desired.Version, nil
 }

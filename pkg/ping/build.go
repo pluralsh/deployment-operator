@@ -30,11 +30,15 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openSh
 	vs := strings.Split(info.GitVersion, "-")
 
 	metrics := scraper.GetMetrics().Get()
+	distro := findDistro(append(pods, info.GitVersion))
+	if openShiftVersion != nil {
+		distro = console.ClusterDistroGeneric //TODO change for OpenShift
+	}
 
 	cp := console.ClusterPing{
 		CurrentVersion:   strings.TrimPrefix(vs[0], "v"),
 		KubeletVersion:   minKubeletVersion,
-		Distro:           lo.ToPtr(findDistro(append(pods, info.GitVersion))),
+		Distro:           lo.ToPtr(distro),
 		HealthScore:      &hs,
 		NodeCount:        &nodCount,
 		PodCount:         podCount,
