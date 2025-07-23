@@ -37,9 +37,10 @@ require (
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20240802234259-aa99306df54e
 	github.com/open-policy-agent/gatekeeper/v3 v3.17.1
 	github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41
+	github.com/openshift/api v0.0.0-20231025170628-b8a18fdc040d
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.46.6
+	github.com/pluralsh/console/go/client v1.46.7
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.3.3

@@ -13,6 +13,7 @@ import (
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
+	openshift "github.com/openshift/api/config/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,6 +48,7 @@ func init() {
 	utilruntime.Must(templatesv1.AddToScheme(scheme))
 	utilruntime.Must(rolloutv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
+	utilruntime.Must(openshift.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

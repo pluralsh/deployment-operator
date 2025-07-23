@@ -11,7 +11,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func pingAttributes(info *version.Info, pods []string, minKubeletVersion *string, podCount *int64) console.ClusterPing {
+func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openShiftVersion *string, podCount *int64) console.ClusterPing {
 	hs, err := db.GetComponentCache().HealthScore()
 	if err != nil {
 		klog.ErrorS(err, "failed to get health score")
@@ -30,16 +30,21 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion *string
 	vs := strings.Split(info.GitVersion, "-")
 
 	metrics := scraper.GetMetrics().Get()
+	distro := findDistro(append(pods, info.GitVersion))
+	if openShiftVersion != nil {
+		distro = console.ClusterDistroOpenshift
+	}
 
 	cp := console.ClusterPing{
-		CurrentVersion: strings.TrimPrefix(vs[0], "v"),
-		KubeletVersion: minKubeletVersion,
-		Distro:         lo.ToPtr(findDistro(append(pods, info.GitVersion))),
-		HealthScore:    &hs,
-		NodeCount:      &nodCount,
-		PodCount:       podCount,
-		NamespaceCount: &namespaceCount,
-		NodeStatistics: ns,
+		CurrentVersion:   strings.TrimPrefix(vs[0], "v"),
+		KubeletVersion:   minKubeletVersion,
+		Distro:           lo.ToPtr(distro),
+		HealthScore:      &hs,
+		NodeCount:        &nodCount,
+		PodCount:         podCount,
+		NamespaceCount:   &namespaceCount,
+		NodeStatistics:   ns,
+		OpenshiftVersion: openShiftVersion,
 	}
 
 	cInsights, err := db.GetComponentCache().ComponentInsights()

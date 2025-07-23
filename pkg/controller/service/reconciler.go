@@ -127,7 +127,7 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 		utilFactory:      f,
 		applier:          a,
 		destroyer:        d,
-		pinger:           ping.New(consoleClient, discoveryClient, f),
+		pinger:           ping.New(consoleClient, discoveryClient, f, k8sClient),
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
 		apiExtClient:     apiExtClient,

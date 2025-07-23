@@ -57,7 +57,7 @@ func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client,
 		k8sClient:         k8sClient,
 		consoleClient:     consoleClient,
 		gateQueue:         workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		pinger:            ping.New(consoleClient, discoveryClient, f),
+		pinger:            ping.New(consoleClient, discoveryClient, f, k8sClient),
 		operatorNamespace: namespace,
 		pollInterval:      pollInterval,
 	}, nil
