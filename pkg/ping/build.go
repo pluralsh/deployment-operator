@@ -53,11 +53,11 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openSh
 	}
 
 	cp.InsightComponents = lo.ToSlicePtr(cInsights)
-	if metrics.CPUTotalMillicores > 0 {
-		cp.CPUTotal = lo.ToPtr(float64(metrics.CPUTotalMillicores))
+	if metrics.CPUAvailableMillicores > 0 {
+		cp.CPUTotal = lo.ToPtr(float64(metrics.CPUAvailableMillicores))
 	}
-	if metrics.MemoryTotalBytes > 0 {
-		cp.MemoryTotal = lo.ToPtr(float64(metrics.MemoryTotalBytes))
+	if metrics.MemoryAvailableBytes > 0 {
+		cp.MemoryTotal = lo.ToPtr(float64(metrics.MemoryAvailableBytes))
 	}
 	if metrics.CPUUsedPercentage > 0 {
 		cp.CPUUtil = lo.ToPtr(float64(metrics.CPUUsedPercentage))
