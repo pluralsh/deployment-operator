@@ -2,12 +2,14 @@ package ping
 
 import (
 	"context"
+	"sort"
 
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +60,7 @@ func (p *Pinger) Ping() error {
 		podCount = lo.ToPtr(int64(len(pods.Items)))
 	}
 
-	minKubeletVersion := p.minimumKubeletVersion(cs)
+	minKubeletVersion, azs := p.kubeNodeData(cs)
 
 	var openShiftVersion *string
 	apiGroups, err := p.discoveryClient.ServerGroups()
@@ -72,6 +74,7 @@ func (p *Pinger) Ping() error {
 	}
 
 	attrs := pingAttributes(info, podNames, minKubeletVersion, openShiftVersion, podCount)
+	attrs.AvailabilityZones = stabilize(azs)
 	if err := p.consoleClient.PingCluster(attrs); err != nil {
 		attrs.Distro = nil
 		return p.consoleClient.PingCluster(attrs) // fallback to no distro to support old console servers
@@ -80,18 +83,23 @@ func (p *Pinger) Ping() error {
 	return nil
 }
 
-// minimumKubeletVersion tries to scrape a minimum kubelet version across all nodes in the cluster.
+// kubeNodeData tries to scrape a minimum kubelet version across all nodes in the cluster.
 // It is expected that the kubelet will report to the API a valid SemVer-ish version.
 // If no parsable version is found across all nodes, nil will be returned.
-func (p *Pinger) minimumKubeletVersion(client *kubernetes.Clientset) *string {
+func (p *Pinger) kubeNodeData(client *kubernetes.Clientset) (*string, containers.Set[string]) {
+	azs := containers.NewSet[string]()
 	nodes, err := client.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.ErrorS(err, "failed to list nodes")
-		return nil
+		return nil, azs
 	}
 
 	minKubeletVersion := new(semver.Version)
 	for _, node := range nodes.Items {
+		if zone, ok := node.GetAnnotations()["topology.kubernetes.io/zone"]; ok {
+			azs.Add(zone)
+		}
+
 		kubeletVersion, _ := semver.NewVersion(node.Status.NodeInfo.KubeletVersion)
 		if kubeletVersion == nil {
 			continue
@@ -109,8 +117,14 @@ func (p *Pinger) minimumKubeletVersion(client *kubernetes.Clientset) *string {
 	}
 
 	if len(minKubeletVersion.Original()) == 0 {
-		return nil
+		return nil, azs
 	}
 
-	return lo.ToPtr(minKubeletVersion.Original())
+	return lo.ToPtr(minKubeletVersion.Original()), azs
+}
+
+func stabilize(azs containers.Set[string]) []*string {
+	azsList := azs.List()
+	sort.Strings(azsList)
+	return lo.ToSlicePtr(azsList)
 }
