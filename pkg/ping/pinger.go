@@ -96,7 +96,7 @@ func (p *Pinger) kubeNodeData(client *kubernetes.Clientset) (*string, containers
 
 	minKubeletVersion := new(semver.Version)
 	for _, node := range nodes.Items {
-		if zone, ok := node.GetAnnotations()["topology.kubernetes.io/zone"]; ok {
+		if zone, ok := node.GetLabels()["topology.kubernetes.io/zone"]; ok {
 			azs.Add(zone)
 		}
 
