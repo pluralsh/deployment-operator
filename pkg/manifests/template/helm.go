@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	iofs "io/fs"
 	"log"
 	"os"
 	"path"
@@ -294,7 +295,7 @@ func (h *helm) values(svc *console.ServiceDeploymentForAgent, additionalValues [
 
 func (h *helm) luaFolder(svc *console.ServiceDeploymentForAgent, folder string) (string, error) {
 	luaFiles := make([]string, 0)
-	if err := filepath.Walk(filepath.Join(h.dir, folder), func(path string, info os.FileInfo, err error) error {
+	if err := filepath.WalkDir(filepath.Join(h.dir, folder), func(path string, info iofs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -303,7 +304,11 @@ func (h *helm) luaFolder(svc *console.ServiceDeploymentForAgent, folder string) 
 		}
 
 		if strings.HasSuffix(info.Name(), ".lua") {
-			luaFiles = append(luaFiles, path)
+			luaPath, err := filepath.Rel(h.dir, path)
+			if err != nil {
+				return err
+			}
+			luaFiles = append(luaFiles, luaPath)
 		}
 
 		return nil
