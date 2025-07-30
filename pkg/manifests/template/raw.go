@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +54,7 @@ func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Fa
 		EnforceNamespace: false,
 	}
 
-	if err := filepath.Walk(r.dir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.WalkDir(r.dir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

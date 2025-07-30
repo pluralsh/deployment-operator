@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	iofs "io/fs"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -229,6 +231,14 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 		return nil, valuesFiles, fmt.Errorf("no lua script or file provided")
 	}
 
+	if svc.Helm.LuaFolder != nil && len(*svc.Helm.LuaFolder) > 0 {
+		luaFolder, err := h.luaFolder(svc, *svc.Helm.LuaFolder)
+		if err != nil {
+			return nil, valuesFiles, err
+		}
+		luaString = luaFolder + "\n\n" + luaString
+	}
+
 	// Execute the Lua script
 	err := L.DoString(luaString)
 	if err != nil {
@@ -281,6 +291,45 @@ func (h *helm) values(svc *console.ServiceDeploymentForAgent, additionalValues [
 	}
 
 	return algorithms.Merge(currentMap, overrides), nil
+}
+
+func (h *helm) luaFolder(svc *console.ServiceDeploymentForAgent, folder string) (string, error) {
+	luaFiles := make([]string, 0)
+	if err := filepath.WalkDir(filepath.Join(h.dir, folder), func(path string, info iofs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		if strings.HasSuffix(info.Name(), ".lua") {
+			luaPath, err := filepath.Rel(h.dir, path)
+			if err != nil {
+				return err
+			}
+			luaFiles = append(luaFiles, luaPath)
+		}
+
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to walk lua folder %s: %w", *svc.Helm.LuaFolder, err)
+	}
+
+	sort.Slice(luaFiles, func(i, j int) bool {
+		return luaFiles[i] < luaFiles[j]
+	})
+
+	luaFileContents := make([]string, 0)
+	for _, file := range luaFiles {
+		luaContents, err := os.ReadFile(file)
+		if err != nil {
+			return "", fmt.Errorf("failed to read lua file %s: %w", file, err)
+		}
+		luaFileContents = append(luaFileContents, string(luaContents))
+	}
+
+	return strings.Join(luaFileContents, "\n\n"), nil
 }
 
 func (h *helm) valuesFile(svc *console.ServiceDeploymentForAgent, filename string) (map[string]interface{}, error) {
