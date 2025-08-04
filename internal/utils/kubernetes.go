@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/samber/lo"
+
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -237,6 +239,24 @@ func CheckNamespace(clientset kubernetes.Clientset, namespace string, labels, an
 		if _, err := nsClient.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func DeleteNamespace(ctx context.Context, client kubernetes.Clientset, namespace string) error {
+	if err := client.CoreV1().Namespaces().Delete(
+		ctx,
+		namespace,
+		metav1.DeleteOptions{
+			GracePeriodSeconds: lo.ToPtr(int64(0)),
+			PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
+		},
+	); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	return nil

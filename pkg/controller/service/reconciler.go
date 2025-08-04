@@ -459,6 +459,12 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		s.svcCache.Expire(id)
 		s.manifestCache.Expire(id)
 		err = s.UpdatePruneStatus(ctx, svc, ch, map[schema.GroupName]string{})
+		if err != nil {
+			logger.Error(err, "failed to update status")
+			return
+		}
+		err = s.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
+
 		return
 	}
 
@@ -537,6 +543,17 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	done, err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
+}
+
+func (s *ServiceReconciler) DeleteNamespace(ctx context.Context, namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
+	deleteNamespace := false
+	if syncConfig != nil && syncConfig.DeleteNamespace != nil {
+		deleteNamespace = *syncConfig.DeleteNamespace
+	}
+	if deleteNamespace {
+		return utils.DeleteNamespace(ctx, *s.clientset, namespace)
+	}
+	return nil
 }
 
 func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
