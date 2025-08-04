@@ -48,3 +48,14 @@ args:
 args:
   disableResourceCache: {{ configuration.disableResourceCache }}
 {% endif %}
+
+{% if configuration.memory or configuration.cpu %}
+resources:
+  requests:
+    {% if configuration.memory %}
+    memory: {{ configuration.memory }}
+    {% endif %}
+    {% if configuration.cpu %}
+    cpu: {{ configuration.cpu }}
+    {% endif %}
+{% endif %}
