@@ -9,7 +9,6 @@ import (
 	"github.com/pluralsh/polly/algorithms"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,13 +40,6 @@ type GateReconciler struct {
 func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, config *rest.Config, pollInterval time.Duration) (*GateReconciler, error) {
 	utils.DisableClientLimits(config)
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	f := utils.NewFactory(config)
-
 	namespace, err := utils.GetOperatorNamespace()
 	if err != nil {
 		return nil, err
@@ -57,7 +49,6 @@ func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client,
 		k8sClient:         k8sClient,
 		consoleClient:     consoleClient,
 		gateQueue:         workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		pinger:            ping.New(consoleClient, discoveryClient, f, k8sClient),
 		operatorNamespace: namespace,
 		pollInterval:      pollInterval,
 	}, nil
@@ -121,10 +112,6 @@ func (s *GateReconciler) Poll(ctx context.Context) error {
 			logger.V(2).Info("sending update for", "gate", gate.Node.ID)
 			s.gateQueue.Add(gate.Node.ID)
 		}
-	}
-
-	if err := s.pinger.Ping(); err != nil {
-		logger.Error(err, "failed to ping cluster after scheduling syncs")
 	}
 
 	return nil
