@@ -39,7 +39,6 @@ import (
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -66,7 +65,6 @@ type ServiceReconciler struct {
 	utilFactory      util.Factory
 	restoreNamespace string
 	mapper           meta.RESTMapper
-	pinger           *ping.Pinger
 	k8sClient        ctrclient.Client
 }
 

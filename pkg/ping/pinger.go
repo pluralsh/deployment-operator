@@ -1,6 +1,8 @@
 package ping
 
 import (
+	"fmt"
+
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
@@ -21,8 +23,15 @@ type Pinger struct {
 	apiExtClient    *apiextensionsclient.Clientset
 }
 
-func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client) (*Pinger, error) {
+func NewOrDie(console client.Client, config *rest.Config, k8sClient ctrclient.Client) *Pinger {
+	pinger, err := New(console, config, k8sClient)
+	if err != nil {
+		panic(fmt.Errorf("failed to create Pinger: %w", err))
+	}
+	return pinger
+}
 
+func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client) (*Pinger, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err

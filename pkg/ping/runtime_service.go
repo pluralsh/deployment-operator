@@ -81,7 +81,6 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 	if err := p.consoleClient.RegisterRuntimeServices(runtimeServices, p.GetDeprecatedCustomResources(ctx), nil, serviceMesh); err != nil {
 		klog.ErrorS(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
-
 }
 
 func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]client.NamespaceVersion) {

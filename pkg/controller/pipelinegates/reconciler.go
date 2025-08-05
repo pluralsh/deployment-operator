@@ -20,7 +20,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller/common"
-	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -32,7 +31,6 @@ type GateReconciler struct {
 	k8sClient         ctrlclient.Client
 	consoleClient     client.Client
 	gateQueue         workqueue.TypedRateLimitingInterface[string]
-	pinger            *ping.Pinger
 	operatorNamespace string
 	pollInterval      time.Duration
 }

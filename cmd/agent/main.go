@@ -94,11 +94,7 @@ func main() {
 	discoveryClient := initDiscoveryClientOrDie(config)
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
-	pinger, err := ping.New(extConsoleClient, config, kubeManager.GetClient())
-	if err != nil {
-		setupLog.Error(err, "unable to initialize pinger")
-		os.Exit(1)
-	}
+	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient())
 
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
