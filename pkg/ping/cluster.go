@@ -3,6 +3,7 @@ package ping
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sort"
 	"time"
 
@@ -23,6 +24,7 @@ func RunClusterPingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, dura
 	klog.Info("starting ", clusterPingerName)
 
 	err := helpers.BackgroundPollUntilContextCancel(ctx, duration, true, true, func(_ context.Context) (done bool, err error) {
+		time.Sleep(time.Duration(rand.Int63n(int64(duration / 3))))
 		if err := pinger.PingCluster(); err != nil {
 			klog.ErrorS(err, "failed ping cluster")
 		}

@@ -3,6 +3,7 @@ package ping
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinge
 	klog.Info("starting ", runtimeServicePingerName)
 
 	err := helpers.BackgroundPollUntilContextCancel(ctx, duration, true, true, func(_ context.Context) (done bool, err error) {
+		time.Sleep(time.Duration(rand.Int63n(int64(duration / 3))))
 		pinger.PingRuntimeServices(ctx)
 		return false, nil
 	})
