@@ -23,8 +23,15 @@ const clusterPingerName = "cluster pinger"
 func RunClusterPingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, duration time.Duration) {
 	klog.Info("starting ", clusterPingerName)
 
-	err := helpers.BackgroundPollUntilContextCancel(ctx, duration, true, true, func(_ context.Context) (done bool, err error) {
-		time.Sleep(time.Duration(rand.Int63n(int64(duration / 3))))
+	interval := func() time.Duration {
+		jitter := time.Duration(rand.Int63n(int64(duration / 3)))
+		if clusterPingInterval := common.GetConfigurationManager().GetClusterPingInterval(); clusterPingInterval != nil {
+			return *clusterPingInterval + jitter
+		}
+		return duration + jitter
+	}
+
+	err := helpers.BackgroundPollUntilContextCancel(ctx, interval, true, true, func(_ context.Context) (done bool, err error) {
 		if err := pinger.PingCluster(); err != nil {
 			klog.ErrorS(err, "failed ping cluster")
 		}

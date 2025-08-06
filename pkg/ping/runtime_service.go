@@ -30,8 +30,15 @@ const runtimeServicePingerName = "runtime service pinger"
 func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, duration time.Duration) {
 	klog.Info("starting ", runtimeServicePingerName)
 
-	err := helpers.BackgroundPollUntilContextCancel(ctx, duration, true, true, func(_ context.Context) (done bool, err error) {
-		time.Sleep(time.Duration(rand.Int63n(int64(duration / 3))))
+	interval := func() time.Duration {
+		jitter := time.Duration(rand.Int63n(int64(duration / 3)))
+		if runtimeServicesPingInterval := common.GetConfigurationManager().RuntimeServicesPingInterval(); runtimeServicesPingInterval != nil {
+			return *runtimeServicesPingInterval + jitter
+		}
+		return duration + jitter
+	}
+
+	err := helpers.BackgroundPollUntilContextCancel(ctx, interval, true, true, func(_ context.Context) (done bool, err error) {
 		pinger.PingRuntimeServices(ctx)
 		return false, nil
 	})
