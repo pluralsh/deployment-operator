@@ -501,6 +501,173 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	})
 }
 
+func TestComponentCache_UniqueConstraint(t *testing.T) {
+	t.Run("should allow components with different GVK-namespace-name combinations", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		component1 := createComponent("uid-1", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("my-app"))
+		err := db.GetComponentCache().SetComponent(component1)
+		require.NoError(t, err)
+
+		// Component with different name - should succeed
+		component2 := createComponent("uid-2", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("my-other-app"))
+		err = db.GetComponentCache().SetComponent(component2)
+		require.NoError(t, err)
+
+		// Component with different namespace - should succeed
+		component3 := createComponent("uid-3", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("production"),
+			WithName("my-app"))
+		err = db.GetComponentCache().SetComponent(component3)
+		require.NoError(t, err)
+
+		// Component with different kind - should succeed
+		component4 := createComponent("uid-4", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("StatefulSet"),
+			WithNamespace("default"),
+			WithName("my-app"))
+		err = db.GetComponentCache().SetComponent(component4)
+		require.NoError(t, err)
+
+		// Component with different version - should succeed
+		component5 := createComponent("uid-5", nil,
+			WithGroup("apps"),
+			WithVersion("v2"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("my-app"))
+		err = db.GetComponentCache().SetComponent(component5)
+		require.NoError(t, err)
+
+		// Component with different group - should succeed
+		component6 := createComponent("uid-6", nil,
+			WithGroup("extensions"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("my-app"))
+		err = db.GetComponentCache().SetComponent(component6)
+		require.NoError(t, err)
+	})
+
+	t.Run("should prevent duplicate components with same GVK-namespace-name but different UID", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		component1 := createComponent("uid-1", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("duplicate-app"))
+		err := db.GetComponentCache().SetComponent(component1)
+		require.NoError(t, err)
+
+		// Component with the same GVK-namespace-name but different UID - should fail due to the unique constraint
+		component2 := createComponent("uid-2", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("duplicate-app"))
+		err = db.GetComponentCache().SetComponent(component2)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "UNIQUE constraint failed")
+	})
+
+	t.Run("should allow updating existing component with same UID", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		uid := "update-test-uid"
+
+		// Create initial component
+		component := createComponent(uid, nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("updatable-app"),
+			WithState(client.ComponentStateRunning))
+		err := db.GetComponentCache().SetComponent(component)
+		require.NoError(t, err)
+
+		// Update the same component with different state - should succeed
+		updatedComponent := createComponent(uid, nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("updatable-app"),
+			WithState(client.ComponentStateFailed))
+		err = db.GetComponentCache().SetComponent(updatedComponent)
+		require.NoError(t, err)
+	})
+
+	t.Run("should handle nil values in unique constraint fields", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		// Component with a nil group and namespace
+		component1 := createComponent("uid-nil-1", nil,
+			WithVersion("v1"),
+			WithKind("Pod"),
+			WithName("pod-with-nil-fields"))
+		component1.Group = nil
+		component1.Namespace = nil
+		err := db.GetComponentCache().SetComponent(component1)
+		require.NoError(t, err)
+
+		// Another component with same nil values - should fail
+		component2 := createComponent("uid-nil-2", nil,
+			WithVersion("v1"),
+			WithKind("Pod"),
+			WithName("pod-with-nil-fields"))
+		component2.Group = nil
+		component2.Namespace = nil
+		err = db.GetComponentCache().SetComponent(component2)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "UNIQUE constraint failed")
+
+		// Component with empty strings in place of nil values - should fail
+		component3 := createComponent("uid-nil-3", nil,
+			WithGroup(""),
+			WithVersion("v1"),
+			WithKind("Pod"),
+			WithNamespace(""),
+			WithName("pod-with-nil-fields"))
+		err = db.GetComponentCache().SetComponent(component3)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "UNIQUE constraint failed")
+
+		// Component with different nil combination - should succeed
+		component4 := createComponent("uid-nil-4", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Pod"),
+			WithName("pod-with-nil-fields"))
+		component4.Namespace = nil
+		err = db.GetComponentCache().SetComponent(component4)
+		require.NoError(t, err)
+	})
+}
+
 func createPod(name, uid string, timestamp int64) error {
 	return db.GetComponentCache().SetPod(
 		name,
