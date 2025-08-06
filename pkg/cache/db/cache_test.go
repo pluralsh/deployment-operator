@@ -1,6 +1,7 @@
 package db_test
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -1021,5 +1022,128 @@ func TestComponentCountsCache(t *testing.T) {
 
 		assert.Equal(t, nodes, int64(3))
 		assert.Equal(t, namespaces, int64(3))
+	})
+}
+
+func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
+	t.Run("should limit component children to 100 items", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		// Create parent component
+		parentUID := "parent-with-many-children"
+		parent := createComponent(parentUID, nil, WithName("parent-with-many-children"))
+		err := db.GetComponentCache().SetComponent(parent)
+		require.NoError(t, err)
+
+		// Create 150 child components to test the 100 limit
+		totalChildren := 150
+		for i := 0; i < totalChildren; i++ {
+			childUID := fmt.Sprintf("child-%d", i)
+			childName := fmt.Sprintf("child-component-%d", i)
+			child := createComponent(childUID, &parentUID, WithName(childName))
+			err := db.GetComponentCache().SetComponent(child)
+			require.NoError(t, err)
+		}
+
+		// Retrieve children and verify limit is applied
+		children, err := db.GetComponentCache().ComponentChildren(parentUID)
+		require.NoError(t, err)
+
+		// Should return exactly 100 children, not more
+		assert.Equal(t, 100, len(children), "Expected exactly 100 children due to LIMIT clause")
+
+		// Verify all returned children have the correct parent
+		for _, child := range children {
+			assert.Equal(t, parentUID, *child.ParentUID, "All returned children should have correct parent UID")
+		}
+	})
+
+	t.Run("should return all children when under 100 limit", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		// Create parent component
+		parentUID := "parent-with-few-children"
+		parent := createComponent(parentUID, nil, WithName("parent-with-few-children"))
+		err := db.GetComponentCache().SetComponent(parent)
+		require.NoError(t, err)
+
+		// Create 50 child components (under the limit)
+		totalChildren := 50
+		for i := 0; i < totalChildren; i++ {
+			childUID := fmt.Sprintf("few-child-%d", i)
+			childName := fmt.Sprintf("few-child-component-%d", i)
+			child := createComponent(childUID, &parentUID, WithName(childName))
+			err := db.GetComponentCache().SetComponent(child)
+			require.NoError(t, err)
+		}
+
+		// Retrieve children and verify all are returned
+		children, err := db.GetComponentCache().ComponentChildren(parentUID)
+		require.NoError(t, err)
+
+		// Should return all 50 children since we're under the limit
+		assert.Equal(t, totalChildren, len(children), "Expected all children when under 100 limit")
+
+		// Verify all returned children have the correct parent
+		for _, child := range children {
+			assert.Equal(t, parentUID, *child.ParentUID, "All returned children should have correct parent UID")
+		}
+	})
+
+	t.Run("should apply limit to multi-level hierarchies", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		// Create root component
+		rootUID := "root-with-deep-hierarchy"
+		root := createComponent(rootUID, nil, WithName("root-with-deep-hierarchy"))
+		err := db.GetComponentCache().SetComponent(root)
+		require.NoError(t, err)
+
+		// Create a multi-level hierarchy that exceeds 100 total descendants
+		// Level 1: 30 components
+		level1UIDs := make([]string, 30)
+		for i := 0; i < 30; i++ {
+			uid := fmt.Sprintf("level1-%d", i)
+			level1UIDs[i] = uid
+			component := createComponent(uid, &rootUID, WithName(fmt.Sprintf("level1-component-%d", i)))
+			err := db.GetComponentCache().SetComponent(component)
+			require.NoError(t, err)
+		}
+
+		// Level 2: 40 components (distributed among level 1 components)
+		level2Count := 0
+		for i := 0; i < 20 && level2Count < 40; i++ {
+			parentUID := level1UIDs[i%len(level1UIDs)]
+			for j := 0; j < 2 && level2Count < 40; j++ {
+				uid := fmt.Sprintf("level2-%d-%d", i, j)
+				component := createComponent(uid, &parentUID, WithName(fmt.Sprintf("level2-component-%d-%d", i, j)))
+				err := db.GetComponentCache().SetComponent(component)
+				require.NoError(t, err)
+				level2Count++
+			}
+		}
+
+		// Level 3: 50 components (this will push us over 100 total)
+		level3Count := 0
+		for i := 0; i < 25 && level3Count < 50; i++ {
+			// Find a level 2 component to be parent
+			level2UID := fmt.Sprintf("level2-%d-0", i%20)
+			for j := 0; j < 2 && level3Count < 50; j++ {
+				uid := fmt.Sprintf("level3-%d-%d", i, j)
+				component := createComponent(uid, &level2UID, WithName(fmt.Sprintf("level3-component-%d-%d", i, j)))
+				err := db.GetComponentCache().SetComponent(component)
+				require.NoError(t, err)
+				level3Count++
+			}
+		}
+
+		// Total descendants should be 30 + 40 + 50 = 120, but limit should cap at 100
+		children, err := db.GetComponentCache().ComponentChildren(rootUID)
+		require.NoError(t, err)
+
+		assert.Equal(t, 100, len(children), "Expected exactly 100 descendants due to LIMIT clause in multi-level hierarchy")
 	})
 }
