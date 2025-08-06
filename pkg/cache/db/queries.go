@@ -71,6 +71,7 @@ const (
 		)
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM descendants
+		LIMIT 100
 	`
 
 	clusterHealthScore = `
