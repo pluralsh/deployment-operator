@@ -30,7 +30,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetNamespace", mock.Anything).Return(clusterNamespace, nil)
 
-			reconciler := namespaces.NewNamespaceReconciler(fakeConsoleClient, kClient, time.Minute)
+			reconciler := namespaces.NewNamespaceReconciler(fakeConsoleClient, kClient, time.Minute, time.Minute)
 			_, err := reconciler.Reconcile(ctx, namespaceId)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -46,7 +46,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetNamespace", mock.Anything).Return(clusterNamespace, nil)
 
-			reconciler := namespaces.NewNamespaceReconciler(fakeConsoleClient, kClient, time.Minute)
+			reconciler := namespaces.NewNamespaceReconciler(fakeConsoleClient, kClient, time.Minute, time.Minute)
 			_, err := reconciler.Reconcile(ctx, namespaceId)
 			Expect(err).NotTo(HaveOccurred())
 
