@@ -567,6 +567,42 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("should allow component updates", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		component1 := createComponent("uid-1", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("my-app"))
+		err := db.GetComponentCache().SetComponent(component1)
+		require.NoError(t, err)
+
+		component1.Name = "my-app-updated"
+		err = db.GetComponentCache().SetComponent(component1)
+
+		component1.Namespace = lo.ToPtr("default-updated")
+		err = db.GetComponentCache().SetComponent(component1)
+	})
+
+	t.Run("should upsert latest state and UID for components, even if the entry in the cache already exists", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		component1 := createComponent("uid-1", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("my-app"))
+		err := db.GetComponentCache().SetComponent(component1)
+		require.NoError(t, err)
+
+		// TODO
+	})
+
 	t.Run("should prevent duplicate components with same GVK-namespace-name but different UID", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
