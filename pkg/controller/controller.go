@@ -7,10 +7,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -38,9 +40,6 @@ type Controller struct {
 	// Defaults to 2 minutes if not set.
 	CacheSyncTimeout time.Duration
 
-	// PollInterval defines how often controllers should poll for new resources.
-	PollInterval time.Duration
-
 	// PollJitter defines how much polling jitter should there be when polling for new resources.
 	PollJitter time.Duration
 
@@ -60,7 +59,6 @@ func (c *Controller) SetupWithManager(manager *Manager) {
 	c.MaxConcurrentReconciles = manager.MaxConcurrentReconciles
 	c.CacheSyncTimeout = manager.CacheSyncTimeout
 	c.RecoverPanic = manager.RecoverPanic
-	c.PollInterval = manager.PollInterval
 	c.PollJitter = manager.PollJitter
 	c.DeQueueJitter = time.Second
 	c.lastPollTime = time.Now()
@@ -79,8 +77,13 @@ func (c *Controller) Start(ctx context.Context) {
 
 		go c.startPoller(ctx)
 
-		wg.Add(c.MaxConcurrentReconciles)
-		for i := 0; i < c.MaxConcurrentReconciles; i++ {
+		concurrentReconciles := c.MaxConcurrentReconciles
+		if maxConcurrentReconciles := common.GetConfigurationManager().GetMaxConcurrentReconciles(); maxConcurrentReconciles != nil && *maxConcurrentReconciles > 0 {
+			concurrentReconciles = *maxConcurrentReconciles
+		}
+
+		wg.Add(concurrentReconciles)
+		for i := 0; i < concurrentReconciles; i++ {
 			go func() {
 				defer wg.Done()
 				// Run a worker thread that just dequeues items, processes them, and marks them done.
@@ -115,14 +118,8 @@ func (c *Controller) LastReconcileTime() time.Time {
 func (c *Controller) startPoller(ctx context.Context) {
 	defer c.Do.Shutdown()
 
-	// It ensures that controllers won't poll the API at the same time.
-	pollInterval := c.PollInterval
-	if controllerPollInterval := c.Do.GetPollInterval(); controllerPollInterval > 0 {
-		pollInterval = controllerPollInterval
-	}
-
-	klog.V(internallog.LogLevelTrace).InfoS("Starting controller poller", "ctrl", c.Name, "pollInterval", pollInterval)
-	_ = wait.PollUntilContextCancel(ctx, pollInterval, true, func(_ context.Context) (bool, error) {
+	klog.V(internallog.LogLevelTrace).InfoS("Starting controller poller", "ctrl", c.Name)
+	_ = helpers.PollUntilContextCancel(ctx, c.Do.GetPollInterval(), true, func(_ context.Context) (bool, error) {
 		defer func() {
 			c.lastPollTime = time.Now()
 		}()

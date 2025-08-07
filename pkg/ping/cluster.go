@@ -24,10 +24,10 @@ func RunClusterPingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, dura
 	klog.Info("starting ", clusterPingerName)
 
 	interval := func() time.Duration {
-		jitter := time.Duration(rand.Int63n(int64(duration / 3)))
 		if clusterPingInterval := common.GetConfigurationManager().GetClusterPingInterval(); clusterPingInterval != nil {
-			return *clusterPingInterval + jitter
+			duration = *clusterPingInterval
 		}
+		jitter := time.Duration(rand.Int63n(int64(duration / 3)))
 		return duration + jitter
 	}
 

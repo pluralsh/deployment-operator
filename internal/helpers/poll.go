@@ -9,6 +9,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+func PollUntilContextCancel(ctx context.Context, getInterval func() time.Duration, immediate bool, condition wait.ConditionWithContextFunc) error {
+	return loopConditionUntilContext(ctx, NewDynamicTimer(getInterval), immediate, false, condition)
+}
+
 // BackgroundPollUntilContextCancel spawns a new goroutine that runs the condition function on interval.
 // If syncFirstRun is set to true, it will execute the condition function synchronously first and then start
 // polling. Since error is returned synchronously, the only way to check for it is to use syncFirstRun.
@@ -97,6 +101,8 @@ func loopConditionUntilContext(ctx context.Context, t wait.Timer, immediate, sli
 	}
 }
 
+// DynamicTimer implements wait.Timer interface and allows dynamic polling intervals.
+// When interval is 0, the timer becomes inactive (loop won't proceed).
 type DynamicTimer struct {
 	getInterval func() time.Duration
 	timer       *time.Timer
@@ -115,11 +121,12 @@ func NewDynamicTimer(getInterval func() time.Duration) *DynamicTimer {
 }
 
 // C returns the channel that fires when the timer expires.
+// Even when interval is 0, this still returns a valid (but inactive) channel.
 func (dt *DynamicTimer) C() <-chan time.Time {
 	return dt.ch
 }
 
-// Stop stops the internal timer.
+// Stop stops the internal timer, if active.
 func (dt *DynamicTimer) Stop() {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
@@ -128,19 +135,27 @@ func (dt *DynamicTimer) Stop() {
 	}
 }
 
-// Next resets the timer with a new interval.
+// Next resets the timer with the current interval from getInterval.
+// If interval is 0, it disables the timer (no tick will be sent).
 func (dt *DynamicTimer) Next() {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
 	dt.reset()
 }
 
+// reset stops the current timer and creates a new one based on the latest interval.
+// If interval is 0, the timer is not started and remains inactive.
 func (dt *DynamicTimer) reset() {
 	if dt.timer != nil {
 		dt.timer.Stop()
 	}
 
 	interval := dt.getInterval()
+	if interval <= 0 {
+		dt.timer = nil
+		return
+	}
+
 	dt.timer = time.AfterFunc(interval, func() {
 		select {
 		case dt.ch <- time.Now():

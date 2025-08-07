@@ -2,7 +2,9 @@ package helpers_test
 
 import (
 	"context"
+	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -53,4 +55,35 @@ func TestBackgroundPollUntilContextCancel_DynamicInterval(t *testing.T) {
 	mu.Unlock()
 
 	assert.True(t, finalCallCount < 4, "expected multiple calls to condition, got %d", finalCallCount)
+}
+
+func TestPollUntilContextCancel_TimerInactiveWhenIntervalZero(t *testing.T) {
+	var callCount int32
+
+	// Condition should never be called if interval == 0
+	condition := func(ctx context.Context) (bool, error) {
+		atomic.AddInt32(&callCount, 1)
+		return false, nil
+	}
+
+	// Interval function returns 0, meaning the timer should never tick
+	getInterval := func() time.Duration {
+		return 0
+	}
+
+	// Use a short-lived context to avoid waiting forever
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	err := helpers.PollUntilContextCancel(ctx, getInterval, false, condition)
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Wait a bit more to ensure no background ticking
+	time.Sleep(100 * time.Millisecond)
+
+	if count := atomic.LoadInt32(&callCount); count != 0 {
+		t.Errorf("expected condition not to be called, but was called %d times", count)
+	}
 }

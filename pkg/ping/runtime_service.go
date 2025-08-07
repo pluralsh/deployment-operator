@@ -31,10 +31,10 @@ func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinge
 	klog.Info("starting ", runtimeServicePingerName)
 
 	interval := func() time.Duration {
-		jitter := time.Duration(rand.Int63n(int64(duration / 3)))
-		if runtimeServicesPingInterval := common.GetConfigurationManager().RuntimeServicesPingInterval(); runtimeServicesPingInterval != nil {
-			return *runtimeServicesPingInterval + jitter
+		if runtimeServicesPingInterval := common.GetConfigurationManager().GetRuntimeServicesPingInterval(); runtimeServicesPingInterval != nil {
+			duration = *runtimeServicesPingInterval
 		}
+		jitter := time.Duration(rand.Int63n(int64(duration / 3)))
 		return duration + jitter
 	}
 

@@ -6,8 +6,8 @@ metadata:
     app.kubernetes.io/created-by: deployment-operator
   name: default
 spec:
-  clusterPingInterval: "2m"
-  runtimeServicesPingInterval: "5m"
+  clusterPingInterval: "10s"
+  runtimeServicesPingInterval: "5s"
   stackPollInterval: "0s"
   pipelineGateInterval: "0s"
   vulnerabilityReportUploadInterval: "10m"

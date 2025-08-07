@@ -33,36 +33,49 @@ func (s *ConfigurationManager) SetValue(config v1alpha1.AgentConfigurationSpec) 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := setDuration(config.ClusterPingInterval, s.clusterPingInterval); err != nil {
+	interval, err := setDuration(config.ClusterPingInterval)
+	if err != nil {
 		return err
 	}
-	if err := setDuration(config.RuntimeServicesPingInterval, s.runtimeServicesPingInterval); err != nil {
+	s.clusterPingInterval = interval
+
+	interval, err = setDuration(config.RuntimeServicesPingInterval)
+	if err != nil {
 		return err
 	}
-	if err := setDuration(config.PipelineGateInterval, s.pipelineGateInterval); err != nil {
+	s.runtimeServicesPingInterval = interval
+
+	interval, err = setDuration(config.PipelineGateInterval)
+	if err != nil {
 		return err
 	}
-	if err := setDuration(config.StackPollInterval, s.stackPollInterval); err != nil {
+	s.pipelineGateInterval = interval
+
+	interval, err = setDuration(config.StackPollInterval)
+	if err != nil {
 		return err
 	}
-	if err := setDuration(config.VulnerabilityReportUploadInterval, s.vulnerabilityReportUploadInterval); err != nil {
+	s.stackPollInterval = interval
+
+	interval, err = setDuration(config.VulnerabilityReportUploadInterval)
+	if err != nil {
 		return err
 	}
+	s.vulnerabilityReportUploadInterval = interval
 	s.maxConcurrentReconciles = config.MaxConcurrentReconciles
 
 	return nil
 }
 
-func setDuration(interval *string, d *time.Duration) error {
+func setDuration(interval *string) (*time.Duration, error) {
 	if interval == nil {
-		return nil
+		return nil, nil
 	}
 	duration, err := time.ParseDuration(*interval)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	d = &duration
-	return nil
+	return &duration, nil
 }
 
 func (s *ConfigurationManager) GetClusterPingInterval() *time.Duration {
@@ -71,7 +84,7 @@ func (s *ConfigurationManager) GetClusterPingInterval() *time.Duration {
 	return s.clusterPingInterval
 }
 
-func (s *ConfigurationManager) RuntimeServicesPingInterval() *time.Duration {
+func (s *ConfigurationManager) GetRuntimeServicesPingInterval() *time.Duration {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.runtimeServicesPingInterval
@@ -81,4 +94,22 @@ func (s *ConfigurationManager) GetVulnerabilityReportUploadInterval() *time.Dura
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.vulnerabilityReportUploadInterval
+}
+
+func (s *ConfigurationManager) GetPipelineGateInterval() *time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.pipelineGateInterval
+}
+
+func (s *ConfigurationManager) GetStackPollInterval() *time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.stackPollInterval
+}
+
+func (s *ConfigurationManager) GetMaxConcurrentReconciles() *int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.maxConcurrentReconciles
 }
