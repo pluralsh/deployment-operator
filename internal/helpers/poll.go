@@ -68,7 +68,6 @@ func loopConditionUntilContext(ctx context.Context, t wait.Timer, immediate, sli
 	}
 
 	for {
-
 		// Wait for either the context to be cancelled or the next invocation be called
 		select {
 		case <-doneCh:
