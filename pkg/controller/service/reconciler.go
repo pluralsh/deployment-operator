@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
@@ -27,8 +26,6 @@ import (
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
@@ -42,7 +39,6 @@ import (
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -69,8 +65,6 @@ type ServiceReconciler struct {
 	utilFactory      util.Factory
 	restoreNamespace string
 	mapper           meta.RESTMapper
-	pinger           *ping.Pinger
-	apiExtClient     *apiextensionsclient.Clientset
 	k8sClient        ctrclient.Client
 }
 
@@ -78,10 +72,6 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return nil, err
-	}
 
 	f := utils.NewFactory(config)
 	mapper, err := f.ToRESTMapper()
@@ -89,10 +79,6 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 		return nil, err
 	}
 	cs, err := f.KubernetesClientSet()
-	if err != nil {
-		return nil, err
-	}
-	apiExtClient, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -127,10 +113,8 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 		utilFactory:      f,
 		applier:          a,
 		destroyer:        d,
-		pinger:           ping.New(consoleClient, discoveryClient, f, k8sClient),
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
-		apiExtClient:     apiExtClient,
 		k8sClient:        k8sClient,
 	}, nil
 }
@@ -386,11 +370,6 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 		}
 	}
 
-	if err := s.pinger.Ping(); err != nil {
-		logger.Error(err, "failed to ping cluster after scheduling syncs")
-	}
-
-	s.ScrapeKube(ctx)
 	return nil
 }
 

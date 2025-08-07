@@ -1,17 +1,21 @@
-package service
+package ping
 
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
+	"time"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 
 	"github.com/Masterminds/semver/v3"
 	console "github.com/pluralsh/console/go/client"
-
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -21,31 +25,45 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
-func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
-	logger := log.FromContext(ctx)
-	logger.Info("attempting to collect all runtime services for the cluster")
+const runtimeServicePingerName = "runtime service pinger"
+
+func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, duration time.Duration) {
+	klog.Info("starting ", runtimeServicePingerName)
+
+	err := helpers.BackgroundPollUntilContextCancel(ctx, duration, true, true, func(_ context.Context) (done bool, err error) {
+		time.Sleep(time.Duration(rand.Int63n(int64(duration / 3))))
+		pinger.PingRuntimeServices(ctx)
+		return false, nil
+	})
+	if err != nil {
+		panic(fmt.Errorf("failed to start %s in background: %w", runtimeServicePingerName, err))
+	}
+}
+
+func (p *Pinger) PingRuntimeServices(ctx context.Context) {
+	klog.Info("attempting to collect all runtime services for the cluster")
 	// Pre-allocate map with estimated capacity to avoid reallocations
 	runtimeServices := make(map[string]client.NamespaceVersion, 100)
-	deployments, err := s.clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
+	deployments, err := p.clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 	if err == nil {
-		logger.Info("aggregating from deployments")
+		klog.Info("aggregating from deployments")
 		for _, deployment := range deployments.Items {
 			AddRuntimeServiceInfo(deployment.Namespace, deployment.GetLabels(), runtimeServices)
 		}
 	}
 
-	statefulSets, err := s.clientset.AppsV1().StatefulSets("").List(ctx, metav1.ListOptions{})
+	statefulSets, err := p.clientset.AppsV1().StatefulSets("").List(ctx, metav1.ListOptions{})
 	if err == nil {
-		logger.Info("aggregating from statefulsets")
+		klog.Info("aggregating from statefulsets")
 		for _, ss := range statefulSets.Items {
 			AddRuntimeServiceInfo(ss.Namespace, ss.GetLabels(), runtimeServices)
 		}
 	}
 
 	hasEBPFDaemonSet := false
-	daemonSets, err := s.clientset.AppsV1().DaemonSets("").List(ctx, metav1.ListOptions{})
+	daemonSets, err := p.clientset.AppsV1().DaemonSets("").List(ctx, metav1.ListOptions{})
 	if err == nil {
-		logger.Info("aggregating from daemonsets")
+		klog.Info("aggregating from daemonsets")
 		for _, ds := range daemonSets.Items {
 			AddRuntimeServiceInfo(ds.Namespace, ds.GetLabels(), runtimeServices)
 
@@ -57,13 +75,13 @@ func (s *ServiceReconciler) ScrapeKube(ctx context.Context) {
 
 	serviceMesh := cache.ServiceMesh(hasEBPFDaemonSet)
 	if serviceMesh == nil {
-		logger.Info("no service mesh detected")
+		klog.Info("no service mesh detected")
 	} else {
-		logger.Info("detected service mesh", "serviceMesh", serviceMesh)
+		klog.Info("detected service mesh", "serviceMesh", serviceMesh)
 	}
 
-	if err := s.consoleClient.RegisterRuntimeServices(runtimeServices, s.GetDeprecatedCustomResources(ctx), nil, serviceMesh); err != nil {
-		logger.Error(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
+	if err := p.consoleClient.RegisterRuntimeServices(runtimeServices, p.GetDeprecatedCustomResources(ctx), nil, serviceMesh); err != nil {
+		klog.ErrorS(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
 }
 
@@ -120,8 +138,8 @@ func addVersion(entry client.NamespaceVersion, vsn string) client.NamespaceVersi
 	return entry
 }
 
-func (s *ServiceReconciler) getVersionedCrd(ctx context.Context) (map[string][]v1.NormalizedVersion, error) {
-	crdList, err := s.apiExtClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
+func (p *Pinger) getVersionedCrd(ctx context.Context) (map[string][]v1.NormalizedVersion, error) {
+	crdList, err := p.apiExtClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -152,9 +170,9 @@ func (s *ServiceReconciler) getVersionedCrd(ctx context.Context) (map[string][]v
 	return crdVersionsMap, nil
 }
 
-func (s *ServiceReconciler) GetDeprecatedCustomResources(ctx context.Context) []console.DeprecatedCustomResourceAttributes {
+func (p *Pinger) GetDeprecatedCustomResources(ctx context.Context) []console.DeprecatedCustomResourceAttributes {
 	logger := log.FromContext(ctx)
-	crds, err := s.getVersionedCrd(ctx)
+	crds, err := p.getVersionedCrd(ctx)
 	if err != nil {
 		logger.Error(err, "failed to retrieve versioned CRDs")
 		return nil
@@ -169,13 +187,13 @@ func (s *ServiceReconciler) GetDeprecatedCustomResources(ctx context.Context) []
 		}
 		group := gkList[0]
 		kind := gkList[1]
-		d := s.getDeprecatedCustomResourceObjects(ctx, versions, group, kind)
+		d := p.getDeprecatedCustomResourceObjects(ctx, versions, group, kind)
 		deprecated = append(deprecated, d...)
 	}
 	return deprecated
 }
 
-func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Context, versions []v1.NormalizedVersion, group, kind string) []console.DeprecatedCustomResourceAttributes {
+func (p *Pinger) getDeprecatedCustomResourceObjects(ctx context.Context, versions []v1.NormalizedVersion, group, kind string) []console.DeprecatedCustomResourceAttributes {
 	// Pre-allocate slice with estimated capacity based on the number of version pairs
 	versionPairs := getVersionPairs(versions)
 	deprecatedCustomResourceAttributes := make([]console.DeprecatedCustomResourceAttributes, 0, len(versionPairs)*5)
@@ -186,7 +204,7 @@ func (s *ServiceReconciler) getDeprecatedCustomResourceObjects(ctx context.Conte
 			Kind:    kind,
 		}
 
-		pager := common.ListResources(ctx, s.k8sClient, gvk, nil)
+		pager := common.ListResources(ctx, p.k8sClient, gvk, nil)
 		for pager.HasNext() {
 			items, err := pager.NextPage()
 			if err != nil {
