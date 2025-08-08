@@ -37,20 +37,43 @@ spec:
           metadata:
             type: object
           spec:
+            description: AgentConfigurationSpec defines the desired state of AgentConfiguration
             properties:
               clusterPingInterval:
+                description: |-
+                  ClusterPingInterval specifies the interval at which the agent pings the cluster.
+                  Set to "0s" to disable cluster pings.
                 type: string
               compatibilityUploadInterval:
+                description: |-
+                  CompatibilityUploadInterval determines how frequently the agent uploads compatibility data.
+                  Set to "0s" to disable compatibility uploads.
                 type: string
               maxConcurrentReconciles:
+                description: |-
+                  MaxConcurrentReconciles controls the maximum number of concurrent reconcile loops.
+                  Higher values can increase throughput at the cost of resource usage.
                 type: integer
               pipelineGateInterval:
+                description: |-
+                  PipelineGateInterval specifies how frequently the agent checks pipeline gates.
+                  Set to "0s" to disable pipeline gate checks.
                 type: string
               servicePollInterval:
+                description: |-
+                  ServicePollInterval defines how often the agent polls for services.
+                  Expected format is a duration string (e.g., "30s", "5m").
+                  Set to "0s" to disable service polling.
                 type: string
               stackPollInterval:
+                description: |-
+                  StackPollInterval sets how often the agent polls for stack updates or changes.
+                  Set to "0s" to disable stack polling.
                 type: string
               vulnerabilityReportUploadInterval:
+                description: |-
+                  VulnerabilityReportUploadInterval sets how often vulnerability reports are uploaded.
+                  Set to "0s" to disable vulnerability report uploads.
                 type: string
             type: object
           status:
