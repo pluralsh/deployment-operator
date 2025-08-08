@@ -25,7 +25,7 @@ const (
 		INSERT INTO component (
 			uid,
 			parent_uid,
-			'group',
+			"group",
 			version,
 			kind, 
 			namespace,
@@ -44,13 +44,9 @@ const (
 			?,
 			?,
 		    ?
-		) ON CONFLICT(uid) DO UPDATE SET
+		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
 			parent_uid = excluded.parent_uid,
-			"group" = excluded."group",
-			version = excluded.version,
-			kind = excluded.kind,
-			namespace = excluded.namespace,
-			name = excluded.name,
 			health = excluded.health,
 			node = excluded.node,
 			createdAt = excluded.createdAt
