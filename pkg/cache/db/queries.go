@@ -21,13 +21,25 @@ const (
 		CREATE INDEX IF NOT EXISTS idx_uid ON component(uid);
 	`
 
+	getComponent = `
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
+		FROM component
+		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ?
+	`
+
+	getComponentByUID = `
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
+		FROM component
+		WHERE uid = ?
+	`
+
 	setComponent = `
 		INSERT INTO component (
 			uid,
 			parent_uid,
 			"group",
 			version,
-			kind, 
+			kind,
 			namespace,
 			name,
 			health,
@@ -51,6 +63,8 @@ const (
 			node = excluded.node,
 			createdAt = excluded.createdAt
 	`
+
+	deleteComponent = "DELETE FROM component WHERE uid = ?"
 
 	componentChildren = `
 		WITH RECURSIVE descendants AS (
