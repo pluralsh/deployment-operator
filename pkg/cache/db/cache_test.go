@@ -305,8 +305,7 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		require.Equal(t, group, *children[0].Group)
 
 		// Test empty group
-		emptyGroup := ""
-		child.Group = &emptyGroup
+		child.Group = lo.ToPtr("")
 		err = db.GetComponentCache().SetComponent(child)
 		require.NoError(t, err)
 
@@ -603,7 +602,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		// TODO
 	})
 
-	t.Run("should prevent duplicate components with same GVK-namespace-name but different UID", func(t *testing.T) {
+	t.Run("should allow components with same GVK-namespace-name but different UID", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
@@ -624,8 +623,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithNamespace("default"),
 			WithName("duplicate-app"))
 		err = db.GetComponentCache().SetComponent(component2)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "UNIQUE constraint failed")
+		require.NoError(t, err)
 	})
 
 	t.Run("should allow updating existing component with same UID", func(t *testing.T) {
@@ -657,51 +655,55 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("should handle nil values in unique constraint fields", func(t *testing.T) {
+	t.Run("should handle UID changes for resource with the same identity", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
 
-		// Component with a nil group and namespace
-		component1 := createComponent("uid-nil-1", nil,
-			WithVersion("v1"),
-			WithKind("Pod"),
-			WithName("pod-with-nil-fields"))
-		component1.Group = nil
-		component1.Namespace = nil
-		err := db.GetComponentCache().SetComponent(component1)
+		group := "apps"
+		version := "v1"
+		kind := "Deployment"
+		name := "test"
+		namespace := "default"
+
+		component := createComponent("uid-1", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
+		err := db.GetComponentCache().SetComponent(component)
 		require.NoError(t, err)
 
-		// Another component with same nil values - should fail
-		component2 := createComponent("uid-nil-2", nil,
-			WithVersion("v1"),
-			WithKind("Pod"),
-			WithName("pod-with-nil-fields"))
-		component2.Group = nil
-		component2.Namespace = nil
-		err = db.GetComponentCache().SetComponent(component2)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "UNIQUE constraint failed")
-
-		// Component with empty strings in place of nil values - should fail
-		component3 := createComponent("uid-nil-3", nil,
-			WithGroup(""),
-			WithVersion("v1"),
-			WithKind("Pod"),
-			WithNamespace(""),
-			WithName("pod-with-nil-fields"))
-		err = db.GetComponentCache().SetComponent(component3)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "UNIQUE constraint failed")
-
-		// Component with different nil combination - should succeed
-		component4 := createComponent("uid-nil-4", nil,
-			WithGroup("apps"),
-			WithVersion("v1"),
-			WithKind("Pod"),
-			WithName("pod-with-nil-fields"))
-		component4.Namespace = nil
-		err = db.GetComponentCache().SetComponent(component4)
+		sameComponentWithDifferentUID := createComponent("uid-2", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
+		err = db.GetComponentCache().SetComponent(sameComponentWithDifferentUID)
 		require.NoError(t, err)
+
+		dbc, err := db.GetComponentCache().GetComponent(group, version, kind, namespace, name)
+		require.NoError(t, err)
+		assert.Equal(t, "uid-2", dbc.UID)
+	})
+
+	t.Run("should treat nil values in the same way as empty strings", func(t *testing.T) {
+		db.Init()
+		defer db.GetComponentCache().Close()
+
+		group := "apps"
+		version := "v1"
+		kind := "Deployment"
+		name := "test"
+		namespace := ""
+
+		componentWithEmptyNamespace := createComponent("uid", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
+		err := db.GetComponentCache().SetComponent(componentWithEmptyNamespace)
+		require.NoError(t, err)
+
+		componentWithNilNamespace := createComponent("uid-2", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name))
+		componentWithNilNamespace.Namespace = nil
+		err = db.GetComponentCache().SetComponent(componentWithNilNamespace)
+		require.NoError(t, err)
+
+		databaseComponent, err := db.GetComponentCache().GetComponent(group, version, kind, namespace, name)
+		require.NoError(t, err)
+		assert.Equal(t, "uid-2", databaseComponent.UID, "component in database should have updated UID")
+
+		databaseComponent, err = db.GetComponentCache().GetComponentByUID("uid")
+		require.NoError(t, err)
+		require.Nil(t, databaseComponent, "component with old UID should not be found")
 	})
 }
 
