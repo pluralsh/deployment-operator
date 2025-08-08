@@ -140,7 +140,13 @@ func (s *ServiceReconciler) Shutdown() {
 }
 
 func (s *ServiceReconciler) GetPollInterval() func() time.Duration {
-	return func() time.Duration { return s.pollInterval } // use default poll interval
+	return func() time.Duration {
+		if servicePollInterval := agentcommon.GetConfigurationManager().GetServicePollInterval(); servicePollInterval != nil {
+			return *servicePollInterval
+		}
+
+		return s.pollInterval
+	}
 }
 
 func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {

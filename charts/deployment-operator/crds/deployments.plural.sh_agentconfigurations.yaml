@@ -40,11 +40,13 @@ spec:
             properties:
               clusterPingInterval:
                 type: string
+              compatibilityUploadInterval:
+                type: string
               maxConcurrentReconciles:
                 type: integer
               pipelineGateInterval:
                 type: string
-              runtimeServicesPingInterval:
+              servicePollInterval:
                 type: string
               stackPollInterval:
                 type: string

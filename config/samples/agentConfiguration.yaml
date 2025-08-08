@@ -7,7 +7,6 @@ metadata:
   name: default
 spec:
   clusterPingInterval: "10s"
-  runtimeServicesPingInterval: "5s"
   stackPollInterval: "0s"
   pipelineGateInterval: "0s"
   vulnerabilityReportUploadInterval: "10m"

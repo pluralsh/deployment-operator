@@ -6,8 +6,9 @@ import (
 )
 
 type AgentConfigurationSpec struct {
+	ServicePollInterval               *string `json:"servicePollInterval,omitempty"`
 	ClusterPingInterval               *string `json:"clusterPingInterval,omitempty"`
-	RuntimeServicesPingInterval       *string `json:"runtimeServicesPingInterval,omitempty"`
+	CompatibilityUploadInterval       *string `json:"compatibilityUploadInterval,omitempty"`
 	StackPollInterval                 *string `json:"stackPollInterval,omitempty"`
 	PipelineGateInterval              *string `json:"pipelineGateInterval,omitempty"`
 	MaxConcurrentReconciles           *int    `json:"maxConcurrentReconciles,omitempty"`

@@ -15,13 +15,14 @@ var configurationManager *ConfigurationManager
 
 // Configuration is a thread-safe structure for agent configuration
 type ConfigurationManager struct {
-	mu                                sync.RWMutex
-	clusterPingInterval               *time.Duration
-	runtimeServicesPingInterval       *time.Duration
-	stackPollInterval                 *time.Duration
-	vulnerabilityReportUploadInterval *time.Duration
-	pipelineGateInterval              *time.Duration
-	maxConcurrentReconciles           *int
+	mu                          sync.RWMutex
+	servicePollInterval         *time.Duration
+	clusterPingInterval         *time.Duration
+	runtimeServicesPingInterval *time.Duration
+	stackPollInterval           *time.Duration
+	compatibilityUploadInterval *time.Duration
+	pipelineGateInterval        *time.Duration
+	maxConcurrentReconciles     *int
 }
 
 func GetConfigurationManager() *ConfigurationManager {
@@ -39,7 +40,7 @@ func (s *ConfigurationManager) SetValue(config v1alpha1.AgentConfigurationSpec) 
 	}
 	s.clusterPingInterval = interval
 
-	interval, err = setDuration(config.RuntimeServicesPingInterval)
+	interval, err = setDuration(config.CompatibilityUploadInterval)
 	if err != nil {
 		return err
 	}
@@ -61,7 +62,14 @@ func (s *ConfigurationManager) SetValue(config v1alpha1.AgentConfigurationSpec) 
 	if err != nil {
 		return err
 	}
-	s.vulnerabilityReportUploadInterval = interval
+	s.compatibilityUploadInterval = interval
+
+	interval, err = setDuration(config.ServicePollInterval)
+	if err != nil {
+		return err
+	}
+	s.servicePollInterval = interval
+
 	s.maxConcurrentReconciles = config.MaxConcurrentReconciles
 
 	return nil
@@ -90,10 +98,10 @@ func (s *ConfigurationManager) GetRuntimeServicesPingInterval() *time.Duration {
 	return s.runtimeServicesPingInterval
 }
 
-func (s *ConfigurationManager) GetVulnerabilityReportUploadInterval() *time.Duration {
+func (s *ConfigurationManager) GetCompatibilityUploadInterval() *time.Duration {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.vulnerabilityReportUploadInterval
+	return s.compatibilityUploadInterval
 }
 
 func (s *ConfigurationManager) GetPipelineGateInterval() *time.Duration {
@@ -112,4 +120,10 @@ func (s *ConfigurationManager) GetMaxConcurrentReconciles() *int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.maxConcurrentReconciles
+}
+
+func (s *ConfigurationManager) GetServicePollInterval() *time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.servicePollInterval
 }
