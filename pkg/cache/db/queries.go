@@ -64,8 +64,6 @@ const (
 			createdAt = excluded.createdAt
 	`
 
-	deleteComponent = "DELETE FROM component WHERE uid = ?"
-
 	componentChildren = `
 		WITH RECURSIVE descendants AS (
 			SELECT uid, "group", version, kind, namespace, name, health, parent_uid, 1 as level
