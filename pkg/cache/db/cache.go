@@ -191,10 +191,6 @@ func (in *ComponentCache) SetComponent(component client.ComponentChildAttributes
 	}
 	defer in.pool.Put(conn)
 
-	sqlitex.ExecuteTransient(conn, deleteComponent, &sqlitex.ExecOptions{
-		Args: []interface{}{component.UID},
-	})
-
 	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			component.UID,
@@ -258,10 +254,6 @@ func (in *ComponentCache) SetPod(name, namespace, uid, parentUID, node string, c
 		return err
 	}
 	defer in.pool.Put(conn)
-
-	sqlitex.ExecuteTransient(conn, deleteComponent, &sqlitex.ExecOptions{
-		Args: []interface{}{uid},
-	})
 
 	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{

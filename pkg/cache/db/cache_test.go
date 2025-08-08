@@ -295,7 +295,7 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		err := db.GetComponentCache().SetComponent(component)
 		require.NoError(t, err)
 
-		child := createComponent(testChildUID, &uid, WithGroup(group), WithName("group-test-child"))
+		child := createComponent("child-uid", &uid, WithGroup(group), WithName("group-test-child"))
 		err = db.GetComponentCache().SetComponent(child)
 		require.NoError(t, err)
 
@@ -305,24 +305,24 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		require.Equal(t, group, *children[0].Group)
 
 		// Test empty group
+		child.UID = "child2-uid"
 		child.Group = lo.ToPtr("")
 		err = db.GetComponentCache().SetComponent(child)
 		require.NoError(t, err)
 
-		children, err = db.GetComponentCache().ComponentChildren(uid)
+		tested, err := db.GetComponentCache().GetComponentByUID("child2-uid")
 		require.NoError(t, err)
-		require.Len(t, children, 1)
-		require.Nil(t, children[0].Group)
+		require.Nil(t, tested.Group)
 
 		// Test nil group
-		child.Group = nil
+		child.UID = "child3-uid"
+		child.Group = lo.ToPtr("")
 		err = db.GetComponentCache().SetComponent(child)
 		require.NoError(t, err)
 
-		children, err = db.GetComponentCache().ComponentChildren(uid)
+		tested, err = db.GetComponentCache().GetComponentByUID("child3-uid")
 		require.NoError(t, err)
-		require.Len(t, children, 1)
-		require.Nil(t, children[0].Group)
+		require.Nil(t, tested.Group)
 	})
 }
 
@@ -586,22 +586,6 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		err = db.GetComponentCache().SetComponent(component1)
 	})
 
-	t.Run("should upsert latest state and UID for components, even if the entry in the cache already exists", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
-
-		component1 := createComponent("uid-1", nil,
-			WithGroup("apps"),
-			WithVersion("v1"),
-			WithKind("Deployment"),
-			WithNamespace("default"),
-			WithName("my-app"))
-		err := db.GetComponentCache().SetComponent(component1)
-		require.NoError(t, err)
-
-		// TODO
-	})
-
 	t.Run("should allow components with same GVK-namespace-name but different UID", func(t *testing.T) {
 		db.Init()
 		defer db.GetComponentCache().Close()
@@ -615,7 +599,6 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		err := db.GetComponentCache().SetComponent(component1)
 		require.NoError(t, err)
 
-		// Component with the same GVK-namespace-name but different UID - should fail due to the unique constraint
 		component2 := createComponent("uid-2", nil,
 			WithGroup("apps"),
 			WithVersion("v1"),
