@@ -102,7 +102,7 @@ func (cm *Manager) Start(ctx context.Context) error {
 
 	go cm.startSupervised(ctx)
 
-	_ = helpers.BackgroundPollUntilContextCancel(ctx, cm.PollInterval, true, false, func(_ context.Context) (bool, error) {
+	_ = helpers.BackgroundPollUntilContextCancel(ctx, func() time.Duration { return cm.PollInterval }, true, false, func(_ context.Context) (bool, error) {
 		if err := cm.Socket.Join(); err != nil {
 			klog.ErrorS(err, "unable to connect")
 		}

@@ -19,6 +19,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	configuration "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -70,8 +71,14 @@ func (s *GateReconciler) Shutdown() {
 	cache.GateCache().Wipe()
 }
 
-func (s *GateReconciler) GetPollInterval() time.Duration {
-	return s.pollInterval
+func (s *GateReconciler) GetPollInterval() func() time.Duration {
+	return func() time.Duration {
+		if pipelineGateInterval := configuration.GetConfigurationManager().GetPipelineGateInterval(); pipelineGateInterval != nil {
+			return *pipelineGateInterval
+		}
+
+		return s.pollInterval
+	}
 }
 
 func (s *GateReconciler) ListGates(ctx context.Context) *algorithms.Pager[*console.PipelineGateIDsEdgeFragment] {

@@ -33,9 +33,10 @@ type NamespaceReconciler struct {
 	k8sClient      ctrlclient.Client
 	namespaceQueue workqueue.TypedRateLimitingInterface[string]
 	namespaceCache *client.Cache[console.ManagedNamespaceFragment]
+	pollInterval   time.Duration
 }
 
-func NewNamespaceReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration) *NamespaceReconciler {
+func NewNamespaceReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh, pollInterval time.Duration) *NamespaceReconciler {
 	return &NamespaceReconciler{
 		consoleClient:  consoleClient,
 		k8sClient:      k8sClient,
@@ -43,6 +44,7 @@ func NewNamespaceReconciler(consoleClient client.Client, k8sClient ctrlclient.Cl
 		namespaceCache: client.NewCache[console.ManagedNamespaceFragment](refresh, func(id string) (*console.ManagedNamespaceFragment, error) {
 			return consoleClient.GetNamespace(id)
 		}),
+		pollInterval: pollInterval,
 	}
 }
 
@@ -64,8 +66,8 @@ func (n *NamespaceReconciler) Shutdown() {
 	n.namespaceCache.Wipe()
 }
 
-func (n *NamespaceReconciler) GetPollInterval() time.Duration {
-	return 0 // use default poll interval
+func (n *NamespaceReconciler) GetPollInterval() func() time.Duration {
+	return func() time.Duration { return n.pollInterval } // use default poll interval
 }
 
 func (n *NamespaceReconciler) GetPublisher() (string, websocket.Publisher) {
