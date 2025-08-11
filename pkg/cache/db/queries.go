@@ -13,20 +13,32 @@ const (
 			name TEXT,
 			health INT,
 			node TEXT,
-			createdAt TIMESTAMP,
-			FOREIGN KEY(parent_uid) REFERENCES component(uid)
+			createdAt TIMESTAMP
 		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
 		CREATE INDEX IF NOT EXISTS idx_uid ON component(uid);
+	`
+
+	getComponent = `
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
+		FROM component
+		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ?
+	`
+
+	getComponentByUID = `
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
+		FROM component
+		WHERE uid = ?
 	`
 
 	setComponent = `
 		INSERT INTO component (
 			uid,
 			parent_uid,
-			'group',
+			"group",
 			version,
-			kind, 
+			kind,
 			namespace,
 			name,
 			health,
@@ -43,13 +55,9 @@ const (
 			?,
 			?,
 		    ?
-		) ON CONFLICT(uid) DO UPDATE SET
+		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
 			parent_uid = excluded.parent_uid,
-			"group" = excluded."group",
-			version = excluded.version,
-			kind = excluded.kind,
-			namespace = excluded.namespace,
-			name = excluded.name,
 			health = excluded.health,
 			node = excluded.node,
 			createdAt = excluded.createdAt
@@ -70,6 +78,7 @@ const (
 		)
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM descendants
+		LIMIT 100
 	`
 
 	clusterHealthScore = `
