@@ -10,7 +10,7 @@ import (
 )
 
 func PollUntilContextCancel(ctx context.Context, getInterval func() time.Duration, immediate bool, condition wait.ConditionWithContextFunc) error {
-	return loopConditionUntilContext(ctx, NewDynamicTimer(getInterval), immediate, false, condition)
+	return loopConditionUntilContext(ctx, NewDynamicTimer(getInterval), immediate, condition)
 }
 
 // BackgroundPollUntilContextCancel spawns a new goroutine that runs the condition function on interval.
@@ -24,7 +24,7 @@ func BackgroundPollUntilContextCancel(ctx context.Context, getInterval func() ti
 
 	go func() {
 		timer := NewDynamicTimer(getInterval)
-		_ = loopConditionUntilContext(ctx, timer, immediate, false, condition)
+		_ = loopConditionUntilContext(ctx, timer, immediate, condition)
 	}()
 
 	return err
@@ -41,15 +41,13 @@ func BackgroundPollUntilContextCancel(ctx context.Context, getInterval func() ti
 // context error if the context was terminated.
 //
 // This is the common loop construct for all polling in the wait package.
-func loopConditionUntilContext(ctx context.Context, t wait.Timer, immediate, sliding bool, condition wait.ConditionWithContextFunc) error {
+func loopConditionUntilContext(ctx context.Context, t wait.Timer, immediate bool, condition wait.ConditionWithContextFunc) error {
 	defer t.Stop()
 
 	var timeCh <-chan time.Time
 	doneCh := ctx.Done()
 
-	if !sliding {
-		timeCh = t.C()
-	}
+	timeCh = t.C()
 
 	// if immediate is true the condition is
 	// guaranteed to be executed at least once,
@@ -61,10 +59,6 @@ func loopConditionUntilContext(ctx context.Context, t wait.Timer, immediate, sli
 		}(); err != nil || ok {
 			return err
 		}
-	}
-
-	if sliding {
-		timeCh = t.C()
 	}
 
 	for {
@@ -85,17 +79,13 @@ func loopConditionUntilContext(ctx context.Context, t wait.Timer, immediate, sli
 			return err
 		}
 
-		if !sliding {
-			t.Next()
-		}
-		if ok, err := func() (bool, error) {
+		t.Next()
+
+		if done, err := func() (bool, error) {
 			defer runtime.HandleCrashWithContext(ctx)
 			return condition(ctx)
-		}(); err != nil || ok {
+		}(); err != nil || done {
 			return err
-		}
-		if sliding {
-			t.Next()
 		}
 	}
 }
