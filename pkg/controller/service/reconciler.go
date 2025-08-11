@@ -463,11 +463,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	manifests = postProcess(manifests)
 	logger.V(4).Info("Syncing manifests", "count", len(manifests))
-	//invObj, manifests, err := s.SplitObjects(id, manifests)
-	//if err != nil {
-	//	return
-	//}
-	//inv := inventory.WrapInventoryInfoObj(&invObj)
+
 	inv := cache.RegisterInventory(id, svc.Namespace)
 
 	metrics.Record().ServiceReconciliation(
