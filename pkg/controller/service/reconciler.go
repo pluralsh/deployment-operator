@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+
 	"golang.org/x/time/rate"
 
 	console "github.com/pluralsh/console/go/client"
@@ -150,10 +152,7 @@ func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
 }
 
 func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*applier.Applier, error) {
-	invClient, err := invFactory.NewClient(f)
-	if err != nil {
-		return nil, err
-	}
+	invClient := &cache.CacheInventoryClient{}
 
 	return applier.NewApplierBuilder().
 		WithFactory(f).
@@ -464,11 +463,12 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	manifests = postProcess(manifests)
 	logger.V(4).Info("Syncing manifests", "count", len(manifests))
-	invObj, manifests, err := s.SplitObjects(id, manifests)
-	if err != nil {
-		return
-	}
-	inv := inventory.WrapInventoryInfoObj(&invObj)
+	//invObj, manifests, err := s.SplitObjects(id, manifests)
+	//if err != nil {
+	//	return
+	//}
+	//inv := inventory.WrapInventoryInfoObj(&invObj)
+	inv := cache.RegisterInventory(id, svc.Namespace)
 
 	metrics.Record().ServiceReconciliation(
 		id,

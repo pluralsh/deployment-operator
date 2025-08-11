@@ -5,6 +5,10 @@ import (
 	"errors"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
+
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,18 +21,17 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/apply/info"
 
+	"github.com/pluralsh/deployment-operator/pkg/applier/filters"
+	rccache "github.com/pluralsh/deployment-operator/pkg/cache"
 	"sigs.k8s.io/cli-utils/pkg/apply/filter"
 	"sigs.k8s.io/cli-utils/pkg/apply/mutator"
 	"sigs.k8s.io/cli-utils/pkg/apply/prune"
 	"sigs.k8s.io/cli-utils/pkg/apply/solver"
 	"sigs.k8s.io/cli-utils/pkg/apply/taskrunner"
-	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/watcher"
 	"sigs.k8s.io/cli-utils/pkg/object"
 	"sigs.k8s.io/cli-utils/pkg/object/validation"
-
-	"github.com/pluralsh/deployment-operator/pkg/applier/filters"
 )
 
 type Applier struct {
@@ -58,7 +61,7 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects []uns
 		validator.Validate(pointers)
 
 		// Decide which objects to apply and which to prune
-		applyObjs, pruneObjs, err := a.prepareObjects(invInfo, pointers, options)
+		applyObjs, pruneObjs, err := a.prepareObjects(invInfo, pointers)
 		if err != nil {
 			handleError(eventChannel, err)
 			return
@@ -190,44 +193,37 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects []uns
 
 // prepareObjects returns the set of objects to apply and to prune or
 // an error if one occurred.
-func (a *Applier) prepareObjects(localInv inventory.Info, localObjs object.UnstructuredSet,
-	o apply.ApplierOptions) (object.UnstructuredSet, object.UnstructuredSet, error) {
+func (a *Applier) prepareObjects(localInv inventory.Info, localObjs object.UnstructuredSet) (object.UnstructuredSet, object.UnstructuredSet, error) {
 	if localInv == nil {
 		return nil, nil, fmt.Errorf("the local inventory can't be nil")
 	}
-	if err := inventory.ValidateNoInventory(localObjs); err != nil {
-		return nil, nil, err
-	}
-	// Add the inventory annotation to the resources being applied.
-	for _, localObj := range localObjs {
-		inventory.AddInventoryIDAnnotation(localObj, localInv)
-	}
-	// If the inventory uses the Name strategy and an inventory ID is provided,
-	// verify that the existing inventory object (if there is one) has an ID
-	// label that matches.
-	// TODO(seans): This inventory id validation should happen in destroy and status.
-	if localInv.Strategy() == inventory.NameStrategy && localInv.ID() != "" {
-		prevInvObjs, err := a.invClient.GetClusterInventoryObjs(localInv)
+	pruneObjs := object.UnstructuredSet{}
+	if localInv.Strategy() == "memory" && localInv.ID() != "" {
+		inv := rccache.GetInventory(localInv.ID())
+		invObjs, err := inv.Load()
 		if err != nil {
 			return nil, nil, err
 		}
-		if len(prevInvObjs) > 1 {
-			panic(fmt.Errorf("found %d inv objects with Name strategy", len(prevInvObjs)))
-		}
-		if len(prevInvObjs) == 1 {
-			invObj := prevInvObjs[0]
-			val := invObj.GetLabels()[common.InventoryLabel]
-			if val != localInv.ID() {
-				return nil, nil, fmt.Errorf("inventory-id of inventory object in cluster doesn't match provided id %q", localInv.ID())
+		ids := object.UnstructuredSetToObjMetadataSet(localObjs)
+		ids = invObjs.Diff(ids)
+
+		for _, id := range ids {
+			pruneObj, err := a.getObject(id)
+			if err != nil {
+				if meta.IsNoMatchError(err) {
+					klog.V(4).Infof("skip pruning (object: %q): resource type not registered", id)
+					continue
+				}
+				if apierrors.IsNotFound(err) {
+					klog.V(4).Infof("skip pruning (object: %q): resource not found", id)
+					continue
+				}
+				return nil, nil, err
 			}
+			pruneObjs = append(pruneObjs, pruneObj)
 		}
 	}
-	pruneObjs, err := a.pruner.GetPruneObjs(localInv, localObjs, prune.Options{
-		DryRunStrategy: o.DryRunStrategy,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
+
 	return localObjs, pruneObjs, nil
 }
 
@@ -275,4 +271,20 @@ func handleValidationError(eventChannel chan<- event.Event, err error) {
 			},
 		}
 	}
+}
+
+func (a *Applier) getObject(id object.ObjMetadata) (*unstructured.Unstructured, error) {
+	namespacedClient, err := a.namespacedClient(id)
+	if err != nil {
+		return nil, err
+	}
+	return namespacedClient.Get(context.TODO(), id.Name, metav1.GetOptions{})
+}
+
+func (a *Applier) namespacedClient(id object.ObjMetadata) (dynamic.ResourceInterface, error) {
+	mapping, err := a.mapper.RESTMapping(id.GroupKind)
+	if err != nil {
+		return nil, err
+	}
+	return a.client.Resource(mapping.Resource).Namespace(id.Namespace), nil
 }
