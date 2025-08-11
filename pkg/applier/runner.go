@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/samber/lo"
@@ -274,17 +274,18 @@ func handleValidationError(eventChannel chan<- event.Event, err error) {
 }
 
 func (a *Applier) getObject(id object.ObjMetadata) (*unstructured.Unstructured, error) {
-	namespacedClient, err := a.namespacedClient(id)
-	if err != nil {
-		return nil, err
-	}
-	return namespacedClient.Get(context.TODO(), id.Name, metav1.GetOptions{})
-}
+	entry, exists := rccache.GetResourceCache().GetCacheEntry(id.String())
 
-func (a *Applier) namespacedClient(id object.ObjMetadata) (dynamic.ResourceInterface, error) {
-	mapping, err := a.mapper.RESTMapping(id.GroupKind)
-	if err != nil {
-		return nil, err
+	if exists {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   entry.GetStatus().Group,
+			Version: entry.GetStatus().Version,
+			Kind:    entry.GetStatus().Kind,
+		})
+		obj.SetNamespace(entry.GetStatus().Namespace)
+		obj.SetName(entry.GetStatus().Name)
+		return obj, nil
 	}
-	return a.client.Resource(mapping.Resource).Namespace(id.Namespace), nil
+	return nil, apierrors.NewNotFound(schema.GroupResource{}, id.Name)
 }
