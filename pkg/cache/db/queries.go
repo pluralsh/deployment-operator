@@ -13,10 +13,9 @@ const (
 			name TEXT,
 			health INT,
 			node TEXT,
-			createdAt TIMESTAMP,
-			FOREIGN KEY(parent_uid) REFERENCES component(uid),
-			UNIQUE("group", version, kind, namespace, name)
+			createdAt TIMESTAMP
 		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
 		CREATE INDEX IF NOT EXISTS idx_uid ON component(uid);
 	`
