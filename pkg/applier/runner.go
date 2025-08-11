@@ -210,10 +210,6 @@ func (a *Applier) prepareObjects(localInv inventory.Info, localObjs object.Unstr
 		for _, id := range ids {
 			pruneObj, err := a.getObject(id)
 			if err != nil {
-				if meta.IsNoMatchError(err) {
-					klog.V(4).Infof("skip pruning (object: %q): resource type not registered", id)
-					continue
-				}
 				if apierrors.IsNotFound(err) {
 					klog.V(4).Infof("skip pruning (object: %q): resource not found", id)
 					continue
@@ -276,7 +272,7 @@ func handleValidationError(eventChannel chan<- event.Event, err error) {
 func (a *Applier) getObject(id object.ObjMetadata) (*unstructured.Unstructured, error) {
 	entry, exists := rccache.GetResourceCache().GetCacheEntry(id.String())
 
-	if exists {
+	if exists && entry != nil && entry.GetStatus() != nil {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   entry.GetStatus().Group,
