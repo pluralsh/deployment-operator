@@ -694,6 +694,7 @@ func createPod(name, uid string, timestamp int64) error {
 		testNamespace,
 		uid,
 		"",
+		"",
 		testNode,
 		timestamp,
 		lo.ToPtr(client.ComponentStateFailed),

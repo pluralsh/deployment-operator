@@ -122,6 +122,7 @@ func SyncPod(u *unstructured.Unstructured, state *console.ComponentState, ownerR
 		u.GetNamespace(),
 		string(u.GetUID()),
 		lo.FromPtr(ownerRef),
+		ServiceID(u),
 		nodeName,
 		u.GetCreationTimestamp().Unix(),
 		state,
