@@ -1200,6 +1200,5 @@ func TestGetComponentsByServiceID(t *testing.T) {
 		result, err = db.GetComponentCache().GetComponentsByServiceID("cda")
 		require.NoError(t, err, "Failed to get component by service ID")
 		assert.Equal(t, 0, len(result), "Expected 0 components but got %d", len(result))
-
 	})
 }
