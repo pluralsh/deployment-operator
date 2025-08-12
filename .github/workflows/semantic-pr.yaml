@@ -16,3 +16,14 @@ jobs:
       - uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  body:
+    name: Validate PR body
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check pull request body
+        uses: JJ/github-pr-contains-action@releases/v14.1
+        with:
+          # github-token: ${{github.token}}
+          bodyDoesNotContain: "https://console.your-env.onplural.sh"
+          bodyContains: ".onplural.sh"
+          waivedUsers: "github-actions[bot]"
