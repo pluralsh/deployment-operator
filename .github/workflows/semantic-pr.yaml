@@ -33,6 +33,7 @@ jobs:
         uses: JJ/github-pr-contains-action@releases/v14.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          allowEmpty: false
           bodyDoesNotContain: "https://console.your-env.onplural.sh"
           bodyContains: ".onplural.sh"
           waivedUsers: "github-actions[bot]"
