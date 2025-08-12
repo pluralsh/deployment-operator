@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/cli-utils/pkg/object"
+
 	"github.com/pluralsh/console/go/client"
 	"github.com/sahilm/fuzzy"
 	"github.com/samber/lo"
@@ -180,11 +183,36 @@ func (in *ComponentCache) GetComponentByUID(uid string) (result *client.Componen
 	return result, err
 }
 
+func (in *ComponentCache) GetComponentsByServiceID(id string) (result object.ObjMetadataSet, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, getComponentsByServiceID, &sqlitex.ExecOptions{
+		Args: []interface{}{id},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			result = append(result, object.ObjMetadata{
+				Namespace: stmt.ColumnText(3),
+				Name:      stmt.ColumnText(4),
+				GroupKind: schema.GroupKind{
+					Group: stmt.ColumnText(0),
+					Kind:  stmt.ColumnText(2),
+				},
+			})
+			return nil
+		},
+	})
+
+	return result, err
+}
+
 // SetComponent stores or updates a component's attributes in the cache.
 // It takes a ComponentChildAttributes parameter containing the component's data.
 // If a component with the same UID exists, it will be updated; otherwise, a new entry is created.
 // Returns an error if the database operation fails or if the connection cannot be established.
-func (in *ComponentCache) SetComponent(component client.ComponentChildAttributes) error {
+func (in *ComponentCache) SetComponent(component client.ComponentChildAttributes, serviceID string) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
@@ -195,6 +223,7 @@ func (in *ComponentCache) SetComponent(component client.ComponentChildAttributes
 		Args: []interface{}{
 			component.UID,
 			lo.FromPtr(component.ParentUID),
+			serviceID,
 			lo.FromPtr(component.Group),
 			component.Version,
 			component.Kind,
@@ -259,6 +288,7 @@ func (in *ComponentCache) SetPod(name, namespace, uid, parentUID, node string, c
 		Args: []interface{}{
 			uid,
 			parentUID,
+			"",
 			"",
 			"v1",
 			"Pod",

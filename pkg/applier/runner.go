@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/pluralsh/deployment-operator/pkg/cache/db"
+	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -76,12 +79,6 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects []uns
 		// Build list of apply validation filters.
 		applyFilters := []filter.ValidationFilter{
 			filters.CacheFilter{},
-			filter.InventoryPolicyApplyFilter{
-				Client:    a.client,
-				Mapper:    a.mapper,
-				Inv:       invInfo,
-				InvPolicy: options.InventoryPolicy,
-			},
 			filters.DependencyFilter{
 				TaskContext:       taskContext,
 				ActuationStrategy: actuation.ActuationStrategyApply,
@@ -91,10 +88,6 @@ func (a *Applier) Run(ctx context.Context, invInfo inventory.Info, objects []uns
 		// Build list of prune validation filters.
 		pruneFilters := []filter.ValidationFilter{
 			filter.PreventRemoveFilter{},
-			filter.InventoryPolicyPruneFilter{
-				Inv:       invInfo,
-				InvPolicy: options.InventoryPolicy,
-			},
 			filter.LocalNamespacesFilter{
 				LocalNamespaces: localNamespaces(invInfo, object.UnstructuredSetToObjMetadataSet(pointers)),
 			},
@@ -198,9 +191,18 @@ func (a *Applier) prepareObjects(localInv inventory.Info, localObjs object.Unstr
 	if localInv == nil {
 		return nil, nil, fmt.Errorf("the local inventory can't be nil")
 	}
+
+	if err := inventory.ValidateNoInventory(localObjs); err != nil {
+		return nil, nil, err
+	}
+	// Add the inventory annotation to the resources being applied.
+	for _, localObj := range localObjs {
+		inventory.AddInventoryIDAnnotation(localObj, localInv)
+	}
+
 	pruneObjs := object.UnstructuredSet{}
 	if localInv.Strategy() == "memory" && localInv.ID() != "" {
-		inv := rccache.GetInventory(localInv.ID())
+		inv := db.GetInventory(localInv.ID())
 		invObjs, err := inv.Load()
 		if err != nil {
 			return nil, nil, err
@@ -282,6 +284,10 @@ func (a *Applier) getObject(id object.ObjMetadata) (*unstructured.Unstructured, 
 		})
 		obj.SetNamespace(entry.GetStatus().Namespace)
 		obj.SetName(entry.GetStatus().Name)
+		if entry.GetStatus().UID != nil {
+			obj.SetUID(types.UID(*entry.GetStatus().UID))
+		}
+
 		return obj, nil
 	}
 	return nil, apierrors.NewNotFound(schema.GroupResource{}, id.Name)

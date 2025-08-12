@@ -1,9 +1,13 @@
-package cache
+package db
 
 import (
+	"context"
+	"time"
+
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/cli-utils/pkg/apis/actuation"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
@@ -16,17 +20,50 @@ func init() {
 	inventoryMap = cmap.New[*Inventory]()
 }
 
-func RegisterInventory(name, namespace string) *Inventory {
+func RegisterInventory(ctx context.Context, name, namespace string) (*Inventory, error) {
 	if _, ok := inventoryMap.Get(name); !ok {
-		inventoryMap.Set(name, &Inventory{
+		var obj object.ObjMetadataSet
+		var err error
+		var lastSize int
+		var iteration int
+
+		// Load the data from DB cache. Wait mechanism for the first run.
+		// If the result size hasn’t changed between two consecutive checks, it returns the result.
+		if err := wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true, func(_ context.Context) (bool, error) {
+			obj, err = GetComponentCache().GetComponentsByServiceID(name)
+			if err != nil {
+				return false, err
+			}
+
+			currentSize := len(obj)
+
+			// new service, nothing on server side
+			if iteration >= 3 && currentSize == 0 {
+				return true, nil
+			}
+
+			// Stable size, return result
+			if lastSize == currentSize && lastSize > 0 {
+				return true, nil
+			}
+			lastSize = currentSize
+			iteration++
+
+			return false, nil
+		}); err != nil {
+			return nil, err
+		}
+
+		inv := &Inventory{
 			name:      name,
 			namespace: namespace,
-			objMetas:  make(object.ObjMetadataSet, 0),
+			objMetas:  obj,
 			objStatus: make([]actuation.ObjectStatus, 0),
-		})
+		}
+		inventoryMap.Set(name, inv)
 	}
 	inv, _ := inventoryMap.Get(name)
-	return inv
+	return inv, nil
 }
 
 func GetInventory(name string) *Inventory {
@@ -56,11 +93,6 @@ func (c *Inventory) Store(objs object.ObjMetadataSet, status []actuation.ObjectS
 	c.objMetas = objs
 	c.objStatus = status
 	return nil
-}
-
-func (c *Inventory) Merge(objs object.ObjMetadataSet) (object.ObjMetadataSet, error) {
-	c.objMetas = c.objMetas.Union(objs)
-	return c.objMetas, nil
 }
 
 func (c *Inventory) GetObject() (*unstructured.Unstructured, error) {

@@ -94,7 +94,7 @@ func SyncComponent(u *unstructured.Unstructured, state *console.ComponentState, 
 		Kind:      gvk.Kind,
 		State:     state,
 		ParentUID: ownerRef,
-	})
+	}, ServiceID(u))
 	if err != nil {
 		klog.ErrorS(err, "failed to set component in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
 	}
