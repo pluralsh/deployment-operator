@@ -5,7 +5,7 @@
 <!-- Adding a meaningful title and description allows us to better communicate -->
 <!-- your work with our users. -->
 
-### Testing Environment
+## Test Environment
 <!-- Please provide a link to a test environment where you have deployed and tested the agent. -->
 https://console.your-env.onplural.sh/
 
@@ -20,4 +20,3 @@ https://console.your-env.onplural.sh/
 - [ ] I have added tests to cover my changes.
 - [ ] I have added a meaningful title and summary to convey the impact of this PR to a user.
 
-Plural Flow: console
