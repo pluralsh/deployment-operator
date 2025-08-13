@@ -15,6 +15,9 @@ on:
       - labeled
       - unlabeled
 
+permissions:
+  contents: 'read'
+
 jobs:
   title:
     name: Title check
