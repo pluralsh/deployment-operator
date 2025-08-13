@@ -2,8 +2,8 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -57,6 +57,7 @@ func (r *AgentConfigurationReconciler) Reconcile(ctx context.Context, req ctrl.R
 		utils.MarkCondition(config.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
+
 	LogOverriddenCRDValues(ctx, config.Spec)
 
 	utils.MarkCondition(config.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
@@ -73,32 +74,9 @@ func (r *AgentConfigurationReconciler) SetupWithManager(mgr ctrl.Manager) error 
 
 func LogOverriddenCRDValues(ctx context.Context, spec v1alpha1.AgentConfigurationSpec) {
 	logger := log.FromContext(ctx)
-	v := reflect.ValueOf(spec)
-	t := reflect.TypeOf(spec)
 
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldType := t.Field(i)
-		fieldName := fieldType.Tag.Get("json")
-
-		if commaIdx := len(fieldName); commaIdx > 0 {
-			if idx := findComma(fieldName); idx != -1 {
-				fieldName = fieldName[:idx]
-			}
-		}
-
-		if !field.IsNil() {
-			val := field.Elem().Interface()
-			logger.Info("Overridden config from CRD", fieldName, val)
-		}
+	res, err := json.Marshal(spec)
+	if err == nil {
+		logger.Info("Overridden config from CRD", "configuration: ", string(res))
 	}
-}
-
-func findComma(tag string) int {
-	for i, ch := range tag {
-		if ch == ',' {
-			return i
-		}
-	}
-	return -1
 }
