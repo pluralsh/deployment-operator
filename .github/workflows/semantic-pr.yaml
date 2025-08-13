@@ -1,4 +1,4 @@
-name: "Semantic PR"
+name: "PR"
 
 on:
   workflow_dispatch:
@@ -16,8 +16,8 @@ on:
       - unlabeled
 
 jobs:
-  main:
-    name: Validate PR title
+  title:
+    name: Title check
     runs-on: ubuntu-latest
     steps:
       - name: Check pull request title
@@ -25,7 +25,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   body:
-    name: Validate PR body
+    name: Body check
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.*.labels.*.name, 'dependencies') && !contains(github.event.*.labels.*.name, 'release')}}
     steps:
