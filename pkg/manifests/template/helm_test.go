@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -124,6 +126,37 @@ var _ = Describe("Helm template", func() {
 			Expect(err).To(HaveOccurred())
 			fmt.Println(err.Error())
 			Expect(err.Error()).To(Equal("lua script error: <string>:5: Something went wrong!"))
+		})
+
+		It("should successfully merge empty values", func() {
+			// check lua script when throw error
+			dir := filepath.Join("..", "..", "..", "test", "helm", "lua-merge-empty")
+
+			svc.Helm = &console.ServiceDeploymentForAgent_Helm{
+				IgnoreHooks: lo.ToPtr(false),
+			}
+			svc.Helm.LuaScript = lo.ToPtr(`
+			-- Define values
+			values = {}
+			local baseStr = fs.read("templates/base.yaml")
+			local patchStr = fs.read("templates/patch.yaml")	
+			local base = encoding.yamlDecode(baseStr)
+			local patch = encoding.yamlDecode(patchStr)
+			local result, err = utils.merge(base, patch)
+			values["items"] = result["metadata"]["finalizers"]
+`)
+
+			resp, err := NewHelm(dir).Render(svc, utilFactory)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(resp)).To(Equal(3))
+			var ns unstructured.Unstructured
+			for _, i := range resp {
+				if i.GetName() == "result" {
+					ns = i
+				}
+			}
+			Expect(ns.GetFinalizers()).To(HaveExactElements("a", "b", "c"))
+
 		})
 	})
 })
