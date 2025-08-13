@@ -50,7 +50,7 @@ func setupTestData(b *testing.B, cache *db.ComponentCache) {
 		State:     &state,
 	}
 
-	err := cache.SetComponent(rootComponent)
+	err := cache.SetComponent(rootComponent, "")
 	require.NoError(b, err)
 
 	// Create 10 first-level children
@@ -67,7 +67,7 @@ func setupTestData(b *testing.B, cache *db.ComponentCache) {
 			State:     &state,
 		}
 
-		err := cache.SetComponent(component)
+		err := cache.SetComponent(component, "")
 		require.NoError(b, err)
 
 		// Create 5 second-level children for each first-level child
@@ -84,7 +84,7 @@ func setupTestData(b *testing.B, cache *db.ComponentCache) {
 				State:     &state,
 			}
 
-			err := cache.SetComponent(childComponent)
+			err := cache.SetComponent(childComponent, "")
 			require.NoError(b, err)
 
 			// Create 3 third-level children for each second-level child
@@ -101,7 +101,7 @@ func setupTestData(b *testing.B, cache *db.ComponentCache) {
 					State:     &state,
 				}
 
-				err := cache.SetComponent(grandchildComponent)
+				err := cache.SetComponent(grandchildComponent, "")
 				require.NoError(b, err)
 			}
 		}
@@ -143,7 +143,7 @@ func BenchmarkMemoryCache(b *testing.B) {
 			}
 			i++
 
-			err := cache.SetComponent(component)
+			err := cache.SetComponent(component, "")
 			require.NoError(b, err)
 		}
 	})
@@ -196,7 +196,7 @@ func BenchmarkMemoryCache(b *testing.B) {
 				State:     &state,
 			}
 
-			err := cache.SetComponent(component)
+			err := cache.SetComponent(component, "")
 			require.NoError(b, err)
 
 			// Retrieve children
@@ -246,7 +246,7 @@ func BenchmarkFileCache(b *testing.B) {
 				State:     &state,
 			}
 
-			err := cache.SetComponent(component)
+			err := cache.SetComponent(component, "")
 			require.NoError(b, err)
 		}
 	})
@@ -299,7 +299,7 @@ func BenchmarkFileCache(b *testing.B) {
 				State:     &state,
 			}
 
-			err := cache.SetComponent(component)
+			err := cache.SetComponent(component, "")
 			require.NoError(b, err)
 
 			// Retrieve children

@@ -6,6 +6,7 @@ const (
 			id INTEGER PRIMARY KEY,
 			parent_uid TEXT,
 			uid TEXT UNIQUE,
+			service_id TEXT,
 			"group" TEXT,
 			version TEXT,
 			kind TEXT, 
@@ -32,10 +33,17 @@ const (
 		WHERE uid = ?
 	`
 
+	getComponentsByServiceID = `
+		SELECT "group", version, kind, namespace, name
+		FROM component
+		WHERE service_id = ? AND (parent_uid IS NULL OR parent_uid = '')
+	`
+
 	setComponent = `
 		INSERT INTO component (
 			uid,
 			parent_uid,
+		    service_id,
 			"group",
 			version,
 			kind,
@@ -48,6 +56,7 @@ const (
 			?,
 			?,
 			?,
+		    ?,
 			?,
 			?,
 			?,

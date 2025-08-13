@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"sigs.k8s.io/cli-utils/pkg/inventory"
+
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -74,4 +76,12 @@ func GetLastProgressTimestamp(ctx context.Context, k8sClient ctrclient.Client, o
 	progressTime = metav1.Time{Time: parsedTime}
 
 	return
+}
+
+func ServiceID(obj *unstructured.Unstructured) string {
+	if annotations := obj.GetAnnotations(); annotations != nil {
+		return annotations[inventory.OwningInventoryKey]
+	}
+
+	return ""
 }
