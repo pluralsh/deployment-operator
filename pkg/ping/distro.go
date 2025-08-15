@@ -25,7 +25,7 @@ func distro(val string) (console.ClusterDistro, bool) {
 		return console.ClusterDistroAks, true
 	}
 
-	if strings.Contains(val, "gke") || strings.Contains(val, "netd") {
+	if strings.Contains(val, "gke") {
 		return console.ClusterDistroGke, true
 	}
 
