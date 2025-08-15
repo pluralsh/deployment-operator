@@ -54,7 +54,7 @@ func registerConsoleReconcilersOrDie(
 	consoleClient client.Client,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
-		r, err := service.NewServiceReconciler(consoleClient, k8sClient, config, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.ManifestCacheJitter(), args.WorkqueueBaseDelay(), args.WorkqueueMaxDelay(), args.RestoreNamespace(), args.ConsoleUrl(), args.WorkqueueQPS(), args.WorkqueueBurst())
+		r, err := service.NewServiceReconciler(consoleClient, k8sClient, config, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.ManifestCacheJitter(), args.WorkqueueBaseDelay(), args.WorkqueueMaxDelay(), args.PollInterval(), args.RestoreNamespace(), args.ConsoleUrl(), args.WorkqueueQPS(), args.WorkqueueBurst())
 		return r, err
 	})
 
@@ -64,12 +64,12 @@ func registerConsoleReconcilersOrDie(
 	})
 
 	mgr.AddReconcilerOrDie(restore.Identifier, func() (v1.Reconciler, error) {
-		r := restore.NewRestoreReconciler(consoleClient, k8sClient, args.ControllerCacheTTL(), args.RestoreNamespace())
+		r := restore.NewRestoreReconciler(consoleClient, k8sClient, args.ControllerCacheTTL(), args.PollInterval(), args.RestoreNamespace())
 		return r, nil
 	})
 
 	mgr.AddReconcilerOrDie(namespaces.Identifier, func() (v1.Reconciler, error) {
-		r := namespaces.NewNamespaceReconciler(consoleClient, k8sClient, args.ControllerCacheTTL())
+		r := namespaces.NewNamespaceReconciler(consoleClient, k8sClient, args.ControllerCacheTTL(), args.PollInterval())
 		return r, nil
 	})
 
