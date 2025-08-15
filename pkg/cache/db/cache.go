@@ -126,6 +126,60 @@ func (in *ComponentCache) ComponentInsights() (result []client.ClusterInsightCom
 	return result, err
 }
 
+func (in *ComponentCache) GetComponent(group, version, kind, namespace, name string) (result *client.ComponentChildAttributes, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, getComponent, &sqlitex.ExecOptions{
+		Args: []interface{}{name, namespace, group, version, kind},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			result = &client.ComponentChildAttributes{
+				UID:       stmt.ColumnText(0),
+				Group:     lo.EmptyableToPtr(stmt.ColumnText(1)),
+				Version:   stmt.ColumnText(2),
+				Kind:      stmt.ColumnText(3),
+				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
+				Name:      stmt.ColumnText(5),
+				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
+				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
+			}
+			return nil
+		},
+	})
+
+	return result, err
+}
+
+func (in *ComponentCache) GetComponentByUID(uid string) (result *client.ComponentChildAttributes, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, getComponentByUID, &sqlitex.ExecOptions{
+		Args: []interface{}{uid},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			result = &client.ComponentChildAttributes{
+				UID:       stmt.ColumnText(0),
+				Group:     lo.EmptyableToPtr(stmt.ColumnText(1)),
+				Version:   stmt.ColumnText(2),
+				Kind:      stmt.ColumnText(3),
+				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
+				Name:      stmt.ColumnText(5),
+				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
+				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
+			}
+			return nil
+		},
+	})
+
+	return result, err
+}
+
 // SetComponent stores or updates a component's attributes in the cache.
 // It takes a ComponentChildAttributes parameter containing the component's data.
 // If a component with the same UID exists, it will be updated; otherwise, a new entry is created.
@@ -241,6 +295,23 @@ func (in *ComponentCache) NodeStatistics() ([]*client.NodeStatisticAttributes, e
 		},
 	})
 	return result, err
+}
+
+func (in *ComponentCache) ComponentCounts() (nodeCount, namespaceCount int64, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, serverCounts, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			nodeCount = stmt.ColumnInt64(0)
+			namespaceCount = stmt.ColumnInt64(1)
+			return nil
+		},
+	})
+	return
 }
 
 func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {

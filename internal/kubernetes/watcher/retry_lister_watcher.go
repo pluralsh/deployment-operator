@@ -14,6 +14,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 // RetryListerWatcher is a wrapper around [watch.RetryWatcher]
@@ -100,13 +102,13 @@ func (in *RetryListerWatcher) funnelItems(items []apiwatch.Event) {
 	for _, item := range items {
 		select {
 		case <-in.ctx.Done():
-			klog.V(4).InfoS("funnelItems stopped due to context being closed")
+			klog.V(log.LogLevelTrace).InfoS("funnelItems stopped due to context being closed")
 			return
 		case <-in.stopChan:
-			klog.V(4).InfoS("funnelItems stopped due to stopChan being closed")
+			klog.V(log.LogLevelTrace).InfoS("funnelItems stopped due to stopChan being closed")
 			return
 		case in.resultChan <- item:
-			klog.V(4).InfoS("successfully sent item to resultChan")
+			klog.V(log.LogLevelTrace).InfoS("successfully sent item to resultChan")
 		}
 	}
 }
@@ -116,7 +118,7 @@ func (in *RetryListerWatcher) initialItemsList() ([]apiwatch.Event, error) {
 		return []apiwatch.Event{}, nil
 	}
 
-	klog.V(3).InfoS("listing initial resources as initialResourceVersion is empty")
+	klog.V(log.LogLevelTrace).InfoS("listing initial resources as initialResourceVersion is empty")
 
 	list, err := in.listerWatcher.List(in.listOptions)
 	if err != nil {
@@ -151,7 +153,7 @@ func (in *RetryListerWatcher) watch() {
 	initialItems, err := in.initialItemsList()
 	if err != nil {
 		// this is constantly thrown when context is canceled
-		klog.V(3).ErrorS(err, "unable to list initial items", "resourceVersion", in.initialResourceVersion)
+		klog.V(log.LogLevelVerbose).ErrorS(err, "unable to list initial items", "resourceVersion", in.initialResourceVersion)
 		return
 	}
 
@@ -171,7 +173,7 @@ func (in *RetryListerWatcher) init() (*RetryListerWatcher, error) {
 		return nil, err
 	}
 
-	klog.V(3).InfoS("starting watch", "resourceVersion", in.initialResourceVersion)
+	klog.V(log.LogLevelTrace).InfoS("starting watch", "resourceVersion", in.initialResourceVersion)
 	go in.watch()
 	return in, nil
 }

@@ -19,9 +19,11 @@ require (
 	github.com/cert-manager/cert-manager v1.16.2
 	github.com/elastic/crd-ref-docs v0.1.0
 	github.com/evanphx/json-patch v5.9.0+incompatible
+	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fluxcd/flagger v1.38.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-logr/logr v1.4.2
+	github.com/go-openapi/jsonpointer v0.21.0
 	github.com/gobuffalo/flect v1.0.2
 	github.com/gofrs/flock v0.12.1
 	github.com/golangci/golangci-lint v1.63.4
@@ -35,12 +37,13 @@ require (
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20240802234259-aa99306df54e
 	github.com/open-policy-agent/gatekeeper/v3 v3.17.1
 	github.com/opencost/opencost/core v0.0.0-20241216191657-30e5d9a27f41
+	github.com/openshift/api v0.0.0-20231025170628-b8a18fdc040d
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.46.3
+	github.com/pluralsh/console/go/client v1.48.3
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
-	github.com/pluralsh/polly v0.3.0
+	github.com/pluralsh/polly v0.3.3
 	github.com/prometheus/client_golang v1.21.1
 	github.com/sahilm/fuzzy v0.1.1
 	github.com/samber/lo v1.50.0
@@ -86,7 +89,7 @@ require (
 	cloud.google.com/go/iam v1.2.2 // indirect
 	cloud.google.com/go/monitoring v1.21.2 // indirect
 	cloud.google.com/go/storage v1.49.0 // indirect
-	dario.cat/mergo v1.0.1 // indirect
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/4meepo/tagalign v1.4.1 // indirect
 	github.com/99designs/gqlgen v0.17.64 // indirect
 	github.com/Abirdcfly/dupword v0.1.3 // indirect
@@ -214,7 +217,6 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
-	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
@@ -237,7 +239,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect

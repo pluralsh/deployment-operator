@@ -52,6 +52,15 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Revision: &console.ServiceDeploymentForAgent_Revision{
 				ID: serviceId,
 			},
+			SyncConfig: &console.ServiceDeploymentForAgent_SyncConfig{
+				DiffNormalizers: []*console.DiffNormalizerFragment{
+					{
+						Kind:         lo.ToPtr("Pod"),
+						JSONPointers: []*string{lo.ToPtr("/spec/containers/0/image")},
+						Backfill:     lo.ToPtr(true),
+					},
+				},
+			},
 		}
 		ctx := context.Background()
 		tarPath := filepath.Join("..", "..", "..", "test", "tarball", "test.tar.gz")

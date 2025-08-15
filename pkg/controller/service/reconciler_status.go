@@ -142,6 +142,19 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 				logger.Info(resourceIDToString(gk, name),
 					"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
 			}
+		case event.WaitType:
+			if e.WaitEvent.Status == event.ReconcileTimeout {
+				key := cache.ResourceKey{
+					Namespace: e.WaitEvent.Identifier.Namespace,
+					Name:      e.WaitEvent.Identifier.Name,
+					GroupKind: e.WaitEvent.Identifier.GroupKind,
+				}
+				sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
+				if exists {
+					sha.Expire()
+					cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
+				}
+			}
 		}
 	}
 

@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/ping"
+
 	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	datadogprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
@@ -13,6 +15,7 @@ import (
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
+	openshift "github.com/openshift/api/config/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,6 +50,7 @@ func init() {
 	utilruntime.Must(templatesv1.AddToScheme(scheme))
 	utilruntime.Must(rolloutv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
+	utilruntime.Must(openshift.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -90,6 +94,7 @@ func main() {
 	discoveryClient := initDiscoveryClientOrDie(config)
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
+	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient())
 
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
@@ -109,8 +114,17 @@ func main() {
 	// Start the discovery cache in background.
 	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
 
+	// Start the metrics scarper in background.
+	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient, config)
+
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
+
+	// Start cluster pinger
+	ping.RunClusterPingerInBackgroundOrDie(ctx, pinger, args.ClusterPingInterval())
+
+	// Start runtime services pinger
+	ping.RunRuntimeServicePingerInBackgroundOrDie(ctx, pinger, args.RuntimeServicesPingInterval())
 
 	// Start the standard kubernetes manager and block the main thread until context cancel.
 	runKubeManagerOrDie(ctx, kubeManager)

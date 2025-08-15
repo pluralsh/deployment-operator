@@ -1,10 +1,9 @@
-package service_test
+package ping_test
 
 import (
 	"context"
-	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
+	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -59,7 +58,7 @@ var _ = Describe("Scraper", Ordered, func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetCredentials").Return("", "")
 
-			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, cfg, time.Minute, time.Minute, time.Minute, time.Minute, time.Minute, namespace, "http://localhost:8080", 10, 100)
+			reconciler, err := ping.New(fakeConsoleClient, cfg, kClient)
 			Expect(err).NotTo(HaveOccurred())
 			ds := reconciler.GetDeprecatedCustomResources(ctx)
 			Expect(ds).To(HaveLen(1))

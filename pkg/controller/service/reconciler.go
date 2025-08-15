@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -14,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
@@ -26,8 +26,6 @@ import (
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
@@ -41,7 +39,6 @@ import (
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -51,7 +48,9 @@ const (
 	RestoreConfigMapName = "restore-config-map"
 	// The field manager name for the ones agentk owns, see
 	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
-	fieldManager = "application/apply-patch"
+	fieldManager                 = "application/apply-patch"
+	IgnoreFieldsAnnotationName   = "deployments.plural.sh/ignore-fields"
+	BackFillFieldsAnnotationName = "deployments.plural.sh/backfill-fields"
 )
 
 type ServiceReconciler struct {
@@ -66,8 +65,6 @@ type ServiceReconciler struct {
 	utilFactory      util.Factory
 	restoreNamespace string
 	mapper           meta.RESTMapper
-	pinger           *ping.Pinger
-	apiExtClient     *apiextensionsclient.Clientset
 	k8sClient        ctrclient.Client
 }
 
@@ -75,10 +72,6 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return nil, err
-	}
 
 	f := utils.NewFactory(config)
 	mapper, err := f.ToRESTMapper()
@@ -86,10 +79,6 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 		return nil, err
 	}
 	cs, err := f.KubernetesClientSet()
-	if err != nil {
-		return nil, err
-	}
-	apiExtClient, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -124,10 +113,8 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 		utilFactory:      f,
 		applier:          a,
 		destroyer:        d,
-		pinger:           ping.New(consoleClient, discoveryClient, f),
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
-		apiExtClient:     apiExtClient,
 		k8sClient:        k8sClient,
 	}, nil
 }
@@ -184,6 +171,76 @@ func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.De
 		WithFactory(f).
 		WithInventoryClient(invClient).
 		Build()
+}
+
+func (s *ServiceReconciler) ignoreUpdateFields(ctx context.Context, objs []unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) ([]unstructured.Unstructured, error) {
+	normalizerMap := make(map[normalizerKey][]string)
+
+	if svc == nil {
+		return objs, nil
+	}
+	if svc.SyncConfig != nil {
+		for _, dn := range svc.SyncConfig.DiffNormalizers {
+			kind := lo.FromPtr(dn.Kind)
+			name := lo.FromPtr(dn.Name)
+			ns := lo.FromPtr(dn.Namespace)
+			bf := lo.FromPtr(dn.Backfill)
+			key := normalizerKey{Kind: kind, Name: name, Namespace: ns, BackFill: bf}
+			for _, ptr := range dn.JSONPointers {
+				if ptr != nil && *ptr != "" {
+					normalizerMap[key] = append(normalizerMap[key], *ptr)
+				}
+			}
+		}
+	}
+
+	for i := range objs {
+		obj := objs[i]
+		var ignorePaths []string
+		var backFillPaths []string
+		backFillPaths = getJsonPaths(obj, BackFillFieldsAnnotationName)
+		ignorePaths = getJsonPaths(obj, IgnoreFieldsAnnotationName)
+
+		for key, paths := range normalizerMap {
+			match, backFill := matchesKey(obj, key)
+			if match && !backFill {
+				ignorePaths = append(ignorePaths, paths...)
+			}
+			if match && backFill {
+				backFillPaths = append(backFillPaths, paths...)
+			}
+		}
+
+		if len(backFillPaths) > 0 {
+			newObj, err := BackFillJSONPaths(ctx, s.k8sClient, obj, backFillPaths)
+			if err != nil {
+				return nil, err
+			}
+			objs[i] = newObj
+		}
+		if len(ignorePaths) > 0 {
+			newObj, err := IgnoreJSONPaths(objs[i], ignorePaths)
+			if err != nil {
+				return nil, err
+			}
+			objs[i] = newObj
+		}
+	}
+
+	return objs, nil
+}
+
+func getJsonPaths(obj unstructured.Unstructured, annotation string) []string {
+	var ignorePaths []string
+	if annotation := obj.GetAnnotations()[annotation]; annotation != "" {
+		for _, p := range strings.Split(annotation, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				ignorePaths = append(ignorePaths, p)
+			}
+		}
+	}
+	return ignorePaths
 }
 
 func (s *ServiceReconciler) enforceNamespace(objs []unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) error {
@@ -313,11 +370,6 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 		}
 	}
 
-	if err := s.pinger.Ping(); err != nil {
-		logger.Error(err, "failed to ping cluster after scheduling syncs")
-	}
-
-	s.ScrapeKube(ctx)
 	return nil
 }
 
@@ -386,6 +438,12 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		s.svcCache.Expire(id)
 		s.manifestCache.Expire(id)
 		err = s.UpdatePruneStatus(ctx, svc, ch, map[schema.GroupName]string{})
+		if err != nil {
+			logger.Error(err, "failed to update status")
+			return
+		}
+		err = s.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
+
 		return
 	}
 
@@ -431,6 +489,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
+	manifests, err = s.ignoreUpdateFields(ctx, manifests, svc)
+	if err != nil {
+		return
+	}
+
 	options := apply.ApplierOptions{
 		ServerSideOptions: common.ServerSideOptions{
 			ServerSideApply: true,
@@ -459,6 +522,17 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	done, err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
 
 	return
+}
+
+func (s *ServiceReconciler) DeleteNamespace(ctx context.Context, namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
+	deleteNamespace := false
+	if syncConfig != nil && syncConfig.DeleteNamespace != nil {
+		deleteNamespace = *syncConfig.DeleteNamespace
+	}
+	if deleteNamespace {
+		return utils.DeleteNamespace(ctx, *s.clientset, namespace)
+	}
+	return nil
 }
 
 func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
