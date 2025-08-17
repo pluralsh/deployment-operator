@@ -21,7 +21,7 @@ func distro(val string) (console.ClusterDistro, bool) {
 		return console.ClusterDistroEks, true
 	}
 
-	if strings.Contains(val, "aks") || strings.Contains(val, "azure") {
+	if strings.Contains(val, "aks") || strings.Contains(val, "azure-cni") || strings.Contains(val, "azure-cns") {
 		return console.ClusterDistroAks, true
 	}
 
