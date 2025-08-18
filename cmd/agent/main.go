@@ -129,7 +129,7 @@ func main() {
 	// Start runtime services pinger
 	ping.RunRuntimeServicePingerInBackgroundOrDie(ctx, pinger, args.RuntimeServicesPingInterval())
 
-	watch.NewGlobalWatcher(discoveryClient, dynamicClient, watch.DefaultHandleEvent).StartGlobalWatcherOrDie(ctx)
+	streamline.NewGlobalWatcher(discoveryClient, dynamicClient, streamline.DefaultHandleEvent).StartGlobalWatcherOrDie(ctx)
 
 	// Start the standard kubernetes manager and block the main thread until context cancel.
 	runKubeManagerOrDie(ctx, kubeManager)

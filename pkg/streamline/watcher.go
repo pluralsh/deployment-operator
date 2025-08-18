@@ -1,4 +1,4 @@
-package watch
+package streamline
 
 import (
 	"context"
@@ -79,7 +79,7 @@ func NewGlobalWatcher(discoveryClient *discovery.DiscoveryClient, dynamicClient 
 func (w *GlobalWatcher) StartGlobalWatcherOrDie(ctx context.Context) {
 	klog.Info("starting discovery cache")
 	w.RunWorkers(ctx, 1)
-	err := helpers.BackgroundPollUntilContextCancel(ctx, 1*time.Hour, true, true, func(_ context.Context) (done bool, err error) {
+	err := helpers.BackgroundPollUntilContextCancel(ctx, 1*time.Second, true, true, func(_ context.Context) (done bool, err error) {
 		gvrSet, err := getAllResourceTypes(w.discoveryClient)
 		if err != nil {
 			klog.Errorf("error getting all resource types: %v", err)
