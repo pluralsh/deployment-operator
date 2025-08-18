@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 )
 
-var _ = Describe("Helm template", func() {
+var _ = Describe("Helm template", Ordered, func() {
 	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
 		Name:      "test",
@@ -42,7 +42,7 @@ var _ = Describe("Helm template", func() {
 		Handler: r,
 	}
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		// Initializing the server in a goroutine so that
 		// it won't block the graceful shutdown handling below
 		go func() {
@@ -51,7 +51,7 @@ var _ = Describe("Helm template", func() {
 			}
 		}()
 	})
-	AfterEach(func() {
+	AfterAll(func() {
 
 		// The context is used to inform the server it has 5 seconds to finish
 		// the request it is currently handling
