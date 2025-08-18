@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/polly/containers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"time"
@@ -51,6 +52,8 @@ func (w *GlobalWatcher) StartGlobalWatcherOrDie(ctx context.Context) {
 		for _, gvr := range gvrSet.List() {
 			w.EnsureWatch(gvr)
 		}
+
+		w.CleanupNotIn(gvrSet)
 
 		return false, nil
 	})
@@ -117,4 +120,17 @@ func (gw *GlobalWatcher) EnsureWatch(gvr schema.GroupVersionResource) {
 			gw.mu.Unlock()
 		}
 	}()
+}
+
+func (w *GlobalWatcher) CleanupNotIn(seen containers.Set[schema.GroupVersionResource]) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	for gvr, watcher := range w.watchers {
+		if !seen.Has(gvr) {
+			klog.Info("stopping watcher for (GVK disappeared)", gvr)
+			watcher.Stop()
+			delete(w.watchers, gvr)
+		}
+	}
 }
