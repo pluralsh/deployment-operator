@@ -40,7 +40,15 @@ func Render(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.REST
 		case console.RendererTypeRaw:
 			manifests, err = NewRaw(renderer.Path).Render(svc, mapper)
 		case console.RendererTypeHelm:
-			manifests, err = NewHelm(renderer.Path).Render(svc, mapper)
+			svcCopy := *svc
+			if renderer.Helm != nil {
+				svcCopy.Helm = &console.ServiceDeploymentForAgent_Helm{
+					Values:      renderer.Helm.Values,
+					ValuesFiles: renderer.Helm.ValuesFiles,
+					Release:     renderer.Helm.Release,
+				}
+			}
+			manifests, err = NewHelm(renderer.Path).Render(&svcCopy, mapper)
 		case console.RendererTypeKustomize:
 			manifests, err = NewKustomize(renderer.Path).Render(svc, mapper)
 		default:
