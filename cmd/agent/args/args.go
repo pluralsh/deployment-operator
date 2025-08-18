@@ -73,6 +73,9 @@ const (
 
 	defaultRuntimeServicePingInterval         = "3m"
 	defaultRuntimeServicePingIntervalDuration = 3 * time.Minute
+
+	defaultPipelineGatesPollInterval         = "0s"
+	defaultPipelineGatesPollIntervalDuration = 0 * time.Second
 )
 
 var (
@@ -114,6 +117,7 @@ var (
 	argWorkqueueBurst             = flag.Int("workqueue-burst", 50, "The maximum number of items to process at a time.")
 	argClusterPingInterval        = flag.String("cluster-ping-interval", defaultClusterPingInterval, "Time interval to ping cluster.")
 	argRuntimeServicePingInterval = flag.String("runtime-service-ping-interval", defaultRuntimeServicePingInterval, "Time interval to register runtime services.")
+	argPipelineGatesPollInterval  = flag.String("pipline-gates-poll-interval", defaultPipelineGatesPollInterval, "Time interval to poll PipelineGates resources from the Console API. It's disabled by default.")
 	serviceSet                    containers.Set[string]
 )
 
@@ -393,6 +397,16 @@ func RuntimeServicesPingInterval() time.Duration {
 	if err != nil {
 		klog.ErrorS(err, "Could not parse runtime-service-ping-interval", "value", *argRuntimeServicePingInterval, "default", defaultRuntimeServicePingInterval)
 		return defaultRuntimeServicePingIntervalDuration
+	}
+
+	return duration
+}
+
+func PipelineGatesInterval() time.Duration {
+	duration, err := time.ParseDuration(*argPipelineGatesPollInterval)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse pipline-gates-poll-interval", "value", *argPipelineGatesPollInterval, "default", defaultPipelineGatesPollInterval)
+		return defaultPipelineGatesPollIntervalDuration
 	}
 
 	return duration

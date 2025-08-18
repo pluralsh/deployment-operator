@@ -42,8 +42,7 @@ func initConsoleManagerOrDie() *consolectrl.Manager {
 
 const (
 	// Use custom (short) poll intervals for these reconcilers.
-	pipelineGatesPollInterval = 30 * time.Second
-	stacksPollInterval        = 30 * time.Second
+	stacksPollInterval = 30 * time.Second
 )
 
 func registerConsoleReconcilersOrDie(
@@ -59,7 +58,7 @@ func registerConsoleReconcilersOrDie(
 	})
 
 	mgr.AddReconcilerOrDie(pipelinegates.Identifier, func() (v1.Reconciler, error) {
-		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, config, pipelineGatesPollInterval)
+		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, config, args.PipelineGatesInterval())
 		return r, err
 	})
 
