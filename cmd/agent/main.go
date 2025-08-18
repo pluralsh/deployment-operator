@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"github.com/pluralsh/deployment-operator/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"os"
 	"time"
 
@@ -92,6 +94,7 @@ func main() {
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)
+	dynamicClient := initDynamicClientOrDie(config)
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
 	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient())
@@ -126,6 +129,8 @@ func main() {
 	// Start runtime services pinger
 	ping.RunRuntimeServicePingerInBackgroundOrDie(ctx, pinger, args.RuntimeServicesPingInterval())
 
+	watch.NewGlobalWatcher(discoveryClient, dynamicClient, watch.DefaultHandleEvent).StartGlobalWatcherOrDie(ctx)
+
 	// Start the standard kubernetes manager and block the main thread until context cancel.
 	runKubeManagerOrDie(ctx, kubeManager)
 }
@@ -138,6 +143,15 @@ func initDiscoveryClientOrDie(config *rest.Config) *discovery.DiscoveryClient {
 	}
 
 	return discoveryClient
+}
+
+func initDynamicClientOrDie(config *rest.Config) dynamic.Interface {
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create dynamic client")
+		os.Exit(1)
+	}
+	return dynamicClient
 }
 
 func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Manager) {
