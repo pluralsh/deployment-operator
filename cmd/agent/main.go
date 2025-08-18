@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/pluralsh/deployment-operator/pkg/watch"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"k8s.io/client-go/dynamic"
 	"os"
 	"time"
@@ -129,7 +129,14 @@ func main() {
 	// Start runtime services pinger
 	ping.RunRuntimeServicePingerInBackgroundOrDie(ctx, pinger, args.RuntimeServicesPingInterval())
 
-	streamline.NewGlobalWatcher(discoveryClient, dynamicClient, streamline.DefaultHandleEvent).StartGlobalWatcherOrDie(ctx)
+	gw := streamline.NewGlobalWatcher(discoveryClient, dynamicClient)
+	sub1 := gw.Subscribe()
+	go func() {
+		for ev := range sub1 {
+			streamline.HandleClient(ev)
+		}
+	}()
+	gw.StartGlobalWatcherOrDie(ctx)
 
 	// Start the standard kubernetes manager and block the main thread until context cancel.
 	runKubeManagerOrDie(ctx, kubeManager)
