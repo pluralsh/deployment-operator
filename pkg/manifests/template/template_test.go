@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var _ = Describe("Default template", func() {
@@ -182,11 +183,53 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 				ID:   "123",
 				Name: "test",
 			}
-			svc.Renderers = []*console.RendererFragment{{Path: dirRaw, Type: console.RendererTypeRaw}, {Path: dirKustomize, Type: console.RendererTypeKustomize}, {Path: dirHelm, Type: console.RendererTypeHelm}}
+			svc.Renderers = []*console.RendererFragment{
+				{Path: dirRaw, Type: console.RendererTypeRaw},
+				{Path: dirKustomize, Type: console.RendererTypeKustomize},
+				{
+					Path: dirHelm,
+					Type: console.RendererTypeHelm,
+					Helm: &console.HelmMinimalFragment{
+						Release: lo.ToPtr("my-release"),
+						ValuesFiles: func() []*string {
+							qa := "./values-qa.yaml"
+							prod := "./values-prod.yaml"
+							return []*string{&qa, &prod}
+						}(),
+					},
+				},
+			}
 			resp, err := Render(dir, svc, utilFactory)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(5))
 			Expect(resp[0].GetName()).To(Equal(name))
+
+			// Find the ServiceMonitor resource to verify helm values
+			var serviceMonitor *unstructured.Unstructured
+			for _, r := range resp {
+				if r.GetKind() == "ServiceMonitor" {
+					serviceMonitor = &r
+					break
+				}
+			}
+			Expect(serviceMonitor).NotTo(BeNil())
+
+			// Verify prod values were applied (since values-prod.yaml is last)
+			Expect(serviceMonitor.GetNamespace()).To(Equal("prod-monitoring"))
+			labels := serviceMonitor.GetLabels()
+			Expect(labels["environment"]).To(Equal("prod"))
+
+			// Verify interval in spec
+			spec, found, err := unstructured.NestedMap(serviceMonitor.Object, "spec")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found).To(BeTrue())
+			endpoints, found, err := unstructured.NestedSlice(spec, "endpoints")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found).To(BeTrue())
+			Expect(len(endpoints)).To(Equal(1))
+			endpoint := endpoints[0].(map[string]interface{})
+			Expect(endpoint["interval"]).To(Equal("30s"))
+
 			sort.Slice(resp[1:4], func(i, j int) bool {
 				return resp[1+i].GetKind() < resp[1+j].GetKind()
 			})
@@ -196,7 +239,7 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 			Expect(resp[3].GetKind()).To(Equal("Secret"))
 			Expect(strings.HasPrefix(resp[3].GetName(), "credentials")).Should(BeTrue())
 			Expect(resp[4].GetKind()).To(Equal("ServiceMonitor"))
-			Expect(resp[4].GetName()).To(Equal("test"))
+			Expect(resp[4].GetName()).To(Equal("my-release"))
 		})
 
 	})
