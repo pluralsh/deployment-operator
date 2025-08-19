@@ -1,5 +1,10 @@
 package store
 
+import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
+)
+
 type Entry struct {
 	UID       string
 	ParentUID string
@@ -13,8 +18,8 @@ type Entry struct {
 }
 
 type Store interface {
-	Remove(id string) error
+	Save(obj unstructured.Unstructured) error
 	List() ([]Entry, error)
 	Get(id string) (*Entry, error)
-	Save(entry Entry) error
+	Delete(uid types.UID) error
 }
