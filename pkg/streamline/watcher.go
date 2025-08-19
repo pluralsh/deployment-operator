@@ -3,11 +3,12 @@ package streamline
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/polly/containers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
-	"time"
 
 	"sync"
 
@@ -44,11 +45,8 @@ type GlobalWatcher struct {
 func (w *GlobalWatcher) StartGlobalWatcherOrDie(ctx context.Context) {
 	klog.Info("starting discovery cache")
 	err := helpers.BackgroundPollUntilContextCancel(ctx, 1*time.Hour, true, true, func(_ context.Context) (done bool, err error) {
-		gvrSet, err := getAllResourceTypes(w.discoveryClient)
-		if err != nil {
-			klog.Errorf("error getting all resource types: %v", err)
-			return false, nil
-		}
+
+		gvrSet := watchtool.GetResources().GetResourceKeySet()
 		for _, gvr := range gvrSet.List() {
 			w.EnsureWatch(gvr)
 		}
