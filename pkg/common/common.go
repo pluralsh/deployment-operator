@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"time"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -74,4 +75,12 @@ func GetLastProgressTimestamp(ctx context.Context, k8sClient ctrclient.Client, o
 	progressTime = metav1.Time{Time: parsedTime}
 
 	return
+}
+
+func ServiceID(obj *unstructured.Unstructured) string {
+	if annotations := obj.GetAnnotations(); annotations != nil {
+		return annotations[inventory.OwningInventoryKey]
+	}
+
+	return ""
 }

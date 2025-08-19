@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"sync"
 
 	"github.com/samber/lo"
@@ -61,8 +62,8 @@ func (w *MapStore) Save(obj unstructured.Unstructured) error {
 		Kind:      obj.GroupVersionKind().Kind,
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
-		Status:    "", // TODO
-		ServiceID: "", // TODO
+		Status:    common.ToStatus(&obj).String(),
+		ServiceID: common.ServiceID(&obj),
 	}
 	return nil
 }

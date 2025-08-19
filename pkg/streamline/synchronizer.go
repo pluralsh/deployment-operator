@@ -27,7 +27,6 @@ type synchronizer struct {
 	client  dynamic.Interface
 	mu      sync.Mutex
 	started bool
-	cancel  context.CancelFunc
 }
 
 func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, store store.Store) Synchronizer {
@@ -101,9 +100,7 @@ func (w *synchronizer) handleEvent(ev watch.Event) {
 }
 
 func (w *synchronizer) Stop() {
-	if w.cancel != nil {
-		w.cancel()
-	}
+	// TODO
 }
 
 func (w *synchronizer) Resynchronize() {
