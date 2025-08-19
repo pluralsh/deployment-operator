@@ -168,7 +168,7 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 
 	Context("Render RAW and KUSTOMIZE and HELM template", func() {
 		const name = "nginx"
-		It("should successfully render the raw and kustomize templates", func() {
+		It("should successfully render the raw and kustomize and helm templates", func() {
 			dir := filepath.Join("..", "..", "..", "test", "mixed")
 			dirRaw := filepath.Join("..", "..", "..", "test", "mixed", "raw")
 			dirKustomize := filepath.Join("..", "..", "..", "test", "mixed", "kustomize", "overlays", "dev")
