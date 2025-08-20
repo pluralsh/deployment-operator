@@ -51,7 +51,7 @@ func (in Waves) Add(resources []unstructured.Unstructured, waveType WaveType) {
 }
 
 func NewWaves(resources unstructured.UnstructuredList) Waves {
-	defaultWaveCount := 4
+	defaultWaveCount := 5
 	waves := make([]Wave, 0, defaultWaveCount)
 	for i := 0; i < defaultWaveCount; i++ {
 		waves = append(waves, NewWave(unstructured.UnstructuredList{}, ApplyWave))
@@ -120,7 +120,7 @@ type WaveProcessor struct {
 	wave          Wave
 	componentChan chan client.ComponentAttributes
 	errorsChan    chan client.ServiceErrorAttributes
-	queue         workqueue.Typed[Key]
+	queue         *workqueue.Typed[Key]
 	keyToResource map[Key]unstructured.Unstructured
 
 	MaxConcurrentApplies int
@@ -182,6 +182,10 @@ func (in *WaveProcessor) Run(ctx context.Context) (components []client.Component
 }
 
 func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
+	if in.queue.Len() == 0 {
+		in.queue.ShutDown()
+		return false
+	}
 	id, shutdown := in.queue.Get()
 	if shutdown {
 		// Stop working
@@ -227,7 +231,7 @@ func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave) *WaveProcessor
 		wave:                 wave,
 		componentChan:        make(chan client.ComponentAttributes),
 		errorsChan:           make(chan client.ServiceErrorAttributes),
-		queue:                workqueue.Typed[Key]{},
+		queue:                workqueue.NewTyped[Key](),
 		keyToResource:        make(map[Key]unstructured.Unstructured),
 		MaxConcurrentApplies: 10,
 		DeQueueJitter:        time.Second,
