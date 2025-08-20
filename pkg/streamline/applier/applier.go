@@ -26,6 +26,8 @@ func (in *Applier) Run(ctx context.Context, serviceID string, resources unstruct
 	if err != nil {
 		return nil, err
 	}
+	
+	waves := NewWaves(resources)
 
 	return nil, nil
 }
