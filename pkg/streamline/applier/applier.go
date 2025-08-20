@@ -2,6 +2,9 @@ package applier
 
 import (
 	"context"
+	"github.com/pluralsh/polly/containers"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,7 +22,7 @@ type Applier struct {
 
 func (in *Applier) Run(ctx context.Context, serviceID string, resources unstructured.UnstructuredList) ([]client.ComponentAttributes, error) {
 	resources = in.addServiceAnnotation(resources, serviceID)
-	toApply, toDelete, err := in.spread(serviceID, resources)
+	toDelete, err := in.toDelete(serviceID, resources.Items)
 	if err != nil {
 		return nil, err
 	}
@@ -41,15 +44,33 @@ func (in *Applier) addServiceAnnotation(resources unstructured.UnstructuredList,
 	return resources
 }
 
-func (in *Applier) spread(serviceID string, resources unstructured.UnstructuredList) (toApply []unstructured.Unstructured, toDelete []unstructured.Unstructured, err error) {
+func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, err error) {
 	entries, err := in.store.GetByServiceID(serviceID)
 	if err != nil {
-		return nil, nil, err
+		return
+	}
+	resourceKeys := containers.NewSet[Key]()
+	for _, obj := range resources {
+		resourceKeys.Add(NewKeyFromUnstructured(obj))
 	}
 
 	for _, entry := range entries {
-		entry.
+		entryKey := NewKeyFromEntry(entry)
+		if !resourceKeys.Has(entryKey) {
+			obj := unstructured.Unstructured{}
+			obj.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   entry.Group,
+				Version: entry.Version,
+				Kind:    entry.Kind,
+			})
+			obj.SetNamespace(entry.Namespace)
+			obj.SetName(entry.Name)
+			obj.SetUID(types.UID(entry.UID))
+
+			toDelete = append(toDelete, obj)
+		}
 	}
+	return
 }
 
 func NewApplier(client dynamic.Interface, store store.Store) *Applier {
