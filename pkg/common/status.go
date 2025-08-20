@@ -191,6 +191,26 @@ func ToStatus(obj *unstructured.Unstructured) *console.ComponentState {
 	return lo.ToPtr(console.ComponentStatePending)
 }
 
+func ToComponentAttributes(obj *unstructured.Unstructured) *console.ComponentAttributes {
+	synced := false
+	state := ToStatus(obj)
+	if state != nil {
+		synced = true
+	}
+	gvk := obj.GroupVersionKind()
+
+	return &console.ComponentAttributes{
+		UID:       lo.ToPtr(string(obj.GetUID())),
+		Group:     gvk.Group,
+		Kind:      gvk.Kind,
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+		Version:   gvk.Version,
+		Synced:    synced,
+		State:     state,
+	}
+}
+
 // GetResourceHealth returns the health of a k8s resource
 func GetResourceHealth(obj *unstructured.Unstructured) (health *HealthStatus, err error) {
 	if obj.GetDeletionTimestamp() != nil {

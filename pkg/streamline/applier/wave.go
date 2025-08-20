@@ -1,12 +1,43 @@
 package applier
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"context"
+	"math/rand"
+	"sync"
+	"time"
 
+	"github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/util/workqueue"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
-type Wave unstructured.UnstructuredList
+type WaveType string
+
+const (
+	ApplyWave  WaveType = "apply"
+	DeleteWave WaveType = "delete"
+)
+
+type Wave struct {
+	unstructured.UnstructuredList
+
+	Type WaveType
+	// TODO: handle that
+	DryRun bool
+}
+
+func NewWave(resources unstructured.UnstructuredList, waveType WaveType) Wave {
+	return Wave{
+		UnstructuredList: resources,
+		Type:             waveType,
+	}
+}
 
 func (in Wave) Add(resource unstructured.Unstructured) {
 	in.Items = append(in.Items, resource)
@@ -14,8 +45,17 @@ func (in Wave) Add(resource unstructured.Unstructured) {
 
 type Waves []Wave
 
+// TODO: ensure it works
+func (in Waves) Add(resources []unstructured.Unstructured, waveType WaveType) {
+	in = append(in, NewWave(unstructured.UnstructuredList{Items: resources}, waveType))
+}
+
 func NewWaves(resources unstructured.UnstructuredList) Waves {
-	waves := make([]Wave, 5)
+	defaultWaveCount := 4
+	waves := make([]Wave, 0, defaultWaveCount)
+	for i := 0; i < defaultWaveCount; i++ {
+		waves = append(waves, NewWave(unstructured.UnstructuredList{}, ApplyWave))
+	}
 
 	kindToWave := map[string]int{
 		// Wave 0 - core non-namespaced resources
@@ -71,4 +111,125 @@ func NewWaves(resources unstructured.UnstructuredList) Waves {
 	}
 
 	return waves
+}
+
+type WaveProcessor struct {
+	mu sync.Mutex
+
+	client        dynamic.Interface
+	wave          Wave
+	componentChan chan client.ComponentAttributes
+	errorsChan    chan client.ServiceErrorAttributes
+	queue         workqueue.Typed[Key]
+	keyToResource map[Key]unstructured.Unstructured
+
+	MaxConcurrentApplies int
+	DeQueueJitter        time.Duration
+}
+
+func (in *WaveProcessor) Run(ctx context.Context) (components []client.ComponentAttributes, errors []client.ServiceErrorAttributes) {
+	in.mu.Lock()
+
+	defer close(in.componentChan)
+	defer close(in.errorsChan)
+
+	for _, obj := range in.wave.Items {
+		key := NewKeyFromUnstructured(obj)
+		in.keyToResource[key] = obj
+		in.queue.Add(key)
+	}
+
+	wg := &sync.WaitGroup{}
+
+	func() {
+		defer in.mu.Unlock()
+
+		wg.Add(in.MaxConcurrentApplies)
+		for i := 0; i < in.MaxConcurrentApplies; i++ {
+			go func() {
+				defer wg.Done()
+				for in.processNextWorkItem(ctx) {
+					time.Sleep(time.Duration(rand.Int63n(int64(in.DeQueueJitter))))
+				}
+			}()
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case component, ok := <-in.componentChan:
+				if !ok {
+					return
+				}
+
+				components = append(components, component)
+			case err, ok := <-in.errorsChan:
+				if !ok {
+					return
+				}
+
+				errors = append(errors, err)
+			}
+		}
+	}()
+
+	wg.Wait()
+
+	return components, errors
+}
+
+func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
+	id, shutdown := in.queue.Get()
+	if shutdown {
+		// Stop working
+		return false
+	}
+
+	defer in.queue.Done(id)
+	resource, exists := in.keyToResource[id]
+	if !exists {
+		return false
+	}
+
+	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
+	switch in.wave.Type {
+	case DeleteWave:
+		err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
+		if err != nil {
+			in.errorsChan <- client.ServiceErrorAttributes{
+				Source:  "sync",
+				Message: err.Error(),
+			}
+		}
+	case ApplyWave:
+		appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{})
+		if err != nil {
+			in.errorsChan <- client.ServiceErrorAttributes{
+				Source:  "sync",
+				Message: err.Error(),
+			}
+			break
+		}
+
+		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
+	}
+
+	return true
+}
+
+func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave) *WaveProcessor {
+	return &WaveProcessor{
+		mu:                   sync.Mutex{},
+		client:               dynamicClient,
+		wave:                 wave,
+		componentChan:        make(chan client.ComponentAttributes),
+		errorsChan:           make(chan client.ServiceErrorAttributes),
+		queue:                workqueue.Typed[Key]{},
+		keyToResource:        make(map[Key]unstructured.Unstructured),
+		MaxConcurrentApplies: 10,
+		DeQueueJitter:        time.Second,
+	}
 }

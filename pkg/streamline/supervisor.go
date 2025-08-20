@@ -85,7 +85,9 @@ func (in *Supervisor) run(ctx context.Context) {
 					continue
 				}
 
+				in.mu.Lock()
 				in.synchronizers[gvr] = NewSynchronizer(in.client, gvr, in.store)
+				in.mu.Unlock()
 				go func() {
 					if err := in.synchronizers[gvr].Start(ctx); err != nil {
 						delete(in.synchronizers, gvr)

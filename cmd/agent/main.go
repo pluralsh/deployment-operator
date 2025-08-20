@@ -8,7 +8,6 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/applier"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
 	"github.com/pluralsh/deployment-operator/pkg/ping"
@@ -106,7 +105,11 @@ func main() {
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
-	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), kubeManager.GetScheme(), extConsoleClient)
+	// Start synchronizer supervisor
+	mapStore := store.NewMapStore()
+	streamline.Run(dynamicClient, mapStore)
+
+	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), dynamicClient, mapStore, kubeManager.GetScheme(), extConsoleClient)
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
@@ -132,12 +135,6 @@ func main() {
 
 	// Start runtime services pinger
 	ping.RunRuntimeServicePingerInBackgroundOrDie(ctx, pinger, args.RuntimeServicesPingInterval())
-
-	// Start synchronizer supervisor
-	mapStore := store.NewMapStore()
-
-	streamline.Run(dynamicClient, mapStore)
-	applier.NewApplier(mapStore)
 
 	// Start the standard kubernetes manager and block the main thread until context cancel.
 	runKubeManagerOrDie(ctx, kubeManager)
