@@ -45,27 +45,6 @@ const (
 // Represents resource health status
 type HealthStatusCode string
 
-const (
-	SecretKind                   = "Secret"
-	ServiceKind                  = "Service"
-	ServiceAccountKind           = "ServiceAccount"
-	EndpointsKind                = "Endpoints"
-	DeploymentKind               = "Deployment"
-	ReplicaSetKind               = "ReplicaSet"
-	StatefulSetKind              = "StatefulSet"
-	DaemonSetKind                = "DaemonSet"
-	IngressKind                  = "Ingress"
-	JobKind                      = "Job"
-	PersistentVolumeClaimKind    = "PersistentVolumeClaim"
-	CustomResourceDefinitionKind = "CustomResourceDefinition"
-	PodKind                      = "Pod"
-	NodeKind                     = "Node"
-	APIServiceKind               = "APIService"
-	NamespaceKind                = "Namespace"
-	HorizontalPodAutoscalerKind  = "HorizontalPodAutoscaler"
-	CanaryKind                   = "Canary"
-)
-
 type HealthStatus struct {
 	Status  HealthStatusCode `json:"status,omitempty"`
 	Message string           `json:"message,omitempty"`

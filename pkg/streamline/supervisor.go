@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
 var (

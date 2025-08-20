@@ -5,9 +5,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/applier"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 
@@ -132,7 +134,10 @@ func main() {
 	ping.RunRuntimeServicePingerInBackgroundOrDie(ctx, pinger, args.RuntimeServicesPingInterval())
 
 	// Start synchronizer supervisor
-	streamline.Run(dynamicClient, store.NewMapStore())
+	mapStore := store.NewMapStore()
+
+	streamline.Run(dynamicClient, mapStore)
+	applier.NewApplier(mapStore)
 
 	// Start the standard kubernetes manager and block the main thread until context cancel.
 	runKubeManagerOrDie(ctx, kubeManager)
