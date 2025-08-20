@@ -83,7 +83,7 @@ func (in *Applier) addServiceAnnotation(resources unstructured.UnstructuredList,
 }
 
 func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, err error) {
-	entries, err := in.store.GetByServiceID(serviceID)
+	entries, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
 		return
 	}
@@ -114,7 +114,7 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 }
 
 func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAttributes, error) {
-	entries, err := in.store.GetByServiceID(serviceID)
+	entries, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
 		return nil, err
 	}

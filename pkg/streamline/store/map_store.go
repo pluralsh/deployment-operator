@@ -46,7 +46,7 @@ func (w *MapStore) Get(id string) (*Entry, error) {
 	return nil, fmt.Errorf("object with id %s doesn't exists", id)
 }
 
-func (w *MapStore) GetByServiceID(serviceID string) ([]Entry, error) {
+func (w *MapStore) GetServiceComponents(serviceID string) ([]Entry, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	components := make([]Entry, 0)

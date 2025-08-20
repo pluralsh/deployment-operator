@@ -19,8 +19,6 @@ type Entry struct {
 
 type Store interface {
 	Save(obj unstructured.Unstructured) error
-	List() ([]Entry, error)
-	Get(id string) (*Entry, error)
-	GetByServiceID(serviceID string) ([]Entry, error)
 	Delete(uid types.UID) error
+	GetServiceComponents(serviceID string) ([]Entry, error)
 }
