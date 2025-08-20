@@ -32,29 +32,24 @@ type Wave struct {
 	DryRun bool
 }
 
-func NewWave(resources unstructured.UnstructuredList, waveType WaveType) Wave {
+func NewWave(resources []unstructured.Unstructured, waveType WaveType) Wave {
 	return Wave{
-		UnstructuredList: resources,
+		UnstructuredList: unstructured.UnstructuredList{Items: resources},
 		Type:             waveType,
 	}
 }
 
-func (in Wave) Add(resource unstructured.Unstructured) {
+func (in *Wave) Add(resource unstructured.Unstructured) {
 	in.Items = append(in.Items, resource)
 }
 
 type Waves []Wave
 
-// TODO: ensure it works
-func (in Waves) Add(resources []unstructured.Unstructured, waveType WaveType) {
-	in = append(in, NewWave(unstructured.UnstructuredList{Items: resources}, waveType))
-}
-
 func NewWaves(resources unstructured.UnstructuredList) Waves {
-	defaultWaveCount := 4
+	defaultWaveCount := 5
 	waves := make([]Wave, 0, defaultWaveCount)
 	for i := 0; i < defaultWaveCount; i++ {
-		waves = append(waves, NewWave(unstructured.UnstructuredList{}, ApplyWave))
+		waves = append(waves, NewWave([]unstructured.Unstructured{}, ApplyWave))
 	}
 
 	kindToWave := map[string]int{
@@ -69,20 +64,21 @@ func NewWaves(resources unstructured.UnstructuredList) Waves {
 		common.StorageClassKind:             0,
 
 		// Wave 1 - core namespaced configuration resources
-		common.ConfigMapKind:           1,
-		common.SecretKind:              1,
-		common.SecretListKind:          1,
-		common.ServiceAccountKind:      1,
-		common.RoleKind:                1,
-		common.RoleListKind:            1,
-		common.RoleBindingKind:         1,
-		common.RoleBindingListKind:     1,
-		common.PodDisruptionBudgetKind: 1,
-		common.ResourceQuotaKind:       1,
-		common.NetworkPolicyKind:       1,
-		common.LimitRangeKind:          1,
-		common.PodSecurityPolicyKind:   1,
-		common.IngressClassKind:        1,
+		common.ConfigMapKind:             1,
+		common.SecretKind:                1,
+		common.SecretListKind:            1,
+		common.ServiceAccountKind:        1,
+		common.RoleKind:                  1,
+		common.RoleListKind:              1,
+		common.RoleBindingKind:           1,
+		common.RoleBindingListKind:       1,
+		common.PodDisruptionBudgetKind:   1,
+		common.ResourceQuotaKind:         1,
+		common.NetworkPolicyKind:         1,
+		common.LimitRangeKind:            1,
+		common.PodSecurityPolicyKind:     1,
+		common.IngressClassKind:          1,
+		common.PersistentVolumeClaimKind: 1,
 
 		// Wave 2 - core namespaced workload resources
 		common.DeploymentKind:            2,
@@ -120,7 +116,7 @@ type WaveProcessor struct {
 	wave          Wave
 	componentChan chan client.ComponentAttributes
 	errorsChan    chan client.ServiceErrorAttributes
-	queue         workqueue.Typed[Key]
+	queue         *workqueue.Typed[Key]
 	keyToResource map[Key]unstructured.Unstructured
 
 	MaxConcurrentApplies int
@@ -182,6 +178,10 @@ func (in *WaveProcessor) Run(ctx context.Context) (components []client.Component
 }
 
 func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
+	if in.queue.Len() == 0 {
+		in.queue.ShutDown()
+		return false
+	}
 	id, shutdown := in.queue.Get()
 	if shutdown {
 		// Stop working
@@ -205,7 +205,9 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 			}
 		}
 	case ApplyWave:
-		appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{})
+		appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
+			FieldManager: "plural-sync",
+		})
 		if err != nil {
 			in.errorsChan <- client.ServiceErrorAttributes{
 				Source:  "sync",
@@ -227,7 +229,7 @@ func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave) *WaveProcessor
 		wave:                 wave,
 		componentChan:        make(chan client.ComponentAttributes),
 		errorsChan:           make(chan client.ServiceErrorAttributes),
-		queue:                workqueue.Typed[Key]{},
+		queue:                workqueue.NewTyped[Key](),
 		keyToResource:        make(map[Key]unstructured.Unstructured),
 		MaxConcurrentApplies: 10,
 		DeQueueJitter:        time.Second,

@@ -3,6 +3,7 @@ package streamline
 import (
 	"context"
 	"fmt"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"sync"
 
 	"github.com/pluralsh/polly/containers"
@@ -51,7 +52,7 @@ type Supervisor struct {
 	client        dynamic.Interface
 	store         store.Store
 	register      chan schema.GroupVersionResource
-	synchronizers map[schema.GroupVersionResource]Synchronizer
+	synchronizers cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
 }
 
 func Run(client dynamic.Interface, store store.Store) {
@@ -63,7 +64,7 @@ func Run(client dynamic.Interface, store store.Store) {
 		client:        client,
 		store:         store,
 		register:      make(chan schema.GroupVersionResource),
-		synchronizers: make(map[schema.GroupVersionResource]Synchronizer),
+		synchronizers: cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
 	}
 
 	supervisor.run(context.Background())
@@ -81,16 +82,18 @@ func (in *Supervisor) run(ctx context.Context) {
 				in.stop()
 				return
 			case gvr := <-in.register:
-				if _, ok := in.synchronizers[gvr]; ok {
+				if in.synchronizers.Has(gvr) {
 					continue
 				}
 
-				in.mu.Lock()
-				in.synchronizers[gvr] = NewSynchronizer(in.client, gvr, in.store)
-				in.mu.Unlock()
+				in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store))
 				go func() {
-					if err := in.synchronizers[gvr].Start(ctx); err != nil {
-						delete(in.synchronizers, gvr)
+					syn, ok := in.synchronizers.Get(gvr)
+					if !ok {
+						return
+					}
+					if err := syn.Start(ctx); err != nil {
+						in.synchronizers.Remove(gvr)
 						in.register <- gvr
 					}
 				}()
@@ -107,7 +110,7 @@ func (in *Supervisor) stop() {
 	in.mu.Lock()
 	defer in.mu.Unlock()
 
-	for _, s := range in.synchronizers {
+	for _, s := range in.synchronizers.Items() {
 		s.Stop()
 	}
 
@@ -125,8 +128,8 @@ func (in *Supervisor) Unregister(gvr schema.GroupVersionResource) {
 	in.mu.Lock()
 	defer in.mu.Unlock()
 
-	if s, ok := in.synchronizers[gvr]; ok {
+	if s, ok := in.synchronizers.Get(gvr); ok {
 		s.Stop()
-		delete(in.synchronizers, gvr)
+		in.synchronizers.Remove(gvr)
 	}
 }

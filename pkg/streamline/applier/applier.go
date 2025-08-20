@@ -38,7 +38,7 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources unstru
 	}
 
 	waves := NewWaves(resources)
-	waves.Add(toDelete, DeleteWave)
+	waves = append(waves, NewWave(toDelete, DeleteWave))
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 
