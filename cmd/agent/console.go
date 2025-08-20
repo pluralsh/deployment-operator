@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -12,6 +13,7 @@ import (
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
 	"k8s.io/client-go/rest"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,11 +52,13 @@ func registerConsoleReconcilersOrDie(
 	mgr *consolectrl.Manager,
 	config *rest.Config,
 	k8sClient ctrclient.Client,
+	dynamicClient dynamic.Interface,
+	store store.Store,
 	scheme *runtime.Scheme,
 	consoleClient client.Client,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
-		r, err := service.NewServiceReconciler(consoleClient, k8sClient, config, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.ManifestCacheJitter(), args.WorkqueueBaseDelay(), args.WorkqueueMaxDelay(), args.RestoreNamespace(), args.ConsoleUrl(), args.WorkqueueQPS(), args.WorkqueueBurst())
+		r, err := service.NewServiceReconciler(consoleClient, k8sClient, config, dynamicClient, store, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.ManifestCacheJitter(), args.WorkqueueBaseDelay(), args.WorkqueueMaxDelay(), args.RestoreNamespace(), args.ConsoleUrl(), args.WorkqueueQPS(), args.WorkqueueBurst())
 		return r, err
 	})
 

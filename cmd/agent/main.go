@@ -5,6 +5,11 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/client-go/dynamic"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 
 	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
@@ -92,6 +97,7 @@ func main() {
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)
+	dynamicClient := initDynamicClientOrDie(config)
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
 	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient())
@@ -99,7 +105,11 @@ func main() {
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
-	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), kubeManager.GetScheme(), extConsoleClient)
+	// Start synchronizer supervisor
+	mapStore := store.NewMapStore()
+	streamline.Run(dynamicClient, mapStore)
+
+	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), dynamicClient, mapStore, kubeManager.GetScheme(), extConsoleClient)
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
@@ -138,6 +148,15 @@ func initDiscoveryClientOrDie(config *rest.Config) *discovery.DiscoveryClient {
 	}
 
 	return discoveryClient
+}
+
+func initDynamicClientOrDie(config *rest.Config) dynamic.Interface {
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create dynamic client")
+		os.Exit(1)
+	}
+	return dynamicClient
 }
 
 func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Manager) {
