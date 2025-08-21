@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	configuration "github.com/pluralsh/deployment-operator/pkg/common"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,8 +71,13 @@ func (r *StackReconciler) Shutdown() {
 	r.stackCache.Wipe()
 }
 
-func (r *StackReconciler) GetPollInterval() time.Duration {
-	return r.pollInterval
+func (r *StackReconciler) GetPollInterval() func() time.Duration {
+	return func() time.Duration {
+		if stackPollInterval := configuration.GetConfigurationManager().GetStackPollInterval(); stackPollInterval != nil {
+			return *stackPollInterval
+		}
+		return r.pollInterval
+	}
 }
 
 func (r *StackReconciler) GetPublisher() (string, websocket.Publisher) {
