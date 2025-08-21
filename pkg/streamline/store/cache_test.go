@@ -11,8 +11,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
 const (
@@ -91,27 +94,29 @@ func createComponent(uid string, parentUID *string, option ...CreateComponentOpt
 
 func TestComponentCache_Init(t *testing.T) {
 	t.Run("cache should initialize", func(t *testing.T) {
-		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 	})
 }
 
 func TestComponentCache_SetComponent(t *testing.T) {
 	t.Run("cache should save and return simple parent and child structure", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		uid := testUID
 
 		component := createComponent(uid, nil, WithName("parent-component"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		childComponent := createComponent(testChildUID, &uid, WithName("child-component"))
-		err = db.GetComponentCache().SetComponent(childComponent)
+		err = storeInstance.SaveComponentAttributes(childComponent)
 		require.NoError(t, err)
 
-		children, err := db.GetComponentCache().ComponentChildren(uid)
+		children, err := storeInstance.GetComponentChildren(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 1)
 		assert.Equal(t, testChildUID, children[0].UID)
@@ -121,96 +126,98 @@ func TestComponentCache_SetComponent(t *testing.T) {
 
 func TestComponentCache_ComponentChildren(t *testing.T) {
 	t.Run("cache should save and return multi-level structure", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		// Root
 		rootUID := "root-uid"
 		component := createComponent(rootUID, nil, WithName("root-component"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 1
 		uid1 := "uid-1"
 		component = createComponent(uid1, &rootUID, WithName("level-1-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 2
 		uid2 := "uid-2"
 		component = createComponent(uid2, &uid1, WithName("level-2-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 3
 		uid3 := "uid-3"
 		component = createComponent(uid3, &uid2, WithName("level-3-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 4
 		uid4 := "uid-4"
 		component = createComponent(uid4, &uid3, WithName("level-4-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 5
 		uid5 := "uid-5"
 		component = createComponent(uid5, &uid4, WithName("level-5-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
-		children, err := db.GetComponentCache().ComponentChildren(rootUID)
+		children, err := storeInstance.GetComponentChildren(rootUID)
 		require.NoError(t, err)
 		require.Len(t, children, 4)
 	})
 
 	t.Run("cache should save and return multi-level structure with multiple children", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		// Root
 		rootUID := testUID
 		component := createComponent(rootUID, nil, WithName("multi-root-component"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 1
 		uid1 := "uid-1"
 		component = createComponent(uid1, &rootUID, WithName("multi-level-1-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 2
 		uid2 := "uid-2"
 		component = createComponent(uid2, &uid1, WithName("multi-level-2-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 3
 		uid3 := "uid-3"
 		component = createComponent(uid3, &uid2, WithName("multi-level-3-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 4
 		uid4 := "uid-4"
 		component = createComponent(uid4, &uid3, WithName("multi-level-4-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		uid44 := "uid-44"
 		component = createComponent(uid44, &uid3, WithName("multi-level-4b-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Level 5
 		uid5 := "uid-5"
 		component = createComponent(uid5, &uid4, WithName("multi-level-5-component"))
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
-		children, err := db.GetComponentCache().ComponentChildren(rootUID)
+		children, err := storeInstance.GetComponentChildren(rootUID)
 		require.NoError(t, err)
 		require.Len(t, children, 5)
 	})
@@ -218,66 +225,68 @@ func TestComponentCache_ComponentChildren(t *testing.T) {
 
 func TestComponentCache_DeleteComponent(t *testing.T) {
 	t.Run("cache should support basic cascade deletion", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		uid := testUID
 		component := createComponent(uid, nil, WithName("delete-parent-component"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		childUid := "child-uid"
 		childComponent := createComponent(childUid, &uid, WithName("delete-child-component"))
-		err = db.GetComponentCache().SetComponent(childComponent)
+		err = storeInstance.SaveComponentAttributes(childComponent)
 		require.NoError(t, err)
 
 		grandchildComponent := createComponent("grandchild-uid", &childUid, WithName("delete-grandchild-component"))
-		err = db.GetComponentCache().SetComponent(grandchildComponent)
+		err = storeInstance.SaveComponentAttributes(grandchildComponent)
 		require.NoError(t, err)
 
-		children, err := db.GetComponentCache().ComponentChildren(uid)
+		children, err := storeInstance.GetComponentChildren(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 2)
 
-		err = db.GetComponentCache().DeleteComponent(childUid)
+		err = storeInstance.DeleteComponent(types.UID(childUid))
 		require.NoError(t, err)
 
-		children, err = db.GetComponentCache().ComponentChildren(uid)
+		children, err = storeInstance.GetComponentChildren(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 0)
 	})
 
 	t.Run("cache should support multi-level cascade deletion", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		uid := testUID
 		component := createComponent(uid, nil, WithName("multi-delete-parent"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		childUid := "child-uid"
 		childComponent := createComponent(childUid, &uid, WithName("multi-delete-child"))
-		err = db.GetComponentCache().SetComponent(childComponent)
+		err = storeInstance.SaveComponentAttributes(childComponent)
 		require.NoError(t, err)
 
 		grandchildComponent := createComponent("grandchild-uid", &childUid, WithName("multi-delete-grandchild"))
-		err = db.GetComponentCache().SetComponent(grandchildComponent)
+		err = storeInstance.SaveComponentAttributes(grandchildComponent)
 		require.NoError(t, err)
 
 		child2Uid := "child2-uid"
 		child2Component := createComponent(child2Uid, &uid, WithName("multi-delete-child2"))
-		err = db.GetComponentCache().SetComponent(child2Component)
+		err = storeInstance.SaveComponentAttributes(child2Component)
 		require.NoError(t, err)
 
-		children, err := db.GetComponentCache().ComponentChildren(uid)
+		children, err := storeInstance.GetComponentChildren(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 3)
 
-		err = db.GetComponentCache().DeleteComponent(childUid)
+		err = storeInstance.DeleteComponent(types.UID(childUid))
 		require.NoError(t, err)
 
-		children, err = db.GetComponentCache().ComponentChildren(uid)
+		children, err = storeInstance.GetComponentChildren(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 1)
 	})
@@ -285,21 +294,22 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 
 func TestComponentCache_GroupHandling(t *testing.T) {
 	t.Run("cache should correctly store and return group", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		group := testGroup
 
 		uid := testUID
 		component := createComponent(uid, nil, WithName("group-test-parent"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		child := createComponent("child-uid", &uid, WithGroup(group), WithName("group-test-child"))
-		err = db.GetComponentCache().SetComponent(child)
+		err = storeInstance.SaveComponentAttributes(child)
 		require.NoError(t, err)
 
-		children, err := db.GetComponentCache().ComponentChildren(uid)
+		children, err := storeInstance.GetComponentChildren(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 1)
 		require.Equal(t, group, *children[0].Group)
@@ -307,20 +317,20 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		// Test empty group
 		child.UID = "child2-uid"
 		child.Group = lo.ToPtr("")
-		err = db.GetComponentCache().SetComponent(child)
+		err = storeInstance.SaveComponentAttributes(child)
 		require.NoError(t, err)
 
-		tested, err := db.GetComponentCache().GetComponentByUID("child2-uid")
+		tested, err := storeInstance.GetComponentByUID("child2-uid")
 		require.NoError(t, err)
 		require.Nil(t, tested.Group)
 
 		// Test nil group
 		child.UID = "child3-uid"
 		child.Group = lo.ToPtr("")
-		err = db.GetComponentCache().SetComponent(child)
+		err = storeInstance.SaveComponentAttributes(child)
 		require.NoError(t, err)
 
-		tested, err = db.GetComponentCache().GetComponentByUID("child3-uid")
+		tested, err = storeInstance.GetComponentByUID("child3-uid")
 		require.NoError(t, err)
 		require.Nil(t, tested.Group)
 	})
@@ -328,174 +338,178 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 
 func TestComponentCache_HealthScore(t *testing.T) {
 	t.Run("cache should calculate correct health score", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		uid := testUID
 		component := createComponent(uid, nil, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("test-pod-1"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		child1 := createComponent("child1", &uid, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("child-pod-1"))
-		err = db.GetComponentCache().SetComponent(child1)
+		err = storeInstance.SaveComponentAttributes(child1)
 		require.NoError(t, err)
 
 		child2 := createComponent("child2", &uid, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("child-pod-2"))
-		err = db.GetComponentCache().SetComponent(child2)
+		err = storeInstance.SaveComponentAttributes(child2)
 		require.NoError(t, err)
 
-		score, err := db.GetComponentCache().HealthScore()
+		score, err := storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(100), score)
 
 		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"), WithName("child-pod-3"))
-		err = db.GetComponentCache().SetComponent(child3)
+		err = storeInstance.SaveComponentAttributes(child3)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(75), score)
 
 		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed), WithKind("Deployment"), WithName("child-deployment-1"))
-		err = db.GetComponentCache().SetComponent(child4)
+		err = storeInstance.SaveComponentAttributes(child4)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(60), score)
 
 		// Invalid certificate should deduct an additional 10 points.
 		child5 := createComponent("child5", &uid, WithState(client.ComponentStateFailed), WithKind("Certificate"), WithName("child-cert-1"))
-		err = db.GetComponentCache().SetComponent(child5)
+		err = storeInstance.SaveComponentAttributes(child5)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(40), score)
 
 		// Failing resources in kube-system namespace should deduct an additional 20 points.
 		child6 := createComponent("child6", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"), WithNamespace("kube-system"), WithName("child-pod-kube-system"))
-		err = db.GetComponentCache().SetComponent(child6)
+		err = storeInstance.SaveComponentAttributes(child6)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(12), score)
 
 		// Failing persistent volume should deduct an additional 10 points.
 		// The score should not go below 0.
 		child7 := createComponent("child7", &uid, WithState(client.ComponentStateFailed), WithKind("PersistentVolume"), WithName("child-pv-1"))
-		err = db.GetComponentCache().SetComponent(child7)
+		err = storeInstance.SaveComponentAttributes(child7)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), score)
 	})
 
 	t.Run("cache should calculate correct health score for components with no children", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		uid := testUID
 		component := createComponent(uid, nil, WithState(client.ComponentStateRunning), WithName("standalone-component"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
-		score, err := db.GetComponentCache().HealthScore()
+		score, err := storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(100), score)
 	})
 
 	t.Run("cache should calculate health score with critical system component failures", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		baseComponent := createComponent(testUID, nil, WithState(client.ComponentStateRunning), WithName("base-test-component"))
-		err := db.GetComponentCache().SetComponent(baseComponent)
+		err = storeInstance.SaveComponentAttributes(baseComponent)
 		require.NoError(t, err)
 
 		runningPod := createComponent("running-pod", nil, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("running-pod-unique"))
-		err = db.GetComponentCache().SetComponent(runningPod)
+		err = storeInstance.SaveComponentAttributes(runningPod)
 		require.NoError(t, err)
 
 		runningDeployment := createComponent("running-deployment", nil, WithState(client.ComponentStateRunning), WithKind("Deployment"), WithName("running-deployment-unique"))
-		err = db.GetComponentCache().SetComponent(runningDeployment)
+		err = storeInstance.SaveComponentAttributes(runningDeployment)
 		require.NoError(t, err)
 
 		runningService := createComponent("running-service", nil, WithState(client.ComponentStateRunning), WithKind("Service"), WithName("running-service-unique"))
-		err = db.GetComponentCache().SetComponent(runningService)
+		err = storeInstance.SaveComponentAttributes(runningService)
 		require.NoError(t, err)
 
 		// Test CoreDNS failure (50 point deduction)
 		coredns := createComponent("coredns", nil, WithState(client.ComponentStateFailed), WithKind("Deployment"), WithName("coredns-test"))
-		err = db.GetComponentCache().SetComponent(coredns)
+		err = storeInstance.SaveComponentAttributes(coredns)
 		require.NoError(t, err)
 
-		score, err := db.GetComponentCache().HealthScore()
+		score, err := storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(30), score)
 
 		// Test AWS CNI failure (additional 50 point deduction)
 		awscni := createComponent("aws-cni", nil, WithState(client.ComponentStateFailed), WithKind("DaemonSet"), WithName("aws-cni-test"))
-		err = db.GetComponentCache().SetComponent(awscni)
+		err = storeInstance.SaveComponentAttributes(awscni)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), score)
 
 		// Test ingress-nginx service failure (would deduct 50 but already at 0)
 		ingress := createComponent("ingress", nil, WithState(client.ComponentStateFailed), WithKind("Service"), WithName("ingress-nginx-controller-test"), WithNamespace("ingress-nginx"))
-		err = db.GetComponentCache().SetComponent(ingress)
+		err = storeInstance.SaveComponentAttributes(ingress)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), score)
 	})
 
 	t.Run("cache should calculate health score with combined resource failures", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		baseComponent := createComponent(testUID, nil, WithState(client.ComponentStateRunning), WithName("base-combined-test"))
-		err := db.GetComponentCache().SetComponent(baseComponent)
+		err = storeInstance.SaveComponentAttributes(baseComponent)
 		require.NoError(t, err)
 
 		// Failed Certificate (10 point deduction)
 		cert := createComponent("cert", nil, WithState(client.ComponentStateFailed), WithKind("Certificate"), WithName("test-cert-combined"))
-		err = db.GetComponentCache().SetComponent(cert)
+		err = storeInstance.SaveComponentAttributes(cert)
 		require.NoError(t, err)
 
-		score, err := db.GetComponentCache().HealthScore()
+		score, err := storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(40), score)
 
 		// Failed kube-system resource (20 point deduction)
 		kubeSystem := createComponent("kube-system-res", nil, WithState(client.ComponentStateFailed), WithKind("Pod"), WithNamespace("kube-system"), WithName("kube-system-pod-test"))
-		err = db.GetComponentCache().SetComponent(kubeSystem)
+		err = storeInstance.SaveComponentAttributes(kubeSystem)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(3), score)
 
 		// Failed PersistentVolume (10 point deduction)
 		pv := createComponent("pv", nil, WithState(client.ComponentStateFailed), WithKind("PersistentVolume"), WithName("test-pv-combined"))
-		err = db.GetComponentCache().SetComponent(pv)
+		err = storeInstance.SaveComponentAttributes(pv)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), score)
 
 		// Failed istio-system resource (50 point deduction)
 		istio := createComponent("istio-res", nil, WithState(client.ComponentStateFailed), WithKind("Service"), WithNamespace("istio-system"), WithName("istio-service-test"))
-		err = db.GetComponentCache().SetComponent(istio)
+		err = storeInstance.SaveComponentAttributes(istio)
 		require.NoError(t, err)
 
-		score, err = db.GetComponentCache().HealthScore()
+		score, err = storeInstance.GetHealthScore()
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), score)
 	})
@@ -503,8 +517,9 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should allow components with different GVK-namespace-name combinations", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		component1 := createComponent("uid-1", nil,
 			WithGroup("apps"),
@@ -512,7 +527,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err := db.GetComponentCache().SetComponent(component1)
+		err = storeInstance.SaveComponentAttributes(component1)
 		require.NoError(t, err)
 
 		// Component with different name - should succeed
@@ -522,7 +537,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-other-app"))
-		err = db.GetComponentCache().SetComponent(component2)
+		err = storeInstance.SaveComponentAttributes(component2)
 		require.NoError(t, err)
 
 		// Component with different namespace - should succeed
@@ -532,7 +547,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("production"),
 			WithName("my-app"))
-		err = db.GetComponentCache().SetComponent(component3)
+		err = storeInstance.SaveComponentAttributes(component3)
 		require.NoError(t, err)
 
 		// Component with different kind - should succeed
@@ -542,7 +557,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("StatefulSet"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err = db.GetComponentCache().SetComponent(component4)
+		err = storeInstance.SaveComponentAttributes(component4)
 		require.NoError(t, err)
 
 		// Component with different version - should succeed
@@ -552,7 +567,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err = db.GetComponentCache().SetComponent(component5)
+		err = storeInstance.SaveComponentAttributes(component5)
 		require.NoError(t, err)
 
 		// Component with different group - should succeed
@@ -562,13 +577,14 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err = db.GetComponentCache().SetComponent(component6)
+		err = storeInstance.SaveComponentAttributes(component6)
 		require.NoError(t, err)
 	})
 
 	t.Run("should allow component updates", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		component := createComponent("uid-1", nil,
 			WithGroup("apps"),
@@ -576,17 +592,18 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		component.State = lo.ToPtr(client.ComponentStatePaused)
-		err = db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 	})
 
 	t.Run("should allow components with same GVK-namespace-name but different UID", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		component1 := createComponent("uid-1", nil,
 			WithGroup("apps"),
@@ -594,7 +611,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("duplicate-app"))
-		err := db.GetComponentCache().SetComponent(component1)
+		err = storeInstance.SaveComponentAttributes(component1)
 		require.NoError(t, err)
 
 		component2 := createComponent("uid-2", nil,
@@ -603,13 +620,14 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("duplicate-app"))
-		err = db.GetComponentCache().SetComponent(component2)
+		err = storeInstance.SaveComponentAttributes(component2)
 		require.NoError(t, err)
 	})
 
 	t.Run("should allow updating existing component with same UID", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		uid := "update-test-uid"
 
@@ -621,7 +639,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithNamespace("default"),
 			WithName("updatable-app"),
 			WithState(client.ComponentStateRunning))
-		err := db.GetComponentCache().SetComponent(component)
+		err = storeInstance.SaveComponentAttributes(component)
 		require.NoError(t, err)
 
 		// Update the same component with different state - should succeed
@@ -632,36 +650,14 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithNamespace("default"),
 			WithName("updatable-app"),
 			WithState(client.ComponentStateFailed))
-		err = db.GetComponentCache().SetComponent(updatedComponent)
+		err = storeInstance.SaveComponentAttributes(updatedComponent)
 		require.NoError(t, err)
 	})
 
 	t.Run("should handle UID changes for resource with the same identity", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
-
-		group := "apps"
-		version := "v1"
-		kind := "Deployment"
-		name := "test"
-		namespace := "default"
-
-		component := createComponent("uid-1", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
-		err := db.GetComponentCache().SetComponent(component)
-		require.NoError(t, err)
-
-		sameComponentWithDifferentUID := createComponent("uid-2", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
-		err = db.GetComponentCache().SetComponent(sameComponentWithDifferentUID)
-		require.NoError(t, err)
-
-		dbc, err := db.GetComponentCache().GetComponent(group, version, kind, namespace, name)
-		require.NoError(t, err)
-		assert.Equal(t, "uid-2", dbc.UID)
-	})
-
-	t.Run("should treat nil values in the same way as empty strings", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		group := "apps"
 		version := "v1"
@@ -669,51 +665,82 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		name := "test"
 		namespace := ""
 
+		var u unstructured.Unstructured
+		u.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   group,
+			Version: version,
+			Kind:    kind,
+		})
+		u.SetName(name)
+		u.SetNamespace(namespace)
+
+		component := createComponent("uid-1", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
+		err = storeInstance.SaveComponentAttributes(component)
+		require.NoError(t, err)
+
+		sameComponentWithDifferentUID := createComponent("uid-2", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
+		err = storeInstance.SaveComponentAttributes(sameComponentWithDifferentUID)
+		require.NoError(t, err)
+
+		dbc, err := storeInstance.GetComponent(u)
+		require.NoError(t, err)
+		assert.Equal(t, "uid-2", dbc.UID)
+	})
+
+	t.Run("should treat nil values in the same way as empty strings", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
+
+		group := "apps"
+		version := "v1"
+		kind := "Deployment"
+		name := "test"
+		namespace := ""
+
+		var u unstructured.Unstructured
+		u.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   group,
+			Version: version,
+			Kind:    kind,
+		})
+		u.SetName(name)
+		u.SetNamespace(namespace)
+
 		componentWithEmptyNamespace := createComponent("uid", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
-		err := db.GetComponentCache().SetComponent(componentWithEmptyNamespace)
+		err = storeInstance.SaveComponentAttributes(componentWithEmptyNamespace)
 		require.NoError(t, err)
 
 		componentWithNilNamespace := createComponent("uid-2", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name))
 		componentWithNilNamespace.Namespace = nil
-		err = db.GetComponentCache().SetComponent(componentWithNilNamespace)
+		err = storeInstance.SaveComponentAttributes(componentWithNilNamespace)
 		require.NoError(t, err)
 
-		databaseComponent, err := db.GetComponentCache().GetComponent(group, version, kind, namespace, name)
+		databaseComponent, err := storeInstance.GetComponent(u)
 		require.NoError(t, err)
 		assert.Equal(t, "uid-2", databaseComponent.UID, "component in database should have updated UID")
 
-		databaseComponent, err = db.GetComponentCache().GetComponentByUID("uid")
+		entry, err := storeInstance.GetComponentByUID("uid")
 		require.NoError(t, err)
-		require.Nil(t, databaseComponent, "component with old UID should not be found")
+		require.Nil(t, entry, "component with old UID should not be found")
 	})
 }
 
-func createPod(name, uid string, timestamp int64) error {
-	return db.GetComponentCache().SetPod(
-		name,
-		testNamespace,
-		uid,
-		"",
-		testNode,
-		timestamp,
-		lo.ToPtr(client.ComponentStateFailed),
-	)
+func createPod(s store.Store, name, uid string, timestamp int64) error {
+	return s.SaveComponentAttributes(
+		createComponent(uid, nil, WithKind("Pod"), WithName(name), WithNamespace(testNamespace), WithState(client.ComponentStateFailed)), testNode, timestamp, nil)
 }
 
 func TestPendingPodsCache(t *testing.T) {
-	t.Run("cache should initialize", func(t *testing.T) {
-		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
-		defer db.GetComponentCache().Close()
-	})
-
 	t.Run("cache should store pods with all required attributes", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
-		require.NoError(t, createPod("pending-pod-1", "pod-1-uid", hourAgoTimestamp))
-		require.NoError(t, createPod("pending-pod-2", "pod-2-uid", hourAgoTimestamp))
+		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
+		require.NoError(t, createPod(storeInstance, "pending-pod-2", "pod-2-uid", hourAgoTimestamp))
 
-		stats, err := db.GetComponentCache().NodeStatistics()
+		stats, err := storeInstance.GetNodeStatistics()
 		require.NoError(t, err)
 		require.Len(t, stats, 1)
 		assert.Equal(t, testNode, *stats[0].Name)
@@ -721,14 +748,15 @@ func TestPendingPodsCache(t *testing.T) {
 	})
 
 	t.Run("cache should ignore fresh pending pods that were created within last 5 minutes", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
-		require.NoError(t, createPod("fresh-pending-pod", "pod-uid", nowTimestamp))
-		require.NoError(t, createPod("pending-pod-1", "pod-1-uid", hourAgoTimestamp))
-		require.NoError(t, createPod("pending-pod-2", "pod-2-uid", hourAgoTimestamp))
+		require.NoError(t, createPod(storeInstance, "fresh-pending-pod", "pod-uid", nowTimestamp))
+		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
+		require.NoError(t, createPod(storeInstance, "pending-pod-2", "pod-2-uid", hourAgoTimestamp))
 
-		stats, err := db.GetComponentCache().NodeStatistics()
+		stats, err := storeInstance.GetNodeStatistics()
 		require.NoError(t, err)
 		require.Len(t, stats, 1)
 		assert.Equal(t, testNode, *stats[0].Name)
@@ -736,20 +764,21 @@ func TestPendingPodsCache(t *testing.T) {
 	})
 
 	t.Run("cache should delete pod", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
-		require.NoError(t, createPod("pending-pod-1", "pod-1-uid", hourAgoTimestamp))
+		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
 
-		stats, err := db.GetComponentCache().NodeStatistics()
+		stats, err := storeInstance.GetNodeStatistics()
 		require.NoError(t, err)
 		require.Len(t, stats, 1)
 		assert.Equal(t, int64(1), *stats[0].PendingPods)
 
-		err = db.GetComponentCache().DeleteComponent("pod-1-uid")
+		err = storeInstance.DeleteComponent("pod-1-uid")
 		require.NoError(t, err)
 
-		stats, err = db.GetComponentCache().NodeStatistics()
+		stats, err = storeInstance.GetNodeStatistics()
 		require.NoError(t, err)
 		require.Len(t, stats, 0)
 	})
@@ -757,9 +786,10 @@ func TestPendingPodsCache(t *testing.T) {
 
 func TestComponentCache_ComponentInsights(t *testing.T) {
 	t.Run("should retrieve expected component insights without errors", func(t *testing.T) {
-		db.Init()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
 		defer func() {
-			if err := db.GetComponentCache().Close(); err != nil {
+			if err := storeInstance.Shutdown(); err != nil {
 				t.Fatalf("Failed to close component cache: %v", err)
 			}
 		}()
@@ -844,12 +874,12 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 		// Insert all test components into cache
 		for _, tc := range testComponents {
-			err := db.GetComponentCache().SetComponent(tc)
+			err := storeInstance.SaveComponentAttributes(tc)
 			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
 		}
 
 		// Get component insights
-		insights, err := db.GetComponentCache().ComponentInsights()
+		insights, err := storeInstance.GetComponentInsights()
 		require.NoError(t, err, "Failed to get component insights")
 
 		actualNames := algorithms.Map(
@@ -870,9 +900,10 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 	})
 
 	t.Run("should properly assign priorities based on component kind", func(t *testing.T) {
-		db.Init()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
 		defer func() {
-			if err := db.GetComponentCache().Close(); err != nil {
+			if err := storeInstance.Shutdown(); err != nil {
 				t.Fatalf("Failed to close component cache: %v", err)
 			}
 		}()
@@ -909,12 +940,12 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 		// Insert all test components into cache
 		for _, tc := range testComponents {
-			err := db.GetComponentCache().SetComponent(tc)
+			err := storeInstance.SaveComponentAttributes(tc)
 			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
 		}
 
 		// Get component insights
-		insights, err := db.GetComponentCache().ComponentInsights()
+		insights, err := storeInstance.GetComponentInsights()
 		require.NoError(t, err, "Failed to get component insights")
 
 		// Build a map of component name to priority for easier testing
@@ -929,9 +960,10 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 	})
 
 	t.Run("should assign priorities based on string similarity in resource names and namespaces", func(t *testing.T) {
-		db.Init()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
 		defer func() {
-			if err := db.GetComponentCache().Close(); err != nil {
+			if err := storeInstance.Shutdown(); err != nil {
 				t.Fatalf("Failed to close component cache: %v", err)
 			}
 		}()
@@ -974,12 +1006,12 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 		// Insert all test components into cache
 		for _, tc := range testComponents {
-			err := db.GetComponentCache().SetComponent(tc)
+			err := storeInstance.SaveComponentAttributes(tc)
 			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
 		}
 
 		// Get component insights
-		insights, err := db.GetComponentCache().ComponentInsights()
+		insights, err := storeInstance.GetComponentInsights()
 		require.NoError(t, err, "Failed to get component insights")
 
 		// Build a map of component name to priority for easier testing
@@ -995,15 +1027,16 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 	t.Run("should handle empty cache without errors", func(t *testing.T) {
 		// Initialize a fresh cache for this test
-		db.Init()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
 		defer func() {
-			if err := db.GetComponentCache().Close(); err != nil {
+			if err := storeInstance.Shutdown(); err != nil {
 				t.Fatalf("Failed to close component cache: %v", err)
 			}
 		}()
 
 		// Get component insights from empty cache
-		insights, err := db.GetComponentCache().ComponentInsights()
+		insights, err := storeInstance.GetComponentInsights()
 		require.NoError(t, err, "Failed to get component insights from empty cache")
 
 		require.Nil(t, insights, "Expected non-nil insights object from empty cache")
@@ -1011,14 +1044,10 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 }
 
 func TestComponentCountsCache(t *testing.T) {
-	t.Run("cache should initialize", func(t *testing.T) {
-		db.Init(db.WithMode(db.CacheModeFile), db.WithFilePath(dbFile))
-		defer db.GetComponentCache().Close()
-	})
-
 	t.Run("cache should return counts of nodes, pods and namespaces", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		testComponents := []client.ComponentChildAttributes{
 			// Components with names very similar to critical priority resources
@@ -1032,11 +1061,11 @@ func TestComponentCountsCache(t *testing.T) {
 
 		// Insert all test components into cache
 		for _, tc := range testComponents {
-			err := db.GetComponentCache().SetComponent(tc)
+			err := storeInstance.SaveComponentAttributes(tc)
 			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
 		}
 
-		nodes, namespaces, err := db.GetComponentCache().ComponentCounts()
+		nodes, namespaces, err := storeInstance.GetComponentCounts()
 		require.NoError(t, err, "Failed to get component counts")
 
 		assert.Equal(t, nodes, int64(3))
@@ -1046,13 +1075,14 @@ func TestComponentCountsCache(t *testing.T) {
 
 func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	t.Run("should limit component children to 100 items", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		// Create parent component
 		parentUID := "parent-with-many-children"
 		parent := createComponent(parentUID, nil, WithName("parent-with-many-children"))
-		err := db.GetComponentCache().SetComponent(parent)
+		err = storeInstance.SaveComponentAttributes(parent)
 		require.NoError(t, err)
 
 		// Create 150 child components to test the 100 limit
@@ -1061,12 +1091,12 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			childUID := fmt.Sprintf("child-%d", i)
 			childName := fmt.Sprintf("child-component-%d", i)
 			child := createComponent(childUID, &parentUID, WithName(childName))
-			err := db.GetComponentCache().SetComponent(child)
+			err := storeInstance.SaveComponentAttributes(child)
 			require.NoError(t, err)
 		}
 
 		// Retrieve children and verify limit is applied
-		children, err := db.GetComponentCache().ComponentChildren(parentUID)
+		children, err := storeInstance.GetComponentChildren(parentUID)
 		require.NoError(t, err)
 
 		// Should return exactly 100 children, not more
@@ -1079,13 +1109,14 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	})
 
 	t.Run("should return all children when under 100 limit", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		// Create parent component
 		parentUID := "parent-with-few-children"
 		parent := createComponent(parentUID, nil, WithName("parent-with-few-children"))
-		err := db.GetComponentCache().SetComponent(parent)
+		err = storeInstance.SaveComponentAttributes(parent)
 		require.NoError(t, err)
 
 		// Create 50 child components (under the limit)
@@ -1094,12 +1125,12 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			childUID := fmt.Sprintf("few-child-%d", i)
 			childName := fmt.Sprintf("few-child-component-%d", i)
 			child := createComponent(childUID, &parentUID, WithName(childName))
-			err := db.GetComponentCache().SetComponent(child)
+			err := storeInstance.SaveComponentAttributes(child)
 			require.NoError(t, err)
 		}
 
 		// Retrieve children and verify all are returned
-		children, err := db.GetComponentCache().ComponentChildren(parentUID)
+		children, err := storeInstance.GetComponentChildren(parentUID)
 		require.NoError(t, err)
 
 		// Should return all 50 children since we're under the limit
@@ -1112,13 +1143,14 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	})
 
 	t.Run("should apply limit to multi-level hierarchies", func(t *testing.T) {
-		db.Init()
-		defer db.GetComponentCache().Close()
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
 
 		// Create root component
 		rootUID := "root-with-deep-hierarchy"
 		root := createComponent(rootUID, nil, WithName("root-with-deep-hierarchy"))
-		err := db.GetComponentCache().SetComponent(root)
+		err = storeInstance.SaveComponentAttributes(root)
 		require.NoError(t, err)
 
 		// Create a multi-level hierarchy that exceeds 100 total descendants
@@ -1128,7 +1160,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			uid := fmt.Sprintf("level1-%d", i)
 			level1UIDs[i] = uid
 			component := createComponent(uid, &rootUID, WithName(fmt.Sprintf("level1-component-%d", i)))
-			err := db.GetComponentCache().SetComponent(component)
+			err := storeInstance.SaveComponentAttributes(component)
 			require.NoError(t, err)
 		}
 
@@ -1139,7 +1171,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			for j := 0; j < 2 && level2Count < 40; j++ {
 				uid := fmt.Sprintf("level2-%d-%d", i, j)
 				component := createComponent(uid, &parentUID, WithName(fmt.Sprintf("level2-component-%d-%d", i, j)))
-				err := db.GetComponentCache().SetComponent(component)
+				err := storeInstance.SaveComponentAttributes(component)
 				require.NoError(t, err)
 				level2Count++
 			}
@@ -1153,14 +1185,14 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			for j := 0; j < 2 && level3Count < 50; j++ {
 				uid := fmt.Sprintf("level3-%d-%d", i, j)
 				component := createComponent(uid, &level2UID, WithName(fmt.Sprintf("level3-component-%d-%d", i, j)))
-				err := db.GetComponentCache().SetComponent(component)
+				err := storeInstance.SaveComponentAttributes(component)
 				require.NoError(t, err)
 				level3Count++
 			}
 		}
 
 		// Total descendants should be 30 + 40 + 50 = 120, but limit should cap at 100
-		children, err := db.GetComponentCache().ComponentChildren(rootUID)
+		children, err := storeInstance.GetComponentChildren(rootUID)
 		require.NoError(t, err)
 
 		assert.Equal(t, 100, len(children), "Expected exactly 100 descendants due to LIMIT clause in multi-level hierarchy")

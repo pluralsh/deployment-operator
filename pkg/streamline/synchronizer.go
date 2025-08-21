@@ -67,7 +67,7 @@ func (w *synchronizer) Start(ctx context.Context) error {
 
 func (w *synchronizer) handleList(list unstructured.UnstructuredList) {
 	for _, obj := range list.Items {
-		if err := w.store.Save(obj); err != nil {
+		if err := w.store.SaveComponent(obj); err != nil {
 			klog.ErrorS(err, "failed to save resource", "gvr", w.gvr, "name", obj.GetName())
 		}
 	}
@@ -82,7 +82,7 @@ func (w *synchronizer) handleEvent(ev watch.Event) {
 			return
 		}
 
-		if err := w.store.Save(*obj); err != nil {
+		if err := w.store.SaveComponent(*obj); err != nil {
 			klog.ErrorS(err, "failed to save resource", "gvr", w.gvr, "name", obj.GetName())
 		}
 	case watch.Deleted:
@@ -92,7 +92,7 @@ func (w *synchronizer) handleEvent(ev watch.Event) {
 			return
 		}
 
-		if err = w.store.Delete(obj.GetUID()); err != nil {
+		if err = w.store.DeleteComponent(obj.GetUID()); err != nil {
 			klog.ErrorS(err, "failed to delete resource", "gvr", w.gvr, "name", obj.GetName())
 			return
 		}

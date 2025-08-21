@@ -53,72 +53,52 @@ type Progress struct {
 	PingTime     time.Time
 }
 
-func SyncDBCache(u *unstructured.Unstructured) {
-	state := ToStatus(u)
-	ownerRefs := u.GetOwnerReferences()
-	var ownerRef *string
-	if len(ownerRefs) > 0 {
-		ownerRef = lo.ToPtr(string(ownerRefs[0].UID))
-		for _, ref := range ownerRefs {
-			if ref.Controller != nil && *ref.Controller {
-				ownerRef = lo.ToPtr(string(ref.UID))
-				break
-			}
-		}
-	}
-
-	// Sync pods separately, as they have a different sync logic
-	if u.GetKind() == PodKind {
-		SyncPod(u, state, ownerRef)
-		return
-	}
-
-	SyncComponent(u, state, ownerRef) // Sync all components besides pods
-}
-
-func SyncComponent(u *unstructured.Unstructured, state *console.ComponentState, ownerRef *string) {
-	if u.GetDeletionTimestamp() != nil {
-		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
-		return
-	}
-
-	gvk := u.GroupVersionKind()
-	err := db.GetComponentCache().SetComponent()
-	if err != nil {
-		klog.ErrorS(err, "failed to set component in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
-	}
-}
-
-func SyncPod(u *unstructured.Unstructured, state *console.ComponentState, ownerRef *string) {
-	if u.GetDeletionTimestamp() != nil {
-		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
-		return
-	}
-
-	if lo.FromPtr(state) == console.ComponentStateRunning {
-		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
-		return
-	}
-
-	nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName")
-	if len(nodeName) == 0 {
-		// If the pod is not assigned to a node, we don't need to keep it in the component cache
-		return
-	}
-
-	err := db.GetComponentCache().SetPod(
-		u.GetName(),
-		u.GetNamespace(),
-		string(u.GetUID()),
-		lo.FromPtr(ownerRef),
-		nodeName,
-		u.GetCreationTimestamp().Unix(),
-		state,
-	)
-	if err != nil {
-		klog.ErrorS(err, "failed to set pod in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
-	}
-}
+//func SyncDBCache(u *unstructured.Unstructured) {
+//	state := ToStatus(u)
+//
+//	// Sync pods separately, as they have a different sync logic
+//	if u.GetKind() == PodKind {
+//		SyncPod(u, state)
+//		return
+//	}
+//
+//	SyncComponent(u) // Sync all components besides pods
+//}
+//
+//func SyncComponent(u *unstructured.Unstructured) {
+//	if u.GetDeletionTimestamp() != nil {
+//		_ = streamline.GlobalStore().DeleteComponent(u.GetUID())
+//		return
+//	}
+//
+//	err := streamline.GlobalStore().SaveComponent(lo.FromPtr(u))
+//	if err != nil {
+//		klog.ErrorS(err, "failed to set component in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
+//	}
+//}
+//
+//func SyncPod(u *unstructured.Unstructured, state *console.ComponentState) {
+//	if u.GetDeletionTimestamp() != nil {
+//		_ = streamline.GlobalStore().DeleteComponent(u.GetUID())
+//		return
+//	}
+//
+//	if lo.FromPtr(state) == console.ComponentStateRunning {
+//		_ = streamline.GlobalStore().DeleteComponent(u.GetUID())
+//		return
+//	}
+//
+//	nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName")
+//	if len(nodeName) == 0 {
+//		// If the pod is not assigned to a node, we don't need to keep it in the component cache
+//		return
+//	}
+//
+//	err := streamline.GlobalStore().SaveComponent(lo.FromPtr(u))
+//	if err != nil {
+//		klog.ErrorS(err, "failed to set pod in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
+//	}
+//}
 
 func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
 	if e.Resource == nil {

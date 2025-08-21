@@ -41,7 +41,7 @@ const (
 	getComponentsByServiceID = `
 		SELECT uid, parent_uid, "group", version, kind, name, namespace, health
 		FROM component
-		WHERE service_id = ?
+		WHERE service_id = ? AND (parent_uid IS NULL OR parent_uid = '')
 	`
 
 	setComponent = `
@@ -75,7 +75,7 @@ const (
 			health = excluded.health,
 			node = excluded.node,
 			createdAt = excluded.createdAt,
-			service_id = excluded.service_id;
+			service_id = excluded.service_id
 	`
 
 	updateComponentSHA = `

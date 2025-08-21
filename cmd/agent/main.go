@@ -34,7 +34,6 @@ import (
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/scraper"
@@ -105,21 +104,26 @@ func main() {
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
-	// Start synchronizer supervisor
-	mapStore := store.NewMapStore()
-	streamline.Run(dynamicClient, mapStore)
+	dbStore, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile), store.WithFilePath("/tmp/agent-store.db"))
+	if err != nil {
+		setupLog.Error(err, "unable to initialize database store")
+		os.Exit(1)
+	}
 
-	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), dynamicClient, mapStore, kubeManager.GetScheme(), extConsoleClient)
+	// Start synchronizer supervisor
+	streamline.Run(dynamicClient, dbStore)
+
+	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient)
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
 
 	// Start resource cache in background if enabled.
-	if args.ResourceCacheEnabled() {
-		db.Init()
-		cache.Init(ctx, config, args.ResourceCacheTTL())
-		scraper.RunServerGroupsScraperInBackgroundOrDie(ctx, config)
-	}
+	//if args.ResourceCacheEnabled() {
+	//	db.Init()
+	//	cache.Init(ctx, config, args.ResourceCacheTTL())
+	//	scraper.RunServerGroupsScraperInBackgroundOrDie(ctx, config)
+	//}
 
 	// Start the discovery cache in background.
 	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)

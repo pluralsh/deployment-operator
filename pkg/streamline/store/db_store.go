@@ -8,13 +8,14 @@ import (
 	"sync"
 
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 const (
@@ -279,6 +280,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 
 	serviceID, hasServiceID := obj.GetAnnotations()[common.OwningInventoryKey]
+	state := ToComponentState(common.ToStatus(&obj))
 
 	var nodeName string
 	if gvk.Group == "" && gvk.Kind == common.PodKind {
@@ -286,8 +288,8 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			return nil // If the pod is not assigned to a node, we don't need to store it
 		}
 
-		if !hasServiceID {
-			return nil // If the pod does not belong to any service, we don't need to store it
+		if !hasServiceID && state == ComponentStateRunning {
+			return nil // If the pod does not belong to any service and is running, we don't need to store it
 		}
 	}
 
@@ -312,7 +314,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			obj.GetUID(),
-			ownerRef,
+			lo.FromPtr(ownerRef),
 			gvk.Group,
 			gvk.Version,
 			gvk.Kind,
@@ -323,6 +325,31 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			obj.GetCreationTimestamp().Unix(),
 			serviceID,
 		},
+	})
+}
+
+func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	if len(args) != 3 {
+		args = []any{nil, nil, nil}
+	}
+
+	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
+		Args: append([]interface{}{
+			obj.UID,
+			lo.FromPtr(obj.ParentUID),
+			lo.FromPtr(obj.Group),
+			obj.Version,
+			obj.Kind,
+			lo.FromPtr(obj.Namespace),
+			obj.Name,
+			ToComponentState(obj.State),
+		}, args...),
 	})
 }
 
@@ -367,10 +394,10 @@ func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaTy
 
 	return sqlitex.ExecuteTransient(conn, updateComponentSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
-			manifestSHA, manifestSHA, // manifest_sha check and value
-			transientManifestSHA, transientManifestSHA, // transient_manifest_sha check and value
-			applySHA, applySHA, // apply_sha check and value
-			serverSHA, serverSHA, // server_sha check and value
+			manifestSHA, lo.FromPtr(manifestSHA), // manifest_sha check and value
+			transientManifestSHA, lo.FromPtr(transientManifestSHA), // transient_manifest_sha check and value
+			applySHA, lo.FromPtr(applySHA), // apply_sha check and value
+			serverSHA, lo.FromPtr(serverSHA), // server_sha check and value
 			gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName(), // WHERE clause parameters
 		},
 	})

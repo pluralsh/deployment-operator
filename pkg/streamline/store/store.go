@@ -46,6 +46,8 @@ const (
 type Store interface {
 	SaveComponent(obj unstructured.Unstructured) error
 
+	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
+
 	GetComponent(obj unstructured.Unstructured) (result *Entry, err error)
 
 	GetComponentByUID(uid string) (result *client.ComponentChildAttributes, err error)

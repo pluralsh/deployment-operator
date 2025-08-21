@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	console "github.com/pluralsh/console/go/client"
@@ -491,7 +492,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	//	options.DryRunStrategy = common.DryRunServer
 	//}
 
+	klog.InfoS("applying manifests", "service", svc.Name)
 	components, errs, err := s.applier.Apply(ctx, id, unstructured.UnstructuredList{Items: manifests})
+
+	klog.InfoS("applied manifests", "service", svc.Name)
 	err = s.UpdateApplyStatus(ctx, svc, components, errs)
 
 	return

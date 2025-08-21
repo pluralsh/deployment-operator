@@ -3,9 +3,9 @@ package applier
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -15,6 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -41,12 +44,24 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources unstru
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 
-	for _, wave := range waves {
+	for i, wave := range waves {
+		now := time.Now()
 		processor := NewWaveProcessor(in.client, wave)
 		components, errors := processor.Run(ctx)
+		klog.InfoS("finished wave", "wave", i, "type", wave.Type, "count", len(wave.Items), "duration", time.Since(now))
 
 		componentList = append(componentList, components...)
 		serviceErrrorList = append(serviceErrrorList, errors...)
+	}
+
+	for idx, component := range componentList {
+		children, err := in.store.GetComponentChildren(lo.FromPtr(component.UID))
+		if err != nil {
+			klog.ErrorS(err, "failed to get children for component", "component", component.Name)
+			continue
+		}
+
+		componentList[idx].Children = lo.ToSlicePtr(children)
 	}
 
 	return componentList, serviceErrrorList, nil
