@@ -212,6 +212,9 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 			FieldManager: "plural-sync",
 		})
 		if err != nil {
+			if err := streamline.GlobalStore().ExpireSHA(resource); err != nil {
+				klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName())
+			}
 			in.errorsChan <- client.ServiceErrorAttributes{
 				Source:  "sync",
 				Message: err.Error(),
@@ -220,6 +223,9 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 		}
 		if err := streamline.GlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
 			klog.Errorf("Failed to update component SHA: %v", err)
+		}
+		if err := streamline.GlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {
+			klog.Errorf("Failed to commit transient SHA: %v", err)
 		}
 
 		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))

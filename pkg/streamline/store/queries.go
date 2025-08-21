@@ -78,21 +78,29 @@ const (
 			service_id = excluded.service_id
 	`
 
-	updateComponentSHA = `
-		UPDATE component 
-		SET 
-			manifest_sha = CASE WHEN ? IS NOT NULL THEN ? ELSE manifest_sha END,
-			transient_manifest_sha = CASE WHEN ? IS NOT NULL THEN ? ELSE transient_manifest_sha END,
-			apply_sha = CASE WHEN ? IS NOT NULL THEN ? ELSE apply_sha END,
-			server_sha = CASE WHEN ? IS NOT NULL THEN ? ELSE server_sha END
+	expireSHA = `
+		UPDATE component
+		SET
+			manifest_sha = '',
+			transient_manifest_sha = '',
+			apply_sha = '',
+			server_sha = ''
 		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
 	`
 	commitTransientSHA = `
 		UPDATE component 
 		SET 
-			manifest_sha = CASE WHEN transient_manifest_sha IS NULL OR "" THEN manifest_sha ELSE transient_manifest_sha END,
-			transient_manifest_sha = NULL,
-		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
+			manifest_sha = CASE 
+				WHEN transient_manifest_sha IS NULL OR transient_manifest_sha = '' 
+				THEN manifest_sha 
+				ELSE transient_manifest_sha 
+			END,
+			transient_manifest_sha = NULL
+		WHERE "group" = ? 
+		  AND version = ? 
+		  AND kind = ? 
+		  AND namespace = ? 
+		  AND name = ?
 	`
 
 	componentChildren = `

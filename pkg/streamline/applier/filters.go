@@ -24,10 +24,10 @@ func (fe *FilterEngine) Add(f FilterFunc) {
 func (fe *FilterEngine) Match(obj unstructured.Unstructured) bool {
 	for _, f := range fe.filters {
 		if !f(obj) {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func SkipFilter() FilterFunc {
@@ -43,10 +43,12 @@ func SkipFilter() FilterFunc {
 			klog.Errorf("Failed to update component SHA: %v", err)
 		}
 
-		return entry.ServerSHA == "" ||
+		result := entry.ServerSHA == "" ||
 			entry.ApplySHA == "" ||
 			entry.ManifestSHA == "" ||
 			(entry.ServerSHA != entry.ApplySHA) ||
 			(newManifestSHA != entry.ManifestSHA)
+
+		return result
 	}
 }

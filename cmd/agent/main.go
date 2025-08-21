@@ -110,6 +110,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	streamline.InitGlobalStore(dbStore)
+
 	// Start synchronizer supervisor
 	streamline.Run(dynamicClient, dbStore)
 

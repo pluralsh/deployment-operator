@@ -374,17 +374,27 @@ func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaTy
 		return err
 	}
 
-	var manifestSHA, transientManifestSHA, applySHA, serverSHA *string
+	var column string
 	switch shaType {
 	case ManifestSHA:
-		manifestSHA = lo.ToPtr(sha)
+		column = "manifest_sha"
 	case TransientSHA:
-		transientManifestSHA = lo.ToPtr(sha)
+		column = "transient_manifest_sha"
 	case ApplySHA:
-		applySHA = lo.ToPtr(sha)
+		column = "apply_sha"
 	case ServerSHA:
-		serverSHA = lo.ToPtr(sha)
+		column = "server_sha"
+	default:
+		return fmt.Errorf("unsupported SHAType: %v", shaType)
 	}
+
+	// Build SQL with only the chosen column
+	query := fmt.Sprintf(`
+		UPDATE component
+		SET %s = ?
+		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?`,
+		column,
+	)
 
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
@@ -392,12 +402,45 @@ func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaTy
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteTransient(conn, updateComponentSHA, &sqlitex.ExecOptions{
+	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
 		Args: []interface{}{
-			manifestSHA, lo.FromPtr(manifestSHA), // manifest_sha check and value
-			transientManifestSHA, lo.FromPtr(transientManifestSHA), // transient_manifest_sha check and value
-			applySHA, lo.FromPtr(applySHA), // apply_sha check and value
-			serverSHA, lo.FromPtr(serverSHA), // server_sha check and value
+			sha,       // SET value
+			gvk.Group, // WHERE clause
+			gvk.Version,
+			gvk.Kind,
+			obj.GetNamespace(),
+			obj.GetName(),
+		},
+	})
+}
+
+func (in *DatabaseStore) ExpireSHA(obj unstructured.Unstructured) error {
+	gvk := obj.GroupVersionKind()
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, expireSHA, &sqlitex.ExecOptions{
+		Args: []interface{}{
+			gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName(), // WHERE clause parameters
+		},
+	})
+}
+
+func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error {
+	gvk := obj.GroupVersionKind()
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, commitTransientSHA, &sqlitex.ExecOptions{
+		Args: []interface{}{
 			gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName(), // WHERE clause parameters
 		},
 	})
@@ -447,11 +490,6 @@ func (in *DatabaseStore) Shutdown() error {
 			return err
 		}
 	}
-
-	return nil
-}
-
-func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error {
 
 	return nil
 }

@@ -1198,3 +1198,40 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 		assert.Equal(t, 100, len(children), "Expected exactly 100 descendants due to LIMIT clause in multi-level hierarchy")
 	})
 }
+
+func TestUpdateSHA(t *testing.T) {
+	t.Run("cache should update SHA", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
+
+		obj := unstructured.Unstructured{}
+		obj.SetUID("test")
+		obj.SetName("test")
+		obj.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "test",
+			Version: "v1",
+			Kind:    "Test",
+		})
+
+		err = storeInstance.SaveComponent(obj)
+		require.NoError(t, err)
+
+		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.ManifestSHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.TransientSHA)
+		require.NoError(t, err)
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.NotEmpty(t, entry.ApplySHA)
+		assert.NotEmpty(t, entry.ServerSHA)
+		assert.NotEmpty(t, entry.ManifestSHA)
+		assert.NotEmpty(t, entry.TransientManifestSHA)
+	})
+}

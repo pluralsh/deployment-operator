@@ -84,4 +84,6 @@ type Store interface {
 	UpdateComponentSHA(obj unstructured.Unstructured, shaType SHAType) error
 
 	CommitTransientSHA(obj unstructured.Unstructured) error
+
+	ExpireSHA(obj unstructured.Unstructured) error
 }

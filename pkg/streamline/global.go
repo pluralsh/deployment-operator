@@ -44,6 +44,10 @@ func GlobalStore() store.Store {
 	return globalStoreInstance
 }
 
-func UpdateComponentSHA(obj unstructured.Unstructured, shaType store.SHAType) error {
+func (in globalStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType store.SHAType) error {
 	return globalStoreInstance.UpdateComponentSHA(obj, shaType)
+}
+
+func (in globalStore) ExpireSHA(obj unstructured.Unstructured) error {
+	return globalStoreInstance.ExpireSHA(obj)
 }
