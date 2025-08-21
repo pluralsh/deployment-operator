@@ -68,9 +68,10 @@ type ServiceReconciler struct {
 	restoreNamespace string
 	mapper           meta.RESTMapper
 	k8sClient        ctrclient.Client
+	pollInterval     time.Duration
 }
 
-func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay time.Duration, restoreNamespace, consoleURL string, workqueueQPS, workqueueBurst int) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay, pollInterval time.Duration, restoreNamespace, consoleURL string, workqueueQPS, workqueueBurst int) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
 	_, deployToken := consoleClient.GetCredentials()
@@ -118,6 +119,7 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,
 		k8sClient:        k8sClient,
+		pollInterval:     pollInterval,
 	}, nil
 }
 
@@ -139,8 +141,14 @@ func (s *ServiceReconciler) Shutdown() {
 	s.svcCache.Wipe()
 }
 
-func (s *ServiceReconciler) GetPollInterval() time.Duration {
-	return 0 // use default poll interval
+func (s *ServiceReconciler) GetPollInterval() func() time.Duration {
+	return func() time.Duration {
+		if servicePollInterval := agentcommon.GetConfigurationManager().GetServicePollInterval(); servicePollInterval != nil {
+			return *servicePollInterval
+		}
+
+		return s.pollInterval
+	}
 }
 
 func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {

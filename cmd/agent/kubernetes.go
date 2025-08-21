@@ -271,4 +271,10 @@ func registerKubeReconcilersOrDie(
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterDrain")
 	}
+	if err := (&controller.AgentConfigurationReconciler{
+		Client: manager.GetClient(),
+		Scheme: manager.GetScheme(),
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AgentConfiguration")
+	}
 }

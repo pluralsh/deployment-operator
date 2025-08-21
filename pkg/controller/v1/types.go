@@ -32,5 +32,5 @@ type Reconciler interface {
 	Restart()
 
 	// GetPollInterval returns custom poll interval. If 0 then controller manager use default from the options.
-	GetPollInterval() time.Duration
+	GetPollInterval() func() time.Duration
 }
