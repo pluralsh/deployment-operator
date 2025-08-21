@@ -1,4 +1,4 @@
-package db
+package store
 
 // Storage defines the storage options for the database.
 type Storage string

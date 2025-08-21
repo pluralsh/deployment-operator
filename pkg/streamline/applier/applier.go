@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -18,8 +19,6 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
-
-const OwningInventoryKey = "config.k8s.io/owning-inventory"
 
 // TODO: Add skip logic
 // TODO: Add dry run support for apply
@@ -75,7 +74,7 @@ func (in *Applier) addServiceAnnotation(resources unstructured.UnstructuredList,
 			annotations = make(map[string]string)
 		}
 
-		annotations[OwningInventoryKey] = serviceID
+		annotations[common.OwningInventoryKey] = serviceID
 		obj.SetAnnotations(annotations)
 	}
 

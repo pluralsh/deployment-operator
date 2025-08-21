@@ -1,4 +1,4 @@
-package db
+package store
 
 const (
 	createTables = `
@@ -13,15 +13,21 @@ const (
 			name TEXT,
 			health INT,
 			node TEXT,
-			createdAt TIMESTAMP
+			createdAt TIMESTAMP,
+			service_id TEXT,
+			manifest_sha TEXT,
+			transient_manifest_sha TEXT,
+			apply_sha TEXT,
+			server_sha TEXT
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
 		CREATE INDEX IF NOT EXISTS idx_uid ON component(uid);
+		CREATE INDEX IF NOT EXISTS idx_service_id ON component(service_id);
 	`
 
 	getComponent = `
-		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha
 		FROM component
 		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ?
 	`
@@ -30,6 +36,12 @@ const (
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM component
 		WHERE uid = ?
+	`
+
+	getComponentsByServiceID = `
+		SELECT uid, parent_uid, "group", version, kind, name, namespace, health
+		FROM component
+		WHERE service_id = ?
 	`
 
 	setComponent = `
@@ -43,7 +55,8 @@ const (
 			name,
 			health,
 		    node,
-		    createdAt
+		    createdAt,
+		    service_id
 		) VALUES (
 			?,
 			?,
@@ -54,13 +67,25 @@ const (
 			?,
 			?,
 			?,
+		    ?,
 		    ?
 		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
 			parent_uid = excluded.parent_uid,
 			health = excluded.health,
 			node = excluded.node,
-			createdAt = excluded.createdAt
+			createdAt = excluded.createdAt,
+			service_id = excluded.service_id;
+	`
+
+	updateComponentSHA = `
+		UPDATE component 
+		SET 
+			manifest_sha = CASE WHEN ? IS NOT NULL THEN ? ELSE manifest_sha END,
+			transient_manifest_sha = CASE WHEN ? IS NOT NULL THEN ? ELSE transient_manifest_sha END,
+			apply_sha = CASE WHEN ? IS NOT NULL THEN ? ELSE apply_sha END,
+			server_sha = CASE WHEN ? IS NOT NULL THEN ? ELSE server_sha END
+		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
 	`
 
 	componentChildren = `
@@ -104,7 +129,7 @@ const (
 	nodeStatistics = `
 		SELECT node, COUNT(*)
 		FROM component
-		WHERE kind = 'Pod' AND createdAt <= strftime('%s', 'now', '-5 minutes')
+		WHERE kind = 'Pod' AND createdAt <= strftime('%s', 'now', '-5 minutes') AND health != 0
 		GROUP BY node
 	`
 

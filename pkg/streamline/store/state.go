@@ -1,4 +1,4 @@
-package db
+package store
 
 import (
 	console "github.com/pluralsh/console/go/client"

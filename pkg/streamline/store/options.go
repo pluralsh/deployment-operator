@@ -1,4 +1,4 @@
-package db
+package store
 
 // Option represents a function that configures the database store.
 type Option func(store *DatabaseStore)

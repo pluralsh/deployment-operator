@@ -14,8 +14,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
-
 	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 )
 
@@ -85,16 +83,7 @@ func SyncComponent(u *unstructured.Unstructured, state *console.ComponentState, 
 	}
 
 	gvk := u.GroupVersionKind()
-	err := db.GetComponentCache().SetComponent(console.ComponentChildAttributes{
-		UID:       string(u.GetUID()),
-		Name:      u.GetName(),
-		Namespace: lo.ToPtr(u.GetNamespace()),
-		Group:     lo.ToPtr(gvk.Group),
-		Version:   gvk.Version,
-		Kind:      gvk.Kind,
-		State:     state,
-		ParentUID: ownerRef,
-	})
+	err := db.GetComponentCache().SetComponent()
 	if err != nil {
 		klog.ErrorS(err, "failed to set component in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
 	}

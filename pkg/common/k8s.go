@@ -3,7 +3,6 @@ package common
 import (
 	"context"
 	"fmt"
-
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -16,6 +15,8 @@ import (
 	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const OwningInventoryKey = "config.k8s.io/owning-inventory"
 
 func ParseAPIVersion(apiVersion string) (group, version string) {
 	parts := strings.Split(apiVersion, "/")
