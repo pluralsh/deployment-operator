@@ -3,6 +3,7 @@ package streamline
 import (
 	"context"
 	"fmt"
+	"github.com/samber/lo"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,9 +82,12 @@ func (w *synchronizer) handleEvent(ev watch.Event) {
 			klog.ErrorS(err, "failed to convert to unstructured", "gvr", w.gvr)
 			return
 		}
-
 		if err := w.store.SaveComponent(*obj); err != nil {
 			klog.ErrorS(err, "failed to save resource", "gvr", w.gvr, "name", obj.GetName())
+			return
+		}
+		if err := w.store.UpdateComponentSHA(lo.FromPtr(obj), store.ServerSHA); err != nil {
+			klog.ErrorS(err, "failed to update component SHA", "gvr", w.gvr)
 		}
 	case watch.Deleted:
 		obj, err := common.ToUnstructured(ev.Object)

@@ -450,3 +450,8 @@ func (in *DatabaseStore) Shutdown() error {
 
 	return nil
 }
+
+func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error {
+
+	return nil
+}

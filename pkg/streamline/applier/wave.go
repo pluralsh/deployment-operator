@@ -2,6 +2,9 @@ package applier
 
 import (
 	"context"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+	"k8s.io/klog/v2"
 	"math/rand"
 	"sync"
 	"time"
@@ -214,6 +217,9 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 				Message: err.Error(),
 			}
 			break
+		}
+		if err := streamline.GlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
+			klog.Errorf("Failed to update component SHA: %v", err)
 		}
 
 		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))

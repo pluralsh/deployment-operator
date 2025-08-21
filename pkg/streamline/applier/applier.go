@@ -26,9 +26,10 @@ import (
 // TODO: Add skip logic
 // TODO: Add dry run support for apply
 type Applier struct {
-	client dynamic.Interface
-	store  store.Store
-	mu     sync.Mutex
+	filters FilterEngine
+	client  dynamic.Interface
+	store   store.Store
+	mu      sync.Mutex
 }
 
 // TODO: use unstructed instead of unstructuredList
@@ -38,6 +39,9 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources unstru
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// Filters
+	resources.Items = algorithms.Filter(resources.Items, in.filters.Match)
 
 	waves := NewWaves(resources)
 	waves = append(waves, NewWave(toDelete, DeleteWave))
@@ -146,7 +150,7 @@ func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAtt
 	}), nil
 }
 
-func NewApplier(client dynamic.Interface, store store.Store) *Applier {
+func NewApplier(client dynamic.Interface, store store.Store, filters ...FilterFunc) *Applier {
 	// TODO: figure out default values and options
-	return &Applier{client: client, store: store}
+	return &Applier{client: client, store: store, filters: FilterEngine{filters: filters}}
 }

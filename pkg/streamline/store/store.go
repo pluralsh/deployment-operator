@@ -80,4 +80,8 @@ type Store interface {
 	GetHealthScore() (int64, error)
 
 	Shutdown() error
+
+	UpdateComponentSHA(obj unstructured.Unstructured, shaType SHAType) error
+
+	CommitTransientSHA(obj unstructured.Unstructured) error
 }
