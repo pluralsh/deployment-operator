@@ -10,21 +10,9 @@ import (
 )
 
 var (
-	globalStoreInstance store.Store
+	globalStoreInstance *GlobalStore
 	mu                  sync.Mutex
 )
-
-type globalStore struct {
-	store store.Store
-}
-
-func (in globalStore) GetComponentChildren(uid string) (result []client.ComponentChildAttributes, err error) {
-	return in.store.GetComponentChildren(uid)
-}
-
-func (in globalStore) SaveComponent(obj unstructured.Unstructured) (err error) {
-	return in.store.SaveComponent(obj)
-}
 
 func InitGlobalStore(s store.Store) {
 	mu.Lock()
@@ -34,20 +22,40 @@ func InitGlobalStore(s store.Store) {
 		return
 	}
 
-	globalStoreInstance = s
+	globalStoreInstance = &GlobalStore{store: s}
 }
 
-func GlobalStore() store.Store {
+func GetGlobalStore() *GlobalStore {
 	mu.Lock()
 	defer mu.Unlock()
 
 	return globalStoreInstance
 }
 
-func (in globalStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType store.SHAType) error {
+type GlobalStore struct {
+	store store.Store
+}
+
+func (in *GlobalStore) SaveComponent(obj unstructured.Unstructured) (err error) {
+	return in.store.SaveComponent(obj)
+}
+
+func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *store.Entry, err error) {
+	return in.store.GetComponent(obj)
+}
+
+func (in *GlobalStore) GetComponentChildren(uid string) (result []client.ComponentChildAttributes, err error) {
+	return in.store.GetComponentChildren(uid)
+}
+
+func (in *GlobalStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType store.SHAType) error {
 	return globalStoreInstance.UpdateComponentSHA(obj, shaType)
 }
 
-func (in globalStore) ExpireSHA(obj unstructured.Unstructured) error {
+func (in *GlobalStore) CommitTransientSHA(obj unstructured.Unstructured) error {
+	return globalStoreInstance.CommitTransientSHA(obj)
+}
+
+func (in *GlobalStore) ExpireSHA(obj unstructured.Unstructured) error {
 	return globalStoreInstance.ExpireSHA(obj)
 }

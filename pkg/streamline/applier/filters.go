@@ -32,14 +32,14 @@ func (fe *FilterEngine) Match(obj unstructured.Unstructured) bool {
 
 func SkipFilter() FilterFunc {
 	return func(obj unstructured.Unstructured) bool {
-		entry, err := streamline.GlobalStore().GetComponent(obj)
+		entry, err := streamline.GetGlobalStore().GetComponent(obj)
 		if err != nil {
 			return true
 		}
 
 		newManifestSHA, _ := cache.HashResource(obj)
 
-		if err := streamline.GlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
+		if err := streamline.GetGlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
 			klog.Errorf("Failed to update component SHA: %v", err)
 		}
 

@@ -2,12 +2,13 @@ package applier
 
 import (
 	"context"
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-	"k8s.io/klog/v2"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -212,7 +213,7 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 			FieldManager: "plural-sync",
 		})
 		if err != nil {
-			if err := streamline.GlobalStore().ExpireSHA(resource); err != nil {
+			if err := streamline.GetGlobalStore().ExpireSHA(resource); err != nil {
 				klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName())
 			}
 			in.errorsChan <- client.ServiceErrorAttributes{
@@ -221,10 +222,10 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 			}
 			break
 		}
-		if err := streamline.GlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
+		if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
 			klog.Errorf("Failed to update component SHA: %v", err)
 		}
-		if err := streamline.GlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {
+		if err := streamline.GetGlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {
 			klog.Errorf("Failed to commit transient SHA: %v", err)
 		}
 
