@@ -102,9 +102,8 @@ func NodeStatisticHealth(pendingPods int64) *client.NodeStatisticHealth {
 	}
 }
 
-// InsightComponentPriority returns insight priority for a given component.
-func InsightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
-	kindToPriorityMap := map[string]client.InsightComponentPriority{
+var (
+	kindsInsightPriorities = map[string]client.InsightComponentPriority{
 		"Ingress":     client.InsightComponentPriorityCritical,
 		"Certificate": client.InsightComponentPriorityCritical, // cert-manager Certificate
 		"StatefulSet": client.InsightComponentPriorityHigh,
@@ -112,7 +111,7 @@ func InsightComponentPriority(name, namespace, kind string) *client.InsightCompo
 		"Deployment":  client.InsightComponentPriorityLow,
 	}
 
-	resourceToPriorityMap := map[string]client.InsightComponentPriority{
+	resourcesInsightPriorities = map[string]client.InsightComponentPriority{
 		"certmanager":   client.InsightComponentPriorityCritical,
 		"coredns":       client.InsightComponentPriorityCritical,
 		"kubeproxy":     client.InsightComponentPriorityCritical,
@@ -122,19 +121,22 @@ func InsightComponentPriority(name, namespace, kind string) *client.InsightCompo
 		"csicontroller": client.InsightComponentPriorityCritical,
 		"nodeexporter":  client.InsightComponentPriorityHigh,
 	}
+)
 
-	const certaintyThreshold = 200
-	for resource, priority := range resourceToPriorityMap {
-		matches := fuzzy.Find(resource, []string{name, namespace}) // Fuzzy match to find similar resources
+// InsightComponentPriority returns insight priority for a given component.
+func InsightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
+	for resource, priority := range resourcesInsightPriorities {
+		// Fuzzy match to find similar resources
+		matches := fuzzy.Find(resource, []string{name, namespace})
 
 		// Only consider first score threshold as it is the best match
-		if len(matches) > 0 && matches[0].Score >= certaintyThreshold {
+		if len(matches) > 0 && matches[0].Score >= 200 {
 			return lo.ToPtr(priority)
 		}
 	}
 
 	// Check if the kind is directly mapped to a priority
-	if priority, exists := kindToPriorityMap[kind]; exists {
+	if priority, exists := kindsInsightPriorities[kind]; exists {
 		return lo.ToPtr(priority)
 	}
 
