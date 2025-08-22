@@ -7,6 +7,7 @@ import (
 
 	"k8s.io/client-go/dynamic"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
@@ -66,6 +67,7 @@ func main() {
 	args.Init()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
+	utils.DisableClientLimits(config)
 
 	if args.PyroscopeEnabled() {
 		profiler, err := args.InitPyroscope()

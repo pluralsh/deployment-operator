@@ -24,7 +24,7 @@ func CacheFilter() FilterFunc {
 			return true
 		}
 		if entry == nil {
-			klog.V(log.LogLevelExtended).InfoS("component not found in store",
+			klog.V(log.LogLevelDebug).InfoS("component not found in store",
 				"gvk", obj.GroupVersionKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 			metrics.Record().ResourceCacheMiss(serviceID)
 			return true

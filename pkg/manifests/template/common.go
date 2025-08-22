@@ -8,9 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/cli-utils/pkg/object"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 func setNamespaces(mapper meta.RESTMapper, objs []unstructured.Unstructured,
@@ -88,7 +91,7 @@ func setNamespaces(mapper meta.RESTMapper, objs []unstructured.Unstructured,
 		err := &manifestreader.UnknownTypesError{
 			GroupVersionKinds: unknownGVKs,
 		}
-		fmt.Printf("Found unknown types %s, ignoring for now", err)
+		klog.V(log.LogLevelExtended).InfoS("found unknown types", "types", err.GroupVersionKinds, "error", err)
 	}
 
 	return objs, nil

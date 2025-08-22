@@ -9,7 +9,6 @@ import (
 
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	console "github.com/pluralsh/console/go/client"
@@ -403,7 +402,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		)
 	}()
 
-	logger.V(2).Info("local", "flag", args.Local())
+	logger.V(4).Info("local", "flag", args.Local())
 	if args.Local() && svc.Name == OperatorService {
 		return
 	}
@@ -489,10 +488,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 	svc.DryRun = &dryRun
 
-	klog.InfoS("applying manifests", "service", svc.Name)
-	components, errs, err := s.applier.Apply(ctx, id, manifests, applier.WithDryRun(dryRun)) // TODO: what to do with err
-
-	klog.InfoS("applied manifests", "service", svc.Name)
+	components, errs, err := s.applier.Apply(ctx, *svc, manifests, applier.WithDryRun(dryRun)) // TODO: what to do with err
 	err = s.UpdateApplyStatus(ctx, svc, components, errs)
 
 	return

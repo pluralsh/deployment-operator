@@ -3,18 +3,19 @@ package applier
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -29,9 +30,11 @@ type Applier struct {
 	mu      sync.Mutex
 }
 
-func (in *Applier) Apply(ctx context.Context, serviceID string, resources []unstructured.Unstructured, opts ...Option) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
-	resources = in.addServiceAnnotation(resources, serviceID)
-	toDelete, err := in.toDelete(serviceID, resources)
+func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentForAgent, resources []unstructured.Unstructured, opts ...Option) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
+	now := time.Now()
+
+	resources = in.addServiceAnnotation(resources, service.ID)
+	toDelete, err := in.toDelete(service.ID, resources)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,6 +58,17 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources []unst
 		componentList = append(componentList, components...)
 		serviceErrrorList = append(serviceErrrorList, errors...)
 	}
+
+	klog.V(log.LogLevelInfo).InfoS(
+		"apply result",
+		"service", service.Name,
+		"id", service.ID,
+		"attempted", len(resources),
+		"applied", len(componentList),
+		"skipped", len(toSkip),
+		"failed", len(serviceErrrorList),
+		"duration", time.Since(now),
+	)
 
 	for _, resource := range toSkip {
 		cacheEntry, err := in.store.GetComponent(resource)
@@ -87,7 +101,9 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 	}
 
 	for _, resource := range toDelete {
-		if err = in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Delete(ctx, resource.GetName(), metav1.DeleteOptions{}); !apierrors.IsNotFound(err) {
+		if err = in.client.
+			Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).
+			Namespace(resource.GetNamespace()).Delete(ctx, resource.GetName(), metav1.DeleteOptions{}); k8sclient.IgnoreNotFound(err) != nil {
 			return nil, err
 		}
 	}

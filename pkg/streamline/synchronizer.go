@@ -15,6 +15,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
@@ -83,6 +84,8 @@ func (w *synchronizer) handleEvent(ev watch.Event) {
 			klog.ErrorS(err, "failed to convert to unstructured", "gvr", w.gvr)
 			return
 		}
+
+		klog.V(log.LogLevelTrace).InfoS("adding/updating resource in the store", "gvr", w.gvr, "name", obj.GetName())
 		if err := w.store.SaveComponent(*obj); err != nil {
 			klog.ErrorS(err, "failed to save resource", "gvr", w.gvr, "name", obj.GetName())
 			return
@@ -97,6 +100,7 @@ func (w *synchronizer) handleEvent(ev watch.Event) {
 			return
 		}
 
+		klog.V(log.LogLevelTrace).InfoS("deleting resource from the store", "gvr", w.gvr, "name", obj.GetName())
 		if err = w.store.DeleteComponent(obj.GetUID()); err != nil {
 			klog.ErrorS(err, "failed to delete resource", "gvr", w.gvr, "name", obj.GetName())
 			return

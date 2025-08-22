@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/console/go/client"
@@ -124,7 +125,7 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 
 const (
 	defaultMaxConcurrentApplies = 10
-	defaultDeQueueJitter        = time.Second
+	defaultDeQueueJitter        = 1 * time.Millisecond
 )
 
 // WaveProcessor processes a wave of resources. It applies or deletes the resources in the wave.
@@ -300,7 +301,7 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 	err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{
 		DryRun: dryRun,
 	})
-	if err != nil {
+	if err != nil && !apierrors.IsNotFound(err) {
 		in.errorsChan <- client.ServiceErrorAttributes{
 			Source:  "sync",
 			Message: err.Error(),
@@ -311,7 +312,8 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured, dryRun []string) {
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
 	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
-		FieldManager: "plural-sync",
+		// TODO: use const
+		FieldManager: "application/apply-patch",
 		DryRun:       dryRun,
 	})
 
