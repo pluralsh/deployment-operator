@@ -2,70 +2,8 @@ package store
 
 import (
 	"github.com/pluralsh/console/go/client"
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-)
-
-type Entry struct {
-	UID                  string
-	ParentUID            string
-	Group                string
-	Version              string
-	Kind                 string
-	Name                 string
-	Namespace            string
-	Status               string
-	ServiceID            string
-	ManifestSHA          string
-	TransientManifestSHA string
-	ApplySHA             string
-	ServerSHA            string
-}
-
-// ShouldApply determines if a resource should be applied.
-// Resource should be applied if at least one of the following conditions is met:
-// - any of the SHAs (Server, Apply, or Manifest) are not set
-// - the current server SHA differs from stored apply SHA (indicating resource changed in cluster)
-// - the new manifest SHA differs from stored manifest SHA (indicating the manifest has changed)
-// - the resource is not in a running state
-func (in *Entry) ShouldApply(newManifestSHA string) bool {
-	return in.ServerSHA == "" || in.ApplySHA == "" || in.ManifestSHA == "" ||
-		in.ServerSHA != in.ApplySHA || newManifestSHA != in.ManifestSHA ||
-		client.ComponentState(in.Status) != client.ComponentStateRunning
-}
-
-func (in *Entry) ToComponentAttributes() client.ComponentAttributes {
-	return client.ComponentAttributes{
-		UID:       lo.ToPtr(in.UID),
-		Synced:    true,
-		Group:     in.Group,
-		Version:   in.Version,
-		Kind:      in.Kind,
-		Name:      in.Name,
-		Namespace: in.Namespace,
-		State:     lo.ToPtr(client.ComponentState(in.Status)),
-	}
-}
-
-type SHAType string
-
-const (
-	// ManifestSHA is SHA of the resource manifest from the repository.
-	// It is used to detect changes in the manifest that are not yet applied.
-	ManifestSHA SHAType = "MANIFEST"
-
-	// ApplySHA is SHA of the resource post-server-side apply.
-	// Taking only metadata w/ name, namespace, annotations and labels and non-status non-metadata fields.
-	ApplySHA SHAType = "APPLY"
-
-	// ServerSHA is SHA from a watch of the resource, using the same pruning function as applySHA.
-	// It is persisted only if there's a current-inventory annotation.
-	ServerSHA SHAType = "SERVER"
-
-	// TransientManifestSHA is a temporary SHA of the resource manifest from the repository.
-	// It is saved by the filters and committed after the resource is applied.
-	TransientManifestSHA SHAType = "TRANSIENT"
 )
 
 type Store interface {

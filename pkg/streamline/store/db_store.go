@@ -14,7 +14,6 @@ import (
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
@@ -128,7 +127,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 
 	serviceID, hasServiceID := obj.GetAnnotations()[common.OwningInventoryKey]
-	state := ToComponentState(common.ToStatus(&obj))
+	state := NewComponentState(common.ToStatus(&obj))
 
 	var nodeName string
 	if gvk.Group == "" && gvk.Kind == common.PodKind {
@@ -168,7 +167,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			gvk.Kind,
 			obj.GetNamespace(),
 			obj.GetName(),
-			ToComponentState(common.ToStatus(&obj)),
+			NewComponentState(common.ToStatus(&obj)),
 			nodeName,
 			obj.GetCreationTimestamp().Unix(),
 			serviceID,
@@ -196,7 +195,7 @@ func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttrib
 			obj.Kind,
 			lo.FromPtr(obj.Namespace),
 			obj.Name,
-			ToComponentState(obj.State),
+			NewComponentState(obj.State),
 		}, args...),
 	})
 }
@@ -220,7 +219,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *En
 				Kind:                 stmt.ColumnText(3),
 				Namespace:            stmt.ColumnText(4),
 				Name:                 stmt.ColumnText(5),
-				Status:               string(lo.FromPtr(FromComponentState(ComponentState(stmt.ColumnInt32(6))))),
+				Status:               ComponentState(stmt.ColumnInt32(6)).String(),
 				ParentUID:            stmt.ColumnText(7),
 				ManifestSHA:          stmt.ColumnText(8),
 				TransientManifestSHA: stmt.ColumnText(9),
@@ -251,7 +250,7 @@ func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.Compon
 				Kind:      stmt.ColumnText(3),
 				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
 				Name:      stmt.ColumnText(5),
-				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
+				State:     ComponentState(stmt.ColumnInt32(6)).Attribute(),
 				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
 			}
 			return nil
@@ -293,7 +292,7 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]Entry, error)
 				Kind:      stmt.ColumnText(4),
 				Name:      stmt.ColumnText(5),
 				Namespace: stmt.ColumnText(6),
-				Status:    string(lo.FromPtr(FromComponentState(ComponentState(stmt.ColumnInt32(7))))),
+				Status:    ComponentState(stmt.ColumnInt32(7)).String(),
 				ServiceID: serviceID,
 			})
 			return nil
@@ -320,7 +319,7 @@ func (in *DatabaseStore) GetComponentChildren(uid string) (result []client.Compo
 				Kind:      stmt.ColumnText(3),
 				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
 				Name:      stmt.ColumnText(5),
-				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
+				State:     ComponentState(stmt.ColumnInt32(6)).Attribute(),
 				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
 			})
 			return nil
@@ -348,7 +347,7 @@ func (in *DatabaseStore) GetComponentInsights() (result []client.ClusterInsightC
 				Kind:      kind,
 				Namespace: lo.EmptyableToPtr(namespace),
 				Name:      name,
-				Priority:  insightComponentPriority(name, namespace, kind),
+				Priority:  InsightComponentPriority(name, namespace, kind),
 			})
 			return nil
 		},
@@ -388,7 +387,7 @@ func (in *DatabaseStore) GetNodeStatistics() ([]*client.NodeStatisticAttributes,
 			result = append(result, &client.NodeStatisticAttributes{
 				Name:        lo.ToPtr(stmt.ColumnText(0)),
 				PendingPods: &pendingPods,
-				Health:      nodeHealth(pendingPods),
+				Health:      NodeStatisticHealth(pendingPods),
 			})
 			return nil
 		},
@@ -416,7 +415,7 @@ func (in *DatabaseStore) GetHealthScore() (int64, error) {
 func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType SHAType) error {
 	gvk := obj.GroupVersionKind()
 
-	sha, err := cache.HashResource(obj)
+	sha, err := HashResource(obj)
 	if err != nil {
 		return err
 	}
@@ -435,7 +434,6 @@ func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaTy
 		return fmt.Errorf("unsupported SHAType: %v", shaType)
 	}
 
-	// Build SQL with only the chosen column
 	query := fmt.Sprintf(`
 		UPDATE component
 		SET %s = ?
