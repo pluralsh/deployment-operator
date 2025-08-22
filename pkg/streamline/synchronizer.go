@@ -3,8 +3,9 @@ package streamline
 import (
 	"context"
 	"fmt"
-	"github.com/samber/lo"
 	"sync"
+
+	"github.com/samber/lo"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -105,7 +106,7 @@ func (w *synchronizer) handleEvent(ev watch.Event) {
 }
 
 func (w *synchronizer) Stop() {
-	// TODO
+	panic("implement me") // TODO
 }
 
 func (w *synchronizer) Resynchronize() {

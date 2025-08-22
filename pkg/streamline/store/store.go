@@ -22,6 +22,16 @@ type Entry struct {
 	ServerSHA            string
 }
 
+// ShouldApply determines if a resource should be applied based on its SHAs.
+// Resource should be applied if:
+// - any of the SHAs (Server, Apply, or Manifest) are not set
+// - the current server SHA differs from stored apply SHA (indicating resource changed in cluster)
+// - the new manifest SHA differs from stored manifest SHA (indicating the manifest has changed)
+func (in *Entry) ShouldApply(newManifestSHA string) bool {
+	return in.ServerSHA == "" || in.ApplySHA == "" || in.ManifestSHA == "" ||
+		in.ServerSHA != in.ApplySHA || newManifestSHA != in.ManifestSHA
+}
+
 type SHAType string
 
 const (

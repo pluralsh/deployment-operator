@@ -24,31 +24,30 @@ func (fe *FilterEngine) Add(f FilterFunc) {
 func (fe *FilterEngine) Match(obj unstructured.Unstructured) bool {
 	for _, f := range fe.filters {
 		if !f(obj) {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
-func SkipFilter() FilterFunc {
+func ShouldApply() FilterFunc {
 	return func(obj unstructured.Unstructured) bool {
 		entry, err := streamline.GetGlobalStore().GetComponent(obj)
 		if err != nil {
+			klog.Errorf("failed to get component from store: %v", err)
 			return true
 		}
 
-		newManifestSHA, _ := cache.HashResource(obj)
-
-		if err := streamline.GetGlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
-			klog.Errorf("Failed to update component SHA: %v", err)
+		newManifestSHA, err := cache.HashResource(obj)
+		if err != nil {
+			klog.Errorf("failed to hash resource: %v", err)
+			return true
 		}
 
-		result := entry.ServerSHA == "" ||
-			entry.ApplySHA == "" ||
-			entry.ManifestSHA == "" ||
-			(entry.ServerSHA != entry.ApplySHA) ||
-			(newManifestSHA != entry.ManifestSHA)
+		if err := streamline.GetGlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
+			klog.Errorf("failed to update component SHA: %v", err)
+		}
 
-		return result
+		return entry.ShouldApply(newManifestSHA)
 	}
 }
