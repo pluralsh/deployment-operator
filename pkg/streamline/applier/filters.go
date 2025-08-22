@@ -1,7 +1,10 @@
 package applier
 
 import (
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,24 +33,40 @@ func (fe *FilterEngine) Match(obj unstructured.Unstructured) bool {
 	return true
 }
 
-func ShouldApply() FilterFunc {
+// CacheFilter filters based on whether resources and/or manifests have changed since last applied.
+func CacheFilter() FilterFunc {
 	return func(obj unstructured.Unstructured) bool {
+		serviceID := common.ServiceID(&obj)
+
 		entry, err := streamline.GetGlobalStore().GetComponent(obj)
 		if err != nil {
-			klog.Errorf("failed to get component from store: %v", err)
+			klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from store")
+			metrics.Record().ResourceCacheMiss(serviceID)
 			return true
 		}
 
 		newManifestSHA, err := cache.HashResource(obj)
 		if err != nil {
-			klog.Errorf("failed to hash resource: %v", err)
+			klog.V(log.LogLevelExtended).ErrorS(err, "failed to hash resource")
+			metrics.Record().ResourceCacheMiss(serviceID)
 			return true
 		}
 
 		if err := streamline.GetGlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
-			klog.Errorf("failed to update component SHA: %v", err)
+			klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA")
 		}
 
-		return entry.ShouldApply(newManifestSHA)
+		if entry.ShouldApply(newManifestSHA) {
+			klog.V(log.LogLevelTrace).InfoS("resource requires apply",
+				"gvk", obj.GroupVersionKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+			metrics.Record().ResourceCacheMiss(serviceID)
+			return true
+		}
+
+		klog.V(log.LogLevelTrace).InfoS("resource is cached",
+			"gvk", obj.GroupVersionKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+		metrics.Record().ResourceCacheHit(serviceID)
+		return false
+
 	}
 }
