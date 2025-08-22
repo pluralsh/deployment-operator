@@ -75,7 +75,7 @@ func TestPollUntilContextCancel_TimerInactiveWhenIntervalZero(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	err := helpers.DynamicPollUntilContextCancel(ctx, getInterval, true, condition)
+	err := helpers.DynamicPollUntilContextCancel(ctx, getInterval, false, condition)
 	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("unexpected error: %v", err)
 	}

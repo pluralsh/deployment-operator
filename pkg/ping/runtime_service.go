@@ -31,14 +31,14 @@ func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinge
 	klog.Info("starting ", runtimeServicePingerName)
 
 	interval := func() time.Duration {
-		if runtimeServicesPingInterval := common.GetConfigurationManager().GetRuntimeServicesPingInterval(); runtimeServicesPingInterval != nil {
+		if runtimeServicesPingInterval := common.GetConfigurationManager().GetRuntimeServicesPingInterval(); runtimeServicesPingInterval != nil && *runtimeServicesPingInterval > 0 {
 			duration = *runtimeServicesPingInterval
 		}
-		jitter := time.Duration(rand.Int63n(int64(duration / 3)))
+		jitter := time.Duration(rand.Int63n(int64(duration / 2)))
 		return duration + jitter
 	}
 
-	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, true, false, func(_ context.Context) (done bool, err error) {
+	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, false, func(_ context.Context) (done bool, err error) {
 		pinger.PingRuntimeServices(ctx)
 		return false, nil
 	})
