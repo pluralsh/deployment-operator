@@ -17,7 +17,7 @@ func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {
 	}
 }
 
-func toInsightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
+func insightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
 	kindToPriorityMap := map[string]client.InsightComponentPriority{
 		"Ingress":     client.InsightComponentPriorityCritical,
 		"Certificate": client.InsightComponentPriorityCritical, // cert-manager Certificate

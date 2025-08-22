@@ -18,13 +18,46 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
+// Storage defines the storage options for the database.
+type Storage string
+
 const (
-	// defaultPoolSize defines the default maximum number of concurrent database connections.
-	defaultPoolSize = 50
+	// StorageMemory stores data in-memory.
+	StorageMemory Storage = "file::memory:?mode=memory&cache=shared"
+
+	// StorageFile stores data in a file on a disk.
+	StorageFile Storage = "file"
 
 	// defaultStorage defines the default storage mode.
 	defaultStorage = StorageMemory
+
+	// defaultPoolSize defines the default maximum number of concurrent database connections.
+	defaultPoolSize = 50
 )
+
+// Option represents a function that configures the database store.
+type Option func(store *DatabaseStore)
+
+// WithPoolSize sets the maximum number of concurrent connections in the pool.
+func WithPoolSize(size int) Option {
+	return func(in *DatabaseStore) {
+		in.poolSize = size
+	}
+}
+
+// WithStorage sets the storage mode for the cache.
+func WithStorage(storage Storage) Option {
+	return func(in *DatabaseStore) {
+		in.storage = storage
+	}
+}
+
+// WithFilePath sets the path where the cache file will be stored in the file storage mode.
+func WithFilePath(path string) Option {
+	return func(in *DatabaseStore) {
+		in.filePath = path
+	}
+}
 
 type DatabaseStore struct {
 	// TODO: Consider adding it to read and write functions.
@@ -315,7 +348,7 @@ func (in *DatabaseStore) GetComponentInsights() (result []client.ClusterInsightC
 				Kind:      kind,
 				Namespace: lo.EmptyableToPtr(namespace),
 				Name:      name,
-				Priority:  toInsightComponentPriority(name, namespace, kind),
+				Priority:  insightComponentPriority(name, namespace, kind),
 			})
 			return nil
 		},
