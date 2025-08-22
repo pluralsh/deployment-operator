@@ -3,8 +3,9 @@ package streamline
 import (
 	"context"
 	"fmt"
-	cmap "github.com/orcaman/concurrent-map/v2"
 	"sync"
+
+	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -17,6 +18,7 @@ import (
 var (
 	supervisor *Supervisor
 
+	// TODO: read that from discovery client
 	coreResources = containers.ToSet([]schema.GroupVersionResource{
 		{Group: "", Version: "v1", Resource: "pods"},
 		{Group: "", Version: "v1", Resource: "services"},
@@ -29,6 +31,7 @@ var (
 		{Group: "", Version: "v1", Resource: "secrets"},
 		{Group: "", Version: "v1", Resource: "configmaps"},
 		{Group: "", Version: "v1", Resource: "events"},
+		{Group: "", Version: "v1", Resource: "serviceaccounts"},
 
 		{Group: "apps", Version: "v1", Resource: "deployments"},
 		{Group: "apps", Version: "v1", Resource: "replicasets"},

@@ -483,17 +483,14 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	//	InventoryPolicy:        inventory.PolicyAdoptAll,
 	//}
 	//
-	//dryRun := false
-	//if svc.DryRun != nil {
-	//	dryRun = *svc.DryRun
-	//}
-	//svc.DryRun = &dryRun
-	//if dryRun {
-	//	options.DryRunStrategy = common.DryRunServer
-	//}
+	dryRun := false
+	if svc.DryRun != nil {
+		dryRun = *svc.DryRun
+	}
+	svc.DryRun = &dryRun
 
 	klog.InfoS("applying manifests", "service", svc.Name)
-	components, errs, err := s.applier.Apply(ctx, id, manifests) // TODO: what to do with err
+	components, errs, err := s.applier.Apply(ctx, id, manifests, applier.WithDryRun(dryRun)) // TODO: what to do with err
 
 	klog.InfoS("applied manifests", "service", svc.Name)
 	err = s.UpdateApplyStatus(ctx, svc, components, errs)

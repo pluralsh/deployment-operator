@@ -37,29 +37,12 @@ type Wave struct {
 
 	// waveType is the type of the wave
 	waveType WaveType
-
-	// TODO: handle that
-	// dryRun determines if the wave should be applied in dry run mode
-	// meaning that the changes will not be persisted
-	dryRun bool
 }
 
-type WaveOption func(*Wave)
-
-func WithDryRun(dryRun bool) WaveOption {
-	return func(w *Wave) {
-		w.dryRun = dryRun
-	}
-}
-
-func NewWave(resources []unstructured.Unstructured, waveType WaveType, opts ...WaveOption) Wave {
+func NewWave(resources []unstructured.Unstructured, waveType WaveType) Wave {
 	result := Wave{
 		items:    resources,
 		waveType: waveType,
-	}
-
-	for _, opt := range opts {
-		opt(&result)
 	}
 
 	return result
@@ -184,6 +167,11 @@ type WaveProcessor struct {
 	// deQueueJitter is the amount of time to wait before dequeuing the next item from the queue
 	// by the same worker.
 	deQueueJitter time.Duration
+
+	// TODO: handle that
+	// dryRun determines if the wave should be applied in dry run mode
+	// meaning that the changes will not be persisted
+	dryRun bool
 }
 
 func (in *WaveProcessor) Run(ctx context.Context) (components []client.ComponentAttributes, errors []client.ServiceErrorAttributes) {
@@ -290,21 +278,28 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context, workerNr int) 
 func (in *WaveProcessor) processWaveItem(ctx context.Context, id Key, resource unstructured.Unstructured) {
 	now := time.Now()
 
+	var dryRunOption []string
+	if in.dryRun {
+		dryRunOption = []string{metav1.DryRunAll}
+	}
+
 	switch in.wave.waveType {
 	case DeleteWave:
 		klog.V(log.LogLevelDebug).InfoS("deleting resource", "resource", id)
-		in.onDelete(ctx, resource)
+		in.onDelete(ctx, resource, dryRunOption)
 	case ApplyWave:
 		klog.V(log.LogLevelDebug).InfoS("applying resource", "resource", id)
-		in.onApply(ctx, resource)
+		in.onApply(ctx, resource, dryRunOption)
 	}
 
 	klog.V(log.LogLevelDebug).InfoS("finished processing wave item", "resource", id, "duration", time.Since(now))
 }
 
-func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
+func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured, dryRun []string) {
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
-	err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
+	err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{
+		DryRun: dryRun,
+	})
 	if err != nil {
 		in.errorsChan <- client.ServiceErrorAttributes{
 			Source:  "sync",
@@ -313,10 +308,11 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 	}
 }
 
-func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
+func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured, dryRun []string) {
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
 	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
 		FieldManager: "plural-sync",
+		DryRun:       dryRun,
 	})
 
 	if err != nil {
@@ -379,6 +375,12 @@ func WithDeQueueJitter(d time.Duration) Option {
 			d = defaultDeQueueJitter
 		}
 		w.deQueueJitter = d
+	}
+}
+
+func WithDryRun(dryRun bool) Option {
+	return func(w *WaveProcessor) {
+		w.dryRun = dryRun
 	}
 }
 
