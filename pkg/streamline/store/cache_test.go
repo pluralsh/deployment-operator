@@ -1223,7 +1223,7 @@ func TestUpdateSHA(t *testing.T) {
 		require.NoError(t, err)
 		err = storeInstance.UpdateComponentSHA(obj, store.ManifestSHA)
 		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.TransientSHA)
+		err = storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA)
 		require.NoError(t, err)
 
 		entry, err := storeInstance.GetComponent(obj)

@@ -7,40 +7,39 @@ import (
 )
 
 type Entry struct {
-	UID       string
-	ParentUID string
-	Group     string
-	Version   string
-	Kind      string
-	Name      string
-	Namespace string
-	Status    string
-	ServiceID string
-
-	// ManifestSHA is SHA of the resource manifest from the repository.
-	// It is used to detect changes in the manifest that are not yet applied.
-	ManifestSHA string
-
-	// TransientManifestSHA is a temporary SHA of the resource manifest from the repository.
-	// It is saved by the filters and committed after the resource is applied.
+	UID                  string
+	ParentUID            string
+	Group                string
+	Version              string
+	Kind                 string
+	Name                 string
+	Namespace            string
+	Status               string
+	ServiceID            string
+	ManifestSHA          string
 	TransientManifestSHA string
-
-	// ApplySHA is SHA of the resource post-server-side apply.
-	// Taking only metadata w/ name, namespace, annotations and labels and non-status non-metadata fields.
-	ApplySHA string
-
-	// ServerSHA is SHA from a watch of the resource, using the same pruning function as applySHA.
-	// It is persisted only if there's a current-inventory annotation.
-	ServerSHA string
+	ApplySHA             string
+	ServerSHA            string
 }
 
 type SHAType string
 
 const (
-	ManifestSHA  SHAType = "MANIFEST"
-	ApplySHA     SHAType = "APPLY"
-	ServerSHA    SHAType = "SERVER"
-	TransientSHA SHAType = "TRANSIENT"
+	// ManifestSHA is SHA of the resource manifest from the repository.
+	// It is used to detect changes in the manifest that are not yet applied.
+	ManifestSHA SHAType = "MANIFEST"
+
+	// ApplySHA is SHA of the resource post-server-side apply.
+	// Taking only metadata w/ name, namespace, annotations and labels and non-status non-metadata fields.
+	ApplySHA SHAType = "APPLY"
+
+	// ServerSHA is SHA from a watch of the resource, using the same pruning function as applySHA.
+	// It is persisted only if there's a current-inventory annotation.
+	ServerSHA SHAType = "SERVER"
+
+	// TransientManifestSHA is a temporary SHA of the resource manifest from the repository.
+	// It is saved by the filters and committed after the resource is applied.
+	TransientManifestSHA SHAType = "TRANSIENT"
 )
 
 type Store interface {
@@ -48,9 +47,9 @@ type Store interface {
 
 	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
 
-	GetComponent(obj unstructured.Unstructured) (result *Entry, err error)
+	GetComponent(obj unstructured.Unstructured) (*Entry, error)
 
-	GetComponentByUID(uid string) (result *client.ComponentChildAttributes, err error)
+	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
 
 	DeleteComponent(uid types.UID) error
 
@@ -65,9 +64,9 @@ type Store interface {
 	// Returns:
 	//   - []ComponentChildAttributes: A slice containing the child components and their attributes
 	//   - error: An error if the database operation fails or if the connection cannot be established
-	GetComponentChildren(uid string) (result []client.ComponentChildAttributes, err error)
+	GetComponentChildren(uid string) ([]client.ComponentChildAttributes, error)
 
-	GetComponentInsights() (result []client.ClusterInsightComponentAttributes, err error)
+	GetComponentInsights() ([]client.ClusterInsightComponentAttributes, error)
 
 	GetComponentCounts() (nodeCount, namespaceCount int64, err error)
 
@@ -77,13 +76,15 @@ type Store interface {
 	// Returns an error if the database operation fails or if the connection cannot be established.
 	GetNodeStatistics() ([]*client.NodeStatisticAttributes, error)
 
+	// GetHealthScore calculates cluster health as a percentage using a base score minus deductions system.
+	// Returns the health score as an integer value (0-100) and any error encountered.
 	GetHealthScore() (int64, error)
 
+	UpdateComponentSHA(unstructured.Unstructured, SHAType) error
+
+	CommitTransientSHA(unstructured.Unstructured) error
+
+	ExpireSHA(unstructured.Unstructured) error
+
 	Shutdown() error
-
-	UpdateComponentSHA(obj unstructured.Unstructured, shaType SHAType) error
-
-	CommitTransientSHA(obj unstructured.Unstructured) error
-
-	ExpireSHA(obj unstructured.Unstructured) error
 }

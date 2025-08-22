@@ -39,7 +39,7 @@ func SkipFilter() FilterFunc {
 
 		newManifestSHA, _ := cache.HashResource(obj)
 
-		if err := streamline.GlobalStore().UpdateComponentSHA(obj, store.TransientSHA); err != nil {
+		if err := streamline.GlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
 			klog.Errorf("Failed to update component SHA: %v", err)
 		}
 
