@@ -49,13 +49,13 @@ func (in *GlobalStore) GetComponentChildren(uid string) (result []client.Compone
 }
 
 func (in *GlobalStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType store.SHAType) error {
-	return globalStoreInstance.UpdateComponentSHA(obj, shaType)
+	return in.store.UpdateComponentSHA(obj, shaType)
 }
 
 func (in *GlobalStore) CommitTransientSHA(obj unstructured.Unstructured) error {
-	return globalStoreInstance.CommitTransientSHA(obj)
+	return in.store.CommitTransientSHA(obj)
 }
 
 func (in *GlobalStore) ExpireSHA(obj unstructured.Unstructured) error {
-	return globalStoreInstance.ExpireSHA(obj)
+	return in.store.ExpireSHA(obj)
 }
