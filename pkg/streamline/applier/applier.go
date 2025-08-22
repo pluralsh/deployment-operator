@@ -22,7 +22,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
-// TODO: Add dry run support for apply
 type Applier struct {
 	filters FilterEngine
 	client  dynamic.Interface
@@ -30,7 +29,7 @@ type Applier struct {
 	mu      sync.Mutex
 }
 
-func (in *Applier) Apply(ctx context.Context, serviceID string, resources []unstructured.Unstructured) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
+func (in *Applier) Apply(ctx context.Context, serviceID string, resources []unstructured.Unstructured, opts ...Option) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
 	resources = in.addServiceAnnotation(resources, serviceID)
 	toDelete, err := in.toDelete(serviceID, resources)
 	if err != nil {
@@ -50,7 +49,7 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources []unst
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 	for _, wave := range waves {
-		processor := NewWaveProcessor(in.client, wave)
+		processor := NewWaveProcessor(in.client, wave, opts...)
 		components, errors := processor.Run(ctx)
 
 		componentList = append(componentList, components...)
