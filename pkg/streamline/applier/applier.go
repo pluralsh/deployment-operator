@@ -59,6 +59,7 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources []unst
 
 	for _, resource := range toSkip {
 		cacheEntry, err := in.store.GetComponent(resource)
+		// TODO: in case of error we should probably read it straight from the api server
 		if err != nil {
 			klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from cache", "resource", resource)
 			continue
