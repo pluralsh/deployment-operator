@@ -1,14 +1,15 @@
 package applier
 
 import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
+
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/klog/v2"
 )
 
 // CacheFilter filters based on whether resources and/or manifests have changed since last applied.
@@ -41,13 +42,13 @@ func CacheFilter() FilterFunc {
 		}
 
 		if entry.ShouldApply(newManifestSHA) {
-			klog.V(log.LogLevelTrace).InfoS("resource requires apply",
+			klog.V(log.LogLevelDebug).InfoS("resource requires apply",
 				"gvk", obj.GroupVersionKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 			metrics.Record().ResourceCacheMiss(serviceID)
 			return true
 		}
 
-		klog.V(log.LogLevelTrace).InfoS("resource is cached",
+		klog.V(log.LogLevelDebug).InfoS("resource is cached",
 			"gvk", obj.GroupVersionKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 		metrics.Record().ResourceCacheHit(serviceID)
 		return false
