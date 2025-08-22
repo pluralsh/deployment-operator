@@ -37,9 +37,7 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources []unst
 		return nil, nil, err
 	}
 
-	klog.V(log.LogLevelDebug).InfoS("resources to apply", "resources", resources, "toDelete", toDelete)
 	toApply, toSkip := in.filterResources(resources)
-	klog.V(log.LogLevelDebug).InfoS("resources after filters", "resources", resources)
 
 	waves := NewWaves(toApply)
 	waves = append(waves, NewWave(toDelete, DeleteWave))
