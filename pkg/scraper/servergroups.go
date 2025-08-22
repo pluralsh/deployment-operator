@@ -28,7 +28,7 @@ func RunServerGroupsScraperInBackgroundOrDie(ctx context.Context, config *rest.C
 	}
 
 	// Start background polling to check if CRDs for extra resources exist
-	err = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return serverGroupsScraperPollingInterval }, false, true, func(_ context.Context) (done bool, err error) {
+	err = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return serverGroupsScraperPollingInterval }, false, func(_ context.Context) (done bool, err error) {
 		resources, err := discoveryClient.ServerPreferredResources()
 		if err != nil {
 			klog.ErrorS(err, "failed to get server groups and resources")

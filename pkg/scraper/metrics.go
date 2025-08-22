@@ -64,7 +64,7 @@ func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient
 		panic(fmt.Errorf("failed to create metrics client: %w", err))
 	}
 
-	err = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return time.Minute }, true, false, func(_ context.Context) (done bool, err error) {
+	err = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return time.Minute }, true, func(_ context.Context) (done bool, err error) {
 		apiGroups, err := discoveryClient.ServerGroups()
 		if err == nil {
 			metricsAPIAvailable := common.SupportedMetricsAPIVersionAvailable(apiGroups)

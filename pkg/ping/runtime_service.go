@@ -38,7 +38,7 @@ func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinge
 		return duration + jitter
 	}
 
-	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, false, func(_ context.Context) (done bool, err error) {
+	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
 		pinger.PingRuntimeServices(ctx)
 		return false, nil
 	})

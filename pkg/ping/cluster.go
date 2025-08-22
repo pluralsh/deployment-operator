@@ -31,7 +31,7 @@ func RunClusterPingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, dura
 		return duration + jitter
 	}
 
-	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, false, func(_ context.Context) (done bool, err error) {
+	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
 		if err := pinger.PingCluster(); err != nil {
 			klog.ErrorS(err, "failed ping cluster")
 		}

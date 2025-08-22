@@ -39,7 +39,7 @@ func TestBackgroundPollUntilContextCancel_DynamicInterval(t *testing.T) {
 		return false, nil
 	}
 
-	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, getInterval, true, true, condition)
+	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, getInterval, true, condition)
 	if err != nil {
 		t.Fatalf("syncFirstRun failed: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestPollUntilContextCancel_TimerInactiveWhenIntervalZero(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	err := helpers.DynamicPollUntilContextCancel(ctx, getInterval, false, condition)
+	err := helpers.DynamicPollUntilContextCancel(ctx, getInterval, condition)
 	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("unexpected error: %v", err)
 	}
