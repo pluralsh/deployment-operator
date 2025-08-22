@@ -51,19 +51,16 @@ type Store interface {
 
 	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
 
+	// DeleteComponent removes a component from the store based on its UID.
+	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponent(uid types.UID) error
 
+	// GetServiceComponents retrieves all components associated with a given service ID.
+	// It returns a slice of Entry structs containing information about each component and any error encountered.
 	GetServiceComponents(serviceID string) ([]Entry, error)
 
 	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
-	// It returns a slice of ComponentChildAttributes containing information about each child component.
-	//
-	// Parameters:
-	//   - uid: The unique identifier of the parent component
-	//
-	// Returns:
-	//   - []ComponentChildAttributes: A slice containing the child components and their attributes
-	//   - error: An error if the database operation fails or if the connection cannot be established
+	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.
 	GetComponentChildren(uid string) ([]client.ComponentChildAttributes, error)
 
 	GetComponentInsights() ([]client.ClusterInsightComponentAttributes, error)
