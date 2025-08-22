@@ -6,7 +6,18 @@ import (
 	"github.com/samber/lo"
 )
 
-func toInsightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
+func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {
+	switch {
+	case pendingPods == 0:
+		return lo.ToPtr(client.NodeStatisticHealthHealthy)
+	case pendingPods <= 3:
+		return lo.ToPtr(client.NodeStatisticHealthWarning)
+	default:
+		return lo.ToPtr(client.NodeStatisticHealthFailed)
+	}
+}
+
+func insightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
 	kindToPriorityMap := map[string]client.InsightComponentPriority{
 		"Ingress":     client.InsightComponentPriorityCritical,
 		"Certificate": client.InsightComponentPriorityCritical, // cert-manager Certificate

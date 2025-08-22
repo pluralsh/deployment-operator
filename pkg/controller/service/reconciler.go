@@ -110,7 +110,7 @@ func NewServiceReconciler(
 			return consoleClient.GetService(id)
 		}),
 		manifestCache:    manis.NewCache(manifestTTL, manifestTTLJitter, deployToken, consoleURL),
-		applier:          applier.NewApplier(dynamicClient, store, applier.SkipFilter()),
+		applier:          applier.NewApplier(dynamicClient, store, applier.CacheFilter()),
 		utilFactory:      f,
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,

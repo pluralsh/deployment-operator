@@ -18,13 +18,46 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
+// Storage defines the storage options for the database.
+type Storage string
+
 const (
-	// defaultPoolSize defines the default maximum number of concurrent database connections.
-	defaultPoolSize = 50
+	// StorageMemory stores data in-memory.
+	StorageMemory Storage = "file::memory:?mode=memory&cache=shared"
+
+	// StorageFile stores data in a file on a disk.
+	StorageFile Storage = "file"
 
 	// defaultStorage defines the default storage mode.
 	defaultStorage = StorageMemory
+
+	// defaultPoolSize defines the default maximum number of concurrent database connections.
+	defaultPoolSize = 50
 )
+
+// Option represents a function that configures the database store.
+type Option func(store *DatabaseStore)
+
+// WithPoolSize sets the maximum number of concurrent connections in the pool.
+func WithPoolSize(size int) Option {
+	return func(in *DatabaseStore) {
+		in.poolSize = size
+	}
+}
+
+// WithStorage sets the storage mode for the cache.
+func WithStorage(storage Storage) Option {
+	return func(in *DatabaseStore) {
+		in.storage = storage
+	}
+}
+
+// WithFilePath sets the path where the cache file will be stored in the file storage mode.
+func WithFilePath(path string) Option {
+	return func(in *DatabaseStore) {
+		in.filePath = path
+	}
+}
 
 type DatabaseStore struct {
 	// TODO: Consider adding it to read and write functions.
@@ -89,191 +122,6 @@ func (in *DatabaseStore) init() error {
 	defer in.pool.Put(conn)
 
 	return sqlitex.ExecuteScript(conn, createTables, nil)
-}
-
-func (in *DatabaseStore) GetComponentChildren(uid string) (result []client.ComponentChildAttributes, err error) {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return result, err
-	}
-	defer in.pool.Put(conn)
-
-	err = sqlitex.ExecuteTransient(conn, componentChildren, &sqlitex.ExecOptions{
-		Args: []interface{}{uid},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = append(result, client.ComponentChildAttributes{
-				UID:       stmt.ColumnText(0),
-				Group:     lo.EmptyableToPtr(stmt.ColumnText(1)),
-				Version:   stmt.ColumnText(2),
-				Kind:      stmt.ColumnText(3),
-				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
-				Name:      stmt.ColumnText(5),
-				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
-				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
-			})
-			return nil
-		},
-	})
-
-	return result, err
-}
-
-func (in *DatabaseStore) GetComponentInsights() (result []client.ClusterInsightComponentAttributes, err error) {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return result, err
-	}
-	defer in.pool.Put(conn)
-
-	err = sqlitex.ExecuteTransient(conn, failedComponents, &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			name := stmt.ColumnText(5)
-			namespace := stmt.ColumnText(4)
-			kind := stmt.ColumnText(3)
-			result = append(result, client.ClusterInsightComponentAttributes{
-				Group:     lo.ToPtr(stmt.ColumnText(1)),
-				Version:   stmt.ColumnText(2),
-				Kind:      kind,
-				Namespace: lo.EmptyableToPtr(namespace),
-				Name:      name,
-				Priority:  toInsightComponentPriority(name, namespace, kind),
-			})
-			return nil
-		},
-	})
-
-	return result, err
-}
-
-func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *Entry, err error) {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return result, err
-	}
-	defer in.pool.Put(conn)
-
-	gvk := obj.GroupVersionKind()
-
-	err = sqlitex.ExecuteTransient(conn, getComponent, &sqlitex.ExecOptions{
-		Args: []interface{}{obj.GetName(), obj.GetNamespace(), gvk.Group, gvk.Version, gvk.Kind},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = &Entry{
-				UID:                  stmt.ColumnText(0),
-				Group:                stmt.ColumnText(1),
-				Version:              stmt.ColumnText(2),
-				Kind:                 stmt.ColumnText(3),
-				Namespace:            stmt.ColumnText(4),
-				Name:                 stmt.ColumnText(5),
-				Status:               string(lo.FromPtr(FromComponentState(ComponentState(stmt.ColumnInt32(6))))),
-				ParentUID:            stmt.ColumnText(7),
-				ManifestSHA:          stmt.ColumnText(8),
-				TransientManifestSHA: stmt.ColumnText(9),
-				ApplySHA:             stmt.ColumnText(10),
-				ServerSHA:            stmt.ColumnText(11),
-			}
-			return nil
-		},
-	})
-
-	return result, err
-}
-
-func (in *DatabaseStore) GetComponentByUID(uid string) (result *client.ComponentChildAttributes, err error) {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return result, err
-	}
-	defer in.pool.Put(conn)
-
-	err = sqlitex.ExecuteTransient(conn, getComponentByUID, &sqlitex.ExecOptions{
-		Args: []interface{}{uid},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = &client.ComponentChildAttributes{
-				UID:       stmt.ColumnText(0),
-				Group:     lo.EmptyableToPtr(stmt.ColumnText(1)),
-				Version:   stmt.ColumnText(2),
-				Kind:      stmt.ColumnText(3),
-				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
-				Name:      stmt.ColumnText(5),
-				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
-				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
-			}
-			return nil
-		},
-	})
-
-	return result, err
-}
-
-// GetHealthScore returns a percentage of healthy components to total components in the cluster.
-// The percentage is calculated as the number of healthy components divided by the total number of components.
-// Returns an int value between 0 and 100, where 100 indicates all components are healthy.
-// Returns an error if the database operation fails or if the connection cannot be established.
-func (in *DatabaseStore) GetHealthScore() (int64, error) {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return 0, err
-	}
-	defer in.pool.Put(conn)
-
-	var ratio int64
-	err = sqlitex.ExecuteTransient(conn, clusterHealthScore, &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			ratio = stmt.ColumnInt64(0)
-			return nil
-		},
-	})
-	return ratio, err
-}
-
-func (in *DatabaseStore) GetNodeStatistics() ([]*client.NodeStatisticAttributes, error) {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	defer in.pool.Put(conn)
-
-	result := make([]*client.NodeStatisticAttributes, 0)
-	err = sqlitex.ExecuteTransient(conn, nodeStatistics, &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			pendingPods := stmt.ColumnInt64(1)
-			result = append(result, &client.NodeStatisticAttributes{
-				Name:        lo.ToPtr(stmt.ColumnText(0)),
-				PendingPods: &pendingPods,
-				Health:      nodeHealth(pendingPods),
-			})
-			return nil
-		},
-	})
-	return result, err
-}
-
-func (in *DatabaseStore) GetComponentCounts() (nodeCount, namespaceCount int64, err error) {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return
-	}
-	defer in.pool.Put(conn)
-
-	err = sqlitex.ExecuteTransient(conn, serverCounts, &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			nodeCount = stmt.ColumnInt64(0)
-			namespaceCount = stmt.ColumnInt64(1)
-			return nil
-		},
-	})
-	return
-}
-
-func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {
-	switch {
-	case pendingPods == 0:
-		return lo.ToPtr(client.NodeStatisticHealthHealthy)
-	case pendingPods <= 3:
-		return lo.ToPtr(client.NodeStatisticHealthWarning)
-	default:
-		return lo.ToPtr(client.NodeStatisticHealthFailed)
-	}
 }
 
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
@@ -353,6 +201,66 @@ func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttrib
 	})
 }
 
+func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *Entry, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	gvk := obj.GroupVersionKind()
+
+	err = sqlitex.ExecuteTransient(conn, getComponent, &sqlitex.ExecOptions{
+		Args: []interface{}{obj.GetName(), obj.GetNamespace(), gvk.Group, gvk.Version, gvk.Kind},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			result = &Entry{
+				UID:                  stmt.ColumnText(0),
+				Group:                stmt.ColumnText(1),
+				Version:              stmt.ColumnText(2),
+				Kind:                 stmt.ColumnText(3),
+				Namespace:            stmt.ColumnText(4),
+				Name:                 stmt.ColumnText(5),
+				Status:               string(lo.FromPtr(FromComponentState(ComponentState(stmt.ColumnInt32(6))))),
+				ParentUID:            stmt.ColumnText(7),
+				ManifestSHA:          stmt.ColumnText(8),
+				TransientManifestSHA: stmt.ColumnText(9),
+				ApplySHA:             stmt.ColumnText(10),
+				ServerSHA:            stmt.ColumnText(11),
+			}
+			return nil
+		},
+	})
+
+	return result, err
+}
+
+func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.ComponentChildAttributes, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, getComponentByUID, &sqlitex.ExecOptions{
+		Args: []interface{}{uid},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			result = &client.ComponentChildAttributes{
+				UID:       stmt.ColumnText(0),
+				Group:     lo.EmptyableToPtr(stmt.ColumnText(1)),
+				Version:   stmt.ColumnText(2),
+				Kind:      stmt.ColumnText(3),
+				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
+				Name:      stmt.ColumnText(5),
+				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
+				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
+			}
+			return nil
+		},
+	})
+
+	return result, err
+}
+
 func (in *DatabaseStore) DeleteComponent(uid types.UID) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
@@ -364,6 +272,145 @@ func (in *DatabaseStore) DeleteComponent(uid types.UID) error {
 	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
 		Args: []any{uid},
 	})
+}
+
+func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]Entry, error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer in.pool.Put(conn)
+
+	result := make([]Entry, 0)
+	err = sqlitex.ExecuteTransient(conn, getComponentsByServiceID, &sqlitex.ExecOptions{
+		Args: []interface{}{serviceID},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			result = append(result, Entry{
+				UID:       stmt.ColumnText(0),
+				ParentUID: stmt.ColumnText(1),
+				Group:     stmt.ColumnText(2),
+				Version:   stmt.ColumnText(3),
+				Kind:      stmt.ColumnText(4),
+				Name:      stmt.ColumnText(5),
+				Namespace: stmt.ColumnText(6),
+				Status:    string(lo.FromPtr(FromComponentState(ComponentState(stmt.ColumnInt32(7))))),
+				ServiceID: serviceID,
+			})
+			return nil
+		},
+	})
+
+	return result, err
+}
+
+func (in *DatabaseStore) GetComponentChildren(uid string) (result []client.ComponentChildAttributes, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, componentChildren, &sqlitex.ExecOptions{
+		Args: []interface{}{uid},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			result = append(result, client.ComponentChildAttributes{
+				UID:       stmt.ColumnText(0),
+				Group:     lo.EmptyableToPtr(stmt.ColumnText(1)),
+				Version:   stmt.ColumnText(2),
+				Kind:      stmt.ColumnText(3),
+				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
+				Name:      stmt.ColumnText(5),
+				State:     FromComponentState(ComponentState(stmt.ColumnInt32(6))),
+				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
+			})
+			return nil
+		},
+	})
+
+	return result, err
+}
+
+func (in *DatabaseStore) GetComponentInsights() (result []client.ClusterInsightComponentAttributes, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, failedComponents, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			name := stmt.ColumnText(5)
+			namespace := stmt.ColumnText(4)
+			kind := stmt.ColumnText(3)
+			result = append(result, client.ClusterInsightComponentAttributes{
+				Group:     lo.ToPtr(stmt.ColumnText(1)),
+				Version:   stmt.ColumnText(2),
+				Kind:      kind,
+				Namespace: lo.EmptyableToPtr(namespace),
+				Name:      name,
+				Priority:  insightComponentPriority(name, namespace, kind),
+			})
+			return nil
+		},
+	})
+
+	return result, err
+}
+
+func (in *DatabaseStore) GetComponentCounts() (nodeCount, namespaceCount int64, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, serverCounts, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			nodeCount = stmt.ColumnInt64(0)
+			namespaceCount = stmt.ColumnInt64(1)
+			return nil
+		},
+	})
+	return
+}
+
+func (in *DatabaseStore) GetNodeStatistics() ([]*client.NodeStatisticAttributes, error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer in.pool.Put(conn)
+
+	result := make([]*client.NodeStatisticAttributes, 0)
+	err = sqlitex.ExecuteTransient(conn, nodeStatistics, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			pendingPods := stmt.ColumnInt64(1)
+			result = append(result, &client.NodeStatisticAttributes{
+				Name:        lo.ToPtr(stmt.ColumnText(0)),
+				PendingPods: &pendingPods,
+				Health:      nodeHealth(pendingPods),
+			})
+			return nil
+		},
+	})
+	return result, err
+}
+
+func (in *DatabaseStore) GetHealthScore() (int64, error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	defer in.pool.Put(conn)
+
+	var ratio int64
+	err = sqlitex.ExecuteTransient(conn, clusterHealthScore, &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			ratio = stmt.ColumnInt64(0)
+			return nil
+		},
+	})
+	return ratio, err
 }
 
 func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType SHAType) error {
@@ -378,7 +425,7 @@ func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaTy
 	switch shaType {
 	case ManifestSHA:
 		column = "manifest_sha"
-	case TransientSHA:
+	case TransientManifestSHA:
 		column = "transient_manifest_sha"
 	case ApplySHA:
 		column = "apply_sha"
@@ -414,22 +461,6 @@ func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaTy
 	})
 }
 
-func (in *DatabaseStore) ExpireSHA(obj unstructured.Unstructured) error {
-	gvk := obj.GroupVersionKind()
-
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return err
-	}
-	defer in.pool.Put(conn)
-
-	return sqlitex.ExecuteTransient(conn, expireSHA, &sqlitex.ExecOptions{
-		Args: []interface{}{
-			gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName(), // WHERE clause parameters
-		},
-	})
-}
-
 func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 
@@ -446,33 +477,20 @@ func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error
 	})
 }
 
-func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]Entry, error) {
+func (in *DatabaseStore) ExpireSHA(obj unstructured.Unstructured) error {
+	gvk := obj.GroupVersionKind()
+
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer in.pool.Put(conn)
 
-	result := make([]Entry, 0)
-	err = sqlitex.ExecuteTransient(conn, getComponentsByServiceID, &sqlitex.ExecOptions{
-		Args: []interface{}{serviceID},
-		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = append(result, Entry{
-				UID:       stmt.ColumnText(0),
-				ParentUID: stmt.ColumnText(1),
-				Group:     stmt.ColumnText(2),
-				Version:   stmt.ColumnText(3),
-				Kind:      stmt.ColumnText(4),
-				Name:      stmt.ColumnText(5),
-				Namespace: stmt.ColumnText(6),
-				Status:    string(lo.FromPtr(FromComponentState(ComponentState(stmt.ColumnInt32(7))))),
-				ServiceID: serviceID,
-			})
-			return nil
+	return sqlitex.ExecuteTransient(conn, expireSHA, &sqlitex.ExecOptions{
+		Args: []interface{}{
+			gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName(), // WHERE clause parameters
 		},
 	})
-
-	return result, err
 }
 
 func (in *DatabaseStore) Shutdown() error {

@@ -278,7 +278,7 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context, workerNr int) 
 		klog.V(log.LogLevelDebug).InfoS("applied resource", "resource", id, "duration", time.Since(now))
 
 		if err != nil {
-			if err := streamline.GlobalStore().ExpireSHA(resource); err != nil {
+			if err := streamline.GetGlobalStore().ExpireSHA(resource); err != nil {
 				klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName())
 			}
 			in.errorsChan <- client.ServiceErrorAttributes{
@@ -289,10 +289,10 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context, workerNr int) 
 			return true
 		}
 
-		if err := streamline.GlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
+		if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
 			klog.Errorf("Failed to update component SHA: %v", err)
 		}
-		if err := streamline.GlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {
+		if err := streamline.GetGlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {
 			klog.Errorf("Failed to commit transient SHA: %v", err)
 		}
 
