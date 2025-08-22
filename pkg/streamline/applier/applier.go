@@ -18,6 +18,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -48,11 +49,16 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources unstru
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 
+	// Filter out empty waves
+	waves = algorithms.Filter(waves, func(w Wave) bool {
+		return len(w.Items) > 0
+	})
+
 	for i, wave := range waves {
 		now := time.Now()
 		processor := NewWaveProcessor(in.client, wave)
 		components, errors := processor.Run(ctx)
-		klog.InfoS("finished wave", "wave", i, "type", wave.Type, "count", len(wave.Items), "duration", time.Since(now))
+		klog.V(log.LogLevelExtended).InfoS("finished wave", "wave", i, "type", wave.Type, "count", len(wave.Items), "duration", time.Since(now))
 
 		componentList = append(componentList, components...)
 		serviceErrrorList = append(serviceErrrorList, errors...)
@@ -61,7 +67,7 @@ func (in *Applier) Apply(ctx context.Context, serviceID string, resources unstru
 	for idx, component := range componentList {
 		children, err := in.store.GetComponentChildren(lo.FromPtr(component.UID))
 		if err != nil {
-			klog.ErrorS(err, "failed to get children for component", "component", component.Name)
+			klog.V(log.LogLevelExtended).ErrorS(err, "failed to get children for component", "component", component.Name)
 			continue
 		}
 

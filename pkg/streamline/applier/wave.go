@@ -2,12 +2,15 @@ package applier
 
 import (
 	"context"
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-	"k8s.io/klog/v2"
 	"math/rand"
 	"sync"
 	"time"
+
+	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -112,94 +115,153 @@ func NewWaves(resources unstructured.UnstructuredList) Waves {
 	return waves
 }
 
+const (
+	defaultMaxConcurrentApplies = 10
+	defaultDeQueueJitter        = time.Second
+)
+
+// WaveProcessor processes a wave of resources. It applies or deletes the resources in the wave.
+// It uses a work queue to process the items in the wave concurrently. It uses a channel to communicate
+// between the workers and the collector goroutine. The collector goroutine collects the components and errors
+// from the channels and returns them to the caller.
 type WaveProcessor struct {
 	mu sync.Mutex
 
-	client        dynamic.Interface
-	wave          Wave
+	// client is the dynamic client used to apply the resources
+	client dynamic.Interface
+
+	// wave is the wave to be processed. It contains the resources to be applied or deleted.
+	wave Wave
+
+	// componentChan is used to communicate between the workers and the collector goroutine
+	// when a resource is successfully applied, the worker sends the component attributes to the channel
 	componentChan chan client.ComponentAttributes
-	errorsChan    chan client.ServiceErrorAttributes
-	queue         *workqueue.Typed[Key]
+
+	// errorsChan is used to communicate between the workers and the collector goroutine
+	// when a resource fails to be applied, the worker sends the error to the channel
+	errorsChan chan client.ServiceErrorAttributes
+
+	// queue is the work queue used to process the items in the wave
+	queue *workqueue.Typed[Key]
+
+	// keyToResource is a map of the wave items to their keys.
+	// It is used to lookup the resource from the key when processing the items in the queue.
 	keyToResource map[Key]unstructured.Unstructured
 
-	MaxConcurrentApplies int
-	DeQueueJitter        time.Duration
+	// maxConcurrentApplies is the maximum number of workers that can be started
+	maxConcurrentApplies int
+
+	// concurrentApplies is the number of workers that will be started.
+	// It is calculated based on the number of items in the wave and the maxConcurrentApplies option.
+	// If the wave contains more items than the maxConcurrentApplies option, the number of workers
+	// will be set to the maxConcurrentApplies otherwise it will be set to the number of items in the wave.
+	concurrentApplies int
+
+	// deQueueJitter is the amount of time to wait before dequeuing the next item from the queue
+	// by the same worker.
+	deQueueJitter time.Duration
 }
 
 func (in *WaveProcessor) Run(ctx context.Context) (components []client.ComponentAttributes, errors []client.ServiceErrorAttributes) {
 	in.mu.Lock()
+	defer in.mu.Unlock()
 
-	defer close(in.componentChan)
-	defer close(in.errorsChan)
+	in.init()
 
-	for _, obj := range in.wave.Items {
-		key := NewKeyFromUnstructured(obj)
-		in.keyToResource[key] = obj
-		in.queue.Add(key)
-	}
+	workerWG := &sync.WaitGroup{}
+	collectorWG := &sync.WaitGroup{}
 
-	wg := &sync.WaitGroup{}
+	workerWG.Add(in.concurrentApplies)
+	in.runWorkers(ctx, func() { workerWG.Done() })
 
-	func() {
-		defer in.mu.Unlock()
+	collectorWG.Add(1)
+	cmpChan := in.componentChan
+	errChan := in.errorsChan
 
-		wg.Add(in.MaxConcurrentApplies)
-		for i := 0; i < in.MaxConcurrentApplies; i++ {
-			go func() {
-				defer wg.Done()
-				for in.processNextWorkItem(ctx) {
-					time.Sleep(time.Duration(rand.Int63n(int64(in.DeQueueJitter))))
-				}
-			}()
-		}
-	}()
-
+	// run a collector goroutine to collect components and errors from the channels
 	go func() {
-		for {
+		defer collectorWG.Done()
+		for cmpChan != nil || errChan != nil {
 			select {
 			case <-ctx.Done():
 				return
-			case component, ok := <-in.componentChan:
+			case component, ok := <-cmpChan:
 				if !ok {
-					return
+					klog.V(log.LogLevelTrace).InfoS("component channel closed")
+					cmpChan = nil
+					continue
 				}
 
+				klog.V(log.LogLevelDebug).InfoS("received component", "component", component)
 				components = append(components, component)
-			case err, ok := <-in.errorsChan:
+			case err, ok := <-errChan:
 				if !ok {
-					return
+					klog.V(log.LogLevelTrace).InfoS("error channel closed")
+					errChan = nil
+					continue
 				}
 
+				klog.V(log.LogLevelDebug).InfoS("received error", "error", err)
 				errors = append(errors, err)
 			}
 		}
 	}()
 
-	wg.Wait()
+	// no more items will be added, allow workers to drain and exit
+	in.queue.ShutDown()
+
+	workerWG.Wait()
+	close(in.componentChan)
+	close(in.errorsChan)
+	collectorWG.Wait()
 
 	return components, errors
 }
 
-func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
-	if in.queue.Len() == 0 {
-		in.queue.ShutDown()
-		return false
+func (in *WaveProcessor) runWorkers(ctx context.Context, onWorkerDone func()) {
+	for i := 0; i < in.concurrentApplies; i++ {
+		go func(i int) {
+			defer onWorkerDone()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					if !in.processNextWorkItem(ctx, i) {
+						klog.V(log.LogLevelTrace).InfoS("queue drained, exiting", "worker", i)
+						return
+					}
+
+					// Sleep only when there is at least one full batch waiting and we are at max concurrency.
+					// This avoids jitter when the remaining items are fewer than the number of workers.
+					if in.maxConcurrentApplies == in.concurrentApplies && in.queue.Len() > in.concurrentApplies {
+						time.Sleep(time.Duration(rand.Int63n(int64(in.deQueueJitter))))
+					}
+				}
+			}
+		}(i)
 	}
+}
+
+func (in *WaveProcessor) processNextWorkItem(ctx context.Context, workerNr int) bool {
 	id, shutdown := in.queue.Get()
 	if shutdown {
-		// Stop working
 		return false
 	}
 
+	klog.V(log.LogLevelDebug).InfoS("processing next work item", "worker", workerNr, "id", id)
 	defer in.queue.Done(id)
+
 	resource, exists := in.keyToResource[id]
 	if !exists {
-		return false
+		klog.V(log.LogLevelDebug).InfoS("resource not found in keyToResource map, continuing", "id", id)
+		return true
 	}
 
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
 	switch in.wave.Type {
 	case DeleteWave:
+		klog.V(log.LogLevelDebug).InfoS("deleting resource", "resource", id)
 		err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			in.errorsChan <- client.ServiceErrorAttributes{
@@ -208,9 +270,13 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 			}
 		}
 	case ApplyWave:
+		klog.V(log.LogLevelDebug).InfoS("applying resource", "resource", id)
+		now := time.Now()
 		appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
 			FieldManager: "plural-sync",
 		})
+		klog.V(log.LogLevelDebug).InfoS("applied resource", "resource", id, "duration", time.Since(now))
+
 		if err != nil {
 			if err := streamline.GlobalStore().ExpireSHA(resource); err != nil {
 				klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName())
@@ -219,8 +285,10 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 				Source:  "sync",
 				Message: err.Error(),
 			}
-			break
+
+			return true
 		}
+
 		if err := streamline.GlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
 			klog.Errorf("Failed to update component SHA: %v", err)
 		}
@@ -234,16 +302,58 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave) *WaveProcessor {
-	return &WaveProcessor{
+func (in *WaveProcessor) init() {
+	in.concurrentApplies = in.maxConcurrentApplies
+
+	if len(in.wave.Items) < in.maxConcurrentApplies {
+		klog.V(log.LogLevelDebug).InfoS("optimizing concurrent applies", "max", in.maxConcurrentApplies, "optimized", len(in.wave.Items))
+		in.concurrentApplies = len(in.wave.Items)
+	}
+
+	in.componentChan = make(chan client.ComponentAttributes, in.concurrentApplies)
+	in.errorsChan = make(chan client.ServiceErrorAttributes, in.concurrentApplies)
+	in.keyToResource = make(map[Key]unstructured.Unstructured)
+	in.queue = workqueue.NewTyped[Key]()
+
+	for _, obj := range in.wave.Items {
+		key := NewKeyFromUnstructured(obj)
+		in.keyToResource[key] = obj
+		in.queue.Add(key)
+	}
+}
+
+type Option func(*WaveProcessor)
+
+func WithMaxConcurrentApplies(n int) Option {
+	return func(w *WaveProcessor) {
+		if n < 1 {
+			n = defaultMaxConcurrentApplies
+		}
+		w.maxConcurrentApplies = n
+	}
+}
+
+func WithDeQueueJitter(d time.Duration) Option {
+	return func(w *WaveProcessor) {
+		if d <= 0 {
+			d = defaultDeQueueJitter
+		}
+		w.deQueueJitter = d
+	}
+}
+
+func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave, opts ...Option) *WaveProcessor {
+	result := &WaveProcessor{
 		mu:                   sync.Mutex{},
 		client:               dynamicClient,
 		wave:                 wave,
-		componentChan:        make(chan client.ComponentAttributes),
-		errorsChan:           make(chan client.ServiceErrorAttributes),
-		queue:                workqueue.NewTyped[Key](),
-		keyToResource:        make(map[Key]unstructured.Unstructured),
-		MaxConcurrentApplies: 10,
-		DeQueueJitter:        time.Second,
+		maxConcurrentApplies: defaultMaxConcurrentApplies,
+		deQueueJitter:        defaultDeQueueJitter,
 	}
+
+	for _, opt := range opts {
+		opt(result)
+	}
+
+	return result
 }
