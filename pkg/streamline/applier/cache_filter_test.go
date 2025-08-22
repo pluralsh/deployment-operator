@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO
 func TestCacheFilter(t *testing.T) {
 	const (
 		resourceName = "test-filter"
@@ -160,7 +161,6 @@ func TestCacheFilter(t *testing.T) {
 
 		entry, err := storeInstance.GetComponent(unstructuredPod)
 		require.NoError(t, err, "failed to get component")
-
 		assert.NotEmpty(t, entry.TransientManifestSHA, "expected transient manifest SHA to be set after filter call")
 	})
 }
