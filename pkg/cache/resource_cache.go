@@ -251,18 +251,6 @@ func SaveResourceSHA(resource *unstructured.Unstructured, shaType SHAType) {
 	}
 }
 
-func CommitManifestSHA(resource *unstructured.Unstructured) {
-	if !initialized {
-		klog.V(4).Info("resource cache not initialized")
-		return
-	}
-
-	key := object.UnstructuredToObjMetadata(resource).String()
-	sha, _ := resourceCache.GetCacheEntry(key)
-	sha.CommitManifestSHA()
-	resourceCache.SetCacheEntry(key, sha)
-}
-
 // SyncCacheStatus retrieves the status of a resource from the cache or from the Kubernetes API if not present.
 func (in *ResourceCache) SyncCacheStatus(key object.ObjMetadata) error {
 	if !initialized {

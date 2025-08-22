@@ -5,7 +5,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/metrics"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
@@ -30,7 +29,7 @@ func CacheFilter() FilterFunc {
 			return true
 		}
 
-		newManifestSHA, err := cache.HashResource(obj)
+		newManifestSHA, err := store.HashResource(obj)
 		if err != nil {
 			klog.V(log.LogLevelExtended).ErrorS(err, "failed to hash resource")
 			metrics.Record().ResourceCacheMiss(serviceID)

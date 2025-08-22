@@ -2,11 +2,45 @@ package store
 
 import (
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/sahilm/fuzzy"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {
+// HashResource calculates SHA for an unstructured resource.
+// It uses object metadata (name, namespace, labels, annotations, deletion timestamp)
+// and all other top-level fields except status.
+func HashResource(resource unstructured.Unstructured) (string, error) {
+	resourceCopy := resource.DeepCopy()
+	object := struct {
+		Name              string            `json:"name"`
+		Namespace         string            `json:"namespace"`
+		Labels            map[string]string `json:"labels"`
+		Annotations       map[string]string `json:"annotations"`
+		DeletionTimestamp string            `json:"deletionTimestamp"`
+		Other             map[string]any    `json:"other"`
+	}{
+		Name:        resourceCopy.GetName(),
+		Namespace:   resourceCopy.GetNamespace(),
+		Labels:      resourceCopy.GetLabels(),
+		Annotations: resourceCopy.GetAnnotations(),
+	}
+
+	deletionTimestamp := resourceCopy.GetDeletionTimestamp()
+	if deletionTimestamp != nil {
+		object.DeletionTimestamp = deletionTimestamp.String()
+	}
+
+	unstructured.RemoveNestedField(resourceCopy.Object, "metadata")
+	unstructured.RemoveNestedField(resourceCopy.Object, "status")
+	object.Other = resourceCopy.Object
+
+	return utils.HashObject(object)
+}
+
+// NodeStatisticHealth returns health status based on the number of pending pods.
+func NodeStatisticHealth(pendingPods int64) *client.NodeStatisticHealth {
 	switch {
 	case pendingPods == 0:
 		return lo.ToPtr(client.NodeStatisticHealthHealthy)
@@ -17,7 +51,8 @@ func nodeHealth(pendingPods int64) *client.NodeStatisticHealth {
 	}
 }
 
-func insightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
+// InsightComponentPriority returns insight priority for a given component.
+func InsightComponentPriority(name, namespace, kind string) *client.InsightComponentPriority {
 	kindToPriorityMap := map[string]client.InsightComponentPriority{
 		"Ingress":     client.InsightComponentPriorityCritical,
 		"Certificate": client.InsightComponentPriorityCritical, // cert-manager Certificate

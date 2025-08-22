@@ -14,7 +14,6 @@ import (
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
@@ -348,7 +347,7 @@ func (in *DatabaseStore) GetComponentInsights() (result []client.ClusterInsightC
 				Kind:      kind,
 				Namespace: lo.EmptyableToPtr(namespace),
 				Name:      name,
-				Priority:  insightComponentPriority(name, namespace, kind),
+				Priority:  InsightComponentPriority(name, namespace, kind),
 			})
 			return nil
 		},
@@ -388,7 +387,7 @@ func (in *DatabaseStore) GetNodeStatistics() ([]*client.NodeStatisticAttributes,
 			result = append(result, &client.NodeStatisticAttributes{
 				Name:        lo.ToPtr(stmt.ColumnText(0)),
 				PendingPods: &pendingPods,
-				Health:      nodeHealth(pendingPods),
+				Health:      NodeStatisticHealth(pendingPods),
 			})
 			return nil
 		},
@@ -416,7 +415,7 @@ func (in *DatabaseStore) GetHealthScore() (int64, error) {
 func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType SHAType) error {
 	gvk := obj.GroupVersionKind()
 
-	sha, err := cache.HashResource(obj)
+	sha, err := HashResource(obj)
 	if err != nil {
 		return err
 	}
