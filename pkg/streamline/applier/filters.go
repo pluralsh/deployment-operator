@@ -44,6 +44,12 @@ func CacheFilter() FilterFunc {
 			metrics.Record().ResourceCacheMiss(serviceID)
 			return true
 		}
+		if entry == nil {
+			klog.V(log.LogLevelExtended).InfoS("component not found in store",
+				"gvk", obj.GroupVersionKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+			metrics.Record().ResourceCacheMiss(serviceID)
+			return true
+		}
 
 		newManifestSHA, err := cache.HashResource(obj)
 		if err != nil {
@@ -52,7 +58,7 @@ func CacheFilter() FilterFunc {
 			return true
 		}
 
-		if err := streamline.GetGlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
+		if err = streamline.GetGlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
 			klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA")
 		}
 
