@@ -3,7 +3,6 @@ package applier
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -17,14 +16,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
-// TODO: Add skip logic
 // TODO: Add dry run support for apply
 type Applier struct {
 	filters FilterEngine
@@ -33,35 +30,43 @@ type Applier struct {
 	mu      sync.Mutex
 }
 
-// TODO: use unstructed instead of unstructuredList
-func (in *Applier) Apply(ctx context.Context, serviceID string, resources unstructured.UnstructuredList) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
+func (in *Applier) Apply(ctx context.Context, serviceID string, resources []unstructured.Unstructured) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
 	resources = in.addServiceAnnotation(resources, serviceID)
-	toDelete, err := in.toDelete(serviceID, resources.Items)
+	toDelete, err := in.toDelete(serviceID, resources)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Filters
-	resources.Items = algorithms.Filter(resources.Items, in.filters.Match)
+	klog.V(log.LogLevelDebug).InfoS("resources to apply", "resources", resources, "toDelete", toDelete)
+	toApply, toSkip := in.filterResources(resources)
+	klog.V(log.LogLevelDebug).InfoS("resources after filters", "resources", resources)
 
-	waves := NewWaves(resources)
+	waves := NewWaves(toApply)
 	waves = append(waves, NewWave(toDelete, DeleteWave))
-	componentList := make([]client.ComponentAttributes, 0)
-	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 
 	// Filter out empty waves
 	waves = algorithms.Filter(waves, func(w Wave) bool {
-		return len(w.Items) > 0
+		return w.Len() > 0
 	})
 
-	for i, wave := range waves {
-		now := time.Now()
+	componentList := make([]client.ComponentAttributes, 0)
+	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
+	for _, wave := range waves {
 		processor := NewWaveProcessor(in.client, wave)
 		components, errors := processor.Run(ctx)
-		klog.V(log.LogLevelExtended).InfoS("finished wave", "wave", i, "type", wave.Type, "count", len(wave.Items), "duration", time.Since(now))
 
 		componentList = append(componentList, components...)
 		serviceErrrorList = append(serviceErrrorList, errors...)
+	}
+
+	for _, resource := range toSkip {
+		cacheEntry, err := in.store.GetComponent(resource)
+		if err != nil {
+			klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from cache", "resource", resource)
+			continue
+		}
+
+		componentList = append(componentList, cacheEntry.ToComponentAttributes())
 	}
 
 	for idx, component := range componentList {
@@ -92,8 +97,20 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 	return in.getServiceComponents(serviceID)
 }
 
-func (in *Applier) addServiceAnnotation(resources unstructured.UnstructuredList, serviceID string) unstructured.UnstructuredList {
-	for _, obj := range resources.Items {
+func (in *Applier) filterResources(resources []unstructured.Unstructured) (toApply []unstructured.Unstructured, toSkip []unstructured.Unstructured) {
+	for _, resource := range resources {
+		if in.filters.Match(resource) {
+			toApply = append(toApply, resource)
+		} else {
+			toSkip = append(toSkip, resource)
+		}
+	}
+
+	return
+}
+
+func (in *Applier) addServiceAnnotation(resources []unstructured.Unstructured, serviceID string) []unstructured.Unstructured {
+	for _, obj := range resources {
 		annotations := obj.GetAnnotations()
 		if annotations == nil {
 			annotations = make(map[string]string)

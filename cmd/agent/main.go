@@ -109,6 +109,7 @@ func main() {
 		setupLog.Error(err, "unable to initialize database store")
 		os.Exit(1)
 	}
+	defer dbStore.Shutdown()
 
 	streamline.InitGlobalStore(dbStore)
 

@@ -2,6 +2,7 @@ package store
 
 import (
 	"github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -30,6 +31,19 @@ type Entry struct {
 func (in *Entry) ShouldApply(newManifestSHA string) bool {
 	return in.ServerSHA == "" || in.ApplySHA == "" || in.ManifestSHA == "" ||
 		in.ServerSHA != in.ApplySHA || newManifestSHA != in.ManifestSHA
+}
+
+func (in *Entry) ToComponentAttributes() client.ComponentAttributes {
+	return client.ComponentAttributes{
+		UID:       lo.ToPtr(in.UID),
+		Synced:    true,
+		Group:     in.Group,
+		Version:   in.Version,
+		Kind:      in.Kind,
+		Name:      in.Name,
+		Namespace: in.Namespace,
+		State:     lo.ToPtr(client.ComponentState(in.Status)),
+	}
 }
 
 type SHAType string

@@ -8,10 +8,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +17,9 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
 type WaveType string
@@ -30,28 +29,53 @@ const (
 	DeleteWave WaveType = "delete"
 )
 
+// Wave is a collection of resources that will be applied or deleted together.
+// It is used to group resources that are related to each other.
 type Wave struct {
-	unstructured.UnstructuredList
+	// items is the list of resources in the wave
+	items []unstructured.Unstructured
 
-	Type WaveType
+	// waveType is the type of the wave
+	waveType WaveType
+
 	// TODO: handle that
-	DryRun bool
+	// dryRun determines if the wave should be applied in dry run mode
+	// meaning that the changes will not be persisted
+	dryRun bool
 }
 
-func NewWave(resources []unstructured.Unstructured, waveType WaveType) Wave {
-	return Wave{
-		UnstructuredList: unstructured.UnstructuredList{Items: resources},
-		Type:             waveType,
+type WaveOption func(*Wave)
+
+func WithDryRun(dryRun bool) WaveOption {
+	return func(w *Wave) {
+		w.dryRun = dryRun
 	}
 }
 
+func NewWave(resources []unstructured.Unstructured, waveType WaveType, opts ...WaveOption) Wave {
+	result := Wave{
+		items:    resources,
+		waveType: waveType,
+	}
+
+	for _, opt := range opts {
+		opt(&result)
+	}
+
+	return result
+}
+
 func (in *Wave) Add(resource unstructured.Unstructured) {
-	in.Items = append(in.Items, resource)
+	in.items = append(in.items, resource)
+}
+
+func (in *Wave) Len() int {
+	return len(in.items)
 }
 
 type Waves []Wave
 
-func NewWaves(resources unstructured.UnstructuredList) Waves {
+func NewWaves(resources []unstructured.Unstructured) Waves {
 	defaultWaveCount := 5
 	waves := make([]Wave, 0, defaultWaveCount)
 	for i := 0; i < defaultWaveCount; i++ {
@@ -103,12 +127,12 @@ func NewWaves(resources unstructured.UnstructuredList) Waves {
 		common.APIServiceKind: 3,
 	}
 
-	for _, resource := range resources.Items {
+	for _, resource := range resources {
 		if waveIdx, exists := kindToWave[resource.GetKind()]; exists {
 			waves[waveIdx].Add(resource)
 		} else {
-			// Unknown resource kind, put it in the last wave (4)
-			waves[4].Add(resource)
+			// Unknown resource kind, put it in the last wave
+			waves[len(waves)-1].Add(resource)
 		}
 	}
 
@@ -165,6 +189,7 @@ type WaveProcessor struct {
 func (in *WaveProcessor) Run(ctx context.Context) (components []client.ComponentAttributes, errors []client.ServiceErrorAttributes) {
 	in.mu.Lock()
 	defer in.mu.Unlock()
+	now := time.Now()
 
 	in.init()
 
@@ -215,6 +240,7 @@ func (in *WaveProcessor) Run(ctx context.Context) (components []client.Component
 	close(in.errorsChan)
 	collectorWG.Wait()
 
+	klog.V(log.LogLevelExtended).InfoS("finished wave", "type", in.wave.waveType, "count", in.wave.Len(), "duration", time.Since(now))
 	return components, errors
 }
 
@@ -249,65 +275,79 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context, workerNr int) 
 		return false
 	}
 
-	klog.V(log.LogLevelDebug).InfoS("processing next work item", "worker", workerNr, "id", id)
 	defer in.queue.Done(id)
 
 	resource, exists := in.keyToResource[id]
 	if !exists {
-		klog.V(log.LogLevelDebug).InfoS("resource not found in keyToResource map, continuing", "id", id)
+		klog.V(log.LogLevelTrace).InfoS("resource not found in keyToResource map, continuing", "id", id)
 		return true
 	}
 
-	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
-	switch in.wave.Type {
+	in.processWaveItem(ctx, id, resource)
+	return true
+}
+
+func (in *WaveProcessor) processWaveItem(ctx context.Context, id Key, resource unstructured.Unstructured) {
+	now := time.Now()
+
+	switch in.wave.waveType {
 	case DeleteWave:
 		klog.V(log.LogLevelDebug).InfoS("deleting resource", "resource", id)
-		err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
-		if err != nil {
-			in.errorsChan <- client.ServiceErrorAttributes{
-				Source:  "sync",
-				Message: err.Error(),
-			}
-		}
+		in.onDelete(ctx, resource)
 	case ApplyWave:
 		klog.V(log.LogLevelDebug).InfoS("applying resource", "resource", id)
-		now := time.Now()
-		appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
-			FieldManager: "plural-sync",
-		})
-		klog.V(log.LogLevelDebug).InfoS("applied resource", "resource", id, "duration", time.Since(now))
-
-		if err != nil {
-			if err := streamline.GetGlobalStore().ExpireSHA(resource); err != nil {
-				klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName())
-			}
-			in.errorsChan <- client.ServiceErrorAttributes{
-				Source:  "sync",
-				Message: err.Error(),
-			}
-
-			return true
-		}
-
-		if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
-			klog.Errorf("Failed to update component SHA: %v", err)
-		}
-		if err := streamline.GetGlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {
-			klog.Errorf("Failed to commit transient SHA: %v", err)
-		}
-
-		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
+		in.onApply(ctx, resource)
 	}
 
-	return true
+	klog.V(log.LogLevelDebug).InfoS("finished processing wave item", "resource", id, "duration", time.Since(now))
+}
+
+func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
+	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
+	err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
+	if err != nil {
+		in.errorsChan <- client.ServiceErrorAttributes{
+			Source:  "sync",
+			Message: err.Error(),
+		}
+	}
+}
+
+func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
+	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
+	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
+		FieldManager: "plural-sync",
+	})
+
+	if err != nil {
+		if err := streamline.GetGlobalStore().ExpireSHA(resource); err != nil {
+			klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName())
+		}
+
+		in.errorsChan <- client.ServiceErrorAttributes{
+			Source:  "sync",
+			Message: err.Error(),
+		}
+
+		return
+	}
+
+	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName())
+	}
+	if err := streamline.GetGlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to commit transient SHA", "resource", resource.GetName())
+	}
+
+	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
 }
 
 func (in *WaveProcessor) init() {
 	in.concurrentApplies = in.maxConcurrentApplies
 
-	if len(in.wave.Items) < in.maxConcurrentApplies {
-		klog.V(log.LogLevelDebug).InfoS("optimizing concurrent applies", "max", in.maxConcurrentApplies, "optimized", len(in.wave.Items))
-		in.concurrentApplies = len(in.wave.Items)
+	if len(in.wave.items) < in.maxConcurrentApplies {
+		klog.V(log.LogLevelDebug).InfoS("optimizing concurrent applies", "max", in.maxConcurrentApplies, "optimized", in.wave.Len())
+		in.concurrentApplies = len(in.wave.items)
 	}
 
 	in.componentChan = make(chan client.ComponentAttributes, in.concurrentApplies)
@@ -315,7 +355,7 @@ func (in *WaveProcessor) init() {
 	in.keyToResource = make(map[Key]unstructured.Unstructured)
 	in.queue = workqueue.NewTyped[Key]()
 
-	for _, obj := range in.wave.Items {
+	for _, obj := range in.wave.items {
 		key := NewKeyFromUnstructured(obj)
 		in.keyToResource[key] = obj
 		in.queue.Add(key)

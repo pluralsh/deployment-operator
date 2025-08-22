@@ -493,7 +493,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	//}
 
 	klog.InfoS("applying manifests", "service", svc.Name)
-	components, errs, err := s.applier.Apply(ctx, id, unstructured.UnstructuredList{Items: manifests})
+	components, errs, err := s.applier.Apply(ctx, id, manifests) // TODO: what to do with err
 
 	klog.InfoS("applied manifests", "service", svc.Name)
 	err = s.UpdateApplyStatus(ctx, svc, components, errs)
