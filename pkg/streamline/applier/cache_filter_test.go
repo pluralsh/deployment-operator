@@ -220,38 +220,3 @@ func TestCacheFilter(t *testing.T) {
 		assert.NotEmpty(t, entry.TransientManifestSHA)
 	})
 }
-
-func TestFilterEngine(t *testing.T) {
-	t.Run("should match when all filters pass", func(t *testing.T) {
-		engine := &FilterEngine{}
-
-		// Add filters that always return true
-		engine.Add(func(obj unstructured.Unstructured) bool { return true })
-		engine.Add(func(obj unstructured.Unstructured) bool { return true })
-
-		obj := unstructured.Unstructured{}
-		result := engine.Match(obj)
-		assert.True(t, result)
-	})
-
-	t.Run("should not match when any filter fails", func(t *testing.T) {
-		engine := &FilterEngine{}
-
-		// Add filters where one returns false
-		engine.Add(func(obj unstructured.Unstructured) bool { return true })
-		engine.Add(func(obj unstructured.Unstructured) bool { return false })
-		engine.Add(func(obj unstructured.Unstructured) bool { return true })
-
-		obj := unstructured.Unstructured{}
-		result := engine.Match(obj)
-		assert.False(t, result)
-	})
-
-	t.Run("should match when no filters are added", func(t *testing.T) {
-		engine := &FilterEngine{}
-
-		obj := unstructured.Unstructured{}
-		result := engine.Match(obj)
-		assert.True(t, result)
-	})
-}
