@@ -25,6 +25,47 @@ type Template interface {
 }
 
 func Render(dir string, svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
+	if len(svc.Renderers) == 0 {
+		return renderDefault(dir, svc, utilFactory)
+	}
+
+	var allManifests []unstructured.Unstructured
+	for _, renderer := range svc.Renderers {
+		var manifests []unstructured.Unstructured
+		var err error
+
+		switch renderer.Type {
+		case console.RendererTypeAuto:
+			manifests, err = renderDefault(renderer.Path, svc, utilFactory)
+		case console.RendererTypeRaw:
+			manifests, err = NewRaw(renderer.Path).Render(svc, utilFactory)
+		case console.RendererTypeHelm:
+			svcCopy := *svc
+			if renderer.Helm != nil {
+				svcCopy.Helm = &console.ServiceDeploymentForAgent_Helm{
+					Values:      renderer.Helm.Values,
+					ValuesFiles: renderer.Helm.ValuesFiles,
+					Release:     renderer.Helm.Release,
+				}
+			}
+			manifests, err = NewHelm(renderer.Path).Render(&svcCopy, utilFactory)
+		case console.RendererTypeKustomize:
+			manifests, err = NewKustomize(renderer.Path).Render(svc, utilFactory)
+		default:
+			return nil, fmt.Errorf("unknown renderer type: %s", renderer.Type)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("error rendering path %s with type %s: %w", renderer.Path, renderer.Type, err)
+		}
+
+		allManifests = append(allManifests, manifests...)
+	}
+
+	return allManifests, nil
+}
+
+func renderDefault(dir string, svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
 	renderer := RendererRaw
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
