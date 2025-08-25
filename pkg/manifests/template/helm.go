@@ -40,7 +40,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -384,7 +384,7 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 		return nil, err
 	}
 	client.KubeVersion = vsn
-	client.APIVersions = algorithms.MapKeys[string, bool](cache.DiscoveryCache().Items())
+	client.APIVersions = discoverycache.GlobalCache().APIVersions().List()
 
 	return client.Run(chart, values)
 }

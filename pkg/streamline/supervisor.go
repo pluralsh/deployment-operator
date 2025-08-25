@@ -6,12 +6,15 @@ import (
 	"sync"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/pluralsh/polly/algorithms"
 
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
+	"github.com/pluralsh/deployment-operator/internal/metrics"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
@@ -47,6 +50,14 @@ var (
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "rolebindings"},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"},
+	})
+
+	GroupBlacklist = containers.ToSet([]string{
+		"aquasecurity.github.io",
+	})
+
+	ResourceVersionBlacklist = containers.ToSet([]string{
+		"componentstatuses/v1",
 	})
 )
 
@@ -95,16 +106,25 @@ func (in *Supervisor) run(ctx context.Context) {
 					if !ok {
 						return
 					}
+
+					metrics.Record().ResourceCacheWatchStart(gvr.String())
+					defer metrics.Record().ResourceCacheWatchEnd(gvr.String())
+
 					if err := syn.Start(ctx); err != nil {
 						in.synchronizers.Remove(gvr)
 						in.register <- gvr
+						// TODO: add restart delay
 					}
 				}()
 			}
 		}
 	}()
 
-	for _, gvr := range coreResources.List() {
+	gvrList := algorithms.Filter(discoverycache.GlobalCache().GroupVersionResource().List(), func(gvr schema.GroupVersionResource) bool {
+		return !GroupBlacklist.Has(gvr.Group) && !ResourceVersionBlacklist.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version))
+	})
+
+	for _, gvr := range gvrList {
 		in.Register(gvr)
 	}
 }

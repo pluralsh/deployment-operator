@@ -5,13 +5,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-
-	"github.com/pluralsh/deployment-operator/pkg/ping"
 
 	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
@@ -32,12 +27,18 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/ping"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/scraper"
 )
 
 var (
@@ -103,6 +104,9 @@ func main() {
 	consoleManager := initConsoleManagerOrDie()
 	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient())
 
+	// Start the discovery cache in background.
+	runDiscoveryManagerOrDie(ctx, discoveryClient)
+
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
@@ -129,9 +133,6 @@ func main() {
 	//	cache.Init(ctx, config, args.ResourceCacheTTL())
 	//	scraper.RunServerGroupsScraperInBackgroundOrDie(ctx, config)
 	//}
-
-	// Start the discovery cache in background.
-	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
 
 	// Start the metrics scarper in background.
 	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient, config)
@@ -180,6 +181,25 @@ func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
 	setupLog.Info("starting kubernetes controller manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "unable to start kubernetes controller manager")
+		os.Exit(1)
+	}
+}
+
+func runDiscoveryManagerOrDie(ctx context.Context, client discovery.DiscoveryInterface) {
+	discoverycache.InitGlobalDiscoveryCache(client,
+		discoverycache.WithOnGroupVersionKindAdded(func(gvk schema.GroupVersionKind) {
+			discoverycache.UpdateServiceMesh(gvk.Group, discoverycache.ServiceMeshUpdateTypeAdded)
+		}),
+		discoverycache.WithOnGroupVersionKindDeleted(func(gvk schema.GroupVersionKind) {
+			discoverycache.UpdateServiceMesh(gvk.Group, discoverycache.ServiceMeshUpdateTypeDeleted)
+		}),
+	)
+
+	setupLog.Info("starting discovery manager")
+	if err := discoverycache.NewDiscoveryManager(
+		discoverycache.WithRefreshInterval(args.DiscoveryCacheRefreshInterval()),
+	).Start(ctx); err != nil {
+		setupLog.Error(err, "unable to start discovery manager")
 		os.Exit(1)
 	}
 }

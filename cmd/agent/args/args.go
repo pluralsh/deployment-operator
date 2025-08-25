@@ -73,6 +73,9 @@ const (
 
 	defaultRuntimeServicePingInterval         = "3m"
 	defaultRuntimeServicePingIntervalDuration = 3 * time.Minute
+
+	defaultDiscoveryCacheRefreshInterval         = "5m"
+	defaultDiscoveryCacheRefreshIntervalDuration = 5 * time.Minute
 )
 
 var (
@@ -98,23 +101,24 @@ var (
 	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "DEPRECATED: Time interval to poll resources from the Console API.")
 	argPollInterval      = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
 	// TODO: ensure this arg can be safely renamed without causing breaking changes.
-	argPollJitter                 = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
-	argResourceCacheTTL           = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
-	argManifestCacheTTL           = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
-	argManifestCacheJitter        = flag.String("manifest-cache-jitter", defaultManifestCacheJitter, "Randomly selected jitter time up to the provided duration will be added to the manifest cache TTL.")
-	argControllerCacheTTL         = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
-	argRestoreNamespace           = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
-	argServices                   = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
-	argPyroscopeAddress           = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
-	argDatadogHost                = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
-	argDatadogEnv                 = flag.String("datadog-env", defaultDatadogEnv, "The environment of the Datadog server.")
-	argWorkqueueBaseDelay         = flag.String("workqueue-base-delay", defaultWorkqueueBaseDelay, "The base delay for the workqueue.")
-	argWorkqueueMaxDelay          = flag.String("workqueue-max-delay", defaultWorkqueueMaxDelay, "The maximum delay for the workqueue.")
-	argWorkqueueQPS               = flag.Int("workqueue-qps", 10, "The maximum number of items to process per second.")
-	argWorkqueueBurst             = flag.Int("workqueue-burst", 50, "The maximum number of items to process at a time.")
-	argClusterPingInterval        = flag.String("cluster-ping-interval", defaultClusterPingInterval, "Time interval to ping cluster.")
-	argRuntimeServicePingInterval = flag.String("runtime-service-ping-interval", defaultRuntimeServicePingInterval, "Time interval to register runtime services.")
-	serviceSet                    containers.Set[string]
+	argPollJitter                    = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
+	argResourceCacheTTL              = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
+	argManifestCacheTTL              = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
+	argManifestCacheJitter           = flag.String("manifest-cache-jitter", defaultManifestCacheJitter, "Randomly selected jitter time up to the provided duration will be added to the manifest cache TTL.")
+	argControllerCacheTTL            = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
+	argRestoreNamespace              = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
+	argServices                      = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
+	argPyroscopeAddress              = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
+	argDatadogHost                   = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
+	argDatadogEnv                    = flag.String("datadog-env", defaultDatadogEnv, "The environment of the Datadog server.")
+	argWorkqueueBaseDelay            = flag.String("workqueue-base-delay", defaultWorkqueueBaseDelay, "The base delay for the workqueue.")
+	argWorkqueueMaxDelay             = flag.String("workqueue-max-delay", defaultWorkqueueMaxDelay, "The maximum delay for the workqueue.")
+	argWorkqueueQPS                  = flag.Int("workqueue-qps", 10, "The maximum number of items to process per second.")
+	argWorkqueueBurst                = flag.Int("workqueue-burst", 50, "The maximum number of items to process at a time.")
+	argClusterPingInterval           = flag.String("cluster-ping-interval", defaultClusterPingInterval, "Time interval to ping cluster.")
+	argRuntimeServicePingInterval    = flag.String("runtime-service-ping-interval", defaultRuntimeServicePingInterval, "Time interval to register runtime services.")
+	argDiscoveryCacheRefreshInterval = flag.String("discovery-cache-refresh-interval", defaultDiscoveryCacheRefreshInterval, "Time interval to refresh discovery cache.")
+	serviceSet                       containers.Set[string]
 )
 
 func Init() {
@@ -393,6 +397,16 @@ func RuntimeServicesPingInterval() time.Duration {
 	if err != nil {
 		klog.ErrorS(err, "Could not parse runtime-service-ping-interval", "value", *argRuntimeServicePingInterval, "default", defaultRuntimeServicePingInterval)
 		return defaultRuntimeServicePingIntervalDuration
+	}
+
+	return duration
+}
+
+func DiscoveryCacheRefreshInterval() time.Duration {
+	duration, err := time.ParseDuration(*argDiscoveryCacheRefreshInterval)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse discovery-cache-refresh-interval", "value", *argDiscoveryCacheRefreshInterval, "default", defaultDiscoveryCacheRefreshInterval)
+		return defaultDiscoveryCacheRefreshIntervalDuration
 	}
 
 	return duration

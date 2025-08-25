@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 
 	"github.com/Masterminds/semver/v3"
 	console "github.com/pluralsh/console/go/client"
@@ -21,7 +22,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
@@ -67,13 +67,13 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 		for _, ds := range daemonSets.Items {
 			AddRuntimeServiceInfo(ds.Namespace, ds.GetLabels(), runtimeServices)
 
-			if cache.IsEBPFDaemonSet(ds) {
+			if discoverycache.IsEBPFDaemonSet(ds) {
 				hasEBPFDaemonSet = true
 			}
 		}
 	}
 
-	serviceMesh := cache.ServiceMesh(hasEBPFDaemonSet)
+	serviceMesh := discoverycache.ServiceMesh(hasEBPFDaemonSet)
 	if serviceMesh == nil {
 		klog.Info("no service mesh detected")
 	} else {
