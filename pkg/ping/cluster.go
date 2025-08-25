@@ -3,14 +3,14 @@ package ping
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sort"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pluralsh/polly/containers"
@@ -27,8 +27,7 @@ func RunClusterPingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, dura
 		if clusterPingInterval := common.GetConfigurationManager().GetClusterPingInterval(); clusterPingInterval != nil && *clusterPingInterval > 0 {
 			duration = *clusterPingInterval
 		}
-		jitter := time.Duration(rand.Int63n(int64(duration / 2)))
-		return duration + jitter
+		return duration
 	}
 
 	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {

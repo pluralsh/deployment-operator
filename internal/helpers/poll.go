@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -46,11 +47,13 @@ func DynamicPollUntilContextCancel(
 			ticker.Stop()
 		}
 
+		jitter := time.Duration(rand.Int63n(int64(interval)) - int64(interval/2))
+
 		// Active polling mode
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(interval):
+		case <-time.After(interval + jitter):
 			if ok, err := func() (bool, error) {
 				defer runtime.HandleCrashWithContext(ctx)
 				return condition(ctx)

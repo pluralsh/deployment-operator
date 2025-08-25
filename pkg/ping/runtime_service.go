@@ -3,7 +3,6 @@ package ping
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sort"
 	"strings"
 	"time"
@@ -34,8 +33,7 @@ func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinge
 		if runtimeServicesPingInterval := common.GetConfigurationManager().GetRuntimeServicesPingInterval(); runtimeServicesPingInterval != nil && *runtimeServicesPingInterval > 0 {
 			duration = *runtimeServicesPingInterval
 		}
-		jitter := time.Duration(rand.Int63n(int64(duration / 2)))
-		return duration + jitter
+		return duration
 	}
 
 	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
