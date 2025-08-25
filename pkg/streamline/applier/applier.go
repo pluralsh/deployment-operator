@@ -57,6 +57,7 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 
 		componentList = append(componentList, components...)
 		serviceErrrorList = append(serviceErrrorList, errors...)
+		// TODO: wait between waves?
 	}
 
 	klog.V(log.LogLevelInfo).InfoS(

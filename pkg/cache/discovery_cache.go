@@ -9,18 +9,23 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/internal/metrics"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-type ServiceMeshResourceGroup string
-
 const (
+	ServiceMeshResourcePriorityIstio ServiceMeshResourcePriority = iota
+	ServiceMeshResourcePriorityCilium
+	ServiceMeshResourcePriorityLinkerd
+	ServiceMeshResourcePriorityNone = 255
+
 	// ServiceMeshResourceGroupIstio is a base group name used by Istio
 	// Ref: https://github.com/istio/istio/blob/6186a80cb220ecbd7e1cc82044fe3a6fc2876c63/operator/pkg/apis/register.go#L27-L31
 	ServiceMeshResourceGroupIstio ServiceMeshResourceGroup = "istio.io"
@@ -40,6 +45,32 @@ const (
 	ebpfAppName  = "opentelemetry-ebpf"
 )
 
+var (
+	// Maps a GroupVersion to resource Kind.
+	discoveryCacheInstance discoveryCache
+	serviceMesh            = ServiceMeshResourceGroupNone
+	serviceMeshRWLock      = sync.RWMutex{}
+)
+
+func init() {
+	discoveryCacheInstance = discoveryCache{apiVersions: cmap.New[bool]()}
+}
+
+type discoveryCache struct {
+	apiVersions cmap.ConcurrentMap[string, bool]
+}
+
+func DiscoveryCache() discoveryCache {
+	return discoveryCacheInstance
+}
+
+// ServiceMeshResourcePriority determines the order in which the ServiceMeshResourceGroup
+// is assigned. Lower number means higher priority.
+type ServiceMeshResourcePriority uint8
+
+// ServiceMeshResourceGroup represents a group name used by a service mesh.
+type ServiceMeshResourceGroup string
+
 func (in ServiceMeshResourceGroup) String() string {
 	return string(in)
 }
@@ -57,30 +88,21 @@ func (in ServiceMeshResourceGroup) Priority() ServiceMeshResourcePriority {
 	}
 }
 
-// ServiceMeshResourcePriority determines the order in which the ServiceMeshResourceGroup
-// is assigned. Lower number means higher priority.
-type ServiceMeshResourcePriority uint8
+func RunDiscoveryCacheInBackgroundOrDie(ctx context.Context, discoveryClient *discovery.DiscoveryClient) {
+	klog.V(log.LogLevelMinimal).Info("starting discovery cache")
 
-const (
-	ServiceMeshResourcePriorityIstio ServiceMeshResourcePriority = iota
-	ServiceMeshResourcePriorityCilium
-	ServiceMeshResourcePriorityLinkerd
-	ServiceMeshResourcePriorityNone = 255
-)
+	err := helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, true, func(_ context.Context) (done bool, err error) {
+		if err = updateDiscoveryCache(discoveryClient); err != nil {
+			klog.Error(err, "can't fetch API versions")
+		}
 
-var (
-	// Maps a GroupVersion to resource Kind.
-	discoveryCache    cmap.ConcurrentMap[string, bool]
-	serviceMesh       = ServiceMeshResourceGroupNone
-	serviceMeshRWLock = sync.RWMutex{}
-)
+		metrics.Record().DiscoveryAPICacheRefresh(err)
+		return false, nil
+	})
 
-func init() {
-	discoveryCache = cmap.New[bool]()
-}
-
-func DiscoveryCache() cmap.ConcurrentMap[string, bool] {
-	return discoveryCache
+	if err != nil {
+		panic(fmt.Errorf("failed to start discovery cache in background: %w", err))
+	}
 }
 
 func ServiceMesh(hasEBPFDaemonSet bool) *client.ServiceMesh {
@@ -103,19 +125,9 @@ func ServiceMesh(hasEBPFDaemonSet bool) *client.ServiceMesh {
 	}
 }
 
-func RunDiscoveryCacheInBackgroundOrDie(ctx context.Context, discoveryClient *discovery.DiscoveryClient) {
-	klog.Info("starting discovery cache")
-	err := helpers.BackgroundPollUntilContextCancel(ctx, 5*time.Minute, true, false, func(_ context.Context) (done bool, err error) {
-		if err = updateDiscoveryCache(discoveryClient); err != nil {
-			klog.Error(err, "can't fetch API versions")
-		}
-
-		metrics.Record().DiscoveryAPICacheRefresh(err)
-		return false, nil
-	})
-	if err != nil {
-		panic(fmt.Errorf("failed to start discovery cache in background: %w", err))
-	}
+func IsEBPFDaemonSet(ds appsv1.DaemonSet) bool {
+	value, ok := ds.Labels[appNameLabel]
+	return ok && value == ebpfAppName
 }
 
 func updateDiscoveryCache(discoveryClient *discovery.DiscoveryClient) error {
@@ -136,8 +148,8 @@ func updateDiscoveryCache(discoveryClient *discovery.DiscoveryClient) error {
 				continue
 			}
 
-			discoveryCache.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
-			discoveryCache.Set(gv.String(), true)
+			discoveryCacheInstance.apiVersions.Set(fmt.Sprintf("%s/%s", gv.String(), resource.Kind), true)
+			discoveryCacheInstance.apiVersions.Set(gv.String(), true)
 
 			checkAndUpdateServiceMesh(gv.Group)
 		}
@@ -167,9 +179,4 @@ func checkAndUpdateServiceMesh(group string) {
 	if serviceMesh.Priority() > newServiceMesh.Priority() {
 		serviceMesh = newServiceMesh
 	}
-}
-
-func IsEBPFDaemonSet(ds appsv1.DaemonSet) bool {
-	value, ok := ds.Labels[appNameLabel]
-	return ok && value == ebpfAppName
 }
