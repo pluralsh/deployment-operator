@@ -105,7 +105,7 @@ func ServiceMesh(hasEBPFDaemonSet bool) *client.ServiceMesh {
 
 func RunDiscoveryCacheInBackgroundOrDie(ctx context.Context, discoveryClient *discovery.DiscoveryClient) {
 	klog.Info("starting discovery cache")
-	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return 5 * time.Minute }, true, false, func(_ context.Context) (done bool, err error) {
+	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return 5 * time.Minute }, true, func(_ context.Context) (done bool, err error) {
 		if err = updateDiscoveryCache(discoveryClient); err != nil {
 			klog.Error(err, "can't fetch API versions")
 		}

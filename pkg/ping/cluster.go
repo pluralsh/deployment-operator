@@ -3,14 +3,14 @@ package ping
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sort"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pluralsh/polly/containers"
@@ -24,14 +24,13 @@ func RunClusterPingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, dura
 	klog.Info("starting ", clusterPingerName)
 
 	interval := func() time.Duration {
-		if clusterPingInterval := common.GetConfigurationManager().GetClusterPingInterval(); clusterPingInterval != nil {
+		if clusterPingInterval := common.GetConfigurationManager().GetClusterPingInterval(); clusterPingInterval != nil && *clusterPingInterval > 0 {
 			duration = *clusterPingInterval
 		}
-		jitter := time.Duration(rand.Int63n(int64(duration / 3)))
-		return duration + jitter
+		return duration
 	}
 
-	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, true, false, func(_ context.Context) (done bool, err error) {
+	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
 		if err := pinger.PingCluster(); err != nil {
 			klog.ErrorS(err, "failed ping cluster")
 		}
