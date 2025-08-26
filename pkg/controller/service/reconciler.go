@@ -304,7 +304,6 @@ func (s *ServiceReconciler) ShutdownQueue() {
 
 func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentEdgeFragmentForAgent] {
 	logger := log.FromContext(ctx)
-	logger.Info("create service pager")
 	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentEdgeFragmentForAgent, *algorithms.PageInfo, error) {
 		resp, err := s.consoleClient.GetServices(page, &size)
 		if err != nil {
@@ -323,7 +322,7 @@ func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[
 
 func (s *ServiceReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
-	logger.Info("fetching services for cluster")
+	logger.V(3).Info("fetching services for cluster")
 
 	restore, err := s.isClusterRestore(ctx)
 	if err != nil {

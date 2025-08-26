@@ -9,11 +9,12 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/polly/template"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
 
 var (

@@ -69,7 +69,7 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 	kindToWave := map[string]int{
 		// Wave 0 - core non-namespaced resources
 		common.NamespaceKind:                0,
-		common.CustomResourceDefinitionKind: 0,
+		common.CustomResourceDefinitionKind: 0, // TODO: should it be here or in the last wave?
 		common.PersistentVolumeKind:         0,
 		common.ClusterRoleKind:              0,
 		common.ClusterRoleListKind:          0,
@@ -125,7 +125,7 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 
 const (
 	defaultMaxConcurrentApplies = 10
-	defaultDeQueueJitter        = 1 * time.Millisecond
+	defaultDeQueueJitter        = 100 * time.Millisecond
 )
 
 // WaveProcessor processes a wave of resources. It applies or deletes the resources in the wave.

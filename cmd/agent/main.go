@@ -100,30 +100,31 @@ func main() {
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 	discoveryClient := initDiscoveryClientOrDie(config)
 	dynamicClient := initDynamicClientOrDie(config)
+
+	// Initialize the discovery cache.
+	initDiscoveryCache(discoveryClient)
+	discoveryCache := discoverycache.GlobalCache()
+
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
-	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient())
+	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient(), discoveryCache)
 
-	// Start the discovery cache in background.
-	runDiscoveryManagerOrDie(ctx, discoveryClient)
+	// Start the discovery cache manager in background.
+	runDiscoveryManagerOrDie(ctx, discoveryCache)
 
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
-	dbStore, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile), store.WithFilePath("/tmp/agent-store.db"))
-	if err != nil {
-		setupLog.Error(err, "unable to initialize database store")
-		os.Exit(1)
-	}
+	dbStore := initDatabaseStoreOrDie()
 	defer dbStore.Shutdown()
 
 	streamline.InitGlobalStore(dbStore)
 
 	// Start synchronizer supervisor
-	streamline.Run(dynamicClient, dbStore)
+	runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
 
 	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient)
-	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy())
+	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
 
@@ -135,7 +136,7 @@ func main() {
 	//}
 
 	// Start the metrics scarper in background.
-	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient, config)
+	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryCache, config)
 
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
@@ -170,36 +171,62 @@ func initDynamicClientOrDie(config *rest.Config) dynamic.Interface {
 }
 
 func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Manager) {
-	setupLog.Info("starting console controller manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "unable to start console controller manager")
 		os.Exit(1)
 	}
+	setupLog.Info("started console controller manager")
 }
 
 func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
-	setupLog.Info("starting kubernetes controller manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "unable to start kubernetes controller manager")
 		os.Exit(1)
 	}
+	setupLog.Info("started kubernetes controller manager")
 }
 
-func runDiscoveryManagerOrDie(ctx context.Context, client discovery.DiscoveryInterface) {
+func initDiscoveryCache(client discovery.DiscoveryInterface) {
 	discoverycache.InitGlobalDiscoveryCache(client,
-		discoverycache.WithOnGroupVersionKindAdded(func(gvk schema.GroupVersionKind) {
+		discoverycache.WithOnAdded(func(gvk schema.GroupVersionKind, _ schema.GroupVersionResource) {
 			discoverycache.UpdateServiceMesh(gvk.Group, discoverycache.ServiceMeshUpdateTypeAdded)
 		}),
-		discoverycache.WithOnGroupVersionKindDeleted(func(gvk schema.GroupVersionKind) {
+		discoverycache.WithOnDeleted(func(gvk schema.GroupVersionKind, _ schema.GroupVersionResource) {
 			discoverycache.UpdateServiceMesh(gvk.Group, discoverycache.ServiceMeshUpdateTypeDeleted)
 		}),
 	)
+}
 
-	setupLog.Info("starting discovery manager")
+func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 	if err := discoverycache.NewDiscoveryManager(
 		discoverycache.WithRefreshInterval(args.DiscoveryCacheRefreshInterval()),
+		discoverycache.WithCache(cache),
 	).Start(ctx); err != nil {
 		setupLog.Error(err, "unable to start discovery manager")
 		os.Exit(1)
 	}
+	setupLog.Info("discovery manager started with initial cache sync")
+}
+
+func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache) {
+	streamline.Run(ctx, dynamicClient, store, discoveryCache)
+
+	setupLog.Info("waiting for synchronizers cache to sync")
+	if err := streamline.WaitForCacheSync(ctx); err != nil {
+		setupLog.Error(err, "unable to sync resource cache")
+		os.Exit(1)
+	}
+
+	setupLog.Info("started synchronizer supervisor with initial cache sync")
+}
+
+func initDatabaseStoreOrDie() store.Store {
+	// TODO: remove file storage after tests
+	dbStore, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile), store.WithFilePath("/tmp/agent-store.db"))
+	if err != nil {
+		setupLog.Error(err, "unable to initialize database store")
+		os.Exit(1)
+	}
+
+	return dbStore
 }

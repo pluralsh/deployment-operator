@@ -107,8 +107,8 @@ func (s *RestoreReconciler) ShutdownQueue() {
 
 func (s *RestoreReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
+	logger.V(3).Info("fetching restore for cluster")
 
-	logger.Info("fetching restore for cluster")
 	myCluster, err := s.consoleClient.MyCluster()
 	if err != nil {
 		logger.Error(err, "failed to fetch my cluster")

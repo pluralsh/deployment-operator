@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
@@ -25,8 +24,6 @@ type Manager interface {
 	// Stop stops the discovery cache manager.
 	Stop()
 }
-
-type GroupVersionKindFunc func(schema.GroupVersionKind)
 
 type manager struct {
 	started bool

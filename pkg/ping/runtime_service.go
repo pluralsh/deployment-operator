@@ -10,6 +10,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	internallog "github.com/pluralsh/deployment-operator/pkg/log"
 
 	"github.com/Masterminds/semver/v3"
 	console "github.com/pluralsh/console/go/client"
@@ -25,28 +26,23 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
-const runtimeServicePingerName = "runtime service pinger"
-
 func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, duration time.Duration) {
-	klog.Info("starting ", runtimeServicePingerName)
-
-	err := helpers.BackgroundPollUntilContextCancel(ctx, duration, true, false, func(_ context.Context) (done bool, err error) {
+	_ = helpers.BackgroundPollUntilContextCancel(ctx, duration, true, false, func(_ context.Context) (done bool, err error) {
 		time.Sleep(time.Duration(rand.Int63n(int64(duration / 3))))
 		pinger.PingRuntimeServices(ctx)
 		return false, nil
 	})
-	if err != nil {
-		panic(fmt.Errorf("failed to start %s in background: %w", runtimeServicePingerName, err))
-	}
+
+	klog.V(internallog.LogLevelDefault).InfoS("started runtime service pinger", "interval", duration)
 }
 
 func (p *Pinger) PingRuntimeServices(ctx context.Context) {
-	klog.Info("attempting to collect all runtime services for the cluster")
+	klog.V(internallog.LogLevelExtended).Info("attempting to collect all runtime services for the cluster")
 	// Pre-allocate map with estimated capacity to avoid reallocations
 	runtimeServices := make(map[string]client.NamespaceVersion, 100)
 	deployments, err := p.clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 	if err == nil {
-		klog.Info("aggregating from deployments")
+		klog.V(internallog.LogLevelExtended).Info("aggregating from deployments")
 		for _, deployment := range deployments.Items {
 			AddRuntimeServiceInfo(deployment.Namespace, deployment.GetLabels(), runtimeServices)
 		}
@@ -54,7 +50,7 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 
 	statefulSets, err := p.clientset.AppsV1().StatefulSets("").List(ctx, metav1.ListOptions{})
 	if err == nil {
-		klog.Info("aggregating from statefulsets")
+		klog.V(internallog.LogLevelExtended).Info("aggregating from statefulsets")
 		for _, ss := range statefulSets.Items {
 			AddRuntimeServiceInfo(ss.Namespace, ss.GetLabels(), runtimeServices)
 		}
@@ -63,7 +59,7 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 	hasEBPFDaemonSet := false
 	daemonSets, err := p.clientset.AppsV1().DaemonSets("").List(ctx, metav1.ListOptions{})
 	if err == nil {
-		klog.Info("aggregating from daemonsets")
+		klog.V(internallog.LogLevelExtended).Info("aggregating from daemonsets")
 		for _, ds := range daemonSets.Items {
 			AddRuntimeServiceInfo(ds.Namespace, ds.GetLabels(), runtimeServices)
 
@@ -75,14 +71,16 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 
 	serviceMesh := discoverycache.ServiceMesh(hasEBPFDaemonSet)
 	if serviceMesh == nil {
-		klog.Info("no service mesh detected")
+		klog.V(internallog.LogLevelDefault).Info("no service mesh detected")
 	} else {
-		klog.Info("detected service mesh", "serviceMesh", serviceMesh)
+		klog.V(internallog.LogLevelDefault).Info("detected service mesh", "serviceMesh", serviceMesh)
 	}
 
 	if err := p.consoleClient.RegisterRuntimeServices(runtimeServices, p.GetDeprecatedCustomResources(ctx), nil, serviceMesh); err != nil {
 		klog.ErrorS(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
+
+	klog.V(internallog.LogLevelDefault).InfoS("registered runtime services", "runtimeServices", len(runtimeServices), "serviceMesh", serviceMesh)
 }
 
 func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]client.NamespaceVersion) {

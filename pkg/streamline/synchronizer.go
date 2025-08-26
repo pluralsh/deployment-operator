@@ -22,15 +22,19 @@ import (
 type Synchronizer interface {
 	Start(ctx context.Context) error
 	Stop()
+	Started() bool
 	Resynchronize()
 }
 
 type synchronizer struct {
-	gvr     schema.GroupVersionResource
-	store   store.Store
-	client  dynamic.Interface
 	mu      sync.Mutex
 	started bool
+	cancel  context.CancelFunc
+
+	client dynamic.Interface
+
+	gvr   schema.GroupVersionResource
+	store store.Store
 }
 
 func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, store store.Store) Synchronizer {
@@ -41,78 +45,112 @@ func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, 
 	}
 }
 
-func (w *synchronizer) Start(ctx context.Context) error {
-	list, err := w.client.Resource(w.gvr).Namespace(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+func (in *synchronizer) Start(ctx context.Context) error {
+	in.mu.Lock()
+
+	internalCtx, cancel := context.WithCancel(ctx)
+	in.cancel = cancel
+
+	list, err := in.client.Resource(in.gvr).Namespace(metav1.NamespaceAll).List(internalCtx, metav1.ListOptions{})
 	if err != nil {
+		in.mu.Unlock()
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
 
-	w.handleList(*list)
+	in.handleList(lo.FromPtr(list))
 
-	watchCh, err := w.client.Resource(w.gvr).Namespace(metav1.NamespaceAll).Watch(ctx, metav1.ListOptions{})
+	watchCh, err := in.client.Resource(in.gvr).Namespace(metav1.NamespaceAll).Watch(internalCtx, metav1.ListOptions{
+		ResourceVersion: list.GetResourceVersion(),
+	})
 	if err != nil {
+		in.mu.Unlock()
 		return fmt.Errorf("failed to start watch: %w", err)
 	}
 
+	in.started = true
+	in.mu.Unlock()
+	klog.V(log.LogLevelVerbose).InfoS("started watching resources", "gvr", in.gvr)
 	for {
 		select {
 		case <-ctx.Done():
+			return ctx.Err()
+		case <-internalCtx.Done():
 			return nil
 		case event, ok := <-watchCh.ResultChan():
 			if !ok {
 				return fmt.Errorf("watch channel closed")
 			}
 
-			w.handleEvent(event)
+			in.handleEvent(event)
 		}
 	}
 }
 
-func (w *synchronizer) handleList(list unstructured.UnstructuredList) {
+func (in *synchronizer) handleList(list unstructured.UnstructuredList) {
 	for _, obj := range list.Items {
-		if err := w.store.SaveComponent(obj); err != nil {
-			klog.ErrorS(err, "failed to save resource", "gvr", w.gvr, "name", obj.GetName())
+		if err := in.store.SaveComponent(obj); err != nil {
+			klog.ErrorS(err, "failed to save resource", "gvr", in.gvr, "name", obj.GetName())
+		}
+
+		if err := in.store.UpdateComponentSHA(obj, store.ServerSHA); err != nil {
+			klog.ErrorS(err, "failed to update component SHA", "gvr", in.gvr)
 		}
 	}
 }
 
-func (w *synchronizer) handleEvent(ev watch.Event) {
+func (in *synchronizer) handleEvent(ev watch.Event) {
 	switch ev.Type {
 	case watch.Added, watch.Modified:
 		obj, err := common.ToUnstructured(ev.Object)
 		if err != nil {
-			klog.ErrorS(err, "failed to convert to unstructured", "gvr", w.gvr)
+			klog.ErrorS(err, "failed to convert to unstructured", "gvr", in.gvr)
 			return
 		}
 
-		klog.V(log.LogLevelTrace).InfoS("adding/updating resource in the store", "gvr", w.gvr, "name", obj.GetName())
-		if err := w.store.SaveComponent(*obj); err != nil {
-			klog.ErrorS(err, "failed to save resource", "gvr", w.gvr, "name", obj.GetName())
+		klog.V(log.LogLevelTrace).InfoS("adding/updating resource in the store", "gvr", in.gvr, "name", obj.GetName())
+		if err := in.store.SaveComponent(*obj); err != nil {
+			klog.ErrorS(err, "failed to save resource", "gvr", in.gvr, "name", obj.GetName())
 			return
 		}
-		if err := w.store.UpdateComponentSHA(lo.FromPtr(obj), store.ServerSHA); err != nil {
-			klog.ErrorS(err, "failed to update component SHA", "gvr", w.gvr)
+		if err := in.store.UpdateComponentSHA(lo.FromPtr(obj), store.ServerSHA); err != nil {
+			klog.ErrorS(err, "failed to update component SHA", "gvr", in.gvr)
 		}
 	case watch.Deleted:
 		obj, err := common.ToUnstructured(ev.Object)
 		if err != nil {
-			klog.ErrorS(err, "failed to convert to unstructured", "gvr", w.gvr)
+			klog.ErrorS(err, "failed to convert to unstructured", "gvr", in.gvr)
 			return
 		}
 
-		klog.V(log.LogLevelTrace).InfoS("deleting resource from the store", "gvr", w.gvr, "name", obj.GetName())
-		if err = w.store.DeleteComponent(obj.GetUID()); err != nil {
-			klog.ErrorS(err, "failed to delete resource", "gvr", w.gvr, "name", obj.GetName())
+		klog.V(log.LogLevelTrace).InfoS("deleting resource from the store", "gvr", in.gvr, "name", obj.GetName())
+		if err = in.store.DeleteComponent(obj.GetUID()); err != nil {
+			klog.ErrorS(err, "failed to delete resource", "gvr", in.gvr, "name", obj.GetName())
 			return
 		}
 	}
 
 }
 
-func (w *synchronizer) Stop() {
-	panic("implement me") // TODO
+func (in *synchronizer) Stop() {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
+	if !in.started {
+		return
+	}
+
+	// TODO: should we cleanup the store?
+	in.cancel()
+	in.started = false
 }
 
-func (w *synchronizer) Resynchronize() {
+func (in *synchronizer) Started() bool {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
+	return in.started
+}
+
+func (in *synchronizer) Resynchronize() {
 	panic("implement me") // TODO: Update store with latest data from list. Add/delete resources based on the output.
 }

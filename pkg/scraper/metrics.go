@@ -9,17 +9,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
-)
 
-const name = "metrics scraper"
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+)
 
 var (
 	metrics         *Metrics
@@ -56,42 +56,40 @@ func (s *Metrics) Get() v1alpha1.MetricsAggregateStatus {
 	return s.metrics
 }
 
-func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient.Client, discoveryClient *discovery.DiscoveryClient, config *rest.Config) {
-	klog.Info("starting ", name)
-
+func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient.Client, discoveryCache discoverycache.Cache, config *rest.Config) {
 	metricsClient, err := metricsclientset.NewForConfig(config)
 	if err != nil {
 		panic(fmt.Errorf("failed to create metrics client: %w", err))
 	}
 
-	err = helpers.BackgroundPollUntilContextCancel(ctx, time.Minute, true, false, func(_ context.Context) (done bool, err error) {
-		apiGroups, err := discoveryClient.ServerGroups()
-		if err == nil {
-			metricsAPIAvailable := common.SupportedMetricsAPIVersionAvailable(apiGroups)
-			status, err := common.GetMetricsAggregateStatus(ctx, k8sClient, metricsClient, metricsAPIAvailable)
-			if err == nil && status != nil {
-				GetMetrics().Add(*status)
-			} else if err != nil {
-				if time.Since(GetMetrics().lastUpdated) > nodeCacheExpiry {
-					if cs, err := kubernetes.NewForConfig(config); err == nil {
-						getMetricsFromNodes(ctx, cs)
-						return false, nil
-					}
-					klog.ErrorS(err, "failed to get metrics from nodes")
+	const interval = 1 * time.Minute
+
+	// Since sync first run is set to true, error will always be nil.
+	_ = helpers.BackgroundPollUntilContextCancel(ctx, interval, true, false, func(_ context.Context) (done bool, err error) {
+		metricsAPIAvailable := common.SupportedMetricsAPIVersionAvailable(discoveryCache.GroupVersion().List())
+		status, err := common.GetMetricsAggregateStatus(ctx, k8sClient, metricsClient, metricsAPIAvailable)
+		if err == nil && status != nil {
+			GetMetrics().Add(*status)
+		} else if err != nil {
+			if time.Since(GetMetrics().lastUpdated) > nodeCacheExpiry {
+				if cs, err := kubernetes.NewForConfig(config); err == nil {
+					getMetricsFromNodes(ctx, cs)
+					return false, nil
 				}
+				klog.V(log.LogLevelDefault).ErrorS(err, "failed to get metrics from nodes")
 			}
 		}
+
 		return false, nil
 	})
-	if err != nil {
-		panic(fmt.Errorf("failed to start %s in background: %w", name, err))
-	}
+
+	klog.V(log.LogLevelDefault).InfoS("started metrics scraper", "interval", interval)
 }
 
 func getMetricsFromNodes(ctx context.Context, client *kubernetes.Clientset) {
 	nodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		klog.ErrorS(err, "failed to list nodes")
+		klog.V(log.LogLevelVerbose).ErrorS(err, "failed to list nodes")
 		return
 	}
 

@@ -16,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -29,6 +28,7 @@ import (
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
@@ -82,7 +82,10 @@ func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 	return mgr
 }
 
-func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clientset, dynamicClient *dynamic.DynamicClient, kubeClient *kubernetes.Clientset) {
+func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clientset,
+	dynamicClient *dynamic.DynamicClient,
+	kubeClient *kubernetes.Clientset,
+) {
 	rolloutsClient, err := roclientset.NewForConfig(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create rollouts client")
@@ -110,7 +113,7 @@ func registerKubeReconcilersOrDie(
 	consoleManager *consolectrl.Manager,
 	config *rest.Config,
 	extConsoleClient consoleclient.Client,
-	discoveryClient discovery.DiscoveryInterface,
+	discoveryCache discoverycache.Cache,
 	enableKubecostProxy bool,
 ) {
 	rolloutsClient, dynamicClient, kubeClient := initKubeClientsOrDie(config)
@@ -183,6 +186,7 @@ func registerKubeReconcilersOrDie(
 		Scheme:           manager.GetScheme(),
 		ReconcilerGroups: reconcileGroups,
 		Mgr:              manager,
+		DiscoveryCache:   discoveryCache,
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CRDRegisterController")
 	}
@@ -226,15 +230,12 @@ func registerKubeReconcilersOrDie(
 		setupLog.Error(err, "unable to create controller", "controller", "UpgradeInsights")
 	}
 
-	statusController, err := controller.NewStatusReconciler(manager.GetClient())
-	if err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "StatusController")
-	}
-	if err := statusController.SetupWithManager(manager); err != nil {
-		setupLog.Error(err, "unable to setup controller", "controller", "StatusController")
-	}
+	//statusController := controller.NewStatusReconciler(manager.GetClient())
+	//if err := statusController.SetupWithManager(manager); err != nil {
+	//	setupLog.Error(err, "unable to setup controller", "controller", "StatusController")
+	//}
 
-	if err = (&controller.PipelineGateReconciler{
+	if err := (&controller.PipelineGateReconciler{
 		Client:        manager.GetClient(),
 		ConsoleClient: consoleclient.New(args.ConsoleUrl(), args.DeployToken()),
 		Scheme:        manager.GetScheme(),
@@ -245,9 +246,9 @@ func registerKubeReconcilersOrDie(
 	}
 
 	if err := (&controller.MetricsAggregateReconciler{
-		Client:          manager.GetClient(),
-		Scheme:          manager.GetScheme(),
-		DiscoveryClient: discoveryClient,
+		Client:         manager.GetClient(),
+		Scheme:         manager.GetScheme(),
+		DiscoveryCache: discoveryCache,
 	}).SetupWithManager(ctx, manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
