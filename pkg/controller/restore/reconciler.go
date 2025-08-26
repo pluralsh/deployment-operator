@@ -89,7 +89,7 @@ func (s *RestoreReconciler) Shutdown() {
 }
 
 func (s *RestoreReconciler) GetPollInterval() func() time.Duration {
-	return func() time.Duration { return s.pollInterval } // use default poll interval
+	return func() time.Duration { return time.Duration(0) } // use default poll interval
 }
 
 func (s *RestoreReconciler) GetPublisher() (string, websocket.Publisher) {

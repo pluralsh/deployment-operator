@@ -144,7 +144,6 @@ func (s *ServiceReconciler) GetPollInterval() func() time.Duration {
 		if servicePollInterval := agentcommon.GetConfigurationManager().GetServicePollInterval(); servicePollInterval != nil {
 			return *servicePollInterval
 		}
-
 		return s.pollInterval
 	}
 }
