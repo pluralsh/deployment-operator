@@ -62,10 +62,10 @@ func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient
 		panic(fmt.Errorf("failed to create metrics client: %w", err))
 	}
 
-	const interval = 1 * time.Minute
+	interval := func() time.Duration { return time.Minute }
 
 	// Since sync first run is set to true, error will always be nil.
-	_ = helpers.BackgroundPollUntilContextCancel(ctx, interval, true, false, func(_ context.Context) (done bool, err error) {
+	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
 		metricsAPIAvailable := common.SupportedMetricsAPIVersionAvailable(discoveryCache.GroupVersion().List())
 		status, err := common.GetMetricsAggregateStatus(ctx, k8sClient, metricsClient, metricsAPIAvailable)
 		if err == nil && status != nil {

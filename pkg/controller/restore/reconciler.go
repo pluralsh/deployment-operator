@@ -54,9 +54,10 @@ type RestoreReconciler struct {
 	restoreQueue  workqueue.TypedRateLimitingInterface[string]
 	restoreCache  *client.Cache[console.ClusterRestoreFragment]
 	namespace     string
+	pollInterval  time.Duration
 }
 
-func NewRestoreReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh time.Duration, namespace string) *RestoreReconciler {
+func NewRestoreReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, refresh, pollInterval time.Duration, namespace string) *RestoreReconciler {
 	return &RestoreReconciler{
 		consoleClient: consoleClient,
 		k8sClient:     k8sClient,
@@ -64,7 +65,8 @@ func NewRestoreReconciler(consoleClient client.Client, k8sClient ctrlclient.Clie
 		restoreCache: client.NewCache[console.ClusterRestoreFragment](refresh, func(id string) (*console.ClusterRestoreFragment, error) {
 			return consoleClient.GetClusterRestore(id)
 		}),
-		namespace: namespace,
+		namespace:    namespace,
+		pollInterval: pollInterval,
 	}
 }
 
@@ -86,8 +88,8 @@ func (s *RestoreReconciler) Shutdown() {
 	s.restoreCache.Wipe()
 }
 
-func (s *RestoreReconciler) GetPollInterval() time.Duration {
-	return 0 // use default poll interval
+func (s *RestoreReconciler) GetPollInterval() func() time.Duration {
+	return func() time.Duration { return s.pollInterval } // use default poll interval
 }
 
 func (s *RestoreReconciler) GetPublisher() (string, websocket.Publisher) {

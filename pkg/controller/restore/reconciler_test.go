@@ -34,7 +34,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetClusterRestore", mock.Anything).Return(clusterRestore, nil)
 
-			reconciler := restore.NewRestoreReconciler(fakeConsoleClient, kClient, time.Minute, namespace)
+			reconciler := restore.NewRestoreReconciler(fakeConsoleClient, kClient, time.Minute, time.Minute, namespace)
 			_, err := reconciler.Reconcile(ctx, restoreId)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -51,7 +51,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("GetClusterRestore", mock.Anything).Return(clusterRestore, nil)
 			fakeConsoleClient.On("UpdateClusterRestore", mock.AnythingOfType("string"), mock.Anything).Return(nil, nil)
 
-			reconciler := restore.NewRestoreReconciler(fakeConsoleClient, kClient, time.Minute, namespace)
+			reconciler := restore.NewRestoreReconciler(fakeConsoleClient, kClient, time.Minute, time.Minute, namespace)
 			_, err := reconciler.Reconcile(ctx, restoreId)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kClient.Delete(ctx, veleroRestore)).To(Succeed())
