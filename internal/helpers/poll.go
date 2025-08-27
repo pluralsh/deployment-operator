@@ -14,13 +14,13 @@ import (
 // If syncFirstRun is set to true, it will execute the condition function synchronously first and then start
 // polling. Since error is returned synchronously, the only way to check for it is to use syncFirstRun.
 // Background poller does not sync errors. It can be stopped externally by cancelling the provided context.
-func DynamicBackgroundPollUntilContextCancel(ctx context.Context, getInterval func() time.Duration, syncFirstRun bool, condition wait.ConditionWithContextFunc) (err error) {
+func DynamicBackgroundPollUntilContextCancel(ctx context.Context, getInterval func() time.Duration, syncFirstRun bool, callback wait.ConditionWithContextFunc) (err error) {
 	if syncFirstRun {
-		_, err = condition(ctx)
+		_, err = callback(ctx)
 	}
 
 	go func() {
-		_ = DynamicPollUntilContextCancel(ctx, getInterval, condition)
+		_ = DynamicPollUntilContextCancel(ctx, getInterval, callback)
 	}()
 
 	return err
@@ -29,37 +29,34 @@ func DynamicBackgroundPollUntilContextCancel(ctx context.Context, getInterval fu
 func DynamicPollUntilContextCancel(
 	ctx context.Context,
 	intervalFunc func() time.Duration,
-	condition wait.ConditionWithContextFunc,
+	callback wait.ConditionWithContextFunc,
 ) error {
 	for {
 		interval := intervalFunc()
 
 		// Handle inactive state (interval == 0) and wait 1sec
-		for interval <= 0 {
-			ticker := time.NewTicker(time.Second)
+		if interval <= 0 {
 			select {
 			case <-ctx.Done():
-				ticker.Stop()
 				return ctx.Err()
-			case <-ticker.C:
-				interval = intervalFunc()
+			case <-time.After(time.Second):
+				continue
 			}
-			ticker.Stop()
 		}
 
-		jitter := time.Duration(rand.Int63n(int64(interval)) - int64(interval/2))
+		asInt := int64(interval)
+		jitter := time.Duration(rand.Int63n(asInt) - asInt/2)
 
-		// Active polling mode
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
 		case <-time.After(interval + jitter):
-			if ok, err := func() (bool, error) {
+			if done, err := func() (bool, error) {
 				defer runtime.HandleCrashWithContext(ctx)
-				return condition(ctx)
-			}(); err != nil || ok {
+				return callback(ctx)
+			}(); err != nil || done {
 				return err
 			}
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }

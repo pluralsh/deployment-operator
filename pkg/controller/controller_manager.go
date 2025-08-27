@@ -141,7 +141,7 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 	// Make last controller action deadline 5 times the time of regular poll.
 	// It means that the controller hasn't polled/reconciled any resources.
 	// It could indicate that the controller might have died and should be restarted.
-	lastControllerActionDeadline := 5 * (cm.PollInterval + cm.PollJitter)
+
 	ticker := time.NewTicker(livenessCheckInterval)
 	defer ticker.Stop()
 
@@ -176,6 +176,15 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 				cm.restartController(internalCtx, ctrl)
 			}()
 		case <-ticker.C:
+			lastControllerActionDeadline := 5 * ctrl.Do.GetPollInterval()()
+			if lastControllerActionDeadline <= 0 {
+				klog.V(log.LogLevelDebug).InfoS(
+					"Controller poll interval is 0, skipping last poll time check",
+					"name", ctrl.Name,
+				)
+				continue
+			}
+
 			lastPollTime := ctrl.LastPollTime()
 			klog.V(log.LogLevelDebug).InfoS(
 				"Controller last poll time check",
@@ -187,6 +196,7 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 					"Controller unresponsive, restarting",
 					"ctrl", ctrl.Name,
 					"lastPollTime", lastPollTime.Format(time.RFC3339),
+					"lastControllerActionDeadline", lastControllerActionDeadline.String(),
 				)
 				cancel()
 				break
@@ -211,6 +221,7 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 					"Controller unresponsive, restarting",
 					"ctrl", ctrl.Name,
 					"lastReconcileTime", lastPollTime.Format(time.RFC3339),
+					"lastControllerActionDeadline", lastControllerActionDeadline.String(),
 				)
 				cancel()
 			}
