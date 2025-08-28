@@ -9,6 +9,7 @@ import (
 	"k8s.io/klog/v2"
 
 	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 const (
@@ -111,7 +112,7 @@ func (c *client) RegisterRuntimeServices(svcs map[string]NamespaceVersion, depre
 	layouts = initServiceMesh(layouts, serviceMesh)
 	response, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputsPointers, layouts, lo.ToSlicePtr(deprecated), serviceId)
 	if response != nil {
-		klog.InfoS("registered runtime services", "count", lo.FromPtr(response.RegisterRuntimeServices))
+		klog.V(log.LogLevelVerbose).InfoS("registered runtime services", "count", lo.FromPtr(response.RegisterRuntimeServices))
 	}
 
 	return err
