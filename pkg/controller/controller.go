@@ -62,6 +62,7 @@ func (c *Controller) SetupWithManager(manager *Manager) {
 	c.PollJitter = manager.PollJitter
 	c.DeQueueJitter = time.Second
 	c.lastPollTime = time.Now()
+	c.lastReconcileTime = time.Now()
 }
 
 // Start implements controller.Controller.
@@ -119,7 +120,7 @@ func (c *Controller) startPoller(ctx context.Context) {
 	defer c.Do.Shutdown()
 
 	klog.V(internallog.LogLevelExtended).InfoS("Starting controller poller", "ctrl", c.Name)
-	_ = helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
+	_ := helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
 		defer func() {
 			c.lastPollTime = time.Now()
 		}()
@@ -129,8 +130,6 @@ func (c *Controller) startPoller(ctx context.Context) {
 		}
 
 		c.lastPollTime = time.Now()
-		time.Sleep(time.Duration(rand.Int63n(int64(c.PollJitter))))
-
 		// never stop
 		return false, nil
 	})
@@ -200,7 +199,7 @@ func (c *Controller) reconcile(ctx context.Context, req string) (_ reconcile.Res
 				for _, fn := range utilruntime.PanicHandlers {
 					fn(ctx, r)
 				}
-				err = fmt.Errorf("panic: %v [recovered]", r)
+				logf.FromContext(ctx).V(1).Error(err, fmt.Sprintf("Observed a panic in reconciler: %v", r))
 				return
 			}
 
