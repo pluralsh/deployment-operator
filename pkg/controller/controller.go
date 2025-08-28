@@ -120,7 +120,7 @@ func (c *Controller) startPoller(ctx context.Context) {
 	defer c.Do.Shutdown()
 
 	klog.V(internallog.LogLevelExtended).InfoS("Starting controller poller", "ctrl", c.Name)
-	_ := helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
+	_ = helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
 		defer func() {
 			c.lastPollTime = time.Now()
 		}()
