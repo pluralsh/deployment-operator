@@ -193,38 +193,6 @@ func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[s
 			return
 		}
 	}
-
-	//name := labels["app.kubernetes.io/name"]
-	//partOf := labels["app.kubernetes.io/part-of"]
-	//
-	//if len(vsn) == 0 {
-	//	return false
-	//}
-
-	//vsn, ok := labels["app.kubernetes.io/version"]
-	//if !ok {
-	//	return false
-	//}
-	//
-	//if name, ok := labels["app.kubernetes.io/name"]; ok {
-	//	acc[name] = addVersion(acc[name], vsn)
-	//	entry := acc[name]
-	//	entry.Namespace = namespace
-	//	if partOf, ok := labels["app.kubernetes.io/part-of"]; ok {
-	//		entry.PartOf = partOf
-	//	}
-	//	acc[name] = entry
-	//	return true
-	//}
-	//
-	//if name, ok := labels["app.kubernetes.io/part-of"]; ok {
-	//	acc[name] = addVersion(acc[name], vsn)
-	//	entry := acc[name]
-	//	entry.Namespace = namespace
-	//	acc[name] = entry
-	//}
-	//
-	//return true
 }
 
 func addServiceEntry(serviceName, version, namespace, partOfName string, acc map[string]client.NamespaceVersion) {
