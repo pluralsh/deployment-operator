@@ -3,15 +3,17 @@ package ping
 import (
 	"fmt"
 
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+
 	"k8s.io/client-go/discovery"
 	"k8s.io/kubectl/pkg/cmd/util"
+
+	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type Pinger struct {

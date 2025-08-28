@@ -3,9 +3,14 @@ package ping
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 
@@ -18,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	controllerv1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -49,32 +54,36 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 	klog.Info("attempting to collect all runtime services for the cluster")
 	// Pre-allocate map with estimated capacity to avoid reallocations
 	runtimeServices := make(map[string]client.NamespaceVersion, 100)
-	deployments, err := p.clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
-	if err == nil {
-		klog.Info("aggregating from deployments")
-		for _, deployment := range deployments.Items {
-			AddRuntimeServiceInfo(deployment.Namespace, deployment.GetLabels(), runtimeServices)
-		}
-	}
-
-	statefulSets, err := p.clientset.AppsV1().StatefulSets("").List(ctx, metav1.ListOptions{})
-	if err == nil {
-		klog.Info("aggregating from statefulsets")
-		for _, ss := range statefulSets.Items {
-			AddRuntimeServiceInfo(ss.Namespace, ss.GetLabels(), runtimeServices)
-		}
-	}
-
 	hasEBPFDaemonSet := false
-	daemonSets, err := p.clientset.AppsV1().DaemonSets("").List(ctx, metav1.ListOptions{})
-	if err == nil {
-		klog.Info("aggregating from daemonsets")
-		for _, ds := range daemonSets.Items {
-			AddRuntimeServiceInfo(ds.Namespace, ds.GetLabels(), runtimeServices)
 
-			if cache.IsEBPFDaemonSet(ds) {
-				hasEBPFDaemonSet = true
-			}
+	klog.Info("aggregating from deployments")
+	for _, deployment := range p.deployments(ctx) {
+		AddRuntimeServiceInfo(deployment.Namespace,
+			deployment.GetLabels(),
+			runtimeServices,
+			p.heuristicVersionSearch(deployment.Spec.Template.Spec),
+		)
+	}
+
+	klog.Info("aggregating from statefulsets")
+	for _, ss := range p.statefulSets(ctx) {
+		AddRuntimeServiceInfo(ss.Namespace,
+			ss.GetLabels(),
+			runtimeServices,
+			p.heuristicVersionSearch(ss.Spec.Template.Spec),
+		)
+	}
+
+	klog.Info("aggregating from daemonsets")
+	for _, ds := range p.daemonSets(ctx) {
+		AddRuntimeServiceInfo(ds.Namespace,
+			ds.GetLabels(),
+			runtimeServices,
+			p.heuristicVersionSearch(ds.Spec.Template.Spec),
+		)
+
+		if cache.IsEBPFDaemonSet(ds) {
+			hasEBPFDaemonSet = true
 		}
 	}
 
@@ -82,7 +91,7 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 	if serviceMesh == nil {
 		klog.Info("no service mesh detected")
 	} else {
-		klog.Info("detected service mesh", "serviceMesh", serviceMesh)
+		klog.InfoS("detected service mesh", "serviceMesh", serviceMesh)
 	}
 
 	if err := p.consoleClient.RegisterRuntimeServices(runtimeServices, p.GetDeprecatedCustomResources(ctx), nil, serviceMesh); err != nil {
@@ -90,33 +99,145 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 	}
 }
 
-func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]client.NamespaceVersion) {
+func (p *Pinger) deployments(ctx context.Context) []appsv1.Deployment {
+	deployments, _ := p.clientset.AppsV1().Deployments(runtimecache.AllNamespaces).List(ctx, metav1.ListOptions{})
+	return lo.Ternary(deployments == nil, []appsv1.Deployment{}, deployments.Items)
+}
+
+func (p *Pinger) statefulSets(ctx context.Context) []appsv1.StatefulSet {
+	statefulSets, _ := p.clientset.AppsV1().StatefulSets(runtimecache.AllNamespaces).List(ctx, metav1.ListOptions{})
+	return lo.Ternary(statefulSets == nil, []appsv1.StatefulSet{}, statefulSets.Items)
+}
+
+func (p *Pinger) daemonSets(ctx context.Context) []appsv1.DaemonSet {
+	daemonSets, _ := p.clientset.AppsV1().DaemonSets(runtimecache.AllNamespaces).List(ctx, metav1.ListOptions{})
+	return lo.Ternary(daemonSets == nil, []appsv1.DaemonSet{}, daemonSets.Items)
+}
+
+type HeuristicVersionSearch func() string
+
+func (p *Pinger) heuristicVersionSearch(spec v1.PodSpec) HeuristicVersionSearch {
+	return func() string {
+		// This can be extended to add more heuristics in the future
+		// For now, we only have one heuristic that goes through pod spec.
+		return p.podSpecHeuristicVersionSearch(spec)
+	}
+}
+
+func (p *Pinger) podSpecHeuristicVersionSearch(podSpec v1.PodSpec) string {
+	for _, container := range podSpec.Containers {
+		// This can be extended to add more services in the future
+		// For now, we only have one heuristic that looks for Cilium.
+		if strings.Contains(container.Image, client.CiliumServiceName) {
+			if version := p.extractVersionFromImage(container.Image, client.CiliumServiceName); len(version) > 0 {
+				return version
+			}
+		}
+	}
+
+	return ""
+}
+
+func (p *Pinger) extractVersionFromImage(image, service string) string {
+	serviceLower := strings.ToLower(service)
+	imageLower := strings.ToLower(image)
+
+	// Patterns that expect <service>:<version> format
+	patterns := []string{
+		fmt.Sprintf(`%s:v(\d+\.\d+\.\d+(?:-[a-zA-Z0-9\.-]+)?)`, regexp.QuoteMeta(serviceLower)),
+		fmt.Sprintf(`%s:(\d+\.\d+\.\d+(?:-[a-zA-Z0-9\.-]+)?)`, regexp.QuoteMeta(serviceLower)),
+		fmt.Sprintf(`%s.*:v(\d+\.\d+\.\d+(?:-[a-zA-Z0-9\.-]+)?)`, regexp.QuoteMeta(serviceLower)),
+		fmt.Sprintf(`%s.*:(\d+\.\d+\.\d+(?:-[a-zA-Z0-9\.-]+)?)`, regexp.QuoteMeta(serviceLower)),
+	}
+
+	for _, pattern := range patterns {
+		if re, err := regexp.Compile(pattern); err == nil {
+			if matches := re.FindStringSubmatch(imageLower); len(matches) > 1 {
+				return matches[1]
+			}
+		}
+	}
+	return ""
+}
+
+func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]client.NamespaceVersion, heuristicVersionSearch HeuristicVersionSearch) {
 	if labels == nil {
 		return
 	}
 
-	vsn, ok := labels["app.kubernetes.io/version"]
-	if !ok {
+	vsn := labels["app.kubernetes.io/version"]
+	serviceName := ""
+	partOfName := ""
+
+	// Get service name from labels
+	if name := labels["app.kubernetes.io/name"]; len(name) > 0 {
+		serviceName = name
+	} else if name = labels["app.kubernetes.io/part-of"]; len(name) > 0 {
+		serviceName = name
+	}
+
+	// Get part-of information
+	if partOf := labels["app.kubernetes.io/part-of"]; len(partOf) > 0 {
+		partOfName = partOf
+	}
+
+	if len(vsn) > 0 && len(serviceName) > 0 {
+		addServiceEntry(serviceName, vsn, namespace, partOfName, acc)
 		return
 	}
 
-	if name, ok := labels["app.kubernetes.io/name"]; ok {
-		acc[name] = addVersion(acc[name], vsn)
-		entry := acc[name]
-		entry.Namespace = namespace
-		if partOf, ok := labels["app.kubernetes.io/part-of"]; ok {
-			entry.PartOf = partOf
+	if len(vsn) == 0 && len(serviceName) > 0 {
+		vsn = heuristicVersionSearch()
+		if len(vsn) > 0 {
+			addServiceEntry(serviceName, vsn, namespace, partOfName, acc)
+			return
 		}
-		acc[name] = entry
-		return
 	}
 
-	if name, ok := labels["app.kubernetes.io/part-of"]; ok {
-		acc[name] = addVersion(acc[name], vsn)
-		entry := acc[name]
-		entry.Namespace = namespace
-		acc[name] = entry
+	//name := labels["app.kubernetes.io/name"]
+	//partOf := labels["app.kubernetes.io/part-of"]
+	//
+	//if len(vsn) == 0 {
+	//	return false
+	//}
+
+	//vsn, ok := labels["app.kubernetes.io/version"]
+	//if !ok {
+	//	return false
+	//}
+	//
+	//if name, ok := labels["app.kubernetes.io/name"]; ok {
+	//	acc[name] = addVersion(acc[name], vsn)
+	//	entry := acc[name]
+	//	entry.Namespace = namespace
+	//	if partOf, ok := labels["app.kubernetes.io/part-of"]; ok {
+	//		entry.PartOf = partOf
+	//	}
+	//	acc[name] = entry
+	//	return true
+	//}
+	//
+	//if name, ok := labels["app.kubernetes.io/part-of"]; ok {
+	//	acc[name] = addVersion(acc[name], vsn)
+	//	entry := acc[name]
+	//	entry.Namespace = namespace
+	//	acc[name] = entry
+	//}
+	//
+	//return true
+}
+
+func addServiceEntry(serviceName, version, namespace, partOfName string, acc map[string]client.NamespaceVersion) {
+	entry := acc[serviceName]
+
+	entry = addVersion(entry, version)
+	entry.Namespace = namespace
+
+	if len(entry.PartOf) == 0 && len(partOfName) > 0 {
+		entry.PartOf = partOfName
 	}
+
+	acc[serviceName] = entry
 }
 
 func addVersion(entry client.NamespaceVersion, vsn string) client.NamespaceVersion {
@@ -143,20 +264,20 @@ func addVersion(entry client.NamespaceVersion, vsn string) client.NamespaceVersi
 	return entry
 }
 
-func (p *Pinger) getVersionedCrd(ctx context.Context) (map[string][]v1.NormalizedVersion, error) {
+func (p *Pinger) getVersionedCrd(ctx context.Context) (map[string][]controllerv1.NormalizedVersion, error) {
 	crdList, err := p.apiExtClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
-	crdVersionsMap := make(map[string][]v1.NormalizedVersion, len(crdList.Items))
+	crdVersionsMap := make(map[string][]controllerv1.NormalizedVersion, len(crdList.Items))
 	for _, crd := range crdList.Items {
 		kind := crd.Spec.Names.Kind
 		group := crd.Spec.Group
 		groupKind := fmt.Sprintf("%s/%s", group, kind)
 		// Pre-allocate slice with capacity based on the number of versions in the CRD
-		parsedVersions := make([]v1.NormalizedVersion, 0, len(crd.Spec.Versions))
+		parsedVersions := make([]controllerv1.NormalizedVersion, 0, len(crd.Spec.Versions))
 		for _, v := range crd.Spec.Versions {
-			parsed, ok := v1.ParseVersion(v.Name)
+			parsed, ok := controllerv1.ParseVersion(v.Name)
 			if !ok {
 				continue
 			}
@@ -167,7 +288,7 @@ func (p *Pinger) getVersionedCrd(ctx context.Context) (map[string][]v1.Normalize
 			parsedVersions = append(parsedVersions, *parsed)
 		}
 		sort.Slice(parsedVersions, func(i, j int) bool {
-			return v1.CompareVersions(parsedVersions[i], parsedVersions[j])
+			return controllerv1.CompareVersions(parsedVersions[i], parsedVersions[j])
 		})
 		crdVersionsMap[groupKind] = parsedVersions
 	}
@@ -198,7 +319,7 @@ func (p *Pinger) GetDeprecatedCustomResources(ctx context.Context) []console.Dep
 	return deprecated
 }
 
-func (p *Pinger) getDeprecatedCustomResourceObjects(ctx context.Context, versions []v1.NormalizedVersion, group, kind string) []console.DeprecatedCustomResourceAttributes {
+func (p *Pinger) getDeprecatedCustomResourceObjects(ctx context.Context, versions []controllerv1.NormalizedVersion, group, kind string) []console.DeprecatedCustomResourceAttributes {
 	// Pre-allocate slice with estimated capacity based on the number of version pairs
 	versionPairs := getVersionPairs(versions)
 	deprecatedCustomResourceAttributes := make([]console.DeprecatedCustomResourceAttributes, 0, len(versionPairs)*5)
@@ -238,9 +359,9 @@ type VersionPair struct {
 	PreviousVersion string
 }
 
-func getVersionPairs(versions []v1.NormalizedVersion) []VersionPair {
+func getVersionPairs(versions []controllerv1.NormalizedVersion) []VersionPair {
 	// Helper function for creating VersionPair
-	createVersionPair := func(latest, previous v1.NormalizedVersion) VersionPair {
+	createVersionPair := func(latest, previous controllerv1.NormalizedVersion) VersionPair {
 		return VersionPair{
 			LatestVersion:   latest.Raw,
 			PreviousVersion: previous.Raw,

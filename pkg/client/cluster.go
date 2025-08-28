@@ -6,6 +6,7 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 
 	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
 )
@@ -16,11 +17,12 @@ const (
 	externalDNSServiceName  = "external-dns"
 	linkerdServiceName      = "Linkerd"
 	istioServiceName        = "istio"
-	ciliumServiceName       = "cilium"
+	CiliumServiceName       = "cilium"
 )
 
 var mapRuntimeService = map[string]string{
-	"istiod": istioServiceName,
+	"istiod":          istioServiceName,
+	"cilium-operator": CiliumServiceName,
 }
 
 func (c *client) PingCluster(attributes console.ClusterPing) error {
@@ -99,7 +101,7 @@ func (c *client) RegisterRuntimeServices(svcs map[string]NamespaceVersion, depre
 			case istioServiceName:
 				layouts = initLayouts(layouts)
 				layouts.Namespaces.Istio = &nv.Namespace
-			case ciliumServiceName:
+			case CiliumServiceName:
 				layouts = initLayouts(layouts)
 				layouts.Namespaces.Cilium = &nv.Namespace
 			}
@@ -107,7 +109,11 @@ func (c *client) RegisterRuntimeServices(svcs map[string]NamespaceVersion, depre
 	}
 	inputsPointers := lo.ToSlicePtr(inputs)
 	layouts = initServiceMesh(layouts, serviceMesh)
-	_, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputsPointers, layouts, lo.ToSlicePtr(deprecated), serviceId)
+	response, err := c.consoleClient.RegisterRuntimeServices(c.ctx, inputsPointers, layouts, lo.ToSlicePtr(deprecated), serviceId)
+	if response != nil {
+		klog.InfoS("registered runtime services", "count", lo.FromPtr(response.RegisterRuntimeServices))
+	}
+
 	return err
 }
 
