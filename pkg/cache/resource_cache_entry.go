@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 
@@ -59,27 +60,6 @@ func (in *ResourceCacheEntry) GetStatus() *console.ComponentAttributes {
 	return in.status
 }
 
-func (in *ResourceCacheEntry) GetSeverSHA() *string {
-	in.mux.Lock()
-	defer in.mux.Unlock()
-
-	return in.serverSHA
-}
-
-func (in *ResourceCacheEntry) GetApplySHA() *string {
-	in.mux.Lock()
-	defer in.mux.Unlock()
-
-	return in.applySHA
-}
-
-func (in *ResourceCacheEntry) GetManifestSHA() *string {
-	in.mux.Lock()
-	defer in.mux.Unlock()
-
-	return in.manifestSHA
-}
-
 // GetUID returns the Kubernetes resource UID pointer stored in the cache entry.
 // The UID uniquely identifies the resource within the Kubernetes cluster.
 func (in *ResourceCacheEntry) GetUID() string {
@@ -107,7 +87,7 @@ func (in *ResourceCacheEntry) Expire() {
 
 // SetSHA updates shaType with SHA calculated based on the provided resource.
 func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType SHAType) (changed bool, err error) {
-	sha, err := HashResource(resource)
+	sha, err := store.HashResource(resource)
 	if err != nil {
 		return false, err
 	}
@@ -137,43 +117,6 @@ func (in *ResourceCacheEntry) SetSHA(resource unstructured.Unstructured, shaType
 	}
 
 	return changed, nil
-}
-
-// CommitManifestSHA updates the manifest SHA stored in the cache entry.
-// The manifest SHA represents the hash of the resource manifest from the repository.
-func (in *ResourceCacheEntry) CommitManifestSHA() {
-	in.mux.Lock()
-	defer in.mux.Unlock()
-
-	if in.transientManifestSha == nil {
-		return
-	}
-
-	value := *in.transientManifestSha
-	in.manifestSHA = &value
-	in.transientManifestSha = nil
-}
-
-func (in *ResourceCacheEntry) SetTransientManifestSHA(transientManifestSHA string) {
-	in.mux.Lock()
-	defer in.mux.Unlock()
-
-	in.transientManifestSha = &transientManifestSHA
-}
-
-// RequiresApply checks if there is any drift
-// between applySHA calculated during applying resource and serverSHA from a watch of a resource
-// or between last two manifestSHA read from the repository.
-// If any drift is detected, then server-side apply should be done.
-func (in *ResourceCacheEntry) RequiresApply(manifestSHA string) bool {
-	in.mux.Lock()
-	defer in.mux.Unlock()
-
-	return in.serverSHA == nil ||
-		in.applySHA == nil ||
-		in.manifestSHA == nil ||
-		(*in.serverSHA != *in.applySHA) ||
-		(manifestSHA != *in.manifestSHA)
 }
 
 // SetStatus saves the last seen resource [event.StatusEvent] and converts it to a simpler

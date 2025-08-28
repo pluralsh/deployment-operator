@@ -14,64 +14,58 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 )
 
-func (s *ServiceReconciler) UpdatePruneStatus(
-	ctx context.Context,
-	svc *console.ServiceDeploymentForAgent,
-	ch <-chan event.Event,
-	vcache map[internalschema.GroupName]string,
-) error {
-	logger := log.FromContext(ctx)
-
-	var statsCollector stats.Stats
-	var err error
-	statusCollector := newServiceComponentsStatusCollector(s, svc)
-
-	for e := range ch {
-		statsCollector.Handle(e)
-		if e.Type == event.StatusType {
-			statusCollector.updateStatus(e.StatusEvent.Identifier, e.StatusEvent)
-
-			gk := e.StatusEvent.Identifier.GroupKind
-			name := e.StatusEvent.Identifier.Name
-			if e.StatusEvent.Error != nil {
-				err = fmt.Errorf("%s status %s: %s", resourceIDToString(gk, name),
-					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
-				logger.Error(err, "status error")
-			} else {
-				logger.Info(resourceIDToString(gk, name),
-					"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
-			}
-		}
-	}
-
-	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
-		return err
-	}
-
-	components := statusCollector.componentsAttributes(vcache)
-	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
-	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
-		logger.Error(err, "Failed to update service status, ignoring for now")
-	}
-
-	return nil
-}
+//func (s *ServiceReconciler) UpdatePruneStatus(
+//	ctx context.Context,
+//	svc *console.ServiceDeploymentForAgent,
+//	ch <-chan event.Event,
+//	vcache map[internalschema.GroupName]string,
+//) error {
+//	logger := log.FromContext(ctx)
+//
+//	var statsCollector stats.Stats
+//	var err error
+//	statusCollector := newServiceComponentsStatusCollector(s, svc)
+//
+//	for e := range ch {
+//		statsCollector.Handle(e)
+//		if e.Type == event.StatusType {
+//			statusCollector.updateStatus(e.StatusEvent.Identifier, e.StatusEvent)
+//
+//			gk := e.StatusEvent.Identifier.GroupKind
+//			name := e.StatusEvent.Identifier.Name
+//			if e.StatusEvent.Error != nil {
+//				err = fmt.Errorf("%s status %s: %s", resourceIDToString(gk, name),
+//					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
+//				logger.Error(err, "status error")
+//			} else {
+//				logger.Info(resourceIDToString(gk, name),
+//					"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
+//			}
+//		}
+//	}
+//
+//	FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector)
+//
+//	components := statusCollector.componentsAttributes(vcache)
+//	// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
+//	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
+//		logger.Error(err, "Failed to update service status, ignoring for now")
+//	}
+//
+//	return nil
+//}
 
 func (s *ServiceReconciler) UpdateApplyStatus(
 	ctx context.Context,
 	svc *console.ServiceDeploymentForAgent,
-	ch <-chan event.Event,
-	printStatus bool,
-	vcache map[internalschema.GroupName]string,
-) (bool, error) {
+	components []console.ComponentAttributes,
+	errors []console.ServiceErrorAttributes,
+) error {
 	logger := log.FromContext(ctx)
 	start, err := metrics.FromContext[time.Time](ctx, metrics.ContextKeyTimeStart)
-	done := false
 	if err != nil {
 		klog.Fatalf("programmatic error! context does not have value for the key %s", metrics.ContextKeyTimeStart)
 	}
@@ -83,80 +77,80 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
 	)
 
-	var statsCollector stats.Stats
-	statusCollector := newServiceComponentsStatusCollector(s, svc)
-	for e := range ch {
-		statsCollector.Handle(e)
-		switch e.Type {
-		case event.ActionGroupType:
-			if err := FormatActionGroupEvent(ctx, e.ActionGroupEvent); err != nil {
-				return done, err
-			}
-		case event.ErrorType:
-			return done, e.ErrorEvent.Err
-		case event.ApplyType:
-			statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
-			gk := e.ApplyEvent.Identifier.GroupKind
-			name := e.ApplyEvent.Identifier.Name
-			namespace := e.ApplyEvent.Identifier.Namespace
-			if e.ApplyEvent.Status == event.ApplySuccessful {
-				cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ApplySHA)
-				cache.CommitManifestSHA(e.ApplyEvent.Resource)
-			}
-			if e.ApplyEvent.Error != nil {
-				if e.ApplyEvent.Status == event.ApplyFailed {
-					// e.ApplyEvent.Resource == nil, create the key to get cache entry
-					key := cache.ResourceKey{
-						Namespace: namespace,
-						Name:      name,
-						GroupKind: gk,
-					}
-					sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
-					if exists {
-						// clear SHA when error occurs
-						sha.Expire()
-						cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
-					}
-					err = fmt.Errorf("%s apply %s: %s", resourceIDToString(gk, name),
-						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
-					logger.Error(err, "apply error")
-				} else {
-					msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
-						strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
-					logger.V(4).Info(msg)
-				}
-			} else if printStatus {
-				logger.Info(resourceIDToString(gk, name),
-					"status", strings.ToLower(e.ApplyEvent.Status.String()))
-			}
-
-		case event.StatusType:
-			statusCollector.updateStatus(e.StatusEvent.Identifier, e.StatusEvent)
-			gk := e.StatusEvent.Identifier.GroupKind
-			name := e.StatusEvent.Identifier.Name
-			if e.StatusEvent.Error != nil {
-				err = fmt.Errorf("%s status %s: %s", resourceIDToString(gk, name),
-					strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
-				logger.Error(err, "status error")
-			} else if printStatus {
-				logger.Info(resourceIDToString(gk, name),
-					"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
-			}
-		case event.WaitType:
-			if e.WaitEvent.Status == event.ReconcileTimeout {
-				key := cache.ResourceKey{
-					Namespace: e.WaitEvent.Identifier.Namespace,
-					Name:      e.WaitEvent.Identifier.Name,
-					GroupKind: e.WaitEvent.Identifier.GroupKind,
-				}
-				sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
-				if exists {
-					sha.Expire()
-					cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
-				}
-			}
-		}
-	}
+	//var statsCollector stats.Stats
+	//statusCollector := newServiceComponentsStatusCollector(s, svc)
+	//for e := range ch {
+	//	statsCollector.Handle(e)
+	//	switch e.Type {
+	//	case event.ActionGroupType:
+	//		if err := FormatActionGroupEvent(ctx, e.ActionGroupEvent); err != nil {
+	//			return done, err
+	//		}
+	//	case event.ErrorType:
+	//		return done, e.ErrorEvent.Err
+	//	case event.ApplyType:
+	//		statusCollector.updateApplyStatus(e.ApplyEvent.Identifier, e.ApplyEvent)
+	//		gk := e.ApplyEvent.Identifier.GroupKind
+	//		name := e.ApplyEvent.Identifier.Name
+	//		namespace := e.ApplyEvent.Identifier.Namespace
+	//		if e.ApplyEvent.Status == event.ApplySuccessful {
+	//			cache.SaveResourceSHA(e.ApplyEvent.Resource, cache.ApplySHA)
+	//			cache.CommitManifestSHA(e.ApplyEvent.Resource)
+	//		}
+	//		if e.ApplyEvent.Error != nil {
+	//			if e.ApplyEvent.Status == event.ApplyFailed {
+	//				// e.ApplyEvent.Resource == nil, create the key to get cache entry
+	//				key := cache.ResourceKey{
+	//					Namespace: namespace,
+	//					Name:      name,
+	//					GroupKind: gk,
+	//				}
+	//				sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
+	//				if exists {
+	//					// clear SHA when error occurs
+	//					sha.Expire()
+	//					cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
+	//				}
+	//				err = fmt.Errorf("%s apply %s: %s", resourceIDToString(gk, name),
+	//					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
+	//				logger.Error(err, "apply error")
+	//			} else {
+	//				msg := fmt.Sprintf("%s apply %s: %s\n", resourceIDToString(gk, name),
+	//					strings.ToLower(e.ApplyEvent.Status.String()), e.ApplyEvent.Error.Error())
+	//				logger.V(4).Info(msg)
+	//			}
+	//		} else if printStatus {
+	//			logger.Info(resourceIDToString(gk, name),
+	//				"status", strings.ToLower(e.ApplyEvent.Status.String()))
+	//		}
+	//
+	//	case event.StatusType:
+	//		statusCollector.updateStatus(e.StatusEvent.Identifier, e.StatusEvent)
+	//		gk := e.StatusEvent.Identifier.GroupKind
+	//		name := e.StatusEvent.Identifier.Name
+	//		if e.StatusEvent.Error != nil {
+	//			err = fmt.Errorf("%s status %s: %s", resourceIDToString(gk, name),
+	//				strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()), e.StatusEvent.Error.Error())
+	//			logger.Error(err, "status error")
+	//		} else if printStatus {
+	//			logger.Info(resourceIDToString(gk, name),
+	//				"status", strings.ToLower(e.StatusEvent.PollResourceInfo.Status.String()))
+	//		}
+	//	case event.WaitType:
+	//		if e.WaitEvent.Status == event.ReconcileTimeout {
+	//			key := cache.ResourceKey{
+	//				Namespace: e.WaitEvent.Identifier.Namespace,
+	//				Name:      e.WaitEvent.Identifier.Name,
+	//				GroupKind: e.WaitEvent.Identifier.GroupKind,
+	//			}
+	//			sha, exists := cache.GetResourceCache().GetCacheEntry(key.ObjectIdentifier())
+	//			if exists {
+	//				sha.Expire()
+	//				cache.GetResourceCache().SetCacheEntry(key.ObjectIdentifier(), sha)
+	//			}
+	//		}
+	//	}
+	//}
 
 	metrics.Record().ServiceReconciliation(
 		svc.ID,
@@ -165,15 +159,13 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
 	)
 
-	if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
-		return done, err
-	}
+	//if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
+	//	return done, err
+	//}
 
-	components := statusCollector.componentsAttributes(vcache)
-	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, components, errorAttributes("sync", err)); err != nil {
+	//components := statusCollector.componentsAttributes(vcache)
+	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), lo.ToSlicePtr(errors)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
-	} else {
-		done = true
 	}
 
 	metrics.Record().ServiceReconciliation(
@@ -183,10 +175,10 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationUpdateStatusFinish),
 	)
 
-	return done, err
+	return err
 }
 
-func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) error {
+func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) {
 	logger := log.FromContext(ctx)
 
 	if s.ApplyStats != (stats.ApplyStats{}) {
@@ -209,7 +201,6 @@ func FormatSummary(ctx context.Context, namespace, name string, s stats.Stats) e
 		logger.Info(fmt.Sprintf("reconcile result for %s/%s: %d attempted, %d successful, %d skipped, %d failed, %d timed out",
 			namespace, name, ws.Sum(), ws.Successful, ws.Skipped, ws.Failed, ws.Timeout))
 	}
-	return nil
 }
 
 func FormatActionGroupEvent(ctx context.Context, age event.ActionGroupEvent) error {
@@ -249,12 +240,7 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	}
 }
 
-func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, components []*console.ComponentAttributes, err *console.ServiceErrorAttributes) error {
-	errs := make([]*console.ServiceErrorAttributes, 0)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
+func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error {
 	for _, component := range components {
 		if component.State != nil && *component.State == console.ComponentStateRunning {
 			// Skip checking child pods for the Job. The database cache contains only failed pods, and the Job may succeed after a retry.

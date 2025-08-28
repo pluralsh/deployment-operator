@@ -119,8 +119,8 @@ func (c *Controller) LastReconcileTime() time.Time {
 func (c *Controller) startPoller(ctx context.Context) {
 	defer c.Do.Shutdown()
 
-	klog.V(internallog.LogLevelTrace).InfoS("Starting controller poller", "ctrl", c.Name)
-	err := helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
+	klog.V(internallog.LogLevelExtended).InfoS("Starting controller poller", "ctrl", c.Name)
+	_ = helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
 		defer func() {
 			c.lastPollTime = time.Now()
 		}()
@@ -133,10 +133,6 @@ func (c *Controller) startPoller(ctx context.Context) {
 		// never stop
 		return false, nil
 	})
-	if err != nil {
-		klog.V(internallog.LogLevelDefault).ErrorS(err, "Controller poller failed", "ctrl", c.Name)
-	}
-
 	klog.V(internallog.LogLevelDefault).InfoS("Controller poller finished", "ctrl", c.Name)
 }
 
