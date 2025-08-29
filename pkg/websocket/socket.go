@@ -116,7 +116,7 @@ func (s *Socket) OnMessage(ref int64, event string, payload interface{}) {
 	if publisher, ok := s.publishers.Get(event); ok {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
-				log.V(1).Info("got new update from websocket", "id", id)
+				log.V(1).Info("got new update from websocket", "id", id, "event", event, "payload", payload)
 				publisher.Publish(id)
 			}
 		}

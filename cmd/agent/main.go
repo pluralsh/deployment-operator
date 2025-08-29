@@ -188,11 +188,13 @@ func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
 
 func initDiscoveryCache(client discovery.DiscoveryInterface) {
 	discoverycache.InitGlobalDiscoveryCache(client,
-		discoverycache.WithOnAdded(func(gvk schema.GroupVersionKind, _ schema.GroupVersionResource) {
-			discoverycache.UpdateServiceMesh(gvk.Group, discoverycache.ServiceMeshUpdateTypeAdded)
+		discoverycache.WithOnGroupVersionAdded(func(gv schema.GroupVersion) {
+			discoverycache.UpdateServiceMesh(gv.Group, discoverycache.ServiceMeshUpdateTypeAdded)
 		}),
-		discoverycache.WithOnDeleted(func(gvk schema.GroupVersionKind, _ schema.GroupVersionResource) {
-			discoverycache.UpdateServiceMesh(gvk.Group, discoverycache.ServiceMeshUpdateTypeDeleted)
+		discoverycache.WithOnGroupVersionDeleted(func(gv schema.GroupVersion) {
+			// TODO: consider using just Group deletion event to signal service mesh removal
+			// as it may cause issues if a group has multiple versions and only one is removed
+			discoverycache.UpdateServiceMesh(gv.Group, discoverycache.ServiceMeshUpdateTypeDeleted)
 		}),
 	)
 }

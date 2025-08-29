@@ -83,10 +83,14 @@ func UpdateServiceMesh(group string, updateType ServiceMeshUpdateType) {
 		newServiceMesh = ServiceMeshResourceGroupLinkerd
 	}
 
+	if newServiceMesh == ServiceMeshResourceGroupNone {
+		return
+	}
+
 	// If the current service mesh is deleted, reset the service mesh to None.
 	if updateType == ServiceMeshUpdateTypeDeleted && newServiceMesh == serviceMesh {
 		klog.V(log.LogLevelExtended).InfoS("service mesh reset to none since its' group was deleted", "group", group)
-		newServiceMesh = ServiceMeshResourceGroupNone
+		serviceMesh = ServiceMeshResourceGroupNone
 		return
 	}
 

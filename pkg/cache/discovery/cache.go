@@ -8,6 +8,7 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -17,7 +18,9 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-type CacheUpdateFunc func(schema.GroupVersionKind, schema.GroupVersionResource)
+type GroupVersionUpdateFunc func(schema.GroupVersion)
+type GroupVersionKindUpdateFunc func(schema.GroupVersionKind)
+type GroupVersionResourceUpdateFunc func(schema.GroupVersionResource)
 
 type Cache interface {
 	// Add adds the provided GroupVersionKinds to the cache and
@@ -43,11 +46,23 @@ type Cache interface {
 	// ServerVersion returns the Kubernetes server version.
 	ServerVersion() *version.Info
 
-	// OnAdded registers a callback function to be called when a new entry is added to the cache.
-	OnAdded(f CacheUpdateFunc)
+	// OnGroupVersionAdded registers a callback function to be called when a new API group is added to the cache.
+	OnGroupVersionAdded(f GroupVersionUpdateFunc)
 
-	// OnDeleted registers a callback function to be called when an entry is deleted from the cache.
-	OnDeleted(f CacheUpdateFunc)
+	// OnGroupVersionDeleted registers a callback function to be called when an API group is deleted from the cache.
+	OnGroupVersionDeleted(f GroupVersionUpdateFunc)
+
+	// OnGroupVersionKindAdded registers a callback function to be called when a new GroupVersionKind is added to the cache.
+	OnGroupVersionKindAdded(f GroupVersionKindUpdateFunc)
+
+	// OnGroupVersionKindDeleted registers a callback function to be called when a GroupVersionKind is deleted from the cache.
+	OnGroupVersionKindDeleted(f GroupVersionKindUpdateFunc)
+
+	// OnGroupVersionResourceAdded registers a callback function to be called when a new GroupVersionResource is added to the cache.
+	OnGroupVersionResourceAdded(f GroupVersionResourceUpdateFunc)
+
+	// OnGroupVersionResourceDeleted registers a callback function to be called when a GroupVersionResource is deleted from the cache.
+	OnGroupVersionResourceDeleted(f GroupVersionResourceUpdateFunc)
 }
 
 type cache struct {
@@ -65,16 +80,32 @@ type cache struct {
 	// gvCache is a set of all API versions (group/version) in the cache.
 	gvCache containers.Set[schema.GroupVersion]
 
-	// gvkToGVRMap is maps GroupVersionKind to GroupVersionResource so that we can avoid
-	// calling the discovery client for each GroupVersionKind.
-	gvkToGVRMap map[schema.GroupVersionKind]schema.GroupVersionResource
-
 	// serverVersion is the Kubernetes server version.
 	serverVersion *version.Info
 
-	// onAdded and onDeleted are called when an entry is added to or deleted from the cache.
-	onAdded   []CacheUpdateFunc
-	onDeleted []CacheUpdateFunc
+	// onGroupVersionAdded is a list of callback functions to be called
+	// when a new API group is added to the cache.
+	onGroupVersionAdded []GroupVersionUpdateFunc
+
+	// onGroupVersionDeleted is a list of callback functions to be called
+	// when an API group is deleted from the cache.
+	onGroupVersionDeleted []GroupVersionUpdateFunc
+
+	// onGroupVersionKindAdded is a list of callback functions to be called
+	// when a new GroupVersionKind is added to the cache.
+	onGroupVersionKindAdded []GroupVersionKindUpdateFunc
+
+	// onGroupVersionKindDeleted is a list of callback functions to be called
+	// when a GroupVersionKind is deleted from the cache.
+	onGroupVersionKindDeleted []GroupVersionKindUpdateFunc
+
+	// onGroupVersionResourceAdded is a list of callback functions to be called
+	// when a new GroupVersionResource is added to the cache.
+	onGroupVersionResourceAdded []GroupVersionResourceUpdateFunc
+
+	// onGroupVersionResourceDeleted is a list of callback functions to be called
+	// when a GroupVersionResource is deleted from the cache.
+	onGroupVersionResourceDeleted []GroupVersionResourceUpdateFunc
 }
 
 func (in *cache) Add(gvks ...schema.GroupVersionKind) {
@@ -91,15 +122,22 @@ func (in *cache) Delete(gvks ...schema.GroupVersionKind) {
 	defer in.mu.Unlock()
 
 	for _, entry := range gvks {
+		if in.gvkCache.Has(entry) {
+			in.notifyGroupVersionKindDeleted(entry)
+		}
 		in.gvkCache.Remove(entry)
-		in.gvCache.Remove(entry.GroupVersion())
 		klog.V(log.LogLevelDebug).InfoS("deleted gvk from cache", "gvk", entry)
+
+		// Only delete GV if there are no more GVKs for that GV
+		if !in.hasGroupVersion(entry.GroupVersion()) {
+			in.gvCache.Remove(entry.GroupVersion())
+			in.notifyGroupVersionDeleted(entry.GroupVersion())
+			klog.V(log.LogLevelDebug).InfoS("deleted gv from cache", "gv", entry.GroupVersion())
+		}
 
 		gvr, err := in.toGroupVersionResource(entry)
 		if in.gvrCache.Has(gvr) {
-			for _, f := range in.onDeleted {
-				f(entry, gvr)
-			}
+			in.notifyGroupVersionResourceDeleted(gvr)
 		}
 
 		if err != nil {
@@ -108,6 +146,7 @@ func (in *cache) Delete(gvks ...schema.GroupVersionKind) {
 		}
 
 		in.gvrCache.Remove(gvr)
+		klog.V(log.LogLevelDebug).InfoS("deleted gvr from cache", "gvr", gvr)
 	}
 }
 
@@ -126,9 +165,6 @@ func (in *cache) Refresh() error {
 	gvkCache := containers.NewSet[schema.GroupVersionKind]()
 	gvrCache := containers.NewSet[schema.GroupVersionResource]()
 	gvCache := containers.NewSet[schema.GroupVersion]()
-
-	// reset map as it will be repopulated during refresh
-	in.gvkToGVRMap = make(map[schema.GroupVersionKind]schema.GroupVersionResource)
 
 	for _, group := range groups {
 		for _, groupVersion := range group.Versions {
@@ -164,11 +200,19 @@ func (in *cache) Refresh() error {
 	}
 
 	if err == nil {
-		deleted := in.gvkCache.Difference(gvkCache)
-		for _, entry := range deleted.List() {
-			for _, f := range in.onDeleted {
-				f(entry, in.gvkToGVRMap[entry])
-			}
+		deletedGVKs := in.gvkCache.Difference(gvkCache)
+		for _, entry := range deletedGVKs.List() {
+			in.notifyGroupVersionKindDeleted(entry)
+		}
+
+		deletedGVRs := in.gvrCache.Difference(gvrCache)
+		for _, entry := range deletedGVRs.List() {
+			in.notifyGroupVersionResourceDeleted(entry)
+		}
+
+		deletedGVs := in.gvCache.Difference(gvCache)
+		for _, entry := range deletedGVs.List() {
+			in.notifyGroupVersionDeleted(entry)
 		}
 
 		in.gvkCache = gvkCache
@@ -219,18 +263,82 @@ func (in *cache) ServerVersion() *version.Info {
 	return in.serverVersion
 }
 
-func (in *cache) OnAdded(f CacheUpdateFunc) {
+func (in *cache) OnGroupVersionAdded(f GroupVersionUpdateFunc) {
 	in.mu.Lock()
 	defer in.mu.Unlock()
 
-	in.onAdded = append(in.onAdded, f)
+	in.onGroupVersionAdded = append(in.onGroupVersionAdded, f)
 }
 
-func (in *cache) OnDeleted(f CacheUpdateFunc) {
+func (in *cache) OnGroupVersionDeleted(f GroupVersionUpdateFunc) {
 	in.mu.Lock()
 	defer in.mu.Unlock()
 
-	in.onDeleted = append(in.onDeleted, f)
+	in.onGroupVersionDeleted = append(in.onGroupVersionDeleted, f)
+}
+
+func (in *cache) OnGroupVersionKindAdded(f GroupVersionKindUpdateFunc) {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
+	in.onGroupVersionKindAdded = append(in.onGroupVersionKindAdded, f)
+}
+
+func (in *cache) OnGroupVersionKindDeleted(f GroupVersionKindUpdateFunc) {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
+	in.onGroupVersionKindDeleted = append(in.onGroupVersionKindDeleted, f)
+}
+
+func (in *cache) OnGroupVersionResourceAdded(f GroupVersionResourceUpdateFunc) {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
+	in.onGroupVersionResourceAdded = append(in.onGroupVersionResourceAdded, f)
+}
+
+func (in *cache) OnGroupVersionResourceDeleted(f GroupVersionResourceUpdateFunc) {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
+	in.onGroupVersionResourceDeleted = append(in.onGroupVersionResourceDeleted, f)
+}
+
+func (in *cache) notifyGroupVersionAdded(gv schema.GroupVersion) {
+	for _, f := range in.onGroupVersionAdded {
+		f(gv)
+	}
+}
+
+func (in *cache) notifyGroupVersionDeleted(gv schema.GroupVersion) {
+	for _, f := range in.onGroupVersionDeleted {
+		f(gv)
+	}
+}
+
+func (in *cache) notifyGroupVersionKindAdded(gvk schema.GroupVersionKind) {
+	for _, f := range in.onGroupVersionKindAdded {
+		f(gvk)
+	}
+}
+
+func (in *cache) notifyGroupVersionKindDeleted(gvk schema.GroupVersionKind) {
+	for _, f := range in.onGroupVersionKindDeleted {
+		f(gvk)
+	}
+}
+
+func (in *cache) notifyGroupVersionResourceAdded(gvr schema.GroupVersionResource) {
+	for _, f := range in.onGroupVersionResourceAdded {
+		f(gvr)
+	}
+}
+
+func (in *cache) notifyGroupVersionResourceDeleted(gvr schema.GroupVersionResource) {
+	for _, f := range in.onGroupVersionResourceDeleted {
+		f(gvr)
+	}
 }
 
 func (in *cache) updateServerVersion() {
@@ -245,7 +353,21 @@ func (in *cache) updateServerVersion() {
 }
 
 func (in *cache) toGroupVersionResource(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
-	mapping, err := in.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	var mapping *meta.RESTMapping
+	var err error
+
+	// TODO: test on a cluster with a lot of resources to ensure initial synchronous refresh does not take too long
+	// Retry with exponential backoff until we get a REST mapping or error. This is to avoid scenarios where the
+	// resource is registered via CRD controller event but not yet available in the discovery API.
+	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 500 * time.Millisecond}, func() (bool, error) {
+		mapping, err = in.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil || mapping == nil {
+			klog.V(log.LogLevelDebug).InfoS("retrying to get REST mapping", "gvk", gvk, "err", err)
+			return false, nil
+		}
+
+		return true, nil
+	})
 	if err != nil {
 		return schema.GroupVersionResource{}, err
 	}
@@ -275,12 +397,14 @@ func (in *cache) addTo(
 
 func (in *cache) addGroupVersionTo(groupVersion schema.GroupVersion, gvCacheSet containers.Set[schema.GroupVersion]) containers.Set[schema.GroupVersion] {
 	if gvCacheSet.Has(groupVersion) {
-		klog.V(log.LogLevelDebug).InfoS("api version already in cache, skipping", "gv", groupVersion)
+		klog.V(log.LogLevelDebug).InfoS("gv already in cache, skipping", "gv", groupVersion)
 		return gvCacheSet
 	}
 
 	gvCacheSet.Add(groupVersion)
-	klog.V(log.LogLevelDebug).InfoS("added api version to cache", "gv", groupVersion)
+	in.notifyGroupVersionAdded(groupVersion)
+	klog.V(log.LogLevelDebug).InfoS("added gv to cache", "gv", groupVersion)
+
 	return gvCacheSet
 }
 
@@ -291,6 +415,7 @@ func (in *cache) addGroupVersionKindTo(gvk schema.GroupVersionKind, gvkSet conta
 	}
 
 	gvkSet.Add(gvk)
+	in.notifyGroupVersionKindAdded(gvk)
 	klog.V(log.LogLevelDebug).InfoS("added gvk to cache", "gvk", gvk)
 
 	return gvkSet
@@ -308,40 +433,73 @@ func (in *cache) addGroupVersionResourceTo(gvk schema.GroupVersionKind, gvrSet c
 		return gvrSet
 	}
 
-	in.gvkToGVRMap[gvk] = gvr
-	for _, f := range in.onAdded {
-		f(gvk, gvr)
-	}
-
 	gvrSet.Add(gvr)
+	in.notifyGroupVersionResourceAdded(gvr)
 	klog.V(log.LogLevelDebug).InfoS("added gvr to cache", "gvr", gvr)
 	return gvrSet
 }
 
+func (in *cache) hasGroupVersion(groupVersion schema.GroupVersion) bool {
+	for _, entry := range in.gvkCache.List() {
+		if entry.GroupVersion() == groupVersion {
+			return true
+		}
+	}
+
+	return false
+}
+
 type CacheOption func(*cache)
 
-func WithOnAdded(f ...CacheUpdateFunc) CacheOption {
+func WithOnGroupVersionAdded(f ...GroupVersionUpdateFunc) CacheOption {
 	return func(in *cache) {
-		in.onAdded = append(in.onAdded, f...)
+		in.onGroupVersionAdded = append(in.onGroupVersionAdded, f...)
 	}
 }
 
-func WithOnDeleted(f ...CacheUpdateFunc) CacheOption {
+func WithOnGroupVersionDeleted(f ...GroupVersionUpdateFunc) CacheOption {
 	return func(in *cache) {
-		in.onDeleted = append(in.onDeleted, f...)
+		in.onGroupVersionDeleted = append(in.onGroupVersionDeleted, f...)
+	}
+}
+
+func WithOnGroupVersionKindAdded(f ...GroupVersionKindUpdateFunc) CacheOption {
+	return func(in *cache) {
+		in.onGroupVersionKindAdded = append(in.onGroupVersionKindAdded, f...)
+	}
+}
+
+func WithOnGroupVersionKindDeleted(f ...GroupVersionKindUpdateFunc) CacheOption {
+	return func(in *cache) {
+		in.onGroupVersionKindDeleted = append(in.onGroupVersionKindDeleted, f...)
+	}
+}
+
+func WithOnGroupVersionResourceAdded(f ...GroupVersionResourceUpdateFunc) CacheOption {
+	return func(in *cache) {
+		in.onGroupVersionResourceAdded = append(in.onGroupVersionResourceAdded, f...)
+	}
+}
+
+func WithOnGroupVersionResourceDeleted(f ...GroupVersionResourceUpdateFunc) CacheOption {
+	return func(in *cache) {
+		in.onGroupVersionResourceDeleted = append(in.onGroupVersionResourceDeleted, f...)
 	}
 }
 
 func NewCache(client discovery.DiscoveryInterface, option ...CacheOption) Cache {
 	result := &cache{
-		client:      client,
-		mapper:      restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(client)),
-		gvkCache:    containers.NewSet[schema.GroupVersionKind](),
-		gvrCache:    containers.NewSet[schema.GroupVersionResource](),
-		gvCache:     containers.NewSet[schema.GroupVersion](),
-		gvkToGVRMap: make(map[schema.GroupVersionKind]schema.GroupVersionResource),
-		onAdded:     make([]CacheUpdateFunc, 0),
-		onDeleted:   make([]CacheUpdateFunc, 0),
+		client:                        client,
+		mapper:                        restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(client)),
+		gvkCache:                      containers.NewSet[schema.GroupVersionKind](),
+		gvrCache:                      containers.NewSet[schema.GroupVersionResource](),
+		gvCache:                       containers.NewSet[schema.GroupVersion](),
+		onGroupVersionAdded:           make([]GroupVersionUpdateFunc, 0),
+		onGroupVersionDeleted:         make([]GroupVersionUpdateFunc, 0),
+		onGroupVersionKindAdded:       make([]GroupVersionKindUpdateFunc, 0),
+		onGroupVersionKindDeleted:     make([]GroupVersionKindUpdateFunc, 0),
+		onGroupVersionResourceAdded:   make([]GroupVersionResourceUpdateFunc, 0),
+		onGroupVersionResourceDeleted: make([]GroupVersionResourceUpdateFunc, 0),
 	}
 
 	for _, opt := range option {

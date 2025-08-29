@@ -78,14 +78,14 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 	if serviceMesh == nil {
 		klog.V(internallog.LogLevelDefault).Info("no service mesh detected")
 	} else {
-		klog.V(internallog.LogLevelDefault).Info("detected service mesh", "serviceMesh", serviceMesh)
+		klog.V(internallog.LogLevelDefault).InfoS("detected service mesh", "serviceMesh", serviceMesh)
 	}
 
 	if err := p.consoleClient.RegisterRuntimeServices(runtimeServices, p.GetDeprecatedCustomResources(ctx), nil, serviceMesh); err != nil {
 		klog.ErrorS(err, "failed to register runtime services, this is an ignorable error but could mean your console needs to be upgraded")
 	}
 
-	klog.V(internallog.LogLevelDefault).InfoS("registered runtime services", "runtimeServices", len(runtimeServices), "serviceMesh", serviceMesh)
+	klog.V(internallog.LogLevelDefault).InfoS("registered runtime services", "runtimeServices", len(runtimeServices), "serviceMesh", lo.FromPtr(serviceMesh))
 }
 
 func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]client.NamespaceVersion) {

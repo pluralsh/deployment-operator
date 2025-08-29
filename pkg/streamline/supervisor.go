@@ -228,11 +228,11 @@ func (in *Supervisor) registerInitialResources() {
 }
 
 func (in *Supervisor) watchDiscoveryCacheChanges() {
-	in.discoveryCache.OnAdded(func(_ schema.GroupVersionKind, gvr schema.GroupVersionResource) {
+	in.discoveryCache.OnGroupVersionResourceAdded(func(gvr schema.GroupVersionResource) {
 		in.Register(gvr)
 	})
 
-	in.discoveryCache.OnDeleted(func(_ schema.GroupVersionKind, gvr schema.GroupVersionResource) {
+	in.discoveryCache.OnGroupVersionResourceDeleted(func(gvr schema.GroupVersionResource) {
 		in.Unregister(gvr)
 	})
 }
