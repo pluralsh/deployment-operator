@@ -41,11 +41,18 @@ type Store interface {
 	// Returns the health score as an integer value (0-100) and any error encountered.
 	GetHealthScore() (int64, error)
 
+	// UpdateComponentSHA updates the SHA for a component.
 	UpdateComponentSHA(unstructured.Unstructured, SHAType) error
 
+	// CommitTransientSHA commits a transient SHA to the store.
 	CommitTransientSHA(unstructured.Unstructured) error
 
+	// ExpireSHA removes component SHA information.
 	ExpireSHA(unstructured.Unstructured) error
 
+	// Expire removes component SHA information based on the provided service ID.
+	Expire(string) error
+
+	// Shutdown closes the database connection and deletes the store.
 	Shutdown() error
 }

@@ -87,6 +87,16 @@ const (
 			server_sha = ''
 		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
 	`
+
+	expire = `
+		UPDATE component
+		SET
+			manifest_sha = '',
+			transient_manifest_sha = '',
+			apply_sha = '',
+			server_sha = ''
+		WHERE service_id = ?
+	`
 	commitTransientSHA = `
 		UPDATE component 
 		SET 

@@ -491,6 +491,18 @@ func (in *DatabaseStore) ExpireSHA(obj unstructured.Unstructured) error {
 	})
 }
 
+func (in *DatabaseStore) Expire(serviceID string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, expire, &sqlitex.ExecOptions{
+		Args: []interface{}{serviceID},
+	})
+}
+
 func (in *DatabaseStore) Shutdown() error {
 	in.mu.Lock()
 	defer in.mu.Unlock()

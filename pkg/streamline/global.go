@@ -3,7 +3,6 @@ package streamline
 import (
 	"sync"
 
-	"github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -36,16 +35,8 @@ type GlobalStore struct {
 	store store.Store
 }
 
-func (in *GlobalStore) SaveComponent(obj unstructured.Unstructured) (err error) {
-	return in.store.SaveComponent(obj)
-}
-
 func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *store.Entry, err error) {
 	return in.store.GetComponent(obj)
-}
-
-func (in *GlobalStore) GetComponentChildren(uid string) (result []client.ComponentChildAttributes, err error) {
-	return in.store.GetComponentChildren(uid)
 }
 
 func (in *GlobalStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType store.SHAType) error {
@@ -58,4 +49,8 @@ func (in *GlobalStore) CommitTransientSHA(obj unstructured.Unstructured) error {
 
 func (in *GlobalStore) ExpireSHA(obj unstructured.Unstructured) error {
 	return in.store.ExpireSHA(obj)
+}
+
+func (in *GlobalStore) Expire(serviceID string) error {
+	return in.store.Expire(serviceID)
 }

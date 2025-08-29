@@ -495,8 +495,38 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 	svc.DryRun = &dryRun
 
-	components, errs, err := s.applier.Apply(ctx, *svc, manifests, applier.WithDryRun(dryRun)) // TODO: what to do with err
-	err = s.UpdateApplyStatus(ctx, svc, components, errs)
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
+	)
+
+	components, errs, err := s.applier.Apply(ctx, *svc, manifests, applier.WithDryRun(dryRun))
+	if err != nil {
+		logger.Error(err, "failed to apply manifests", "service", svc.Name)
+		return
+	}
+
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
+	)
+
+	if err = s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), lo.ToSlicePtr(errs)); err != nil {
+		logger.Error(err, "Failed to update service status, ignoring for now")
+	} else {
+		done = true
+	}
+
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationUpdateStatusFinish),
+	)
 
 	return
 }

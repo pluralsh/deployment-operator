@@ -2,6 +2,7 @@ package applier
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -303,8 +304,8 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 	})
 	if err != nil && !apierrors.IsNotFound(err) {
 		in.errorsChan <- client.ServiceErrorAttributes{
-			Source:  "sync",
-			Message: err.Error(),
+			Source:  "delete",
+			Message: fmt.Sprintf("failed to delete %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 	}
 }
@@ -323,14 +324,17 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		}
 
 		in.errorsChan <- client.ServiceErrorAttributes{
-			Source:  "sync",
-			Message: err.Error(),
+			Source:  "apply",
+			Message: fmt.Sprintf("failed to apply %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 
 		return
 	}
 
 	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName())
+	}
+	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ServerSHA); err != nil {
 		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName())
 	}
 	if err := streamline.GetGlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {

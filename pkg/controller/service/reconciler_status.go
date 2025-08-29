@@ -70,12 +70,12 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		klog.Fatalf("programmatic error! context does not have value for the key %s", metrics.ContextKeyTimeStart)
 	}
 
-	metrics.Record().ServiceReconciliation(
-		svc.ID,
-		svc.Name,
-		metrics.WithServiceReconciliationStartedAt(start),
-		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
-	)
+	//metrics.Record().ServiceReconciliation(
+	//	svc.ID,
+	//	svc.Name,
+	//	metrics.WithServiceReconciliationStartedAt(start),
+	//	metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
+	//)
 
 	//var statsCollector stats.Stats
 	//statusCollector := newServiceComponentsStatusCollector(s, svc)
@@ -152,12 +152,12 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 	//	}
 	//}
 
-	metrics.Record().ServiceReconciliation(
-		svc.ID,
-		svc.Name,
-		metrics.WithServiceReconciliationStartedAt(start),
-		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
-	)
+	//metrics.Record().ServiceReconciliation(
+	//	svc.ID,
+	//	svc.Name,
+	//	metrics.WithServiceReconciliationStartedAt(start),
+	//	metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
+	//)
 
 	//if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 	//	return done, err
