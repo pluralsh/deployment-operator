@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -57,7 +56,6 @@ func DynamicPollUntilContextCancel(
 				if r := recover(); r != nil {
 					// recover panic, mark callback as not done, no error
 					klog.Errorf("DynamicPollUntilContextCancel: recovered panic in callback: %v", r)
-					runtime.HandleCrashWithContext(ctx)
 					callbackDone, callbackErr = false, nil
 				}
 			}()
