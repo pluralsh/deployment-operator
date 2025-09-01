@@ -31,6 +31,9 @@ func DynamicPollUntilContextCancel(
 	intervalFunc func() time.Duration,
 	callback wait.ConditionWithContextFunc,
 ) error {
+
+	immediate := true
+
 	for {
 		interval := intervalFunc()
 
@@ -51,7 +54,7 @@ func DynamicPollUntilContextCancel(
 		var callbackErr error
 		var callbackDone bool
 
-		_ = wait.PollUntilContextCancel(ctx, interval+jitter, false, func(ctx context.Context) (bool, error) {
+		_ = wait.PollUntilContextCancel(ctx, interval+jitter, immediate, func(ctx context.Context) (bool, error) {
 			defer func() {
 				if r := recover(); r != nil {
 					// recover panic, mark callback as not done, no error
@@ -62,6 +65,7 @@ func DynamicPollUntilContextCancel(
 			callbackDone, callbackErr = callback(ctx)
 			return true, nil
 		})
+		immediate = false
 
 		// check results of callback
 		if ctx.Err() != nil {
