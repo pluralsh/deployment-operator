@@ -31,7 +31,6 @@ func DynamicPollUntilContextCancel(
 	intervalFunc func() time.Duration,
 	callback wait.ConditionWithContextFunc,
 ) error {
-
 	immediate := true
 
 	for {
