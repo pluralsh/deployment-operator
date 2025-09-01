@@ -87,3 +87,55 @@ func TestPollUntilContextCancel_TimerInactiveWhenIntervalZero(t *testing.T) {
 		t.Errorf("expected condition not to be called, but was called %d times", count)
 	}
 }
+
+func TestResumeFromInactiveToActive(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	var called int32
+	interval := int64(0) // start inactive
+
+	intervalFunc := func() time.Duration {
+		return time.Duration(atomic.LoadInt64(&interval))
+	}
+	callback := func(ctx context.Context) (bool, error) {
+		atomic.AddInt32(&called, 1)
+		if atomic.LoadInt32(&called) >= 2 {
+			return true, nil // stop after 2 active calls
+		}
+		return false, nil
+	}
+
+	// flip interval to active after a short delay
+	go func() {
+		time.Sleep(150 * time.Millisecond)
+		atomic.StoreInt64(&interval, int64(50*time.Millisecond))
+	}()
+
+	err := helpers.DynamicPollUntilContextCancel(ctx, intervalFunc, callback)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := atomic.LoadInt32(&called)
+	if got < 2 {
+		t.Errorf("expected callback to resume and be called at least twice, got %d", got)
+	}
+}
+
+func TestContextCancelInactivePoller(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	interval := int64(0) // start inactive
+
+	intervalFunc := func() time.Duration {
+		return time.Duration(atomic.LoadInt64(&interval))
+	}
+	callback := func(ctx context.Context) (bool, error) {
+		return false, nil
+	}
+
+	err := helpers.DynamicPollUntilContextCancel(ctx, intervalFunc, callback)
+	assert.NotNil(t, err)
+}
