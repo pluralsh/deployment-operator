@@ -139,3 +139,27 @@ func TestContextCancelInactivePoller(t *testing.T) {
 	err := helpers.DynamicPollUntilContextCancel(ctx, intervalFunc, callback)
 	assert.NotNil(t, err)
 }
+
+func TestDynamicPollUntilContextCancel_PanicRecovery(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	intervalFunc := func() time.Duration { return 50 * time.Millisecond }
+
+	calls := 0
+	err := helpers.DynamicPollUntilContextCancel(ctx, intervalFunc, func(ctx context.Context) (bool, error) {
+		calls++
+		if calls == 1 {
+			panic("simulated panic")
+		}
+		// after panic, poller should keep running and eventually return done
+		return true, nil
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if calls < 2 {
+		t.Errorf("expected at least 2 calls (one panic, one recovery), got %d", calls)
+	}
+}
