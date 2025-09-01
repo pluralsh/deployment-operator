@@ -30,7 +30,6 @@ func DynamicPollUntilContextCancel(
 	callback wait.ConditionWithContextFunc,
 ) error {
 	for {
-
 		interval := intervalFunc()
 
 		// Handle inactive state (interval == 0) and wait 1sec
