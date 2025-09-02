@@ -89,7 +89,6 @@ func TestManagerRunsControllerStopPoller(t *testing.T) {
 
 	assert.Equal(t, int32(0), reconciler.pollCount.Load(), "expected poll count to be zero")
 	assert.Equal(t, int32(0), reconciler.reconcileCount.Load(), "expected reconcile count to be zero")
-
 }
 
 func TestManagerRunsControllerStopStartPoller(t *testing.T) {
