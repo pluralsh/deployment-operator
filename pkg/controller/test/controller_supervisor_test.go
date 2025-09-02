@@ -36,7 +36,7 @@ func (f *supervisorReconciler) Poll(ctx context.Context) error {
 func (f *supervisorReconciler) Reconcile(ctx context.Context, req string) (reconcile.Result, error) {
 	f.reconcileCount.Add(1)
 	f.queue.Forget(req)
-	if f.reconcileCount.Load() == 1 { //enforce restart
+	if f.reconcileCount.Load() == 1 { // enforce restart
 		time.Sleep(2 * time.Second)
 	}
 	return reconcile.Result{}, nil

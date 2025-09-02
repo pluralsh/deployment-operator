@@ -68,7 +68,7 @@ func TestManagerRunsController(t *testing.T) {
 	// Add fake reconciler
 	reconciler := newBasicReconciler()
 	mgr.AddController(&controller.Controller{
-		Name: "fake",
+		Name: name,
 		Do:   reconciler,
 	})
 

@@ -51,7 +51,7 @@ func (f *dynamicPollerReconciler) GetPollInterval() func() time.Duration {
 }
 
 func (f *dynamicPollerReconciler) GetPublisher() (string, websocket.Publisher) {
-	return "fake", &FakePublisher{}
+	return name, &FakePublisher{}
 }
 
 func (f *dynamicPollerReconciler) Queue() workqueue.TypedRateLimitingInterface[string] {
@@ -76,7 +76,7 @@ func TestManagerRunsControllerStopPoller(t *testing.T) {
 	reconciler := newDynamicPollerReconciler()
 	reconciler.stopPoller.Store(true)
 	mgr.AddController(&controller.Controller{
-		Name: "fake",
+		Name: name,
 		Do:   reconciler,
 	})
 
@@ -123,5 +123,4 @@ func TestManagerRunsControllerStopStartPoller(t *testing.T) {
 
 	assert.True(t, reconciler.pollCount.Load() > 0, "expected Poll() to be called at least once")
 	assert.True(t, reconciler.reconcileCount.Load() > 0, "expected Reconcile() to be called at least once")
-
 }
