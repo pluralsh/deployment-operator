@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// recoverReconciler is a minimal test reconciler
+// dynamicPollerReconciler is a minimal test reconciler
 type dynamicPollerReconciler struct {
 	pollCount      atomic.Int32
 	reconcileCount atomic.Int32
@@ -105,7 +105,7 @@ func TestManagerRunsControllerStopStartPoller(t *testing.T) {
 	reconciler := newDynamicPollerReconciler()
 	reconciler.stopPoller.Store(true)
 	mgr.AddController(&controller.Controller{
-		Name: "fake",
+		Name: name,
 		Do:   reconciler,
 	})
 

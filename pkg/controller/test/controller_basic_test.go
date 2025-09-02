@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// recoverReconciler is a minimal test reconciler
+// basicReconciler is a minimal test reconciler
 type basicReconciler struct {
 	pollCount      atomic.Int32
 	reconcileCount atomic.Int32
@@ -44,7 +44,7 @@ func (f *basicReconciler) GetPollInterval() func() time.Duration {
 }
 
 func (f *basicReconciler) GetPublisher() (string, websocket.Publisher) {
-	return "fake", &FakePublisher{}
+	return name, &FakePublisher{}
 }
 
 func (f *basicReconciler) Queue() workqueue.TypedRateLimitingInterface[string] {

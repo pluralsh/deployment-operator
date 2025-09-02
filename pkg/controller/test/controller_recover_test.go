@@ -75,7 +75,7 @@ func TestManagerRecover(t *testing.T) {
 	// Add fake reconciler
 	reconciler := newRecoverReconciler()
 	mgr.AddController(&controller.Controller{
-		Name: "fake",
+		Name: name,
 		Do:   reconciler,
 	})
 

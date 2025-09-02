@@ -2,6 +2,8 @@ package test
 
 import "github.com/pluralsh/deployment-operator/pkg/websocket"
 
+const name = "fake"
+
 type FakePublisher struct {
 }
 
