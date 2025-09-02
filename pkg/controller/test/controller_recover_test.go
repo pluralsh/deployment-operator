@@ -88,5 +88,4 @@ func TestManagerRecover(t *testing.T) {
 
 	assert.True(t, reconciler.pollCount.Load() > 1, "expected Poll() to be called at least once, was %d", reconciler.pollCount.Load())
 	assert.True(t, reconciler.reconcileCount.Load() > 1, "expected Reconcile() to be called at least once, was %d", reconciler.reconcileCount.Load())
-
 }

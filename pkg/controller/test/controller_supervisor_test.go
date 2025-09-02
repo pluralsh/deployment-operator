@@ -88,5 +88,4 @@ func TestManagerSupervisor(t *testing.T) {
 	<-ctx.Done()
 
 	assert.True(t, reconciler.reconcileCount.Load() >= 2)
-
 }

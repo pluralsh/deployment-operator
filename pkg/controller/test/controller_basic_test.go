@@ -81,5 +81,4 @@ func TestManagerRunsController(t *testing.T) {
 
 	assert.True(t, reconciler.pollCount.Load() > 0, "expected Poll() to be called at least once")
 	assert.True(t, reconciler.reconcileCount.Load() > 0, "expected Reconcile() to be called at least once")
-
 }
