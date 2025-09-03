@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -31,32 +31,50 @@ func DynamicPollUntilContextCancel(
 	intervalFunc func() time.Duration,
 	callback wait.ConditionWithContextFunc,
 ) error {
+	immediate := true
+
 	for {
 		interval := intervalFunc()
 
 		// Handle inactive state (interval == 0) and wait 1sec
 		if interval <= 0 {
-			select {
-			case <-ctx.Done():
+			_ = wait.PollUntilContextCancel(ctx, time.Second, false, func(ctx context.Context) (bool, error) {
+				return true, nil
+			})
+			if ctx.Err() != nil {
 				return ctx.Err()
-			case <-time.After(time.Second):
-				continue
 			}
+			continue
 		}
 
 		asInt := int64(interval)
 		jitter := time.Duration(rand.Int63n(asInt) - asInt/2)
 
-		select {
-		case <-time.After(interval + jitter):
-			if done, err := func() (bool, error) {
-				defer runtime.HandleCrashWithContext(ctx)
-				return callback(ctx)
-			}(); err != nil || done {
-				return err
-			}
-		case <-ctx.Done():
+		var callbackErr error
+		var callbackDone bool
+
+		_ = wait.PollUntilContextCancel(ctx, interval+jitter, immediate, func(ctx context.Context) (bool, error) {
+			defer func() {
+				if r := recover(); r != nil {
+					// recover panic, mark callback as not done, no error
+					klog.Errorf("DynamicPollUntilContextCancel: recovered panic in callback: %v", r)
+					callbackDone, callbackErr = false, nil
+				}
+			}()
+			callbackDone, callbackErr = callback(ctx)
+			return true, nil
+		})
+		immediate = false
+
+		// check results of callback
+		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		if callbackErr != nil {
+			return callbackErr
+		}
+		if callbackDone {
+			return nil
 		}
 	}
 }

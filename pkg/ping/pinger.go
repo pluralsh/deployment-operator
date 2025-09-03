@@ -3,6 +3,7 @@ package ping
 import (
 	"fmt"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
