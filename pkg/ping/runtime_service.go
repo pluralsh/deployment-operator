@@ -8,25 +8,21 @@ import (
 	"strings"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
-	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
-
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-
 	"github.com/Masterminds/semver/v3"
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	controllerv1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 	"github.com/samber/lo"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
+	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	controllerv1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
-
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const runtimeServicePingerName = "runtime service pinger"
@@ -82,12 +78,12 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 			p.heuristicVersionSearch(ds.Spec.Template.Spec),
 		)
 
-		if cache.IsEBPFDaemonSet(ds) {
+		if discovery.IsEBPFDaemonSet(ds) {
 			hasEBPFDaemonSet = true
 		}
 	}
 
-	serviceMesh := cache.ServiceMesh(hasEBPFDaemonSet)
+	serviceMesh := discovery.ServiceMesh(hasEBPFDaemonSet)
 	if serviceMesh == nil {
 		klog.Info("no service mesh detected")
 	} else {
