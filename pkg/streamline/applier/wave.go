@@ -17,10 +17,12 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
@@ -170,7 +172,6 @@ type WaveProcessor struct {
 	// by the same worker.
 	deQueueJitter time.Duration
 
-	// TODO: handle that
 	// dryRun determines if the wave should be applied in dry run mode
 	// meaning that the changes will not be persisted
 	dryRun bool
@@ -280,49 +281,72 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context, workerNr int) 
 func (in *WaveProcessor) processWaveItem(ctx context.Context, id Key, resource unstructured.Unstructured) {
 	now := time.Now()
 
-	var dryRunOption []string
-	if in.dryRun {
-		dryRunOption = []string{metav1.DryRunAll}
-	}
-
 	switch in.wave.waveType {
 	case DeleteWave:
 		klog.V(log.LogLevelDebug).InfoS("deleting resource", "resource", id)
-		in.onDelete(ctx, resource, dryRunOption)
+		in.onDelete(ctx, resource)
 	case ApplyWave:
 		klog.V(log.LogLevelDebug).InfoS("applying resource", "resource", id)
-		in.onApply(ctx, resource, dryRunOption)
+		in.onApply(ctx, resource)
 	}
 
 	klog.V(log.LogLevelDebug).InfoS("finished processing wave item", "resource", id, "duration", time.Since(now))
 }
 
-func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured, dryRun []string) {
-	if resource.GetAnnotations() != nil && resource.GetAnnotations()[LifecycleDeleteAnnotation] == PreventDeletion {
+func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
+	live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
 		if err := streamline.GetGlobalStore().DeleteComponent(resource.GetUID()); err != nil {
-			klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", resource.GetUID())
+			klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", resource.GetUID())
+		}
+
+		return
+	}
+
+	if err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "failed to get resource from store", "resource", resource.GetUID())
+		return
+	}
+
+	if live.GetAnnotations() != nil && live.GetAnnotations()[smcommon.LifecycleDeleteAnnotation] == smcommon.PreventDeletion {
+		if err := streamline.GetGlobalStore().DeleteComponent(live.GetUID()); err != nil {
+			klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", live.GetUID())
+		}
+
+		// skip deletion when prevented by annotation
+		return
+	}
+
+	c := in.client.Resource(helpers.GVRFromGVK(live.GroupVersionKind())).Namespace(live.GetNamespace())
+	err = c.Delete(ctx, live.GetName(), metav1.DeleteOptions{
+		DryRun: lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
+	})
+	if errors.IgnoreNotFound(err) != nil {
+		in.errorsChan <- client.ServiceErrorAttributes{
+			Source:  "delete",
+			Message: fmt.Sprintf("failed to delete %s/%s: %s", live.GetNamespace(), live.GetName(), err.Error()),
 		}
 		return
 	}
 
-	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
-	err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{
-		DryRun: dryRun,
-	})
-	if err != nil && !apierrors.IsNotFound(err) {
-		in.errorsChan <- client.ServiceErrorAttributes{
-			Source:  "delete",
-			Message: fmt.Sprintf("failed to delete %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
-		}
+	if in.dryRun {
+		component := common.ToComponentAttributes(live)
+		component = in.withDryRun(ctx, component, lo.FromPtr(live), true)
+		in.componentChan <- lo.FromPtr(component)
+
+		return
+	}
+
+	if err := streamline.GetGlobalStore().DeleteComponent(live.GetUID()); err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", live.GetUID())
 	}
 }
 
-func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured, dryRun []string) {
+func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
 	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
-		// TODO: use const
-		FieldManager: "application/apply-patch",
-		DryRun:       dryRun,
+		FieldManager: smcommon.ClientFieldManager,
+		DryRun:       lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
 	})
 
 	if err != nil {
@@ -338,6 +362,14 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
+	if in.dryRun {
+		component := common.ToComponentAttributes(&resource)
+		component = in.withDryRun(ctx, component, lo.FromPtr(appliedResource), false)
+		in.componentChan <- lo.FromPtr(component)
+
+		return
+	}
+
 	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
 		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName())
 	}
@@ -349,6 +381,38 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	}
 
 	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
+}
+
+func (in *WaveProcessor) withDryRun(ctx context.Context, component *client.ComponentAttributes, resource unstructured.Unstructured, delete bool) *client.ComponentAttributes {
+	desiredJSON := asJSON(&resource)
+	if delete {
+		desiredJSON = "# n/a"
+	}
+
+	liveJSON := "# n/a"
+	liveResource := in.refetch(ctx, resource)
+	if liveResource != nil {
+		liveJSON = asJSON(liveResource)
+	}
+
+	component.Synced = liveJSON == desiredJSON
+	component.Content = &client.ComponentContentAttributes{
+		Desired: &desiredJSON,
+		Live:    &liveJSON,
+	}
+	component.State = common.ToStatus(&resource)
+	component.Version = resource.GroupVersionKind().Version
+
+	return component
+}
+
+func (in *WaveProcessor) refetch(ctx context.Context, resource unstructured.Unstructured) *unstructured.Unstructured {
+	result, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return nil
+	}
+
+	return result
 }
 
 func (in *WaveProcessor) init() {

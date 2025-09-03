@@ -1,12 +1,11 @@
 package applier
 
-const (
-	// LifecycleDeletionAnnotation is the lifecycle annotation key for deletion operation.
-	LifecycleDeleteAnnotation = "plural.sh/deletion"
-
-	// PreventDeletion is the value used with LifecycleDeletionAnnotation
-	// to prevent deleting a resource.
-	PreventDeletion = "detach"
-
-	OwningInventoryKey = "config.k8s.io/owning-inventory"
+import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 )
+
+func asJSON(resource *unstructured.Unstructured) string {
+	data, _ := yaml.Marshal(resource)
+	return string(data)
+}

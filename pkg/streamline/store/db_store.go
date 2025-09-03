@@ -15,6 +15,7 @@ import (
 	"zombiezen.com/go/sqlite/sqlitex"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 // Storage defines the storage options for the database.
@@ -125,8 +126,7 @@ func (in *DatabaseStore) init() error {
 
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
-
-	serviceID, hasServiceID := obj.GetAnnotations()[common.OwningInventoryKey]
+	serviceID, hasServiceID := obj.GetAnnotations()[smcommon.OwningInventoryKey]
 	state := NewComponentState(common.ToStatus(&obj))
 
 	var nodeName string

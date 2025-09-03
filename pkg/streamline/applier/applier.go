@@ -9,16 +9,17 @@ import (
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
-	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
@@ -33,14 +34,19 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 	now := time.Now()
 
 	resources = in.addServiceAnnotation(resources, service.ID)
-	toDelete, err := in.toDelete(service.ID, resources)
+	toDelete, toApply, err := in.toDelete(service.ID, resources)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	toApply, toSkip := in.filterResources(resources)
+	toApplyFiltered, toSkip := in.filterResources(toApply)
+	// TODO: we should probably only skip cache filter
+	if lo.FromPtr(service.DryRun) {
+		toApplyFiltered = toApply
+		toSkip = []unstructured.Unstructured{}
+	}
 
-	waves := NewWaves(toApply)
+	waves := NewWaves(toApplyFiltered)
 	waves = append(waves, NewWave(toDelete, DeleteWave))
 
 	// Filter out empty waves
@@ -64,9 +70,11 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 		"service", service.Name,
 		"id", service.ID,
 		"attempted", len(resources),
-		"applied", len(componentList),
+		"applied", len(componentList)-len(toDelete),
+		"deleted", len(toDelete),
 		"skipped", len(toSkip),
 		"failed", len(serviceErrrorList),
+		"dryRun", lo.FromPtr(service.DryRun),
 		"duration", time.Since(now),
 	)
 
@@ -95,25 +103,50 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 }
 
 func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.ComponentAttributes, error) {
-	toDelete, err := in.toDelete(serviceID, []unstructured.Unstructured{})
+	deleted := 0
+	toDelete, _, err := in.toDelete(serviceID, []unstructured.Unstructured{})
 	if err != nil {
 		return nil, err
 	}
 
 	for _, resource := range toDelete {
-		if resource.GetAnnotations() != nil && resource.GetAnnotations()[LifecycleDeleteAnnotation] == PreventDeletion {
+		live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
+		if errors.IsNotFound(err) {
 			if err := in.store.DeleteComponent(resource.GetUID()); err != nil {
-				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", resource.GetUID())
+				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", resource.GetUID())
 			}
 			continue
 		}
-		if err = in.client.
-			Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).
-			Namespace(resource.GetNamespace()).Delete(ctx, resource.GetName(), metav1.DeleteOptions{}); k8sclient.IgnoreNotFound(err) != nil {
+		if err != nil {
 			return nil, err
 		}
+
+		if live.GetAnnotations() != nil && live.GetAnnotations()[smcommon.LifecycleDeleteAnnotation] == smcommon.PreventDeletion {
+			if err := in.store.DeleteComponent(live.GetUID()); err != nil {
+				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", live.GetUID())
+			}
+
+			// skip deletion when prevented by annotation
+			continue
+		}
+
+		err = in.client.
+			Resource(helpers.GVRFromGVK(live.GroupVersionKind())).
+			Namespace(live.GetNamespace()).Delete(ctx, live.GetName(), metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			if err := in.store.DeleteComponent(live.GetUID()); err != nil {
+				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", live.GetUID())
+			}
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		deleted++
 	}
 
+	defer klog.V(log.LogLevelDefault).InfoS("deleted service components", "deleted", deleted, "service", serviceID)
 	return in.getServiceComponents(serviceID)
 }
 
@@ -136,22 +169,25 @@ func (in *Applier) addServiceAnnotation(resources []unstructured.Unstructured, s
 			annotations = make(map[string]string)
 		}
 
-		annotations[OwningInventoryKey] = serviceID
+		annotations[smcommon.OwningInventoryKey] = serviceID
 		obj.SetAnnotations(annotations)
 	}
 
 	return resources
 }
 
-func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, err error) {
+func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured, err error) {
 	entries, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
 		return
 	}
 
 	resourceKeys := containers.NewSet[Key]()
+	deleteKeys := containers.NewSet[Key]()
+	resourceKeyToResource := make(map[Key]unstructured.Unstructured)
 	for _, obj := range resources {
 		resourceKeys.Add(NewKeyFromUnstructured(obj))
+		resourceKeyToResource[NewKeyFromUnstructured(obj)] = obj
 	}
 
 	for _, entry := range entries {
@@ -168,7 +204,17 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 			obj.SetUID(types.UID(entry.UID))
 
 			toDelete = append(toDelete, obj)
+			deleteKeys.Add(entryKey)
 		}
+	}
+
+	for _, resource := range resources {
+		key := NewKeyFromUnstructured(resource)
+		if deleteKeys.Has(key) {
+			continue
+		}
+
+		toApply = append(toApply, resource)
 	}
 
 	return

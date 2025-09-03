@@ -40,6 +40,7 @@ import (
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/applier"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -296,7 +297,7 @@ func postProcess(mans []unstructured.Unstructured) []unstructured.Unstructured {
 		if annotations == nil {
 			annotations = map[string]string{}
 		}
-		annotations[applier.LifecycleDeleteAnnotation] = applier.PreventDeletion
+		annotations[smcommon.LifecycleDeleteAnnotation] = smcommon.PreventDeletion
 		man.SetAnnotations(annotations)
 		return man
 	})
@@ -415,10 +416,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
-
 	if svc.DeletedAt != nil {
-		logger.V(2).Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
 		components, err := s.applier.Destroy(ctx, id)
 		metrics.Record().ServiceDeletion(id)
 		s.svcCache.Expire(id)
@@ -437,6 +436,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return ctrl.Result{}, err
 	}
 
+	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 	logger.V(4).Info("Fetching manifests", "service", svc.Name)
 	dir, err := s.manifestCache.Fetch(svc)
 	if err != nil {
