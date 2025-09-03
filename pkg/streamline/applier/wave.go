@@ -298,6 +298,13 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id Key, resource u
 }
 
 func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured, dryRun []string) {
+	if resource.GetAnnotations() != nil && resource.GetAnnotations()[LifecycleDeleteAnnotation] == PreventDeletion {
+		if err := streamline.GetGlobalStore().DeleteComponent(resource.GetUID()); err != nil {
+			klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", resource.GetUID())
+		}
+		return
+	}
+
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
 	err := c.Delete(ctx, resource.GetName(), metav1.DeleteOptions{
 		DryRun: dryRun,

@@ -3,6 +3,8 @@ package streamline
 import (
 	"sync"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -53,4 +55,8 @@ func (in *GlobalStore) ExpireSHA(obj unstructured.Unstructured) error {
 
 func (in *GlobalStore) Expire(serviceID string) error {
 	return in.store.Expire(serviceID)
+}
+
+func (in *GlobalStore) DeleteComponent(uid types.UID) error {
+	return in.store.DeleteComponent(uid)
 }
