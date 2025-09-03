@@ -5,7 +5,7 @@ const (
 		CREATE TABLE IF NOT EXISTS component (
 			id INTEGER PRIMARY KEY,
 			parent_uid TEXT,
-			uid TEXT UNIQUE,
+			uid TEXT,
 			"group" TEXT,
 			version TEXT,
 			kind TEXT, 
@@ -89,17 +89,13 @@ const (
 			?,
 		    ?,
 		    ?
-		) ON CONFLICT(uid) DO UPDATE SET
-    parent_uid = excluded.parent_uid,
-    "group" = excluded."group",
-    version = excluded.version,
-    kind = excluded.kind,
-    namespace = excluded.namespace,
-    name = excluded.name,
-    health = excluded.health,
-    node = excluded.node,
-    created_at = excluded.created_at,
-    service_id = excluded.service_id
+		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			parent_uid = excluded.parent_uid,
+			health = excluded.health,
+			node = excluded.node,
+			created_at = excluded.created_at,
+			service_id = excluded.service_id
 	`
 
 	expireSHA = `
