@@ -36,6 +36,9 @@ type Controller struct {
 	// mu is used to synchronize Controller setup
 	mu sync.Mutex
 
+	// protect lastPollTime and lastReconcileTime
+	timesMu sync.RWMutex
+
 	// CacheSyncTimeout refers to the time limit set on waiting for cache to sync
 	// Defaults to 2 minutes if not set.
 	CacheSyncTimeout time.Duration
@@ -107,12 +110,28 @@ func (c *Controller) Restart() {
 // LastPollTime returns the last time controller poll was executed.
 // It signals whether the controller is alive and running.
 func (c *Controller) LastPollTime() time.Time {
+	c.timesMu.RLock()
+	defer c.timesMu.RUnlock()
 	return c.lastPollTime
+}
+
+func (c *Controller) setLastPollTime(t time.Time) {
+	c.timesMu.Lock()
+	defer c.timesMu.Unlock()
+	c.lastPollTime = t
+}
+
+func (c *Controller) setLastReconcileTime(t time.Time) {
+	c.timesMu.Lock()
+	defer c.timesMu.Unlock()
+	c.lastReconcileTime = t
 }
 
 // LastReconcileTime returns the last time controller poll was executed.
 // It signals whether the controller is alive and running.
 func (c *Controller) LastReconcileTime() time.Time {
+	c.timesMu.RLock()
+	defer c.timesMu.RUnlock()
 	return c.lastReconcileTime
 }
 
@@ -122,14 +141,14 @@ func (c *Controller) startPoller(ctx context.Context) {
 	klog.V(internallog.LogLevelTrace).InfoS("Starting controller poller", "ctrl", c.Name)
 	err := helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
 		defer func() {
-			c.lastPollTime = time.Now()
+			c.setLastPollTime(time.Now())
 		}()
 
 		if err := c.Do.Poll(ctx); err != nil {
 			klog.ErrorS(err, "poller failed")
 		}
 
-		c.lastPollTime = time.Now()
+		c.setLastPollTime(time.Now())
 		// never stop
 		return false, nil
 	})
@@ -212,7 +231,7 @@ func (c *Controller) reconcile(ctx context.Context, req string) (_ reconcile.Res
 			panic(r)
 		} else {
 			// Update last reconcile time on successful reconcile
-			c.lastReconcileTime = time.Now()
+			c.setLastReconcileTime(time.Now())
 		}
 	}()
 	return c.Do.Reconcile(ctx, req)

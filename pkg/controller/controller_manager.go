@@ -40,7 +40,10 @@ type Manager struct {
 	// PollJitter defines how much polling jitter should there be when polling for new resources.
 	PollJitter time.Duration
 
-	Socket *websocket.Socket
+	// LivenessCheckInterval recheck the controller liveness.
+	LivenessCheckInterval time.Duration
+
+	Socket websocket.Socket
 
 	// started is true if the Manager has been Started
 	started bool
@@ -138,6 +141,9 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 
 	// Recheck the controller liveness every 30 seconds.
 	livenessCheckInterval := 30 * time.Second
+	if cm.LivenessCheckInterval > 0 {
+		livenessCheckInterval = cm.LivenessCheckInterval
+	}
 	// Make last controller action deadline 5 times the time of regular poll.
 	// It means that the controller hasn't polled/reconciled any resources.
 	// It could indicate that the controller might have died and should be restarted.
