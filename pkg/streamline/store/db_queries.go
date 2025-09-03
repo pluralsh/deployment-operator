@@ -227,6 +227,6 @@ const (
 			transient_manifest_sha = '',
 			apply_sha = '',
 			server_sha = ''
-		WHERE updated_at < ?
+		WHERE updated_at < datetime(?, 'unixepoch')
 	`
 )
