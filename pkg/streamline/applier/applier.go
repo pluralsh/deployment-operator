@@ -102,6 +102,9 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 
 	for _, resource := range toDelete {
 		if resource.GetAnnotations() != nil && resource.GetAnnotations()[LifecycleDeleteAnnotation] == PreventDeletion {
+			if err := in.store.DeleteComponent(resource.GetUID()); err != nil {
+				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", resource.GetUID())
+			}
 			continue
 		}
 		if err = in.client.
