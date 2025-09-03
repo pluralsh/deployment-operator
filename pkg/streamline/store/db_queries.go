@@ -13,17 +13,37 @@ const (
 			name TEXT,
 			health INT,
 			node TEXT,
-			createdAt TIMESTAMP,
+			created_at TIMESTAMP,
 			service_id TEXT,
 			manifest_sha TEXT,
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
-			server_sha TEXT
+			server_sha TEXT,
+			updated_at TIMESTAMP
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
 		CREATE INDEX IF NOT EXISTS idx_uid ON component(uid);
 		CREATE INDEX IF NOT EXISTS idx_service_id ON component(service_id);
+
+		-- Set default value on insert
+		CREATE TRIGGER IF NOT EXISTS set_updatedAt_on_insert
+		AFTER INSERT ON component
+		BEGIN
+			UPDATE component
+			SET updated_at = CURRENT_TIMESTAMP
+			WHERE id = NEW.id;
+		END;
+		
+		-- Update timestamp automatically on row update
+		CREATE TRIGGER IF NOT EXISTS set_updatedAt_on_update
+		AFTER UPDATE ON component
+		BEGIN
+			UPDATE component
+			SET updated_at = CURRENT_TIMESTAMP
+			WHERE id = NEW.id;
+		END;
+
 	`
 
 	getComponent = `
@@ -55,7 +75,7 @@ const (
 			name,
 			health,
 		    node,
-		    createdAt,
+		    created_at,
 		    service_id
 		) VALUES (
 			?,
@@ -69,13 +89,17 @@ const (
 			?,
 		    ?,
 		    ?
-		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
-			uid = excluded.uid,
-			parent_uid = excluded.parent_uid,
-			health = excluded.health,
-			node = excluded.node,
-			createdAt = excluded.createdAt,
-			service_id = excluded.service_id
+		) ON CONFLICT(uid) DO UPDATE SET
+    parent_uid = excluded.parent_uid,
+    "group" = excluded."group",
+    version = excluded.version,
+    kind = excluded.kind,
+    namespace = excluded.namespace,
+    name = excluded.name,
+    health = excluded.health,
+    node = excluded.node,
+    created_at = excluded.created_at,
+    service_id = excluded.service_id
 	`
 
 	expireSHA = `
@@ -154,7 +178,7 @@ const (
 	nodeStatistics = `
 		SELECT node, COUNT(*)
 		FROM component
-		WHERE kind = 'Pod' AND createdAt <= strftime('%s', 'now', '-5 minutes') AND health != 0
+		WHERE kind = 'Pod' AND created_at <= strftime('%s', 'now', '-5 minutes') AND health != 0
 		GROUP BY node
 	`
 
@@ -199,4 +223,14 @@ const (
   		COUNT(DISTINCT CASE WHEN kind = 'Node' THEN uid END) AS node_count,
   		COUNT(DISTINCT CASE WHEN kind = 'Namespace' THEN uid END) AS namespace_count
 	FROM component`
+
+	expireOlderThan = `
+		UPDATE component
+		SET
+			manifest_sha = '',
+			transient_manifest_sha = '',
+			apply_sha = '',
+			server_sha = ''
+		WHERE updated_at < ?
+	`
 )

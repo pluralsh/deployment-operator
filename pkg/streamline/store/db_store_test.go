@@ -1235,3 +1235,155 @@ func TestUpdateSHA(t *testing.T) {
 		assert.NotEmpty(t, entry.TransientManifestSHA)
 	})
 }
+
+func TestUpdateExpireSHAOlderThan(t *testing.T) {
+	t.Run("should expire SHA", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
+
+		obj := unstructured.Unstructured{}
+		obj.SetUID("test")
+		obj.SetName("test")
+		obj.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "test",
+			Version: "v1",
+			Kind:    "Test",
+		})
+
+		err = storeInstance.SaveComponent(obj)
+		require.NoError(t, err)
+
+		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.ManifestSHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA)
+		require.NoError(t, err)
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.NotEmpty(t, entry.ApplySHA)
+		assert.NotEmpty(t, entry.ServerSHA)
+		assert.NotEmpty(t, entry.ManifestSHA)
+		assert.NotEmpty(t, entry.TransientManifestSHA)
+
+		time.Sleep(1 * time.Second)
+
+		err = storeInstance.ExpireOlderThan(500 * time.Millisecond)
+		require.NoError(t, err)
+
+		entry, err = storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.Empty(t, entry.ApplySHA)
+		assert.Empty(t, entry.ServerSHA)
+		assert.Empty(t, entry.ManifestSHA)
+		assert.Empty(t, entry.TransientManifestSHA)
+
+	})
+
+	t.Run("should not expire SHA", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
+
+		obj := unstructured.Unstructured{}
+		obj.SetUID("test")
+		obj.SetName("test")
+		obj.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "test",
+			Version: "v1",
+			Kind:    "Test",
+		})
+
+		err = storeInstance.SaveComponent(obj)
+		require.NoError(t, err)
+
+		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.ManifestSHA)
+		require.NoError(t, err)
+		err = storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA)
+		require.NoError(t, err)
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.NotEmpty(t, entry.ApplySHA)
+		assert.NotEmpty(t, entry.ServerSHA)
+		assert.NotEmpty(t, entry.ManifestSHA)
+		assert.NotEmpty(t, entry.TransientManifestSHA)
+
+		//time.Sleep(500 * time.Millisecond)
+
+		err = storeInstance.ExpireOlderThan(time.Second)
+		require.NoError(t, err)
+
+		entry, err = storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.NotEmpty(t, entry.ApplySHA)
+		assert.NotEmpty(t, entry.ServerSHA)
+		assert.NotEmpty(t, entry.ManifestSHA)
+		assert.NotEmpty(t, entry.TransientManifestSHA)
+
+	})
+
+	t.Run("trigger should update updated_at column", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		assert.NoError(t, err)
+		defer storeInstance.Shutdown()
+
+		obj := unstructured.Unstructured{}
+		obj.SetUID("test")
+		obj.SetName("test")
+		obj.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "test",
+			Version: "v1",
+			Kind:    "Test",
+		})
+
+		err = storeInstance.SaveComponent(obj)
+		require.NoError(t, err)
+
+		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
+		require.NoError(t, err)
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.NotEmpty(t, entry.ApplySHA)
+
+		time.Sleep(800 * time.Millisecond)
+
+		err = storeInstance.ExpireOlderThan(time.Second)
+		require.NoError(t, err)
+
+		entry, err = storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.NotEmpty(t, entry.ApplySHA)
+
+		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
+		require.NoError(t, err)
+		entry, err = storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.NotEmpty(t, entry.ApplySHA)
+
+		time.Sleep(800 * time.Millisecond)
+
+		err = storeInstance.ExpireOlderThan(time.Second)
+		require.NoError(t, err)
+		entry, err = storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.NotEmpty(t, entry.ApplySHA)
+	})
+}

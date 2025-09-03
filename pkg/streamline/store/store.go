@@ -1,6 +1,8 @@
 package store
 
 import (
+	"time"
+
 	"github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,6 +54,9 @@ type Store interface {
 
 	// Expire removes component SHA information based on the provided service ID.
 	Expire(string) error
+
+	// ExpireOlderThan ...
+	ExpireOlderThan(ttl time.Duration) error
 
 	// Shutdown closes the database connection and deletes the store.
 	Shutdown() error

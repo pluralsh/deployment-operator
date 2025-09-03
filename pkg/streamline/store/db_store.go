@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -520,4 +521,18 @@ func (in *DatabaseStore) Shutdown() error {
 	}
 
 	return nil
+}
+
+func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	cutoff := time.Now().Add(-ttl).Unix()
+
+	return sqlitex.ExecuteTransient(conn, expireOlderThan, &sqlitex.ExecOptions{
+		Args: []interface{}{cutoff},
+	})
 }

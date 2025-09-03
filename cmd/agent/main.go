@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
@@ -120,6 +122,8 @@ func main() {
 
 	streamline.InitGlobalStore(dbStore)
 
+	RunDatastoreCleanerInBackgroundOrDie(ctx, dbStore, time.Minute, args.ResourceCacheTTL())
+
 	// Start synchronizer supervisor
 	runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
 
@@ -231,4 +235,20 @@ func initDatabaseStoreOrDie() store.Store {
 	}
 
 	return dbStore
+}
+
+func RunDatastoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, duration, resourceCacheTTL time.Duration) {
+	klog.Info("starting ", "DatastoreCleaner")
+
+	interval := func() time.Duration {
+		return duration
+	}
+
+	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
+		if err := store.ExpireOlderThan(resourceCacheTTL); err != nil {
+			klog.Error(err, "unable to expire resource cache")
+		}
+		return false, nil
+	})
+
 }
