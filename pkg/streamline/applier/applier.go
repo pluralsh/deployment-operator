@@ -18,7 +18,6 @@ import (
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
@@ -102,6 +101,9 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 	}
 
 	for _, resource := range toDelete {
+		if resource.GetAnnotations() != nil && resource.GetAnnotations()[LifecycleDeleteAnnotation] == PreventDeletion {
+			continue
+		}
 		if err = in.client.
 			Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).
 			Namespace(resource.GetNamespace()).Delete(ctx, resource.GetName(), metav1.DeleteOptions{}); k8sclient.IgnoreNotFound(err) != nil {
@@ -131,7 +133,7 @@ func (in *Applier) addServiceAnnotation(resources []unstructured.Unstructured, s
 			annotations = make(map[string]string)
 		}
 
-		annotations[common.OwningInventoryKey] = serviceID
+		annotations[OwningInventoryKey] = serviceID
 		obj.SetAnnotations(annotations)
 	}
 

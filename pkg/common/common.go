@@ -2,8 +2,9 @@ package common
 
 import (
 	"context"
-	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"time"
+
+	"sigs.k8s.io/cli-utils/pkg/inventory"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

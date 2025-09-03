@@ -17,8 +17,6 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
-const OwningInventoryKey = "config.k8s.io/owning-inventory"
-
 func ParseAPIVersion(apiVersion string) (group, version string) {
 	parts := strings.Split(apiVersion, "/")
 	if len(parts) == 2 {

@@ -296,7 +296,7 @@ func postProcess(mans []unstructured.Unstructured) []unstructured.Unstructured {
 		if annotations == nil {
 			annotations = map[string]string{}
 		}
-		annotations[common.LifecycleDeleteAnnotation] = common.PreventDeletion
+		annotations[applier.LifecycleDeleteAnnotation] = applier.PreventDeletion
 		man.SetAnnotations(annotations)
 		return man
 	})
