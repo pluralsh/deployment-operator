@@ -1,6 +1,6 @@
 package scraper
 
-//const (
+// const (
 //	serverGroupsScraperPollingInterval = 15 * time.Minute
 //)
 //

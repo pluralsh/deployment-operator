@@ -523,7 +523,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	//options := apply.ApplierOptions{
+	// options := apply.ApplierOptions{
 	//	ServerSideOptions: common.ServerSideOptions{
 	//		ServerSideApply: true,
 	//		ForceConflicts:  true,

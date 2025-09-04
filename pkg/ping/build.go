@@ -4,18 +4,19 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/scraper"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/version"
+
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
 )
 
 func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openShiftVersion *string, podCount *int64) console.ClusterPing {
-	//hs, err := db.GetComponentCache().HealthScore()
+	// hs, err := db.GetComponentCache().HealthScore()
 	//if err != nil {
 	//	klog.ErrorS(err, "failed to get health score")
 	//}
 
-	//ns, err := db.GetComponentCache().NodeStatistics()
+	// ns, err := db.GetComponentCache().NodeStatistics()
 	//if err != nil {
 	//	klog.ErrorS(err, "failed to get node statistics")
 	//}
@@ -45,12 +46,12 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openSh
 		OpenshiftVersion: openShiftVersion,
 	}
 
-	//cInsights, err := db.GetComponentCache().ComponentInsights()
+	// cInsights, err := db.GetComponentCache().ComponentInsights()
 	//if err != nil {
 	//	klog.ErrorS(err, "failed to get component insights")
 	//}
 
-	//cp.InsightComponents = lo.ToSlicePtr(cInsights)
+	// cp.InsightComponents = lo.ToSlicePtr(cInsights)
 	//if metrics.CPUAvailableMillicores > 0 {
 	//	cp.CPUTotal = lo.ToPtr(float64(metrics.CPUAvailableMillicores))
 	//}

@@ -17,7 +17,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 )
 
-//func (s *ServiceReconciler) UpdatePruneStatus(
+// func (s *ServiceReconciler) UpdatePruneStatus(
 //	ctx context.Context,
 //	svc *console.ServiceDeploymentForAgent,
 //	ch <-chan event.Event,
@@ -70,14 +70,14 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 		klog.Fatalf("programmatic error! context does not have value for the key %s", metrics.ContextKeyTimeStart)
 	}
 
-	//metrics.Record().ServiceReconciliation(
+	// metrics.Record().ServiceReconciliation(
 	//	svc.ID,
 	//	svc.Name,
 	//	metrics.WithServiceReconciliationStartedAt(start),
 	//	metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
 	//)
 
-	//var statsCollector stats.Stats
+	// var statsCollector stats.Stats
 	//statusCollector := newServiceComponentsStatusCollector(s, svc)
 	//for e := range ch {
 	//	statsCollector.Handle(e)
@@ -152,18 +152,18 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 	//	}
 	//}
 
-	//metrics.Record().ServiceReconciliation(
+	// metrics.Record().ServiceReconciliation(
 	//	svc.ID,
 	//	svc.Name,
 	//	metrics.WithServiceReconciliationStartedAt(start),
 	//	metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
 	//)
 
-	//if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
+	// if err := FormatSummary(ctx, svc.Namespace, svc.Name, statsCollector); err != nil {
 	//	return done, err
 	//}
 
-	//components := statusCollector.componentsAttributes(vcache)
+	// components := statusCollector.componentsAttributes(vcache)
 	if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), lo.ToSlicePtr(errors)); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	}

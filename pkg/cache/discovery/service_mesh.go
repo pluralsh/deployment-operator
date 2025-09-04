@@ -18,7 +18,7 @@ const (
 	ServiceMeshResourcePriorityNone = 255
 
 	ServiceMeshUpdateTypeAdded   ServiceMeshUpdateType = 0
-	ServiceMeshUpdateTypeDeleted                       = 1
+	ServiceMeshUpdateTypeDeleted ServiceMeshUpdateType = 1
 
 	// ServiceMeshResourceGroupIstio is a base group name used by Istio
 	// Ref: https://github.com/istio/istio/blob/6186a80cb220ecbd7e1cc82044fe3a6fc2876c63/operator/pkg/apis/register.go#L27-L31

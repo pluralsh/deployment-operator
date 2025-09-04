@@ -1284,7 +1284,6 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 		assert.Empty(t, entry.ServerSHA)
 		assert.Empty(t, entry.ManifestSHA)
 		assert.Empty(t, entry.TransientManifestSHA)
-
 	})
 
 	t.Run("should not expire SHA", func(t *testing.T) {
@@ -1321,7 +1320,7 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 		assert.NotEmpty(t, entry.ManifestSHA)
 		assert.NotEmpty(t, entry.TransientManifestSHA)
 
-		//time.Sleep(500 * time.Millisecond)
+		// time.Sleep(500 * time.Millisecond)
 
 		err = storeInstance.ExpireOlderThan(time.Second)
 		require.NoError(t, err)
@@ -1333,7 +1332,6 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 		assert.NotEmpty(t, entry.ServerSHA)
 		assert.NotEmpty(t, entry.ManifestSHA)
 		assert.NotEmpty(t, entry.TransientManifestSHA)
-
 	})
 
 	t.Run("trigger should update updated_at column", func(t *testing.T) {

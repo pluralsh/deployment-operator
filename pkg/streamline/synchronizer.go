@@ -131,7 +131,6 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 			return
 		}
 	}
-
 }
 
 func (in *synchronizer) Stop() {

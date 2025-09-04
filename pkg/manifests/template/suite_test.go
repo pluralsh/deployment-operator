@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	// TODO: fix
-	//cache.RunDiscoveryCacheInBackgroundOrDie(context.Background(), discoveryClient)
+	// cache.RunDiscoveryCacheInBackgroundOrDie(context.Background(), discoveryClient)
 
 	utilFactory = cmdtesting.NewTestFactory()
 })

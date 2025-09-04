@@ -93,7 +93,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 	}
 }
 
-//func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[schema.GroupName]string) []*console.ComponentAttributes {
+// func (sc *serviceComponentsStatusCollector) componentsAttributes(vcache map[schema.GroupName]string) []*console.ComponentAttributes {
 //	components := make([]*console.ComponentAttributes, 0, len(sc.latestStatus))
 //
 //	if sc.DryRun {

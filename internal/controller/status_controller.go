@@ -1,7 +1,7 @@
 package controller
 
 // TODO: can we get rid of this now?
-//const (
+// const (
 //	StatusFinalizer = "deployments.plural.sh/inventory-protection"
 //)
 //

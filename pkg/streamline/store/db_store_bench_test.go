@@ -18,7 +18,7 @@ package store_test
 // Read operations (ComponentChildren) show a smaller performance gap because SQLite's query
 // optimization works well for both storage modes.
 
-//const (
+// const (
 //	benchDBFile = "/tmp/component-cache-bench.db"
 //)
 //

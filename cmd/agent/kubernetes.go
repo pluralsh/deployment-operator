@@ -230,7 +230,7 @@ func registerKubeReconcilersOrDie(
 		setupLog.Error(err, "unable to create controller", "controller", "UpgradeInsights")
 	}
 
-	//statusController := controller.NewStatusReconciler(manager.GetClient())
+	// statusController := controller.NewStatusReconciler(manager.GetClient())
 	//if err := statusController.SetupWithManager(manager); err != nil {
 	//	setupLog.Error(err, "unable to setup controller", "controller", "StatusController")
 	//}
@@ -253,7 +253,7 @@ func registerKubeReconcilersOrDie(
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
 
-	//if err := (&controller.KubecostExtractorReconciler{
+	// if err := (&controller.KubecostExtractorReconciler{
 	//	Client:           manager.GetClient(),
 	//	Scheme:           manager.GetScheme(),
 	//	KubeClient:       kubeClient,

@@ -342,7 +342,7 @@ func (in *ResourceCache) reconcile(e event.Event) {
 		apiVersion := e.Resource.Resource.GetAPIVersion()
 		group, _ := common.ParseAPIVersion(apiVersion)
 		if !GroupBlacklist.Has(group) {
-			//common.SyncDBCache(e.Resource.Resource)
+			// common.SyncDBCache(e.Resource.Resource)
 		}
 
 		if e.Type != event.ResourceUpdateEvent {

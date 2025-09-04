@@ -53,7 +53,7 @@ type Progress struct {
 	PingTime     time.Time
 }
 
-//func SyncDBCache(u *unstructured.Unstructured) {
+// func SyncDBCache(u *unstructured.Unstructured) {
 //	state := ToStatus(u)
 //
 //	// Sync pods separately, as they have a different sync logic
