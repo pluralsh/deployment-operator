@@ -2,6 +2,7 @@ package applier
 
 import (
 	"context"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"sync"
 	"time"
 
@@ -80,9 +81,15 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 
 	for _, resource := range toSkip {
 		cacheEntry, err := in.store.GetComponent(resource)
-		// TODO: in case of error we should probably read it straight from the api server
-		if err != nil {
-			klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from cache", "resource", resource)
+		// TODO: refactor
+		if err != nil || cacheEntry == nil {
+			live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
+			if err != nil {
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from cache", "resource", resource)
+				continue
+			}
+			componentAttr := common.ToComponentAttributes(live)
+			componentList = append(componentList, *componentAttr)
 			continue
 		}
 
