@@ -7,11 +7,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("MetricsAggregate Controller", Ordered, func() {
@@ -41,9 +42,9 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			discoveryClient.On("ServerGroups").Return(apiGroups, nil)
 
 			r := MetricsAggregateReconciler{
-				Client:          kClient,
-				Scheme:          kClient.Scheme(),
-				DiscoveryClient: discoveryClient,
+				Client:         kClient,
+				Scheme:         kClient.Scheme(),
+				DiscoveryCache: nil,
 			}
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: metricsAggregate})
 			Expect(err).NotTo(HaveOccurred())
@@ -67,9 +68,9 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			})
 
 			r := MetricsAggregateReconciler{
-				Client:          kClient,
-				Scheme:          kClient.Scheme(),
-				DiscoveryClient: discoveryClient,
+				Client:         kClient,
+				Scheme:         kClient.Scheme(),
+				DiscoveryCache: nil,
 			}
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: metricsAggregate})
 			Expect(err).NotTo(HaveOccurred())

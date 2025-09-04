@@ -7,7 +7,7 @@ const name = "fake"
 type FakePublisher struct {
 }
 
-func (sp *FakePublisher) Publish(id string) {}
+func (sp *FakePublisher) Publish(id string, kick bool) {}
 
 type FakeSocket struct{}
 

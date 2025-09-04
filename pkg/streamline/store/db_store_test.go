@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/pluralsh/deployment-operator/pkg/streamline/api"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
@@ -94,7 +95,7 @@ func createComponent(uid string, parentUID *string, option ...CreateComponentOpt
 
 func TestComponentCache_Init(t *testing.T) {
 	t.Run("cache should initialize", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 	})
@@ -102,7 +103,7 @@ func TestComponentCache_Init(t *testing.T) {
 
 func TestComponentCache_SetComponent(t *testing.T) {
 	t.Run("cache should save and return simple parent and child structure", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -126,7 +127,7 @@ func TestComponentCache_SetComponent(t *testing.T) {
 
 func TestComponentCache_ComponentChildren(t *testing.T) {
 	t.Run("cache should save and return multi-level structure", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -172,7 +173,7 @@ func TestComponentCache_ComponentChildren(t *testing.T) {
 	})
 
 	t.Run("cache should save and return multi-level structure with multiple children", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -225,7 +226,7 @@ func TestComponentCache_ComponentChildren(t *testing.T) {
 
 func TestComponentCache_DeleteComponent(t *testing.T) {
 	t.Run("cache should support basic cascade deletion", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -256,7 +257,7 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 	})
 
 	t.Run("cache should support multi-level cascade deletion", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -294,7 +295,7 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 
 func TestComponentCache_GroupHandling(t *testing.T) {
 	t.Run("cache should correctly store and return group", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -338,7 +339,7 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 
 func TestComponentCache_HealthScore(t *testing.T) {
 	t.Run("cache should calculate correct health score", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -405,7 +406,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	})
 
 	t.Run("cache should calculate correct health score for components with no children", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -420,7 +421,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	})
 
 	t.Run("cache should calculate health score with critical system component failures", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -469,7 +470,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	})
 
 	t.Run("cache should calculate health score with combined resource failures", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -517,7 +518,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should allow components with different GVK-namespace-name combinations", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -582,7 +583,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should allow component updates", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -601,7 +602,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should allow components with same GVK-namespace-name but different UID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -625,7 +626,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should allow updating existing component with same UID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -655,7 +656,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should handle UID changes for resource with the same identity", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -688,7 +689,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should treat nil values in the same way as empty strings", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -733,7 +734,7 @@ func createPod(s store.Store, name, uid string, timestamp int64) error {
 
 func TestPendingPodsCache(t *testing.T) {
 	t.Run("cache should store pods with all required attributes", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -748,7 +749,7 @@ func TestPendingPodsCache(t *testing.T) {
 	})
 
 	t.Run("cache should ignore fresh pending pods that were created within last 5 minutes", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -764,7 +765,7 @@ func TestPendingPodsCache(t *testing.T) {
 	})
 
 	t.Run("cache should delete pod", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -786,7 +787,7 @@ func TestPendingPodsCache(t *testing.T) {
 
 func TestComponentCache_ComponentInsights(t *testing.T) {
 	t.Run("should retrieve expected component insights without errors", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -900,7 +901,7 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 	})
 
 	t.Run("should properly assign priorities based on component kind", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -960,7 +961,7 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 	})
 
 	t.Run("should assign priorities based on string similarity in resource names and namespaces", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -1027,7 +1028,7 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 	t.Run("should handle empty cache without errors", func(t *testing.T) {
 		// Initialize a fresh cache for this test
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -1045,7 +1046,7 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 func TestComponentCountsCache(t *testing.T) {
 	t.Run("cache should return counts of nodes, pods and namespaces", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -1075,7 +1076,7 @@ func TestComponentCountsCache(t *testing.T) {
 
 func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	t.Run("should limit component children to 100 items", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -1109,7 +1110,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	})
 
 	t.Run("should return all children when under 100 limit", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -1143,7 +1144,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	})
 
 	t.Run("should apply limit to multi-level hierarchies", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -1201,7 +1202,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 
 func TestUpdateSHA(t *testing.T) {
 	t.Run("cache should update SHA", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -1238,7 +1239,7 @@ func TestUpdateSHA(t *testing.T) {
 
 func TestUpdateExpireSHAOlderThan(t *testing.T) {
 	t.Run("should expire SHA", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -1287,7 +1288,7 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 	})
 
 	t.Run("should not expire SHA", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 
@@ -1336,7 +1337,7 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 	})
 
 	t.Run("trigger should update updated_at column", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer storeInstance.Shutdown()
 

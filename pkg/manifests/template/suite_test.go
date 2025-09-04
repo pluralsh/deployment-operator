@@ -17,7 +17,6 @@ limitations under the License.
 package template
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -25,7 +24,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
@@ -71,7 +69,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	cache.RunDiscoveryCacheInBackgroundOrDie(context.Background(), discoveryClient)
+	// TODO: fix
+	//cache.RunDiscoveryCacheInBackgroundOrDie(context.Background(), discoveryClient)
 
 	utilFactory = cmdtesting.NewTestFactory()
 })
