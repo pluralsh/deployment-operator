@@ -18,14 +18,15 @@ import (
 
 // TODO
 func TestCacheFilter(t *testing.T) {
-	t.Skipf("skipping until it gets fixed")
-
 	const (
 		resourceName = "test-filter"
 		namespace    = "default"
 	)
 
 	setupTest := func(t *testing.T) (store.Store, unstructured.Unstructured, func()) {
+		// Ensure no leftover global from previous test
+		streamline.ResetGlobalStore()
+
 		storeInstance, err := store.NewDatabaseStore()
 		require.NoError(t, err, "failed to create store")
 
@@ -38,22 +39,32 @@ func TestCacheFilter(t *testing.T) {
 				UID:       "test-uid-123",
 				Labels:    map[string]string{common.ManagedByLabel: common.AgentLabelValue},
 			},
-			Spec: v1.PodSpec{Containers: []v1.Container{{Name: "test", Image: "test:v1"}}},
+			Spec: v1.PodSpec{
+				Containers: []v1.Container{{Name: "test", Image: "test:v1"}},
+			},
 		}
 
 		res, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
 		require.NoError(t, err, "failed to convert pod to unstructured")
 
-		return storeInstance, unstructured.Unstructured{Object: res}, func() {
+		unstructuredPod := unstructured.Unstructured{Object: res}
+
+		cleanup := func() {
+			// Clear global store so later tests don’t reuse a closed DB
+			streamline.ResetGlobalStore()
+
 			if storeInstance != nil {
 				err := storeInstance.Shutdown()
 				require.NoError(t, err)
 			}
 		}
+
+		return storeInstance, unstructuredPod, cleanup
 	}
 
 	t.Run("should return true for cache miss when component not in store", func(t *testing.T) {
-		_, unstructuredPod, cleanup := setupTest(t)
+		storeInstance, unstructuredPod, cleanup := setupTest(t)
+		streamline.InitGlobalStore(storeInstance)
 		defer cleanup()
 
 		assert.True(t, CacheFilter()(unstructuredPod), "expected cache miss when first applying resource")
@@ -61,6 +72,8 @@ func TestCacheFilter(t *testing.T) {
 
 	t.Run("should return true for cache miss when component has no SHA", func(t *testing.T) {
 		storeInstance, unstructuredPod, cleanup := setupTest(t)
+		// Always reset the global store to this new instance
+		streamline.InitGlobalStore(storeInstance)
 		defer cleanup()
 
 		err := storeInstance.SaveComponent(unstructuredPod)
@@ -71,6 +84,8 @@ func TestCacheFilter(t *testing.T) {
 
 	t.Run("should return false for cache hit when manifest hasn't changed", func(t *testing.T) {
 		storeInstance, unstructuredPod, cleanup := setupTest(t)
+		// Always reset the global store to this new instance
+		streamline.InitGlobalStore(storeInstance)
 		defer cleanup()
 
 		err := storeInstance.SaveComponent(unstructuredPod)
