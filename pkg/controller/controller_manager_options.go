@@ -25,7 +25,7 @@ func WithConsoleClientArgs(url string, deployToken string) ControllerManagerOpti
 	}
 }
 
-func WithSocket(socket *websocket.Socket) ControllerManagerOption {
+func WithSocket(socket websocket.Socket) ControllerManagerOption {
 	return func(o *Manager) error {
 		o.Socket = socket
 		return nil
@@ -77,6 +77,13 @@ func WithJitter(jitter time.Duration) ControllerManagerOption {
 func WithRecoverPanic(recoverPanic bool) ControllerManagerOption {
 	return func(o *Manager) error {
 		o.RecoverPanic = &recoverPanic
+		return nil
+	}
+}
+
+func WithLivenessCheckInterval(interval time.Duration) ControllerManagerOption {
+	return func(o *Manager) error {
+		o.LivenessCheckInterval = interval
 		return nil
 	}
 }
