@@ -63,8 +63,9 @@ func ParseIntOrDie(value string) int {
 	return int(result)
 }
 
-// CreateTempDirOrDie ...
-// TODO: doc
+// CreateTempDirOrDie - creates a temporary directory in the specified dir with the given pattern.
+// If dir is an empty string, the default temporary directory for the OS will be used.
+// Panics if the directory cannot be created.
 func CreateTempDirOrDie(dir, pattern string) string {
 	dir, err := os.MkdirTemp(dir, pattern)
 	if err != nil {
@@ -75,8 +76,9 @@ func CreateTempDirOrDie(dir, pattern string) string {
 	return dir
 }
 
-// EnsureDirOrDie
-// TODO: doc
+// EnsureDirOrDie - ensures that the specified directory exists.
+// If the directory does not exist, it will be created with the specified permissions.
+// Panics if the directory cannot be created.
 func EnsureDirOrDie(dir string) {
 	err := os.Mkdir(dir, 0755)
 	if err != nil && !os.IsExist(err) {

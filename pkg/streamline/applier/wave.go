@@ -71,7 +71,7 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 	kindToWave := map[string]int{
 		// Wave 0 - core non-namespaced resources
 		common.NamespaceKind:                0,
-		common.CustomResourceDefinitionKind: 0, // TODO: should it be here or in the last wave?
+		common.CustomResourceDefinitionKind: 0,
 		common.PersistentVolumeKind:         0,
 		common.ClusterRoleKind:              0,
 		common.ClusterRoleListKind:          0,
