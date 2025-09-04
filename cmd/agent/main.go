@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 
 	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
@@ -122,7 +122,7 @@ func main() {
 
 	streamline.InitGlobalStore(dbStore)
 
-	RunDatastoreCleanerInBackgroundOrDie(ctx, dbStore, time.Minute, args.ResourceCacheTTL())
+	RunDatastoreCleanerInBackgroundOrDie(ctx, dbStore, 1*time.Second, 25*time.Second)
 
 	// Start synchronizer supervisor
 	runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
@@ -204,6 +204,7 @@ func initDiscoveryCache(client discovery.DiscoveryInterface) {
 }
 
 func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
+	now := time.Now()
 	if err := discoverycache.NewDiscoveryManager(
 		discoverycache.WithRefreshInterval(args.DiscoveryCacheRefreshInterval()),
 		discoverycache.WithCache(cache),
@@ -211,10 +212,11 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 		setupLog.Error(err, "unable to start discovery manager")
 		os.Exit(1)
 	}
-	setupLog.Info("discovery manager started with initial cache sync")
+	setupLog.Info("discovery manager started with initial cache sync", "duration", time.Since(now))
 }
 
 func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache) {
+	now := time.Now()
 	streamline.Run(ctx, dynamicClient, store, discoveryCache)
 
 	setupLog.Info("waiting for synchronizers cache to sync")
@@ -223,7 +225,7 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 		os.Exit(1)
 	}
 
-	setupLog.Info("started synchronizer supervisor with initial cache sync")
+	setupLog.Info("started synchronizer supervisor with initial cache sync", "duration", time.Since(now))
 }
 
 func initDatabaseStoreOrDie() store.Store {

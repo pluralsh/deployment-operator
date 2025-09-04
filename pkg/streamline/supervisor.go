@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	defaultStartJitter        = 2 * time.Second
-	defaultMinStartDelay      = 500 * time.Millisecond
+	defaultStartJitter        = 500 * time.Millisecond
+	defaultMinStartDelay      = 250 * time.Millisecond
 	defaultMaxNotFoundRetries = 3
 )
 
@@ -225,6 +225,8 @@ func (in *Supervisor) registerInitialResources() {
 	for _, gvr := range in.discoveryCache.GroupVersionResource().List() {
 		in.Register(gvr)
 	}
+
+	klog.V(log.LogLevelDefault).InfoS("initial resources registered", "count", in.synchronizers.Count())
 }
 
 func (in *Supervisor) watchDiscoveryCacheChanges() {

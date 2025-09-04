@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/samber/lo"
 
@@ -57,7 +58,9 @@ func (in *synchronizer) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
 
+	now := time.Now()
 	in.handleList(lo.FromPtr(list))
+	klog.V(log.LogLevelVerbose).InfoS("fetched resources", "gvr", in.gvr, "duration", time.Since(now))
 
 	watchCh, err := in.client.Resource(in.gvr).Namespace(metav1.NamespaceAll).Watch(internalCtx, metav1.ListOptions{
 		ResourceVersion: list.GetResourceVersion(),

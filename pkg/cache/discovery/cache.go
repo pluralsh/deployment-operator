@@ -66,7 +66,8 @@ type Cache interface {
 }
 
 type cache struct {
-	mu sync.RWMutex
+	mu      sync.RWMutex
+	cacheMu sync.RWMutex
 
 	client discovery.DiscoveryInterface
 	mapper meta.RESTMapper
@@ -176,6 +177,8 @@ func (in *cache) Refresh() error {
 		}
 	}
 
+	var resourceWG sync.WaitGroup
+
 	for _, resource := range resources {
 		gv, err := schema.ParseGroupVersion(resource.GroupVersion)
 		if err != nil {
@@ -195,9 +198,15 @@ func (in *cache) Refresh() error {
 				Kind:    apiResource.Kind,
 			}
 
-			gvkCache, gvrCache, gvCache = in.addTo(gvk, gvkCache, gvrCache, gvCache)
+			resourceWG.Add(1)
+			go func() {
+				defer resourceWG.Done()
+				gvkCache, gvrCache, gvCache = in.addTo(gvk, gvkCache, gvrCache, gvCache)
+			}()
 		}
 	}
+
+	resourceWG.Wait()
 
 	if err == nil {
 		deletedGVKs := in.gvkCache.Difference(gvkCache)
@@ -396,12 +405,17 @@ func (in *cache) addTo(
 }
 
 func (in *cache) addGroupVersionTo(groupVersion schema.GroupVersion, gvCacheSet containers.Set[schema.GroupVersion]) containers.Set[schema.GroupVersion] {
+	in.cacheMu.RLock()
 	if gvCacheSet.Has(groupVersion) {
 		klog.V(log.LogLevelDebug).InfoS("gv already in cache, skipping", "gv", groupVersion)
+		in.cacheMu.RUnlock()
 		return gvCacheSet
 	}
+	in.cacheMu.RUnlock()
 
+	in.cacheMu.Lock()
 	gvCacheSet.Add(groupVersion)
+	in.cacheMu.Unlock()
 	in.notifyGroupVersionAdded(groupVersion)
 	klog.V(log.LogLevelDebug).InfoS("added gv to cache", "gv", groupVersion)
 
@@ -409,12 +423,17 @@ func (in *cache) addGroupVersionTo(groupVersion schema.GroupVersion, gvCacheSet 
 }
 
 func (in *cache) addGroupVersionKindTo(gvk schema.GroupVersionKind, gvkSet containers.Set[schema.GroupVersionKind]) containers.Set[schema.GroupVersionKind] {
+	in.cacheMu.RLock()
 	if gvkSet.Has(gvk) {
 		klog.V(log.LogLevelDebug).InfoS("gvk already in cache, skipping", "gvk", gvk)
+		in.cacheMu.RUnlock()
 		return gvkSet
 	}
+	in.cacheMu.RUnlock()
 
+	in.cacheMu.Lock()
 	gvkSet.Add(gvk)
+	in.cacheMu.Unlock()
 	in.notifyGroupVersionKindAdded(gvk)
 	klog.V(log.LogLevelDebug).InfoS("added gvk to cache", "gvk", gvk)
 
@@ -428,12 +447,17 @@ func (in *cache) addGroupVersionResourceTo(gvk schema.GroupVersionKind, gvrSet c
 		return gvrSet
 	}
 
+	in.cacheMu.RLock()
 	if gvrSet.Has(gvr) {
 		klog.V(log.LogLevelDebug).InfoS("gvr already in cache, skipping", "gvr", gvr)
+		in.cacheMu.RUnlock()
 		return gvrSet
 	}
+	in.cacheMu.RUnlock()
 
+	in.cacheMu.Lock()
 	gvrSet.Add(gvr)
+	in.cacheMu.Unlock()
 	in.notifyGroupVersionResourceAdded(gvr)
 	klog.V(log.LogLevelDebug).InfoS("added gvr to cache", "gvr", gvr)
 	return gvrSet

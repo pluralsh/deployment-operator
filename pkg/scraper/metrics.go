@@ -83,7 +83,7 @@ func RunMetricsScraperInBackgroundOrDie(ctx context.Context, k8sClient ctrclient
 		return false, nil
 	})
 
-	klog.V(log.LogLevelDefault).InfoS("started metrics scraper", "interval", interval)
+	klog.V(log.LogLevelDefault).InfoS("started metrics scraper", "interval", interval())
 }
 
 func getMetricsFromNodes(ctx context.Context, client *kubernetes.Clientset) {

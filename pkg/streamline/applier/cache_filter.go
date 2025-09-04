@@ -36,13 +36,12 @@ func CacheFilter() FilterFunc {
 			return true
 		}
 
-		if err = streamline.GetGlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
-			klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA")
-		}
-
 		if entry.ShouldApply(newManifestSHA) {
 			klog.V(log.LogLevelDebug).InfoS("resource requires apply",
 				"gvk", obj.GroupVersionKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+			if err = streamline.GetGlobalStore().UpdateComponentSHA(obj, store.TransientManifestSHA); err != nil {
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA")
+			}
 			metrics.Record().ResourceCacheMiss(serviceID)
 			return true
 		}
