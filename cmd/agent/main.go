@@ -209,7 +209,14 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 
 func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache) {
 	now := time.Now()
-	streamline.Run(ctx, dynamicClient, store, discoveryCache)
+	streamline.Run(ctx,
+		dynamicClient,
+		store,
+		discoveryCache,
+		streamline.WithCacheSyncTimeout(args.SupervisorCacheSyncTimeout()),
+		streamline.WithRestartDelay(args.SupervisorRestartDelay()),
+		streamline.WithMaxNotFoundRetries(args.SupervisorMaxNotFoundRetries()),
+	)
 
 	setupLog.Info("waiting for synchronizers cache to sync")
 	if err := streamline.WaitForCacheSync(ctx); err != nil {

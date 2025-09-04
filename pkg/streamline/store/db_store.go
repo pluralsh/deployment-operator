@@ -103,7 +103,7 @@ func (in *DatabaseStore) init() error {
 		klog.V(log.LogLevelDefault).InfoS("using file storage", "path", in.filePath)
 	} else {
 		connectionString = string(in.storage)
-		klog.V(log.LogLevelDefault).InfoS("using memory storage")
+		klog.V(log.LogLevelDefault).InfoS("using in-memory storage")
 	}
 
 	pool, err := sqlitex.NewPool(connectionString, sqlitex.PoolOptions{PoolSize: in.poolSize})

@@ -84,7 +84,7 @@ const (
 	defaultDiscoveryCacheRefreshInterval         = "5m"
 	defaultDiscoveryCacheRefreshIntervalDuration = 5 * time.Minute
 
-	defaultStoreStorage                 = api.StorageMemory
+	defaultStoreStorage                 = "memory"
 	defaultStoreFilePath                = "/tmp/agent-store.db"
 	defaultStoreCleanerInterval         = "10s"
 	defaultStoreCleanerIntervalDuration = 10 * time.Second
@@ -140,7 +140,7 @@ var (
 	argRuntimeServicePingInterval    = flag.String("runtime-service-ping-interval", defaultRuntimeServicePingInterval, "Time interval to register runtime services.")
 	argPipelineGatesPollInterval     = flag.String("pipline-gates-poll-interval", defaultPipelineGatesPollInterval, "Time interval to poll PipelineGates resources from the Console API. It's disabled by default.")
 	argDiscoveryCacheRefreshInterval = flag.String("discovery-cache-refresh-interval", defaultDiscoveryCacheRefreshInterval, "Time interval to refresh discovery cache.")
-	argStoreStorage                  = flag.String("store-storage", string(defaultStoreStorage), "The storage backend to use for the agent store. Supported values are 'memory' and 'file'.")
+	argStoreStorage                  = flag.String("store-storage", defaultStoreStorage, "The storage backend to use for the agent store. Supported values are 'memory' and 'file'.")
 	argStoreFilePath                 = flag.String("store-file-path", defaultStoreFilePath, "The path to the file to use for the agent store. This is only used if the store-storage is set to 'file'.")
 	argStoreCleanerInterval          = flag.String("store-cleaner-interval", defaultStoreCleanerInterval, "The interval to clean up expired agent store entries.")
 	argStoreEntryTTL                 = flag.String("store-entry-ttl", defaultResourceCacheTTL, "The time to live of agent store entries used by the applier.")
@@ -463,11 +463,19 @@ func DiscoveryCacheRefreshInterval() time.Duration {
 }
 
 func StoreStorage() api.Storage {
-	if *argStoreStorage == "" {
+	if argStoreStorage == nil {
 		return defaultStoreStorage
 	}
 
-	return api.Storage(*argStoreStorage)
+	switch *argStoreStorage {
+	case "memory":
+		return api.StorageMemory
+	case "file":
+		return api.StorageFile
+	default:
+		klog.Warningf("Unknown store storage %s, defaulting to %s", *argStoreStorage, defaultStoreStorage)
+		return defaultStoreStorage
+	}
 }
 
 func StoreFilePath() string {
