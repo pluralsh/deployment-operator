@@ -26,6 +26,12 @@ func InitGlobalStore(s store.Store) {
 	globalStoreInstance = &GlobalStore{store: s}
 }
 
+func ResetGlobalStore() {
+	mu.Lock()
+	defer mu.Unlock()
+	globalStoreInstance = nil
+}
+
 func GetGlobalStore() *GlobalStore {
 	mu.Lock()
 	defer mu.Unlock()
