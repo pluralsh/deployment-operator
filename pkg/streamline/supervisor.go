@@ -70,11 +70,11 @@ type Supervisor struct {
 }
 
 func Run(ctx context.Context, client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, options ...Option) {
-	supervisorMu.Lock()
-
 	if supervisor != nil {
 		return
 	}
+
+	supervisorMu.Lock()
 
 	supervisor = &Supervisor{
 		client:                 client,

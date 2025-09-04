@@ -7,6 +7,7 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/console/go/client"
@@ -350,6 +351,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 				Source:  "apply",
 				Message: fmt.Sprintf("resource %s/%s is already managed by another service %s", resource.GetKind(), resource.GetName(), entry.ServiceID),
 			}
+			resource.SetUID(types.UID(entry.UID))
 			in.componentChan <- lo.FromPtr(common.ToComponentAttributes(&resource))
 			return
 		}
