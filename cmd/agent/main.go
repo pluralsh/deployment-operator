@@ -119,10 +119,9 @@ func main() {
 
 	dbStore := initDatabaseStoreOrDie()
 	defer dbStore.Shutdown()
-
 	streamline.InitGlobalStore(dbStore)
 
-	RunDatastoreCleanerInBackgroundOrDie(ctx, dbStore, 1*time.Second, 25*time.Second)
+	runDatastoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())
 
 	// Start synchronizer supervisor
 	runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
@@ -131,13 +130,6 @@ func main() {
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
-
-	// Start resource cache in background if enabled.
-	//if args.ResourceCacheEnabled() {
-	//	db.Init()
-	//	cache.Init(ctx, config, args.ResourceCacheTTL())
-	//	scraper.RunServerGroupsScraperInBackgroundOrDie(ctx, config)
-	//}
 
 	// Start the metrics scarper in background.
 	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryCache, config)
@@ -229,8 +221,7 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 }
 
 func initDatabaseStoreOrDie() store.Store {
-	// TODO: remove file storage after tests
-	dbStore, err := store.NewDatabaseStore(store.WithStorage(store.StorageFile), store.WithFilePath("/tmp/agent-store.db"))
+	dbStore, err := store.NewDatabaseStore(store.WithStorage(args.StoreStorage()), store.WithFilePath(args.StoreFilePath()))
 	if err != nil {
 		setupLog.Error(err, "unable to initialize database store")
 		os.Exit(1)
@@ -239,18 +230,13 @@ func initDatabaseStoreOrDie() store.Store {
 	return dbStore
 }
 
-func RunDatastoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, duration, resourceCacheTTL time.Duration) {
-	klog.Info("starting ", "DatastoreCleaner")
-
-	interval := func() time.Duration {
-		return duration
-	}
-
-	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
-		if err := store.ExpireOlderThan(resourceCacheTTL); err != nil {
+func runDatastoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, interval, ttl time.Duration) {
+	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return interval }, false, func(_ context.Context) (done bool, err error) {
+		if err := store.ExpireOlderThan(ttl); err != nil {
 			klog.Error(err, "unable to expire resource cache")
 		}
 		return false, nil
 	})
 
+	setupLog.Info("datastore cleaner started", "interval", interval, "ttl", ttl)
 }

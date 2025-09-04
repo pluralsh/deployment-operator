@@ -55,7 +55,7 @@ type Store interface {
 	// Expire removes component SHA information based on the provided service ID.
 	Expire(string) error
 
-	// ExpireOlderThan ...
+	// ExpireOlderThan removes component SHA information from entries older than the provided TTL.
 	ExpireOlderThan(ttl time.Duration) error
 
 	// Shutdown closes the database connection and deletes the store.

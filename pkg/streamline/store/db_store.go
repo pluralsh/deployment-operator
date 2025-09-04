@@ -12,10 +12,12 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
@@ -106,8 +108,10 @@ func (in *DatabaseStore) init() error {
 			in.filePath = filepath.Join(tempDir, "store.db")
 		}
 		connectionString = "file:" + in.filePath + "?mode=rwc"
+		klog.V(log.LogLevelDefault).InfoS("using file storage", "path", in.filePath)
 	} else {
 		connectionString = string(in.storage)
+		klog.V(log.LogLevelDefault).InfoS("using memory storage")
 	}
 
 	pool, err := sqlitex.NewPool(connectionString, sqlitex.PoolOptions{PoolSize: in.poolSize})

@@ -16,6 +16,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
 const (
@@ -82,6 +83,11 @@ const (
 
 	defaultDiscoveryCacheRefreshInterval         = "5m"
 	defaultDiscoveryCacheRefreshIntervalDuration = 5 * time.Minute
+
+	defaultStoreStorage                 = store.StorageMemory
+	defaultStoreFilePath                = "/tmp/agent-store.db"
+	defaultStoreCleanerInterval         = "10s"
+	defaultStoreCleanerIntervalDuration = 10 * time.Second
 )
 
 var (
@@ -126,6 +132,10 @@ var (
 	argRuntimeServicePingInterval    = flag.String("runtime-service-ping-interval", defaultRuntimeServicePingInterval, "Time interval to register runtime services.")
 	argPipelineGatesPollInterval     = flag.String("pipline-gates-poll-interval", defaultPipelineGatesPollInterval, "Time interval to poll PipelineGates resources from the Console API. It's disabled by default.")
 	argDiscoveryCacheRefreshInterval = flag.String("discovery-cache-refresh-interval", defaultDiscoveryCacheRefreshInterval, "Time interval to refresh discovery cache.")
+	argStoreStorage                  = flag.String("store-storage", string(defaultStoreStorage), "The storage backend to use for the agent store. Supported values are 'memory' and 'file'.")
+	argStoreFilePath                 = flag.String("store-file-path", defaultStoreFilePath, "The path to the file to use for the agent store. This is only used if the store-storage is set to 'file'.")
+	argStoreCleanerInterval          = flag.String("store-cleaner-interval", defaultStoreCleanerInterval, "The interval to clean up expired agent store entries.")
+	argStoreEntryTTL                 = flag.String("store-entry-ttl", defaultResourceCacheTTL, "The time to live of agent store entries used by the applier.")
 	serviceSet                       containers.Set[string]
 )
 
@@ -435,6 +445,42 @@ func DiscoveryCacheRefreshInterval() time.Duration {
 	if err != nil {
 		klog.ErrorS(err, "Could not parse discovery-cache-refresh-interval", "value", *argDiscoveryCacheRefreshInterval, "default", defaultDiscoveryCacheRefreshInterval)
 		return defaultDiscoveryCacheRefreshIntervalDuration
+	}
+
+	return duration
+}
+
+func StoreStorage() store.Storage {
+	if *argStoreStorage == "" {
+		return defaultStoreStorage
+	}
+
+	return store.Storage(*argStoreStorage)
+}
+
+func StoreFilePath() string {
+	if *argStoreFilePath == "" {
+		return defaultStoreFilePath
+	}
+
+	return *argStoreFilePath
+}
+
+func StoreCleanerInterval() time.Duration {
+	duration, err := time.ParseDuration(*argStoreCleanerInterval)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse store-cleaner-interval", "value", *argStoreCleanerInterval, "default", defaultStoreCleanerInterval)
+		return defaultStoreCleanerIntervalDuration
+	}
+
+	return duration
+}
+
+func StoreEntryTTL() time.Duration {
+	duration, err := time.ParseDuration(*argStoreEntryTTL)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse store-entry-ttl", "value", *argStoreEntryTTL, "default", defaultResourceCacheTTLDuration)
+		return defaultResourceCacheTTLDuration
 	}
 
 	return duration
