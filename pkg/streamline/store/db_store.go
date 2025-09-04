@@ -222,6 +222,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *En
 				TransientManifestSHA: stmt.ColumnText(9),
 				ApplySHA:             stmt.ColumnText(10),
 				ServerSHA:            stmt.ColumnText(11),
+				ServiceID:            stmt.ColumnText(12),
 			}
 			return nil
 		},

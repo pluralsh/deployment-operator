@@ -342,6 +342,18 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 }
 
 func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
+	entry, _ := streamline.GetGlobalStore().GetComponent(resource)
+	if entry != nil {
+		serviceID := smcommon.GetOwningInventory(resource)
+		if len(entry.ServiceID) > 0 && len(serviceID) > 0 && entry.ServiceID != serviceID {
+			in.errorsChan <- client.ServiceErrorAttributes{
+				Source:  "apply",
+				Message: fmt.Sprintf("resource %s/%s is already managed by another service %s", resource.GetKind(), resource.GetName(), entry.ServiceID),
+			}
+			return
+		}
+	}
+
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
 	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
 		FieldManager: smcommon.ClientFieldManager,

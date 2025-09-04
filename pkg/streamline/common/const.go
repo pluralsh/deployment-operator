@@ -1,5 +1,9 @@
 package common
 
+import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
+
 const (
 	// LifecycleDeleteAnnotation is the lifecycle annotation key for deletion operation.
 	// Keep it the same as cli-utils for backwards compatibility.
@@ -19,3 +23,11 @@ const (
 	// for backwards compatibility.
 	ClientFieldManager = "application/apply-patch"
 )
+
+func GetOwningInventory(obj unstructured.Unstructured) string {
+	if annotations := obj.GetAnnotations(); annotations != nil {
+		return annotations[OwningInventoryKey]
+	}
+
+	return ""
+}

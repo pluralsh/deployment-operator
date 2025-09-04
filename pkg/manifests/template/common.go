@@ -79,7 +79,7 @@ func setNamespaces(mapper meta.RESTMapper, objs []unstructured.Unstructured,
 		case meta.RESTScopeRoot:
 			if ns := objs[i].GetNamespace(); ns != "" {
 				objs[i].SetNamespace("")
-				fmt.Printf("Found cluster scoped resource %s with namespace %s, coerced to un-namespaced\n", objs[i].GetName(), ns)
+				klog.V(log.LogLevelExtended).InfoS("Found resource with namespace", "namespace", ns, "resource", objs[i].GetName(), "gvk", objs[i].GroupVersionKind(), "error", "coerced to un-namespaced")
 			}
 			namespacedCache.Store(gvk, false)
 		default:
