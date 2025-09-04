@@ -1237,7 +1237,7 @@ func TestUpdateSHA(t *testing.T) {
 	})
 }
 
-func TestUpdateExpireSHAOlderThan(t *testing.T) {
+func TestExpireSHAOlderThan(t *testing.T) {
 	t.Run("should expire SHA", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
@@ -1272,7 +1272,7 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 		assert.NotEmpty(t, entry.ManifestSHA)
 		assert.NotEmpty(t, entry.TransientManifestSHA)
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		err = storeInstance.ExpireOlderThan(500 * time.Millisecond)
 		require.NoError(t, err)
@@ -1320,8 +1320,6 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 		assert.NotEmpty(t, entry.ManifestSHA)
 		assert.NotEmpty(t, entry.TransientManifestSHA)
 
-		// time.Sleep(500 * time.Millisecond)
-
 		err = storeInstance.ExpireOlderThan(time.Second)
 		require.NoError(t, err)
 
@@ -1359,9 +1357,9 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ApplySHA)
 
-		time.Sleep(800 * time.Millisecond)
+		time.Sleep(time.Second)
 
-		err = storeInstance.ExpireOlderThan(time.Second)
+		err = storeInstance.ExpireOlderThan(2 * time.Second)
 		require.NoError(t, err)
 
 		entry, err = storeInstance.GetComponent(obj)
@@ -1376,9 +1374,9 @@ func TestUpdateExpireSHAOlderThan(t *testing.T) {
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ApplySHA)
 
-		time.Sleep(800 * time.Millisecond)
+		time.Sleep(1500 * time.Millisecond)
 
-		err = storeInstance.ExpireOlderThan(time.Second)
+		err = storeInstance.ExpireOlderThan(2 * time.Second)
 		require.NoError(t, err)
 		entry, err = storeInstance.GetComponent(obj)
 		require.NoError(t, err)

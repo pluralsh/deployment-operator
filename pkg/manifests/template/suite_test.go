@@ -17,6 +17,7 @@ limitations under the License.
 package template
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -32,6 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	cache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -70,7 +73,11 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	// TODO: fix
-	// cache.RunDiscoveryCacheInBackgroundOrDie(context.Background(), discoveryClient)
+	cache.InitGlobalDiscoveryCache(discoveryClient)
+	err = cache.NewDiscoveryManager(
+		cache.WithCache(cache.GlobalCache()),
+	).Start(context.Background())
+	Expect(err).NotTo(HaveOccurred())
 
 	utilFactory = cmdtesting.NewTestFactory()
 })

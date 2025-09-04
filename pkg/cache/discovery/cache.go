@@ -201,7 +201,13 @@ func (in *cache) Refresh() error {
 			resourceWG.Add(1)
 			go func() {
 				defer resourceWG.Done()
-				gvkCache, gvrCache, gvCache = in.addTo(gvk, gvkCache, gvrCache, gvCache)
+				gvkCacheTemp, gvrCacheTemp, gvCacheTemp := in.addTo(gvk, gvkCache, gvrCache, gvCache)
+
+				in.cacheMu.Lock()
+				in.gvkCache = gvkCacheTemp
+				in.gvrCache = gvrCacheTemp
+				in.gvCache = gvCacheTemp
+				in.cacheMu.Unlock()
 			}()
 		}
 	}
