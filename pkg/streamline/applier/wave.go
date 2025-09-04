@@ -350,6 +350,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 				Source:  "apply",
 				Message: fmt.Sprintf("resource %s/%s is already managed by another service %s", resource.GetKind(), resource.GetName(), entry.ServiceID),
 			}
+			in.componentChan <- lo.FromPtr(common.ToComponentAttributes(&resource))
 			return
 		}
 	}
