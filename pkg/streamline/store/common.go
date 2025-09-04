@@ -3,10 +3,10 @@ package store
 import (
 	"github.com/pluralsh/console/go/client"
 	"github.com/sahilm/fuzzy"
-
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
 var (

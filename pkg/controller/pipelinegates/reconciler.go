@@ -37,8 +37,6 @@ type GateReconciler struct {
 }
 
 func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, config *rest.Config, pollInterval time.Duration) (*GateReconciler, error) {
-	utils.DisableClientLimits(config)
-
 	namespace, err := utils.GetOperatorNamespace()
 	if err != nil {
 		return nil, err

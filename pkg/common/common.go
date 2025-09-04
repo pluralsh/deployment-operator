@@ -2,17 +2,20 @@ package common
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
+
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
 const (
@@ -84,4 +87,11 @@ func ServiceID(obj *unstructured.Unstructured) string {
 	}
 
 	return ""
+}
+
+// WithJitter adds a random jitter to the interval based on the global jitter factor.
+func WithJitter(interval time.Duration) time.Duration {
+	maxJitter := int64(float64(interval) * args.JitterFactor())
+	jitter := time.Duration(rand.Int63n(maxJitter*2) - maxJitter)
+	return interval + jitter
 }

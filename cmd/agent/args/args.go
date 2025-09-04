@@ -16,7 +16,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/api"
 )
 
 const (
@@ -84,10 +84,18 @@ const (
 	defaultDiscoveryCacheRefreshInterval         = "5m"
 	defaultDiscoveryCacheRefreshIntervalDuration = 5 * time.Minute
 
-	defaultStoreStorage                 = store.StorageMemory
+	defaultStoreStorage                 = api.StorageMemory
 	defaultStoreFilePath                = "/tmp/agent-store.db"
 	defaultStoreCleanerInterval         = "10s"
 	defaultStoreCleanerIntervalDuration = 10 * time.Second
+
+	defaultJitterFactor = 0.2
+
+	defaultSupervisorMaxNotFoundRetries       = 3
+	defaultSupervisorRestartDelay             = "1s"
+	defaultSupervisorRestartDelayDuration     = 1 * time.Second
+	defaultSupervisorCacheSyncTimeout         = "10s"
+	defaultSupervisorCacheSyncTimeoutDuration = 10 * time.Second
 )
 
 var (
@@ -136,6 +144,10 @@ var (
 	argStoreFilePath                 = flag.String("store-file-path", defaultStoreFilePath, "The path to the file to use for the agent store. This is only used if the store-storage is set to 'file'.")
 	argStoreCleanerInterval          = flag.String("store-cleaner-interval", defaultStoreCleanerInterval, "The interval to clean up expired agent store entries.")
 	argStoreEntryTTL                 = flag.String("store-entry-ttl", defaultResourceCacheTTL, "The time to live of agent store entries used by the applier.")
+	argJitterFactor                  = flag.Float64("jitter-factor", defaultJitterFactor, "The global factor to use for jittering the intervals.")
+	argSupervisorMaxNotFoundRetries  = flag.Int("supervisor-max-not-found-retries", defaultSupervisorMaxNotFoundRetries, "The maximum number of retries to restart synchronizers when they fail to watch a resource.")
+	argSupervisorRestartDelay        = flag.String("supervisor-restart-delay", defaultSupervisorRestartDelay, "The delay to wait before restarting a synchronizer.")
+	argSupervisorCacheSyncTimeout    = flag.String("supervisor-cache-sync-timeout", defaultSupervisorCacheSyncTimeout, "The timeout to wait for a synchronizer to sync its cache.")
 	serviceSet                       containers.Set[string]
 )
 
@@ -450,12 +462,12 @@ func DiscoveryCacheRefreshInterval() time.Duration {
 	return duration
 }
 
-func StoreStorage() store.Storage {
+func StoreStorage() api.Storage {
 	if *argStoreStorage == "" {
 		return defaultStoreStorage
 	}
 
-	return store.Storage(*argStoreStorage)
+	return api.Storage(*argStoreStorage)
 }
 
 func StoreFilePath() string {
@@ -481,6 +493,44 @@ func StoreEntryTTL() time.Duration {
 	if err != nil {
 		klog.ErrorS(err, "Could not parse store-entry-ttl", "value", *argStoreEntryTTL, "default", defaultResourceCacheTTLDuration)
 		return defaultResourceCacheTTLDuration
+	}
+
+	return duration
+}
+
+func JitterFactor() float64 {
+	if *argJitterFactor <= 0 || *argJitterFactor > 1 {
+		klog.Warningf("Jitter factor must be between 0 and 1, got %f. Defaulting to %f", *argJitterFactor, defaultJitterFactor)
+		return defaultJitterFactor
+	}
+
+	return *argJitterFactor
+}
+
+func SupervisorMaxNotFoundRetries() int {
+	if argSupervisorMaxNotFoundRetries == nil || *argSupervisorMaxNotFoundRetries <= 0 {
+		klog.Warningf("Supervisor max not found retries must be greater than 0, got %d. Defaulting to %d", *argSupervisorMaxNotFoundRetries, defaultSupervisorMaxNotFoundRetries)
+		return defaultSupervisorMaxNotFoundRetries
+	}
+
+	return *argSupervisorMaxNotFoundRetries
+}
+
+func SupervisorRestartDelay() time.Duration {
+	duration, err := time.ParseDuration(*argSupervisorRestartDelay)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse supervisor-restart-delay", "value", *argSupervisorRestartDelay, "default", defaultSupervisorRestartDelay)
+		return defaultSupervisorRestartDelayDuration
+	}
+
+	return duration
+}
+
+func SupervisorCacheSyncTimeout() time.Duration {
+	duration, err := time.ParseDuration(*argSupervisorCacheSyncTimeout)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse supervisor-cache-sync-timeout", "value", *argSupervisorCacheSyncTimeout, "default", defaultSupervisorCacheSyncTimeout)
+		return defaultSupervisorCacheSyncTimeoutDuration
 	}
 
 	return duration

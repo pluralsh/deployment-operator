@@ -82,8 +82,6 @@ func NewServiceReconciler(
 	workqueueQPS, workqueueBurst int,
 	pollInterval, waveDelay time.Duration,
 ) (*ServiceReconciler, error) {
-	utils.DisableClientLimits(config)
-
 	_, deployToken := consoleClient.GetCredentials()
 
 	f := utils.NewFactory(config)

@@ -3,7 +3,6 @@ package applier
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -128,7 +127,7 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 
 const (
 	defaultMaxConcurrentApplies = 10
-	defaultDeQueueJitter        = 100 * time.Millisecond
+	defaultDeQueueDelay         = 100 * time.Millisecond
 )
 
 // WaveProcessor processes a wave of resources. It applies or deletes the resources in the wave.
@@ -168,9 +167,9 @@ type WaveProcessor struct {
 	// will be set to the maxConcurrentApplies otherwise it will be set to the number of items in the wave.
 	concurrentApplies int
 
-	// deQueueJitter is the amount of time to wait before dequeuing the next item from the queue
+	// deQueueDelay is the amount of time to wait before dequeuing the next item from the queue
 	// by the same worker.
-	deQueueJitter time.Duration
+	deQueueDelay time.Duration
 
 	// dryRun determines if the wave should be applied in dry run mode
 	// meaning that the changes will not be persisted
@@ -250,9 +249,9 @@ func (in *WaveProcessor) runWorkers(ctx context.Context, onWorkerDone func()) {
 					}
 
 					// Sleep only when there is at least one full batch waiting and we are at max concurrency.
-					// This avoids jitter when the remaining items are fewer than the number of workers.
+					// This avoids delay when the remaining items are fewer than the number of workers.
 					if in.maxConcurrentApplies == in.concurrentApplies && in.queue.Len() > in.concurrentApplies {
-						time.Sleep(time.Duration(rand.Int63n(int64(in.deQueueJitter))))
+						time.Sleep(common.WithJitter(in.deQueueDelay))
 					}
 				}
 			}
@@ -446,12 +445,12 @@ func WithMaxConcurrentApplies(n int) Option {
 	}
 }
 
-func WithDeQueueJitter(d time.Duration) Option {
+func WithDeQueueDelay(d time.Duration) Option {
 	return func(w *WaveProcessor) {
 		if d <= 0 {
-			d = defaultDeQueueJitter
+			d = defaultDeQueueDelay
 		}
-		w.deQueueJitter = d
+		w.deQueueDelay = d
 	}
 }
 
@@ -467,7 +466,7 @@ func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave, opts ...Option
 		client:               dynamicClient,
 		wave:                 wave,
 		maxConcurrentApplies: defaultMaxConcurrentApplies,
-		deQueueJitter:        defaultDeQueueJitter,
+		deQueueDelay:         defaultDeQueueDelay,
 	}
 
 	for _, opt := range opts {

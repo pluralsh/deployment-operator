@@ -2,9 +2,10 @@ package applier
 
 import (
 	"context"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"sync"
 	"time"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -60,13 +61,12 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 	for _, wave := range waves {
 		processor := NewWaveProcessor(in.client, wave, opts...)
-		components, errors := processor.Run(ctx)
-
-		time.Sleep(in.waveDelay)
+		components, serviceErrors := processor.Run(ctx)
 
 		componentList = append(componentList, components...)
-		serviceErrrorList = append(serviceErrrorList, errors...)
-		// TODO: wait between waves?
+		serviceErrrorList = append(serviceErrrorList, serviceErrors...)
+
+		time.Sleep(in.waveDelay)
 	}
 
 	klog.V(log.LogLevelDefault).InfoS(
@@ -251,5 +251,10 @@ func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAtt
 
 func NewApplier(client dynamic.Interface, store store.Store, waveDelay time.Duration, filters ...FilterFunc) *Applier {
 	// TODO: figure out default values and options
-	return &Applier{client: client, store: store, filters: FilterEngine{filters: filters}, waveDelay: waveDelay}
+	return &Applier{
+		client:    client,
+		store:     store,
+		filters:   FilterEngine{filters: filters},
+		waveDelay: waveDelay,
+	}
 }

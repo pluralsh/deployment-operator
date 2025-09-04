@@ -121,7 +121,7 @@ func main() {
 	defer dbStore.Shutdown()
 	streamline.InitGlobalStore(dbStore)
 
-	runDatastoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())
+	runStoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())
 
 	// Start synchronizer supervisor
 	runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
@@ -230,7 +230,7 @@ func initDatabaseStoreOrDie() store.Store {
 	return dbStore
 }
 
-func runDatastoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, interval, ttl time.Duration) {
+func runStoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, interval, ttl time.Duration) {
 	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return interval }, false, func(_ context.Context) (done bool, err error) {
 		if err := store.ExpireOlderThan(ttl); err != nil {
 			klog.Error(err, "unable to expire resource cache")
@@ -238,5 +238,5 @@ func runDatastoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store
 		return false, nil
 	})
 
-	setupLog.Info("datastore cleaner started", "interval", interval, "ttl", ttl)
+	setupLog.Info("store cleaner started", "interval", interval, "ttl", ttl)
 }

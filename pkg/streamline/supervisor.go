@@ -3,7 +3,6 @@ package streamline
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -18,14 +17,9 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-)
-
-const (
-	defaultStartJitter        = 500 * time.Millisecond
-	defaultMinStartDelay      = 250 * time.Millisecond
-	defaultMaxNotFoundRetries = 3
 )
 
 var (
@@ -42,6 +36,26 @@ var (
 	})
 )
 
+type Option func(*Supervisor)
+
+func WithRestartDelay(d time.Duration) Option {
+	return func(s *Supervisor) {
+		s.restartDelay = d
+	}
+}
+
+func WithCacheSyncTimeout(d time.Duration) Option {
+	return func(s *Supervisor) {
+		s.cacheSyncTimeout = d
+	}
+}
+
+func WithMaxNotFoundRetries(n int) Option {
+	return func(s *Supervisor) {
+		s.maxNotFoundRetries = n
+	}
+}
+
 type Supervisor struct {
 	mu                     sync.RWMutex
 	client                 dynamic.Interface
@@ -50,13 +64,12 @@ type Supervisor struct {
 	register               chan schema.GroupVersionResource
 	synchronizers          cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
 	restartAttemptsLeftMap cmap.ConcurrentMap[schema.GroupVersionResource, int]
-
-	// TODO: make configurable through args
-	startJitter        time.Duration
-	maxNotFoundRetries int
+	restartDelay           time.Duration
+	cacheSyncTimeout       time.Duration
+	maxNotFoundRetries     int
 }
 
-func Run(ctx context.Context, client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache) {
+func Run(ctx context.Context, client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, options ...Option) {
 	supervisorMu.Lock()
 
 	if supervisor != nil {
@@ -70,8 +83,13 @@ func Run(ctx context.Context, client dynamic.Interface, store store.Store, disco
 		register:               make(chan schema.GroupVersionResource),
 		synchronizers:          cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
 		restartAttemptsLeftMap: cmap.NewStringer[schema.GroupVersionResource, int](),
-		startJitter:            defaultStartJitter,
-		maxNotFoundRetries:     defaultMaxNotFoundRetries,
+		maxNotFoundRetries:     3,
+		restartDelay:           1 * time.Second,
+		cacheSyncTimeout:       10 * time.Second,
+	}
+
+	for _, option := range options {
+		option(supervisor)
 	}
 
 	supervisorMu.Unlock()
@@ -80,14 +98,16 @@ func Run(ctx context.Context, client dynamic.Interface, store store.Store, disco
 }
 
 func WaitForCacheSync(ctx context.Context) error {
-	// TODO: make this configurable through args
-	const timeout = 10 * time.Second
+	if supervisor == nil {
+		return fmt.Errorf("supervisor is not running")
+	}
 
+	timeoutChan := time.After(supervisor.cacheSyncTimeout)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-time.After(timeout):
+		case <-timeoutChan:
 			return fmt.Errorf("timed out waiting for cache sync")
 		case <-time.After(time.Second):
 			synced := lo.EveryBy(lo.Values(supervisor.synchronizers.Items()), func(s Synchronizer) bool {
@@ -117,12 +137,9 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 
 	in.resetAttempts(gvr)
 
-	startDelay := in.startDelay()
-	klog.V(log.LogLevelVerbose).InfoS("registering resource to watch", "gvr", gvr.String(), "startDelay", startDelay)
+	klog.V(log.LogLevelVerbose).InfoS("registering resource to watch", "gvr", gvr.String())
 	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store))
-	time.AfterFunc(startDelay, func() {
-		in.register <- gvr
-	})
+	in.register <- gvr
 }
 
 func (in *Supervisor) Unregister(gvr schema.GroupVersionResource) {
@@ -198,8 +215,8 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 			return
 		}
 
-		delay := in.startDelay()
-		klog.V(log.LogLevelVerbose).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left, "delay", delay)
+		delay := common.WithJitter(in.restartDelay)
+		klog.V(log.LogLevelVerbose).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left, "restartDelay", delay)
 		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store))
 		time.AfterFunc(delay, func() {
 			in.register <- gvr
@@ -210,15 +227,6 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 
 	klog.V(log.LogLevelDefault).ErrorS(err, "unknown synchronizer error, restarting", "gvr", gvr.String())
 	in.Register(gvr)
-}
-
-func (in *Supervisor) startDelay() time.Duration {
-	jitter := time.Duration(rand.Int63n(int64(in.startJitter)) - int64(in.startJitter/2))
-	if jitter < 0 {
-		jitter = 0
-	}
-
-	return defaultMinStartDelay + jitter
 }
 
 func (in *Supervisor) registerInitialResources() {

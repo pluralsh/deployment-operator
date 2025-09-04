@@ -18,21 +18,13 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/api"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
-// Storage defines the storage options for the database.
-type Storage string
-
 const (
-	// StorageMemory stores data in-memory.
-	StorageMemory Storage = "file::memory:?mode=memory&cache=shared"
-
-	// StorageFile stores data in a file on a disk.
-	StorageFile Storage = "file"
-
 	// defaultStorage defines the default storage mode.
-	defaultStorage = StorageMemory
+	defaultStorage = api.StorageMemory
 
 	// defaultPoolSize defines the default maximum number of concurrent database connections.
 	defaultPoolSize = 50
@@ -49,7 +41,7 @@ func WithPoolSize(size int) Option {
 }
 
 // WithStorage sets the storage mode for the cache.
-func WithStorage(storage Storage) Option {
+func WithStorage(storage api.Storage) Option {
 	return func(in *DatabaseStore) {
 		in.storage = storage
 	}
@@ -67,7 +59,7 @@ type DatabaseStore struct {
 	mu sync.Mutex
 
 	// storage options for the database.
-	storage Storage
+	storage api.Storage
 
 	// filePath of the data file. Used only when using file storage.
 	filePath string
@@ -98,7 +90,7 @@ func NewDatabaseStore(options ...Option) (Store, error) {
 
 func (in *DatabaseStore) init() error {
 	var connectionString string
-	if in.storage == StorageFile {
+	if in.storage == api.StorageFile {
 		if len(in.filePath) == 0 {
 			tempDir, err := os.MkdirTemp("", "db-store-*")
 			if err != nil {
@@ -518,7 +510,7 @@ func (in *DatabaseStore) Shutdown() error {
 		}
 	}
 
-	if in.storage == StorageFile && len(in.filePath) > 0 {
+	if in.storage == api.StorageFile && len(in.filePath) > 0 {
 		if err := os.Remove(in.filePath); err != nil {
 			return err
 		}
