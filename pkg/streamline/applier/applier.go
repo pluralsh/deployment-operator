@@ -25,10 +25,11 @@ import (
 )
 
 type Applier struct {
-	filters FilterEngine
-	client  dynamic.Interface
-	store   store.Store
-	mu      sync.Mutex
+	filters   FilterEngine
+	client    dynamic.Interface
+	store     store.Store
+	mu        sync.Mutex
+	waveDelay time.Duration
 }
 
 func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentForAgent, resources []unstructured.Unstructured, opts ...Option) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
@@ -60,6 +61,8 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 	for _, wave := range waves {
 		processor := NewWaveProcessor(in.client, wave, opts...)
 		components, errors := processor.Run(ctx)
+
+		time.Sleep(in.waveDelay)
 
 		componentList = append(componentList, components...)
 		serviceErrrorList = append(serviceErrrorList, errors...)
@@ -246,7 +249,7 @@ func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAtt
 	}), nil
 }
 
-func NewApplier(client dynamic.Interface, store store.Store, filters ...FilterFunc) *Applier {
+func NewApplier(client dynamic.Interface, store store.Store, waveDelay time.Duration, filters ...FilterFunc) *Applier {
 	// TODO: figure out default values and options
-	return &Applier{client: client, store: store, filters: FilterEngine{filters: filters}}
+	return &Applier{client: client, store: store, filters: FilterEngine{filters: filters}, waveDelay: waveDelay}
 }

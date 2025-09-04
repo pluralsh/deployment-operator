@@ -72,6 +72,7 @@ func registerConsoleReconcilersOrDie(
 			args.WorkqueueQPS(),
 			args.WorkqueueBurst(),
 			args.PollInterval(),
+			args.ApplierWaveDelay(),
 		)
 		return r, err
 	})

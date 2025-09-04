@@ -119,7 +119,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("UpdateComponents", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			fakeConsoleClient.On("UpdateServiceErrors", mock.Anything, mock.Anything).Return(nil)
 
-			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, cfg, time.Minute, time.Minute, time.Second*10, time.Second, time.Second, time.Minute, namespace, "http://localhost:8081", 10, 100)
+			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, cfg, time.Minute, time.Minute, time.Second*10, time.Second, time.Second, time.Minute, namespace, "http://localhost:8081", 10, 100, time.Second, time.Second)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = reconciler.Reconcile(ctx, serviceId)
 			Expect(err).NotTo(HaveOccurred())
