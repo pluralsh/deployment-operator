@@ -16,7 +16,7 @@ type Publisher interface {
 	Publish(id string, kick bool)
 }
 
-type Socket struct {
+type socket struct {
 	clusterId  string
 	client     *phx.Client
 	publishers cmap.ConcurrentMap[string, Publisher]
@@ -25,21 +25,32 @@ type Socket struct {
 	joined     bool
 }
 
-func New(clusterId, consoleUrl, deployToken string) (*Socket, error) {
-	socket := &Socket{clusterId: clusterId, publishers: cmap.New[Publisher]()}
-	client := phx.NewClient(socket)
+type Socket interface {
+	AddPublisher(event string, publisher Publisher)
+	Join() error
+	NotifyConnect()
+	NotifyDisconnect()
+	OnJoin(payload interface{})
+	OnJoinError(payload interface{})
+	OnChannelClose(payload interface{}, joinRef int64)
+	OnMessage(ref int64, event string, payload interface{})
+}
+
+func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
+	s := &socket{clusterId: clusterId, publishers: cmap.New[Publisher]()}
+	client := phx.NewClient(s)
 
 	uri, err := wssUri(consoleUrl, deployToken)
 	if err != nil {
 		return nil, err
 	}
-	socket.client = client
+	s.client = client
 	err = client.Connect(*uri, http.Header{})
 
-	return socket, err
+	return s, err
 }
 
-func (s *Socket) AddPublisher(event string, publisher Publisher) {
+func (s *socket) AddPublisher(event string, publisher Publisher) {
 	if event == "" {
 		klog.V(log.LogLevelDefault).Info("cannot register publisher without event type")
 		return
@@ -52,7 +63,7 @@ func (s *Socket) AddPublisher(event string, publisher Publisher) {
 	}
 }
 
-func (s *Socket) Join() error {
+func (s *socket) Join() error {
 	if s.connected && !s.joined {
 		channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
 		if err == nil {
@@ -85,32 +96,32 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 	return uri.Parse(finalUrl)
 }
 
-func (s *Socket) NotifyConnect() {
+func (s *socket) NotifyConnect() {
 	s.connected = true
 	_ = s.Join()
 }
 
-func (s *Socket) NotifyDisconnect() {
+func (s *socket) NotifyDisconnect() {
 	s.connected = false
 	s.joined = false
 }
 
 // implement ChannelReceiver
-func (s *Socket) OnJoin(_ interface{}) {
+func (s *socket) OnJoin(payload interface{}) {
 	klog.V(log.LogLevelDefault).Info("Joined websocket channel, listening for service updates")
 }
 
-func (s *Socket) OnJoinError(_ interface{}) {
+func (s *socket) OnJoinError(payload interface{}) {
 	klog.V(log.LogLevelDefault).Info("failed to join channel, retrying")
 	s.joined = false
 }
 
-func (s *Socket) OnChannelClose(_ interface{}, _ int64) {
+func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
 	klog.V(log.LogLevelDefault).Info("left websocket channel")
 	s.joined = false
 }
 
-func (s *Socket) OnMessage(_ int64, event string, payload interface{}) {
+func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
 	if publisher, ok := s.publishers.Get(event); ok {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {

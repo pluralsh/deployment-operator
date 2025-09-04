@@ -80,7 +80,7 @@ func NewServiceReconciler(
 	refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay time.Duration,
 	restoreNamespace, consoleURL string,
 	workqueueQPS, workqueueBurst int,
-	pollInterval time.Duration,
+	pollInterval, waveDelay time.Duration,
 ) (*ServiceReconciler, error) {
 	utils.DisableClientLimits(config)
 
@@ -112,7 +112,7 @@ func NewServiceReconciler(
 			return consoleClient.GetService(id)
 		}),
 		manifestCache:    manis.NewCache(manifestTTL, manifestTTLJitter, deployToken, consoleURL),
-		applier:          applier.NewApplier(dynamicClient, store, applier.CacheFilter()),
+		applier:          applier.NewApplier(dynamicClient, store, waveDelay, applier.CacheFilter()),
 		utilFactory:      f,
 		restoreNamespace: restoreNamespace,
 		mapper:           mapper,

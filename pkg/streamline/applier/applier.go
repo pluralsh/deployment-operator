@@ -2,6 +2,7 @@ package applier
 
 import (
 	"context"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"sync"
 	"time"
 
@@ -24,10 +25,11 @@ import (
 )
 
 type Applier struct {
-	filters FilterEngine
-	client  dynamic.Interface
-	store   store.Store
-	mu      sync.Mutex
+	filters   FilterEngine
+	client    dynamic.Interface
+	store     store.Store
+	mu        sync.Mutex
+	waveDelay time.Duration
 }
 
 func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentForAgent, resources []unstructured.Unstructured, opts ...Option) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
@@ -60,6 +62,8 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 		processor := NewWaveProcessor(in.client, wave, opts...)
 		components, errors := processor.Run(ctx)
 
+		time.Sleep(in.waveDelay)
+
 		componentList = append(componentList, components...)
 		serviceErrrorList = append(serviceErrrorList, errors...)
 		// TODO: wait between waves?
@@ -80,9 +84,15 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 
 	for _, resource := range toSkip {
 		cacheEntry, err := in.store.GetComponent(resource)
-		// TODO: in case of error we should probably read it straight from the api server
-		if err != nil {
-			klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from cache", "resource", resource)
+		// TODO: refactor
+		if err != nil || cacheEntry == nil {
+			live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
+			if err != nil {
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from cache", "resource", resource)
+				continue
+			}
+			componentAttr := common.ToComponentAttributes(live)
+			componentList = append(componentList, *componentAttr)
 			continue
 		}
 
@@ -239,7 +249,7 @@ func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAtt
 	}), nil
 }
 
-func NewApplier(client dynamic.Interface, store store.Store, filters ...FilterFunc) *Applier {
+func NewApplier(client dynamic.Interface, store store.Store, waveDelay time.Duration, filters ...FilterFunc) *Applier {
 	// TODO: figure out default values and options
-	return &Applier{client: client, store: store, filters: FilterEngine{filters: filters}}
+	return &Applier{client: client, store: store, filters: FilterEngine{filters: filters}, waveDelay: waveDelay}
 }

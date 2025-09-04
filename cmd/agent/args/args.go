@@ -44,6 +44,9 @@ const (
 	defaultPollInterval         = "2m"
 	defaultPollIntervalDuration = 2 * time.Minute
 
+	defaultApplierWaveDelay         = "1s"
+	defaultApplierWaveDelayDuration = time.Second
+
 	defaultPollJitter         = "15s"
 	defaultPollJitterDuration = 15 * time.Second
 
@@ -103,6 +106,7 @@ var (
 	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
 	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "DEPRECATED: Time interval to poll resources from the Console API.")
 	argPollInterval      = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
+	argApplierWaveDaley  = flag.String("applier-wave-delay", defaultApplierWaveDelay, "Delay between applier waves.")
 	// TODO: ensure this arg can be safely renamed without causing breaking changes.
 	argPollJitter                    = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
 	argResourceCacheTTL              = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
@@ -245,6 +249,16 @@ func PollInterval() time.Duration {
 
 	if duration < 10*time.Second {
 		klog.Fatalf("--poll-interval cannot be lower than 10s")
+	}
+
+	return duration
+}
+
+func ApplierWaveDelay() time.Duration {
+	duration, err := time.ParseDuration(*argApplierWaveDaley)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse applier-wave-delay", "value", *argApplierWaveDaley, "default", defaultApplierWaveDelayDuration)
+		return defaultApplierWaveDelayDuration
 	}
 
 	return duration
