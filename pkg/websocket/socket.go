@@ -108,16 +108,16 @@ func (s *socket) NotifyDisconnect() {
 
 // implement ChannelReceiver
 func (s *socket) OnJoin(payload interface{}) {
-	log.V(1).Info("Joined websocket channel, listening for service updates")
+	klog.V(log.LogLevelDefault).Info("Joined websocket channel, listening for service updates")
 }
 
 func (s *socket) OnJoinError(payload interface{}) {
-	log.V(1).Info("failed to join channel, retrying")
+	klog.V(log.LogLevelDefault).Info("failed to join channel, retrying")
 	s.joined = false
 }
 
 func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
-	log.V(1).Info("left websocket channel")
+	klog.V(log.LogLevelDefault).Info("left websocket channel")
 	s.joined = false
 }
 
