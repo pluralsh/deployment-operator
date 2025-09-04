@@ -57,34 +57,84 @@ const (
 )
 
 type ServiceReconciler struct {
-	consoleClient    client.Client
-	clientset        *kubernetes.Clientset
-	applier          *applier.Applier
-	svcQueue         workqueue.TypedRateLimitingInterface[string]
-	typedRateLimiter workqueue.TypedRateLimiter[string]
-	svcCache         *client.Cache[console.ServiceDeploymentForAgent]
-	manifestCache    *manis.ManifestCache
-	utilFactory      util.Factory
-	restoreNamespace string
-	mapper           meta.RESTMapper
-	k8sClient        ctrclient.Client
-	pollInterval     time.Duration
+	consoleClient                                                                  client.Client
+	clientset                                                                      *kubernetes.Clientset
+	applier                                                                        *applier.Applier
+	svcQueue                                                                       workqueue.TypedRateLimitingInterface[string]
+	typedRateLimiter                                                               workqueue.TypedRateLimiter[string]
+	svcCache                                                                       *client.Cache[console.ServiceDeploymentForAgent]
+	manifestCache                                                                  *manis.ManifestCache
+	utilFactory                                                                    util.Factory
+	restoreNamespace                                                               string
+	mapper                                                                         meta.RESTMapper
+	k8sClient                                                                      ctrclient.Client
+	pollInterval                                                                   time.Duration
+	config                                                                         *rest.Config
+	dynamicClient                                                                  dynamic.Interface
+	store                                                                          store.Store
+	refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay time.Duration
+	workqueueQPS, workqueueBurst                                                   int
+	consoleURL                                                                     string
+	waveDelay                                                                      time.Duration
 }
 
-func NewServiceReconciler(
-	consoleClient client.Client,
-	k8sClient ctrclient.Client,
-	config *rest.Config,
-	dynamicClient dynamic.Interface,
-	store store.Store,
-	refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay time.Duration,
-	restoreNamespace, consoleURL string,
-	workqueueQPS, workqueueBurst int,
-	pollInterval, waveDelay time.Duration,
-) (*ServiceReconciler, error) {
-	_, deployToken := consoleClient.GetCredentials()
+func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, dynamicClient dynamic.Interface, store store.Store, option ...ServiceReconcilerOption) (*ServiceReconciler, error) {
+	result := &ServiceReconciler{
+		consoleClient: consoleClient,
+		k8sClient:     k8sClient,
+		config:        config,
+		dynamicClient: dynamicClient,
+		store:         store,
+	}
 
-	f := utils.NewFactory(config)
+	for _, opt := range option {
+		opt(result)
+	}
+	// Set defaults
+	if result.refresh == 0 {
+		result.refresh = args.ControllerCacheTTL()
+	}
+	if result.manifestTTL == 0 {
+		result.manifestTTL = args.ManifestCacheTTL()
+	}
+	if result.manifestTTLJitter == 0 {
+		result.manifestTTLJitter = args.ManifestCacheJitter()
+	}
+	if result.workqueueBaseDelay == 0 {
+		result.workqueueBaseDelay = args.WorkqueueBaseDelay()
+	}
+	if result.workqueueMaxDelay == 0 {
+		result.workqueueMaxDelay = args.WorkqueueMaxDelay()
+	}
+	if result.workqueueQPS == 0 {
+		result.workqueueQPS = args.WorkqueueQPS()
+	}
+	if result.workqueueBurst == 0 {
+		result.workqueueBurst = args.WorkqueueBurst()
+	}
+	if result.restoreNamespace == "" {
+		result.restoreNamespace = args.RestoreNamespace()
+	}
+	if result.consoleURL == "" {
+		result.consoleURL = args.ConsoleUrl()
+	}
+	if result.pollInterval == 0 {
+		result.pollInterval = args.PollInterval()
+	}
+	if result.waveDelay == 0 {
+		result.waveDelay = args.ApplierWaveDelay()
+	}
+
+	// Initialize
+	return result.init()
+}
+
+func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
+	utils.DisableClientLimits(s.config)
+
+	_, deployToken := s.consoleClient.GetCredentials()
+
+	f := utils.NewFactory(s.config)
 	mapper, err := f.ToRESTMapper()
 	if err != nil {
 		return nil, err
@@ -95,27 +145,27 @@ func NewServiceReconciler(
 	}
 
 	// Create a bucket rate limiter
-	typedRateLimiter := workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](workqueueBaseDelay, workqueueMaxDelay),
-		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(workqueueQPS), workqueueBurst)},
+	typedRateLimiter := workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](s.workqueueBaseDelay, s.workqueueMaxDelay),
+		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(s.workqueueQPS), s.workqueueBurst)},
 	)
 
 	return &ServiceReconciler{
-		consoleClient:    consoleClient,
+		consoleClient:    s.consoleClient,
 		clientset:        cs,
 		svcQueue:         workqueue.NewTypedRateLimitingQueue(typedRateLimiter),
 		typedRateLimiter: typedRateLimiter,
-		svcCache: client.NewCache[console.ServiceDeploymentForAgent](refresh, func(id string) (
+		svcCache: client.NewCache[console.ServiceDeploymentForAgent](s.refresh, func(id string) (
 			*console.ServiceDeploymentForAgent, error,
 		) {
-			return consoleClient.GetService(id)
+			return s.consoleClient.GetService(id)
 		}),
-		manifestCache:    manis.NewCache(manifestTTL, manifestTTLJitter, deployToken, consoleURL),
-		applier:          applier.NewApplier(dynamicClient, store, waveDelay, applier.CacheFilter()),
+		manifestCache:    manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL),
+		applier:          applier.NewApplier(s.dynamicClient, s.store, s.waveDelay, applier.CacheFilter()),
 		utilFactory:      f,
-		restoreNamespace: restoreNamespace,
+		restoreNamespace: s.restoreNamespace,
 		mapper:           mapper,
-		k8sClient:        k8sClient,
-		pollInterval:     pollInterval,
+		k8sClient:        s.k8sClient,
+		pollInterval:     s.pollInterval,
 	}, nil
 }
 

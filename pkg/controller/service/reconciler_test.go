@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,14 +21,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("Reconciler", Ordered, func() {
 	Context("When reconciling a resource", func() {
-		db.Init()
 		const (
 			namespace         = "default"
 			serviceId         = "1"
@@ -119,7 +120,12 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient.On("UpdateComponents", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			fakeConsoleClient.On("UpdateServiceErrors", mock.Anything, mock.Anything).Return(nil)
 
-			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, cfg, time.Minute, time.Minute, time.Second*10, time.Second, time.Second, time.Minute, namespace, "http://localhost:8081", 10, 100, time.Second, time.Second)
+			storeInstance, err := store.NewDatabaseStore()
+			Expect(err).NotTo(HaveOccurred())
+			defer storeInstance.Shutdown()
+			streamline.InitGlobalStore(storeInstance)
+
+			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, cfg, dynamicClient, storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
 			Expect(err).NotTo(HaveOccurred())
 			_, err = reconciler.Reconcile(ctx, serviceId)
 			Expect(err).NotTo(HaveOccurred())
