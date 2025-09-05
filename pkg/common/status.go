@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 
 	"github.com/pluralsh/deployment-operator/pkg/cache/db"
+	"github.com/pluralsh/deployment-operator/pkg/images"
 
 	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 )
@@ -155,6 +156,9 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 		}
 	}
 
+	// Extract images from the resource
+	images := images.ExtractImagesFromResource(e.Resource)
+
 	return &console.ComponentAttributes{
 		UID:       lo.ToPtr(string(e.Resource.GetUID())),
 		Group:     gvk.Group,
@@ -164,6 +168,7 @@ func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalsc
 		Version:   version,
 		Synced:    synced,
 		State:     ToStatus(e.Resource),
+		Images:    images,
 	}
 }
 
