@@ -22,6 +22,8 @@ import (
 	"runtime"
 	"testing"
 
+	"k8s.io/client-go/discovery"
+
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,6 +44,7 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 var testEnv *envtest.Environment
 var kClient client.Client
+var discoveryClient discovery.DiscoveryInterface
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -87,6 +90,10 @@ var _ = BeforeSuite(func() {
 	kClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kClient).NotTo(BeNil())
+
+	discoveryClient, err = discovery.NewDiscoveryClientForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(discoveryClient).NotTo(BeNil())
 })
 
 var _ = AfterSuite(func() {
