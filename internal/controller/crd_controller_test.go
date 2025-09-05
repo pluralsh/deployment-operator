@@ -2,6 +2,9 @@ package controller
 
 import (
 	"context"
+	"time"
+
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,8 +23,7 @@ func (r *TestReconciler) SetupWithManager(_ ctrl.Manager) error {
 	return nil
 }
 
-// TODO: skip until it gets fixed
-var _ = XDescribe("CRD Controller", Ordered, func() {
+var _ = Describe("CRD Controller", Ordered, func() {
 	Context("When reconciling a resource", func() {
 		const (
 			resourceName = "testresources.test.group"
@@ -108,12 +110,22 @@ var _ = XDescribe("CRD Controller", Ordered, func() {
 
 		It("should successfully reconcile resource", func() {
 
+			cache := discoverycache.NewCache(discoveryClient)
+
+			err := discoverycache.NewDiscoveryManager(
+				discoverycache.WithRefreshInterval(time.Millisecond),
+				discoverycache.WithCache(cache),
+			).Start(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			reconciler := &CrdRegisterControllerReconciler{
 				Client:           kClient,
 				Scheme:           kClient.Scheme(),
 				ReconcilerGroups: reconcileGroups,
+				DiscoveryCache:   cache,
 			}
-			_, err := reconciler.Reconcile(ctx, reconcile.Request{
+
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())

@@ -97,7 +97,12 @@ func TestComponentCache_Init(t *testing.T) {
 	t.Run("cache should initialize", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			err := storeInstance.Shutdown()
+			if err != nil {
+				t.Errorf("failed to shutdown store: %v", err)
+			}
+		}(storeInstance)
 	})
 }
 
@@ -105,7 +110,12 @@ func TestComponentCache_SetComponent(t *testing.T) {
 	t.Run("cache should save and return simple parent and child structure", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			err := storeInstance.Shutdown()
+			if err != nil {
+				t.Errorf("failed to shutdown store: %v", err)
+			}
+		}(storeInstance)
 
 		uid := testUID
 
@@ -129,7 +139,12 @@ func TestComponentCache_ComponentChildren(t *testing.T) {
 	t.Run("cache should save and return multi-level structure", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			err := storeInstance.Shutdown()
+			if err != nil {
+				t.Errorf("failed to shutdown store: %v", err)
+			}
+		}(storeInstance)
 
 		// Root
 		rootUID := "root-uid"
