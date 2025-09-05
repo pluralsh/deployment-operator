@@ -64,6 +64,12 @@ const (
 		WHERE service_id = ? AND (parent_uid IS NULL OR parent_uid = '')
 	`
 
+	getComponentsByGVK = `
+		SELECT uid, "group", version, kind, namespace, name, server_sha
+		FROM component
+		WHERE "group" = ? AND version = ? AND kind = ?
+	`
+
 	setComponent = `
 		INSERT INTO component (
 			uid,
@@ -103,8 +109,7 @@ const (
 		SET
 			manifest_sha = '',
 			transient_manifest_sha = '',
-			apply_sha = '',
-			server_sha = ''
+			apply_sha = ''
 		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
 	`
 
@@ -113,8 +118,7 @@ const (
 		SET
 			manifest_sha = '',
 			transient_manifest_sha = '',
-			apply_sha = '',
-			server_sha = ''
+			apply_sha = ''
 		WHERE service_id = ?
 	`
 	commitTransientSHA = `
@@ -225,8 +229,7 @@ const (
 		SET
 			manifest_sha = '',
 			transient_manifest_sha = '',
-			apply_sha = '',
-			server_sha = ''
+			apply_sha = ''
 		WHERE updated_at < datetime(?, 'unixepoch')
 	`
 )

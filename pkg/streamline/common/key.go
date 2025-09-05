@@ -1,16 +1,14 @@
-package applier
+package common
 
 import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
 type Key string
 
-func NewKeyFromEntry(entry store.Entry) Key {
+func NewKeyFromEntry(entry Entry) Key {
 	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", entry.Group, entry.Version, entry.Kind, entry.Namespace, entry.Name))
 }
 

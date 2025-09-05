@@ -91,11 +91,13 @@ const (
 
 	defaultJitterFactor = 0.2
 
-	defaultSupervisorMaxNotFoundRetries       = 3
-	defaultSupervisorRestartDelay             = "1s"
-	defaultSupervisorRestartDelayDuration     = 1 * time.Second
-	defaultSupervisorCacheSyncTimeout         = "10s"
-	defaultSupervisorCacheSyncTimeoutDuration = 10 * time.Second
+	defaultSupervisorMaxNotFoundRetries                 = 3
+	defaultSupervisorRestartDelay                       = "1s"
+	defaultSupervisorRestartDelayDuration               = 1 * time.Second
+	defaultSupervisorCacheSyncTimeout                   = "10s"
+	defaultSupervisorCacheSyncTimeoutDuration           = 10 * time.Second
+	defaultSupervisorSynchronizerResyncInterval         = "30m"
+	defaultSupervisorSynchronizerResyncIntervalDuration = 30 * time.Minute
 )
 
 var (
@@ -120,35 +122,36 @@ var (
 	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
 	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "DEPRECATED: Time interval to poll resources from the Console API.")
 	argPollInterval      = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
-	argApplierWaveDaley  = flag.String("applier-wave-delay", defaultApplierWaveDelay, "Delay between applier waves.")
+	argApplierWaveDaley  = flag.String("applier-wave-delay", defaultApplierWaveDelay, "Delay between applier waves. Use '0' to disable.")
 	// TODO: ensure this arg can be safely renamed without causing breaking changes.
-	argPollJitter                    = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
-	argResourceCacheTTL              = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
-	argManifestCacheTTL              = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
-	argManifestCacheJitter           = flag.String("manifest-cache-jitter", defaultManifestCacheJitter, "Randomly selected jitter time up to the provided duration will be added to the manifest cache TTL.")
-	argControllerCacheTTL            = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
-	argRestoreNamespace              = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
-	argServices                      = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
-	argPyroscopeAddress              = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
-	argDatadogHost                   = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
-	argDatadogEnv                    = flag.String("datadog-env", defaultDatadogEnv, "The environment of the Datadog server.")
-	argWorkqueueBaseDelay            = flag.String("workqueue-base-delay", defaultWorkqueueBaseDelay, "The base delay for the workqueue.")
-	argWorkqueueMaxDelay             = flag.String("workqueue-max-delay", defaultWorkqueueMaxDelay, "The maximum delay for the workqueue.")
-	argWorkqueueQPS                  = flag.Int("workqueue-qps", 10, "The maximum number of items to process per second.")
-	argWorkqueueBurst                = flag.Int("workqueue-burst", 50, "The maximum number of items to process at a time.")
-	argClusterPingInterval           = flag.String("cluster-ping-interval", defaultClusterPingInterval, "Time interval to ping cluster.")
-	argRuntimeServicePingInterval    = flag.String("runtime-service-ping-interval", defaultRuntimeServicePingInterval, "Time interval to register runtime services.")
-	argPipelineGatesPollInterval     = flag.String("pipline-gates-poll-interval", defaultPipelineGatesPollInterval, "Time interval to poll PipelineGates resources from the Console API. It's disabled by default.")
-	argDiscoveryCacheRefreshInterval = flag.String("discovery-cache-refresh-interval", defaultDiscoveryCacheRefreshInterval, "Time interval to refresh discovery cache.")
-	argStoreStorage                  = flag.String("store-storage", defaultStoreStorage, "The storage backend to use for the agent store. Supported values are 'memory' and 'file'.")
-	argStoreFilePath                 = flag.String("store-file-path", defaultStoreFilePath, "The path to the file to use for the agent store. This is only used if the store-storage is set to 'file'.")
-	argStoreCleanerInterval          = flag.String("store-cleaner-interval", defaultStoreCleanerInterval, "The interval to clean up expired agent store entries.")
-	argStoreEntryTTL                 = flag.String("store-entry-ttl", defaultResourceCacheTTL, "The time to live of agent store entries used by the applier.")
-	argJitterFactor                  = flag.Float64("jitter-factor", defaultJitterFactor, "The global factor to use for jittering the intervals.")
-	argSupervisorMaxNotFoundRetries  = flag.Int("supervisor-max-not-found-retries", defaultSupervisorMaxNotFoundRetries, "The maximum number of retries to restart synchronizers when they fail to watch a resource.")
-	argSupervisorRestartDelay        = flag.String("supervisor-restart-delay", defaultSupervisorRestartDelay, "The delay to wait before restarting a synchronizer.")
-	argSupervisorCacheSyncTimeout    = flag.String("supervisor-cache-sync-timeout", defaultSupervisorCacheSyncTimeout, "The timeout to wait for a synchronizer to sync its cache.")
-	serviceSet                       containers.Set[string]
+	argPollJitter                           = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
+	argResourceCacheTTL                     = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
+	argManifestCacheTTL                     = flag.String("manifest-cache-ttl", defaultManifestCacheTTL, "The time to live of service manifests in cache entry.")
+	argManifestCacheJitter                  = flag.String("manifest-cache-jitter", defaultManifestCacheJitter, "Randomly selected jitter time up to the provided duration will be added to the manifest cache TTL.")
+	argControllerCacheTTL                   = flag.String("controller-cache-ttl", defaultControllerCacheTTL, "The time to live of console controller cache entries.")
+	argRestoreNamespace                     = flag.String("restore-namespace", defaultRestoreNamespace, "The namespace where Velero restores are located.")
+	argServices                             = flag.String("services", "", "A comma separated list of service ids to reconcile. Leave empty to reconcile all.")
+	argPyroscopeAddress                     = flag.String("pyroscope-address", defaultPyroscopeAddress, "The address of the Pyroscope server.")
+	argDatadogHost                          = flag.String("datadog-host", defaultDatadogHost, "The address of the Datadog server.")
+	argDatadogEnv                           = flag.String("datadog-env", defaultDatadogEnv, "The environment of the Datadog server.")
+	argWorkqueueBaseDelay                   = flag.String("workqueue-base-delay", defaultWorkqueueBaseDelay, "The base delay for the workqueue.")
+	argWorkqueueMaxDelay                    = flag.String("workqueue-max-delay", defaultWorkqueueMaxDelay, "The maximum delay for the workqueue.")
+	argWorkqueueQPS                         = flag.Int("workqueue-qps", 10, "The maximum number of items to process per second.")
+	argWorkqueueBurst                       = flag.Int("workqueue-burst", 50, "The maximum number of items to process at a time.")
+	argClusterPingInterval                  = flag.String("cluster-ping-interval", defaultClusterPingInterval, "Time interval to ping cluster.")
+	argRuntimeServicePingInterval           = flag.String("runtime-service-ping-interval", defaultRuntimeServicePingInterval, "Time interval to register runtime services.")
+	argPipelineGatesPollInterval            = flag.String("pipline-gates-poll-interval", defaultPipelineGatesPollInterval, "Time interval to poll PipelineGates resources from the Console API. It's disabled by default.")
+	argDiscoveryCacheRefreshInterval        = flag.String("discovery-cache-refresh-interval", defaultDiscoveryCacheRefreshInterval, "Time interval to refresh discovery cache.")
+	argStoreStorage                         = flag.String("store-storage", defaultStoreStorage, "The storage backend to use for the agent store. Supported values are 'memory' and 'file'.")
+	argStoreFilePath                        = flag.String("store-file-path", defaultStoreFilePath, "The path to the file to use for the agent store. This is only used if the store-storage is set to 'file'.")
+	argStoreCleanerInterval                 = flag.String("store-cleaner-interval", defaultStoreCleanerInterval, "The interval to clean up expired agent store entries.")
+	argStoreEntryTTL                        = flag.String("store-entry-ttl", defaultResourceCacheTTL, "The time to live of agent store entries used by the applier.")
+	argJitterFactor                         = flag.Float64("jitter-factor", defaultJitterFactor, "The global factor to use for jittering the intervals.")
+	argSupervisorMaxNotFoundRetries         = flag.Int("supervisor-max-not-found-retries", defaultSupervisorMaxNotFoundRetries, "The maximum number of retries to restart synchronizers when they fail to watch a resource.")
+	argSupervisorRestartDelay               = flag.String("supervisor-restart-delay", defaultSupervisorRestartDelay, "The delay to wait before restarting a synchronizer.")
+	argSupervisorCacheSyncTimeout           = flag.String("supervisor-cache-sync-timeout", defaultSupervisorCacheSyncTimeout, "The timeout to wait for a synchronizer to sync its cache.")
+	argSupervisorSynchronizerResyncInterval = flag.String("supervisor-synchronizer-resync-interval", defaultSupervisorSynchronizerResyncInterval, "The interval to resync a synchronizer.")
+	serviceSet                              containers.Set[string]
 )
 
 func Init() {
@@ -539,6 +542,16 @@ func SupervisorCacheSyncTimeout() time.Duration {
 	if err != nil {
 		klog.ErrorS(err, "Could not parse supervisor-cache-sync-timeout", "value", *argSupervisorCacheSyncTimeout, "default", defaultSupervisorCacheSyncTimeout)
 		return defaultSupervisorCacheSyncTimeoutDuration
+	}
+
+	return duration
+}
+
+func SupervisorSynchronizerResyncInterval() time.Duration {
+	duration, err := time.ParseDuration(*argSupervisorSynchronizerResyncInterval)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse supervisor-synchronizer-resync-interval", "value", *argSupervisorSynchronizerResyncInterval, "default", defaultSupervisorSynchronizerResyncInterval)
+		return defaultSupervisorSynchronizerResyncIntervalDuration
 	}
 
 	return duration

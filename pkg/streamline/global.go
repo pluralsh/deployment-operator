@@ -7,6 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
@@ -43,7 +44,7 @@ type GlobalStore struct {
 	store store.Store
 }
 
-func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *store.Entry, err error) {
+func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Entry, err error) {
 	return in.store.GetComponent(obj)
 }
 

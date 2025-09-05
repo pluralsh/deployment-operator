@@ -38,6 +38,19 @@ func ToUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
 	return unstructured, nil
 }
 
+func GetResourceVersion(obj runtime.Object, fallbackResourceVersion string) string {
+	if obj == nil {
+		return fallbackResourceVersion
+	}
+
+	resource, err := ToUnstructured(obj)
+	if err != nil {
+		return fallbackResourceVersion
+	}
+
+	return resource.GetResourceVersion()
+}
+
 func Unmarshal(s string) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(s), &result); err != nil {

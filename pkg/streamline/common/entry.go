@@ -1,4 +1,4 @@
-package store
+package common
 
 import (
 	"github.com/pluralsh/console/go/client"

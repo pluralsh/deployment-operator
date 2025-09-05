@@ -153,11 +153,11 @@ type WaveProcessor struct {
 	errorsChan chan client.ServiceErrorAttributes
 
 	// queue is the work queue used to process the items in the wave
-	queue *workqueue.Typed[Key]
+	queue *workqueue.Typed[smcommon.Key]
 
 	// keyToResource is a map of the wave items to their keys.
 	// It is used to lookup the resource from the key when processing the items in the queue.
-	keyToResource map[Key]unstructured.Unstructured
+	keyToResource map[smcommon.Key]unstructured.Unstructured
 
 	// maxConcurrentApplies is the maximum number of workers that can be started
 	maxConcurrentApplies int
@@ -278,7 +278,7 @@ func (in *WaveProcessor) processNextWorkItem(ctx context.Context, workerNr int) 
 	return true
 }
 
-func (in *WaveProcessor) processWaveItem(ctx context.Context, id Key, resource unstructured.Unstructured) {
+func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, resource unstructured.Unstructured) {
 	now := time.Now()
 
 	switch in.wave.waveType {
@@ -440,11 +440,11 @@ func (in *WaveProcessor) init() {
 
 	in.componentChan = make(chan client.ComponentAttributes, in.concurrentApplies)
 	in.errorsChan = make(chan client.ServiceErrorAttributes, in.concurrentApplies)
-	in.keyToResource = make(map[Key]unstructured.Unstructured)
-	in.queue = workqueue.NewTyped[Key]()
+	in.keyToResource = make(map[smcommon.Key]unstructured.Unstructured)
+	in.queue = workqueue.NewTyped[smcommon.Key]()
 
 	for _, obj := range in.wave.items {
-		key := NewKeyFromUnstructured(obj)
+		key := smcommon.NewKeyFromUnstructured(obj)
 		in.keyToResource[key] = obj
 		in.queue.Add(key)
 	}

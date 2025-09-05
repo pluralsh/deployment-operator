@@ -11,6 +11,7 @@ import (
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"zombiezen.com/go/sqlite"
@@ -121,6 +122,7 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
+// TODO: consider adding ServerSHA updates here.
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 	serviceID, hasServiceID := obj.GetAnnotations()[smcommon.OwningInventoryKey]
@@ -136,6 +138,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			if err := in.DeleteComponent(obj.GetUID()); err != nil {
 				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete pod", "uid", obj.GetUID())
 			}
+			klog.V(log.LogLevelDebug).InfoS("skipping pod save", "name", obj.GetName(), "namespace", obj.GetNamespace())
 			return nil // If the pod does not belong to any service and is running, we don't need to store it
 		}
 	}
@@ -200,7 +203,7 @@ func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttrib
 	})
 }
 
-func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *Entry, err error) {
+func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Entry, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
@@ -212,7 +215,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *En
 	err = sqlitex.ExecuteTransient(conn, getComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{obj.GetName(), obj.GetNamespace(), gvk.Group, gvk.Version, gvk.Kind},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = &Entry{
+			result = &smcommon.Entry{
 				UID:                  stmt.ColumnText(0),
 				Group:                stmt.ColumnText(1),
 				Version:              stmt.ColumnText(2),
@@ -261,6 +264,33 @@ func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.Compon
 	return result, err
 }
 
+func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result []smcommon.Entry, err error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer in.pool.Put(conn)
+
+	err = sqlitex.ExecuteTransient(conn, getComponentsByGVK, &sqlitex.ExecOptions{
+		Args: []interface{}{gvk.Group, gvk.Version, gvk.Kind},
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			result = append(result, smcommon.Entry{
+				UID:       stmt.ColumnText(0),
+				Group:     stmt.ColumnText(1),
+				Version:   stmt.ColumnText(2),
+				Kind:      stmt.ColumnText(3),
+				Namespace: stmt.ColumnText(4),
+				Name:      stmt.ColumnText(5),
+				ServerSHA: stmt.ColumnText(6),
+			})
+
+			return nil
+		},
+	})
+
+	return result, err
+}
+
 func (in *DatabaseStore) DeleteComponent(uid types.UID) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
@@ -274,18 +304,18 @@ func (in *DatabaseStore) DeleteComponent(uid types.UID) error {
 	})
 }
 
-func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]Entry, error) {
+func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Entry, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	defer in.pool.Put(conn)
 
-	result := make([]Entry, 0)
+	result := make([]smcommon.Entry, 0)
 	err = sqlitex.ExecuteTransient(conn, getComponentsByServiceID, &sqlitex.ExecOptions{
 		Args: []interface{}{serviceID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = append(result, Entry{
+			result = append(result, smcommon.Entry{
 				UID:       stmt.ColumnText(0),
 				ParentUID: stmt.ColumnText(1),
 				Group:     stmt.ColumnText(2),

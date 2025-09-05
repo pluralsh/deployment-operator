@@ -191,16 +191,16 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 		return
 	}
 
-	resourceKeys := containers.NewSet[Key]()
-	deleteKeys := containers.NewSet[Key]()
-	resourceKeyToResource := make(map[Key]unstructured.Unstructured)
+	resourceKeys := containers.NewSet[smcommon.Key]()
+	deleteKeys := containers.NewSet[smcommon.Key]()
+	resourceKeyToResource := make(map[smcommon.Key]unstructured.Unstructured)
 	for _, obj := range resources {
-		resourceKeys.Add(NewKeyFromUnstructured(obj))
-		resourceKeyToResource[NewKeyFromUnstructured(obj)] = obj
+		resourceKeys.Add(smcommon.NewKeyFromUnstructured(obj))
+		resourceKeyToResource[smcommon.NewKeyFromUnstructured(obj)] = obj
 	}
 
 	for _, entry := range entries {
-		entryKey := NewKeyFromEntry(entry)
+		entryKey := smcommon.NewKeyFromEntry(entry)
 		if !resourceKeys.Has(entryKey) {
 			obj := unstructured.Unstructured{}
 			obj.SetGroupVersionKind(schema.GroupVersionKind{
@@ -218,7 +218,7 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 	}
 
 	for _, resource := range resources {
-		key := NewKeyFromUnstructured(resource)
+		key := smcommon.NewKeyFromUnstructured(resource)
 		if deleteKeys.Has(key) {
 			continue
 		}
@@ -235,7 +235,7 @@ func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAtt
 		return nil, err
 	}
 
-	return algorithms.Map(entries, func(entry store.Entry) client.ComponentAttributes {
+	return algorithms.Map(entries, func(entry smcommon.Entry) client.ComponentAttributes {
 		return client.ComponentAttributes{
 			UID:       lo.ToPtr(entry.UID),
 			Group:     entry.Group,

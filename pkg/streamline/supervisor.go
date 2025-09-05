@@ -56,17 +56,24 @@ func WithMaxNotFoundRetries(n int) Option {
 	}
 }
 
+func WithSynchronizerResyncInterval(d time.Duration) Option {
+	return func(s *Supervisor) {
+		s.synchronizerResyncInterval = d
+	}
+}
+
 type Supervisor struct {
-	mu                     sync.RWMutex
-	client                 dynamic.Interface
-	discoveryCache         discoverycache.Cache
-	store                  store.Store
-	register               chan schema.GroupVersionResource
-	synchronizers          cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
-	restartAttemptsLeftMap cmap.ConcurrentMap[schema.GroupVersionResource, int]
-	restartDelay           time.Duration
-	cacheSyncTimeout       time.Duration
-	maxNotFoundRetries     int
+	mu                         sync.RWMutex
+	client                     dynamic.Interface
+	discoveryCache             discoverycache.Cache
+	store                      store.Store
+	register                   chan schema.GroupVersionResource
+	synchronizers              cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
+	restartAttemptsLeftMap     cmap.ConcurrentMap[schema.GroupVersionResource, int]
+	restartDelay               time.Duration
+	cacheSyncTimeout           time.Duration
+	synchronizerResyncInterval time.Duration
+	maxNotFoundRetries         int
 }
 
 func Run(ctx context.Context, client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, options ...Option) {
@@ -77,15 +84,16 @@ func Run(ctx context.Context, client dynamic.Interface, store store.Store, disco
 	supervisorMu.Lock()
 
 	supervisor = &Supervisor{
-		client:                 client,
-		discoveryCache:         discoveryCache,
-		store:                  store,
-		register:               make(chan schema.GroupVersionResource),
-		synchronizers:          cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
-		restartAttemptsLeftMap: cmap.NewStringer[schema.GroupVersionResource, int](),
-		maxNotFoundRetries:     3,
-		restartDelay:           1 * time.Second,
-		cacheSyncTimeout:       10 * time.Second,
+		client:                     client,
+		discoveryCache:             discoveryCache,
+		store:                      store,
+		register:                   make(chan schema.GroupVersionResource),
+		synchronizers:              cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
+		restartAttemptsLeftMap:     cmap.NewStringer[schema.GroupVersionResource, int](),
+		maxNotFoundRetries:         3,
+		restartDelay:               1 * time.Second,
+		cacheSyncTimeout:           10 * time.Second,
+		synchronizerResyncInterval: 30 * time.Minute,
 	}
 
 	for _, option := range options {
@@ -138,7 +146,7 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 	in.resetAttempts(gvr)
 
 	klog.V(log.LogLevelVerbose).InfoS("registering resource to watch", "gvr", gvr.String())
-	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store))
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store, in.synchronizerResyncInterval))
 	in.register <- gvr
 }
 
@@ -217,7 +225,7 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 
 		delay := common.WithJitter(in.restartDelay)
 		klog.V(log.LogLevelVerbose).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left, "restartDelay", delay)
-		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store))
+		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store, in.synchronizerResyncInterval))
 		time.AfterFunc(delay, func() {
 			in.register <- gvr
 		})

@@ -221,6 +221,7 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 		streamline.WithCacheSyncTimeout(args.SupervisorCacheSyncTimeout()),
 		streamline.WithRestartDelay(args.SupervisorRestartDelay()),
 		streamline.WithMaxNotFoundRetries(args.SupervisorMaxNotFoundRetries()),
+		streamline.WithSynchronizerResyncInterval(args.SupervisorSynchronizerResyncInterval()),
 	)
 
 	setupLog.Info("waiting for synchronizers cache to sync")

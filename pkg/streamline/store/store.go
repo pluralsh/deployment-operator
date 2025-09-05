@@ -5,7 +5,10 @@ import (
 
 	"github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 type Store interface {
@@ -13,9 +16,11 @@ type Store interface {
 
 	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
 
-	GetComponent(obj unstructured.Unstructured) (*Entry, error)
+	GetComponent(obj unstructured.Unstructured) (*smcommon.Entry, error)
 
 	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
+
+	GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Entry, error)
 
 	// DeleteComponent removes a component from the store based on its UID.
 	// It returns an error if any issue occurs during the deletion process.
@@ -23,7 +28,7 @@ type Store interface {
 
 	// GetServiceComponents retrieves all components associated with a given service ID.
 	// It returns a slice of Entry structs containing information about each component and any error encountered.
-	GetServiceComponents(serviceID string) ([]Entry, error)
+	GetServiceComponents(serviceID string) ([]smcommon.Entry, error)
 
 	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
 	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.
