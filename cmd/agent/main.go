@@ -118,7 +118,12 @@ func main() {
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
 	dbStore := initDatabaseStoreOrDie()
-	defer dbStore.Shutdown()
+	defer func(dbStore store.Store) {
+		err := dbStore.Shutdown()
+		if err != nil {
+			setupLog.Error(err, "unable to shutdown database store")
+		}
+	}(dbStore)
 	streamline.InitGlobalStore(dbStore)
 
 	runStoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())

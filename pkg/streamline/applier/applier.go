@@ -2,7 +2,6 @@ package applier
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -29,7 +28,6 @@ type Applier struct {
 	filters   FilterEngine
 	client    dynamic.Interface
 	store     store.Store
-	mu        sync.Mutex
 	waveDelay time.Duration
 }
 
