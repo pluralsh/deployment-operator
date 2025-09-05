@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+	"k8s.io/client-go/dynamic"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -29,16 +31,17 @@ import (
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
-	"github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/applier"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/applier"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
 
@@ -54,27 +57,66 @@ const (
 )
 
 type ServiceReconciler struct {
-	consoleClient    client.Client
-	clientset        *kubernetes.Clientset
-	applier          *applier.Applier
-	destroyer        *apply.Destroyer
-	svcQueue         workqueue.TypedRateLimitingInterface[string]
-	typedRateLimiter workqueue.TypedRateLimiter[string]
-	svcCache         *client.Cache[console.ServiceDeploymentForAgent]
-	manifestCache    *manis.ManifestCache
-	utilFactory      util.Factory
-	restoreNamespace string
-	mapper           meta.RESTMapper
-	k8sClient        ctrclient.Client
-	pollInterval     time.Duration
+	consoleClient                                                                  client.Client
+	clientset                                                                      *kubernetes.Clientset
+	applier                                                                        *applier.Applier
+	svcQueue                                                                       workqueue.TypedRateLimitingInterface[string]
+	typedRateLimiter                                                               workqueue.TypedRateLimiter[string]
+	svcCache                                                                       *client.Cache[console.ServiceDeploymentForAgent]
+	manifestCache                                                                  *manis.ManifestCache
+	utilFactory                                                                    util.Factory
+	restoreNamespace                                                               string
+	mapper                                                                         meta.RESTMapper
+	k8sClient                                                                      ctrclient.Client
+	pollInterval                                                                   time.Duration
+	config                                                                         *rest.Config
+	dynamicClient                                                                  dynamic.Interface
+	store                                                                          store.Store
+	refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay time.Duration
+	workqueueQPS, workqueueBurst                                                   int
+	consoleURL                                                                     string
+	waveDelay                                                                      time.Duration
 }
 
-func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay, pollInterval time.Duration, restoreNamespace, consoleURL string, workqueueQPS, workqueueBurst int) (*ServiceReconciler, error) {
-	utils.DisableClientLimits(config)
+func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, dynamicClient dynamic.Interface, store store.Store, option ...ServiceReconcilerOption) (*ServiceReconciler, error) {
+	result := &ServiceReconciler{
+		consoleClient:      consoleClient,
+		k8sClient:          k8sClient,
+		config:             config,
+		dynamicClient:      dynamicClient,
+		store:              store,
+		refresh:            2 * time.Minute,
+		manifestTTL:        3 * time.Hour,
+		manifestTTLJitter:  30 * time.Minute,
+		workqueueBaseDelay: 5 * time.Second,
+		workqueueMaxDelay:  300 * time.Second,
+		workqueueQPS:       10,
+		workqueueBurst:     20,
+		waveDelay:          5 * time.Second,
+		pollInterval:       2 * time.Minute,
+	}
 
-	_, deployToken := consoleClient.GetCredentials()
+	for _, opt := range option {
+		opt(result)
+	}
 
-	f := utils.NewFactory(config)
+	if result.restoreNamespace == "" {
+		return nil, fmt.Errorf("no restore namespace specified")
+	}
+	if result.consoleURL == "" {
+		return nil, fmt.Errorf("no console URL specified")
+	}
+
+	// Initialize
+	return result.init()
+}
+
+func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
+	utils.DisableClientLimits(s.config)
+
+	_, deployToken := s.consoleClient.GetCredentials()
+
+	f := utils.NewFactory(s.config)
 	mapper, err := f.ToRESTMapper()
 	if err != nil {
 		return nil, err
@@ -83,41 +125,29 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 	if err != nil {
 		return nil, err
 	}
-	invFactory := inventory.ClusterClientFactory{StatusPolicy: inventory.StatusPolicyNone}
-
-	a, err := newApplier(invFactory, f)
-	if err != nil {
-		return nil, err
-	}
-
-	d, err := newDestroyer(invFactory, f)
-	if err != nil {
-		return nil, err
-	}
 
 	// Create a bucket rate limiter
-	typedRateLimiter := workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](workqueueBaseDelay, workqueueMaxDelay),
-		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(workqueueQPS), workqueueBurst)},
+	typedRateLimiter := workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](s.workqueueBaseDelay, s.workqueueMaxDelay),
+		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(s.workqueueQPS), s.workqueueBurst)},
 	)
 
 	return &ServiceReconciler{
-		consoleClient:    consoleClient,
+		consoleClient:    s.consoleClient,
 		clientset:        cs,
 		svcQueue:         workqueue.NewTypedRateLimitingQueue(typedRateLimiter),
 		typedRateLimiter: typedRateLimiter,
-		svcCache: client.NewCache[console.ServiceDeploymentForAgent](refresh, func(id string) (
+		svcCache: client.NewCache[console.ServiceDeploymentForAgent](s.refresh, func(id string) (
 			*console.ServiceDeploymentForAgent, error,
 		) {
-			return consoleClient.GetService(id)
+			return s.consoleClient.GetService(id)
 		}),
-		manifestCache:    manis.NewCache(manifestTTL, manifestTTLJitter, deployToken, consoleURL),
+		manifestCache:    manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL),
+		applier:          applier.NewApplier(s.dynamicClient, s.store, s.waveDelay, applier.CacheFilter()),
 		utilFactory:      f,
-		applier:          a,
-		destroyer:        d,
-		restoreNamespace: restoreNamespace,
+		restoreNamespace: s.restoreNamespace,
 		mapper:           mapper,
-		k8sClient:        k8sClient,
-		pollInterval:     pollInterval,
+		k8sClient:        s.k8sClient,
+		pollInterval:     s.pollInterval,
 	}, nil
 }
 
@@ -155,18 +185,6 @@ func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
 		svcCache: s.svcCache,
 		manCache: s.manifestCache,
 	}
-}
-
-func newApplier(invFactory inventory.ClientFactory, f util.Factory) (*applier.Applier, error) {
-	invClient, err := invFactory.NewClient(f)
-	if err != nil {
-		return nil, err
-	}
-
-	return applier.NewApplierBuilder().
-		WithFactory(f).
-		WithInventoryClient(invClient).
-		Build()
 }
 
 func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.Destroyer, error) {
@@ -309,7 +327,7 @@ func postProcess(mans []unstructured.Unstructured) []unstructured.Unstructured {
 		if annotations == nil {
 			annotations = map[string]string{}
 		}
-		annotations[common.LifecycleDeleteAnnotation] = common.PreventDeletion
+		annotations[smcommon.LifecycleDeleteAnnotation] = smcommon.PreventDeletion
 		man.SetAnnotations(annotations)
 		return man
 	})
@@ -326,7 +344,6 @@ func (s *ServiceReconciler) ShutdownQueue() {
 
 func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[*console.ServiceDeploymentEdgeFragmentForAgent] {
 	logger := log.FromContext(ctx)
-	logger.Info("create service pager")
 	fetch := func(page *string, size int64) ([]*console.ServiceDeploymentEdgeFragmentForAgent, *algorithms.PageInfo, error) {
 		resp, err := s.consoleClient.GetServices(page, &size)
 		if err != nil {
@@ -345,7 +362,7 @@ func (s *ServiceReconciler) ListServices(ctx context.Context) *algorithms.Pager[
 
 func (s *ServiceReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
-	logger.Info("fetching services for cluster")
+	logger.V(3).Info("fetching services for cluster")
 
 	restore, err := s.isClusterRestore(ctx)
 	if err != nil {
@@ -424,37 +441,32 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		)
 	}()
 
-	logger.V(2).Info("local", "flag", args.Local())
+	logger.V(4).Info("local", "flag", args.Local())
 	if args.Local() && svc.Name == OperatorService {
 		return
 	}
 
-	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
-
 	if svc.DeletedAt != nil {
-		logger.V(2).Info("Deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		ch := s.destroyer.Run(ctx, inventory.WrapInventoryInfoObj(lo.ToPtr(s.defaultInventoryObjTemplate(id))), apply.DestroyerOptions{
-			InventoryPolicy:         inventory.PolicyAdoptIfNoInventory,
-			DryRunStrategy:          common.DryRunNone,
-			DeleteTimeout:           20 * time.Second,
-			DeletePropagationPolicy: metav1.DeletePropagationBackground,
-			EmitStatusEvents:        true,
-			ValidationPolicy:        1,
-		})
-
+		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		components, err := s.applier.Destroy(ctx, id)
 		metrics.Record().ServiceDeletion(id)
 		s.svcCache.Expire(id)
 		s.manifestCache.Expire(id)
-		err = s.UpdatePruneStatus(ctx, svc, ch, map[schema.GroupName]string{})
 		if err != nil {
 			logger.Error(err, "failed to update status")
-			return
+			return ctrl.Result{}, err
 		}
-		err = s.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
 
-		return
+		// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
+		if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), []*console.ServiceErrorAttributes{}); err != nil {
+			logger.Error(err, "Failed to update service status, ignoring for now")
+		}
+
+		err = s.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
+		return ctrl.Result{}, err
 	}
 
+	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 	logger.V(4).Info("Fetching manifests", "service", svc.Name)
 	dir, err := s.manifestCache.Fetch(svc)
 	if err != nil {
@@ -471,21 +483,12 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	manifests = postProcess(manifests)
-	logger.V(4).Info("Syncing manifests", "count", len(manifests))
-	invObj, manifests, err := s.SplitObjects(id, manifests)
-	if err != nil {
-		return
-	}
-	inv := inventory.WrapInventoryInfoObj(&invObj)
-
 	metrics.Record().ServiceReconciliation(
 		id,
 		svc.Name,
 		metrics.WithServiceReconciliationStartedAt(start),
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationPrepareManifestsFinish),
 	)
-
-	vcache := manis.VersionCache(manifests)
 
 	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
 		logger.Error(err, "failed to check namespace")
@@ -502,32 +505,59 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	options := apply.ApplierOptions{
-		ServerSideOptions: common.ServerSideOptions{
-			ServerSideApply: true,
-			ForceConflicts:  true,
-			FieldManager:    fieldManager,
-		},
-		ReconcileTimeout:       10 * time.Second,
-		EmitStatusEvents:       true,
-		NoPrune:                false,
-		DryRunStrategy:         common.DryRunNone,
-		PrunePropagationPolicy: metav1.DeletePropagationBackground,
-		PruneTimeout:           20 * time.Second,
-		InventoryPolicy:        inventory.PolicyAdoptAll,
-	}
-
+	// options := apply.ApplierOptions{
+	//	ServerSideOptions: common.ServerSideOptions{
+	//		ServerSideApply: true,
+	//		ForceConflicts:  true,
+	//		FieldManager:    fieldManager,
+	//	},
+	//	ReconcileTimeout:       10 * time.Second,
+	//	EmitStatusEvents:       true,
+	//	NoPrune:                false,
+	//	DryRunStrategy:         common.DryRunNone,
+	//	PrunePropagationPolicy: metav1.DeletePropagationBackground,
+	//	PruneTimeout:           20 * time.Second,
+	//	InventoryPolicy:        inventory.PolicyAdoptAll,
+	//}
+	//
 	dryRun := false
 	if svc.DryRun != nil {
 		dryRun = *svc.DryRun
 	}
 	svc.DryRun = &dryRun
-	if dryRun {
-		options.DryRunStrategy = common.DryRunServer
+
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
+	)
+
+	components, errs, err := s.applier.Apply(ctx, *svc, manifests, applier.WithDryRun(dryRun))
+	if err != nil {
+		logger.Error(err, "failed to apply manifests", "service", svc.Name)
+		return
 	}
 
-	ch := s.applier.Run(ctx, inv, manifests, options)
-	done, err = s.UpdateApplyStatus(ctx, svc, ch, false, vcache)
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
+	)
+
+	if err = s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), lo.ToSlicePtr(errs)); err != nil {
+		logger.Error(err, "Failed to update service status, ignoring for now")
+	} else {
+		done = true
+	}
+
+	metrics.Record().ServiceReconciliation(
+		svc.ID,
+		svc.Name,
+		metrics.WithServiceReconciliationStartedAt(start),
+		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationUpdateStatusFinish),
+	)
 
 	return
 }

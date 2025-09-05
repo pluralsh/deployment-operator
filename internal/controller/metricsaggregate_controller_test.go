@@ -2,16 +2,21 @@ package controller
 
 import (
 	"context"
+	"time"
 
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/scraper"
+	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/version"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("MetricsAggregate Controller", Ordered, func() {
@@ -23,29 +28,57 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 
 		ctx := context.Background()
 
-		apiGroups := &metav1.APIGroupList{
-			Groups: []metav1.APIGroup{
-				{
-					Name: "metrics.k8s.io",
-					Versions: []metav1.GroupVersionForDiscovery{
-						{GroupVersion: "v1", Version: "v1beta1"},
+		apiGroups := []metav1.APIGroup{
+			{
+				Name: "metrics.k8s.io",
+				Versions: []metav1.GroupVersionForDiscovery{
+					{
+						GroupVersion: "metrics.k8s.io/v1beta1",
+						Version:      "v1beta1",
 					},
+				},
+				PreferredVersion: metav1.GroupVersionForDiscovery{
+					GroupVersion: "metrics.k8s.io/v1beta1",
+					Version:      "v1beta1",
 				},
 			},
 		}
+
+		versionInfo := &version.Info{
+			Major:        "1",
+			Minor:        "28",
+			GitVersion:   "v1.28.0",
+			GitCommit:    "abcdef1234567890",
+			GitTreeState: "clean",
+			BuildDate:    "2023-09-01T00:00:00Z",
+			GoVersion:    "go1.21.0",
+			Compiler:     "gc",
+			Platform:     "linux/amd64",
+		}
+
 		metricsAggregate := types.NamespacedName{Name: metricsAggregateName, Namespace: namespace}
 
 		It("should create global metrics aggregate", func() {
 
 			discoveryClient := mocks.NewDiscoveryInterfaceMock(mocks.TestingT)
 			discoveryClient.On("ServerGroups").Return(apiGroups, nil)
+			discoveryClient.On("ServerGroupsAndResources").Return(lo.ToSlicePtr(apiGroups), nil, nil)
+			discoveryClient.On("ServerVersion").Return(versionInfo, nil)
+
+			cache := discoverycache.NewCache(discoveryClient)
+
+			err := discoverycache.NewDiscoveryManager(
+				discoverycache.WithRefreshInterval(time.Millisecond),
+				discoverycache.WithCache(cache),
+			).Start(ctx)
+			Expect(err).NotTo(HaveOccurred())
 
 			r := MetricsAggregateReconciler{
-				Client:          kClient,
-				Scheme:          kClient.Scheme(),
-				DiscoveryClient: discoveryClient,
+				Client:         kClient,
+				Scheme:         kClient.Scheme(),
+				DiscoveryCache: cache,
 			}
-			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: metricsAggregate})
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: metricsAggregate})
 			Expect(err).NotTo(HaveOccurred())
 			metrics := &v1alpha1.MetricsAggregate{}
 			Expect(kClient.Get(ctx, metricsAggregate, metrics)).NotTo(HaveOccurred())
@@ -54,6 +87,16 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 		It("should create global metrics aggregate", func() {
 			discoveryClient := mocks.NewDiscoveryInterfaceMock(mocks.TestingT)
 			discoveryClient.On("ServerGroups").Return(apiGroups, nil)
+			discoveryClient.On("ServerGroupsAndResources").Return(lo.ToSlicePtr(apiGroups), nil, nil)
+			discoveryClient.On("ServerVersion").Return(versionInfo, nil)
+
+			cache := discoverycache.NewCache(discoveryClient)
+
+			err := discoverycache.NewDiscoveryManager(
+				discoverycache.WithRefreshInterval(time.Millisecond),
+				discoverycache.WithCache(cache),
+			).Start(ctx)
+			Expect(err).NotTo(HaveOccurred())
 
 			scraper.GetMetrics().Add(v1alpha1.MetricsAggregateStatus{
 				Nodes:                  1,
@@ -67,11 +110,11 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			})
 
 			r := MetricsAggregateReconciler{
-				Client:          kClient,
-				Scheme:          kClient.Scheme(),
-				DiscoveryClient: discoveryClient,
+				Client:         kClient,
+				Scheme:         kClient.Scheme(),
+				DiscoveryCache: cache,
 			}
-			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: metricsAggregate})
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: metricsAggregate})
 			Expect(err).NotTo(HaveOccurred())
 			metrics := &v1alpha1.MetricsAggregate{}
 			Expect(kClient.Get(ctx, metricsAggregate, metrics)).NotTo(HaveOccurred())

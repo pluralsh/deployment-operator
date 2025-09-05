@@ -12,7 +12,7 @@ type socketPublisher struct {
 	restoreCache *client.Cache[console.ManagedNamespaceFragment]
 }
 
-func (sp *socketPublisher) Publish(id string) {
+func (sp *socketPublisher) Publish(id string, _ bool) {
 	sp.restoreCache.Expire(id)
 	sp.restoreQueue.Add(id)
 }

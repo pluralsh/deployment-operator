@@ -12,7 +12,7 @@ type socketPublisher struct {
 	stackRunCache *client.Cache[console.StackRunMinimalFragment]
 }
 
-func (sp *socketPublisher) Publish(id string) {
+func (sp *socketPublisher) Publish(id string, _ bool) {
 	sp.stackRunCache.Expire(id)
 	sp.stackRunQueue.Add(id)
 }

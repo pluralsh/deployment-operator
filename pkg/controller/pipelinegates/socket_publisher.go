@@ -10,7 +10,7 @@ type socketPublisher struct {
 	gateQueue workqueue.TypedRateLimitingInterface[string]
 }
 
-func (sp *socketPublisher) Publish(id string) {
+func (sp *socketPublisher) Publish(id string, _ bool) {
 	cache.GateCache().Expire(id)
 	sp.gateQueue.Add(id)
 }

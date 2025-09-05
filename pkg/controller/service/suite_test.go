@@ -22,6 +22,8 @@ import (
 	"runtime"
 	"testing"
 
+	"k8s.io/client-go/dynamic"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -38,6 +40,7 @@ import (
 var testEnv *envtest.Environment
 var kClient client.Client
 var cfg *rest.Config
+var dynamicClient dynamic.Interface
 
 func TestStacks(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -64,6 +67,10 @@ var _ = BeforeSuite(func() {
 	kClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kClient).NotTo(BeNil())
+
+	dynamicClient, err = dynamic.NewForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(dynamicClient).NotTo(BeNil())
 })
 
 var _ = AfterSuite(func() {

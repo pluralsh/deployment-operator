@@ -17,6 +17,7 @@ import (
 
 	"github.com/pluralsh/polly/luautils"
 	lua "github.com/yuin/gopher-lua"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
@@ -40,7 +41,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -384,7 +385,12 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 		return nil, err
 	}
 	client.KubeVersion = vsn
-	client.APIVersions = algorithms.MapKeys[string, bool](cache.DiscoveryCache().Items())
+	client.APIVersions = algorithms.Map(
+		discoverycache.GlobalCache().GroupVersion().List(),
+		func(gv schema.GroupVersion) string {
+			return gv.String()
+		},
+	)
 
 	return client.Run(chart, values)
 }

@@ -23,7 +23,7 @@ func (in *Scanner) Scan(tool console.StackType, options ...v1.ScanOption) ([]*co
 	return in.scan(tool, opts)
 }
 
-// scan TODO
+// scan performs the actual scan for a given tool.
 func (in *Scanner) scan(tool console.StackType, options *v1.ScanOptions) ([]*console.StackPolicyViolationAttributes, error) {
 	switch tool {
 	case console.StackTypeTerraform:
@@ -34,7 +34,7 @@ func (in *Scanner) scan(tool console.StackType, options *v1.ScanOptions) ([]*con
 	}
 }
 
-// scanTerraform TODO
+// scanTerraform performs a scan for Terraform.
 func (in *Scanner) scanTerraform(options *v1.ScanOptions) ([]*console.StackPolicyViolationAttributes, error) {
 	args := []string{
 		"config",
@@ -67,7 +67,7 @@ func (in *Scanner) scanTerraform(options *v1.ScanOptions) ([]*console.StackPolic
 	return in.toAttributes(output)
 }
 
-// toAttributes TODO
+// toAttributes converts the Trivy output to a list of attributes.
 func (in *Scanner) toAttributes(data []byte) ([]*console.StackPolicyViolationAttributes, error) {
 	report := &Report{}
 	if err := json.Unmarshal(data, report); err != nil {
@@ -77,7 +77,7 @@ func (in *Scanner) toAttributes(data []byte) ([]*console.StackPolicyViolationAtt
 	return report.Attributes(), nil
 }
 
-// New TODO
+// New creates a new Trivy scanner.
 func New(_ *console.PolicyEngineFragment) v1.Scanner {
 	return &Scanner{DefaultScanner: v1.DefaultScanner{}}
 }

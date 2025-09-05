@@ -8,9 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/cli-utils/pkg/object"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 func setNamespaces(mapper meta.RESTMapper, objs []unstructured.Unstructured,
@@ -76,7 +79,7 @@ func setNamespaces(mapper meta.RESTMapper, objs []unstructured.Unstructured,
 		case meta.RESTScopeRoot:
 			if ns := objs[i].GetNamespace(); ns != "" {
 				objs[i].SetNamespace("")
-				fmt.Printf("Found cluster scoped resource %s with namespace %s, coerced to un-namespaced\n", objs[i].GetName(), ns)
+				klog.V(log.LogLevelExtended).InfoS("Found resource with namespace", "namespace", ns, "resource", objs[i].GetName(), "gvk", objs[i].GroupVersionKind(), "error", "coerced to un-namespaced")
 			}
 			namespacedCache.Store(gvk, false)
 		default:
@@ -88,7 +91,7 @@ func setNamespaces(mapper meta.RESTMapper, objs []unstructured.Unstructured,
 		err := &manifestreader.UnknownTypesError{
 			GroupVersionKinds: unknownGVKs,
 		}
-		fmt.Printf("Found unknown types %s, ignoring for now", err)
+		klog.V(log.LogLevelExtended).InfoS("found unknown types", "types", err.GroupVersionKinds, "error", err)
 	}
 
 	return objs, nil

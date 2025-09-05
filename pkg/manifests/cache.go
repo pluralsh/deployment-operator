@@ -64,12 +64,12 @@ func (c *ManifestCache) Fetch(svc *console.ServiceDeploymentForAgent) (string, e
 		return "", err
 	}
 
-	log.Info("fetching fresh tarball", "url", tarballURL.String(), "sha", sha)
+	log.V(2).Info("fetching fresh tarball", "url", tarballURL.String(), "sha", sha)
 	dir, err := fetch(tarballURL.String(), c.token, sha)
 	if err != nil {
 		return "", err
 	}
-	log.V(1).Info("using cache dir", "dir", dir)
+	log.V(2).Info("using cache dir", "dir", dir)
 
 	c.cache.Set(svc.ID, &cacheLine{dir: dir, sha: sha, created: time.Now(), expiry: c.ExpiryWithJitter()})
 	return dir, nil

@@ -10,7 +10,7 @@ import (
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 )
 
-// Scanner TODO
+// Scanner is a scanner implementation for trivy.
 type Scanner struct {
 	v1.DefaultScanner `json:",inline"`
 }
