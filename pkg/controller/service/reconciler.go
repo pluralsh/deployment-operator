@@ -80,49 +80,31 @@ type ServiceReconciler struct {
 
 func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, dynamicClient dynamic.Interface, store store.Store, option ...ServiceReconcilerOption) (*ServiceReconciler, error) {
 	result := &ServiceReconciler{
-		consoleClient: consoleClient,
-		k8sClient:     k8sClient,
-		config:        config,
-		dynamicClient: dynamicClient,
-		store:         store,
+		consoleClient:      consoleClient,
+		k8sClient:          k8sClient,
+		config:             config,
+		dynamicClient:      dynamicClient,
+		store:              store,
+		refresh:            2 * time.Minute,
+		manifestTTL:        3 * time.Hour,
+		manifestTTLJitter:  30 * time.Minute,
+		workqueueBaseDelay: 5 * time.Second,
+		workqueueMaxDelay:  300 * time.Second,
+		workqueueQPS:       10,
+		workqueueBurst:     20,
+		waveDelay:          5 * time.Second,
+		pollInterval:       2 * time.Minute,
 	}
 
 	for _, opt := range option {
 		opt(result)
 	}
-	// Set defaults
-	if result.refresh == 0 {
-		result.refresh = args.ControllerCacheTTL()
-	}
-	if result.manifestTTL == 0 {
-		result.manifestTTL = args.ManifestCacheTTL()
-	}
-	if result.manifestTTLJitter == 0 {
-		result.manifestTTLJitter = args.ManifestCacheJitter()
-	}
-	if result.workqueueBaseDelay == 0 {
-		result.workqueueBaseDelay = args.WorkqueueBaseDelay()
-	}
-	if result.workqueueMaxDelay == 0 {
-		result.workqueueMaxDelay = args.WorkqueueMaxDelay()
-	}
-	if result.workqueueQPS == 0 {
-		result.workqueueQPS = args.WorkqueueQPS()
-	}
-	if result.workqueueBurst == 0 {
-		result.workqueueBurst = args.WorkqueueBurst()
-	}
+
 	if result.restoreNamespace == "" {
-		result.restoreNamespace = args.RestoreNamespace()
+		return nil, fmt.Errorf("no restore namespace specified")
 	}
 	if result.consoleURL == "" {
-		result.consoleURL = args.ConsoleUrl()
-	}
-	if result.pollInterval == 0 {
-		result.pollInterval = args.PollInterval()
-	}
-	if result.waveDelay == 0 {
-		result.waveDelay = args.ApplierWaveDelay()
+		return nil, fmt.Errorf("no console URL specified")
 	}
 
 	// Initialize

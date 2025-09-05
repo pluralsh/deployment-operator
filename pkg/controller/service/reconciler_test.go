@@ -96,7 +96,10 @@ var _ = Describe("Reconciler", Ordered, func() {
 			}()
 		})
 		AfterEach(func() {
-			os.RemoveAll(dir)
+			err := os.RemoveAll(dir)
+			if err != nil {
+				return
+			}
 			Expect(kClient.Delete(ctx, &v1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: operatorNamespace,
@@ -122,7 +125,12 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 			storeInstance, err := store.NewDatabaseStore()
 			Expect(err).NotTo(HaveOccurred())
-			defer storeInstance.Shutdown()
+			defer func(storeInstance store.Store) {
+				err := storeInstance.Shutdown()
+				if err != nil {
+					log.Printf("unable to shutdown database store: %v", err)
+				}
+			}(storeInstance)
 			streamline.InitGlobalStore(storeInstance)
 
 			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, cfg, dynamicClient, storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))

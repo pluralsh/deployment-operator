@@ -61,7 +61,18 @@ func registerConsoleReconcilersOrDie(
 			k8sClient,
 			config,
 			dynamicClient,
-			store)
+			store,
+			service.WithRefresh(args.ControllerCacheTTL()),
+			service.WithManifestTTL(args.ManifestCacheTTL()),
+			service.WithManifestTTLJitter(args.ManifestCacheJitter()),
+			service.WithWorkqueueBaseDelay(args.WorkqueueBaseDelay()),
+			service.WithWorkqueueMaxDelay(args.WorkqueueMaxDelay()),
+			service.WithWorkqueueQPS(args.WorkqueueQPS()),
+			service.WithWorkqueueBurst(args.WorkqueueBurst()),
+			service.WithRestoreNamespace(args.RestoreNamespace()),
+			service.WithConsoleURL(args.ConsoleUrl()),
+			service.WithPollInterval(args.PollInterval()),
+			service.WithWaveDelay(args.ApplierWaveDelay()))
 		return r, err
 	})
 
