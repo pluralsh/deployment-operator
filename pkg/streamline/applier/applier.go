@@ -81,20 +81,21 @@ func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentFo
 	)
 
 	for _, resource := range toSkip {
+		var compAttr *client.ComponentAttributes
 		cacheEntry, err := in.store.GetComponent(resource)
-		// TODO: refactor
+
 		if err != nil || cacheEntry == nil {
 			live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
 			if err != nil {
 				klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from cache", "resource", resource)
 				continue
 			}
-			componentAttr := common.ToComponentAttributes(live)
-			componentList = append(componentList, *componentAttr)
-			continue
+			compAttr = common.ToComponentAttributes(live)
+		} else {
+			compAttr = lo.ToPtr(cacheEntry.ToComponentAttributes())
 		}
 
-		componentList = append(componentList, cacheEntry.ToComponentAttributes())
+		componentList = append(componentList, lo.FromPtr(compAttr))
 	}
 
 	for idx, component := range componentList {
