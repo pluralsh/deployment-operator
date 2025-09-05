@@ -133,6 +133,9 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 		}
 
 		if !hasServiceID && state == ComponentStateRunning {
+			if err := in.DeleteComponent(obj.GetUID()); err != nil {
+				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete pod", "uid", obj.GetUID())
+			}
 			return nil // If the pod does not belong to any service and is running, we don't need to store it
 		}
 	}

@@ -360,6 +360,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
 	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
 		FieldManager: smcommon.ClientFieldManager,
+		Force:        true, // TODO: should we force apply or not here? It will avoid conflicts when resource has been recently applied by another controller
 		DryRun:       lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
 	})
 
