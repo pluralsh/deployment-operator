@@ -16,6 +16,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/cache/db"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/images"
 )
 
 type serviceComponentsStatusCollector struct {
@@ -82,6 +83,9 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 		live = asJSON(liveResource)
 	}
 
+	// Extract images from the resource
+	images := images.ExtractImagesFromResource(e.Resource)
+
 	return &console.ComponentAttributes{
 		UID:       lo.ToPtr(string(e.Resource.GetUID())),
 		Group:     gvk.Group,
@@ -95,6 +99,7 @@ func (sc *serviceComponentsStatusCollector) fromApplyResult(e event.ApplyEvent, 
 			Desired: &desired,
 			Live:    &live,
 		},
+		Images: images,
 	}
 }
 
