@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
@@ -92,7 +93,7 @@ func (in *synchronizer) Start(ctx context.Context) error {
 				return fmt.Errorf("watch channel closed")
 			}
 
-			// TODO: add metrics to group events by resource group/kind
+			metrics.Record().SynchronizationEvent(event)
 			resourceVersion = common.GetResourceVersion(event.Object, resourceVersion)
 			in.handleEvent(event)
 		case <-resyncAfter:

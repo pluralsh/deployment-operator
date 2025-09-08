@@ -174,6 +174,9 @@ type WaveProcessor struct {
 
 	// dryRun determines if the wave should be applied in dry run mode, meaning that the changes will not be persisted.
 	dryRun bool
+
+	// onApplyCallback is a callback function called when a resource is applied
+	onApplyCallback func(resource unstructured.Unstructured)
 }
 
 func (in *WaveProcessor) Run(ctx context.Context) (components []client.ComponentAttributes, errors []client.ServiceErrorAttributes) {
@@ -376,6 +379,10 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
+	if in.onApplyCallback != nil {
+		in.onApplyCallback(resource)
+	}
+
 	if in.dryRun {
 		component := common.ToComponentAttributes(&resource)
 		component = in.withDryRun(ctx, component, lo.FromPtr(appliedResource), false)
@@ -449,9 +456,9 @@ func (in *WaveProcessor) init() {
 	}
 }
 
-type Option func(*WaveProcessor)
+type WaveProcessorOption func(*WaveProcessor)
 
-func WithMaxConcurrentApplies(n int) Option {
+func WithWaveMaxConcurrentApplies(n int) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		if n < 1 {
 			n = defaultMaxConcurrentApplies
@@ -460,7 +467,7 @@ func WithMaxConcurrentApplies(n int) Option {
 	}
 }
 
-func WithDeQueueDelay(d time.Duration) Option {
+func WithWaveDeQueueDelay(d time.Duration) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		if d <= 0 {
 			d = defaultDeQueueDelay
@@ -469,13 +476,19 @@ func WithDeQueueDelay(d time.Duration) Option {
 	}
 }
 
-func WithDryRun(dryRun bool) Option {
+func WithWaveDryRun(dryRun bool) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		w.dryRun = dryRun
 	}
 }
 
-func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave, opts ...Option) *WaveProcessor {
+func WithWaveOnApply(onApply func(resource unstructured.Unstructured)) WaveProcessorOption {
+	return func(w *WaveProcessor) {
+		w.onApplyCallback = onApply
+	}
+}
+
+func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
 	result := &WaveProcessor{
 		mu:                   sync.Mutex{},
 		client:               dynamicClient,

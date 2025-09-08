@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"time"
+
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 const (
@@ -37,13 +39,17 @@ const (
 	MetricLabelServiceType                = "service_type"
 	MetricLabelServiceReconciliationStage = "service_reconciliation_stage"
 	MetricLabelControllerName             = "controller_name"
-	MetricLabelObjectStatusReporterID     = "object_status_reporter_id"
 
 	ControllerRestartsMetricName        = "agent_controller_restarts_total"
 	ControllerRestartsMetricDescription = "The total number of controller restarts"
 
-	WatcherInsightInformerRefsSizeMetricName        = "agent_watcher_insight_informer_refs_total"
-	WatcherInsightInformerRefsSizeMetricDescription = "The size of the informer refs map"
+	SynchronizerEventMetricName        = "agent_synchronizer_event_total"
+	SynchronizerEventMetricDescription = "The total number of synchronizer events"
+
+	MetricLabelSynchronizerEventType = "synchronizer_event_type"
+	MetricLabelSynchronizerGroup     = "synchronizer_group"
+	MetricLabelSynchronizerVersion   = "synchronizer_version"
+	MetricLabelSynchronizerKind      = "synchronizer_kind"
 )
 
 type ServiceReconciliationStage string
@@ -85,4 +91,5 @@ type Recorder interface {
 	ResourceCacheHit(serviceID string)
 	ResourceCacheMiss(serviceID string)
 	ControllerRestart(name string)
+	SynchronizationEvent(event watch.Event)
 }

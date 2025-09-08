@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	console "github.com/pluralsh/console/go/client"
@@ -30,14 +31,17 @@ import (
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
 	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
+	internallog "github.com/pluralsh/deployment-operator/pkg/log"
 	manis "github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/applier"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -91,7 +95,7 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 		workqueueMaxDelay:  300 * time.Second,
 		workqueueQPS:       10,
 		workqueueBurst:     20,
-		waveDelay:          5 * time.Second,
+		waveDelay:          1 * time.Second,
 		pollInterval:       2 * time.Minute,
 	}
 
@@ -141,7 +145,7 @@ func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
 			return s.consoleClient.GetService(id)
 		}),
 		manifestCache:    manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL),
-		applier:          applier.NewApplier(s.dynamicClient, s.store, s.waveDelay, applier.CacheFilter()),
+		applier:          applier.NewApplier(s.dynamicClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.CacheFilter())),
 		utilFactory:      f,
 		restoreNamespace: s.restoreNamespace,
 		mapper:           mapper,
@@ -520,7 +524,16 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
 	)
 
-	components, errs, err := s.applier.Apply(ctx, *svc, manifests, applier.WithDryRun(dryRun))
+	components, errs, err := s.applier.Apply(ctx,
+		*svc,
+		manifests,
+		applier.WithWaveDryRun(dryRun),
+		applier.WithWaveOnApply(func(obj unstructured.Unstructured) {
+			gvr := helpers.GVRFromGVK(obj.GroupVersionKind())
+			klog.V(internallog.LogLevelDebug).InfoS("registering gvr to watch", "gvr", gvr)
+			streamline.GetSupervisor().Register(gvr)
+		}),
+	)
 	if err != nil {
 		logger.Error(err, "failed to apply manifests", "service", svc.Name)
 		return
