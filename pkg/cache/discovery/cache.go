@@ -279,7 +279,9 @@ func (in *cache) KindFor(gvr schema.GroupVersionResource) (schema.GroupVersionKi
 	in.mu.RLock()
 	defer in.mu.RUnlock()
 
-	// TODO: Try to find in cache.
+	if gvk, ok := in.gvrToGVKCache.Get(gvr); ok {
+		return gvk, nil
+	}
 
 	gvk, err := in.mapper.KindFor(gvr)
 	if err != nil {
