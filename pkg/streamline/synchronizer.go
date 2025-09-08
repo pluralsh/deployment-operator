@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/types"
@@ -155,7 +156,14 @@ func (in *synchronizer) Stop() {
 		return
 	}
 
-	// TODO: should we cleanup the store?
+	if gvk, err := discovery.GlobalCache().KindFor(in.gvr); err != nil {
+		klog.ErrorS(err, "failed to get kind for gvr", "gvr", in.gvr)
+	} else {
+		if err = in.store.DeleteComponents(gvk.Group, gvk.Version, gvk.Kind); err != nil {
+			klog.ErrorS(err, "failed to delete resources from store", "gvr", in.gvr)
+		}
+	}
+
 	in.cancel()
 	in.started = false
 }

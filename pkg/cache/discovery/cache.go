@@ -46,6 +46,9 @@ type Cache interface {
 	// ServerVersion returns the Kubernetes server version.
 	ServerVersion() *version.Info
 
+	// KindFor returns GVK for provided GVR.
+	KindFor(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error)
+
 	// OnGroupVersionAdded registers a callback function to be called when a new API group is added to the cache.
 	OnGroupVersionAdded(f GroupVersionUpdateFunc)
 
@@ -263,6 +266,20 @@ func (in *cache) GroupVersion() containers.Set[schema.GroupVersion] {
 	defer in.mu.RUnlock()
 
 	return in.gvCache
+}
+
+func (in *cache) KindFor(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	in.mu.RLock()
+	defer in.mu.RUnlock()
+
+	// TODO: Try to find in cache.
+
+	gvk, err := in.mapper.KindFor(gvr)
+	if err != nil {
+		return schema.GroupVersionKind{}, err
+	}
+
+	return gvk, nil
 }
 
 func (in *cache) ServerVersion() *version.Info {
