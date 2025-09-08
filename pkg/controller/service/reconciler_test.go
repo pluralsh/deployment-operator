@@ -112,8 +112,6 @@ var _ = Describe("Reconciler", Ordered, func() {
 			if err := srv.Shutdown(ctx); err != nil {
 				log.Fatal("Server forced to shutdown: ", err)
 			}
-
-			log.Println("Server exiting")
 		})
 
 		It("should create NewServiceReconciler and apply service", func() {

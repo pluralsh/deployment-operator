@@ -79,6 +79,7 @@ type ServiceReconciler struct {
 	workqueueQPS, workqueueBurst                                                   int
 	consoleURL                                                                     string
 	waveDelay                                                                      time.Duration
+	supervisor                                                                     *streamline.Supervisor
 }
 
 func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, dynamicClient dynamic.Interface, store store.Store, option ...ServiceReconcilerOption) (*ServiceReconciler, error) {
@@ -529,9 +530,13 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		manifests,
 		applier.WithWaveDryRun(dryRun),
 		applier.WithWaveOnApply(func(obj unstructured.Unstructured) {
+			if s.supervisor == nil {
+				return
+			}
+
 			gvr := helpers.GVRFromGVK(obj.GroupVersionKind())
 			klog.V(internallog.LogLevelDebug).InfoS("registering gvr to watch", "gvr", gvr)
-			streamline.GetSupervisor().Register(gvr)
+			s.supervisor.Register(gvr)
 		}),
 	)
 	if err != nil {

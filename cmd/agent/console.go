@@ -13,6 +13,7 @@ import (
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
 	"k8s.io/client-go/rest"
@@ -55,6 +56,7 @@ func registerConsoleReconcilersOrDie(
 	store store.Store,
 	scheme *runtime.Scheme,
 	consoleClient client.Client,
+	supervisor *streamline.Supervisor,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
 		r, err := service.NewServiceReconciler(consoleClient,
@@ -72,7 +74,8 @@ func registerConsoleReconcilersOrDie(
 			service.WithRestoreNamespace(args.RestoreNamespace()),
 			service.WithConsoleURL(args.ConsoleUrl()),
 			service.WithPollInterval(args.PollInterval()),
-			service.WithWaveDelay(args.ApplierWaveDelay()))
+			service.WithWaveDelay(args.ApplierWaveDelay()),
+			service.WithSupervisor(supervisor))
 		return r, err
 	})
 

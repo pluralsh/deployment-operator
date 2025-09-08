@@ -2,6 +2,8 @@ package service
 
 import (
 	"time"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 )
 
 type ServiceReconcilerOption func(*ServiceReconciler)
@@ -69,5 +71,11 @@ func WithPollInterval(pollInterval time.Duration) ServiceReconcilerOption {
 func WithWaveDelay(waveDelay time.Duration) ServiceReconcilerOption {
 	return func(r *ServiceReconciler) {
 		r.waveDelay = waveDelay
+	}
+}
+
+func WithSupervisor(supervisor *streamline.Supervisor) ServiceReconcilerOption {
+	return func(r *ServiceReconciler) {
+		r.supervisor = supervisor
 	}
 }

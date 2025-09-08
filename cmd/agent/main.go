@@ -131,7 +131,7 @@ func main() {
 	// Start synchronizer supervisor
 	runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
 
-	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient)
+	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, streamline.GetSupervisor())
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder

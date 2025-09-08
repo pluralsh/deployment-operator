@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"testing"
 
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,10 +38,13 @@ import (
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-var testEnv *envtest.Environment
-var kClient client.Client
-var cfg *rest.Config
-var dynamicClient dynamic.Interface
+var (
+	testEnv         *envtest.Environment
+	kClient         client.Client
+	cfg             *rest.Config
+	dynamicClient   dynamic.Interface
+	discoveryClient discovery.DiscoveryInterface
+)
 
 func TestStacks(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -71,6 +75,11 @@ var _ = BeforeSuite(func() {
 	dynamicClient, err = dynamic.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(dynamicClient).NotTo(BeNil())
+
+	discoveryClient, err = discovery.NewDiscoveryClientForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(discoveryClient).NotTo(BeNil())
+
 })
 
 var _ = AfterSuite(func() {

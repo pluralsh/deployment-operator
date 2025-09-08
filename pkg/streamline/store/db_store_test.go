@@ -1339,7 +1339,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.Empty(t, entry.ApplySHA)
-		assert.Empty(t, entry.ServerSHA)
+		assert.NotEmpty(t, entry.ServerSHA)
 		assert.Empty(t, entry.ManifestSHA)
 		assert.Empty(t, entry.TransientManifestSHA)
 	})

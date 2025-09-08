@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -107,7 +108,7 @@ func (in *synchronizer) Start(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("failed to restart watch: %w", err)
 			}
-			klog.V(log.LogLevelVerbose).InfoS("restarted watch", "gvr", in.gvr, "resourceVersion", resourceVersion, "resyncAfter", interval)
+			klog.V(log.LogLevelExtended).InfoS("restarted watch", "gvr", in.gvr, "resourceVersion", resourceVersion, "resyncAfter", interval)
 		}
 	}
 }
@@ -177,7 +178,6 @@ func (in *synchronizer) Started() bool {
 }
 
 func (in *synchronizer) resynchronize() {
-	klog.V(log.LogLevelVerbose).InfoS("resynchronizing", "gvr", in.gvr)
 	now := time.Now()
 	list, err := in.client.Resource(in.gvr).Namespace(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil || list == nil {
