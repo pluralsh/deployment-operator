@@ -104,6 +104,43 @@ const (
 			service_id = excluded.service_id
 	`
 
+	setComponentWithSHA = `
+		INSERT INTO component (
+			uid,
+			parent_uid,
+			"group",
+			version,
+			kind,
+			namespace,
+			name,
+			health,
+		    node,
+		    created_at,
+		    service_id,
+		    server_sha
+		) VALUES (
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+		    ?,
+		    ?,
+		    ?
+		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			parent_uid = excluded.parent_uid,
+			health = excluded.health,
+			node = excluded.node,
+			created_at = excluded.created_at,
+			service_id = excluded.service_id,
+			server_sha = excluded.server_sha
+	`
+
 	expireSHA = `
 		UPDATE component
 		SET
