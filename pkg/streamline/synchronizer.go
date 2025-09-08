@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/types"
@@ -116,10 +117,6 @@ func (in *synchronizer) handleList(list unstructured.UnstructuredList) {
 		if err := in.store.SaveComponent(obj); err != nil {
 			klog.ErrorS(err, "failed to save resource", "gvr", in.gvr, "name", obj.GetName())
 		}
-
-		if err := in.store.UpdateComponentSHA(obj, store.ServerSHA); err != nil {
-			klog.ErrorS(err, "failed to update component SHA", "gvr", in.gvr)
-		}
 	}
 }
 
@@ -136,9 +133,6 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 		if err := in.store.SaveComponent(*obj); err != nil {
 			klog.ErrorS(err, "failed to save resource", "gvr", in.gvr, "name", obj.GetName())
 			return
-		}
-		if err := in.store.UpdateComponentSHA(lo.FromPtr(obj), store.ServerSHA); err != nil {
-			klog.ErrorS(err, "failed to update component SHA", "gvr", in.gvr)
 		}
 	case watch.Deleted:
 		obj, err := common.ToUnstructured(ev.Object)
@@ -163,7 +157,14 @@ func (in *synchronizer) Stop() {
 		return
 	}
 
-	// TODO: should we cleanup the store?
+	if gvk, err := discovery.GlobalCache().KindFor(in.gvr); err != nil {
+		klog.ErrorS(err, "failed to get kind for gvr", "gvr", in.gvr)
+	} else {
+		if err = in.store.DeleteComponents(gvk.Group, gvk.Version, gvk.Kind); err != nil {
+			klog.ErrorS(err, "failed to delete resources from store", "gvr", in.gvr)
+		}
+	}
+
 	in.cancel()
 	in.started = false
 }
@@ -229,10 +230,6 @@ func (in *synchronizer) resynchronize() {
 		if err := in.store.SaveComponent(resource); err != nil {
 			klog.ErrorS(err, "failed to save component to store", "resource", resource.GetName())
 			continue
-		}
-
-		if err := in.store.UpdateComponentSHA(resource, store.ServerSHA); err != nil {
-			klog.ErrorS(err, "failed to update component SHA", "gvr", in.gvr)
 		}
 	}
 

@@ -98,6 +98,10 @@ func (in *Applier) Apply(ctx context.Context,
 				continue
 			}
 			compAttr = common.ToComponentAttributes(live)
+
+			if err := in.store.SaveComponent(*live); err != nil {
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component to cache", "resource", resource)
+			}
 		} else {
 			compAttr = lo.ToPtr(cacheEntry.ToComponentAttributes())
 		}

@@ -122,7 +122,6 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
-// TODO: consider adding ServerSHA updates here.
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 	serviceID, hasServiceID := obj.GetAnnotations()[smcommon.OwningInventoryKey]
@@ -143,9 +142,8 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 		}
 	}
 
-	ownerRefs := obj.GetOwnerReferences()
 	var ownerRef *string
-	if len(ownerRefs) > 0 {
+	if ownerRefs := obj.GetOwnerReferences(); len(ownerRefs) > 0 {
 		ownerRef = lo.ToPtr(string(ownerRefs[0].UID))
 		for _, ref := range ownerRefs {
 			if ref.Controller != nil && *ref.Controller {
@@ -155,13 +153,19 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 		}
 	}
 
+	serverSHA, err := HashResource(obj)
+	if err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "failed to calculate resource SHA", "name", obj.GetName(), "namespace", obj.GetNamespace(), "gvk", gvk.String())
+		return err
+	}
+
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
+	return sqlitex.ExecuteTransient(conn, setComponentWithSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			obj.GetUID(),
 			lo.FromPtr(ownerRef),
@@ -174,6 +178,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			nodeName,
 			obj.GetCreationTimestamp().Unix(),
 			serviceID,
+			serverSHA,
 		},
 	})
 }
@@ -298,10 +303,20 @@ func (in *DatabaseStore) DeleteComponent(uid types.UID) error {
 	}
 	defer in.pool.Put(conn)
 
-	query := `DELETE FROM component WHERE uid = ?`
-	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
-		Args: []any{uid},
-	})
+	return sqlitex.ExecuteTransient(conn, `DELETE FROM component WHERE uid = ?`,
+		&sqlitex.ExecOptions{Args: []any{uid}})
+}
+
+func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(
+		conn, `DELETE FROM component WHERE "group" = ? AND version = ? AND kind = ?`,
+		&sqlitex.ExecOptions{Args: []any{group, version, kind}})
 }
 
 func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Entry, error) {
@@ -534,6 +549,20 @@ func (in *DatabaseStore) Expire(serviceID string) error {
 	})
 }
 
+func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	cutoff := time.Now().Add(-ttl).Unix()
+
+	return sqlitex.ExecuteTransient(conn, expireOlderThan, &sqlitex.ExecOptions{
+		Args: []interface{}{cutoff},
+	})
+}
+
 func (in *DatabaseStore) Shutdown() error {
 	in.mu.Lock()
 	defer in.mu.Unlock()
@@ -551,18 +580,4 @@ func (in *DatabaseStore) Shutdown() error {
 	}
 
 	return nil
-}
-
-func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return err
-	}
-	defer in.pool.Put(conn)
-
-	cutoff := time.Now().Add(-ttl).Unix()
-
-	return sqlitex.ExecuteTransient(conn, expireOlderThan, &sqlitex.ExecOptions{
-		Args: []interface{}{cutoff},
-	})
 }

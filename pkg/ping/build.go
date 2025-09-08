@@ -12,17 +12,17 @@ import (
 
 func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openShiftVersion *string, podCount *int64) console.ClusterPing {
 	// hs, err := db.GetComponentCache().HealthScore()
-	//if err != nil {
+	// if err != nil {
 	//	klog.ErrorS(err, "failed to get health score")
 	//}
 
 	// ns, err := db.GetComponentCache().NodeStatistics()
-	//if err != nil {
+	// if err != nil {
 	//	klog.ErrorS(err, "failed to get node statistics")
 	//}
 	//
-	//nodCount, namespaceCount, err := db.GetComponentCache().ComponentCounts()
-	//if err != nil {
+	// nodCount, namespaceCount, err := db.GetComponentCache().ComponentCounts()
+	// if err != nil {
 	//	klog.ErrorS(err, "failed to get cluster component counts")
 	//}
 
@@ -47,12 +47,12 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openSh
 	}
 
 	// cInsights, err := db.GetComponentCache().ComponentInsights()
-	//if err != nil {
+	// if err != nil {
 	//	klog.ErrorS(err, "failed to get component insights")
 	//}
 
 	// cp.InsightComponents = lo.ToSlicePtr(cInsights)
-	//if metrics.CPUAvailableMillicores > 0 {
+	// if metrics.CPUAvailableMillicores > 0 {
 	//	cp.CPUTotal = lo.ToPtr(float64(metrics.CPUAvailableMillicores))
 	//}
 	if metrics.MemoryAvailableBytes > 0 {

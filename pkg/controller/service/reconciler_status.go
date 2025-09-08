@@ -8,7 +8,6 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cli-utils/pkg/apply/event"
 	"sigs.k8s.io/cli-utils/pkg/print/stats"
@@ -22,7 +21,7 @@ import (
 //	svc *console.ServiceDeploymentForAgent,
 //	ch <-chan event.Event,
 //	vcache map[internalschema.GroupName]string,
-//) error {
+// ) error {
 //	logger := log.FromContext(ctx)
 //
 //	var statsCollector stats.Stats
@@ -78,8 +77,8 @@ func (s *ServiceReconciler) UpdateApplyStatus(
 	//)
 
 	// var statsCollector stats.Stats
-	//statusCollector := newServiceComponentsStatusCollector(s, svc)
-	//for e := range ch {
+	// statusCollector := newServiceComponentsStatusCollector(s, svc)
+	// for e := range ch {
 	//	statsCollector.Handle(e)
 	//	switch e.Type {
 	//	case event.ActionGroupType:
@@ -261,8 +260,4 @@ func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, com
 
 func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAttributes) error {
 	return s.consoleClient.UpdateServiceErrors(id, lo.Ternary(err != nil, []*console.ServiceErrorAttributes{err}, []*console.ServiceErrorAttributes{}))
-}
-
-func resourceIDToString(gk schema.GroupKind, name string) string {
-	return fmt.Sprintf("%s/%s", strings.ToLower(gk.String()), name)
 }

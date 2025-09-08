@@ -65,7 +65,7 @@ type Progress struct {
 //	SyncComponent(u) // Sync all components besides pods
 //}
 //
-//func SyncComponent(u *unstructured.Unstructured) {
+// func SyncComponent(u *unstructured.Unstructured) {
 //	if u.GetDeletionTimestamp() != nil {
 //		_ = streamline.GlobalStore().DeleteComponent(u.GetUID())
 //		return
@@ -77,7 +77,7 @@ type Progress struct {
 //	}
 //}
 //
-//func SyncPod(u *unstructured.Unstructured, state *console.ComponentState) {
+// func SyncPod(u *unstructured.Unstructured, state *console.ComponentState) {
 //	if u.GetDeletionTimestamp() != nil {
 //		_ = streamline.GlobalStore().DeleteComponent(u.GetUID())
 //		return

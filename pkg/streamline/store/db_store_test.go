@@ -140,10 +140,7 @@ func TestComponentCache_ComponentChildren(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
-			err := storeInstance.Shutdown()
-			if err != nil {
-				t.Errorf("failed to shutdown store: %v", err)
-			}
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
 		// Root
@@ -190,7 +187,9 @@ func TestComponentCache_ComponentChildren(t *testing.T) {
 	t.Run("cache should save and return multi-level structure with multiple children", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		// Root
 		rootUID := testUID
@@ -243,7 +242,9 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 	t.Run("cache should support basic cascade deletion", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		uid := testUID
 		component := createComponent(uid, nil, WithName("delete-parent-component"))
@@ -274,7 +275,9 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 	t.Run("cache should support multi-level cascade deletion", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		uid := testUID
 		component := createComponent(uid, nil, WithName("multi-delete-parent"))
@@ -312,7 +315,9 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 	t.Run("cache should correctly store and return group", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		group := testGroup
 
@@ -356,7 +361,9 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	t.Run("cache should calculate correct health score", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		uid := testUID
 		component := createComponent(uid, nil, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("test-pod-1"))
@@ -423,7 +430,9 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	t.Run("cache should calculate correct health score for components with no children", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		uid := testUID
 		component := createComponent(uid, nil, WithState(client.ComponentStateRunning), WithName("standalone-component"))
@@ -438,7 +447,9 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	t.Run("cache should calculate health score with critical system component failures", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		baseComponent := createComponent(testUID, nil, WithState(client.ComponentStateRunning), WithName("base-test-component"))
 		err = storeInstance.SaveComponentAttributes(baseComponent)
@@ -487,7 +498,9 @@ func TestComponentCache_HealthScore(t *testing.T) {
 	t.Run("cache should calculate health score with combined resource failures", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		baseComponent := createComponent(testUID, nil, WithState(client.ComponentStateRunning), WithName("base-combined-test"))
 		err = storeInstance.SaveComponentAttributes(baseComponent)
@@ -535,7 +548,9 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should allow components with different GVK-namespace-name combinations", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		component1 := createComponent("uid-1", nil,
 			WithGroup("apps"),
@@ -600,7 +615,9 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should allow component updates", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		component := createComponent("uid-1", nil,
 			WithGroup("apps"),
@@ -619,7 +636,9 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should allow components with same GVK-namespace-name but different UID", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		component1 := createComponent("uid-1", nil,
 			WithGroup("apps"),
@@ -643,7 +662,9 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should allow updating existing component with same UID", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		uid := "update-test-uid"
 
@@ -673,7 +694,9 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should handle UID changes for resource with the same identity", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		group := "apps"
 		version := "v1"
@@ -706,7 +729,9 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should treat nil values in the same way as empty strings", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		group := "apps"
 		version := "v1"
@@ -751,7 +776,9 @@ func TestPendingPodsCache(t *testing.T) {
 	t.Run("cache should store pods with all required attributes", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
 		require.NoError(t, createPod(storeInstance, "pending-pod-2", "pod-2-uid", hourAgoTimestamp))
@@ -766,7 +793,9 @@ func TestPendingPodsCache(t *testing.T) {
 	t.Run("cache should ignore fresh pending pods that were created within last 5 minutes", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		require.NoError(t, createPod(storeInstance, "fresh-pending-pod", "pod-uid", nowTimestamp))
 		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
@@ -782,7 +811,9 @@ func TestPendingPodsCache(t *testing.T) {
 	t.Run("cache should delete pod", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
 
@@ -1063,7 +1094,9 @@ func TestComponentCountsCache(t *testing.T) {
 	t.Run("cache should return counts of nodes, pods and namespaces", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		testComponents := []client.ComponentChildAttributes{
 			// Components with names very similar to critical priority resources
@@ -1093,7 +1126,9 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	t.Run("should limit component children to 100 items", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		// Create parent component
 		parentUID := "parent-with-many-children"
@@ -1127,7 +1162,9 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	t.Run("should return all children when under 100 limit", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		// Create parent component
 		parentUID := "parent-with-few-children"
@@ -1161,7 +1198,9 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 	t.Run("should apply limit to multi-level hierarchies", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		// Create root component
 		rootUID := "root-with-deep-hierarchy"
@@ -1219,7 +1258,9 @@ func TestUpdateSHA(t *testing.T) {
 	t.Run("cache should update SHA", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		obj := unstructured.Unstructured{}
 		obj.SetUID("test")
@@ -1256,7 +1297,9 @@ func TestExpireSHAOlderThan(t *testing.T) {
 	t.Run("should expire SHA", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		obj := unstructured.Unstructured{}
 		obj.SetUID("test")
@@ -1304,7 +1347,9 @@ func TestExpireSHAOlderThan(t *testing.T) {
 	t.Run("should not expire SHA", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		obj := unstructured.Unstructured{}
 		obj.SetUID("test")
@@ -1350,7 +1395,9 @@ func TestExpireSHAOlderThan(t *testing.T) {
 	t.Run("trigger should update updated_at column", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer storeInstance.Shutdown()
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
 
 		obj := unstructured.Unstructured{}
 		obj.SetUID("test")

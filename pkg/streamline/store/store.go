@@ -26,6 +26,10 @@ type Store interface {
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponent(uid types.UID) error
 
+	// DeleteComponents removes components from the store based on GVK.
+	// It returns an error if any issue occurs during the deletion process.
+	DeleteComponents(group, version, kind string) error
+
 	// GetServiceComponents retrieves all components associated with a given service ID.
 	// It returns a slice of Entry structs containing information about each component and any error encountered.
 	GetServiceComponents(serviceID string) ([]smcommon.Entry, error)
@@ -61,7 +65,7 @@ type Store interface {
 	Expire(string) error
 
 	// ExpireOlderThan removes component SHA information from entries older than the provided TTL.
-	ExpireOlderThan(ttl time.Duration) error
+	ExpireOlderThan(time.Duration) error
 
 	// Shutdown closes the database connection and deletes the store.
 	Shutdown() error

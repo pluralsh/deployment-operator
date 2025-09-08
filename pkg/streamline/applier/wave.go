@@ -138,28 +138,28 @@ const (
 type WaveProcessor struct {
 	mu sync.Mutex
 
-	// client is the dynamic client used to apply the resources
+	// client is the dynamic client used to apply the resources.
 	client dynamic.Interface
 
-	// wave is the wave to be processed. It contains the resources to be applied or deleted.
+	// wave to be processed. It contains the resources to be applied or deleted.
 	wave Wave
 
 	// componentChan is used to communicate between the workers and the collector goroutine
-	// when a resource is successfully applied, the worker sends the component attributes to the channel
+	// when a resource is successfully applied, the worker sends the component attributes to the channel.
 	componentChan chan client.ComponentAttributes
 
 	// errorsChan is used to communicate between the workers and the collector goroutine
-	// when a resource fails to be applied, the worker sends the error to the channel
+	// when a resource fails to be applied, the worker sends the error to the channel.
 	errorsChan chan client.ServiceErrorAttributes
 
-	// queue is the work queue used to process the items in the wave
+	// queue is the work queue used to process the items in the wave.
 	queue *workqueue.Typed[smcommon.Key]
 
 	// keyToResource is a map of the wave items to their keys.
 	// It is used to lookup the resource from the key when processing the items in the queue.
 	keyToResource map[smcommon.Key]unstructured.Unstructured
 
-	// maxConcurrentApplies is the maximum number of workers that can be started
+	// maxConcurrentApplies is the maximum number of workers that can be started.
 	maxConcurrentApplies int
 
 	// concurrentApplies is the number of workers that will be started.
@@ -172,8 +172,7 @@ type WaveProcessor struct {
 	// by the same worker.
 	deQueueDelay time.Duration
 
-	// dryRun determines if the wave should be applied in dry run mode
-	// meaning that the changes will not be persisted
+	// dryRun determines if the wave should be applied in dry run mode, meaning that the changes will not be persisted.
 	dryRun bool
 
 	// onApplyCallback is a callback function called when a resource is applied
@@ -240,7 +239,7 @@ func (in *WaveProcessor) Run(ctx context.Context) (components []client.Component
 
 func (in *WaveProcessor) runWorkers(ctx context.Context, onWorkerDone func()) {
 	for i := 0; i < in.concurrentApplies; i++ {
-		go func(i int) {
+		go func() {
 			defer onWorkerDone()
 			for {
 				select {
@@ -259,7 +258,7 @@ func (in *WaveProcessor) runWorkers(ctx context.Context, onWorkerDone func()) {
 					}
 				}
 			}
-		}(i)
+		}()
 	}
 }
 
