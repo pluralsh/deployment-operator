@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -83,6 +84,10 @@ type cache struct {
 
 	// gvCache is a set of all API versions (group/version) in the cache.
 	gvCache containers.Set[schema.GroupVersion]
+
+	// gvrToGVKCache is a mapping of GroupVersionResource to GroupVersionKind.
+	// This is used to avoid calling the RESTMapper for every conversion.
+	gvrToGVKCache cmap.ConcurrentMap[schema.GroupVersionResource, schema.GroupVersionKind]
 
 	// serverVersion is the Kubernetes server version.
 	serverVersion *version.Info
@@ -169,6 +174,7 @@ func (in *cache) Refresh() error {
 	gvkCache := containers.NewSet[schema.GroupVersionKind]()
 	gvrCache := containers.NewSet[schema.GroupVersionResource]()
 	gvCache := containers.NewSet[schema.GroupVersion]()
+	gvrToGVKMap := cmap.NewStringer[schema.GroupVersionResource, schema.GroupVersionKind]()
 
 	for _, group := range groups {
 		for _, groupVersion := range group.Versions {
@@ -176,7 +182,7 @@ func (in *cache) Refresh() error {
 				Group:   group.Name,
 				Version: lo.Ternary(lo.IsEmpty(groupVersion.Version), group.APIVersion, groupVersion.Version),
 				Kind:    "",
-			}, gvkCache, gvrCache, gvCache)
+			}, gvkCache, gvrCache, gvCache, gvrToGVKMap)
 		}
 	}
 
@@ -204,12 +210,13 @@ func (in *cache) Refresh() error {
 			resourceWG.Add(1)
 			go func() {
 				defer resourceWG.Done()
-				gvkCacheTemp, gvrCacheTemp, gvCacheTemp := in.addTo(gvk, gvkCache, gvrCache, gvCache)
+				gvkCacheTemp, gvrCacheTemp, gvCacheTemp := in.addTo(gvk, gvkCache, gvrCache, gvCache, gvrToGVKMap)
 
 				in.cacheMu.Lock()
 				in.gvkCache = gvkCacheTemp
 				in.gvrCache = gvrCacheTemp
 				in.gvCache = gvCacheTemp
+				in.gvrToGVKCache = gvrToGVKMap
 				in.cacheMu.Unlock()
 			}()
 		}
@@ -408,7 +415,7 @@ func (in *cache) toGroupVersionResource(gvk schema.GroupVersionKind) (schema.Gro
 }
 
 func (in *cache) add(gvk schema.GroupVersionKind) {
-	in.gvkCache, in.gvrCache, in.gvCache = in.addTo(gvk, in.gvkCache, in.gvrCache, in.gvCache)
+	in.gvkCache, in.gvrCache, in.gvCache = in.addTo(gvk, in.gvkCache, in.gvrCache, in.gvCache, in.gvrToGVKCache)
 }
 
 func (in *cache) addTo(
@@ -416,6 +423,7 @@ func (in *cache) addTo(
 	gvkSet containers.Set[schema.GroupVersionKind],
 	gvrSet containers.Set[schema.GroupVersionResource],
 	gvSet containers.Set[schema.GroupVersion],
+	gvrToGVKMap cmap.ConcurrentMap[schema.GroupVersionResource, schema.GroupVersionKind],
 ) (containers.Set[schema.GroupVersionKind], containers.Set[schema.GroupVersionResource], containers.Set[schema.GroupVersion]) {
 	// if kind is empty, we are dealing with a server group and version only, not a resource.
 	if len(gvk.Kind) == 0 {
@@ -423,7 +431,7 @@ func (in *cache) addTo(
 	}
 
 	return in.addGroupVersionKindTo(gvk, gvkSet),
-		in.addGroupVersionResourceTo(gvk, gvrSet),
+		in.addGroupVersionResourceTo(gvk, gvrSet, gvrToGVKMap),
 		in.addGroupVersionTo(gvk.GroupVersion(), gvSet)
 }
 
@@ -463,7 +471,8 @@ func (in *cache) addGroupVersionKindTo(gvk schema.GroupVersionKind, gvkSet conta
 	return gvkSet
 }
 
-func (in *cache) addGroupVersionResourceTo(gvk schema.GroupVersionKind, gvrSet containers.Set[schema.GroupVersionResource]) containers.Set[schema.GroupVersionResource] {
+func (in *cache) addGroupVersionResourceTo(gvk schema.GroupVersionKind, gvrSet containers.Set[schema.GroupVersionResource],
+	gvrToGVKMap cmap.ConcurrentMap[schema.GroupVersionResource, schema.GroupVersionKind]) containers.Set[schema.GroupVersionResource] {
 	gvr, err := in.toGroupVersionResource(gvk)
 	if err != nil {
 		klog.V(log.LogLevelExtended).ErrorS(err, "unable to map gvk to gvr", "gvk", gvk)
@@ -480,6 +489,7 @@ func (in *cache) addGroupVersionResourceTo(gvk schema.GroupVersionKind, gvrSet c
 
 	in.cacheMu.Lock()
 	gvrSet.Add(gvr)
+	gvrToGVKMap.Set(gvr, gvk)
 	in.cacheMu.Unlock()
 	in.notifyGroupVersionResourceAdded(gvr)
 	klog.V(log.LogLevelDebug).InfoS("added gvr to cache", "gvr", gvr)
