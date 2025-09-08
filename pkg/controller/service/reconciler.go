@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubectl/pkg/cmd/util"
-	"sigs.k8s.io/cli-utils/pkg/apply"
 	"sigs.k8s.io/cli-utils/pkg/common"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/object"
@@ -185,18 +184,6 @@ func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
 		svcCache: s.svcCache,
 		manCache: s.manifestCache,
 	}
-}
-
-func newDestroyer(invFactory inventory.ClientFactory, f util.Factory) (*apply.Destroyer, error) {
-	invClient, err := invFactory.NewClient(f)
-	if err != nil {
-		return nil, err
-	}
-
-	return apply.NewDestroyerBuilder().
-		WithFactory(f).
-		WithInventoryClient(invClient).
-		Build()
 }
 
 func (s *ServiceReconciler) ignoreUpdateFields(ctx context.Context, objs []unstructured.Unstructured, svc *console.ServiceDeploymentForAgent) ([]unstructured.Unstructured, error) {

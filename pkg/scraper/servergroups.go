@@ -4,7 +4,7 @@ package scraper
 //	serverGroupsScraperPollingInterval = 15 * time.Minute
 //)
 //
-//func RunServerGroupsScraperInBackgroundOrDie(ctx context.Context, config *rest.Config) {
+// func RunServerGroupsScraperInBackgroundOrDie(ctx context.Context, config *rest.Config) {
 //	f := utils.NewFactory(config)
 //	discoveryClient, err := f.ToDiscoveryClient()
 //	if err != nil {

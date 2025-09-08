@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
@@ -33,8 +32,6 @@ import (
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
-
-const serviceIDCacheExpiry = 12 * time.Hour
 
 func emptyDiskHealthCheck(_ *http.Request) error {
 	testFile := filepath.Join("/tmp", "healthcheck.tmp")
@@ -231,7 +228,7 @@ func registerKubeReconcilersOrDie(
 	}
 
 	// statusController := controller.NewStatusReconciler(manager.GetClient())
-	//if err := statusController.SetupWithManager(manager); err != nil {
+	// if err := statusController.SetupWithManager(manager); err != nil {
 	//	setupLog.Error(err, "unable to setup controller", "controller", "StatusController")
 	//}
 
@@ -261,7 +258,7 @@ func registerKubeReconcilersOrDie(
 	//	Tasks:            cmap.New[context.CancelFunc](),
 	//	Proxy:            enableKubecostProxy,
 	//	ServiceIDCache:   controller.NewServiceIDCache(serviceIDCacheExpiry),
-	//}).SetupWithManager(manager); err != nil {
+	// }).SetupWithManager(manager); err != nil {
 	//	setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	//}
 

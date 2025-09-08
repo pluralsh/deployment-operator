@@ -23,7 +23,7 @@ package store_test
 //)
 //
 //// setupTestData creates a hierarchy of components for benchmarking
-//func setupTestData(b *testing.B, cache *db.ComponentCache) {
+// func setupTestData(b *testing.B, cache *db.ComponentCache) {
 //	state := client.ComponentState("Healthy")
 //	group := testGroup
 //	namespace := testNamespace
@@ -99,7 +99,7 @@ package store_test
 //}
 //
 //// BenchmarkMemoryCache runs all benchmarks for the in-memory cache
-//func BenchmarkMemoryCache(b *testing.B) {
+// func BenchmarkMemoryCache(b *testing.B) {
 //	// Make sure we start with a clean state
 //	if cache := db.GetComponentCache(); cache != nil {
 //		cache.Close()
@@ -198,7 +198,7 @@ package store_test
 //}
 //
 //// BenchmarkFileCache runs all benchmarks for the file-based cache
-//func BenchmarkFileCache(b *testing.B) {
+// func BenchmarkFileCache(b *testing.B) {
 //	// Make sure we start with a clean state
 //	if cache := db.GetComponentCache(); cache != nil {
 //		cache.Close()

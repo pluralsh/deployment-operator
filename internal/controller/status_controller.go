@@ -5,12 +5,12 @@ package controller
 //	StatusFinalizer = "deployments.plural.sh/inventory-protection"
 //)
 //
-//type StatusReconciler struct {
+// type StatusReconciler struct {
 //	k8sClient.Client
 //	inventoryCache cache.InventoryResourceKeys
 //}
 //
-//func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
+// func (r *StatusReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 //	logger := log.FromContext(ctx)
 //
 //	configMap := &corev1.ConfigMap{}
@@ -63,7 +63,7 @@ package controller
 //}
 //
 //// SetupWithManager sets up the controller with the Manager.
-//func (r *StatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
+// func (r *StatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //	return ctrl.NewControllerManagedBy(mgr).
 //		For(&corev1.ConfigMap{}).
 //		WithEventFilter(predicate.NewPredicateFuncs(func(o k8sClient.Object) bool {
@@ -74,7 +74,7 @@ package controller
 //		Complete(r)
 //}
 //
-//func withInventoryEventFilter(inventoryCache cache.InventoryResourceKeys) predicate.Predicate {
+// func withInventoryEventFilter(inventoryCache cache.InventoryResourceKeys) predicate.Predicate {
 //	return predicate.Funcs{
 //		CreateFunc: func(e event.CreateEvent) bool {
 //			return true
@@ -98,16 +98,16 @@ package controller
 //	}
 //}
 //
-//func deleteFromInventoryCache(inventoryCache cache.InventoryResourceKeys, inventoryID string) {
+// func deleteFromInventoryCache(inventoryCache cache.InventoryResourceKeys, inventoryID string) {
 //	delete(inventoryCache, inventoryID)
 //	cache.GetResourceCache().Unregister(inventoryCache.Values().TypeIdentifierSet())
 //}
 //
-//func (r *StatusReconciler) inventoryID(c *corev1.ConfigMap) string {
+// func (r *StatusReconciler) inventoryID(c *corev1.ConfigMap) string {
 //	return c.Labels[cliutilscommon.InventoryLabel]
 //}
 //
-//func NewStatusReconciler(c k8sClient.Client) *StatusReconciler {
+// func NewStatusReconciler(c k8sClient.Client) *StatusReconciler {
 //	return &StatusReconciler{
 //		Client:         c,
 //		inventoryCache: make(cache.InventoryResourceKeys),
