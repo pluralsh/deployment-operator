@@ -5,8 +5,6 @@ import (
 	"math/rand"
 	"time"
 
-	"sigs.k8s.io/cli-utils/pkg/inventory"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 const (
@@ -96,7 +95,7 @@ func GetLastProgressTimestamp(ctx context.Context, k8sClient ctrclient.Client, o
 
 func ServiceID(obj *unstructured.Unstructured) string {
 	if annotations := obj.GetAnnotations(); annotations != nil {
-		return annotations[inventory.OwningInventoryKey]
+		return annotations[smcommon.OwningInventoryKey]
 	}
 
 	return ""

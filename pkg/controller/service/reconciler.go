@@ -22,8 +22,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubectl/pkg/cmd/util"
-	"sigs.k8s.io/cli-utils/pkg/common"
-	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -497,21 +495,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	// options := apply.ApplierOptions{
-	//	ServerSideOptions: common.ServerSideOptions{
-	//		ServerSideApply: true,
-	//		ForceConflicts:  true,
-	//		FieldManager:    fieldManager,
-	//	},
-	//	ReconcileTimeout:       10 * time.Second,
-	//	EmitStatusEvents:       true,
-	//	NoPrune:                false,
-	//	DryRunStrategy:         common.DryRunNone,
-	//	PrunePropagationPolicy: metav1.DeletePropagationBackground,
-	//	PruneTimeout:           20 * time.Second,
-	//	InventoryPolicy:        inventory.PolicyAdoptAll,
-	//}
-	//
 	dryRun := false
 	if svc.DryRun != nil {
 		dryRun = *svc.DryRun
@@ -596,45 +579,6 @@ func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console
 		return utils.CheckNamespace(*s.clientset, namespace, labels, annotations)
 	}
 	return nil
-}
-
-func (s *ServiceReconciler) SplitObjects(id string, objs []unstructured.Unstructured) (unstructured.Unstructured, []unstructured.Unstructured, error) {
-	invs := make([]unstructured.Unstructured, 0, 1)
-	resources := make([]unstructured.Unstructured, 0, len(objs))
-	for _, obj := range objs {
-		if inventory.IsInventoryObject(&obj) {
-			invs = append(invs, obj)
-		} else {
-			resources = append(resources, obj)
-		}
-	}
-	switch len(invs) {
-	case 0:
-		return s.defaultInventoryObjTemplate(id), resources, nil
-	case 1:
-		return invs[0], resources, nil
-	default:
-		return unstructured.Unstructured{}, nil, fmt.Errorf("expecting zero or one inventory object, found %d", len(invs))
-	}
-}
-
-func (s *ServiceReconciler) defaultInventoryObjTemplate(id string) unstructured.Unstructured {
-	name := "inventory-" + id
-	namespace := "plrl-deploy-operator"
-
-	return unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "ConfigMap",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": namespace,
-				"labels": map[string]interface{}{
-					common.InventoryLabel: id,
-				},
-			},
-		},
-	}
 }
 
 func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) {

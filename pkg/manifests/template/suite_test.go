@@ -72,7 +72,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	// TODO: fix
 	cache.InitGlobalDiscoveryCache(discoveryClient)
 	err = cache.NewDiscoveryManager(
 		cache.WithCache(cache.GlobalCache()),

@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/cmd/util"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 var (
@@ -104,7 +104,7 @@ func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Fa
 	unique := map[string]struct{}{}
 	final := make([]unstructured.Unstructured, 0, len(res))
 	for _, item := range res {
-		key := cache.ResourceKeyFromUnstructured(&item).ObjectIdentifier()
+		key := string(common.NewKeyFromUnstructured(item))
 		if _, ok := unique[key]; !ok {
 			unique[key] = struct{}{}
 			final = append(final, item)

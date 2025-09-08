@@ -11,10 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/cli-utils/pkg/apply/event"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
-
-	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 )
 
 const (
@@ -51,89 +47,6 @@ func init() {
 type Progress struct {
 	LastProgress time.Time
 	PingTime     time.Time
-}
-
-// func SyncDBCache(u *unstructured.Unstructured) {
-//	state := ToStatus(u)
-//
-//	// Sync pods separately, as they have a different sync logic
-//	if u.GetKind() == PodKind {
-//		SyncPod(u, state)
-//		return
-//	}
-//
-//	SyncComponent(u) // Sync all components besides pods
-//}
-//
-// func SyncComponent(u *unstructured.Unstructured) {
-//	if u.GetDeletionTimestamp() != nil {
-//		_ = streamline.GlobalStore().DeleteComponent(u.GetUID())
-//		return
-//	}
-//
-//	err := streamline.GlobalStore().SaveComponent(lo.FromPtr(u))
-//	if err != nil {
-//		klog.ErrorS(err, "failed to set component in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
-//	}
-//}
-//
-// func SyncPod(u *unstructured.Unstructured, state *console.ComponentState) {
-//	if u.GetDeletionTimestamp() != nil {
-//		_ = streamline.GlobalStore().DeleteComponent(u.GetUID())
-//		return
-//	}
-//
-//	if lo.FromPtr(state) == console.ComponentStateRunning {
-//		_ = streamline.GlobalStore().DeleteComponent(u.GetUID())
-//		return
-//	}
-//
-//	nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName")
-//	if len(nodeName) == 0 {
-//		// If the pod is not assigned to a node, we don't need to keep it in the component cache
-//		return
-//	}
-//
-//	err := streamline.GlobalStore().SaveComponent(lo.FromPtr(u))
-//	if err != nil {
-//		klog.ErrorS(err, "failed to set pod in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
-//	}
-//}
-
-func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
-	if e.Resource == nil {
-		return nil
-	}
-	gvk := e.Resource.GroupVersionKind()
-	gname := internalschema.GroupName{
-		Group: gvk.Group,
-		Kind:  gvk.Kind,
-		Name:  e.Resource.GetName(),
-	}
-
-	version := gvk.Version
-	if v, ok := vcache[gname]; ok {
-		version = v
-	}
-
-	synced := e.PollResourceInfo.Status == status.CurrentStatus
-
-	if e.PollResourceInfo.Status == status.UnknownStatus {
-		if ToStatus(e.Resource) != nil {
-			synced = true
-		}
-	}
-
-	return &console.ComponentAttributes{
-		UID:       lo.ToPtr(string(e.Resource.GetUID())),
-		Group:     gvk.Group,
-		Kind:      gvk.Kind,
-		Namespace: e.Resource.GetNamespace(),
-		Name:      e.Resource.GetName(),
-		Version:   version,
-		Synced:    synced,
-		State:     ToStatus(e.Resource),
-	}
 }
 
 func ToStatus(obj *unstructured.Unstructured) *console.ComponentState {

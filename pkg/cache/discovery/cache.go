@@ -397,7 +397,6 @@ func (in *cache) toGroupVersionResource(gvk schema.GroupVersionKind) (schema.Gro
 	var mapping *meta.RESTMapping
 	var err error
 
-	// TODO: test on a cluster with a lot of resources to ensure initial synchronous refresh does not take too long
 	// Retry with exponential backoff until we get a REST mapping or error. This is to avoid scenarios where the
 	// resource is registered via CRD controller event but not yet available in the discovery API.
 	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 500 * time.Millisecond}, func() (bool, error) {

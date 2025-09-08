@@ -56,7 +56,6 @@ func WithFilePath(path string) Option {
 }
 
 type DatabaseStore struct {
-	// TODO: Consider adding it to read and write functions.
 	mu sync.Mutex
 
 	// storage options for the database.
