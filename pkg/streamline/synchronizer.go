@@ -8,6 +8,7 @@ import (
 
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/pluralsh/deployment-operator/pkg/cache/discovery"
@@ -96,6 +97,19 @@ func (in *synchronizer) Start(ctx context.Context) error {
 
 			metrics.Record().SynchronizationEvent(event)
 			resourceVersion = common.GetResourceVersion(event.Object, resourceVersion)
+
+			if event.Type == watch.Error {
+				var errString string
+				status, ok := event.Object.(apierrors.APIStatus)
+				if !ok {
+					errString = fmt.Sprintf("could not parse error event: %v", event.Object)
+				} else {
+					errString = fmt.Sprintf("status=%q, message=%q, reason=%q, code=%q", status.Status().Status, status.Status().Message, status.Status().Reason, status.Status().Code)
+				}
+
+				return fmt.Errorf("received error event from watch: %s", errString)
+			}
+
 			in.handleEvent(event)
 		case <-resyncAfter:
 			watchCh.Stop()
