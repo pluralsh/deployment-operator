@@ -6,6 +6,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/watch"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 var (
@@ -27,6 +30,8 @@ type prometheusRecorder struct {
 	resourceCacheMissCounter  *prometheus.CounterVec
 
 	controllerRestartCounter *prometheus.CounterVec
+
+	synchronizationEventCounter *prometheus.CounterVec
 }
 
 func (in *prometheusRecorder) ResourceCacheWatchStart(resourceType string) {
@@ -84,6 +89,20 @@ func (in *prometheusRecorder) StackRunJobCreation() {
 	in.stackRunJobsCreatedCounter.Inc()
 }
 
+func (in *prometheusRecorder) SynchronizationEvent(event watch.Event) {
+	if event.Type == watch.Error || event.Type == watch.Bookmark {
+		in.synchronizationEventCounter.WithLabelValues(string(event.Type), "", "", "").Inc()
+		return
+	}
+
+	u, err := common.ToUnstructured(event.Object)
+	if err != nil || u == nil {
+		return
+	}
+
+	in.synchronizationEventCounter.WithLabelValues(string(event.Type), u.GroupVersionKind().Group, u.GroupVersionKind().Version, u.GroupVersionKind().Kind).Inc()
+}
+
 func (in *prometheusRecorder) ControllerRestart(name string) {
 	in.controllerRestartCounter.WithLabelValues(name).Inc()
 }
@@ -133,6 +152,16 @@ func (in *prometheusRecorder) init() Recorder {
 		Name: ControllerRestartsMetricName,
 		Help: ControllerRestartsMetricDescription,
 	}, []string{MetricLabelControllerName})
+
+	in.synchronizationEventCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: SynchronizerEventMetricName,
+		Help: SynchronizerEventMetricDescription,
+	}, []string{
+		MetricLabelSynchronizerEventType,
+		MetricLabelSynchronizerGroup,
+		MetricLabelSynchronizerVersion,
+		MetricLabelSynchronizerKind,
+	})
 
 	return in
 }

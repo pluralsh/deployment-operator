@@ -29,9 +29,16 @@ type Applier struct {
 	client    dynamic.Interface
 	store     store.Store
 	waveDelay time.Duration
+
+	// onApply callback is called after each resource is applied
+	onApply func(unstructured.Unstructured)
 }
 
-func (in *Applier) Apply(ctx context.Context, service client.ServiceDeploymentForAgent, resources []unstructured.Unstructured, opts ...Option) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
+func (in *Applier) Apply(ctx context.Context,
+	service client.ServiceDeploymentForAgent,
+	resources []unstructured.Unstructured,
+	opts ...WaveProcessorOption,
+) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
 	now := time.Now()
 
 	resources = in.addServiceAnnotation(resources, service.ID)
@@ -248,12 +255,37 @@ func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAtt
 	}), nil
 }
 
-func NewApplier(client dynamic.Interface, store store.Store, waveDelay time.Duration, filters ...FilterFunc) *Applier {
-	// TODO: figure out default values and options
-	return &Applier{
+type Option func(*Applier)
+
+func WithWaveDelay(d time.Duration) Option {
+	return func(a *Applier) {
+		a.waveDelay = d
+	}
+}
+
+func WithFilter(f FilterFunc) Option {
+	return func(a *Applier) {
+		a.filters.Add(f)
+	}
+}
+
+func WithOnApply(f func(unstructured.Unstructured)) Option {
+	return func(a *Applier) {
+		a.onApply = f
+	}
+}
+
+func NewApplier(client dynamic.Interface, store store.Store, opts ...Option) *Applier {
+	result := &Applier{
 		client:    client,
 		store:     store,
-		filters:   FilterEngine{filters: filters},
-		waveDelay: waveDelay,
+		filters:   FilterEngine{},
+		waveDelay: 1 * time.Second,
 	}
+
+	for _, opt := range opts {
+		opt(result)
+	}
+
+	return result
 }
