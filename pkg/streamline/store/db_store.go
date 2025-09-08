@@ -303,10 +303,20 @@ func (in *DatabaseStore) DeleteComponent(uid types.UID) error {
 	}
 	defer in.pool.Put(conn)
 
-	query := `DELETE FROM component WHERE uid = ?`
-	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
-		Args: []any{uid},
-	})
+	return sqlitex.ExecuteTransient(conn, `DELETE FROM component WHERE uid = ?`,
+		&sqlitex.ExecOptions{Args: []any{uid}})
+}
+
+func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(
+		conn, `DELETE FROM component WHERE "group" = ? AND version = ? AND kind = ?`,
+		&sqlitex.ExecOptions{Args: []any{group, version, kind}})
 }
 
 func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Entry, error) {
