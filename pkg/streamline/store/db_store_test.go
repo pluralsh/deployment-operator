@@ -1712,5 +1712,106 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, components, 0)
 	})
+}
 
+func TestComponentCache_Expire(t *testing.T) {
+	t.Run("should expire SHA values for service", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := unstructured.Unstructured{}
+		obj.SetUID("test-expire")
+		obj.SetName("test-component")
+		obj.SetNamespace("default")
+		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
+
+		require.NoError(t, storeInstance.SaveComponent(obj))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		assert.NotEmpty(t, entry.ManifestSHA, "expected manifest SHA to be set")
+		assert.NotEmpty(t, entry.ApplySHA, "expected apply SHA to be set")
+
+		require.NoError(t, storeInstance.Expire("test-service"), "failed to expire SHA values for service")
+	})
+}
+
+func TestComponentCache_ExpireSHA(t *testing.T) {
+	t.Run("should expire SHA values for specific component", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := unstructured.Unstructured{}
+		obj.SetUID("test-expire-sha")
+		obj.SetName("test-component")
+		obj.SetNamespace("default")
+		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
+
+		require.NoError(t, storeInstance.SaveComponent(obj))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		assert.NotEmpty(t, entry.ManifestSHA, "expected manifest SHA to be set")
+		assert.NotEmpty(t, entry.TransientManifestSHA, "expected transient manifest SHA to be set")
+		assert.NotEmpty(t, entry.ApplySHA, "expected apply SHA to be set")
+
+		require.NoError(t, storeInstance.ExpireSHA(obj), "failed to expire SHA values for component")
+
+		expiredEntry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		assert.Empty(t, expiredEntry.ManifestSHA, "expected manifest SHA to be expired")
+		assert.Empty(t, expiredEntry.TransientManifestSHA, "expected transient manifest SHA to be expired")
+		assert.Empty(t, expiredEntry.ApplySHA, "expected apply SHA to be expired")
+		assert.NotEmpty(t, expiredEntry.ServerSHA, "server SHA should remain")
+	})
+}
+
+func TestComponentCache_CommitTransientSHA(t *testing.T) {
+	t.Run("should commit transient SHA to manifest SHA", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create an unstructured object
+		obj := unstructured.Unstructured{}
+		obj.SetUID("test-commit-transient")
+		obj.SetName("test-component")
+		obj.SetNamespace("default")
+		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
+
+		require.NoError(t, storeInstance.SaveComponent(obj))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
+
+		// Get initial state
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		initialManifestSHA := entry.ManifestSHA
+		transientSHA := entry.TransientManifestSHA
+		assert.NotEmpty(t, initialManifestSHA)
+		assert.NotEmpty(t, transientSHA)
+
+		// Commit transient SHA
+		err = storeInstance.CommitTransientSHA(obj)
+		require.NoError(t, err)
+
+		// Verify transient SHA was committed
+		updatedEntry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		assert.Equal(t, transientSHA, updatedEntry.ManifestSHA)
+		assert.Empty(t, updatedEntry.TransientManifestSHA)
+	})
 }
