@@ -35,7 +35,7 @@ type NamespaceMismatchError struct {
 }
 
 func (e *UnknownTypesError) Error() string {
-	var gvks []string
+	gvks := make([]string, 0, len(e.GroupVersionKinds))
 	for _, gvk := range e.GroupVersionKinds {
 		gvks = append(gvks, fmt.Sprintf("%s/%s/%s",
 			gvk.Group, gvk.Version, gvk.Kind))

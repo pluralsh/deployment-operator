@@ -33,7 +33,7 @@ func IsEnabled(ctx context.Context, config *rest.Config) (bool, error) {
 	}
 
 	// Build the base apiserver URL from the provided REST client config.
-	url, err := serverURL(config)
+	srvURL, err := serverURL(config)
 	if err != nil {
 		return false, fmt.Errorf("building server URL: %w", err)
 	}
@@ -42,10 +42,10 @@ func IsEnabled(ctx context.Context, config *rest.Config) (bool, error) {
 	// It's alpha in v1.23+, but a 404 will still have the flowcontrol headers.
 	// Replacing the path is safe, because DefaultServerURL will have errored
 	// if it wasn't empty from the config.
-	url.Path = pingPath
+	srvURL.Path = pingPath
 
 	// Build HEAD request with an empty body.
-	req, err := http.NewRequestWithContext(ctx, "HEAD", url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, srvURL.String(), nil)
 	if err != nil {
 		return false, fmt.Errorf("building request: %w", err)
 	}
@@ -67,7 +67,7 @@ func IsEnabled(ctx context.Context, config *rest.Config) (bool, error) {
 		// Always close the response body, to free up resources.
 		err := resp.Body.Close()
 		if err != nil {
-			return false, fmt.Errorf("closing response body: %v", err)
+			return false, fmt.Errorf("closing response body: %w", err)
 		}
 	}
 
