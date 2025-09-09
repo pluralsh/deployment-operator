@@ -1446,3 +1446,50 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		assert.NotEmpty(t, entry.ApplySHA)
 	})
 }
+
+func TestGetComponentsByGVK(t *testing.T) {
+	t.Run("should return only components matching provided GVK", func(t *testing.T) {
+		gvk := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
+
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Insert components with matching GVK and different names/namespaces to avoid unique conflict
+		c1 := createComponent("gvk-uid-1", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-1"), WithName("alpha"))
+		require.NoError(t, storeInstance.SaveComponentAttributes(c1))
+
+		c2 := createComponent("gvk-uid-2", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-2"), WithName("beta"))
+		require.NoError(t, storeInstance.SaveComponentAttributes(c2))
+
+		c3 := createComponent("gvk-uid-3", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-3"), WithName("gamma"))
+		require.NoError(t, storeInstance.SaveComponentAttributes(c3))
+
+		// Insert components with different GVK to ensure they are filtered out
+		diff1 := createComponent("other-uid-1", nil, WithGroup("apps"), WithVersion("v1"), WithKind("StatefulSet"), WithNamespace("ns-1"), WithName("alpha"))
+		require.NoError(t, storeInstance.SaveComponentAttributes(diff1))
+
+		diff2 := createComponent("other-uid-2", nil, WithGroup("extensions"), WithVersion("v1"), WithKind("Deployment"), WithNamespace("ns-1"), WithName("delta"))
+		require.NoError(t, storeInstance.SaveComponentAttributes(diff2))
+
+		entries, err := storeInstance.GetComponentsByGVK(gvk)
+		require.NoError(t, err)
+
+		assert.Len(t, entries, 3, "expected exactly 3 matching entries")
+
+		names := make([]string, 0, len(entries))
+		nss := make([]string, 0, len(entries))
+		for _, e := range entries {
+			assert.Equal(t, gvk.Group, e.Group, "all entries should have correct group")
+			assert.Equal(t, gvk.Version, e.Version, "all entries should have correct version")
+			assert.Equal(t, gvk.Kind, e.Kind, "all entries should have correct kind")
+			names = append(names, e.Name)
+			nss = append(nss, e.Namespace)
+			assert.Equal(t, "", e.ServerSHA, "server SHA is not set when saving component attributes, it should be empty")
+		}
+		assert.ElementsMatch(t, []string{"alpha", "beta", "gamma"}, names, "expected names to match, order not guaranteed")
+		assert.ElementsMatch(t, []string{"ns-1", "ns-2", "ns-3"}, nss, "expected namespaces to match, order not guaranteed")
+	})
+}
