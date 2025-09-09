@@ -1119,6 +1119,47 @@ func TestComponentCountsCache(t *testing.T) {
 		assert.Equal(t, nodes, int64(3))
 		assert.Equal(t, namespaces, int64(3))
 	})
+
+	t.Run("should return correct counts of nodes and namespaces", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create 2 nodes
+		node1 := createComponent("node-1", nil, WithKind("Node"), WithName("worker-1"))
+		err = storeInstance.SaveComponentAttributes(node1)
+		require.NoError(t, err)
+
+		node2 := createComponent("node-2", nil, WithKind("Node"), WithName("worker-2"))
+		err = storeInstance.SaveComponentAttributes(node2)
+		require.NoError(t, err)
+
+		// Create 3 namespaces
+		ns1 := createComponent("ns-1", nil, WithKind("Namespace"), WithName("default"))
+		err = storeInstance.SaveComponentAttributes(ns1)
+		require.NoError(t, err)
+
+		ns2 := createComponent("ns-2", nil, WithKind("Namespace"), WithName("kube-system"))
+		err = storeInstance.SaveComponentAttributes(ns2)
+		require.NoError(t, err)
+
+		ns3 := createComponent("ns-3", nil, WithKind("Namespace"), WithName("production"))
+		err = storeInstance.SaveComponentAttributes(ns3)
+		require.NoError(t, err)
+
+		// Create some other resources that should not be counted
+		pod := createComponent("pod-1", nil, WithKind("Pod"), WithName("test-pod"))
+		err = storeInstance.SaveComponentAttributes(pod)
+		require.NoError(t, err)
+
+		nodeCount, namespaceCount, err := storeInstance.GetComponentCounts()
+		require.NoError(t, err, "failed to get component counts")
+
+		assert.Equal(t, int64(2), nodeCount)
+		assert.Equal(t, int64(3), namespaceCount)
+	})
 }
 
 func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
@@ -1261,26 +1302,13 @@ func TestUpdateSHA(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		obj := unstructured.Unstructured{}
-		obj.SetUID("test")
-		obj.SetName("test")
-		obj.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "test",
-			Version: "v1",
-			Kind:    "Test",
-		})
+		obj := newUnstructured("test", "test", "test", "test", "v1", "Test")
+		require.NoError(t, storeInstance.SaveComponent(obj))
 
-		err = storeInstance.SaveComponent(obj)
-		require.NoError(t, err)
-
-		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.ManifestSHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA)
-		require.NoError(t, err)
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ServerSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
 		entry, err := storeInstance.GetComponent(obj)
 		require.NoError(t, err)
@@ -1300,26 +1328,13 @@ func TestExpireSHAOlderThan(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		obj := unstructured.Unstructured{}
-		obj.SetUID("test")
-		obj.SetName("test")
-		obj.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "test",
-			Version: "v1",
-			Kind:    "Test",
-		})
+		obj := newUnstructured("test", "test", "test", "test", "v1", "Test")
+		require.NoError(t, storeInstance.SaveComponent(obj))
 
-		err = storeInstance.SaveComponent(obj)
-		require.NoError(t, err)
-
-		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.ManifestSHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA)
-		require.NoError(t, err)
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ServerSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
 		entry, err := storeInstance.GetComponent(obj)
 		require.NoError(t, err)
@@ -1350,26 +1365,13 @@ func TestExpireSHAOlderThan(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		obj := unstructured.Unstructured{}
-		obj.SetUID("test")
-		obj.SetName("test")
-		obj.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "test",
-			Version: "v1",
-			Kind:    "Test",
-		})
+		obj := newUnstructured("test", "test", "test", "test", "v1", "Test")
+		require.NoError(t, storeInstance.SaveComponent(obj))
 
-		err = storeInstance.SaveComponent(obj)
-		require.NoError(t, err)
-
-		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.ManifestSHA)
-		require.NoError(t, err)
-		err = storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA)
-		require.NoError(t, err)
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ServerSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
 		entry, err := storeInstance.GetComponent(obj)
 		require.NoError(t, err)
@@ -1398,17 +1400,8 @@ func TestExpireSHAOlderThan(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		obj := unstructured.Unstructured{}
-		obj.SetUID("test")
-		obj.SetName("test")
-		obj.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "test",
-			Version: "v1",
-			Kind:    "Test",
-		})
-
-		err = storeInstance.SaveComponent(obj)
-		require.NoError(t, err)
+		obj := newUnstructured("test", "test", "test", "test", "v1", "Test")
+		require.NoError(t, storeInstance.SaveComponent(obj))
 
 		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
 		require.NoError(t, err)
@@ -1607,4 +1600,164 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, deployments, 1)
 	})
+}
+
+func TestComponentCache_GetServiceComponents(t *testing.T) {
+	t.Run("should return components filtered by service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-service-123"
+
+		// Create components with the target service ID
+		component1 := createComponent("service-comp-1", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("app-deployment"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(component1, "test-node", time.Now().Unix(), serviceID)
+		require.NoError(t, err)
+
+		component2 := createComponent("service-comp-2", nil, WithGroup(""), WithVersion("v1"), WithKind("Pod"), WithName("app-pod"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(component2, "test-node", time.Now().Unix(), serviceID)
+		require.NoError(t, err)
+
+		// Create component with different service ID
+		otherComponent := createComponent("other-comp", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("other-deployment"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(otherComponent, "test-node", time.Now().Unix(), "other-service")
+		require.NoError(t, err)
+
+		// Create component with no service ID
+		noServiceComponent := createComponent("no-service-comp", nil, WithGroup(""), WithVersion("v1"), WithKind("Service"), WithName("no-service"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(noServiceComponent, "test-node", time.Now().Unix(), nil)
+		require.NoError(t, err)
+
+		components, err := storeInstance.GetServiceComponents(serviceID)
+		require.NoError(t, err, "failed to get components for service")
+		assert.Len(t, components, 2, "expected 2 components with matching service ID")
+
+		foundUIDs := make(map[string]bool)
+		for _, comp := range components {
+			foundUIDs[comp.UID] = true
+			assert.Equal(t, serviceID, comp.ServiceID, "expected component to have matching service ID")
+		}
+
+		assert.True(t, foundUIDs["service-comp-1"])
+		assert.True(t, foundUIDs["service-comp-2"])
+		assert.False(t, foundUIDs["other-comp"])
+		assert.False(t, foundUIDs["no-service-comp"])
+	})
+
+	t.Run("should return empty slice for non-existent service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create some components with different service IDs
+		component := createComponent("test-comp", nil, WithName("test-component"))
+		err = storeInstance.SaveComponentAttributes(component, "test-node", time.Now().Unix(), "existing-service")
+		require.NoError(t, err)
+
+		// Try to get components for non-existent service
+		components, err := storeInstance.GetServiceComponents("non-existent-service")
+		require.NoError(t, err)
+		assert.Len(t, components, 0)
+	})
+}
+
+func TestComponentCache_Expire(t *testing.T) {
+	t.Run("should expire SHA values for service", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := newUnstructured("test-expire", "test-component", "default",
+			"apps", "v1", "Deployment")
+
+		require.NoError(t, storeInstance.SaveComponent(obj))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		assert.NotEmpty(t, entry.ManifestSHA, "expected manifest SHA to be set")
+		assert.NotEmpty(t, entry.ApplySHA, "expected apply SHA to be set")
+
+		require.NoError(t, storeInstance.Expire("test-service"), "failed to expire SHA values for service")
+	})
+}
+
+func TestComponentCache_ExpireSHA(t *testing.T) {
+	t.Run("should expire SHA values for specific component", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := newUnstructured("test-expire", "test-component", "default",
+			"apps", "v1", "Deployment")
+
+		require.NoError(t, storeInstance.SaveComponent(obj))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		assert.NotEmpty(t, entry.ManifestSHA, "expected manifest SHA to be set")
+		assert.NotEmpty(t, entry.TransientManifestSHA, "expected transient manifest SHA to be set")
+		assert.NotEmpty(t, entry.ApplySHA, "expected apply SHA to be set")
+
+		require.NoError(t, storeInstance.ExpireSHA(obj), "failed to expire SHA values for component")
+
+		expiredEntry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		assert.Empty(t, expiredEntry.ManifestSHA, "expected manifest SHA to be expired")
+		assert.Empty(t, expiredEntry.TransientManifestSHA, "expected transient manifest SHA to be expired")
+		assert.Empty(t, expiredEntry.ApplySHA, "expected apply SHA to be expired")
+		assert.NotEmpty(t, expiredEntry.ServerSHA, "server SHA should remain")
+	})
+}
+
+func TestComponentCache_CommitTransientSHA(t *testing.T) {
+	t.Run("should commit transient SHA to manifest SHA", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := newUnstructured("test-commit-transient", "test-component", "default",
+			"apps", "v1", "Deployment")
+
+		require.NoError(t, storeInstance.SaveComponent(obj))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
+
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		transientSHA := entry.TransientManifestSHA
+		assert.NotEmpty(t, entry.ManifestSHA, "initial manifest SHA should be set")
+		assert.NotEmpty(t, transientSHA)
+
+		require.NoError(t, storeInstance.CommitTransientSHA(obj), "failed to commit transient SHA")
+
+		updatedEntry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err, "failed to get updated component entry")
+		assert.Equal(t, transientSHA, updatedEntry.ManifestSHA, "expected transient SHA to be committed")
+		assert.Empty(t, updatedEntry.TransientManifestSHA, "transient SHA should be empty after commit")
+	})
+}
+
+func newUnstructured(uid, name, namespace, group, version, kind string) unstructured.Unstructured {
+	obj := unstructured.Unstructured{}
+	obj.SetUID(types.UID(uid))
+	obj.SetName(name)
+	obj.SetNamespace(namespace)
+	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
+	return obj
 }
