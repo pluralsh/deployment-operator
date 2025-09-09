@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kubectl/pkg/cmd/util"
-	"sigs.k8s.io/cli-utils/pkg/object"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -276,14 +275,14 @@ func (s *ServiceReconciler) enforceNamespace(objs []unstructured.Unstructured, s
 	// find any crds in the set of resources.
 	crdObjs := make([]*unstructured.Unstructured, 0, len(objs))
 	for _, obj := range objs {
-		if object.IsCRD(&obj) {
+		if template.IsCRD(&obj) {
 			crdObjs = append(crdObjs, &obj)
 		}
 	}
 	for i := range objs {
 		// Look up the scope of the resource so we know if the resource
 		// should have a namespace set or not.
-		scope, err := object.LookupResourceScope(&objs[i], crdObjs, s.mapper)
+		scope, err := template.LookupResourceScope(&objs[i], crdObjs, s.mapper)
 		if err != nil {
 			return err
 		}
