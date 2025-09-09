@@ -1608,3 +1608,68 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		assert.Len(t, deployments, 1)
 	})
 }
+
+func TestComponentCache_GetServiceComponents(t *testing.T) {
+	t.Run("should return components filtered by service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-service-123"
+
+		// Create components with the target service ID
+		component1 := createComponent("service-comp-1", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("app-deployment"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(component1, "test-node", time.Now().Unix(), serviceID)
+		require.NoError(t, err)
+
+		component2 := createComponent("service-comp-2", nil, WithGroup(""), WithVersion("v1"), WithKind("Pod"), WithName("app-pod"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(component2, "test-node", time.Now().Unix(), serviceID)
+		require.NoError(t, err)
+
+		// Create component with different service ID
+		otherComponent := createComponent("other-comp", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("other-deployment"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(otherComponent, "test-node", time.Now().Unix(), "other-service")
+		require.NoError(t, err)
+
+		// Create component with no service ID
+		noServiceComponent := createComponent("no-service-comp", nil, WithGroup(""), WithVersion("v1"), WithKind("Service"), WithName("no-service"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(noServiceComponent, "test-node", time.Now().Unix(), nil)
+		require.NoError(t, err)
+
+		components, err := storeInstance.GetServiceComponents(serviceID)
+		require.NoError(t, err, "failed to get components for service")
+		assert.Len(t, components, 2, "expected 2 components with matching service ID")
+
+		foundUIDs := make(map[string]bool)
+		for _, comp := range components {
+			foundUIDs[comp.UID] = true
+			assert.Equal(t, serviceID, comp.ServiceID, "expected component to have matching service ID")
+		}
+
+		assert.True(t, foundUIDs["service-comp-1"])
+		assert.True(t, foundUIDs["service-comp-2"])
+		assert.False(t, foundUIDs["other-comp"])
+		assert.False(t, foundUIDs["no-service-comp"])
+	})
+
+	t.Run("should return empty slice for non-existent service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create some components with different service IDs
+		component := createComponent("test-comp", nil, WithName("test-component"))
+		err = storeInstance.SaveComponentAttributes(component, "test-node", time.Now().Unix(), "existing-service")
+		require.NoError(t, err)
+
+		// Try to get components for non-existent service
+		components, err := storeInstance.GetServiceComponents("non-existent-service")
+		require.NoError(t, err)
+		assert.Len(t, components, 0)
+	})
+
+}

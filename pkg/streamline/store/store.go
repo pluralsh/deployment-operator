@@ -30,7 +30,8 @@ type Store interface {
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponents(group, version, kind string) error
 
-	// GetServiceComponents retrieves all components associated with a given service ID.
+	// GetServiceComponents retrieves all parent components associated with a given service ID.
+	// All components with parents are filtered out.
 	// It returns a slice of Entry structs containing information about each component and any error encountered.
 	GetServiceComponents(serviceID string) ([]smcommon.Entry, error)
 
