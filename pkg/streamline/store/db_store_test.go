@@ -1785,7 +1785,6 @@ func TestComponentCache_CommitTransientSHA(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		// Create an unstructured object
 		obj := unstructured.Unstructured{}
 		obj.SetUID("test-commit-transient")
 		obj.SetName("test-component")
@@ -1796,22 +1795,17 @@ func TestComponentCache_CommitTransientSHA(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
-		// Get initial state
 		entry, err := storeInstance.GetComponent(obj)
 		require.NoError(t, err)
-		initialManifestSHA := entry.ManifestSHA
 		transientSHA := entry.TransientManifestSHA
-		assert.NotEmpty(t, initialManifestSHA)
+		assert.NotEmpty(t, entry.ManifestSHA, "initial manifest SHA should be set")
 		assert.NotEmpty(t, transientSHA)
 
-		// Commit transient SHA
-		err = storeInstance.CommitTransientSHA(obj)
-		require.NoError(t, err)
+		require.NoError(t, storeInstance.CommitTransientSHA(obj), "failed to commit transient SHA")
 
-		// Verify transient SHA was committed
 		updatedEntry, err := storeInstance.GetComponent(obj)
-		require.NoError(t, err)
-		assert.Equal(t, transientSHA, updatedEntry.ManifestSHA)
-		assert.Empty(t, updatedEntry.TransientManifestSHA)
+		require.NoError(t, err, "failed to get updated component entry")
+		assert.Equal(t, transientSHA, updatedEntry.ManifestSHA, "expected transient SHA to be committed")
+		assert.Empty(t, updatedEntry.TransientManifestSHA, "transient SHA should be empty after commit")
 	})
 }
