@@ -200,7 +200,8 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 		// to result.RequestAfter
 		c.Do.Queue().Forget(id)
 		c.Do.Queue().AddAfter(id, result.RequeueAfter)
-	case result.Requeue: //nolint:staticcheck TODO: Remove once deprecation period ends.
+		// TODO: Remove once deprecation period ends.
+	case result.Requeue: //nolint:staticcheck
 		log.V(5).Info("Reconcile done, requeueing")
 		c.Do.Queue().AddRateLimited(id)
 	default:
