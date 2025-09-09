@@ -20,7 +20,6 @@ import (
 )
 
 const (
-	dbFile        = "/tmp/component-cache.db"
 	testUID       = "test-uid"
 	testGroup     = "test-group"
 	testNamespace = "test-namespace"
@@ -1491,5 +1490,121 @@ func TestGetComponentsByGVK(t *testing.T) {
 		}
 		assert.ElementsMatch(t, []string{"alpha", "beta", "gamma"}, names, "expected names to match, order not guaranteed")
 		assert.ElementsMatch(t, []string{"ns-1", "ns-2", "ns-3"}, nss, "expected namespaces to match, order not guaranteed")
+	})
+}
+
+func TestComponentCache_DeleteComponents(t *testing.T) {
+	t.Run("should delete components by group, version, and kind", func(t *testing.T) {
+		deploymentsGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
+		servicesGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
+
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create components with same GVK but different names/namespaces
+		component1 := createComponent("uid-1", nil, WithGroup(deploymentsGVK.Group), WithVersion(deploymentsGVK.Version), WithKind(deploymentsGVK.Kind), WithName("deployment-1"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(component1)
+		require.NoError(t, err)
+
+		component2 := createComponent("uid-2", nil,
+			WithGroup(deploymentsGVK.Group), WithVersion(deploymentsGVK.Version), WithKind(deploymentsGVK.Kind),
+			WithName("deployment-2"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(component2)
+		require.NoError(t, err)
+
+		component3 := createComponent("uid-3", nil,
+			WithGroup(deploymentsGVK.Group), WithVersion(deploymentsGVK.Version), WithKind(deploymentsGVK.Kind),
+			WithName("deployment-3"), WithNamespace("kube-system"))
+		err = storeInstance.SaveComponentAttributes(component3)
+		require.NoError(t, err)
+
+		// Create component with different GVK
+		component4 := createComponent("uid-4", nil,
+			WithGroup(servicesGVK.Group), WithVersion(servicesGVK.Version), WithKind(servicesGVK.Kind),
+			WithName("service-1"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(component4)
+		require.NoError(t, err)
+
+		components, err := storeInstance.GetComponentsByGVK(deploymentsGVK)
+		require.NoError(t, err, "failed to verify that deployments exist")
+		assert.Len(t, components, 3)
+
+		services, err := storeInstance.GetComponentsByGVK(servicesGVK)
+		require.NoError(t, err, "failed to verify that services exist")
+		assert.Len(t, services, 1)
+
+		err = storeInstance.DeleteComponents(deploymentsGVK.Group, deploymentsGVK.Version, deploymentsGVK.Kind)
+		require.NoError(t, err, "failed to delete deployments")
+
+		components, err = storeInstance.GetComponentsByGVK(deploymentsGVK)
+		require.NoError(t, err, "failed to verify that deployments were deleted")
+		assert.Len(t, components, 0, "expected deployments to be deleted")
+
+		services, err = storeInstance.GetComponentsByGVK(servicesGVK)
+		require.NoError(t, err, "failed to verify that services exist")
+		assert.Len(t, services, 1, "expected services to be unaffected")
+		assert.Equal(t, "uid-4", services[0].UID)
+	})
+
+	t.Run("should handle empty group in delete operation", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create components with empty group (core resources)
+		pod1 := createComponent("pod-uid-1", nil, WithGroup(""), WithVersion("v1"), WithKind("Pod"), WithName("pod-1"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(pod1)
+		require.NoError(t, err)
+
+		pod2 := createComponent("pod-uid-2", nil, WithGroup(""), WithVersion("v1"), WithKind("Pod"), WithName("pod-2"), WithNamespace("kube-system"))
+		err = storeInstance.SaveComponentAttributes(pod2)
+		require.NoError(t, err)
+
+		service := createComponent("service-uid", nil, WithGroup(""), WithVersion("v1"), WithKind("Service"), WithName("service-1"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(service)
+		require.NoError(t, err)
+
+		// Verify pods exist
+		pods, err := storeInstance.GetComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"})
+		require.NoError(t, err)
+		assert.Len(t, pods, 2)
+
+		// Delete all pods (empty group)
+		err = storeInstance.DeleteComponents("", "v1", "Pod")
+		require.NoError(t, err)
+
+		// Verify pods are deleted
+		pods, err = storeInstance.GetComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"})
+		require.NoError(t, err)
+		assert.Len(t, pods, 0)
+
+		// Verify service still exists
+		services, err := storeInstance.GetComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"})
+		require.NoError(t, err)
+		assert.Len(t, services, 1)
+	})
+
+	t.Run("should handle deletion of non-existent components gracefully", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		component := createComponent("existing-uid", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("existing-deployment"), WithNamespace("default"))
+		err = storeInstance.SaveComponentAttributes(component)
+		require.NoError(t, err)
+
+		err = storeInstance.DeleteComponents("nonexistent", "v1", "NonExistentKind")
+		require.NoError(t, err)
+
+		deployments, err := storeInstance.GetComponentsByGVK(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
+		require.NoError(t, err)
+		assert.Len(t, deployments, 1)
 	})
 }
