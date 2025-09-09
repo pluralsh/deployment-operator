@@ -117,14 +117,19 @@ func WaitForCacheSync(ctx context.Context) error {
 	}
 
 	timeoutChan := time.After(supervisor.cacheSyncTimeout)
+	syncedCount := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-timeoutChan:
-			return fmt.Errorf("timed out waiting for cache sync")
+			return fmt.Errorf("timed out waiting for cache sync, synced %d out of %d synchronizers", syncedCount, len(supervisor.synchronizers.Items()))
 		case <-time.After(time.Second):
 			synced := lo.EveryBy(lo.Values(supervisor.synchronizers.Items()), func(s Synchronizer) bool {
+				if s.Started() {
+					syncedCount++
+				}
+
 				return s.Started()
 			})
 

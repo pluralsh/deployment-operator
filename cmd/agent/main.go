@@ -227,7 +227,6 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 	setupLog.Info("waiting for synchronizers cache to sync")
 	if err := streamline.WaitForCacheSync(ctx); err != nil {
 		setupLog.Error(err, "unable to sync resource cache")
-		os.Exit(1)
 	}
 
 	setupLog.Info("started synchronizer supervisor with initial cache sync", "duration", time.Since(now))
