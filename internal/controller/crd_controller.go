@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 type SetupWithManager func(mgr ctrl.Manager) error
@@ -76,14 +75,6 @@ func (r *CrdRegisterControllerReconciler) Reconcile(ctx context.Context, req ctr
 		reconcile, ok := r.ReconcilerGroups[gvk]
 		if !ok {
 			continue
-		}
-
-		// TODO: should we still check the label here?
-		if crd.Labels != nil {
-			if _, ok := crd.Labels[common.ManagedByLabel]; ok {
-				logger.Info("Updating discovery cache for", "group", group, "kind", gvk.Kind, "version", version)
-				r.DiscoveryCache.Add(gvk)
-			}
 		}
 
 		if !r.registeredControllers.Has(gvk) {
