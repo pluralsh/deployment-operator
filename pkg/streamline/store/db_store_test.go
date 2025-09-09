@@ -1119,6 +1119,47 @@ func TestComponentCountsCache(t *testing.T) {
 		assert.Equal(t, nodes, int64(3))
 		assert.Equal(t, namespaces, int64(3))
 	})
+
+	t.Run("should return correct counts of nodes and namespaces", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create 2 nodes
+		node1 := createComponent("node-1", nil, WithKind("Node"), WithName("worker-1"))
+		err = storeInstance.SaveComponentAttributes(node1)
+		require.NoError(t, err)
+
+		node2 := createComponent("node-2", nil, WithKind("Node"), WithName("worker-2"))
+		err = storeInstance.SaveComponentAttributes(node2)
+		require.NoError(t, err)
+
+		// Create 3 namespaces
+		ns1 := createComponent("ns-1", nil, WithKind("Namespace"), WithName("default"))
+		err = storeInstance.SaveComponentAttributes(ns1)
+		require.NoError(t, err)
+
+		ns2 := createComponent("ns-2", nil, WithKind("Namespace"), WithName("kube-system"))
+		err = storeInstance.SaveComponentAttributes(ns2)
+		require.NoError(t, err)
+
+		ns3 := createComponent("ns-3", nil, WithKind("Namespace"), WithName("production"))
+		err = storeInstance.SaveComponentAttributes(ns3)
+		require.NoError(t, err)
+
+		// Create some other resources that should not be counted
+		pod := createComponent("pod-1", nil, WithKind("Pod"), WithName("test-pod"))
+		err = storeInstance.SaveComponentAttributes(pod)
+		require.NoError(t, err)
+
+		nodeCount, namespaceCount, err := storeInstance.GetComponentCounts()
+		require.NoError(t, err, "failed to get component counts")
+
+		assert.Equal(t, int64(2), nodeCount)
+		assert.Equal(t, int64(3), namespaceCount)
+	})
 }
 
 func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
