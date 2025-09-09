@@ -80,7 +80,7 @@ var _ = Describe("Helm template", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 
-			// Reconcile hooks
+			// Reconcile hooksSS
 			svc.Helm.IgnoreHooks = lo.ToPtr(false)
 			resp, err = NewHelm(dir).Render(svc, utilFactory)
 			Expect(err).NotTo(HaveOccurred())

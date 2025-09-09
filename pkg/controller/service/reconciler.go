@@ -143,7 +143,7 @@ func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
 			return s.consoleClient.GetService(id)
 		}),
 		manifestCache:    manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL),
-		applier:          applier.NewApplier(s.dynamicClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.CacheFilter())),
+		applier:          applier.NewApplier(s.dynamicClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter())),
 		utilFactory:      f,
 		restoreNamespace: s.restoreNamespace,
 		mapper:           mapper,
