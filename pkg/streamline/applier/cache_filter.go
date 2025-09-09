@@ -11,9 +11,13 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
+const (
+	FilterCache Filter = "cache"
+)
+
 // CacheFilter filters based on whether resources and/or manifests have changed since last applied.
-func CacheFilter() FilterFunc {
-	return func(obj unstructured.Unstructured) bool {
+func CacheFilter() (Filter, FilterFunc) {
+	return FilterCache, func(obj unstructured.Unstructured) bool {
 		serviceID := common.ServiceID(&obj)
 
 		entry, err := streamline.GetGlobalStore().GetComponent(obj)
