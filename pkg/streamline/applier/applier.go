@@ -25,7 +25,7 @@ import (
 )
 
 type Applier struct {
-	filters   FilterEngine
+	filters   *FilterEngine
 	client    dynamic.Interface
 	store     store.Store
 	waveDelay time.Duration
@@ -47,14 +47,9 @@ func (in *Applier) Apply(ctx context.Context,
 		return nil, nil, err
 	}
 
-	toApplyFiltered, toSkip := in.filterResources(toApply)
-	// TODO: we should probably only skip cache filter
-	if lo.FromPtr(service.DryRun) {
-		toApplyFiltered = toApply
-		toSkip = []unstructured.Unstructured{}
-	}
+	toApply, toSkip := in.filterResources(toApply, lo.FromPtr(service.DryRun))
 
-	waves := NewWaves(toApplyFiltered)
+	waves := NewWaves(toApply)
 	waves = append(waves, NewWave(toDelete, DeleteWave))
 
 	// Filter out empty waves
@@ -170,9 +165,10 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 	return in.getServiceComponents(serviceID)
 }
 
-func (in *Applier) filterResources(resources []unstructured.Unstructured) (toApply []unstructured.Unstructured, toSkip []unstructured.Unstructured) {
+func (in *Applier) filterResources(resources []unstructured.Unstructured, dryRun bool) (toApply []unstructured.Unstructured, toSkip []unstructured.Unstructured) {
 	for _, resource := range resources {
-		if in.filters.Match(resource) {
+		// In case of dry run we want to skip the cache filter.
+		if in.filters.MatchOmit(resource, lo.Ternary(dryRun, []Filter{FilterCache}, []Filter{})...) {
 			toApply = append(toApply, resource)
 		} else {
 			toSkip = append(toSkip, resource)
@@ -267,9 +263,9 @@ func WithWaveDelay(d time.Duration) Option {
 	}
 }
 
-func WithFilter(f FilterFunc) Option {
+func WithFilter(name Filter, f FilterFunc) Option {
 	return func(a *Applier) {
-		a.filters.Add(f)
+		a.filters.Add(name, f)
 	}
 }
 
@@ -283,7 +279,7 @@ func NewApplier(client dynamic.Interface, store store.Store, opts ...Option) *Ap
 	result := &Applier{
 		client:    client,
 		store:     store,
-		filters:   FilterEngine{},
+		filters:   NewFilterEngine(),
 		waveDelay: 1 * time.Second,
 	}
 
