@@ -22,9 +22,9 @@ type Store interface {
 
 	GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Entry, error)
 
-	// DeleteComponent removes a component from the store based on its UID.
+	// DeleteComponent removes a component from the store based on its smcommon.StoreKey.
 	// It returns an error if any issue occurs during the deletion process.
-	DeleteComponent(uid types.UID) error
+	DeleteComponent(key smcommon.StoreKey) error
 
 	// DeleteComponents removes components from the store based on GVK.
 	// It returns an error if any issue occurs during the deletion process.

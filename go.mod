@@ -6,7 +6,6 @@ require (
 	github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2 v2.2.3
 	github.com/DataDog/dd-trace-go/v2 v2.2.3
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Yamashou/gqlgenc v0.33.0
 	github.com/aquasecurity/trivy v0.66.0
 	github.com/aquasecurity/trivy-db v0.0.0-20250731052236-c7c831e2254d
@@ -30,7 +29,6 @@ require (
 	github.com/grafana/pyroscope-go v1.2.7
 	github.com/hashicorp/terraform-json v0.26.0
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.25.1
 	github.com/onsi/gomega v1.38.2
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20250908215021-e67dab92c8a3
@@ -64,7 +62,6 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.34.0
 	k8s.io/metrics v0.34.0
-	layeh.com/gopher-luar v1.0.11
 	sigs.k8s.io/controller-runtime v0.22.1
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20240903085516-38546806f2fa
 	sigs.k8s.io/controller-tools v0.17.3
@@ -114,6 +111,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
+	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/OpenPeeDeeP/depguard/v2 v2.2.0 // indirect
@@ -310,6 +308,7 @@ require (
 	github.com/mgechev/revive v1.5.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/spdystream v0.5.0 // indirect
 	github.com/moby/term v0.5.2 // indirect

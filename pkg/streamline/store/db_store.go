@@ -133,7 +133,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 		}
 
 		if !hasServiceID && state == ComponentStateRunning {
-			if err := in.DeleteComponent(obj.GetUID()); err != nil {
+			if err := in.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(obj)); err != nil {
 				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete pod", "uid", obj.GetUID())
 			}
 			klog.V(log.LogLevelDebug).InfoS("skipping pod save", "name", obj.GetName(), "namespace", obj.GetNamespace())
@@ -295,15 +295,15 @@ func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result
 	return result, err
 }
 
-func (in *DatabaseStore) DeleteComponent(uid types.UID) error {
+func (in *DatabaseStore) DeleteComponent(key smcommon.StoreKey) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteTransient(conn, `DELETE FROM component WHERE uid = ?`,
-		&sqlitex.ExecOptions{Args: []any{uid}})
+	return sqlitex.ExecuteTransient(conn, `DELETE FROM component WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?`,
+		&sqlitex.ExecOptions{Args: []any{key.GVK.Group, key.GVK.Version, key.GVK.Kind, key.Namespace, key.Name}})
 }
 
 func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {

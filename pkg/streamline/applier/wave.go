@@ -298,7 +298,7 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
 	live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		if err := streamline.GetGlobalStore().DeleteComponent(resource.GetUID()); err != nil {
+		if err := streamline.GetGlobalStore().DeleteComponent(smcommon.NewStoreKeyFromUnstructured(resource)); err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", resource.GetUID())
 		}
 
@@ -311,7 +311,7 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 	}
 
 	if live.GetAnnotations() != nil && live.GetAnnotations()[smcommon.LifecycleDeleteAnnotation] == smcommon.PreventDeletion {
-		if err := streamline.GetGlobalStore().DeleteComponent(live.GetUID()); err != nil {
+		if err := streamline.GetGlobalStore().DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(live))); err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", live.GetUID())
 		}
 
@@ -339,7 +339,7 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 		return
 	}
 
-	if err := streamline.GetGlobalStore().DeleteComponent(live.GetUID()); err != nil {
+	if err := streamline.GetGlobalStore().DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(live))); err != nil {
 		klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", live.GetUID())
 	}
 }

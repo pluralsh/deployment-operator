@@ -3,11 +3,12 @@ package lua
 import (
 	"fmt"
 
-	"github.com/pluralsh/deployment-operator/pkg/utils"
 	"github.com/pluralsh/polly/luautils"
 	lua "github.com/yuin/gopher-lua"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/pluralsh/deployment-operator/pkg/utils"
 )
 
 func statusConditionExists(s map[string]interface{}, condition string) bool {
@@ -36,9 +37,9 @@ func isStatusConditionTrue(s map[string]interface{}, condition string) bool {
 	return false
 }
 
-func luaStatusConditionExists(L *lua.LState) int {
-	tbl := L.CheckTable(1)
-	cond := L.CheckString(2)
+func luaStatusConditionExists(l *lua.LState) int {
+	tbl := l.CheckTable(1)
+	cond := l.CheckString(2)
 
 	// Convert table to Go value
 	obj := luautils.ToGoValue(tbl)
@@ -50,13 +51,13 @@ func luaStatusConditionExists(L *lua.LState) int {
 		m = sanitizeValue(obj).(map[string]interface{})
 	}
 
-	L.Push(lua.LBool(statusConditionExists(m, cond)))
+	l.Push(lua.LBool(statusConditionExists(m, cond)))
 	return 1
 }
 
-func luaIsStatusConditionTrue(L *lua.LState) int {
-	tbl := L.CheckTable(1)
-	cond := L.CheckString(2)
+func luaIsStatusConditionTrue(l *lua.LState) int {
+	tbl := l.CheckTable(1)
+	cond := l.CheckString(2)
 
 	obj := luautils.ToGoValue(tbl)
 
@@ -65,7 +66,7 @@ func luaIsStatusConditionTrue(L *lua.LState) int {
 		m = sanitizeValue(obj).(map[string]interface{})
 	}
 
-	L.Push(lua.LBool(isStatusConditionTrue(m, cond)))
+	l.Push(lua.LBool(isStatusConditionTrue(m, cond)))
 	return 1
 }
 

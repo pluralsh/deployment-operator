@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/pluralsh/deployment-operator/pkg/streamline/api"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
@@ -71,6 +72,54 @@ func WithState(state client.ComponentState) CreateComponentOption {
 	return func(component *client.ComponentChildAttributes) {
 		component.State = &state
 	}
+}
+
+type CreateStoreKeyOption func(entry *common.Entry)
+
+func WithStoreKeyName(name string) CreateStoreKeyOption {
+	return func(entry *common.Entry) {
+		entry.Name = name
+	}
+}
+
+func WithStoreKeyNamespace(namespace string) CreateStoreKeyOption {
+	return func(entry *common.Entry) {
+		entry.Namespace = namespace
+	}
+}
+
+func WithStoreKeyGroup(group string) CreateStoreKeyOption {
+	return func(entry *common.Entry) {
+		entry.Group = group
+	}
+}
+
+func WithStoreKeyVersion(version string) CreateStoreKeyOption {
+	return func(entry *common.Entry) {
+		entry.Version = version
+	}
+}
+
+func WithStoreKeyKind(kind string) CreateStoreKeyOption {
+	return func(entry *common.Entry) {
+		entry.Kind = kind
+	}
+}
+
+func createStoreKey(option ...CreateStoreKeyOption) common.StoreKey {
+	result := common.Entry{
+		Group:     testGroup,
+		Version:   testVersion,
+		Kind:      testKind,
+		Namespace: testNamespace,
+		Name:      testName,
+	}
+
+	for _, opt := range option {
+		opt(&result)
+	}
+
+	return common.NewStoreKeyFromEntry(result)
 }
 
 func createComponent(uid string, parentUID *string, option ...CreateComponentOption) client.ComponentChildAttributes {
@@ -263,7 +312,7 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, children, 2)
 
-		err = storeInstance.DeleteComponent(types.UID(childUid))
+		err = storeInstance.DeleteComponent(createStoreKey(WithStoreKeyName("delete-child-component")))
 		require.NoError(t, err)
 
 		children, err = storeInstance.GetComponentChildren(uid)
@@ -301,7 +350,7 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, children, 3)
 
-		err = storeInstance.DeleteComponent(types.UID(childUid))
+		err = storeInstance.DeleteComponent(createStoreKey(WithStoreKeyName("multi-delete-child")))
 		require.NoError(t, err)
 
 		children, err = storeInstance.GetComponentChildren(uid)
@@ -821,7 +870,7 @@ func TestPendingPodsCache(t *testing.T) {
 		require.Len(t, stats, 1)
 		assert.Equal(t, int64(1), *stats[0].PendingPods)
 
-		err = storeInstance.DeleteComponent("pod-1-uid")
+		err = storeInstance.DeleteComponent(createStoreKey(WithStoreKeyName("pending-pod-1"), WithStoreKeyKind("Pod")))
 		require.NoError(t, err)
 
 		stats, err = storeInstance.GetNodeStatistics()
