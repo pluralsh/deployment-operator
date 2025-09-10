@@ -141,7 +141,15 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", live.GetUID())
 			}
 
-			// skip deletion when prevented by annotation
+			// Delete service ID annotation so it will not be synced to store.
+			annotations := live.GetAnnotations()
+			delete(annotations, smcommon.OwningInventoryKey)
+			live.SetAnnotations(annotations)
+			if _, err := in.client.Resource(helpers.GVRFromGVK(live.GroupVersionKind())).
+				Update(ctx, live, metav1.UpdateOptions{}); err != nil {
+				return nil, err
+			}
+
 			continue
 		}
 
