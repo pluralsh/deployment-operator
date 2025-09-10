@@ -12,8 +12,8 @@ func TestFilterEngine(t *testing.T) {
 		engine := NewFilterEngine()
 
 		// Add filters that always return true
-		engine.Add("test", func(obj unstructured.Unstructured) bool { return true })
-		engine.Add("test", func(obj unstructured.Unstructured) bool { return true })
+		engine.Add("test1", func(obj unstructured.Unstructured) bool { return true })
+		engine.Add("test2", func(obj unstructured.Unstructured) bool { return true })
 
 		obj := unstructured.Unstructured{}
 		result := engine.Match(obj)
@@ -24,9 +24,9 @@ func TestFilterEngine(t *testing.T) {
 		engine := NewFilterEngine()
 
 		// Add filters where one returns false
-		engine.Add("test", func(obj unstructured.Unstructured) bool { return true })
-		engine.Add("test", func(obj unstructured.Unstructured) bool { return false })
-		engine.Add("test", func(obj unstructured.Unstructured) bool { return true })
+		engine.Add("test1", func(obj unstructured.Unstructured) bool { return true })
+		engine.Add("test2", func(obj unstructured.Unstructured) bool { return false })
+		engine.Add("test3", func(obj unstructured.Unstructured) bool { return true })
 
 		obj := unstructured.Unstructured{}
 		result := engine.Match(obj)
