@@ -3,8 +3,6 @@ package streamline
 import (
 	"sync"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
@@ -64,6 +62,6 @@ func (in *GlobalStore) Expire(serviceID string) error {
 	return in.store.Expire(serviceID)
 }
 
-func (in *GlobalStore) DeleteComponent(uid types.UID) error {
-	return in.store.DeleteComponent(uid)
+func (in *GlobalStore) DeleteComponent(key smcommon.StoreKey) error {
+	return in.store.DeleteComponent(key)
 }

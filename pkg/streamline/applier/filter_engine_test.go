@@ -9,7 +9,7 @@ import (
 
 func TestFilterEngine(t *testing.T) {
 	t.Run("should match when all filters pass", func(t *testing.T) {
-		engine := &FilterEngine{}
+		engine := NewFilterEngine()
 
 		// Add filters that always return true
 		engine.Add("test", func(obj unstructured.Unstructured) bool { return true })
@@ -21,7 +21,7 @@ func TestFilterEngine(t *testing.T) {
 	})
 
 	t.Run("should not match when any filter fails", func(t *testing.T) {
-		engine := &FilterEngine{}
+		engine := NewFilterEngine()
 
 		// Add filters where one returns false
 		engine.Add("test", func(obj unstructured.Unstructured) bool { return true })
@@ -34,7 +34,7 @@ func TestFilterEngine(t *testing.T) {
 	})
 
 	t.Run("should match when no filters are added", func(t *testing.T) {
-		engine := &FilterEngine{}
+		engine := NewFilterEngine()
 
 		obj := unstructured.Unstructured{}
 		result := engine.Match(obj)

@@ -127,7 +127,7 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 	for _, resource := range toDelete {
 		live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
 		if errors.IsNotFound(err) {
-			if err := in.store.DeleteComponent(resource.GetUID()); err != nil {
+			if err := in.store.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(resource)); err != nil {
 				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", resource.GetUID())
 			}
 			continue
@@ -137,7 +137,7 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 		}
 
 		if live.GetAnnotations() != nil && live.GetAnnotations()[smcommon.LifecycleDeleteAnnotation] == smcommon.PreventDeletion {
-			if err := in.store.DeleteComponent(live.GetUID()); err != nil {
+			if err := in.store.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(live))); err != nil {
 				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", live.GetUID())
 			}
 
@@ -149,7 +149,7 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 			Resource(helpers.GVRFromGVK(live.GroupVersionKind())).
 			Namespace(live.GetNamespace()).Delete(ctx, live.GetName(), metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
-			if err := in.store.DeleteComponent(live.GetUID()); err != nil {
+			if err := in.store.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(live))); err != nil {
 				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", live.GetUID())
 			}
 			continue
@@ -202,12 +202,13 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 	deleteKeys := containers.NewSet[smcommon.Key]()
 	resourceKeyToResource := make(map[smcommon.Key]unstructured.Unstructured)
 	for _, obj := range resources {
-		resourceKeys.Add(smcommon.NewKeyFromUnstructured(obj))
-		resourceKeyToResource[smcommon.NewKeyFromUnstructured(obj)] = obj
+		key := smcommon.NewStoreKeyFromUnstructured(obj).VersionlessKey()
+		resourceKeys.Add(key)
+		resourceKeyToResource[key] = obj
 	}
 
 	for _, entry := range entries {
-		entryKey := smcommon.NewKeyFromEntry(entry)
+		entryKey := smcommon.NewStoreKeyFromEntry(entry).VersionlessKey()
 		if !resourceKeys.Has(entryKey) {
 			obj := unstructured.Unstructured{}
 			obj.SetGroupVersionKind(schema.GroupVersionKind{
@@ -225,7 +226,7 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 	}
 
 	for _, resource := range resources {
-		key := smcommon.NewKeyFromUnstructured(resource)
+		key := smcommon.NewStoreKeyFromUnstructured(resource).VersionlessKey()
 		if deleteKeys.Has(key) {
 			continue
 		}

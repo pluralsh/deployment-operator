@@ -9,7 +9,6 @@ import (
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 
@@ -157,7 +156,7 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 		}
 
 		klog.V(log.LogLevelTrace).InfoS("deleting resource from the store", "gvr", in.gvr, "name", obj.GetName())
-		if err = in.store.DeleteComponent(obj.GetUID()); err != nil {
+		if err = in.store.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(obj))); err != nil {
 			klog.ErrorS(err, "failed to delete resource", "gvr", in.gvr, "name", obj.GetName())
 			return
 		}
@@ -233,7 +232,7 @@ func (in *synchronizer) resynchronize() {
 	for _, key := range toDelete.List() {
 		entry := storeResourceMap[key]
 		klog.V(log.LogLevelDebug).InfoS("resync - deleting component from store", "gvr", in.gvr, "resource", entry.UID)
-		if err := in.store.DeleteComponent(types.UID(entry.UID)); err != nil {
+		if err := in.store.DeleteComponent(smcommon.NewStoreKeyFromEntry(entry)); err != nil {
 			klog.ErrorS(err, "failed to delete component from store", "resource", entry.UID)
 		}
 	}
