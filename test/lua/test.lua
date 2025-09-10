@@ -1,13 +1,13 @@
 healthStatus = {
     status = "Unknown"
 }
-if Obj.Status ~= nil then
+if Obj.status ~= nil then
     local ready = "Ready"
-    if statusConditionExists(Obj.Status, ready) then
+    if statusConditionExists(Obj.status, ready) then
         healthStatus = {
             status="Progressing"
         }
-        if isStatusConditionTrue(Obj.Status, ready) then
+        if isStatusConditionTrue(Obj.status, ready) then
             healthStatus = {
                 status="Healthy"
             }
