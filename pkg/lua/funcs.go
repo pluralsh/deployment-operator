@@ -3,34 +3,32 @@ package lua
 import (
 	"fmt"
 
+	"github.com/pluralsh/deployment-operator/pkg/utils"
 	"github.com/pluralsh/polly/luautils"
 	lua "github.com/yuin/gopher-lua"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type Status struct {
-	Conditions []metav1.Condition
-}
-
 func statusConditionExists(s map[string]interface{}, condition string) bool {
-	sts := Status{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(s, &sts); err != nil {
+	conds, found, err := unstructured.NestedSlice(s, "conditions")
+	if err != nil || !found {
 		return false
 	}
+	conditions := utils.UnstructuredToConditions(conds)
 
-	return meta.FindStatusCondition(sts.Conditions, condition) != nil
+	return meta.FindStatusCondition(conditions, condition) != nil
 }
 
 func isStatusConditionTrue(s map[string]interface{}, condition string) bool {
-	sts := Status{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(s, &sts); err != nil {
+	conds, found, err := unstructured.NestedSlice(s, "conditions")
+	if err != nil || !found {
 		return false
 	}
+	conditions := utils.UnstructuredToConditions(conds)
 
-	if meta.FindStatusCondition(sts.Conditions, condition) != nil {
-		if meta.IsStatusConditionTrue(sts.Conditions, condition) {
+	if meta.FindStatusCondition(conditions, condition) != nil {
+		if meta.IsStatusConditionTrue(conditions, condition) {
 			return true
 		}
 	}
