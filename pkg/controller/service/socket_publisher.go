@@ -12,9 +12,9 @@ import (
 )
 
 type socketPublisher struct {
-	svcQueue workqueue.TypedRateLimitingInterface[string]
-	svcCache *client.Cache[console.ServiceDeploymentForAgent]
-	manCache *manifests.ManifestCache
+	svcQueueGetter func() workqueue.TypedRateLimitingInterface[string]
+	svcCache       *client.Cache[console.ServiceDeploymentForAgent]
+	manCache       *manifests.ManifestCache
 }
 
 func (sp *socketPublisher) Publish(id string, kick bool) {
@@ -27,5 +27,5 @@ func (sp *socketPublisher) Publish(id string, kick bool) {
 		}
 	}
 
-	sp.svcQueue.Add(id)
+	sp.svcQueueGetter().Add(id)
 }
