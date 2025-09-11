@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -15,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 )
 
 type TestReconciler struct{}
@@ -110,7 +110,7 @@ var _ = Describe("CRD Controller", Ordered, func() {
 
 		It("should successfully reconcile resource", func() {
 
-			cache := discoverycache.NewCache(discoveryClient)
+			cache := discoverycache.NewCache(discoveryClient, mapper)
 
 			err := discoverycache.NewDiscoveryManager(
 				discoverycache.WithRefreshInterval(time.Millisecond),

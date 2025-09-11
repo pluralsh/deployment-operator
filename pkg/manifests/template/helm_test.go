@@ -68,7 +68,7 @@ var _ = Describe("Helm template", Ordered, func() {
 		It("should successfully render Capabilities.APIVersions.Has", func() {
 			dir := filepath.Join("..", "..", "..", "test", "helm", "yet-another-cloudwatch-exporter")
 
-			resp, err := NewHelm(dir).Render(svc, utilFactory)
+			resp, err := NewHelm(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 
@@ -76,13 +76,13 @@ var _ = Describe("Helm template", Ordered, func() {
 			svc.Helm = &console.ServiceDeploymentForAgent_Helm{
 				IgnoreHooks: lo.ToPtr(true),
 			}
-			resp, err = NewHelm(dir).Render(svc, utilFactory)
+			resp, err = NewHelm(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 
 			// Reconcile hooksSS
 			svc.Helm.IgnoreHooks = lo.ToPtr(false)
-			resp, err = NewHelm(dir).Render(svc, utilFactory)
+			resp, err = NewHelm(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(2))
 
@@ -98,7 +98,7 @@ var _ = Describe("Helm template", Ordered, func() {
 			values["currentVersion"] = cluster.currentVersion
 `)
 
-			resp, err = NewHelm(dir).Render(svc, utilFactory)
+			resp, err = NewHelm(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 
@@ -122,7 +122,7 @@ var _ = Describe("Helm template", Ordered, func() {
 			-- Terminate with a simple error message
 			error("Something went wrong!")`)
 
-			_, err := NewHelm(dir).Render(svc, utilFactory)
+			_, err := NewHelm(dir).Render(svc, mapper)
 			Expect(err).To(HaveOccurred())
 			fmt.Println(err.Error())
 			Expect(err.Error()).To(Equal("lua script error: <string>:5: Something went wrong!"))
@@ -146,7 +146,7 @@ var _ = Describe("Helm template", Ordered, func() {
 			values["items"] = result["metadata"]["finalizers"]
 `)
 
-			resp, err := NewHelm(dir).Render(svc, utilFactory)
+			resp, err := NewHelm(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(3))
 			var ns unstructured.Unstructured

@@ -4,17 +4,16 @@ import (
 	"context"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/controller/service"
-	corev1 "k8s.io/api/core/v1"
-
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
 var _ = Describe("Restore Controller", Ordered, func() {

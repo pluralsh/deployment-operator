@@ -8,14 +8,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
+	"github.com/stretchr/testify/mock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
-	"github.com/stretchr/testify/mock"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("Reconciler", Ordered, func() {
@@ -56,7 +57,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 
 			cache.InitGateCache(args.ControllerCacheTTL(), fakeConsoleClient)
 
-			reconciler, err := pipelinegates.NewGateReconciler(fakeConsoleClient, kClient, cfg, time.Minute)
+			reconciler, err := pipelinegates.NewGateReconciler(fakeConsoleClient, kClient, time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = reconciler.Reconcile(ctx, gateId)
 			Expect(err).NotTo(HaveOccurred())

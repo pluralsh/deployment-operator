@@ -51,7 +51,7 @@ func (in *manager) Start(ctx context.Context) error {
 	in.mu.Unlock()
 
 	klog.V(log.LogLevelInfo).InfoS("starting discovery cache manager", "refreshInterval", in.refreshInterval)
-	return helpers.DynamicBackgroundPollUntilContextCancel(internalCtx, func() time.Duration { return in.refreshInterval }, true, func(_ context.Context) (done bool, err error) {
+	return helpers.DynamicBackgroundPollUntilContextCancel(internalCtx, func() time.Duration { return in.refreshInterval }, false, func(_ context.Context) (done bool, err error) {
 		if err = in.cache.Refresh(); err != nil {
 			klog.V(log.LogLevelExtended).ErrorS(err, "failed to refresh discovery cache")
 		}
