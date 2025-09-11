@@ -59,7 +59,7 @@ var _ = Describe("Scraper", Ordered, func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetCredentials").Return("", "")
 
-			reconciler, err := ping.New(fakeConsoleClient, cfg, kClient, nil)
+			reconciler, err := ping.New(fakeConsoleClient, cfg, kClient, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			ds := reconciler.GetDeprecatedCustomResources(ctx)
 			Expect(ds).To(HaveLen(1))
