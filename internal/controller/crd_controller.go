@@ -70,6 +70,7 @@ func (r *CrdRegisterControllerReconciler) Reconcile(ctx context.Context, req ctr
 			Version: version,
 		}
 
+		r.DiscoveryCache.MaybeResetRESTMapper(gvk)
 		r.DiscoveryCache.Add(gvk)
 
 		reconcile, ok := r.ReconcilerGroups[gvk]

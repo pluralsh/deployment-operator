@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -32,6 +33,9 @@ type Cache interface {
 
 	// Refresh force refreshes the cache.
 	Refresh() error
+
+	// MaybeResetRESTMapper resets the RESTMapper if the provided GVKs are CustomResourceDefinitions.
+	MaybeResetRESTMapper(...schema.GroupVersionKind)
 
 	// GroupVersionKind returns the set of GroupVersionKinds in the cache.
 	GroupVersionKind() containers.Set[schema.GroupVersionKind]
@@ -124,6 +128,26 @@ func (in *cache) Add(gvks ...schema.GroupVersionKind) {
 	}
 }
 
+func (in *cache) MaybeResetRESTMapper(crds ...schema.GroupVersionKind) {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
+	if in.mapper == nil {
+		klog.V(log.LogLevelVerbose).ErrorS(fmt.Errorf("no RESTMapper provided, cannot reset"), "unable to reset RESTMapper")
+		return
+	}
+
+	for _, gvk := range crds {
+		if in.gvkCache.Has(gvk) {
+			continue
+		}
+
+		meta.MaybeResetRESTMapper(in.mapper)
+		klog.V(log.LogLevelExtended).InfoS("resetting RESTMapper", "gvk", gvk)
+		return
+	}
+}
+
 func (in *cache) Delete(gvks ...schema.GroupVersionKind) {
 	in.mu.Lock()
 	defer in.mu.Unlock()
@@ -211,10 +235,9 @@ func (in *cache) Refresh() error {
 				gvkCacheTemp, gvrCacheTemp, gvCacheTemp := in.addTo(gvk, gvkCache, gvrCache, gvCache, gvrToGVKMap)
 
 				in.cacheMu.Lock()
-				in.gvkCache = gvkCacheTemp
-				in.gvrCache = gvrCacheTemp
-				in.gvCache = gvCacheTemp
-				in.gvrToGVKCache = gvrToGVKMap
+				gvkCache = gvkCacheTemp
+				gvrCache = gvrCacheTemp
+				gvCache = gvCacheTemp
 				in.cacheMu.Unlock()
 			}()
 		}
@@ -225,22 +248,27 @@ func (in *cache) Refresh() error {
 	if err == nil {
 		deletedGVKs := in.gvkCache.Difference(gvkCache)
 		for _, entry := range deletedGVKs.List() {
+			klog.V(log.LogLevelDebug).InfoS("gvk deleted", "gvk", entry)
 			in.notifyGroupVersionKindDeleted(entry)
 		}
 
 		deletedGVRs := in.gvrCache.Difference(gvrCache)
 		for _, entry := range deletedGVRs.List() {
+			klog.V(log.LogLevelDebug).InfoS("gvr deleted", "gvr", entry)
 			in.notifyGroupVersionResourceDeleted(entry)
 		}
 
 		deletedGVs := in.gvCache.Difference(gvCache)
 		for _, entry := range deletedGVs.List() {
+			klog.V(log.LogLevelDebug).InfoS("gv deleted", "gv", entry)
 			in.notifyGroupVersionDeleted(entry)
 		}
 
 		in.gvkCache = gvkCache
 		in.gvrCache = gvrCache
 		in.gvCache = gvCache
+		in.gvrToGVKCache = gvrToGVKMap
+		meta.MaybeResetRESTMapper(in.mapper)
 		klog.V(log.LogLevelDebug).InfoS("updated discovery cache")
 	}
 
@@ -357,12 +385,6 @@ func (in *cache) notifyGroupVersionDeleted(gv schema.GroupVersion) {
 }
 
 func (in *cache) notifyGroupVersionKindAdded(gvk schema.GroupVersionKind) {
-	if gvk.Group == "apiextensions.k8s.io" && gvk.Kind == "CustomResourceDefinition" {
-		if in.mapper != nil {
-			meta.MaybeResetRESTMapper(in.mapper)
-		}
-	}
-
 	for _, f := range in.onGroupVersionKindAdded {
 		f(gvk)
 	}
