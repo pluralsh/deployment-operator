@@ -521,6 +521,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			s.supervisor.Register(gvr)
 		}),
 		applier.WithMapper(s.mapper),
+		applier.WithSvcCache(s.svcCache),
 	)
 	if err != nil {
 		logger.Error(err, "failed to apply manifests", "service", svc.Name)

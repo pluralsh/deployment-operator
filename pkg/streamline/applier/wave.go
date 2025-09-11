@@ -6,13 +6,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/console/go/client"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+
+	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -148,11 +150,11 @@ type WaveProcessor struct {
 
 	// componentChan is used to communicate between the workers and the collector goroutine
 	// when a resource is successfully applied, the worker sends the component attributes to the channel.
-	componentChan chan client.ComponentAttributes
+	componentChan chan console.ComponentAttributes
 
 	// errorsChan is used to communicate between the workers and the collector goroutine
 	// when a resource fails to be applied, the worker sends the error to the channel.
-	errorsChan chan client.ServiceErrorAttributes
+	errorsChan chan console.ServiceErrorAttributes
 
 	// queue is the work queue used to process the items in the wave.
 	queue *workqueue.Typed[smcommon.Key]
@@ -182,9 +184,12 @@ type WaveProcessor struct {
 
 	// mapper is the RESTMapper used to map resources. It is used to refresh the mapper when a CRD is applied.
 	mapper meta.RESTMapper
+
+	// svcCache is the cache used to get the service deployment for an agent.
+	svcCache *consoleclient.Cache[console.ServiceDeploymentForAgent]
 }
 
-func (in *WaveProcessor) Run(ctx context.Context) (components []client.ComponentAttributes, errors []client.ServiceErrorAttributes) {
+func (in *WaveProcessor) Run(ctx context.Context) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
 	in.mu.Lock()
 	defer in.mu.Unlock()
 	now := time.Now()
@@ -329,7 +334,7 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 		DryRun: lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
 	})
 	if errors.IgnoreNotFound(err) != nil {
-		in.errorsChan <- client.ServiceErrorAttributes{
+		in.errorsChan <- console.ServiceErrorAttributes{
 			Source:  "delete",
 			Message: fmt.Sprintf("failed to delete %s/%s: %s", live.GetNamespace(), live.GetName(), err.Error()),
 		}
@@ -351,23 +356,20 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 
 func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
 	entry, _ := streamline.GetGlobalStore().GetComponent(resource)
-	if entry != nil {
-		serviceID := smcommon.GetOwningInventory(resource)
-		if len(entry.ServiceID) > 0 && len(serviceID) > 0 && entry.ServiceID != serviceID {
-			in.errorsChan <- client.ServiceErrorAttributes{
-				Source:  "apply",
-				Message: fmt.Sprintf("resource %s/%s is already managed by another service %s", resource.GetKind(), resource.GetName(), entry.ServiceID),
-			}
-			resource.SetUID(types.UID(entry.UID))
-			in.componentChan <- lo.FromPtr(common.ToComponentAttributes(&resource))
-			return
+	if managed := in.isManaged(entry, resource); managed {
+		in.errorsChan <- console.ServiceErrorAttributes{
+			Source:  "apply",
+			Message: fmt.Sprintf("resource %s/%s is already managed by another service %s", resource.GetKind(), resource.GetName(), entry.ServiceID),
 		}
+		resource.SetUID(types.UID(entry.UID))
+		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(&resource))
+		return
 	}
 
 	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
 	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
 		FieldManager: smcommon.ClientFieldManager,
-		Force:        true, // TODO: should we force apply or not here? It will avoid conflicts when resource has been recently applied by another controller
+		Force:        true,
 		DryRun:       lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
 	})
 
@@ -376,7 +378,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 			klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName())
 		}
 
-		in.errorsChan <- client.ServiceErrorAttributes{
+		in.errorsChan <- console.ServiceErrorAttributes{
 			Source:  "apply",
 			Message: fmt.Sprintf("failed to apply %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
@@ -416,7 +418,21 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
 }
 
-func (in *WaveProcessor) withDryRun(ctx context.Context, component *client.ComponentAttributes, resource unstructured.Unstructured, delete bool) *client.ComponentAttributes {
+func (in *WaveProcessor) isManaged(entry *smcommon.Entry, resource unstructured.Unstructured) bool {
+	if entry == nil {
+		return false
+	}
+
+	_, err := in.svcCache.Get(entry.ServiceID)
+	if errors.IsNotFound(err) {
+		return false
+	}
+
+	serviceID := smcommon.GetOwningInventory(resource)
+	return len(entry.ServiceID) > 0 && len(serviceID) > 0 && entry.ServiceID != serviceID
+}
+
+func (in *WaveProcessor) withDryRun(ctx context.Context, component *console.ComponentAttributes, resource unstructured.Unstructured, delete bool) *console.ComponentAttributes {
 	desiredJSON := asJSON(&resource)
 	if delete {
 		desiredJSON = "# n/a"
@@ -429,7 +445,7 @@ func (in *WaveProcessor) withDryRun(ctx context.Context, component *client.Compo
 	}
 
 	component.Synced = liveJSON == desiredJSON
-	component.Content = &client.ComponentContentAttributes{
+	component.Content = &console.ComponentContentAttributes{
 		Desired: &desiredJSON,
 		Live:    &liveJSON,
 	}
@@ -456,8 +472,8 @@ func (in *WaveProcessor) init() {
 		in.concurrentApplies = len(in.wave.items)
 	}
 
-	in.componentChan = make(chan client.ComponentAttributes, in.concurrentApplies)
-	in.errorsChan = make(chan client.ServiceErrorAttributes, in.concurrentApplies)
+	in.componentChan = make(chan console.ComponentAttributes, in.concurrentApplies)
+	in.errorsChan = make(chan console.ServiceErrorAttributes, in.concurrentApplies)
 	in.keyToResource = make(map[smcommon.Key]unstructured.Unstructured)
 	in.queue = workqueue.NewTyped[smcommon.Key]()
 
@@ -470,6 +486,7 @@ func (in *WaveProcessor) init() {
 
 type WaveProcessorOption func(*WaveProcessor)
 
+// TODO: export to args
 func WithWaveMaxConcurrentApplies(n int) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		if n < 1 {
@@ -479,6 +496,7 @@ func WithWaveMaxConcurrentApplies(n int) WaveProcessorOption {
 	}
 }
 
+// TODO: export to args
 func WithWaveDeQueueDelay(d time.Duration) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		if d <= 0 {
@@ -503,6 +521,12 @@ func WithWaveOnApply(onApply func(resource unstructured.Unstructured)) WaveProce
 func WithMapper(m meta.RESTMapper) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		w.mapper = m
+	}
+}
+
+func WithSvcCache(c *consoleclient.Cache[console.ServiceDeploymentForAgent]) WaveProcessorOption {
+	return func(w *WaveProcessor) {
+		w.svcCache = c
 	}
 }
 
