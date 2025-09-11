@@ -4,8 +4,10 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -16,7 +18,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
-	"k8s.io/client-go/rest"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
@@ -50,7 +51,8 @@ const (
 
 func registerConsoleReconcilersOrDie(
 	mgr *consolectrl.Manager,
-	config *rest.Config,
+	mapper meta.RESTMapper,
+	clientSet kubernetes.Interface,
 	k8sClient ctrclient.Client,
 	dynamicClient dynamic.Interface,
 	store store.Store,
@@ -61,7 +63,8 @@ func registerConsoleReconcilersOrDie(
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
 		r, err := service.NewServiceReconciler(consoleClient,
 			k8sClient,
-			config,
+			mapper,
+			clientSet,
 			dynamicClient,
 			store,
 			service.WithRefresh(args.ControllerCacheTTL()),
@@ -80,7 +83,7 @@ func registerConsoleReconcilersOrDie(
 	})
 
 	mgr.AddReconcilerOrDie(pipelinegates.Identifier, func() (v1.Reconciler, error) {
-		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, config, args.PipelineGatesInterval())
+		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, args.PipelineGatesInterval())
 		return r, err
 	})
 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/pluralsh/polly/luautils"
 	lua "github.com/yuin/gopher-lua"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/gofrs/flock"
@@ -37,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog/v2"
-	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
@@ -80,7 +80,7 @@ type helm struct {
 	dir string
 }
 
-func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
+func (h *helm) Render(svc *console.ServiceDeploymentForAgent, mapper meta.RESTMapper) ([]unstructured.Unstructured, error) {
 	luaValues, luaValuesFiles, err := h.luaValues(svc)
 	if err != nil {
 		var apiErr *lua.ApiError
@@ -146,11 +146,6 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 	}
 
 	r := bytes.NewReader(buffer.Bytes())
-	mapper, err := utilFactory.ToRESTMapper()
-	if err != nil {
-		return nil, err
-	}
-
 	manifests, err := streamManifests(r, mapper, "helm", svc.Namespace)
 	if err != nil {
 		return nil, err

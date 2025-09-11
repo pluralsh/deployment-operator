@@ -5,8 +5,10 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 
@@ -99,12 +101,12 @@ func main() {
 		}()
 	}
 
+	mapper, discoveryClient, clientSet, dynamicClient := initKubeResourcesOrDie(config)
+
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
-	discoveryClient := initDiscoveryClientOrDie(config)
-	dynamicClient := initDynamicClientOrDie(config)
 
 	// Initialize the discovery cache.
-	initDiscoveryCache(discoveryClient)
+	initDiscoveryCache(discoveryClient, mapper)
 	discoveryCache := discoverycache.GlobalCache()
 
 	kubeManager := initKubeManagerOrDie(config)
@@ -131,7 +133,7 @@ func main() {
 	// Start synchronizer supervisor
 	runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
 
-	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, streamline.GetSupervisor())
+	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, streamline.GetSupervisor())
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
@@ -152,23 +154,29 @@ func main() {
 	runKubeManagerOrDie(ctx, kubeManager)
 }
 
-func initDiscoveryClientOrDie(config *rest.Config) *discovery.DiscoveryClient {
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+func initKubeResourcesOrDie(config *rest.Config) (meta.RESTMapper, discovery.DiscoveryInterface, kubernetes.Interface, dynamic.Interface) {
+	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(config)
+
+	f := utils.NewFactory(config)
+	mapper, err := f.ToRESTMapper()
 	if err != nil {
-		setupLog.Error(err, "unable to create discovery client")
+		setupLog.Error(err, "unable to create mapper")
 		os.Exit(1)
 	}
 
-	return discoveryClient
-}
+	clientSet, err := f.KubernetesClientSet()
+	if err != nil {
+		setupLog.Error(err, "unable to create clientset")
+		os.Exit(1)
+	}
 
-func initDynamicClientOrDie(config *rest.Config) dynamic.Interface {
-	dynamicClient, err := dynamic.NewForConfig(config)
+	dynamicClient, err := f.DynamicClient()
 	if err != nil {
 		setupLog.Error(err, "unable to create dynamic client")
 		os.Exit(1)
 	}
-	return dynamicClient
+
+	return mapper, discoveryClient, clientSet, dynamicClient
 }
 
 func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Manager) {
@@ -187,8 +195,8 @@ func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
 	setupLog.Info("started kubernetes controller manager")
 }
 
-func initDiscoveryCache(client discovery.DiscoveryInterface) {
-	discoverycache.InitGlobalDiscoveryCache(client,
+func initDiscoveryCache(client discovery.DiscoveryInterface, mapper meta.RESTMapper) {
+	discoverycache.InitGlobalDiscoveryCache(client, mapper,
 		discoverycache.WithOnGroupVersionAdded(func(gv schema.GroupVersion) {
 			discoverycache.UpdateServiceMesh(gv.Group, discoverycache.ServiceMeshUpdateTypeAdded)
 		}),

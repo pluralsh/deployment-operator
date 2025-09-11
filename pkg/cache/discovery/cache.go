@@ -12,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -545,10 +543,10 @@ func WithOnGroupVersionResourceDeleted(f ...GroupVersionResourceUpdateFunc) Cach
 	}
 }
 
-func NewCache(client discovery.DiscoveryInterface, option ...CacheOption) Cache {
+func NewCache(client discovery.DiscoveryInterface, mapper meta.RESTMapper, option ...CacheOption) Cache {
 	result := &cache{
 		client:                        client,
-		mapper:                        restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(client)),
+		mapper:                        mapper,
 		gvkCache:                      containers.NewSet[schema.GroupVersionKind](),
 		gvrCache:                      containers.NewSet[schema.GroupVersionResource](),
 		gvCache:                       containers.NewSet[schema.GroupVersion](),
@@ -572,7 +570,7 @@ var (
 	globalCacheMutex sync.RWMutex
 )
 
-func InitGlobalDiscoveryCache(client discovery.DiscoveryInterface, option ...CacheOption) {
+func InitGlobalDiscoveryCache(client discovery.DiscoveryInterface, mapper meta.RESTMapper, option ...CacheOption) {
 	globalCacheMutex.Lock()
 	defer globalCacheMutex.Unlock()
 
@@ -580,7 +578,7 @@ func InitGlobalDiscoveryCache(client discovery.DiscoveryInterface, option ...Cac
 		return
 	}
 
-	globalCache = NewCache(client, option...)
+	globalCache = NewCache(client, mapper, option...)
 }
 
 func GlobalCache() Cache {

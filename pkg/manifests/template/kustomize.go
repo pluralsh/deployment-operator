@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/templates"
 	"sigs.k8s.io/kustomize/kustomize/v5/commands/build"
@@ -26,7 +26,7 @@ func NewKustomize(dir string) Template {
 	return &kustomize{dir}
 }
 
-func (k *kustomize) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
+func (k *kustomize) Render(svc *console.ServiceDeploymentForAgent, mapper meta.RESTMapper) ([]unstructured.Unstructured, error) {
 	out := &bytes.Buffer{}
 	h := build.MakeHelp("plural", "kustomize")
 	help := &build.Help{
@@ -84,11 +84,6 @@ func (k *kustomize) Render(svc *console.ServiceDeploymentForAgent, utilFactory u
 	}
 
 	r := bytes.NewReader(out.Bytes())
-
-	mapper, err := utilFactory.ToRESTMapper()
-	if err != nil {
-		return nil, err
-	}
 
 	readerOptions := ReaderOptions{
 		Mapper:           mapper,

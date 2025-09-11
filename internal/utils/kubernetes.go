@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/pluralsh/deployment-operator/pkg/flowcontrol"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +21,8 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/pluralsh/deployment-operator/pkg/flowcontrol"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
@@ -207,7 +208,7 @@ func GetOperatorNamespace() (string, error) {
 	return string(ns), nil
 }
 
-func CheckNamespace(clientset kubernetes.Clientset, namespace string, labels, annotations map[string]string) error {
+func CheckNamespace(clientset kubernetes.Interface, namespace string, labels, annotations map[string]string) error {
 	if namespace == "" {
 		return nil
 	}
@@ -243,7 +244,7 @@ func CheckNamespace(clientset kubernetes.Clientset, namespace string, labels, an
 	return nil
 }
 
-func DeleteNamespace(ctx context.Context, client kubernetes.Clientset, namespace string) error {
+func DeleteNamespace(ctx context.Context, client kubernetes.Interface, namespace string) error {
 	if err := client.CoreV1().Namespaces().Delete(
 		ctx,
 		namespace,
