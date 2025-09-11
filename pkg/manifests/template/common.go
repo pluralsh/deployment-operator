@@ -138,10 +138,6 @@ func IsCRD(u *unstructured.Unstructured) bool {
 	return crdGK == gvk.GroupKind()
 }
 
-func IsGVKCRD(gvk schema.GroupVersionKind) bool {
-	return crdGK == gvk.GroupKind()
-}
-
 // LookupResourceScope tries to look up the scope of the type of the provided
 // resource, looking at both the types known to the cluster (through the
 // RESTMapper) and the provided CRDs. If no information about the type can
