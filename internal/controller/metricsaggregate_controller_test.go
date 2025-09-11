@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,11 +63,7 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			discoveryClient.On("ServerVersion").Return(versionInfo, nil)
 
 			cache := discoverycache.NewCache(discoveryClient, mapper)
-
-			err := discoverycache.NewDiscoveryManager(
-				discoverycache.WithRefreshInterval(time.Millisecond),
-				discoverycache.WithCache(cache),
-			).Start(ctx)
+			err := cache.Refresh()
 			Expect(err).NotTo(HaveOccurred())
 
 			r := MetricsAggregateReconciler{
@@ -89,11 +84,7 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			discoveryClient.On("ServerVersion").Return(versionInfo, nil)
 
 			cache := discoverycache.NewCache(discoveryClient, mapper)
-
-			err := discoverycache.NewDiscoveryManager(
-				discoverycache.WithRefreshInterval(time.Millisecond),
-				discoverycache.WithCache(cache),
-			).Start(ctx)
+			err := cache.Refresh()
 			Expect(err).NotTo(HaveOccurred())
 
 			scraper.GetMetrics().Add(v1alpha1.MetricsAggregateStatus{
