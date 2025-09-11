@@ -122,25 +122,19 @@ func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
 	_, deployToken := s.consoleClient.GetCredentials()
 
 	// Create a bucket rate limiter
-	typedRateLimiter := workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](s.workqueueBaseDelay, s.workqueueMaxDelay),
+	s.typedRateLimiter = workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](s.workqueueBaseDelay, s.workqueueMaxDelay),
 		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(s.workqueueQPS), s.workqueueBurst)},
 	)
+	s.svcQueue = workqueue.NewTypedRateLimitingQueue(s.typedRateLimiter)
+	s.svcCache = client.NewCache[console.ServiceDeploymentForAgent](s.refresh, func(id string) (
+		*console.ServiceDeploymentForAgent, error,
+	) {
+		return s.consoleClient.GetService(id)
+	})
+	s.manifestCache = manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL)
+	s.applier = applier.NewApplier(s.dynamicClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter()))
 
-	return &ServiceReconciler{
-		consoleClient:    s.consoleClient,
-		svcQueue:         workqueue.NewTypedRateLimitingQueue(typedRateLimiter),
-		typedRateLimiter: typedRateLimiter,
-		svcCache: client.NewCache[console.ServiceDeploymentForAgent](s.refresh, func(id string) (
-			*console.ServiceDeploymentForAgent, error,
-		) {
-			return s.consoleClient.GetService(id)
-		}),
-		manifestCache:    manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL),
-		applier:          applier.NewApplier(s.dynamicClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter())),
-		restoreNamespace: s.restoreNamespace,
-		k8sClient:        s.k8sClient,
-		pollInterval:     s.pollInterval,
-	}, nil
+	return s, nil
 }
 
 func (s *ServiceReconciler) Queue() workqueue.TypedRateLimitingInterface[string] {
