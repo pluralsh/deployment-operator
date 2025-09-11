@@ -5,6 +5,7 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -359,6 +360,13 @@ func (in *cache) notifyGroupVersionDeleted(gv schema.GroupVersion) {
 }
 
 func (in *cache) notifyGroupVersionKindAdded(gvk schema.GroupVersionKind) {
+	// If we just applied a CRD, we need to refresh the RESTMapper.
+	if template.IsGVKCRD(gvk) {
+		if in.mapper != nil {
+			meta.MaybeResetRESTMapper(in.mapper)
+		}
+	}
+
 	for _, f := range in.onGroupVersionKindAdded {
 		f(gvk)
 	}
