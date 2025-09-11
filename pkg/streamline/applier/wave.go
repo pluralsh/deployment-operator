@@ -6,7 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
@@ -177,6 +179,9 @@ type WaveProcessor struct {
 
 	// onApplyCallback is a callback function called when a resource is applied
 	onApplyCallback func(resource unstructured.Unstructured)
+
+	// mapper is the RESTMapper used to map resources. It is used to refresh the mapper when a CRD is applied.
+	mapper meta.RESTMapper
 }
 
 func (in *WaveProcessor) Run(ctx context.Context) (components []client.ComponentAttributes, errors []client.ServiceErrorAttributes) {
@@ -383,6 +388,13 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		in.onApplyCallback(resource)
 	}
 
+	if template.IsCRD(appliedResource) {
+		// if we just applied a CRD, we need to refresh the RESTMapper
+		if in.mapper != nil {
+			meta.MaybeResetRESTMapper(in.mapper)
+		}
+	}
+
 	if in.dryRun {
 		component := common.ToComponentAttributes(&resource)
 		component = in.withDryRun(ctx, component, lo.FromPtr(appliedResource), false)
@@ -485,6 +497,12 @@ func WithWaveDryRun(dryRun bool) WaveProcessorOption {
 func WithWaveOnApply(onApply func(resource unstructured.Unstructured)) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		w.onApplyCallback = onApply
+	}
+}
+
+func WithMapper(m meta.RESTMapper) WaveProcessorOption {
+	return func(w *WaveProcessor) {
+		w.mapper = m
 	}
 }
 
