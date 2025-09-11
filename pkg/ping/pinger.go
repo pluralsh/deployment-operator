@@ -3,15 +3,16 @@ package ping
 import (
 	"fmt"
 
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/cmd/util"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
 type Pinger struct {
@@ -21,17 +22,18 @@ type Pinger struct {
 	k8sClient      ctrclient.Client
 	clientset      *kubernetes.Clientset
 	apiExtClient   *apiextensionsclient.Clientset
+	store          store.Store
 }
 
-func NewOrDie(console client.Client, config *rest.Config, k8sClient ctrclient.Client, discoveryCache discoverycache.Cache) *Pinger {
-	pinger, err := New(console, config, k8sClient, discoveryCache)
+func NewOrDie(console client.Client, config *rest.Config, k8sClient ctrclient.Client, discoveryCache discoverycache.Cache, store store.Store) *Pinger {
+	pinger, err := New(console, config, k8sClient, discoveryCache, store)
 	if err != nil {
 		panic(fmt.Errorf("failed to create Pinger: %w", err))
 	}
 	return pinger
 }
 
-func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client, discoveryCache discoverycache.Cache) (*Pinger, error) {
+func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client, discoveryCache discoverycache.Cache, store store.Store) (*Pinger, error) {
 	f := utils.NewFactory(config)
 	cs, err := f.KubernetesClientSet()
 	if err != nil {
@@ -49,5 +51,6 @@ func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client,
 		clientset:      cs,
 		apiExtClient:   apiExtClient,
 		discoveryCache: discoveryCache,
+		store:          store,
 	}, nil
 }

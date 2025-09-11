@@ -111,7 +111,6 @@ func main() {
 
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
-	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient(), discoveryCache)
 
 	// Start the discovery cache manager in background.
 	runDiscoveryManagerOrDie(ctx, discoveryCache)
@@ -143,6 +142,8 @@ func main() {
 
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
+
+	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient(), discoveryCache, dbStore)
 
 	// Start cluster pinger
 	ping.RunClusterPingerInBackgroundOrDie(ctx, pinger, args.ClusterPingInterval())
