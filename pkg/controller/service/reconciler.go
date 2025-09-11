@@ -511,7 +511,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			klog.V(internallog.LogLevelDebug).InfoS("registering gvr to watch", "gvr", gvr)
 			s.supervisor.Register(gvr)
 		}),
-		applier.WithMapper(s.mapper),
 		applier.WithSvcCache(s.svcCache),
 	)
 	if err != nil {

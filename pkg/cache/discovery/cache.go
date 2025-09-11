@@ -357,6 +357,12 @@ func (in *cache) notifyGroupVersionDeleted(gv schema.GroupVersion) {
 }
 
 func (in *cache) notifyGroupVersionKindAdded(gvk schema.GroupVersionKind) {
+	if gvk.Group == "apiextensions.k8s.io" && gvk.Kind == "CustomResourceDefinition" {
+		if in.mapper != nil {
+			meta.MaybeResetRESTMapper(in.mapper)
+		}
+	}
+
 	for _, f := range in.onGroupVersionKindAdded {
 		f(gvk)
 	}
