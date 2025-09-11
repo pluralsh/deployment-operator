@@ -11,12 +11,13 @@ import (
 	"k8s.io/klog/v2"
 
 	console "github.com/pluralsh/console/go/client"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
+
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
@@ -354,6 +355,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		in.errorsChan <- console.ServiceErrorAttributes{
 			Source:  "apply",
 			Message: fmt.Sprintf("resource %s/%s is already managed by another service %s", resource.GetKind(), resource.GetName(), entry.ServiceID),
+			Warning: lo.ToPtr(true),
 		}
 		resource.SetUID(types.UID(entry.UID))
 		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(&resource))
