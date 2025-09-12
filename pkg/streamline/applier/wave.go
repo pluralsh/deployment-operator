@@ -6,8 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 
 	console "github.com/pluralsh/console/go/client"
@@ -31,8 +34,9 @@ import (
 type WaveType string
 
 const (
-	ApplyWave  WaveType = "apply"
-	DeleteWave WaveType = "delete"
+	ApplyWave   WaveType = "apply"
+	DeleteWave  WaveType = "delete"
+	WaitCRDWave WaveType = "waitCRD"
 )
 
 // Wave is a collection of resources that will be applied or deleted together.
@@ -65,7 +69,7 @@ func (in *Wave) Len() int {
 type Waves []Wave
 
 func NewWaves(resources []unstructured.Unstructured) Waves {
-	defaultWaveCount := 5
+	defaultWaveCount := 6
 	waves := make([]Wave, 0, defaultWaveCount)
 	for i := 0; i < defaultWaveCount; i++ {
 		waves = append(waves, NewWave([]unstructured.Unstructured{}, ApplyWave))
@@ -115,13 +119,16 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 		common.IngressKind:    3,
 		common.APIServiceKind: 3,
 	}
-
+	waves[4].waveType = WaitCRDWave
 	for _, resource := range resources {
 		if waveIdx, exists := kindToWave[resource.GetKind()]; exists {
 			waves[waveIdx].Add(resource)
 		} else {
 			// Unknown resource kind, put it in the last wave
 			waves[len(waves)-1].Add(resource)
+		}
+		if template.IsCRD(&resource) {
+			waves[4].Add(resource)
 		}
 	}
 
@@ -142,6 +149,8 @@ type WaveProcessor struct {
 
 	// client is the dynamic client used to apply the resources.
 	client dynamic.Interface
+
+	discoveryClient discovery.DiscoveryInterface
 
 	// wave to be processed. It contains the resources to be applied or deleted.
 	wave Wave
@@ -295,9 +304,62 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 	case ApplyWave:
 		klog.V(log.LogLevelDebug).InfoS("applying resource", "resource", id)
 		in.onApply(ctx, resource)
+	case WaitCRDWave:
+		klog.V(log.LogLevelDebug).InfoS("waiting for CRD", "resource", id)
+		in.onWaitCRD(ctx, resource)
 	}
 
 	klog.V(log.LogLevelDebug).InfoS("finished processing wave item", "resource", id, "duration", time.Since(now))
+}
+
+func (in *WaveProcessor) onWaitCRD(_ context.Context, resource unstructured.Unstructured) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
+	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 500 * time.Millisecond}, func() (bool, error) {
+		group, version, err := extractGroupAndVersion(resource)
+		if err != nil {
+			klog.V(log.LogLevelDefault).ErrorS(err, "failed to extract group and version", "resource", resource.GetUID())
+			return true, nil
+		}
+
+		_, err = in.discoveryClient.ServerResourcesForGroupVersion(fmt.Sprintf("%s/%s", group, version))
+		if err == nil {
+			return true, nil
+		}
+		klog.V(log.LogLevelDebug).Info("waiting for CRD to be established", "group", group, "version", version, "error", err.Error())
+		return false, nil
+	})
+	return
+}
+
+func extractGroupAndVersion(u unstructured.Unstructured) (string, string, error) {
+	group, found, err := unstructured.NestedString(u.Object, "spec", "group")
+	if err != nil || !found {
+		return "", "", fmt.Errorf("group not found: %v", err)
+	}
+
+	versions, found, err := unstructured.NestedSlice(u.Object, "spec", "versions")
+	if err != nil || !found {
+		return "", "", fmt.Errorf("versions not found: %v", err)
+	}
+
+	var servedVersion string
+	for _, v := range versions {
+		vm, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _, _ := unstructured.NestedString(vm, "name")
+		served, _, _ := unstructured.NestedBool(vm, "served")
+		if served {
+			servedVersion = name
+			break
+		}
+	}
+
+	if servedVersion == "" {
+		return "", "", fmt.Errorf("no served version found")
+	}
+
+	return group, servedVersion, nil
 }
 
 func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
@@ -513,10 +575,11 @@ func WithSvcCache(c *consoleclient.Cache[console.ServiceDeploymentForAgent]) Wav
 	}
 }
 
-func NewWaveProcessor(dynamicClient dynamic.Interface, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
+func NewWaveProcessor(dynamicClient dynamic.Interface, discoveryClient discovery.DiscoveryInterface, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
 	result := &WaveProcessor{
 		mu:                   sync.Mutex{},
 		client:               dynamicClient,
+		discoveryClient:      discoveryClient,
 		wave:                 wave,
 		maxConcurrentApplies: defaultMaxConcurrentApplies,
 		deQueueDelay:         defaultDeQueueDelay,

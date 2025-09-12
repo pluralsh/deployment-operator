@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -73,6 +74,7 @@ type ServiceReconciler struct {
 	consoleURL                                                                     string
 	waveDelay                                                                      time.Duration
 	supervisor                                                                     *streamline.Supervisor
+	discoveryClient                                                                discovery.DiscoveryInterface
 }
 
 func NewServiceReconciler(consoleClient client.Client,
@@ -80,10 +82,12 @@ func NewServiceReconciler(consoleClient client.Client,
 	mapper meta.RESTMapper,
 	clientSet kubernetes.Interface,
 	dynamicClient dynamic.Interface,
+	discoveryClient discovery.DiscoveryInterface,
 	store store.Store,
 	option ...ServiceReconcilerOption,
 ) (*ServiceReconciler, error) {
 	result := &ServiceReconciler{
+		discoveryClient:    discoveryClient,
 		consoleClient:      consoleClient,
 		k8sClient:          k8sClient,
 		clientset:          clientSet,
@@ -130,7 +134,7 @@ func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
 		return s.consoleClient.GetService(id)
 	})
 	s.manifestCache = manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL)
-	s.applier = applier.NewApplier(s.dynamicClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter()))
+	s.applier = applier.NewApplier(s.dynamicClient, s.discoveryClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter()))
 
 	return s, nil
 }

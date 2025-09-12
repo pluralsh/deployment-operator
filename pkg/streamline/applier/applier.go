@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"k8s.io/client-go/discovery"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -25,10 +26,11 @@ import (
 )
 
 type Applier struct {
-	filters   *FilterEngine
-	client    dynamic.Interface
-	store     store.Store
-	waveDelay time.Duration
+	filters         *FilterEngine
+	client          dynamic.Interface
+	discoveryClient discovery.DiscoveryInterface
+	store           store.Store
+	waveDelay       time.Duration
 
 	// onApply callback is called after each resource is applied
 	onApply func(unstructured.Unstructured)
@@ -60,7 +62,7 @@ func (in *Applier) Apply(ctx context.Context,
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 	for _, wave := range waves {
-		processor := NewWaveProcessor(in.client, wave, opts...)
+		processor := NewWaveProcessor(in.client, in.discoveryClient, wave, opts...)
 		components, serviceErrors := processor.Run(ctx)
 
 		componentList = append(componentList, components...)
@@ -284,12 +286,13 @@ func WithOnApply(f func(unstructured.Unstructured)) Option {
 	}
 }
 
-func NewApplier(client dynamic.Interface, store store.Store, opts ...Option) *Applier {
+func NewApplier(client dynamic.Interface, discoveryClient discovery.DiscoveryInterface, store store.Store, opts ...Option) *Applier {
 	result := &Applier{
-		client:    client,
-		store:     store,
-		filters:   NewFilterEngine(),
-		waveDelay: 1 * time.Second,
+		discoveryClient: discoveryClient,
+		client:          client,
+		store:           store,
+		filters:         NewFilterEngine(),
+		waveDelay:       1 * time.Second,
 	}
 
 	for _, opt := range opts {

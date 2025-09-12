@@ -6,6 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -59,6 +60,7 @@ func registerConsoleReconcilersOrDie(
 	scheme *runtime.Scheme,
 	consoleClient client.Client,
 	supervisor *streamline.Supervisor,
+	discoveryClient discovery.DiscoveryInterface,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
 		r, err := service.NewServiceReconciler(consoleClient,
@@ -66,6 +68,7 @@ func registerConsoleReconcilersOrDie(
 			mapper,
 			clientSet,
 			dynamicClient,
+			discoveryClient,
 			store,
 			service.WithRefresh(args.ControllerCacheTTL()),
 			service.WithManifestTTL(args.ManifestCacheTTL()),
