@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	"github.com/pluralsh/polly/algorithms"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -316,21 +316,26 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 	klog.V(log.LogLevelDebug).InfoS("finished processing wave item", "resource", id, "duration", time.Since(now))
 }
 
-func (in *WaveProcessor) onWaitForCRD(_ context.Context, resource unstructured.Unstructured) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
+func (in *WaveProcessor) onWaitForCRD(ctx context.Context, resource unstructured.Unstructured) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
 	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 500 * time.Millisecond}, func() (bool, error) {
 		group, version, kind, err := extractGVK(resource)
 		if err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to extract group and version", "resource", resource.GetUID())
 			return true, nil
 		}
-
-		resources, err := in.discoveryClient.ServerResourcesForGroupVersion(fmt.Sprintf("%s/%s", group, version))
+		c := in.client.Resource(helpers.GVRFromGVK(schema.GroupVersionKind{
+			Group:   group,
+			Version: version,
+			Kind:    kind,
+		})).Namespace(resource.GetNamespace())
+		_, err = c.List(ctx, metav1.ListOptions{
+			Limit: 1,
+		})
 		if err != nil {
-			klog.V(log.LogLevelDebug).Info("waiting for CRD to be established", "group", group, "version", version, "error", err.Error())
+			klog.V(log.LogLevelInfo).InfoS("failed to list resource", "kind", kind, "group", group, "version", version)
 			return false, nil
 		}
-
-		return algorithms.Index(resources.APIResources, func(r metav1.APIResource) bool { return r.Kind == kind }) >= 0, nil
+		return true, nil
 	})
 
 	return
