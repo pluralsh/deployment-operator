@@ -25,7 +25,7 @@ var _ = Describe("Kustomize template", func() {
 	Context("Render kustomize template", func() {
 		It("should successfully render the dev template", func() {
 			svc.Kustomize.Path = "dev"
-			resp, err := NewKustomize(dir).Render(svc, utilFactory)
+			resp, err := NewKustomize(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(3))
 			sort.Slice(resp, func(i, j int) bool {
@@ -70,7 +70,7 @@ var _ = Describe("Kustomize liquid template", func() {
 				ID:   "123",
 				Name: "test",
 			}
-			resp, err := NewKustomize(dir).Render(svc, utilFactory)
+			resp, err := NewKustomize(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(3))
 			sort.Slice(resp, func(i, j int) bool {

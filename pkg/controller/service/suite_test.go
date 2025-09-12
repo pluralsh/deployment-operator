@@ -22,8 +22,10 @@ import (
 	"runtime"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -43,6 +47,8 @@ var (
 	kClient         client.Client
 	cfg             *rest.Config
 	dynamicClient   dynamic.Interface
+	mapper          meta.RESTMapper
+	clientSet       kubernetes.Interface
 	discoveryClient discovery.DiscoveryInterface
 )
 
@@ -80,6 +86,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(discoveryClient).NotTo(BeNil())
 
+	f := utils.NewFactory(cfg)
+	mapper, err = f.ToRESTMapper()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(mapper).NotTo(BeNil())
+
+	clientSet, err = f.KubernetesClientSet()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(clientSet).NotTo(BeNil())
 })
 
 var _ = AfterSuite(func() {

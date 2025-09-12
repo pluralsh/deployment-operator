@@ -67,7 +67,7 @@ func (p *Pinger) PingCluster() error {
 		}
 	}
 
-	attrs := pingAttributes(info, podNames, minKubeletVersion, openShiftVersion, podCount)
+	attrs := p.pingAttributes(info, podNames, minKubeletVersion, openShiftVersion, podCount)
 	attrs.AvailabilityZones = stabilize(azs)
 	if err := p.consoleClient.PingCluster(attrs); err != nil {
 		attrs.Distro = nil

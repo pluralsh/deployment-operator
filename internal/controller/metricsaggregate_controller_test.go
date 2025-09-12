@@ -2,20 +2,18 @@ package controller
 
 import (
 	"context"
-	"time"
-
-	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-	"github.com/pluralsh/deployment-operator/pkg/scraper"
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/version"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
@@ -59,18 +57,13 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 		metricsAggregate := types.NamespacedName{Name: metricsAggregateName, Namespace: namespace}
 
 		It("should create global metrics aggregate", func() {
-
 			discoveryClient := mocks.NewDiscoveryInterfaceMock(mocks.TestingT)
 			discoveryClient.On("ServerGroups").Return(apiGroups, nil)
 			discoveryClient.On("ServerGroupsAndResources").Return(lo.ToSlicePtr(apiGroups), nil, nil)
 			discoveryClient.On("ServerVersion").Return(versionInfo, nil)
 
-			cache := discoverycache.NewCache(discoveryClient)
-
-			err := discoverycache.NewDiscoveryManager(
-				discoverycache.WithRefreshInterval(time.Millisecond),
-				discoverycache.WithCache(cache),
-			).Start(ctx)
+			cache := discoverycache.NewCache(discoveryClient, mapper)
+			err := cache.Refresh()
 			Expect(err).NotTo(HaveOccurred())
 
 			r := MetricsAggregateReconciler{
@@ -90,12 +83,8 @@ var _ = Describe("MetricsAggregate Controller", Ordered, func() {
 			discoveryClient.On("ServerGroupsAndResources").Return(lo.ToSlicePtr(apiGroups), nil, nil)
 			discoveryClient.On("ServerVersion").Return(versionInfo, nil)
 
-			cache := discoverycache.NewCache(discoveryClient)
-
-			err := discoverycache.NewDiscoveryManager(
-				discoverycache.WithRefreshInterval(time.Millisecond),
-				discoverycache.WithCache(cache),
-			).Start(ctx)
+			cache := discoverycache.NewCache(discoveryClient, mapper)
+			err := cache.Refresh()
 			Expect(err).NotTo(HaveOccurred())
 
 			scraper.GetMetrics().Add(v1alpha1.MetricsAggregateStatus{

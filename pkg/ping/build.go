@@ -6,25 +6,26 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/scraper"
 )
 
-func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openShiftVersion *string, podCount *int64) console.ClusterPing {
-	// hs, err := db.GetComponentCache().HealthScore()
-	// if err != nil {
-	//	klog.ErrorS(err, "failed to get health score")
-	//}
+func (p *Pinger) pingAttributes(info *version.Info, pods []string, minKubeletVersion, openShiftVersion *string, podCount *int64) console.ClusterPing {
+	hs, err := p.store.GetHealthScore()
+	if err != nil {
+		klog.ErrorS(err, "failed to get health score")
+	}
 
-	// ns, err := db.GetComponentCache().NodeStatistics()
-	// if err != nil {
-	//	klog.ErrorS(err, "failed to get node statistics")
-	//}
-	//
-	// nodCount, namespaceCount, err := db.GetComponentCache().ComponentCounts()
-	// if err != nil {
-	//	klog.ErrorS(err, "failed to get cluster component counts")
-	//}
+	ns, err := p.store.GetNodeStatistics()
+	if err != nil {
+		klog.ErrorS(err, "failed to get node statistics")
+	}
+
+	nodCount, namespaceCount, err := p.store.GetComponentCounts()
+	if err != nil {
+		klog.ErrorS(err, "failed to get cluster component counts")
+	}
 
 	vs := strings.Split(info.GitVersion, "-")
 
@@ -35,26 +36,26 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openSh
 	}
 
 	cp := console.ClusterPing{
-		CurrentVersion: strings.TrimPrefix(vs[0], "v"),
-		KubeletVersion: minKubeletVersion,
-		Distro:         lo.ToPtr(distro),
-		//HealthScore:      &hs,
-		//NodeCount:        &nodCount,
-		PodCount: podCount,
-		//NamespaceCount:   &namespaceCount,
-		//NodeStatistics:   ns,
+		CurrentVersion:   strings.TrimPrefix(vs[0], "v"),
+		KubeletVersion:   minKubeletVersion,
+		Distro:           lo.ToPtr(distro),
+		HealthScore:      &hs,
+		NodeCount:        &nodCount,
+		PodCount:         podCount,
+		NamespaceCount:   &namespaceCount,
+		NodeStatistics:   ns,
 		OpenshiftVersion: openShiftVersion,
 	}
 
-	// cInsights, err := db.GetComponentCache().ComponentInsights()
-	// if err != nil {
-	//	klog.ErrorS(err, "failed to get component insights")
-	//}
+	cInsights, err := p.store.GetComponentInsights()
+	if err != nil {
+		klog.ErrorS(err, "failed to get component insights")
+	}
 
-	// cp.InsightComponents = lo.ToSlicePtr(cInsights)
-	// if metrics.CPUAvailableMillicores > 0 {
-	//	cp.CPUTotal = lo.ToPtr(float64(metrics.CPUAvailableMillicores))
-	//}
+	cp.InsightComponents = lo.ToSlicePtr(cInsights)
+	if metrics.CPUAvailableMillicores > 0 {
+		cp.CPUTotal = lo.ToPtr(float64(metrics.CPUAvailableMillicores))
+	}
 	if metrics.MemoryAvailableBytes > 0 {
 		cp.MemoryTotal = lo.ToPtr(float64(metrics.MemoryAvailableBytes))
 	}

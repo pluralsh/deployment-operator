@@ -19,9 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/kubectl/pkg/cmd/util"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -58,18 +56,16 @@ const (
 
 type ServiceReconciler struct {
 	consoleClient                                                                  client.Client
-	clientset                                                                      *kubernetes.Clientset
+	clientset                                                                      kubernetes.Interface
 	applier                                                                        *applier.Applier
 	svcQueue                                                                       workqueue.TypedRateLimitingInterface[string]
 	typedRateLimiter                                                               workqueue.TypedRateLimiter[string]
 	svcCache                                                                       *client.Cache[console.ServiceDeploymentForAgent]
 	manifestCache                                                                  *manis.ManifestCache
-	utilFactory                                                                    util.Factory
 	restoreNamespace                                                               string
 	mapper                                                                         meta.RESTMapper
 	k8sClient                                                                      ctrclient.Client
 	pollInterval                                                                   time.Duration
-	config                                                                         *rest.Config
 	dynamicClient                                                                  dynamic.Interface
 	store                                                                          store.Store
 	refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay time.Duration
@@ -79,11 +75,19 @@ type ServiceReconciler struct {
 	supervisor                                                                     *streamline.Supervisor
 }
 
-func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Client, config *rest.Config, dynamicClient dynamic.Interface, store store.Store, option ...ServiceReconcilerOption) (*ServiceReconciler, error) {
+func NewServiceReconciler(consoleClient client.Client,
+	k8sClient ctrclient.Client,
+	mapper meta.RESTMapper,
+	clientSet kubernetes.Interface,
+	dynamicClient dynamic.Interface,
+	store store.Store,
+	option ...ServiceReconcilerOption,
+) (*ServiceReconciler, error) {
 	result := &ServiceReconciler{
 		consoleClient:      consoleClient,
 		k8sClient:          k8sClient,
-		config:             config,
+		clientset:          clientSet,
+		mapper:             mapper,
 		dynamicClient:      dynamicClient,
 		store:              store,
 		refresh:            2 * time.Minute,
@@ -113,43 +117,22 @@ func NewServiceReconciler(consoleClient client.Client, k8sClient ctrclient.Clien
 }
 
 func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
-	utils.DisableClientLimits(s.config)
-
 	_, deployToken := s.consoleClient.GetCredentials()
 
-	f := utils.NewFactory(s.config)
-	mapper, err := f.ToRESTMapper()
-	if err != nil {
-		return nil, err
-	}
-	cs, err := f.KubernetesClientSet()
-	if err != nil {
-		return nil, err
-	}
-
 	// Create a bucket rate limiter
-	typedRateLimiter := workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](s.workqueueBaseDelay, s.workqueueMaxDelay),
+	s.typedRateLimiter = workqueue.NewTypedMaxOfRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[string](s.workqueueBaseDelay, s.workqueueMaxDelay),
 		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(s.workqueueQPS), s.workqueueBurst)},
 	)
+	s.svcQueue = workqueue.NewTypedRateLimitingQueue(s.typedRateLimiter)
+	s.svcCache = client.NewCache[console.ServiceDeploymentForAgent](s.refresh, func(id string) (
+		*console.ServiceDeploymentForAgent, error,
+	) {
+		return s.consoleClient.GetService(id)
+	})
+	s.manifestCache = manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL)
+	s.applier = applier.NewApplier(s.dynamicClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter()))
 
-	return &ServiceReconciler{
-		consoleClient:    s.consoleClient,
-		clientset:        cs,
-		svcQueue:         workqueue.NewTypedRateLimitingQueue(typedRateLimiter),
-		typedRateLimiter: typedRateLimiter,
-		svcCache: client.NewCache[console.ServiceDeploymentForAgent](s.refresh, func(id string) (
-			*console.ServiceDeploymentForAgent, error,
-		) {
-			return s.consoleClient.GetService(id)
-		}),
-		manifestCache:    manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL),
-		applier:          applier.NewApplier(s.dynamicClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter())),
-		utilFactory:      f,
-		restoreNamespace: s.restoreNamespace,
-		mapper:           mapper,
-		k8sClient:        s.k8sClient,
-		pollInterval:     s.pollInterval,
-	}, nil
+	return s, nil
 }
 
 func (s *ServiceReconciler) Queue() workqueue.TypedRateLimitingInterface[string] {
@@ -465,7 +448,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	manifests, err := template.Render(dir, svc, s.utilFactory)
+	manifests, err := template.Render(dir, svc, s.mapper)
 	if err != nil {
 		logger.Error(err, "failed to render manifests", "service", svc.Name)
 		return
@@ -556,7 +539,7 @@ func (s *ServiceReconciler) DeleteNamespace(ctx context.Context, namespace strin
 		deleteNamespace = *syncConfig.DeleteNamespace
 	}
 	if deleteNamespace {
-		return utils.DeleteNamespace(ctx, *s.clientset, namespace)
+		return utils.DeleteNamespace(ctx, s.clientset, namespace)
 	}
 	return nil
 }
@@ -576,7 +559,7 @@ func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console
 		}
 	}
 	if createNamespace {
-		return utils.CheckNamespace(*s.clientset, namespace, labels, annotations)
+		return utils.CheckNamespace(s.clientset, namespace, labels, annotations)
 	}
 	return nil
 }
