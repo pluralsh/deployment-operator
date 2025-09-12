@@ -333,12 +333,12 @@ func (in *WaveProcessor) onWaitCRD(_ context.Context, resource unstructured.Unst
 func extractGroupAndVersion(u unstructured.Unstructured) (string, string, error) {
 	group, found, err := unstructured.NestedString(u.Object, "spec", "group")
 	if err != nil || !found {
-		return "", "", fmt.Errorf("group not found: %v", err)
+		return "", "", fmt.Errorf("group not found: %w", err)
 	}
 
 	versions, found, err := unstructured.NestedSlice(u.Object, "spec", "versions")
 	if err != nil || !found {
-		return "", "", fmt.Errorf("versions not found: %v", err)
+		return "", "", fmt.Errorf("versions not found: %w", err)
 	}
 
 	var servedVersion string
