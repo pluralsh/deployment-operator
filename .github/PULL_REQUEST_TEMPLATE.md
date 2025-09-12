@@ -17,9 +17,19 @@ Test environment: https://console.your-env.onplural.sh/
 
 - [ ] I have added a meaningful title and summary to convey the impact of this PR to a user.
 - [ ] I have deployed the agent to a test environment and verified that it works as expected.
-    - [ ] Agent started successfully.
-    - [ ] Logs are clean and do not contain errors.
-    - [ ] Component trees are working as expected.
+    - [ ] Agent starts successfully.
+    - [ ] Agent logs are clean and do not contain any errors.
+    - [ ] Service creation works without any issues when using raw manifests and Helm templates.
+    - [ ] Service creation works when resources contain both CRD and CRD instances.
+    - [ ] Service templating works correctly.
+    - [ ] Service updates are reflected properly in the cluster.
+    - [ ] Service resync triggers immediately and works as expected.
+    - [ ] Service deletion works and cleanups resources properly.
+    - [ ] Services can be recreated after deletion.
+    - [ ] Service detachment works and keeps resources unaffected.
+    - [ ] Services can be recreated after detachment.
+    - [ ] Service component trees are working as expected.
+    - [ ] Cluster health statuses are being updated.
 - [ ] I have added tests to cover my changes.
 - [ ] If required, I have updated the Plural documentation accordingly.
 
