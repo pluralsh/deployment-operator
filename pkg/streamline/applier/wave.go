@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/pluralsh/polly/algorithms"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,9 +35,9 @@ import (
 type WaveType string
 
 const (
-	ApplyWave   WaveType = "apply"
-	DeleteWave  WaveType = "delete"
-	WaitCRDWave WaveType = "waitCRD"
+	ApplyWave      WaveType = "apply"
+	DeleteWave     WaveType = "delete"
+	WaitForCRDWave WaveType = "waitCRD"
 )
 
 // Wave is a collection of resources that will be applied or deleted together.
@@ -119,7 +120,8 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 		common.IngressKind:    3,
 		common.APIServiceKind: 3,
 	}
-	waves[4].waveType = WaitCRDWave
+
+	waves[4].waveType = WaitForCRDWave
 	for _, resource := range resources {
 		if waveIdx, exists := kindToWave[resource.GetKind()]; exists {
 			waves[waveIdx].Add(resource)
@@ -127,7 +129,9 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 			// Unknown resource kind, put it in the last wave
 			waves[len(waves)-1].Add(resource)
 		}
+
 		if template.IsCRD(&resource) {
+			// Ensure CRDs are waited on in a separate wave
 			waves[4].Add(resource)
 		}
 	}
@@ -304,41 +308,48 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 	case ApplyWave:
 		klog.V(log.LogLevelDebug).InfoS("applying resource", "resource", id)
 		in.onApply(ctx, resource)
-	case WaitCRDWave:
+	case WaitForCRDWave:
 		klog.V(log.LogLevelDebug).InfoS("waiting for CRD", "resource", id)
-		in.onWaitCRD(ctx, resource)
+		in.onWaitForCRD(ctx, resource)
 	}
 
 	klog.V(log.LogLevelDebug).InfoS("finished processing wave item", "resource", id, "duration", time.Since(now))
 }
 
-func (in *WaveProcessor) onWaitCRD(_ context.Context, resource unstructured.Unstructured) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
+func (in *WaveProcessor) onWaitForCRD(_ context.Context, resource unstructured.Unstructured) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
 	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 500 * time.Millisecond}, func() (bool, error) {
-		group, version, err := extractGroupAndVersion(resource)
+		group, version, kind, err := extractGVK(resource)
 		if err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to extract group and version", "resource", resource.GetUID())
 			return true, nil
 		}
 
-		_, err = in.discoveryClient.ServerResourcesForGroupVersion(fmt.Sprintf("%s/%s", group, version))
-		if err == nil {
-			return true, nil
+		resources, err := in.discoveryClient.ServerResourcesForGroupVersion(fmt.Sprintf("%s/%s", group, version))
+		if err != nil {
+			klog.V(log.LogLevelDebug).Info("waiting for CRD to be established", "group", group, "version", version, "error", err.Error())
+			return false, nil
 		}
-		klog.V(log.LogLevelDebug).Info("waiting for CRD to be established", "group", group, "version", version, "error", err.Error())
-		return false, nil
+
+		return algorithms.Index(resources.APIResources, func(r metav1.APIResource) bool { return r.Kind == kind }) >= 0, nil
 	})
+
 	return
 }
 
-func extractGroupAndVersion(u unstructured.Unstructured) (string, string, error) {
+func extractGVK(u unstructured.Unstructured) (string, string, string, error) {
+	kind, found, err := unstructured.NestedString(u.Object, "spec", "names", "kind")
+	if err != nil || !found {
+		return "", "", kind, fmt.Errorf("kind not found: %w", err)
+	}
+
 	group, found, err := unstructured.NestedString(u.Object, "spec", "group")
 	if err != nil || !found {
-		return "", "", fmt.Errorf("group not found: %w", err)
+		return group, "", kind, fmt.Errorf("group not found: %w", err)
 	}
 
 	versions, found, err := unstructured.NestedSlice(u.Object, "spec", "versions")
 	if err != nil || !found {
-		return "", "", fmt.Errorf("versions not found: %w", err)
+		return group, "", kind, fmt.Errorf("versions not found: %w", err)
 	}
 
 	var servedVersion string
@@ -355,11 +366,7 @@ func extractGroupAndVersion(u unstructured.Unstructured) (string, string, error)
 		}
 	}
 
-	if servedVersion == "" {
-		return "", "", fmt.Errorf("no served version found")
-	}
-
-	return group, servedVersion, nil
+	return group, servedVersion, kind, lo.Ternary(servedVersion == "", fmt.Errorf("no served version found"), nil)
 }
 
 func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
