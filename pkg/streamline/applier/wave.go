@@ -317,20 +317,15 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 }
 
 func (in *WaveProcessor) onWaitForCRD(ctx context.Context, resource unstructured.Unstructured) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
-	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 500 * time.Millisecond}, func() (bool, error) {
+	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 15 * time.Second}, func() (bool, error) {
 		group, version, kind, err := extractGVK(resource)
 		if err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to extract group and version", "resource", resource.GetUID())
 			return true, nil
 		}
-		c := in.client.Resource(helpers.GVRFromGVK(schema.GroupVersionKind{
-			Group:   group,
-			Version: version,
-			Kind:    kind,
-		})).Namespace(resource.GetNamespace())
-		_, err = c.List(ctx, metav1.ListOptions{
-			Limit: 1,
-		})
+
+		_, err = in.client.Resource(helpers.GVRFromGVK(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})).
+			Namespace(resource.GetNamespace()).List(ctx, metav1.ListOptions{Limit: 1})
 		if err != nil {
 			klog.V(log.LogLevelInfo).InfoS("failed to list resource", "kind", kind, "group", group, "version", version)
 			return false, nil
