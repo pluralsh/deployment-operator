@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/pluralsh/deployment-operator/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -195,6 +196,8 @@ type WaveProcessor struct {
 
 	// svcCache is the cache used to get the service deployment for an agent.
 	svcCache *consoleclient.Cache[console.ServiceDeploymentForAgent]
+
+	mapper meta.RESTMapper
 }
 
 func (in *WaveProcessor) Run(ctx context.Context) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
@@ -318,55 +321,29 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 
 func (in *WaveProcessor) onWaitForCRD(ctx context.Context, resource unstructured.Unstructured) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
 	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 15 * time.Second}, func() (bool, error) {
-		group, version, kind, err := extractGVK(resource)
-		if err != nil {
-			klog.V(log.LogLevelDefault).ErrorS(err, "failed to extract group and version", "resource", resource.GetUID())
-			return true, nil
-		}
 
-		_, err = in.client.Resource(helpers.GVRFromGVK(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})).
-			Namespace(resource.GetNamespace()).List(ctx, metav1.ListOptions{Limit: 1})
+		crd, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Get(ctx, resource.GetName(), metav1.GetOptions{})
 		if err != nil {
-			klog.V(log.LogLevelInfo).InfoS("failed to list resource", "kind", kind, "group", group, "version", version)
+			klog.V(log.LogLevelInfo).InfoS("failed to get resource", "resource", resource.GetName(), "error", err)
 			return false, nil
 		}
-		return true, nil
+		conds, found, err := unstructured.NestedSlice(crd.Object, "status", "conditions")
+		if err != nil || !found {
+			klog.V(log.LogLevelInfo).InfoS("failed to get conditions", "resource", resource.GetName(), "error", err)
+			return false, nil
+		}
+		conditions := utils.UnstructuredToConditions(conds)
+		for _, cond := range conditions {
+			if cond.Type == "Established" && cond.Status == "True" {
+				meta.MaybeResetRESTMapper(in.mapper)
+				return true, nil
+			}
+		}
+
+		return false, nil
 	})
 
 	return
-}
-
-func extractGVK(u unstructured.Unstructured) (string, string, string, error) {
-	kind, found, err := unstructured.NestedString(u.Object, "spec", "names", "kind")
-	if err != nil || !found {
-		return "", "", kind, fmt.Errorf("kind not found: %w", err)
-	}
-
-	group, found, err := unstructured.NestedString(u.Object, "spec", "group")
-	if err != nil || !found {
-		return group, "", kind, fmt.Errorf("group not found: %w", err)
-	}
-
-	versions, found, err := unstructured.NestedSlice(u.Object, "spec", "versions")
-	if err != nil || !found {
-		return group, "", kind, fmt.Errorf("versions not found: %w", err)
-	}
-
-	var servedVersion string
-	for _, v := range versions {
-		vm, ok := v.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		name, _, _ := unstructured.NestedString(vm, "name")
-		served, _, _ := unstructured.NestedBool(vm, "served")
-		if served {
-			servedVersion = name
-			break
-		}
-	}
-
-	return group, servedVersion, kind, lo.Ternary(servedVersion == "", fmt.Errorf("no served version found"), nil)
 }
 
 func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
@@ -561,6 +538,12 @@ func WithWaveDeQueueDelay(d time.Duration) WaveProcessorOption {
 			d = defaultDeQueueDelay
 		}
 		w.deQueueDelay = d
+	}
+}
+
+func WithMapper(mapper meta.RESTMapper) WaveProcessorOption {
+	return func(w *WaveProcessor) {
+		w.mapper = mapper
 	}
 }
 
