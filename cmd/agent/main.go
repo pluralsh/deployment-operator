@@ -130,9 +130,9 @@ func main() {
 	runStoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())
 
 	// Start synchronizer supervisor
-	runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
+	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
 
-	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, streamline.GetSupervisor(), discoveryCache)
+	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache)
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
@@ -221,24 +221,23 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 	setupLog.Info("discovery manager started with initial cache sync", "duration", time.Since(now))
 }
 
-func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache) {
+func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache) *streamline.Supervisor {
 	now := time.Now()
-	streamline.Run(ctx,
-		dynamicClient,
+	supervisor := streamline.NewSupervisor(dynamicClient,
 		store,
 		discoveryCache,
 		streamline.WithCacheSyncTimeout(args.SupervisorCacheSyncTimeout()),
 		streamline.WithRestartDelay(args.SupervisorRestartDelay()),
 		streamline.WithMaxNotFoundRetries(args.SupervisorMaxNotFoundRetries()),
-		streamline.WithSynchronizerResyncInterval(args.SupervisorSynchronizerResyncInterval()),
-	)
-
+		streamline.WithSynchronizerResyncInterval(args.SupervisorSynchronizerResyncInterval()))
+	supervisor.Run(ctx)
 	setupLog.Info("waiting for synchronizers cache to sync")
-	if err := streamline.WaitForCacheSync(ctx); err != nil {
+	if err := supervisor.WaitForCacheSync(ctx); err != nil {
 		setupLog.Error(err, "unable to sync resource cache")
 	}
 
 	setupLog.Info("started synchronizer supervisor with initial cache sync", "duration", time.Since(now))
+	return supervisor
 }
 
 func initDatabaseStoreOrDie() store.Store {

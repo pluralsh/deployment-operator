@@ -23,9 +23,6 @@ import (
 )
 
 var (
-	supervisorMu sync.Mutex
-	supervisor   *Supervisor
-
 	GroupBlacklist = containers.ToSet([]string{
 		"aquasecurity.github.io", // Related to compliance/vulnerability reports. Can cause performance issues.
 	})
@@ -81,14 +78,8 @@ type Supervisor struct {
 	maxNotFoundRetries         int
 }
 
-func Run(ctx context.Context, client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, options ...Option) {
-	if supervisor != nil {
-		return
-	}
-
-	supervisorMu.Lock()
-
-	supervisor = &Supervisor{
+func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, options ...Option) *Supervisor {
+	s := &Supervisor{
 		client:                     client,
 		discoveryCache:             discoveryCache,
 		store:                      store,
@@ -102,29 +93,23 @@ func Run(ctx context.Context, client dynamic.Interface, store store.Store, disco
 	}
 
 	for _, option := range options {
-		option(supervisor)
+		option(s)
 	}
 
-	supervisorMu.Unlock()
-
-	supervisor.run(ctx)
+	return s
 }
 
-func WaitForCacheSync(ctx context.Context) error {
-	if supervisor == nil {
-		return fmt.Errorf("supervisor is not running")
-	}
-
-	timeoutChan := time.After(supervisor.cacheSyncTimeout)
+func (in *Supervisor) WaitForCacheSync(ctx context.Context) error {
+	timeoutChan := time.After(in.cacheSyncTimeout)
 	syncedCount := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-timeoutChan:
-			return fmt.Errorf("timed out waiting for cache sync, synced %d out of %d synchronizers", syncedCount, len(supervisor.synchronizers.Items()))
+			return fmt.Errorf("timed out waiting for cache sync, synced %d out of %d synchronizers", syncedCount, len(in.synchronizers.Items()))
 		case <-time.After(time.Second):
-			synced := lo.EveryBy(lo.Values(supervisor.synchronizers.Items()), func(s Synchronizer) bool {
+			synced := lo.EveryBy(lo.Values(in.synchronizers.Items()), func(s Synchronizer) bool {
 				if s.Started() {
 					syncedCount++
 				}
@@ -139,13 +124,6 @@ func WaitForCacheSync(ctx context.Context) error {
 	}
 }
 
-func GetSupervisor() *Supervisor {
-	supervisorMu.Lock()
-	defer supervisorMu.Unlock()
-
-	return supervisor
-}
-
 func (in *Supervisor) MaybeRegister(gvr schema.GroupVersionResource) {
 	if OptionalResourceVersionList.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
 		klog.V(log.LogLevelVerbose).InfoS("skipping resource to watch as it is optional", "gvr", gvr.String())
@@ -156,10 +134,6 @@ func (in *Supervisor) MaybeRegister(gvr schema.GroupVersionResource) {
 }
 
 func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
-	if !in.started {
-		return
-	}
-
 	if GroupBlacklist.Has(gvr.Group) || ResourceVersionBlacklist.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
 		klog.V(log.LogLevelExtended).InfoS("skipping resource to watch as it is blacklisted", "gvr", gvr.String())
 		return
@@ -169,6 +143,13 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 		klog.V(log.LogLevelExtended).InfoS("skipping resource to watch as it is already being watched", "gvr", gvr.String())
 		return
 	}
+
+	in.mu.RLock()
+	if !in.started {
+		in.mu.RUnlock()
+		return
+	}
+	in.mu.RUnlock()
 
 	in.resetAttempts(gvr)
 
@@ -187,8 +168,16 @@ func (in *Supervisor) Unregister(gvr schema.GroupVersionResource) {
 	in.clearAttempts(gvr)
 }
 
-func (in *Supervisor) run(ctx context.Context) {
+func (in *Supervisor) Run(ctx context.Context) {
 	in.mu.Lock()
+
+	if in.started {
+		in.mu.Unlock()
+		return
+	}
+
+	in.started = true
+	in.mu.Unlock()
 
 	go func() {
 		for {
@@ -206,29 +195,28 @@ func (in *Supervisor) run(ctx context.Context) {
 		}
 	}()
 
-	in.started = true
-	in.mu.Unlock()
-
 	in.registerInitialResources()
 	in.watchDiscoveryCacheChanges()
 }
 
 func (in *Supervisor) stop() {
-	in.mu.Lock()
-	defer in.mu.Unlock()
-
-	if in.started == false {
+	in.mu.RLock()
+	if !in.started {
+		in.mu.RUnlock()
 		return
 	}
+	in.mu.RUnlock()
 
+	in.mu.Lock()
 	for _, s := range in.synchronizers.Items() {
 		s.Stop()
 	}
 
 	in.synchronizers.Clear()
 	in.restartAttemptsLeftMap.Clear()
-	in.started = false
 	close(in.register)
+	in.started = false
+	in.mu.Unlock()
 }
 
 func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVersionResource) {
