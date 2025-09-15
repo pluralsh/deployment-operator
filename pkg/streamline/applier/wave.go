@@ -6,13 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	"github.com/pluralsh/deployment-operator/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 
@@ -37,9 +34,8 @@ import (
 type WaveType string
 
 const (
-	ApplyWave      WaveType = "apply"
-	DeleteWave     WaveType = "delete"
-	WaitForCRDWave WaveType = "waitCRD"
+	ApplyWave  WaveType = "apply"
+	DeleteWave WaveType = "delete"
 )
 
 // Wave is a collection of resources that will be applied or deleted together.
@@ -72,7 +68,7 @@ func (in *Wave) Len() int {
 type Waves []Wave
 
 func NewWaves(resources []unstructured.Unstructured) Waves {
-	defaultWaveCount := 6
+	defaultWaveCount := 5
 	waves := make([]Wave, 0, defaultWaveCount)
 	for i := 0; i < defaultWaveCount; i++ {
 		waves = append(waves, NewWave([]unstructured.Unstructured{}, ApplyWave))
@@ -123,18 +119,12 @@ func NewWaves(resources []unstructured.Unstructured) Waves {
 		common.APIServiceKind: 3,
 	}
 
-	waves[4].waveType = WaitForCRDWave
 	for _, resource := range resources {
 		if waveIdx, exists := kindToWave[resource.GetKind()]; exists {
 			waves[waveIdx].Add(resource)
 		} else {
 			// Unknown resource kind, put it in the last wave
 			waves[len(waves)-1].Add(resource)
-		}
-
-		if template.IsCRD(&resource) {
-			// Ensure CRDs are waited on in a separate wave
-			waves[4].Add(resource)
 		}
 	}
 
@@ -314,39 +304,9 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 	case ApplyWave:
 		klog.V(log.LogLevelDebug).InfoS("applying resource", "resource", id)
 		in.onApply(ctx, resource)
-	case WaitForCRDWave:
-		klog.V(log.LogLevelDebug).InfoS("waiting for CRD", "resource", id)
-		in.onWaitForCRD(ctx, resource)
 	}
 
 	klog.V(log.LogLevelDebug).InfoS("finished processing wave item", "resource", id, "duration", time.Since(now))
-}
-
-func (in *WaveProcessor) onWaitForCRD(ctx context.Context, resource unstructured.Unstructured) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
-	_ = wait.ExponentialBackoff(wait.Backoff{Duration: 50 * time.Millisecond, Jitter: 3, Steps: 3, Cap: 15 * time.Second}, func() (bool, error) {
-
-		crd, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Get(ctx, resource.GetName(), metav1.GetOptions{})
-		if err != nil {
-			klog.V(log.LogLevelInfo).InfoS("failed to get resource", "resource", resource.GetName(), "error", err)
-			return false, nil
-		}
-		conds, found, err := unstructured.NestedSlice(crd.Object, "status", "conditions")
-		if err != nil || !found {
-			klog.V(log.LogLevelInfo).InfoS("failed to get conditions", "resource", resource.GetName(), "error", err)
-			return false, nil
-		}
-		conditions := utils.UnstructuredToConditions(conds)
-		for _, cond := range conditions {
-			if cond.Type == "Established" && cond.Status == "True" {
-				meta.MaybeResetRESTMapper(in.mapper)
-				return true, nil
-			}
-		}
-
-		return false, nil
-	})
-
-	return
 }
 
 func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
