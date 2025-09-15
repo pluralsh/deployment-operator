@@ -52,6 +52,9 @@ type Cache interface {
 	// KindFor returns GVK for provided GVR.
 	KindFor(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error)
 
+	// RestMapping returns the RESTMapping for the provided GVK.
+	RestMapping(gvk schema.GroupVersionKind) (*meta.RESTMapping, error)
+
 	// OnGroupVersionAdded registers a callback function to be called when a new API group is added to the cache.
 	OnGroupVersionAdded(f GroupVersionUpdateFunc)
 
@@ -146,6 +149,10 @@ func (in *cache) MaybeResetRESTMapper(crds ...schema.GroupVersionKind) {
 		klog.V(log.LogLevelExtended).InfoS("resetting RESTMapper", "gvk", gvk)
 		return
 	}
+}
+
+func (in *cache) RestMapping(gvk schema.GroupVersionKind) (*meta.RESTMapping, error) {
+	return in.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 }
 
 func (in *cache) Delete(gvks ...schema.GroupVersionKind) {

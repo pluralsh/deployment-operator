@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 
 	console "github.com/pluralsh/console/go/client"
@@ -20,6 +19,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
 
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/internal/errors"
@@ -146,7 +146,8 @@ type WaveProcessor struct {
 	// client is the dynamic client used to apply the resources.
 	client dynamic.Interface
 
-	discoveryClient discovery.DiscoveryInterface
+	// discoveryCache is the discovery discoveryCache used to get information about the API resources.
+	discoveryCache discoverycache.Cache
 
 	// wave to be processed. It contains the resources to be applied or deleted.
 	wave Wave
@@ -185,12 +186,8 @@ type WaveProcessor struct {
 	// onApplyCallback is a callback function called when a resource is applied
 	onApplyCallback func(resource unstructured.Unstructured)
 
-	// svcCache is the cache used to get the service deployment for an agent.
+	// svcCache is the discoveryCache used to get the service deployment for an agent.
 	svcCache *consoleclient.Cache[console.ServiceDeploymentForAgent]
-
-	mapper meta.RESTMapper
-
-	helper *Helper
 }
 
 func (in *WaveProcessor) Run(ctx context.Context) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
@@ -309,6 +306,26 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 	klog.V(log.LogLevelDebug).InfoS("finished processing wave item", "resource", id, "duration", time.Since(now))
 }
 
+func (in *WaveProcessor) clientForResource(resource unstructured.Unstructured) (dynamic.ResourceInterface, error) {
+	mapping, err := in.discoveryCache.RestMapping(resource.GroupVersionKind())
+	if err != nil {
+		return nil, err
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    mapping.Resource.Group,
+		Version:  mapping.Resource.Version,
+		Resource: mapping.Resource.Resource,
+	}
+
+	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+		namespace := lo.Ternary(len(resource.GetNamespace()) == 0, "default", resource.GetNamespace())
+		return in.client.Resource(gvr).Namespace(namespace), nil
+	}
+
+	return in.client.Resource(gvr), nil
+}
+
 func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
 	live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -333,7 +350,15 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 		return
 	}
 
-	c := in.client.Resource(helpers.GVRFromGVK(live.GroupVersionKind())).Namespace(live.GetNamespace())
+	c, err := in.clientForResource(*live)
+	if err != nil {
+		in.errorsChan <- console.ServiceErrorAttributes{
+			Source:  "delete",
+			Message: fmt.Sprintf("failed to build client for resource %s/%s: %s", live.GetNamespace(), live.GetName(), err.Error()),
+		}
+		return
+	}
+
 	err = c.Delete(ctx, live.GetName(), metav1.DeleteOptions{
 		DryRun: lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
 	})
@@ -366,45 +391,6 @@ type ObjectInfo struct {
 	Scope   meta.RESTScopeName
 }
 
-type Helper struct {
-	dyn    dynamic.Interface
-	mapper meta.RESTMapper
-}
-
-func (h *Helper) BuildInfo(obj *unstructured.Unstructured) (*ObjectInfo, error) {
-	gvk := obj.GetObjectKind().GroupVersionKind()
-
-	mapping, err := h.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		return nil, fmt.Errorf("failed to map GVK: %w", err)
-	}
-
-	gvr := schema.GroupVersionResource{
-		Group:    mapping.Resource.Group,
-		Version:  mapping.Resource.Version,
-		Resource: mapping.Resource.Resource,
-	}
-
-	var client dynamic.ResourceInterface
-	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-		ns := obj.GetNamespace()
-		if ns == "" {
-			ns = "default"
-		}
-		client = h.dyn.Resource(gvr).Namespace(ns)
-	} else {
-		client = h.dyn.Resource(gvr)
-	}
-
-	return &ObjectInfo{
-		Object:  obj,
-		Mapping: mapping,
-		Client:  client,
-		GVR:     gvr,
-		Scope:   mapping.Scope.Name(),
-	}, nil
-}
-
 func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
 	entry, _ := streamline.GetGlobalStore().GetComponent(resource)
 	if managed := in.isManaged(entry, resource); managed {
@@ -418,15 +404,15 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
-	info, err := in.helper.BuildInfo(&resource)
+	c, err := in.clientForResource(resource)
 	if err != nil {
 		in.errorsChan <- console.ServiceErrorAttributes{
 			Source:  "apply",
-			Message: fmt.Sprintf("failed to build info for resource %s/%s: %s", resource.GetKind(), resource.GetName(), err.Error()),
+			Message: fmt.Sprintf("failed to build client for resource %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
+		return
 	}
-
-	appliedResource, err := info.Client.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
+	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
 		FieldManager: smcommon.ClientFieldManager,
 		Force:        true,
 		DryRun:       lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
@@ -538,7 +524,6 @@ func (in *WaveProcessor) init() {
 
 type WaveProcessorOption func(*WaveProcessor)
 
-// TODO: export to args
 func WithWaveMaxConcurrentApplies(n int) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		if n < 1 {
@@ -548,19 +533,12 @@ func WithWaveMaxConcurrentApplies(n int) WaveProcessorOption {
 	}
 }
 
-// TODO: export to args
 func WithWaveDeQueueDelay(d time.Duration) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		if d <= 0 {
 			d = defaultDeQueueDelay
 		}
 		w.deQueueDelay = d
-	}
-}
-
-func WithMapper(mapper meta.RESTMapper) WaveProcessorOption {
-	return func(w *WaveProcessor) {
-		w.mapper = mapper
 	}
 }
 
@@ -576,20 +554,18 @@ func WithWaveOnApply(onApply func(resource unstructured.Unstructured)) WaveProce
 	}
 }
 
-func WithSvcCache(c *consoleclient.Cache[console.ServiceDeploymentForAgent]) WaveProcessorOption {
+func WithWaveSvcCache(c *consoleclient.Cache[console.ServiceDeploymentForAgent]) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		w.svcCache = c
 	}
 }
 
-func NewWaveProcessor(mapper meta.RESTMapper, dynamicClient dynamic.Interface, discoveryClient discovery.DiscoveryInterface, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
+func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cache, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
 	result := &WaveProcessor{
 		mu:                   sync.Mutex{},
 		client:               dynamicClient,
-		discoveryClient:      discoveryClient,
+		discoveryCache:       cache,
 		wave:                 wave,
-		mapper:               mapper,
-		helper:               &Helper{dyn: dynamicClient, mapper: mapper},
 		maxConcurrentApplies: defaultMaxConcurrentApplies,
 		deQueueDelay:         defaultDeQueueDelay,
 	}

@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/client-go/discovery"
+
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -27,11 +28,11 @@ import (
 )
 
 type Applier struct {
-	filters         *FilterEngine
-	client          dynamic.Interface
-	discoveryClient discovery.DiscoveryInterface
-	store           store.Store
-	waveDelay       time.Duration
+	filters        *FilterEngine
+	client         dynamic.Interface
+	discoveryCache discoverycache.Cache
+	store          store.Store
+	waveDelay      time.Duration
 
 	// onApply callback is called after each resource is applied
 	onApply func(unstructured.Unstructured)
@@ -64,7 +65,7 @@ func (in *Applier) Apply(ctx context.Context,
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 	for _, wave := range waves {
-		processor := NewWaveProcessor(mapper, in.client, in.discoveryClient, wave, opts...)
+		processor := NewWaveProcessor(in.client, in.discoveryCache, wave, opts...)
 		components, serviceErrors := processor.Run(ctx)
 
 		componentList = append(componentList, components...)
@@ -93,13 +94,13 @@ func (in *Applier) Apply(ctx context.Context,
 		if err != nil || cacheEntry == nil {
 			live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
 			if err != nil {
-				klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from cache", "resource", resource)
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from discoveryCache", "resource", resource)
 				continue
 			}
 			compAttr = common.ToComponentAttributes(live)
 
 			if err := in.store.SaveComponent(*live); err != nil {
-				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component to cache", "resource", resource)
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component to discoveryCache", "resource", resource)
 			}
 		} else {
 			compAttr = lo.ToPtr(cacheEntry.ToComponentAttributes())
@@ -179,7 +180,7 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 
 func (in *Applier) filterResources(resources []unstructured.Unstructured, dryRun bool) (toApply []unstructured.Unstructured, toSkip []unstructured.Unstructured) {
 	for _, resource := range resources {
-		// In case of dry run we want to skip the cache filter.
+		// In case of dry run we want to skip the discoveryCache filter.
 		if in.filters.MatchOmit(resource, lo.Ternary(dryRun, []Filter{FilterCache}, []Filter{})...) {
 			toApply = append(toApply, resource)
 		} else {
@@ -288,13 +289,13 @@ func WithOnApply(f func(unstructured.Unstructured)) Option {
 	}
 }
 
-func NewApplier(client dynamic.Interface, discoveryClient discovery.DiscoveryInterface, store store.Store, opts ...Option) *Applier {
+func NewApplier(client dynamic.Interface, discoveryCache discoverycache.Cache, store store.Store, opts ...Option) *Applier {
 	result := &Applier{
-		discoveryClient: discoveryClient,
-		client:          client,
-		store:           store,
-		filters:         NewFilterEngine(),
-		waveDelay:       1 * time.Second,
+		discoveryCache: discoveryCache,
+		client:         client,
+		store:          store,
+		filters:        NewFilterEngine(),
+		waveDelay:      1 * time.Second,
 	}
 
 	for _, opt := range opts {

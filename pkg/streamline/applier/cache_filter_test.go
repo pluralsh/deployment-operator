@@ -61,15 +61,15 @@ func TestCacheFilter(t *testing.T) {
 		return storeInstance, unstructuredPod, cleanup
 	}
 
-	t.Run("should return true for cache miss when component not in store", func(t *testing.T) {
+	t.Run("should return true for discoveryCache miss when component not in store", func(t *testing.T) {
 		storeInstance, unstructuredPod, cleanup := setupTest(t)
 		streamline.InitGlobalStore(storeInstance)
 		defer cleanup()
 
-		assert.True(t, CacheFilter()(unstructuredPod), "expected cache miss when first applying resource")
+		assert.True(t, CacheFilter()(unstructuredPod), "expected discoveryCache miss when first applying resource")
 	})
 
-	t.Run("should return true for cache miss when component has no SHA", func(t *testing.T) {
+	t.Run("should return true for discoveryCache miss when component has no SHA", func(t *testing.T) {
 		storeInstance, unstructuredPod, cleanup := setupTest(t)
 		// Always reset the global store to this new instance
 		streamline.InitGlobalStore(storeInstance)
@@ -78,10 +78,10 @@ func TestCacheFilter(t *testing.T) {
 		err := storeInstance.SaveComponent(unstructuredPod)
 		require.NoError(t, err, "failed to save component")
 
-		assert.True(t, CacheFilter()(unstructuredPod), "expected cache miss when component has no SHA")
+		assert.True(t, CacheFilter()(unstructuredPod), "expected discoveryCache miss when component has no SHA")
 	})
 
-	t.Run("should return false for cache hit when manifest hasn't changed", func(t *testing.T) {
+	t.Run("should return false for discoveryCache hit when manifest hasn't changed", func(t *testing.T) {
 		storeInstance, unstructuredPod, cleanup := setupTest(t)
 		// Always reset the global store to this new instance
 		streamline.InitGlobalStore(storeInstance)
@@ -99,10 +99,10 @@ func TestCacheFilter(t *testing.T) {
 		err = storeInstance.UpdateComponentSHA(unstructuredPod, store.ServerSHA)
 		require.NoError(t, err, "failed to set server SHA, same as apply SHA to simulate no drift")
 
-		assert.False(t, CacheFilter()(unstructuredPod), "expected cache hit when manifest hasn't changed")
+		assert.False(t, CacheFilter()(unstructuredPod), "expected discoveryCache hit when manifest hasn't changed")
 	})
 
-	t.Run("should return true for cache miss when manifest has changed", func(t *testing.T) {
+	t.Run("should return true for discoveryCache miss when manifest has changed", func(t *testing.T) {
 		storeInstance, unstructuredPod, cleanup := setupTest(t)
 		defer cleanup()
 
@@ -131,10 +131,10 @@ func TestCacheFilter(t *testing.T) {
 		require.NoError(t, err, "failed to convert pod to unstructured")
 		modifiedPod := unstructured.Unstructured{Object: res}
 
-		assert.True(t, CacheFilter()(modifiedPod), "expected cache miss when manifest has changed (different image)")
+		assert.True(t, CacheFilter()(modifiedPod), "expected discoveryCache miss when manifest has changed (different image)")
 	})
 
-	t.Run("should return true for cache miss when server SHA differs from apply SHA", func(t *testing.T) {
+	t.Run("should return true for discoveryCache miss when server SHA differs from apply SHA", func(t *testing.T) {
 		storeInstance, unstructuredPod, cleanup := setupTest(t)
 		defer cleanup()
 
@@ -163,7 +163,7 @@ func TestCacheFilter(t *testing.T) {
 		err = storeInstance.UpdateComponentSHA(driftedPod, store.ServerSHA)
 		require.NoError(t, err, "failed to set server SHA")
 
-		assert.True(t, CacheFilter()(unstructuredPod), "expected cache miss when server SHA differs from apply SHA")
+		assert.True(t, CacheFilter()(unstructuredPod), "expected discoveryCache miss when server SHA differs from apply SHA")
 	})
 
 	t.Run("should update transient manifest SHA on each call", func(t *testing.T) {

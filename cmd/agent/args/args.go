@@ -48,6 +48,11 @@ const (
 	defaultApplierWaveDelay         = "1s"
 	defaultApplierWaveDelayDuration = time.Second
 
+	defaultApplierWaveMaxConcurrentApplies = 10
+
+	defaultApplierWaveDeQueueDelay         = "100ms"
+	defaultApplierWaveDeQueueDelayDuration = 100 * time.Millisecond
+
 	defaultPollJitter         = "15s"
 	defaultPollJitterDuration = 15 * time.Second
 
@@ -114,15 +119,17 @@ var (
 	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 100, "Maximum number of concurrent reconciles which can be run.")
 	argResyncSeconds           = flag.Int("resync-seconds", 300, "Resync duration in seconds.")
 
-	argClusterId         = flag.String("cluster-id", "", "The ID of the cluster being connected to.")
-	argConsoleUrl        = flag.String("console-url", "", "The URL of the console api to fetch services from.")
-	argDeployToken       = flag.String("deploy-token", helpers.GetEnv(EnvDeployToken, ""), "The deploy token to auth to Console API with.")
-	argProbeAddr         = flag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
-	argMetricsAddr       = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
-	argProcessingTimeout = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
-	argRefreshInterval   = flag.String("refresh-interval", defaultRefreshInterval, "DEPRECATED: Time interval to poll resources from the Console API.")
-	argPollInterval      = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
-	argApplierWaveDaley  = flag.String("applier-wave-delay", defaultApplierWaveDelay, "Delay between applier waves. Use '0' to disable.")
+	argClusterId                       = flag.String("cluster-id", "", "The ID of the cluster being connected to.")
+	argConsoleUrl                      = flag.String("console-url", "", "The URL of the console api to fetch services from.")
+	argDeployToken                     = flag.String("deploy-token", helpers.GetEnv(EnvDeployToken, ""), "The deploy token to auth to Console API with.")
+	argProbeAddr                       = flag.String("health-probe-bind-address", defaultProbeAddress, "The address the probe endpoint binds to.")
+	argMetricsAddr                     = flag.String("metrics-bind-address", defaultMetricsAddress, "The address the metric endpoint binds to.")
+	argProcessingTimeout               = flag.String("processing-timeout", defaultProcessingTimeout, "Maximum amount of time to spend trying to process queue item.")
+	argRefreshInterval                 = flag.String("refresh-interval", defaultRefreshInterval, "DEPRECATED: Time interval to poll resources from the Console API.")
+	argPollInterval                    = flag.String("poll-interval", defaultPollInterval, "Time interval to poll resources from the Console API.")
+	argApplierWaveDaley                = flag.String("applier-wave-delay", defaultApplierWaveDelay, "Delay between applier waves. Use '0' to disable.")
+	argApplierWaveMaxConcurrentApplies = flag.Int("applie-wave-max-concurrent-applies", defaultApplierWaveMaxConcurrentApplies, "Maximum number of concurrent resource applies in a wave.")
+	argApplierWaveDeQueueDelay         = flag.String("applier-wave-dequeue-delay", defaultApplierWaveDeQueueDelay, "Delay between dequeueing items from the wave queue.")
 	// TODO: ensure this arg can be safely renamed without causing breaking changes.
 	argPollJitter                           = flag.String("refresh-jitter", defaultPollJitter, "Randomly selected jitter time up to the provided duration will be added to the poll interval.")
 	argResourceCacheTTL                     = flag.String("resource-cache-ttl", defaultResourceCacheTTL, "The time to live of each resource cache entry.")
@@ -287,6 +294,25 @@ func ApplierWaveDelay() time.Duration {
 	}
 
 	return duration
+}
+
+func WaveDeQueueDelay() time.Duration {
+	duration, err := time.ParseDuration(*argApplierWaveDeQueueDelay)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse applier-wave-dequeue-delay", "value", *argApplierWaveDeQueueDelay, "default", defaultApplierWaveDeQueueDelayDuration)
+		return defaultApplierWaveDeQueueDelayDuration
+	}
+
+	return duration
+}
+
+func WaveMaxConcurrentApplies() int {
+	if argApplierWaveMaxConcurrentApplies == nil || *argApplierWaveMaxConcurrentApplies < 1 {
+		klog.ErrorS(nil, "Could not parse applier-wave-max-concurrent-applies", "value", *argApplierWaveMaxConcurrentApplies, "default", defaultApplierWaveMaxConcurrentApplies)
+		return defaultApplierWaveMaxConcurrentApplies
+	}
+
+	return *argApplierWaveMaxConcurrentApplies
 }
 
 func PollJitter() time.Duration {

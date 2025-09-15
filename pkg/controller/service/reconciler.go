@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,6 +29,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	common2 "github.com/pluralsh/deployment-operator/pkg/controller/common"
@@ -56,25 +56,25 @@ const (
 )
 
 type ServiceReconciler struct {
-	consoleClient                                                                  client.Client
-	clientset                                                                      kubernetes.Interface
-	applier                                                                        *applier.Applier
-	svcQueue                                                                       workqueue.TypedRateLimitingInterface[string]
-	typedRateLimiter                                                               workqueue.TypedRateLimiter[string]
-	svcCache                                                                       *client.Cache[console.ServiceDeploymentForAgent]
-	manifestCache                                                                  *manis.ManifestCache
-	restoreNamespace                                                               string
-	mapper                                                                         meta.RESTMapper
-	k8sClient                                                                      ctrclient.Client
-	pollInterval                                                                   time.Duration
-	dynamicClient                                                                  dynamic.Interface
-	store                                                                          store.Store
-	refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay time.Duration
-	workqueueQPS, workqueueBurst                                                   int
-	consoleURL                                                                     string
-	waveDelay                                                                      time.Duration
-	supervisor                                                                     *streamline.Supervisor
-	discoveryClient                                                                discovery.DiscoveryInterface
+	consoleClient                                                                                    client.Client
+	clientset                                                                                        kubernetes.Interface
+	applier                                                                                          *applier.Applier
+	svcQueue                                                                                         workqueue.TypedRateLimitingInterface[string]
+	typedRateLimiter                                                                                 workqueue.TypedRateLimiter[string]
+	svcCache                                                                                         *client.Cache[console.ServiceDeploymentForAgent]
+	manifestCache                                                                                    *manis.ManifestCache
+	restoreNamespace                                                                                 string
+	mapper                                                                                           meta.RESTMapper
+	k8sClient                                                                                        ctrclient.Client
+	pollInterval                                                                                     time.Duration
+	dynamicClient                                                                                    dynamic.Interface
+	store                                                                                            store.Store
+	refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay, waveDeQueueDelay time.Duration
+	workqueueQPS, workqueueBurst, waveMaxConcurrentApplies                                           int
+	consoleURL                                                                                       string
+	waveDelay                                                                                        time.Duration
+	supervisor                                                                                       *streamline.Supervisor
+	discoveryCache                                                                                   discoverycache.Cache
 }
 
 func NewServiceReconciler(consoleClient client.Client,
@@ -82,12 +82,12 @@ func NewServiceReconciler(consoleClient client.Client,
 	mapper meta.RESTMapper,
 	clientSet kubernetes.Interface,
 	dynamicClient dynamic.Interface,
-	discoveryClient discovery.DiscoveryInterface,
+	discoveryCache discoverycache.Cache,
 	store store.Store,
 	option ...ServiceReconcilerOption,
 ) (*ServiceReconciler, error) {
 	result := &ServiceReconciler{
-		discoveryClient:    discoveryClient,
+		discoveryCache:     discoveryCache,
 		consoleClient:      consoleClient,
 		k8sClient:          k8sClient,
 		clientset:          clientSet,
@@ -134,7 +134,7 @@ func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
 		return s.consoleClient.GetService(id)
 	})
 	s.manifestCache = manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL)
-	s.applier = applier.NewApplier(s.dynamicClient, s.discoveryClient, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter()))
+	s.applier = applier.NewApplier(s.dynamicClient, s.discoveryCache, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter()))
 
 	return s, nil
 }
@@ -508,7 +508,9 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			klog.V(internallog.LogLevelDebug).InfoS("registering gvr to watch", "gvr", gvr)
 			s.supervisor.Register(gvr)
 		}),
-		applier.WithSvcCache(s.svcCache),
+		applier.WithWaveSvcCache(s.svcCache),
+		applier.WithWaveDeQueueDelay(s.waveDeQueueDelay),
+		applier.WithWaveMaxConcurrentApplies(s.waveMaxConcurrentApplies),
 	)
 	if err != nil {
 		logger.Error(err, "failed to apply manifests", "service", svc.Name)

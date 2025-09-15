@@ -79,3 +79,15 @@ func WithSupervisor(supervisor *streamline.Supervisor) ServiceReconcilerOption {
 		r.supervisor = supervisor
 	}
 }
+
+func WithWaveMaxConcurrentApplies(n int) ServiceReconcilerOption {
+	return func(r *ServiceReconciler) {
+		r.waveMaxConcurrentApplies = n
+	}
+}
+
+func WithWaveDeQueueDelay(delay time.Duration) ServiceReconcilerOption {
+	return func(r *ServiceReconciler) {
+		r.waveDeQueueDelay = delay
+	}
+}

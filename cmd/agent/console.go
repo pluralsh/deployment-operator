@@ -6,12 +6,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
@@ -60,7 +60,7 @@ func registerConsoleReconcilersOrDie(
 	scheme *runtime.Scheme,
 	consoleClient client.Client,
 	supervisor *streamline.Supervisor,
-	discoveryClient discovery.DiscoveryInterface,
+	discoveryCache discoverycache.Cache,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
 		r, err := service.NewServiceReconciler(consoleClient,
@@ -68,7 +68,7 @@ func registerConsoleReconcilersOrDie(
 			mapper,
 			clientSet,
 			dynamicClient,
-			discoveryClient,
+			discoveryCache,
 			store,
 			service.WithRefresh(args.ControllerCacheTTL()),
 			service.WithManifestTTL(args.ManifestCacheTTL()),
@@ -81,6 +81,8 @@ func registerConsoleReconcilersOrDie(
 			service.WithConsoleURL(args.ConsoleUrl()),
 			service.WithPollInterval(args.PollInterval()),
 			service.WithWaveDelay(args.ApplierWaveDelay()),
+			service.WithWaveDeQueueDelay(args.WaveDeQueueDelay()),
+			service.WithWaveMaxConcurrentApplies(args.WaveMaxConcurrentApplies()),
 			service.WithSupervisor(supervisor))
 		return r, err
 	})

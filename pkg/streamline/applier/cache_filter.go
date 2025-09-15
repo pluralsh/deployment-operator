@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	FilterCache Filter = "cache"
+	FilterCache Filter = "discoveryCache"
 )
 
 // CacheFilter filters based on whether resources and/or manifests have changed since last applied.
