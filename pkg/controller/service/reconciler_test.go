@@ -132,7 +132,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			}(storeInstance)
 			streamline.InitGlobalStore(storeInstance)
 			discoverycache.InitGlobalDiscoveryCache(discoveryClient, mapper)
-			
+
 			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
 			Expect(err).NotTo(HaveOccurred())
 			_, err = reconciler.Reconcile(ctx, serviceId)
