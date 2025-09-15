@@ -105,7 +105,6 @@ func Run(ctx context.Context, client dynamic.Interface, store store.Store, disco
 		option(supervisor)
 	}
 
-	supervisor.started = true
 	supervisorMu.Unlock()
 
 	supervisor.run(ctx)
@@ -157,6 +156,10 @@ func (in *Supervisor) MaybeRegister(gvr schema.GroupVersionResource) {
 }
 
 func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
+	if !in.started {
+		return
+	}
+
 	if GroupBlacklist.Has(gvr.Group) || ResourceVersionBlacklist.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
 		klog.V(log.LogLevelExtended).InfoS("skipping resource to watch as it is blacklisted", "gvr", gvr.String())
 		return
@@ -164,13 +167,6 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 
 	if in.synchronizers.Has(gvr) {
 		klog.V(log.LogLevelExtended).InfoS("skipping resource to watch as it is already being watched", "gvr", gvr.String())
-		return
-	}
-
-	in.mu.Lock()
-	defer in.mu.Unlock()
-
-	if !in.started {
 		return
 	}
 
@@ -182,9 +178,6 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 }
 
 func (in *Supervisor) Unregister(gvr schema.GroupVersionResource) {
-	in.mu.Lock()
-	defer in.mu.Unlock()
-
 	if s, ok := in.synchronizers.Get(gvr); ok {
 		klog.V(log.LogLevelVerbose).InfoS("unregistering resource from watch", "gvr", gvr.String())
 		s.Stop()
@@ -195,6 +188,8 @@ func (in *Supervisor) Unregister(gvr schema.GroupVersionResource) {
 }
 
 func (in *Supervisor) run(ctx context.Context) {
+	in.mu.Lock()
+
 	go func() {
 		for {
 			select {
@@ -211,6 +206,9 @@ func (in *Supervisor) run(ctx context.Context) {
 		}
 	}()
 
+	in.started = true
+	in.mu.Unlock()
+
 	in.registerInitialResources()
 	in.watchDiscoveryCacheChanges()
 }
@@ -218,6 +216,10 @@ func (in *Supervisor) run(ctx context.Context) {
 func (in *Supervisor) stop() {
 	in.mu.Lock()
 	defer in.mu.Unlock()
+
+	if in.started == false {
+		return
+	}
 
 	for _, s := range in.synchronizers.Items() {
 		s.Stop()

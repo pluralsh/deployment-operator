@@ -383,14 +383,6 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 	}
 }
 
-type ObjectInfo struct {
-	Object  *unstructured.Unstructured
-	Mapping *meta.RESTMapping
-	Client  dynamic.ResourceInterface
-	GVR     schema.GroupVersionResource
-	Scope   meta.RESTScopeName
-}
-
 func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
 	entry, _ := streamline.GetGlobalStore().GetComponent(resource)
 	if managed := in.isManaged(entry, resource); managed {
@@ -420,7 +412,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 
 	if err != nil {
 		if err := streamline.GetGlobalStore().ExpireSHA(resource); err != nil {
-			klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName())
+			klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName(), "kind", resource.GetKind())
 		}
 
 		in.errorsChan <- console.ServiceErrorAttributes{
@@ -433,6 +425,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 
 	if in.onApplyCallback != nil {
 		in.onApplyCallback(resource)
+		klog.V(log.LogLevelDebug).InfoS("onApplyCallback called", "resource", resource.GetName(), "kind", resource.GetKind())
 	}
 
 	if in.dryRun {
@@ -444,13 +437,13 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	}
 
 	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
-		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName())
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName(), "kind", resource.GetKind())
 	}
 	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ServerSHA); err != nil {
-		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName())
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName(), "kind", resource.GetKind())
 	}
 	if err := streamline.GetGlobalStore().CommitTransientSHA(lo.FromPtr(appliedResource)); err != nil {
-		klog.V(log.LogLevelExtended).ErrorS(err, "failed to commit transient SHA", "resource", resource.GetName())
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to commit transient SHA", "resource", resource.GetName(), "kind", resource.GetKind())
 	}
 
 	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
