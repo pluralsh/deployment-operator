@@ -64,12 +64,15 @@ func WithSynchronizerResyncInterval(d time.Duration) Option {
 }
 
 type Supervisor struct {
-	mu                         sync.RWMutex
-	started                    bool
-	client                     dynamic.Interface
-	discoveryCache             discoverycache.Cache
-	store                      store.Store
-	register                   chan schema.GroupVersionResource
+	mu             sync.RWMutex
+	started        bool
+	client         dynamic.Interface
+	discoveryCache discoverycache.Cache
+	store          store.Store
+
+	register chan schema.GroupVersionResource
+	done     chan struct{}
+
 	synchronizers              cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
 	restartAttemptsLeftMap     cmap.ConcurrentMap[schema.GroupVersionResource, int]
 	restartDelay               time.Duration
@@ -83,7 +86,8 @@ func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache d
 		client:                     client,
 		discoveryCache:             discoveryCache,
 		store:                      store,
-		register:                   make(chan schema.GroupVersionResource),
+		register:                   make(chan schema.GroupVersionResource, 256),
+		done:                       make(chan struct{}),
 		synchronizers:              cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
 		restartAttemptsLeftMap:     cmap.NewStringer[schema.GroupVersionResource, int](),
 		maxNotFoundRetries:         3,
@@ -155,7 +159,7 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 
 	klog.V(log.LogLevelVerbose).InfoS("registering resource to watch", "gvr", gvr.String())
 	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store, in.synchronizerResyncInterval))
-	in.register <- gvr
+	in.enqueue(gvr)
 }
 
 func (in *Supervisor) Unregister(gvr schema.GroupVersionResource) {
@@ -208,15 +212,36 @@ func (in *Supervisor) stop() {
 	in.mu.RUnlock()
 
 	in.mu.Lock()
+	in.started = false
+	in.synchronizers.Clear()
+	in.restartAttemptsLeftMap.Clear()
+	in.mu.Unlock()
+
 	for _, s := range in.synchronizers.Items() {
 		s.Stop()
 	}
 
-	in.synchronizers.Clear()
-	in.restartAttemptsLeftMap.Clear()
+	close(in.done)
 	close(in.register)
-	in.started = false
-	in.mu.Unlock()
+}
+
+func (in *Supervisor) enqueue(gvr schema.GroupVersionResource) {
+	in.mu.RLock()
+	if !in.started {
+		in.mu.RUnlock()
+		return
+	}
+
+	ch := in.register
+	done := in.done
+	in.mu.RUnlock()
+
+	select {
+	case ch <- gvr: // enqueued
+	case <-done: // shutting down, drop
+	default: // buffer full, drop to avoid blocking
+		klog.V(log.LogLevelDefault).InfoS("dropping register enqueue due to full buffer", "gvr", gvr.String())
+	}
 }
 
 func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVersionResource) {
@@ -253,7 +278,7 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 		klog.V(log.LogLevelVerbose).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left, "restartDelay", delay)
 		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store, in.synchronizerResyncInterval))
 		time.AfterFunc(delay, func() {
-			in.register <- gvr
+			in.enqueue(gvr)
 		})
 
 		return
