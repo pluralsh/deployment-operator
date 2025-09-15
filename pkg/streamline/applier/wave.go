@@ -318,7 +318,12 @@ func (in *WaveProcessor) clientForResource(resource unstructured.Unstructured) (
 		Resource: mapping.Resource.Resource,
 	}
 
-	return in.client.Resource(gvr).Namespace(resource.GetNamespace()), nil
+	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+		namespace := lo.Ternary(len(resource.GetNamespace()) == 0, "default", resource.GetNamespace())
+		return in.client.Resource(gvr).Namespace(namespace), nil
+	}
+
+	return in.client.Resource(gvr), nil
 }
 
 func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Unstructured) {
