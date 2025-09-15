@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
@@ -130,8 +131,9 @@ var _ = Describe("Reconciler", Ordered, func() {
 				}
 			}(storeInstance)
 			streamline.InitGlobalStore(storeInstance)
-
-			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoveryClient, storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
+			discoverycache.InitGlobalDiscoveryCache(discoveryClient, mapper)
+			
+			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
 			Expect(err).NotTo(HaveOccurred())
 			_, err = reconciler.Reconcile(ctx, serviceId)
 			Expect(err).NotTo(HaveOccurred())
