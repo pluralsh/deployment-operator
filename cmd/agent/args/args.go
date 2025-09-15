@@ -45,8 +45,8 @@ const (
 	defaultPollInterval         = "2m"
 	defaultPollIntervalDuration = 2 * time.Minute
 
-	defaultApplierWaveDelay         = "1s"
-	defaultApplierWaveDelayDuration = time.Second
+	defaultApplierWaveDelay         = "200ms"
+	defaultApplierWaveDelayDuration = 200 * time.Millisecond
 
 	defaultPollJitter         = "15s"
 	defaultPollJitterDuration = 15 * time.Second
