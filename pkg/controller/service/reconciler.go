@@ -495,6 +495,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	)
 
 	components, errs, err := s.applier.Apply(ctx,
+		s.mapper,
 		*svc,
 		manifests,
 		applier.WithWaveDryRun(dryRun),
@@ -508,7 +509,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			s.supervisor.Register(gvr)
 		}),
 		applier.WithSvcCache(s.svcCache),
-		applier.WithMapper(s.mapper),
 	)
 	if err != nil {
 		logger.Error(err, "failed to apply manifests", "service", svc.Name)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
 
 	"github.com/pluralsh/console/go/client"
@@ -37,6 +38,7 @@ type Applier struct {
 }
 
 func (in *Applier) Apply(ctx context.Context,
+	mapper meta.RESTMapper,
 	service client.ServiceDeploymentForAgent,
 	resources []unstructured.Unstructured,
 	opts ...WaveProcessorOption,
@@ -62,7 +64,7 @@ func (in *Applier) Apply(ctx context.Context,
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
 	for _, wave := range waves {
-		processor := NewWaveProcessor(in.client, in.discoveryClient, wave, opts...)
+		processor := NewWaveProcessor(mapper, in.client, in.discoveryClient, wave, opts...)
 		components, serviceErrors := processor.Run(ctx)
 
 		componentList = append(componentList, components...)

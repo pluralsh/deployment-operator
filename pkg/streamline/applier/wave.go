@@ -10,6 +10,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -198,6 +199,8 @@ type WaveProcessor struct {
 	svcCache *consoleclient.Cache[console.ServiceDeploymentForAgent]
 
 	mapper meta.RESTMapper
+
+	helper *Helper
 }
 
 func (in *WaveProcessor) Run(ctx context.Context) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
@@ -395,6 +398,53 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 	}
 }
 
+type ObjectInfo struct {
+	Object  *unstructured.Unstructured
+	Mapping *meta.RESTMapping
+	Client  dynamic.ResourceInterface
+	GVR     schema.GroupVersionResource
+	Scope   meta.RESTScopeName
+}
+
+type Helper struct {
+	dyn    dynamic.Interface
+	mapper meta.RESTMapper
+}
+
+func (h *Helper) BuildInfo(obj *unstructured.Unstructured) (*ObjectInfo, error) {
+	gvk := obj.GetObjectKind().GroupVersionKind()
+
+	mapping, err := h.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map GVK: %w", err)
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    mapping.Resource.Group,
+		Version:  mapping.Resource.Version,
+		Resource: mapping.Resource.Resource,
+	}
+
+	var client dynamic.ResourceInterface
+	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+		ns := obj.GetNamespace()
+		if ns == "" {
+			ns = "default"
+		}
+		client = h.dyn.Resource(gvr).Namespace(ns)
+	} else {
+		client = h.dyn.Resource(gvr)
+	}
+
+	return &ObjectInfo{
+		Object:  obj,
+		Mapping: mapping,
+		Client:  client,
+		GVR:     gvr,
+		Scope:   mapping.Scope.Name(),
+	}, nil
+}
+
 func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
 	entry, _ := streamline.GetGlobalStore().GetComponent(resource)
 	if managed := in.isManaged(entry, resource); managed {
@@ -408,8 +458,15 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
-	c := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace())
-	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
+	info, err := in.helper.BuildInfo(&resource)
+	if err != nil {
+		in.errorsChan <- console.ServiceErrorAttributes{
+			Source:  "apply",
+			Message: fmt.Sprintf("failed to build info for resource %s/%s: %s", resource.GetKind(), resource.GetName(), err.Error()),
+		}
+	}
+
+	appliedResource, err := info.Client.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
 		FieldManager: smcommon.ClientFieldManager,
 		Force:        true,
 		DryRun:       lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
@@ -565,12 +622,14 @@ func WithSvcCache(c *consoleclient.Cache[console.ServiceDeploymentForAgent]) Wav
 	}
 }
 
-func NewWaveProcessor(dynamicClient dynamic.Interface, discoveryClient discovery.DiscoveryInterface, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
+func NewWaveProcessor(mapper meta.RESTMapper, dynamicClient dynamic.Interface, discoveryClient discovery.DiscoveryInterface, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
 	result := &WaveProcessor{
 		mu:                   sync.Mutex{},
 		client:               dynamicClient,
 		discoveryClient:      discoveryClient,
 		wave:                 wave,
+		mapper:               mapper,
+		helper:               &Helper{dyn: dynamicClient, mapper: mapper},
 		maxConcurrentApplies: defaultMaxConcurrentApplies,
 		deQueueDelay:         defaultDeQueueDelay,
 	}
