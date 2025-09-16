@@ -152,7 +152,11 @@ func (in *cache) MaybeResetRESTMapper(crds ...schema.GroupVersionKind) {
 }
 
 func (in *cache) RestMapping(gvk schema.GroupVersionKind) (*meta.RESTMapping, error) {
-	return in.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	in.mu.Lock()
+	mapping, err := in.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	in.mu.Unlock()
+
+	return mapping, err
 }
 
 func (in *cache) Delete(gvks ...schema.GroupVersionKind) {
@@ -246,32 +250,29 @@ func (in *cache) Refresh() error {
 
 	resourceWG.Wait()
 
-	if err == nil {
-		deletedGVKs := in.gvkCache.Difference(gvkCache)
-		for _, entry := range deletedGVKs.List() {
-			klog.V(log.LogLevelDebug).InfoS("gvk deleted", "gvk", entry)
-			in.notifyGroupVersionKindDeleted(entry)
-		}
-
-		deletedGVRs := in.gvrCache.Difference(gvrCache)
-		for _, entry := range deletedGVRs.List() {
-			klog.V(log.LogLevelDebug).InfoS("gvr deleted", "gvr", entry)
-			in.notifyGroupVersionResourceDeleted(entry)
-		}
-
-		deletedGVs := in.gvCache.Difference(gvCache)
-		for _, entry := range deletedGVs.List() {
-			klog.V(log.LogLevelDebug).InfoS("gv deleted", "gv", entry)
-			in.notifyGroupVersionDeleted(entry)
-		}
-
-		in.gvkCache = gvkCache
-		in.gvrCache = gvrCache
-		in.gvCache = gvCache
-		in.gvrToGVKCache = gvrToGVKMap
-		meta.MaybeResetRESTMapper(in.mapper)
-		klog.V(log.LogLevelDebug).InfoS("updated discovery cache")
+	deletedGVKs := in.gvkCache.Difference(gvkCache)
+	for _, entry := range deletedGVKs.List() {
+		klog.V(log.LogLevelDebug).InfoS("gvk deleted", "gvk", entry)
+		in.notifyGroupVersionKindDeleted(entry)
 	}
+
+	deletedGVRs := in.gvrCache.Difference(gvrCache)
+	for _, entry := range deletedGVRs.List() {
+		klog.V(log.LogLevelDebug).InfoS("gvr deleted", "gvr", entry)
+		in.notifyGroupVersionResourceDeleted(entry)
+	}
+
+	deletedGVs := in.gvCache.Difference(gvCache)
+	for _, entry := range deletedGVs.List() {
+		klog.V(log.LogLevelDebug).InfoS("gv deleted", "gv", entry)
+		in.notifyGroupVersionDeleted(entry)
+	}
+
+	in.gvkCache = gvkCache
+	in.gvrCache = gvrCache
+	in.gvCache = gvCache
+	in.gvrToGVKCache = gvrToGVKMap
+	meta.MaybeResetRESTMapper(in.mapper)
 
 	in.updateServerVersion()
 
@@ -307,11 +308,9 @@ func (in *cache) KindFor(gvr schema.GroupVersionResource) (schema.GroupVersionKi
 		return gvk, nil
 	}
 
-	in.mu.RLock()
-	mapper := in.mapper
-	in.mu.RUnlock()
-
-	gvk, err := mapper.KindFor(gvr)
+	in.mu.Lock()
+	gvk, err := in.mapper.KindFor(gvr)
+	in.mu.Unlock()
 	if err != nil {
 		return schema.GroupVersionKind{}, err
 	}
@@ -577,6 +576,7 @@ func NewCache(client discovery.DiscoveryInterface, mapper meta.RESTMapper, optio
 		gvkCache:                      containers.NewSet[schema.GroupVersionKind](),
 		gvrCache:                      containers.NewSet[schema.GroupVersionResource](),
 		gvCache:                       containers.NewSet[schema.GroupVersion](),
+		gvrToGVKCache:                 cmap.NewStringer[schema.GroupVersionResource, schema.GroupVersionKind](),
 		onGroupVersionAdded:           make([]GroupVersionUpdateFunc, 0),
 		onGroupVersionDeleted:         make([]GroupVersionUpdateFunc, 0),
 		onGroupVersionKindAdded:       make([]GroupVersionKindUpdateFunc, 0),

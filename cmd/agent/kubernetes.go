@@ -7,11 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -242,11 +244,6 @@ func registerKubeReconcilersOrDie(
 		setupLog.Error(err, "unable to create controller", "controller", "UpgradeInsights")
 	}
 
-	// statusController := controller.NewStatusReconciler(manager.GetClient())
-	// if err := statusController.SetupWithManager(manager); err != nil {
-	//	setupLog.Error(err, "unable to setup controller", "controller", "StatusController")
-	//}
-
 	if err := (&controller.PipelineGateReconciler{
 		Client:        manager.GetClient(),
 		ConsoleClient: consoleclient.New(args.ConsoleUrl(), args.DeployToken()),
@@ -265,17 +262,17 @@ func registerKubeReconcilersOrDie(
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}
 
-	// if err := (&controller.KubecostExtractorReconciler{
-	//	Client:           manager.GetClient(),
-	//	Scheme:           manager.GetScheme(),
-	//	KubeClient:       kubeClient,
-	//	ExtConsoleClient: extConsoleClient,
-	//	Tasks:            cmap.New[context.CancelFunc](),
-	//	Proxy:            enableKubecostProxy,
-	//	ServiceIDCache:   controller.NewServiceIDCache(serviceIDCacheExpiry),
-	// }).SetupWithManager(manager); err != nil {
-	//	setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
-	//}
+	if err := (&controller.KubecostExtractorReconciler{
+		Client:           manager.GetClient(),
+		Scheme:           manager.GetScheme(),
+		KubeClient:       kubeClient,
+		ExtConsoleClient: extConsoleClient,
+		Tasks:            cmap.New[context.CancelFunc](),
+		Proxy:            enableKubecostProxy,
+		ServiceIDCache:   controller.NewServiceIDCache(12 * time.Hour),
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
+	}
 
 	if err := (&controller.ClusterDrainReconciler{
 		Client: manager.GetClient(),
