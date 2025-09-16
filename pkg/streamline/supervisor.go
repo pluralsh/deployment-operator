@@ -157,8 +157,15 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 
 	in.resetAttempts(gvr)
 
+	gvk, err := in.discoveryCache.KindFor(gvr)
+	if err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
+		return
+	}
+
 	klog.V(log.LogLevelVerbose).InfoS("registering resource to watch", "gvr", gvr.String())
-	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store, in.synchronizerResyncInterval))
+
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
 	in.enqueue(gvr)
 }
 
@@ -274,9 +281,15 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 			return
 		}
 
+		gvk, err := in.discoveryCache.KindFor(gvr)
+		if err != nil {
+			klog.V(log.LogLevelDefault).ErrorS(err, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
+			return
+		}
+
 		delay := common.WithJitter(in.restartDelay)
 		klog.V(log.LogLevelVerbose).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left, "restartDelay", delay)
-		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, in.store, in.synchronizerResyncInterval))
+		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
 		time.AfterFunc(delay, func() {
 			in.enqueue(gvr)
 		})

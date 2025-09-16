@@ -303,18 +303,20 @@ func (in *cache) GroupVersion() containers.Set[schema.GroupVersion] {
 }
 
 func (in *cache) KindFor(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
-	in.mu.RLock()
-	defer in.mu.RUnlock()
-
 	if gvk, ok := in.gvrToGVKCache.Get(gvr); ok {
 		return gvk, nil
 	}
 
-	gvk, err := in.mapper.KindFor(gvr)
+	in.mu.RLock()
+	mapper := in.mapper
+	in.mu.RUnlock()
+
+	gvk, err := mapper.KindFor(gvr)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
 	}
 
+	in.gvrToGVKCache.Set(gvr, gvk)
 	return gvk, nil
 }
 

@@ -180,6 +180,18 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 	reconcileID := uuid.NewUUID()
 	ctx = addReconcileID(ctx, reconcileID)
 
+	// TODO: remove before the release
+	ticker := time.NewTicker(30 * time.Second)
+	go func() {
+		for range ticker.C {
+			log.Info("Still reconciling...", "serviceID", id, "reconcileID", reconcileID)
+		}
+	}()
+	defer func() {
+		ticker.Stop()
+		log.Info("Reconcile done", "serviceID", id, "reconcileID", reconcileID)
+	}()
+
 	// RunInformersAndControllers the syncHandler, passing it the Namespace/Name string of the
 	// resource to be synced.
 	log.V(5).Info("Reconciling")

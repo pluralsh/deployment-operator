@@ -10,8 +10,6 @@ import (
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,13 +38,15 @@ type synchronizer struct {
 	client dynamic.Interface
 
 	gvr            schema.GroupVersionResource
+	gvk            schema.GroupVersionKind
 	store          store.Store
 	resyncInterval time.Duration
 }
 
-func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, store store.Store, resyncInterval time.Duration) Synchronizer {
+func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration) Synchronizer {
 	return &synchronizer{
 		gvr:            gvr,
+		gvk:            gvk,
 		client:         client,
 		store:          store,
 		resyncInterval: resyncInterval,
@@ -171,12 +171,8 @@ func (in *synchronizer) Stop() {
 		return
 	}
 
-	if gvk, err := discovery.GlobalCache().KindFor(in.gvr); err != nil {
-		klog.ErrorS(err, "failed to get kind for gvr", "gvr", in.gvr)
-	} else {
-		if err = in.store.DeleteComponents(gvk.Group, gvk.Version, gvk.Kind); err != nil {
-			klog.ErrorS(err, "failed to delete resources from store", "gvr", in.gvr)
-		}
+	if err := in.store.DeleteComponents(in.gvk.Group, in.gvk.Version, in.gvk.Kind); err != nil {
+		klog.ErrorS(err, "failed to delete resources from store", "gvr", in.gvr)
 	}
 
 	in.cancel()
