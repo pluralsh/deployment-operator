@@ -319,11 +319,11 @@ func (in *cache) KindFor(gvr schema.GroupVersionResource) (schema.GroupVersionKi
 }
 
 func (in *cache) ServerVersion() *version.Info {
+	in.mu.Lock()
 	if in.serverVersion == nil {
-		in.mu.Lock()
 		in.updateServerVersion()
-		in.mu.Unlock()
 	}
+	in.mu.Unlock()
 
 	in.mu.RLock()
 	defer in.mu.RUnlock()
