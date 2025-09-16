@@ -103,6 +103,9 @@ const (
 	defaultSupervisorCacheSyncTimeoutDuration           = 10 * time.Second
 	defaultSupervisorSynchronizerResyncInterval         = "30m"
 	defaultSupervisorSynchronizerResyncIntervalDuration = 30 * time.Minute
+
+	defaultKubeCostExtractorCacheTTL         = "12h"
+	defaultKubeCostExtractorCacheTTLDuration = 12 * time.Hour
 )
 
 var (
@@ -158,6 +161,7 @@ var (
 	argSupervisorRestartDelay               = flag.String("supervisor-restart-delay", defaultSupervisorRestartDelay, "The delay to wait before restarting a synchronizer.")
 	argSupervisorCacheSyncTimeout           = flag.String("supervisor-cache-sync-timeout", defaultSupervisorCacheSyncTimeout, "The timeout to wait for a synchronizer to sync its cache.")
 	argSupervisorSynchronizerResyncInterval = flag.String("supervisor-synchronizer-resync-interval", defaultSupervisorSynchronizerResyncInterval, "The interval to resync a synchronizer.")
+	argKubeCostExtractorCacheTTL            = flag.String("kubecost-extractor-cache-ttl", defaultKubeCostExtractorCacheTTL, "The time to live of the Kubecost service ID cache entries.")
 	serviceSet                              containers.Set[string]
 )
 
@@ -580,5 +584,14 @@ func SupervisorSynchronizerResyncInterval() time.Duration {
 		return defaultSupervisorSynchronizerResyncIntervalDuration
 	}
 
+	return duration
+}
+
+func KubeCostExtractorCacheTTL() time.Duration {
+	duration, err := time.ParseDuration(*argKubeCostExtractorCacheTTL)
+	if err != nil {
+		klog.ErrorS(err, "Could not parse kubecost-extractor-cache-ttl", "value", *argKubeCostExtractorCacheTTL, "default", defaultKubeCostExtractorCacheTTL)
+		return defaultKubeCostExtractorCacheTTLDuration
+	}
 	return duration
 }

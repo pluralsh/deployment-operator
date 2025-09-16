@@ -269,7 +269,7 @@ func registerKubeReconcilersOrDie(
 		ExtConsoleClient: extConsoleClient,
 		Tasks:            cmap.New[context.CancelFunc](),
 		Proxy:            enableKubecostProxy,
-		ServiceIDCache:   controller.NewServiceIDCache(12 * time.Hour),
+		ServiceIDCache:   controller.NewServiceIDCache(args.KubeCostExtractorCacheTTL()),
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MetricsAggregate")
 	}

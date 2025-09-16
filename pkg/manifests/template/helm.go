@@ -464,8 +464,6 @@ func defaultKeyring() string {
 	return filepath.Join(homedir.HomeDir(), ".gnupg", "pubring.gpg")
 }
 
-var errNoRepositories = errors.New("no repositories found. You must add one before updating")
-
 // UpdateRepos now receives EnvSettings
 func UpdateRepos(settings *cli.EnvSettings) error {
 	repoFileMutex.Lock()
@@ -550,10 +548,6 @@ func AddRepo(repoName, repoUrl string, settings *cli.EnvSettings) error {
 	f.Update(&c)
 	klog.V(loglevel.LogLevelExtended).InfoS("helm repo added", "name", repoName, "file", repoFile)
 	return f.WriteFile(repoFile, 0644)
-}
-
-func isNotExist(err error) bool {
-	return os.IsNotExist(errors.Cause(err))
 }
 
 func HelmSettings() (*cli.EnvSettings, error) {
