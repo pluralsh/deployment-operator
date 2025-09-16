@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -105,19 +106,19 @@ func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache d
 
 func (in *Supervisor) WaitForCacheSync(ctx context.Context) error {
 	timeoutChan := time.After(in.cacheSyncTimeout)
-	syncedCount := 0
+	syncedCount := atomic.Int32{}
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-timeoutChan:
-			return fmt.Errorf("timed out waiting for cache sync, synced %d out of %d synchronizers", syncedCount, len(in.synchronizers.Items()))
+			return fmt.Errorf("timed out waiting for cache sync, synced %d out of %d synchronizers", syncedCount.Load(), len(in.synchronizers.Items()))
 		case <-time.After(time.Second):
-			syncedCount = 0
+			syncedCount.Store(0)
 			synced := lo.EveryBy(lo.Values(in.synchronizers.Items()), func(s Synchronizer) bool {
 				if s.Started() {
-					syncedCount++
-					klog.InfoS("synchronizers synced", "syncedCount", syncedCount)
+					syncedCount.Add(1)
+					klog.InfoS("synchronizers synced", "syncedCount", syncedCount.Load())
 				}
 
 				return s.Started()
