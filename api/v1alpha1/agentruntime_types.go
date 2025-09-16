@@ -2,6 +2,8 @@ package v1alpha1
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,6 +23,48 @@ type AgentRuntimeSpec struct {
 	// Bindings define the creation permissions for this agent runtime.
 	// +kubebuilder:validation:Optional
 	Bindings *AgentRuntimeBindings `json:"bindings,omitempty"`
+
+	// Template defines the pod template for this agent runtime.
+	// +kubebuilder:validation:Required
+	Template corev1.PodTemplateSpec `json:"template"`
+
+	// Config contains typed configuration depending on the chosen runtime type.
+	Config AgentRuntimeConfig `json:"config"`
+}
+
+// AgentRuntimeConfig contains typed configuration for the agent runtime.
+type AgentRuntimeConfig struct {
+	// Config for Claude CLI runtime.
+	// +kubebuilder:validation:Optional
+	Claude *ClaudeConfig `json:"claude,omitempty"`
+
+	// Config for OpenCode CLI runtime.
+	// +kubebuilder:validation:Optional
+	OpenCode *OpenCodeConfig `json:"opencode,omitempty"`
+}
+
+// ClaudeConfig contains configuration for the Claude CLI runtime.
+type ClaudeConfig struct {
+	// ApiKeySecretRef Reference to a Kubernetes Secret containing the Claude API key.
+	ApiKeySecretRef *corev1.SecretKeySelector `json:"apiKeySecretRef,omitempty"`
+
+	// Model Name of the model to use.
+	Model *string `json:"model,omitempty"`
+
+	// ExtraArgs CLI args for advanced flags not modeled here
+	ExtraArgs []string `json:"extraArgs,omitempty"`
+}
+
+// OpenCodeConfig contains configuration for the OpenCode CLI runtime.
+type OpenCodeConfig struct {
+	// API endpoint for the OpenCode service.
+	Endpoint string `json:"endpoint"`
+
+	// Reference to a Kubernetes Secret containing the API token for OpenCode.
+	TokenSecretRef corev1.SecretKeySelector `json:"tokenSecretRef"`
+
+	// Extra args for advanced or experimental CLI flags.
+	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
 type AgentRuntimeBindings struct {
@@ -35,6 +79,15 @@ func (in *AgentRuntime) ConsoleName() string {
 	}
 
 	return in.Name
+}
+
+func (in *AgentRuntime) SetCondition(condition metav1.Condition) {
+	meta.SetStatusCondition(&in.Status.Conditions, condition)
+}
+
+// ConsoleID implements [PluralResource] interface
+func (in *AgentRuntime) ConsoleID() *string {
+	return in.Status.ID
 }
 
 //+kubebuilder:object:root=true
