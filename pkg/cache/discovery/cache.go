@@ -308,10 +308,8 @@ func (in *cache) KindFor(gvr schema.GroupVersionResource) (schema.GroupVersionKi
 	}
 
 	in.mu.RLock()
-	mapper := in.mapper
+	gvk, err := in.mapper.KindFor(gvr)
 	in.mu.RUnlock()
-
-	gvk, err := mapper.KindFor(gvr)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
 	}
@@ -577,6 +575,7 @@ func NewCache(client discovery.DiscoveryInterface, mapper meta.RESTMapper, optio
 		gvkCache:                      containers.NewSet[schema.GroupVersionKind](),
 		gvrCache:                      containers.NewSet[schema.GroupVersionResource](),
 		gvCache:                       containers.NewSet[schema.GroupVersion](),
+		gvrToGVKCache:                 cmap.NewStringer[schema.GroupVersionResource, schema.GroupVersionKind](),
 		onGroupVersionAdded:           make([]GroupVersionUpdateFunc, 0),
 		onGroupVersionDeleted:         make([]GroupVersionUpdateFunc, 0),
 		onGroupVersionKindAdded:       make([]GroupVersionKindUpdateFunc, 0),
