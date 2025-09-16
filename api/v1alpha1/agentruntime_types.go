@@ -15,8 +15,8 @@ type AgentRuntimeSpec struct {
 	Name *string `json:"name,omitempty"`
 
 	// Type specifies the agent runtime to use for executing the stack.
-	// One of CLAUDE, OPENCODE.
-	// +kubebuilder:validation:Enum=CLAUDE;OPENCODE
+	// One of CLAUDE, OPENCODE, GEMINI, CUSTOM.
+	// +kubebuilder:validation:Enum=CLAUDE;OPENCODE;GEMINI;CUSTOM
 	// +kubebuilder:validation:Required
 	Type console.AgentRuntimeType `json:"type"`
 

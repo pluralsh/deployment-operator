@@ -1,6 +1,6 @@
 module github.com/pluralsh/deployment-operator
 
-go 1.24.2
+go 1.25.1
 
 require (
 	github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2 v2.1.0-dev.1
@@ -40,7 +40,7 @@ require (
 	github.com/openshift/api v0.0.0-20231025170628-b8a18fdc040d
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.49.3
+	github.com/pluralsh/console/go/client v1.49.5
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.3.3
@@ -50,7 +50,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
-	github.com/vektah/gqlparser/v2 v2.5.22
+	github.com/vektah/gqlparser/v2 v2.5.26
 	github.com/vektra/mockery/v2 v2.45.1
 	github.com/vmware-tanzu/velero v1.14.1
 	github.com/yuin/gopher-lua v1.1.1
@@ -91,7 +91,7 @@ require (
 	cloud.google.com/go/storage v1.49.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/4meepo/tagalign v1.4.1 // indirect
-	github.com/99designs/gqlgen v0.17.64 // indirect
+	github.com/99designs/gqlgen v0.17.73 // indirect
 	github.com/Abirdcfly/dupword v0.1.3 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 // indirect
 	github.com/Antonboom/errname v1.0.0 // indirect
@@ -497,14 +497,14 @@ require (
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20241108190413-2d47ceb2692f // indirect
-	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
-	golang.org/x/tools v0.30.0 // indirect
+	golang.org/x/tools v0.32.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240716161551-93cc26a95ae9 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/api v0.216.0 // indirect
