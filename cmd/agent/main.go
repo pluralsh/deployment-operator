@@ -215,9 +215,10 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 		discoverycache.WithRefreshInterval(args.DiscoveryCacheRefreshInterval()),
 		discoverycache.WithCache(cache),
 	).Start(ctx); err != nil {
-		setupLog.Error(err, "unable to start discovery manager")
-		os.Exit(1)
+		setupLog.Error(err, "unable to start discovery manager, cache might not be up to date")
+		return
 	}
+
 	setupLog.Info("discovery manager started with initial cache sync", "duration", time.Since(now))
 }
 
@@ -234,6 +235,7 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 	setupLog.Info("waiting for synchronizers cache to sync")
 	if err := supervisor.WaitForCacheSync(ctx); err != nil {
 		setupLog.Error(err, "unable to sync resource cache")
+		return supervisor
 	}
 
 	setupLog.Info("started synchronizer supervisor with initial cache sync", "duration", time.Since(now))

@@ -113,9 +113,11 @@ func (in *Supervisor) WaitForCacheSync(ctx context.Context) error {
 		case <-timeoutChan:
 			return fmt.Errorf("timed out waiting for cache sync, synced %d out of %d synchronizers", syncedCount, len(in.synchronizers.Items()))
 		case <-time.After(time.Second):
+			syncedCount = 0
 			synced := lo.EveryBy(lo.Values(in.synchronizers.Items()), func(s Synchronizer) bool {
 				if s.Started() {
 					syncedCount++
+					klog.InfoS("synchronizers synced", "syncedCount", syncedCount)
 				}
 
 				return s.Started()

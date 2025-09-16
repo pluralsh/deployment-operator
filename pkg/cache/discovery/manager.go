@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -51,16 +51,26 @@ func (in *manager) Start(ctx context.Context) error {
 	in.mu.Unlock()
 
 	klog.V(log.LogLevelInfo).InfoS("starting discovery cache manager", "refreshInterval", in.refreshInterval)
-	return helpers.DynamicBackgroundPollUntilContextCancel(internalCtx, func() time.Duration { return in.refreshInterval }, true, func(_ context.Context) (done bool, err error) {
-		if err = in.cache.Refresh(); err != nil {
-			klog.V(log.LogLevelExtended).ErrorS(err, "failed to refresh discovery cache")
-		}
+	return in.start(internalCtx)
+}
 
-		metrics.Record().DiscoveryAPICacheRefresh(err)
+func (in *manager) start(ctx context.Context) error {
+	err := in.cache.Refresh()
 
-		// We want to always poll even if we get an error
-		return false, nil
-	})
+	go func() {
+		_ = wait.PollUntilContextCancel(ctx, in.refreshInterval, false, func(_ context.Context) (bool, error) {
+			if err = in.cache.Refresh(); err != nil {
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to refresh discovery cache")
+			}
+
+			metrics.Record().DiscoveryAPICacheRefresh(err)
+
+			// We want to always poll even if we get an error
+			return false, nil
+		})
+	}()
+
+	return err
 }
 
 func (in *manager) Stop() {
