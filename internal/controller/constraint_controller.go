@@ -90,7 +90,7 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("recording constraint", "name", pca.Name)
+	logger.V(3).Info("recording constraint", "name", pca.Name)
 	r.Constraints[pca.Name] = *pca
 
 	for _, chunk := range lo.Chunk(algorithms.MapValues[string, console.PolicyConstraintAttributes](r.Constraints), constraintChunkSize) {

@@ -14,11 +14,15 @@ import (
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	clientgocache "k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -44,11 +48,22 @@ func emptyDiskHealthCheck(_ *http.Request) error {
 }
 
 func initKubeManagerOrDie(config *rest.Config) manager.Manager {
+	watchErrHandler := func(ctx context.Context, r *clientgocache.Reflector, err error) {
+		switch {
+		case apierrors.IsNotFound(err), apierrors.IsGone(err), meta.IsNoMatchError(err):
+			setupLog.V(2).Error(err, "ignoring watch error for removed resource")
+			return
+		default:
+			clientgocache.DefaultWatchErrorHandler(ctx, r, err)
+		}
+	}
+
 	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		NewClient:              ctrlclient.New, // client reads directly from the API server
 		Logger:                 setupLog,
 		Scheme:                 scheme,
 		LeaderElection:         args.EnableLeaderElection(),
+		Cache:                  crcache.Options{DefaultWatchErrorHandler: watchErrHandler},
 		LeaderElectionID:       "dep12loy45.plural.sh",
 		HealthProbeBindAddress: args.ProbeAddr(),
 		Metrics: server.Options{
