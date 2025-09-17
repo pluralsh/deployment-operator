@@ -4,9 +4,11 @@ import (
 	"context"
 	"time"
 
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,8 +85,19 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		agentRuntime.Status.ID = &apiAgentRuntime.ID
 	}
-
 	agentRuntime.Status.SHA = &sha
+
+	pager := r.ListAgentRuns(ctx)
+	for pager.HasNext() {
+		runs, err := pager.NextPage()
+		if err != nil {
+			logger.Error(err, "failed to fetch run list")
+			return ctrl.Result{}, err
+		}
+		for _, run := range runs {
+
+		}
+	}
 
 	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
@@ -98,6 +111,25 @@ func (r *AgentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		For(&v1alpha1.AgentRuntime{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
+}
+
+func (r *AgentRuntimeReconciler) ListAgentRuns(ctx context.Context) *algorithms.Pager[*console.ListAgentRuns_AgentRuns_Edges] {
+	logger := log.FromContext(ctx)
+	logger.V(4).Info("create pager")
+	fetch := func(page *string, size int64) ([]*console.ListAgentRuns_AgentRuns_Edges, *algorithms.PageInfo, error) {
+		resp, err := r.consoleClient.ListAgentRuns(ctx, page, &size)
+		if err != nil {
+			logger.Error(err, "failed to fetch stack run")
+			return nil, nil, err
+		}
+		pageInfo := &algorithms.PageInfo{
+			HasNext:  resp.PageInfo.HasNextPage,
+			After:    resp.PageInfo.EndCursor,
+			PageSize: size,
+		}
+		return resp.Edges, pageInfo, nil
+	}
+	return algorithms.NewPager[*console.ListAgentRuns_AgentRuns_Edges](100, fetch)
 }
 
 func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime) *ctrl.Result {

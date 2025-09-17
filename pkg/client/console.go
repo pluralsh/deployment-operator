@@ -83,4 +83,5 @@ type Client interface {
 	UpsertAgentRuntime(ctx context.Context, attrs console.AgentRuntimeAttributes) (*console.AgentRuntimeFragment, error)
 	DeleteAgentRuntime(ctx context.Context, id string) error
 	ListAgentRuntime(ctx context.Context, after *string, first *int64, q *string, typeArg *console.AgentRuntimeType) (*console.AgentRuntimeConnectionFragment, error)
+	ListAgentRuns(ctx context.Context, after *string, first *int64) (*console.ListAgentRuns_AgentRuns, error)
 }

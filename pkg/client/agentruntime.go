@@ -66,3 +66,14 @@ func (c *client) ListAgentRuntime(ctx context.Context, after *string, first *int
 	}
 	return response.AgentRuntimes, nil
 }
+
+func (c *client) ListAgentRuns(ctx context.Context, after *string, first *int64) (*console.ListAgentRuns_AgentRuns, error) {
+	response, err := c.consoleClient.ListAgentRuns(ctx, after, first, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if response.AgentRuns == nil {
+		return nil, stderrors.New("the response from ListAgentRuns is nil")
+	}
+	return response.AgentRuns, nil
+}
