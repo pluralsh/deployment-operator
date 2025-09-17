@@ -166,13 +166,15 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 }
 
 func (in *synchronizer) Stop() {
-	in.mu.Lock()
-	defer in.mu.Unlock()
-
+	in.startMu.Lock()
 	if !in.started {
+		in.startMu.Unlock()
 		return
 	}
+	in.startMu.Unlock()
 
+	in.mu.Lock()
+	defer in.mu.Unlock()
 	if err := in.store.DeleteComponents(in.gvk.Group, in.gvk.Version, in.gvk.Kind); err != nil {
 		klog.ErrorS(err, "failed to delete resources from store", "gvr", in.gvr)
 	}
