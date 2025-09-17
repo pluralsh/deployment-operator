@@ -216,7 +216,7 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 		discoverycache.WithRefreshInterval(args.DiscoveryCacheRefreshInterval()),
 		discoverycache.WithCache(cache),
 	).Start(ctx); err != nil {
-		setupLog.Error(err, "unable to start discovery manager, cache might not be up to date")
+		setupLog.Error(err, "error starting discovery manager, cache might not be up to date")
 		return
 	}
 

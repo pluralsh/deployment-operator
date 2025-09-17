@@ -3,9 +3,7 @@ package streamline
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -30,8 +28,15 @@ var (
 	})
 
 	ResourceVersionBlacklist = containers.ToSet([]string{
-		"componentstatuses/v1", // throwing warnings about deprecation since 1.19
-		"events/v1",            // no need to watch for resource that are not created by the user
+		"componentstatuses/v1",         // throwing warnings about deprecation since 1.19
+		"events/v1",                    // no need to watch for resource that are not created by the user
+		"bindings/v1",                  // it's not possible to watch bindings
+		"localsubjectaccessreviews/v1", // it's not possible to watch localsubjectaccessreviews
+		"selfsubjectreviews/v1",        // it's not possible to watch selfsubjectreviews
+		"selfsubjectaccessreviews/v1",  // it's not possible to watch selfsubjectaccessreviews
+		"selfsubjectrulesreviews/v1",   // it's not possible to watch selfsubjectrulesreviews
+		"tokenreviews/v1",              // it's not possible to watch tokenreviews
+		"subjectaccessreviews/v1",      // it's not possible to watch subjectaccessreviews
 	})
 
 	OptionalResourceVersionList = containers.ToSet([]string{
@@ -97,8 +102,8 @@ func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache d
 		restartDelay:               1 * time.Second,
 		cacheSyncTimeout:           5 * time.Second,
 		synchronizerResyncInterval: 30 * time.Minute,
-		dequeueJitter:              500 * time.Millisecond,
-		maxConcurrentRegistrations: 10,
+		dequeueJitter:              200 * time.Millisecond,
+		maxConcurrentRegistrations: 20,
 	}
 
 	for _, option := range options {
@@ -112,7 +117,6 @@ func (in *Supervisor) WaitForCacheSync(ctx context.Context) error {
 	timeoutChan := time.After(in.cacheSyncTimeout)
 	syncedCount := 0
 	syncedFunc := func() bool {
-		klog.Info("waiting for cache sync")
 		syncedCount = lo.CountBy(lo.Values(in.synchronizers.Items()), func(s Synchronizer) bool { return s.Started() })
 		return syncedCount == in.synchronizers.Count()
 	}
@@ -165,11 +169,11 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 
 	gvk, err := in.discoveryCache.KindFor(gvr)
 	if err != nil {
-		klog.V(log.LogLevelDefault).ErrorS(err, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
 		return
 	}
 
-	klog.V(log.LogLevelVerbose).InfoS("registering resource to watch", "gvr", gvr.String())
+	klog.V(log.LogLevelExtended).InfoS("registering resource to watch", "gvr", gvr.String())
 	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
 	in.registerQueue.Add(gvr)
 }
@@ -199,7 +203,7 @@ func (in *Supervisor) Run(ctx context.Context) {
 		for i := 0; i < in.maxConcurrentRegistrations; i++ {
 			go func() {
 				for in.processNextWorkItem(ctx) {
-					time.Sleep(time.Duration(rand.Int63n(int64(in.dequeueJitter))))
+					time.Sleep(common.WithJitter(in.dequeueJitter))
 				}
 			}()
 		}
@@ -276,14 +280,13 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 
 		gvk, err := in.discoveryCache.KindFor(gvr)
 		if err != nil {
-			klog.V(log.LogLevelDefault).ErrorS(err, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
+			klog.V(log.LogLevelVerbose).ErrorS(err, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
 			return
 		}
 
-		delay := common.WithJitter(in.restartDelay)
-		klog.V(log.LogLevelVerbose).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left, "restartDelay", delay)
+		klog.V(log.LogLevelExtended).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left)
 		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
-		in.registerQueue.Add(gvr)
+		in.registerQueue.AddRateLimited(gvr)
 		return
 	}
 

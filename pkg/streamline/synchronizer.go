@@ -56,6 +56,7 @@ func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, 
 
 func (in *synchronizer) Start(ctx context.Context) error {
 	in.mu.Lock()
+	now := time.Now()
 
 	internalCtx, cancel := context.WithCancel(ctx)
 	in.cancel = cancel
@@ -67,6 +68,7 @@ func (in *synchronizer) Start(ctx context.Context) error {
 	}
 
 	in.handleList(lo.FromPtr(list))
+
 	resourceVersion := list.GetResourceVersion()
 	watchCh, err := in.client.Resource(in.gvr).Namespace(metav1.NamespaceAll).Watch(internalCtx, metav1.ListOptions{
 		ResourceVersion: resourceVersion,
@@ -84,7 +86,7 @@ func (in *synchronizer) Start(ctx context.Context) error {
 	in.started = true
 	in.startMu.Unlock()
 
-	klog.V(log.LogLevelVerbose).InfoS("started watching resources", "gvr", in.gvr, "resourceVersion", resourceVersion, "resyncAfter", interval)
+	klog.V(log.LogLevelVerbose).InfoS("started watching resources", "gvr", in.gvr, "resourceVersion", resourceVersion, "resyncAfter", interval, "took", time.Since(now))
 	for {
 		select {
 		case <-ctx.Done():
