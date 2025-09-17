@@ -1802,6 +1802,32 @@ func TestComponentCache_CommitTransientSHA(t *testing.T) {
 	})
 }
 
+func TestComponentCache_SaveComponents(t *testing.T) {
+	var objs []unstructured.Unstructured
+
+	storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+	assert.NoError(t, err)
+	defer func(storeInstance store.Store) {
+		require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+	}(storeInstance)
+
+	for i := 0; i < 10; i++ {
+		uid := fmt.Sprintf("uid-%d", i)
+		name := fmt.Sprintf("component-%d", i)
+		obj := newUnstructured(uid, name, "default", "apps", "v1", "Deployment")
+		objs = append(objs, obj)
+	}
+	require.NoError(t, storeInstance.SaveComponents(objs))
+
+	for _, obj := range objs {
+		entry, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err, "failed to get component %s", obj.GetName())
+		require.NotNil(t, entry, "expected component %s to exist", obj.GetName())
+		require.Equal(t, obj.GetName(), entry.Name, "expected component name to match")
+	}
+
+}
+
 func newUnstructured(uid, name, namespace, group, version, kind string) unstructured.Unstructured {
 	obj := unstructured.Unstructured{}
 	obj.SetUID(types.UID(uid))
