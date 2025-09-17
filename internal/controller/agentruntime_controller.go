@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -95,7 +96,7 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, err
 		}
 		for _, run := range runs {
-
+			fmt.Println(run.Node.ID) // TODO
 		}
 	}
 
