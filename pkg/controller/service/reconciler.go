@@ -399,10 +399,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	)
 
 	defer func() {
-		if err != nil {
-			logger.Error(err, "process item")
-		}
-
 		// Update the error status if the error is not expected or nil (to clear the status).
 		if !errors.Is(err, plrlerrors.ErrExpected) && !done {
 			s.UpdateErrorStatus(ctx, id, err)
@@ -417,8 +413,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		)
 	}()
 
-	logger.V(4).Info("local", "flag", args.Local())
 	if args.Local() && svc.Name == OperatorService {
+		logger.V(4).Info("local", "flag", args.Local())
 		return
 	}
 
@@ -443,7 +439,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
-	logger.V(4).Info("Fetching manifests", "service", svc.Name)
 	dir, err := s.manifestCache.Fetch(svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)

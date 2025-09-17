@@ -184,14 +184,23 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 	// resource to be synced.
 	log.V(5).Info("Reconciling")
 	result, err := c.reconcile(ctx, id)
+
+	if !result.IsZero() && err != nil {
+		log.V(1).Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
+	}
+
 	switch {
 	case err != nil:
-		c.Do.Queue().AddRateLimited(id)
-
-		if !result.IsZero() {
-			log.V(1).Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
+		maxRetries := 10
+		if c.Do.Queue().NumRequeues(id) >= maxRetries {
+			c.Do.Queue().Forget(id)
+			log.Error(err, "Reconciler error, max retries reached")
+			return
+		} else {
+			c.Do.Queue().AddRateLimited(id)
+			log.Error(err, "Reconciler error, requeuing", "numRequeues", c.Do.Queue().NumRequeues(id))
+			return
 		}
-		log.Error(err, "Reconciler error")
 	case result.RequeueAfter > 0:
 		log.V(5).Info(fmt.Sprintf("Reconcile done, requeueing after %s", result.RequeueAfter))
 		// The result.RequeueAfter request will be lost, if it is returned
