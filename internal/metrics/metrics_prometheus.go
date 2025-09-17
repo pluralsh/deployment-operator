@@ -42,6 +42,10 @@ func (in *prometheusRecorder) ResourceCacheWatchEnd(resourceType string) {
 	in.resourceCacheWatchCounter.WithLabelValues(resourceType).Dec()
 }
 
+func (in *prometheusRecorder) ResourceCacheWatchRemove(resourceType string) {
+	in.resourceCacheWatchCounter.DeleteLabelValues(resourceType)
+}
+
 func (in *prometheusRecorder) ResourceCacheHit(serviceID string) {
 	in.resourceCacheHitCounter.WithLabelValues(serviceID).Inc()
 }
