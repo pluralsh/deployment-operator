@@ -52,12 +52,12 @@ type AgentRunStatus struct {
 	// +kubebuilder:validation:Optional
 	Error *string `json:"error,omitempty"`
 
-	// Standard status fields
+	// Standard status fields (includes ID field for console API)
 	Status `json:",inline"`
 }
 
 // AgentRunPhase represents the phase of an agent run
-// +kubebuilder:validation:Enum=Pending;Running;Succeeded;Failed
+// +kubebuilder:validation:Enum=Pending;Running;Succeeded;Failed;Cancelled
 type AgentRunPhase string
 
 const (
@@ -65,6 +65,7 @@ const (
 	AgentRunPhaseRunning   AgentRunPhase = "Running"
 	AgentRunPhaseSucceeded AgentRunPhase = "Succeeded"
 	AgentRunPhaseFailed    AgentRunPhase = "Failed"
+	AgentRunPhaseCancelled AgentRunPhase = "Cancelled"
 )
 
 //+kubebuilder:object:root=true
@@ -112,4 +113,49 @@ func (ar *AgentRun) IsSucceeded() bool {
 
 func (ar *AgentRun) IsFailed() bool {
 	return ar.Status.Phase == AgentRunPhaseFailed
+}
+
+func (ar *AgentRun) IsCancelled() bool {
+	return ar.Status.Phase == AgentRunPhaseCancelled
+}
+
+// Attributes converts the AgentRun CRD to console API format for creating runs
+func (ar *AgentRun) Attributes() console.AgentRunAttributes {
+	return console.AgentRunAttributes{
+		Prompt:     ar.Spec.Prompt,
+		Repository: ar.Spec.Repository,
+		Mode:       ar.Spec.Mode,
+		FlowID:     ar.Spec.FlowID,
+	}
+}
+
+// StatusAttributes converts the AgentRun status to console API format for updating runs
+func (ar *AgentRun) StatusAttributes() console.AgentRunStatusAttributes {
+	status := console.AgentRunStatusPending
+	switch ar.Status.Phase {
+	case AgentRunPhasePending:
+		status = console.AgentRunStatusPending
+	case AgentRunPhaseRunning:
+		status = console.AgentRunStatusRunning
+	case AgentRunPhaseSucceeded:
+		status = console.AgentRunStatusSuccessful
+	case AgentRunPhaseFailed:
+		status = console.AgentRunStatusFailed
+	case AgentRunPhaseCancelled:
+		status = console.AgentRunStatusCancelled
+	}
+
+	var podReference *console.NamespacedName
+	if ar.Status.PodRef != nil {
+		podReference = &console.NamespacedName{
+			Name:      ar.Status.PodRef.Name,
+			Namespace: ar.Status.PodRef.Namespace,
+		}
+	}
+
+	return console.AgentRunStatusAttributes{
+		Status:       status,
+		Error:        ar.Status.Error,
+		PodReference: podReference,
+	}
 }
