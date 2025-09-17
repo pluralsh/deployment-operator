@@ -1825,7 +1825,6 @@ func TestComponentCache_SaveComponents(t *testing.T) {
 		require.NotNil(t, entry, "expected component %s to exist", obj.GetName())
 		require.Equal(t, obj.GetName(), entry.Name, "expected component name to match")
 	}
-
 }
 
 func newUnstructured(uid, name, namespace, group, version, kind string) unstructured.Unstructured {
