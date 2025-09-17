@@ -88,6 +88,7 @@ type Recorder interface {
 	StackRunJobCreation()
 	ResourceCacheWatchStart(resourceType string)
 	ResourceCacheWatchEnd(resourceType string)
+	ResourceCacheWatchRemove(resourceType string)
 	ResourceCacheHit(serviceID string)
 	ResourceCacheMiss(serviceID string)
 	ControllerRestart(name string)

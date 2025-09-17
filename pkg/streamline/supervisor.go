@@ -262,11 +262,13 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 
 	if err == nil {
 		klog.V(log.LogLevelVerbose).InfoS("synchronizer stopped", "gvr", gvr.String())
+		metrics.Record().ResourceCacheWatchRemove(gvr.String())
 		return
 	}
 
 	if apierrors.IsMethodNotSupported(err) {
 		klog.V(log.LogLevelVerbose).ErrorS(err, "skipping resource as it is not supported", "gvr", gvr.String())
+		metrics.Record().ResourceCacheWatchRemove(gvr.String())
 		return
 	}
 
@@ -275,12 +277,14 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 		if left == 0 {
 			klog.V(log.LogLevelVerbose).ErrorS(err, "resource not found after retries, skipping", "gvr", gvr.String(), "attempts", used)
 			in.clearAttempts(gvr)
+			metrics.Record().ResourceCacheWatchRemove(gvr.String())
 			return
 		}
 
 		gvk, err := in.discoveryCache.KindFor(gvr)
 		if err != nil {
 			klog.V(log.LogLevelVerbose).ErrorS(err, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
+			metrics.Record().ResourceCacheWatchRemove(gvr.String())
 			return
 		}
 
