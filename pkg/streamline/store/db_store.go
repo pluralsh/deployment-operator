@@ -233,7 +233,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 			}
 
 			if !hasServiceID && state == ComponentStateRunning {
-				if err := in.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(obj)); err != nil {
+				if err := in.deleteComponent(conn, smcommon.NewStoreKeyFromUnstructured(obj)); err != nil {
 					klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete pod", "uid", obj.GetUID())
 				}
 				klog.V(log.LogLevelDebug).InfoS("skipping pod save", "name", obj.GetName(), "namespace", obj.GetNamespace())
@@ -408,6 +408,10 @@ func (in *DatabaseStore) DeleteComponent(key smcommon.StoreKey) error {
 	}
 	defer in.pool.Put(conn)
 
+	return in.deleteComponent(conn, key)
+}
+
+func (in *DatabaseStore) deleteComponent(conn *sqlite.Conn, key smcommon.StoreKey) error {
 	return sqlitex.ExecuteTransient(conn, `DELETE FROM component WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?`,
 		&sqlitex.ExecOptions{Args: []any{key.GVK.Group, key.GVK.Version, key.GVK.Kind, key.Namespace, key.Name}})
 }
