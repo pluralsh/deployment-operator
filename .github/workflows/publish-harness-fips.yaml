@@ -25,8 +25,6 @@ jobs:
         platforms:
           - platform: linux/amd64
             runner: ubuntu-24.04
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.platforms.runner }}
     outputs:
       version: ${{ steps.meta.outputs.version }}
@@ -74,7 +72,7 @@ jobs:
         build-args: |
           VERSION=${{ steps.meta.outputs.version }}
           GO_FIPS_IMAGE_REPO=ghcr.io/pluralsh/go-fips
-          GO_FIPS_IMAGE_TAG=1.23.2
+          GO_FIPS_IMAGE_TAG=1.25.1
     - name: Export digest
       run: |
         mkdir -p ${{ runner.temp }}/digests
@@ -206,4 +204,4 @@ jobs:
           HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/stackrun-harness-base
           HARNESS_BASE_IMAGE_TAG=${{ needs.publish-base-image.outputs.version }}
           GO_FIPS_IMAGE_REPO=ghcr.io/pluralsh/go-fips
-          GO_FIPS_IMAGE_TAG=1.23.2
+          GO_FIPS_IMAGE_TAG=1.25.1
