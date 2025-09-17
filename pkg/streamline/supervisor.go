@@ -3,17 +3,18 @@ package streamline
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/klog/v2"
-
-	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
@@ -70,15 +71,17 @@ type Supervisor struct {
 	discoveryCache discoverycache.Cache
 	store          store.Store
 
-	register chan schema.GroupVersionResource
-	done     chan struct{}
+	registerQueue workqueue.TypedRateLimitingInterface[schema.GroupVersionResource]
 
-	synchronizers              cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
-	restartAttemptsLeftMap     cmap.ConcurrentMap[schema.GroupVersionResource, int]
+	synchronizers          cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
+	restartAttemptsLeftMap cmap.ConcurrentMap[schema.GroupVersionResource, int]
+
+	dequeueJitter              time.Duration
 	restartDelay               time.Duration
 	cacheSyncTimeout           time.Duration
 	synchronizerResyncInterval time.Duration
 	maxNotFoundRetries         int
+	maxConcurrentRegistrations int
 }
 
 func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, options ...Option) *Supervisor {
@@ -86,14 +89,15 @@ func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache d
 		client:                     client,
 		discoveryCache:             discoveryCache,
 		store:                      store,
-		register:                   make(chan schema.GroupVersionResource, 256),
-		done:                       make(chan struct{}),
+		registerQueue:              workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[schema.GroupVersionResource]()),
 		synchronizers:              cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
 		restartAttemptsLeftMap:     cmap.NewStringer[schema.GroupVersionResource, int](),
 		maxNotFoundRetries:         3,
 		restartDelay:               1 * time.Second,
-		cacheSyncTimeout:           10 * time.Second,
+		cacheSyncTimeout:           5 * time.Second,
 		synchronizerResyncInterval: 30 * time.Minute,
+		dequeueJitter:              500 * time.Millisecond,
+		maxConcurrentRegistrations: 10,
 	}
 
 	for _, option := range options {
@@ -106,24 +110,23 @@ func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache d
 func (in *Supervisor) WaitForCacheSync(ctx context.Context) error {
 	timeoutChan := time.After(in.cacheSyncTimeout)
 	syncedCount := 0
+	syncedFunc := func() bool {
+		klog.Info("waiting for cache sync")
+		syncedCount = lo.CountBy(lo.Values(in.synchronizers.Items()), func(s Synchronizer) bool { return s.Started() })
+		return syncedCount == in.synchronizers.Count()
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-timeoutChan:
-			return fmt.Errorf("timed out waiting for cache sync, synced %d out of %d synchronizers", syncedCount, len(in.synchronizers.Items()))
+			if syncedFunc() {
+				return nil
+			}
+
+			return fmt.Errorf("timed out waiting for cache sync, synced %d out of %d synchronizers", syncedCount, in.synchronizers.Count())
 		case <-time.After(time.Second):
-			syncedCount = 0
-			synced := lo.EveryBy(lo.Values(in.synchronizers.Items()), func(s Synchronizer) bool {
-				if s.Started() {
-					syncedCount++
-					klog.InfoS("synchronizers synced", "syncedCount", syncedCount)
-				}
-
-				return s.Started()
-			})
-
-			if synced {
+			if syncedFunc() {
 				return nil
 			}
 		}
@@ -166,9 +169,8 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 	}
 
 	klog.V(log.LogLevelVerbose).InfoS("registering resource to watch", "gvr", gvr.String())
-
 	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
-	in.enqueue(gvr)
+	in.registerQueue.Add(gvr)
 }
 
 func (in *Supervisor) Unregister(gvr schema.GroupVersionResource) {
@@ -193,18 +195,12 @@ func (in *Supervisor) Run(ctx context.Context) {
 	in.mu.Unlock()
 
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				in.stop()
-				return
-			case gvr, ok := <-in.register:
-				if !ok {
-					return
+		for i := 0; i < in.maxConcurrentRegistrations; i++ {
+			go func() {
+				for in.processNextWorkItem(ctx) {
+					time.Sleep(time.Duration(rand.Int63n(int64(in.dequeueJitter))))
 				}
-
-				go in.startSynchronizer(ctx, gvr)
-			}
+			}()
 		}
 	}()
 
@@ -212,7 +208,22 @@ func (in *Supervisor) Run(ctx context.Context) {
 	in.watchDiscoveryCacheChanges()
 }
 
-func (in *Supervisor) stop() {
+func (in *Supervisor) processNextWorkItem(ctx context.Context) bool {
+	gvr, shutdown := in.registerQueue.Get()
+	if shutdown {
+		// Stop working
+		return false
+	}
+
+	defer func() {
+		in.registerQueue.Forget(gvr)
+		in.registerQueue.Done(gvr)
+	}()
+	go in.startSynchronizer(ctx, gvr)
+	return true
+}
+
+func (in *Supervisor) Stop() {
 	in.mu.RLock()
 	if !in.started {
 		in.mu.RUnlock()
@@ -222,34 +233,13 @@ func (in *Supervisor) stop() {
 
 	in.mu.Lock()
 	in.started = false
+	in.registerQueue.ShutDown()
 	in.synchronizers.Clear()
 	in.restartAttemptsLeftMap.Clear()
 	in.mu.Unlock()
 
 	for _, s := range in.synchronizers.Items() {
 		s.Stop()
-	}
-
-	close(in.done)
-	close(in.register)
-}
-
-func (in *Supervisor) enqueue(gvr schema.GroupVersionResource) {
-	in.mu.RLock()
-	if !in.started {
-		in.mu.RUnlock()
-		return
-	}
-
-	ch := in.register
-	done := in.done
-	in.mu.RUnlock()
-
-	select {
-	case ch <- gvr: // enqueued
-	case <-done: // shutting down, drop
-	default: // buffer full, drop to avoid blocking
-		klog.V(log.LogLevelDefault).InfoS("dropping register enqueue due to full buffer", "gvr", gvr.String())
 	}
 }
 
@@ -292,10 +282,7 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 		delay := common.WithJitter(in.restartDelay)
 		klog.V(log.LogLevelVerbose).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left, "restartDelay", delay)
 		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
-		time.AfterFunc(delay, func() {
-			in.enqueue(gvr)
-		})
-
+		in.registerQueue.Add(gvr)
 		return
 	}
 

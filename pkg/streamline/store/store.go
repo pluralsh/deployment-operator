@@ -14,6 +14,8 @@ import (
 type Store interface {
 	SaveComponent(obj unstructured.Unstructured) error
 
+	SaveComponents(obj []unstructured.Unstructured) error
+
 	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
 
 	GetComponent(obj unstructured.Unstructured) (*smcommon.Entry, error)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,7 +29,7 @@ const (
 	defaultStorage = api.StorageMemory
 
 	// defaultPoolSize defines the default maximum number of concurrent database connections.
-	defaultPoolSize = 50
+	defaultPoolSize = 10
 )
 
 // Option represents a function that configures the database store.
@@ -180,6 +181,111 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			serverSHA,
 		},
 	})
+}
+
+func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) error {
+	if len(objects) == 0 {
+		return nil
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	defer func() {
+		in.pool.Put(conn)
+		klog.V(log.LogLevelDebug).InfoS("saved components in batch",
+			"count", len(objects),
+			"duration", time.Since(now),
+		)
+	}()
+
+	var sb strings.Builder
+	sb.WriteString(`
+		INSERT INTO component (
+		  uid,
+		  parent_uid,
+		  "group",
+		  version,
+		  kind,
+		  namespace,
+		  name,
+		  health,
+		  node,
+		  created_at,
+		  service_id,
+		  server_sha
+		) VALUES 
+	`)
+
+	valueStrings := make([]string, 0, len(objects))
+
+	for _, obj := range objects {
+		var nodeName string
+		gvk := obj.GroupVersionKind()
+		serviceID, hasServiceID := obj.GetAnnotations()[smcommon.OwningInventoryKey]
+		state := NewComponentState(common.ToStatus(&obj))
+
+		if gvk.Group == "" && gvk.Kind == common.PodKind {
+			if nodeName, _, _ = unstructured.NestedString(obj.Object, "spec", "nodeName"); len(nodeName) == 0 {
+				return nil // If the pod is not assigned to a node, we don't need to store it
+			}
+
+			if !hasServiceID && state == ComponentStateRunning {
+				if err := in.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(obj)); err != nil {
+					klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete pod", "uid", obj.GetUID())
+				}
+				klog.V(log.LogLevelDebug).InfoS("skipping pod save", "name", obj.GetName(), "namespace", obj.GetNamespace())
+				return nil // If the pod does not belong to any service and is running, we don't need to store it
+			}
+		}
+
+		var ownerRef *string
+		if ownerRefs := obj.GetOwnerReferences(); len(ownerRefs) > 0 {
+			ownerRef = lo.ToPtr(string(ownerRefs[0].UID))
+			for _, ref := range ownerRefs {
+				if ref.Controller != nil && *ref.Controller {
+					ownerRef = lo.ToPtr(string(ref.UID))
+					break
+				}
+			}
+		}
+
+		serverSHA, err := HashResource(obj)
+		if err != nil {
+			klog.V(log.LogLevelDefault).ErrorS(err, "failed to calculate resource SHA", "name", obj.GetName(), "namespace", obj.GetNamespace(), "gvk", gvk.String())
+			return err
+		}
+
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s')",
+			obj.GetUID(),
+			lo.FromPtr(ownerRef),
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			obj.GetNamespace(),
+			obj.GetName(),
+			int(state),
+			nodeName,
+			obj.GetCreationTimestamp().Unix(),
+			serviceID,
+			serverSHA,
+		))
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
+	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+	  uid = excluded.uid,
+	  parent_uid = excluded.parent_uid,
+	  health = excluded.health,
+	  node = excluded.node,
+	  created_at = excluded.created_at,
+	  service_id = excluded.service_id,
+	  server_sha = excluded.server_sha
+	`)
+
+	return sqlitex.Execute(conn, sb.String(), nil)
 }
 
 func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {

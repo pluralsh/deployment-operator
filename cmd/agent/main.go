@@ -131,6 +131,7 @@ func main() {
 
 	// Start synchronizer supervisor
 	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
+	defer supervisor.Stop()
 
 	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache)
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
@@ -234,7 +235,7 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 	supervisor.Run(ctx)
 	setupLog.Info("waiting for synchronizers cache to sync")
 	if err := supervisor.WaitForCacheSync(ctx); err != nil {
-		setupLog.Error(err, "unable to sync resource cache")
+		setupLog.Error(err, "could not warmup synchronizers cache")
 		return supervisor
 	}
 

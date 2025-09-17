@@ -31,7 +31,8 @@ type Synchronizer interface {
 }
 
 type synchronizer struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
+	startMu sync.Mutex
 	started bool
 	cancel  context.CancelFunc
 
@@ -65,10 +66,7 @@ func (in *synchronizer) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
 
-	now := time.Now()
 	in.handleList(lo.FromPtr(list))
-	klog.V(log.LogLevelVerbose).InfoS("fetched resources", "gvr", in.gvr, "duration", time.Since(now))
-
 	resourceVersion := list.GetResourceVersion()
 	watchCh, err := in.client.Resource(in.gvr).Namespace(metav1.NamespaceAll).Watch(internalCtx, metav1.ListOptions{
 		ResourceVersion: resourceVersion,
@@ -80,8 +78,12 @@ func (in *synchronizer) Start(ctx context.Context) error {
 
 	interval := common.WithJitter(in.resyncInterval)
 	resyncAfter := time.After(interval)
-	in.started = true
 	in.mu.Unlock()
+
+	in.startMu.Lock()
+	in.started = true
+	in.startMu.Unlock()
+
 	klog.V(log.LogLevelVerbose).InfoS("started watching resources", "gvr", in.gvr, "resourceVersion", resourceVersion, "resyncAfter", interval)
 	for {
 		select {
@@ -127,10 +129,8 @@ func (in *synchronizer) Start(ctx context.Context) error {
 }
 
 func (in *synchronizer) handleList(list unstructured.UnstructuredList) {
-	for _, obj := range list.Items {
-		if err := in.store.SaveComponent(obj); err != nil {
-			klog.ErrorS(err, "failed to save resource", "gvr", in.gvr, "name", obj.GetName())
-		}
+	if err := in.store.SaveComponents(list.Items); err != nil {
+		klog.ErrorS(err, "failed to save resource", "gvr", in.gvr)
 	}
 }
 
@@ -180,8 +180,8 @@ func (in *synchronizer) Stop() {
 }
 
 func (in *synchronizer) Started() bool {
-	in.mu.Lock()
-	defer in.mu.Unlock()
+	in.startMu.Lock()
+	defer in.startMu.Unlock()
 
 	return in.started
 }
