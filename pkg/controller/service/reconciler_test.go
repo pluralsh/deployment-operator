@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
@@ -119,7 +120,9 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetCredentials").Return("", "")
 			fakeConsoleClient.On("GetService", mock.Anything).Return(consoleService, nil)
-			fakeConsoleClient.On("UpdateComponents", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			fakeConsoleClient.On("UpdateComponents", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.MatchedBy(func(metadata *console.ServiceMetadataAttributes) bool {
+				return metadata == nil || (metadata != nil && metadata.Images != nil)
+			})).Return(nil)
 			fakeConsoleClient.On("UpdateServiceErrors", mock.Anything, mock.Anything).Return(nil)
 
 			storeInstance, err := store.NewDatabaseStore()
@@ -139,6 +142,75 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(kClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: namespace}, &v1.Pod{})).NotTo(HaveOccurred())
+		})
+
+		It("should extract images metadata from applied resources", func() {
+			reconciler := &service.ServiceReconciler{}
+
+			appliedResources := []any{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind": "Deployment",
+						"metadata": map[string]interface{}{
+							"name":      "test-deployment",
+							"namespace": "default",
+						},
+						"spec": map[string]interface{}{
+							"template": map[string]interface{}{
+								"spec": map[string]interface{}{
+									"containers": []interface{}{
+										map[string]interface{}{
+											"name":  "app",
+											"image": "nginx:1.21",
+										},
+										map[string]interface{}{
+											"name":  "sidecar",
+											"image": "alpine:3.14",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"kind": "Pod",
+						"spec": map[string]interface{}{
+							"containers": []interface{}{
+								map[string]interface{}{
+									"name":  "redis",
+									"image": "redis:6.2",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			metadata := reconciler.ExtractImagesMetadata(appliedResources)
+
+			Expect(metadata).NotTo(BeNil())
+			Expect(metadata.Images).To(HaveLen(3))
+
+			imageStrs := make([]string, len(metadata.Images))
+			for i, img := range metadata.Images {
+				imageStrs[i] = *img
+			}
+
+			Expect(imageStrs).To(ContainElements("nginx:1.21", "alpine:3.14", "redis:6.2"))
+		})
+
+		It("should handle empty applied resources", func() {
+			reconciler := &service.ServiceReconciler{}
+
+			// Test with empty resources
+			metadata := reconciler.ExtractImagesMetadata([]any{})
+			Expect(metadata).To(BeNil())
+
+			// Test with non-unstructured resources
+			metadata = reconciler.ExtractImagesMetadata([]any{"not-unstructured", 123})
+			Expect(metadata).To(BeNil())
 		})
 
 	})
