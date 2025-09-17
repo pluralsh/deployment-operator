@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/algorithms"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,9 @@ type AgentRuntimeSpec struct {
 
 	// Config contains typed configuration depending on the chosen runtime type.
 	Config AgentRuntimeConfig `json:"config"`
+
+	// AiProxy specifies whether the agent runtime should be proxied through the AI proxy.
+	AiProxy *bool `json:"aiProxy,omitempty"`
 }
 
 // AgentRuntimeConfig contains typed configuration for the agent runtime.
@@ -88,6 +92,23 @@ func (in *AgentRuntime) SetCondition(condition metav1.Condition) {
 // ConsoleID implements [PluralResource] interface
 func (in *AgentRuntime) ConsoleID() *string {
 	return in.Status.ID
+}
+
+func (in *AgentRuntime) Attributes() console.AgentRuntimeAttributes {
+	attrs := console.AgentRuntimeAttributes{
+		Name:    in.ConsoleName(),
+		Type:    in.Spec.Type,
+		AiProxy: in.Spec.AiProxy,
+	}
+	if in.Spec.Bindings != nil {
+		attrs.CreateBindings = algorithms.Map(in.Spec.Bindings.Create, func(b Binding) *console.AgentBindingAttributes {
+			return &console.AgentBindingAttributes{
+				UserEmail: b.UserEmail,
+				GroupName: b.GroupName,
+			}
+		})
+	}
+	return attrs
 }
 
 //+kubebuilder:object:root=true
