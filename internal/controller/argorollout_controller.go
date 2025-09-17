@@ -75,7 +75,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if rollout.Status.Phase == rolloutv1alpha1.RolloutPhasePaused {
 		// wait until the agent will change component status
 		if !hasPausedRolloutComponent(service) {
-			return requeue(requeueArgoRolloutAfter, jitter), nil
+			return jitterRequeue(requeueArgoRolloutAfter, jitter), nil
 		}
 
 		rolloutIf := r.ArgoClientSet.ArgoprojV1alpha1().Rollouts(rollout.Namespace)
@@ -96,7 +96,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if rollbackResponse == http.StatusOK {
 			return ctrl.Result{}, r.rollback(rolloutIf, rollout)
 		}
-		return requeue(requeueArgoRolloutAfter, jitter), nil
+		return jitterRequeue(requeueArgoRolloutAfter, jitter), nil
 	}
 	return ctrl.Result{}, nil
 }

@@ -28,12 +28,10 @@ func (c ConditionReason) String() string {
 }
 
 const (
-	ReadonlyConditionReason             ConditionReason = "Readonly"
-	ReadyConditionReason                ConditionReason = "Ready"
-	ErrorConditionReason                ConditionReason = "Error"
-	SynchronizedConditionReason         ConditionReason = "Synchronized"
-	SynchronizedConditionReasonNotFound ConditionReason = "NotFound"
-	SynchronizedConditionReasonDeleting ConditionReason = "Deleting"
+	ReadyConditionReason             ConditionReason = "Ready"
+	ErrorConditionReason             ConditionReason = "Error"
+	SynchronizedConditionReason      ConditionReason = "Synchronized"
+	SynchronizedConditionReasonError ConditionReason = "Error"
 )
 
 type ConditionMessage string
@@ -41,11 +39,6 @@ type ConditionMessage string
 func (c ConditionMessage) String() string {
 	return string(c)
 }
-
-const (
-	ReadonlyTrueConditionMessage         ConditionMessage = "Running in read-only mode"
-	SynchronizedNotFoundConditionMessage ConditionMessage = "Could not find resource in Console API"
-)
 
 // Hasher
 // +kubebuilder:object:generate:=false

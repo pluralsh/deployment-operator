@@ -42,7 +42,7 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	metricsAPIAvailable := common.SupportedMetricsAPIVersionAvailable(apiGroups)
 	if !metricsAPIAvailable {
 		logger.V(5).Info("metrics api not available")
-		return requeue(time.Minute*5, jitter), nil
+		return jitterRequeue(time.Minute*5, jitter), nil
 	}
 
 	// Read resource from Kubernetes cluster.
@@ -52,7 +52,7 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			if err := r.initGlobalMetricsAggregate(ctx); err != nil {
 				return ctrl.Result{}, err
 			}
-			return requeue(time.Second, jitter), nil
+			return jitterRequeue(time.Second, jitter), nil
 		}
 		return ctrl.Result{}, err
 	}
@@ -81,7 +81,7 @@ func (r *MetricsAggregateReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	metrics.Status = scraper.GetMetrics().Get()
 	utils.MarkCondition(metrics.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 
-	return requeue(time.Second*5, jitter), reterr
+	return jitterRequeue(time.Second*5, jitter), reterr
 }
 
 // SetupWithManager sets up the controller with the Manager.

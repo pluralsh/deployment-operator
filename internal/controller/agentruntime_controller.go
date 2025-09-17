@@ -7,7 +7,7 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/samber/lo"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,17 +41,15 @@ type AgentRuntimeReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, retErr error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
+
 	agentRuntime := &v1alpha1.AgentRuntime{}
 	if err := r.Get(ctx, req.NamespacedName, agentRuntime); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
-	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
 	scope, err := NewDefaultScope(ctx, r.Client, agentRuntime)
 	if err != nil {
-		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -62,11 +60,36 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
-	if !agentRuntime.GetDeletionTimestamp().IsZero() {
-		return r.handleDelete(ctx, agentRuntime)
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
+
+	result := r.addOrRemoveFinalizer(ctx, agentRuntime)
+	if result != nil {
+		return *result, nil
 	}
 
-	return ctrl.Result{RequeueAfter: requeueAfterAgentRuntime}, nil
+	changed, sha, err := agentRuntime.Diff(utils.HashObject)
+	if err != nil {
+		logger.Error(err, "unable to calculate agent runtime SHA")
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		return ctrl.Result{}, err
+	}
+
+	if changed {
+		apiAgentRuntime, err := r.consoleClient.UpsertAgentRuntime(ctx, agentRuntime.Attributes())
+		if err != nil {
+			return handleRequeue(nil, err, agentRuntime.SetCondition)
+		}
+
+		agentRuntime.Status.ID = &apiAgentRuntime.ID
+	}
+
+	agentRuntime.Status.SHA = &sha
+
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
+
+	return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -77,25 +100,39 @@ func (r *AgentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *AgentRuntimeReconciler) handleDelete(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	if controllerutil.ContainsFinalizer(agentRuntime, AgentRuntimeFinalizer) {
-		if agentRuntime.Status.GetID() != "" {
-			if _, err := r.consoleClient.GetAgentRuntime(ctx, agentRuntime.Status.GetID()); err != nil {
-				if !errors.IsNotFound(err) {
-					return ctrl.Result{}, err
-				}
-				controllerutil.RemoveFinalizer(agentRuntime, AgentRuntimeFinalizer)
-				return ctrl.Result{}, nil
-			}
-			if err := r.consoleClient.DeleteAgentRuntime(ctx, agentRuntime.Status.GetID()); err != nil {
-				return ctrl.Result{}, err
+func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime) *ctrl.Result {
+	if agentRuntime.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(agentRuntime, AgentRuntimeFinalizer) {
+		controllerutil.AddFinalizer(agentRuntime, AgentRuntimeFinalizer)
+	}
+
+	// If the agent runtime is being deleted, cleanup and remove the finalizer.
+	if !agentRuntime.GetDeletionTimestamp().IsZero() {
+		// If the agent runtime does not have an ID, the finalizer can be removed.
+		if !agentRuntime.Status.HasID() {
+			controllerutil.RemoveFinalizer(agentRuntime, AgentRuntimeFinalizer)
+			return &ctrl.Result{}
+		}
+
+		exists, err := r.consoleClient.IsAgentRuntimeExists(ctx, agentRuntime.Status.GetID())
+		if err != nil {
+			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
+		}
+
+		// Remove agent runtime from Console API if it exists.
+		if exists {
+			if err = r.consoleClient.DeleteAgentRuntime(ctx, agentRuntime.Status.GetID()); err != nil {
+				// If it fails to delete the external dependency here, return with the error so that it can be retried.
+				utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 			}
 		}
 
+		// If finalizer is present, remove it.
 		controllerutil.RemoveFinalizer(agentRuntime, AgentRuntimeFinalizer)
-		logger.Info("agent runtime deleted successfully")
+
+		// Stop reconciliation as the item does no longer exist.
+		return &ctrl.Result{}
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }

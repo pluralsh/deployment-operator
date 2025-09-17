@@ -77,6 +77,15 @@ type AgentRuntimeBindings struct {
 	Create []Binding `json:"create,omitempty"`
 }
 
+func (in *AgentRuntime) Diff(hasher Hasher) (changed bool, sha string, err error) {
+	currentSha, err := hasher(in.Spec)
+	if err != nil {
+		return false, "", err
+	}
+
+	return !in.Status.IsSHAEqual(currentSha), currentSha, nil
+}
+
 func (in *AgentRuntime) ConsoleName() string {
 	if in.Spec.Name != nil && len(*in.Spec.Name) > 0 {
 		return *in.Spec.Name

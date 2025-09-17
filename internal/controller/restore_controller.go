@@ -52,7 +52,7 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 					logger.Error(err, "Unable to create config map")
 					return ctrl.Result{}, err
 				}
-				return requeue(requeueAfter, jitter), nil
+				return jitterRequeue(requeueAfter, jitter), nil
 			}
 			return ctrl.Result{}, err
 		}
@@ -69,13 +69,13 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-		return requeue(requeueAfter, jitter), nil
+		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
 	configMap := &corev1.ConfigMap{}
 	if err := r.Get(ctx, types.NamespacedName{Name: service.RestoreConfigMapName, Namespace: restore.Namespace}, configMap); err != nil {
 		if apierrors.IsNotFound(err) {
-			return requeue(requeueAfter, jitter), nil
+			return jitterRequeue(requeueAfter, jitter), nil
 		}
 		return ctrl.Result{}, err
 	}
@@ -87,7 +87,7 @@ func (r *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	return requeue(requeueAfter, jitter), nil
+	return jitterRequeue(requeueAfter, jitter), nil
 }
 
 func CreateConfigMap(ctx context.Context, client k8sClient.Client, restore *velerov1.Restore) error {

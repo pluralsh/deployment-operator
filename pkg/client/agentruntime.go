@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	stderrors "errors"
+	"fmt"
 
 	console "github.com/pluralsh/console/go/client"
 	internalerror "github.com/pluralsh/deployment-operator/internal/errors"
@@ -10,12 +11,24 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func (c *client) GetAgentRuntime(ctx context.Context, id string) (*console.AgentRuntimeFragment, error) {
-	// we assume that an empty id means the agent does not exist
-	// this is to avoid making a call to the backend with an empty id
-	if id == "" {
-		return nil, errors.NewNotFound(schema.GroupResource{}, "")
+func (c *client) IsAgentRuntimeExists(ctx context.Context, id string) (bool, error) {
+	scm, err := c.GetAgentRuntime(ctx, id)
+	if errors.IsNotFound(err) {
+		return false, nil
 	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return scm != nil, nil
+}
+
+func (c *client) GetAgentRuntime(ctx context.Context, id string) (*console.AgentRuntimeFragment, error) {
+	if id == "" {
+		return nil, fmt.Errorf("no id specified")
+	}
+
 	response, err := c.consoleClient.GetAgentRuntime(ctx, id)
 	if internalerror.IsNotFound(err) {
 		return nil, errors.NewNotFound(schema.GroupResource{}, id)
@@ -44,12 +57,12 @@ func (c *client) DeleteAgentRuntime(ctx context.Context, id string) error {
 }
 
 func (c *client) ListAgentRuntime(ctx context.Context, after *string, first *int64, q *string, typeArg *console.AgentRuntimeType) (*console.AgentRuntimeConnectionFragment, error) {
-	resp, err := c.consoleClient.ListAgentRuntimes(ctx, after, first, nil, nil, q, typeArg)
+	response, err := c.consoleClient.ListAgentRuntimes(ctx, after, first, nil, nil, q, typeArg)
 	if err != nil {
 		return nil, err
 	}
-	if resp.AgentRuntimes == nil {
+	if response.AgentRuntimes == nil {
 		return nil, stderrors.New("the response from ListAgentRuntimes is nil")
 	}
-	return resp.AgentRuntimes, nil
+	return response.AgentRuntimes, nil
 }
