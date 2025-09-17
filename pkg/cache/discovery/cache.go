@@ -276,7 +276,7 @@ func (in *cache) Refresh() error {
 
 	in.updateServerVersion()
 
-	klog.V(log.LogLevelTrace).InfoS("finished discovery cache refresh", "duration", time.Since(now))
+	klog.V(log.LogLevelDefault).InfoS("finished discovery cache refresh", "duration", time.Since(now))
 	// Do not immediately return err since groups and resources
 	// might be partially filled in case of error.
 	return err
@@ -376,37 +376,37 @@ func (in *cache) OnGroupVersionResourceDeleted(f GroupVersionResourceUpdateFunc)
 
 func (in *cache) notifyGroupVersionAdded(gv schema.GroupVersion) {
 	for _, f := range in.onGroupVersionAdded {
-		f(gv)
+		go f(gv)
 	}
 }
 
 func (in *cache) notifyGroupVersionDeleted(gv schema.GroupVersion) {
 	for _, f := range in.onGroupVersionDeleted {
-		f(gv)
+		go f(gv)
 	}
 }
 
 func (in *cache) notifyGroupVersionKindAdded(gvk schema.GroupVersionKind) {
 	for _, f := range in.onGroupVersionKindAdded {
-		f(gvk)
+		go f(gvk)
 	}
 }
 
 func (in *cache) notifyGroupVersionKindDeleted(gvk schema.GroupVersionKind) {
 	for _, f := range in.onGroupVersionKindDeleted {
-		f(gvk)
+		go f(gvk)
 	}
 }
 
 func (in *cache) notifyGroupVersionResourceAdded(gvr schema.GroupVersionResource) {
 	for _, f := range in.onGroupVersionResourceAdded {
-		f(gvr)
+		go f(gvr)
 	}
 }
 
 func (in *cache) notifyGroupVersionResourceDeleted(gvr schema.GroupVersionResource) {
 	for _, f := range in.onGroupVersionResourceDeleted {
-		f(gvr)
+		go f(gvr)
 	}
 }
 
