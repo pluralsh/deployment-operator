@@ -2,10 +2,12 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
@@ -96,7 +98,32 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, err
 		}
 		for _, run := range runs {
-			fmt.Println(run.Node.ID) // TODO
+			if run.Node.Status == console.AgentRunStatusPending {
+				// Create Agent CRD for this pending run to be picked up by agentrun controller
+				agentRun := &v1alpha1.AgentRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      run.Node.ID,
+						Namespace: agentRuntime.Namespace,
+						Labels: map[string]string{
+							"deployments.plural.sh/agent-runtime": agentRuntime.Name,
+						},
+					},
+					Spec: v1alpha1.AgentRunSpec{
+						RuntimeRef: corev1.ObjectReference{
+							Name:      agentRuntime.Name,
+							Namespace: agentRuntime.Namespace,
+						},
+						Prompt:     run.Node.Prompt,
+						Repository: run.Node.Repository,
+						Mode:       run.Node.Mode,
+						FlowID:     &run.Node.Flow.ID,
+					},
+				}
+
+				if err := r.Create(ctx, agentRun); err != nil {
+					logger.Error(err, "failed to create AgentRun CRD", "runID", run.Node.ID)
+				}
+			}
 		}
 	}
 
