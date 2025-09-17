@@ -191,16 +191,8 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 
 	switch {
 	case err != nil:
-		maxRetries := 10
-		if c.Do.Queue().NumRequeues(id) >= maxRetries {
-			c.Do.Queue().Forget(id)
-			log.Error(err, "Reconciler error, max retries reached")
-			return
-		} else {
-			c.Do.Queue().AddRateLimited(id)
-			log.Error(err, "Reconciler error, requeuing", "numRequeues", c.Do.Queue().NumRequeues(id))
-			return
-		}
+		log.Error(err, "Reconciler error, requeuing", "numRequeues", c.Do.Queue().NumRequeues(id))
+		c.Do.Queue().AddRateLimited(id)
 	case result.RequeueAfter > 0:
 		log.V(5).Info(fmt.Sprintf("Reconcile done, requeueing after %s", result.RequeueAfter))
 		// The result.RequeueAfter request will be lost, if it is returned
