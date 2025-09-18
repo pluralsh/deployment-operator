@@ -42,8 +42,8 @@ type AgentRunReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
 	ConsoleClient pluralclient.Client
-	consoleURL    string
-	consoleToken  string
+	ConsoleURL    string
+	ConsoleToken  string
 }
 
 // SetupWithManager configures the controller with the manager.
@@ -211,8 +211,8 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 
 func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun) map[string]string {
 	return map[string]string{
-		envConsoleURL:   r.consoleURL,
-		envConsoleToken: r.consoleToken,
+		envConsoleURL:   r.ConsoleURL,
+		envConsoleToken: r.ConsoleToken,
 		envAgentRunID:   run.Status.GetID(),
 	}
 }
@@ -222,5 +222,5 @@ func (r *AgentRunReconciler) hasSecretData(data map[string][]byte, run *v1alpha1
 	url, hasUrl := data[envConsoleURL]
 	id, hasID := data[envConsoleURL]
 	return hasToken && hasUrl && hasID &&
-		string(token) == r.consoleToken && string(url) == r.consoleURL && string(id) == run.Status.GetID()
+		string(token) == r.ConsoleToken && string(url) == r.ConsoleURL && string(id) == run.Status.GetID()
 }

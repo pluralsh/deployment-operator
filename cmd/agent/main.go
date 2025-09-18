@@ -100,7 +100,7 @@ func main() {
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
 	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), kubeManager.GetScheme(), extConsoleClient)
-	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy())
+	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy(), args.ConsoleUrl(), args.DeployToken())
 
 	//+kubebuilder:scaffold:builder
 
