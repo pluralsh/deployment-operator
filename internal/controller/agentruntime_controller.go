@@ -5,15 +5,15 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,6 +89,7 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	agentRuntime.Status.SHA = &sha
 
+	var errors []error
 	pager := r.ListAgentRuns(ctx)
 	for pager.HasNext() {
 		runs, err := pager.NextPage()
@@ -96,14 +97,20 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			logger.Error(err, "failed to fetch run list")
 			return ctrl.Result{}, err
 		}
+
 		for _, run := range runs {
 			if run.Node.Status == console.AgentRunStatusPending {
 				// Create Agent CRD for this pending run to be picked up by agentrun controller
 				if err := r.createAgentRun(ctx, agentRuntime, run.Node); err != nil {
-
+					errors = append(errors, err)
 				}
 			}
 		}
+	}
+	if len(errors) > 0 {
+		aggregateError := utilerrors.NewAggregate(errors)
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReason, aggregateError.Error())
+		return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
 	}
 
 	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
