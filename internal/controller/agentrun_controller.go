@@ -25,50 +25,7 @@ import (
 
 const (
 	AgentRunFinalizer = "deployments.plural.sh/agentrun-protection"
-	AgentRunTimeout   = time.Minute * 30
 )
-
-// Mock types for development - these will be replaced with actual CRD types later
-type AgentRunPhase string
-
-const (
-	AgentRunPhasePending   AgentRunPhase = "Pending"
-	AgentRunPhaseRunning   AgentRunPhase = "Running"
-	AgentRunPhaseSucceeded AgentRunPhase = "Succeeded"
-	AgentRunPhaseFailed    AgentRunPhase = "Failed"
-)
-
-// MockAgentRun represents the structure we expect the AgentRun CRD to have
-// This is a placeholder for development and will be replaced with the actual CRD
-type MockAgentRun struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   MockAgentRunSpec   `json:"spec,omitempty"`
-	Status MockAgentRunStatus `json:"status,omitempty"`
-}
-
-type MockAgentRunSpec struct {
-	// TODO: Define spec fields when implementing the actual CRD
-	// Expected fields:
-	// - AgentID string
-	// - TaskType string
-	// - Configuration map[string]interface{}
-	// - Timeout *metav1.Duration
-}
-
-type MockAgentRunStatus struct {
-	// TODO: Define status fields when implementing the actual CRD
-	// Expected fields:
-	Phase          AgentRunPhase           `json:"phase,omitempty"`
-	StartTime      *metav1.Time            `json:"startTime,omitempty"`
-	CompletionTime *metav1.Time            `json:"completionTime,omitempty"`
-	PodRef         *corev1.ObjectReference `json:"podRef,omitempty"`
-	Message        string                  `json:"message,omitempty"`
-
-	// Console API integration
-	ConsoleID *string `json:"consoleId,omitempty"`
-}
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.
 // It manages the lifecycle of individual agent runs by:
@@ -124,25 +81,25 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, agentRun *v1alpha1.AgentRun) *ctrl.Result {
 	if agentRun.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(agentRun, AgentRuntimeFinalizer) {
-		controllerutil.AddFinalizer(agentRun, AgentRuntimeFinalizer)
+		controllerutil.AddFinalizer(agentRun, AgentRunFinalizer)
 	}
 
-	// If the agent runtime is being deleted, cleanup and remove the finalizer.
+	// If the agent run is being deleted, cleanup and remove the finalizer.
 	if !agentRun.GetDeletionTimestamp().IsZero() {
-		// If the agent runtime does not have an ID, the finalizer can be removed.
+		// If the agent run does not have an ID, the finalizer can be removed.
 		if !agentRun.Status.HasID() {
-			controllerutil.RemoveFinalizer(agentRun, AgentRuntimeFinalizer)
+			controllerutil.RemoveFinalizer(agentRun, AgentRunFinalizer)
 			return &ctrl.Result{}
 		}
 
-		exists, err := r.ConsoleClient.IsAgentRuntimeExists(ctx, agentRun.Status.GetID())
+		exists, err := r.ConsoleClient.IsAgentRunExists(ctx, agentRun.Status.GetID())
 		if err != nil {
 			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 		}
 
-		// Remove agent runtime from Console API if it exists.
+		// Cancel agent run from Console API if it exists.
 		if exists {
-			if err = r.ConsoleClient.DeleteAgentRuntime(ctx, agentRun.Status.GetID()); err != nil {
+			if err = r.ConsoleClient.CancelAgentRun(ctx, agentRun.Status.GetID()); err != nil {
 				// If it fails to delete the external dependency here, return with the error so that it can be retried.
 				utils.MarkCondition(agentRun.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
@@ -150,7 +107,7 @@ func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, agentRun 
 		}
 
 		// If finalizer is present, remove it.
-		controllerutil.RemoveFinalizer(agentRun, AgentRuntimeFinalizer)
+		controllerutil.RemoveFinalizer(agentRun, AgentRunFinalizer)
 
 		// Stop reconciliation as the item does no longer exist.
 		return &ctrl.Result{}
