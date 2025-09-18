@@ -85,6 +85,22 @@ agent: ## build agent
 harness: ## build stack run harness
 	go build -o bin/stack-run-harness cmd/harness/main.go
 
+.PHONY: agent-harness
+agent-harness: ## build agent harness
+	go build -o bin/agent-harness cmd/agent-harness/*.go
+
+.PHONY: docker-build-agent-harness-base
+docker-build-agent-harness-base: ## build base docker agent harness image
+	docker build \
+		--build-arg=VERSION="0.0.0-dev" \
+		-t ghcr.io/pluralsh/agent-harness-base \
+		-f dockerfiles/agent-harness/base.Dockerfile \
+		.
+
+.PHONY: docker-push-agent-harness-base  
+docker-push-agent-harness-base: docker-build-agent-harness-base ## push agent harness base image
+	docker push ghcr.io/pluralsh/agent-harness-base:latest
+	
 docker-build: ## build image
 	docker build -t ${IMG} .
 

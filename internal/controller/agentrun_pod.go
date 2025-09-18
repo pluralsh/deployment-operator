@@ -20,6 +20,10 @@ const (
 	defaultTmpVolumePath          = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
+
+	// Agent harness specific constants
+	agentHarnessWorkingDir = "/plural"
+	agentHarnessEntrypoint = "/agent-harness"
 )
 
 var (
@@ -78,6 +82,19 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 	return pod
 }
 
+func ensureDefaultLabels(labels map[string]string, run *v1alpha1.AgentRun) map[string]string {
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	// Add standard labels for agent runs
+	labels["app.kubernetes.io/name"] = "agent-harness"
+	labels["app.kubernetes.io/component"] = "agent-run"
+	labels["deployments.plural.sh/agent-run-id"] = run.Status.GetID()
+
+	return labels
+}
+
 func ensureAnnotations(annotations map[string]string) map[string]string {
 	if annotations == nil {
 		annotations = map[string]string{}
@@ -101,6 +118,15 @@ func ensureDefaultContainer(containers []corev1.Container, run *v1alpha1.AgentRu
 		containers[index].SecurityContext = ensureDefaultContainerSecurityContext(containers[index].SecurityContext)
 		containers[index].EnvFrom = getDefaultContainerEnvFrom(run.Name)
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
+		containers[index].Env = ensureDefaultEnvVars(containers[index].Env, run)
+
+		// Set the agent-harness entrypoint and args
+		if len(containers[index].Command) == 0 {
+			containers[index].Command = []string{agentHarnessEntrypoint}
+		}
+		if len(containers[index].Args) == 0 {
+			containers[index].Args = getDefaultContainerArgs(run)
+		}
 	}
 
 	return containers
@@ -142,9 +168,13 @@ func getDefaultContainer(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime)
 	return corev1.Container{
 		Name:            defaultContainer,
 		Image:           getDefaultContainerImage("", runtime.Spec.Type),
+		Command:         []string{agentHarnessEntrypoint},
+		Args:            getDefaultContainerArgs(run),
 		VolumeMounts:    []corev1.VolumeMount{defaultContainerVolumeMount, defaultTmpContainerVolumeMount},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		EnvFrom:         getDefaultContainerEnvFrom(run.Name),
+		Env:             getDefaultEnvVars(run),
+		WorkingDir:      agentHarnessWorkingDir,
 	}
 }
 
@@ -160,6 +190,47 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{{
 		SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: secretName}},
 	}}
+}
+
+func getDefaultContainerArgs(run *v1alpha1.AgentRun) []string {
+	return []string{
+		"--working-dir=" + agentHarnessWorkingDir,
+		"--agent-run-id=" + run.Status.GetID(),
+		// Console URL and token will come from secret via EnvFrom
+	}
+}
+
+func getDefaultEnvVars(run *v1alpha1.AgentRun) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "AGENT_RUN_ID",
+			Value: run.Status.GetID(),
+		},
+		{
+			Name:  "WORKING_DIR",
+			Value: agentHarnessWorkingDir,
+		},
+	}
+}
+
+func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun) []corev1.EnvVar {
+	defaultEnvs := getDefaultEnvVars(run)
+
+	// Add default env vars if they don't already exist
+	for _, defaultEnv := range defaultEnvs {
+		found := false
+		for _, existingEnv := range existing {
+			if existingEnv.Name == defaultEnv.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			existing = append(existing, defaultEnv)
+		}
+	}
+
+	return existing
 }
 
 func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.SecurityContext {
