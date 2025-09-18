@@ -149,7 +149,7 @@ func (r *AgentRunReconciler) getRuntime(ctx context.Context, run *v1alpha1.Agent
 
 // reconcilePod ensures the pod for the agent run exists and is in the desired state.
 func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) error {
-	var pod *corev1.Pod
+	pod := &corev1.Pod{}
 	err := r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod)
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to get pod: %w", err)
