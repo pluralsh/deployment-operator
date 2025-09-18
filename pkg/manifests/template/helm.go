@@ -385,14 +385,26 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 		return nil, err
 	}
 	client.KubeVersion = vsn
-	client.APIVersions = algorithms.Map(
-		discoverycache.GlobalCache().GroupVersion().List(),
-		func(gv schema.GroupVersion) string {
-			return gv.String()
-		},
-	)
+	client.APIVersions = h.buildHelmAPIVersions()
 
 	return client.Run(chart, values)
+}
+
+func (h *helm) buildHelmAPIVersions() []string {
+	return slices.Concat[[]string](
+		algorithms.Map(
+			discoverycache.GlobalCache().GroupVersion().List(),
+			func(gv schema.GroupVersion) string {
+				return gv.String()
+			},
+		),
+		algorithms.Map(
+			discoverycache.GlobalCache().GroupVersionKind().List(),
+			func(gvk schema.GroupVersionKind) string {
+				return fmt.Sprintf("%s/%s", gvk.GroupVersion().String(), gvk.Kind)
+			},
+		),
+	)
 }
 
 // GetActionConfig now receives EnvSettings instead of using a global
