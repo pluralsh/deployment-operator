@@ -5,7 +5,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -100,28 +99,8 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		for _, run := range runs {
 			if run.Node.Status == console.AgentRunStatusPending {
 				// Create Agent CRD for this pending run to be picked up by agentrun controller
-				agentRun := &v1alpha1.AgentRun{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      run.Node.ID,
-						Namespace: agentRuntime.Namespace,
-						Labels: map[string]string{
-							"deployments.plural.sh/agent-runtime": agentRuntime.Name,
-						},
-					},
-					Spec: v1alpha1.AgentRunSpec{
-						RuntimeRef: corev1.ObjectReference{
-							Name:      agentRuntime.Name,
-							Namespace: agentRuntime.Namespace,
-						},
-						Prompt:     run.Node.Prompt,
-						Repository: run.Node.Repository,
-						Mode:       run.Node.Mode,
-						FlowID:     &run.Node.Flow.ID,
-					},
-				}
+				if err := r.createAgentRun(ctx, agentRuntime, run.Node); err != nil {
 
-				if err := r.Create(ctx, agentRun); err != nil {
-					logger.Error(err, "failed to create AgentRun CRD", "runID", run.Node.ID)
 				}
 			}
 		}
@@ -138,6 +117,7 @@ func (r *AgentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		For(&v1alpha1.AgentRuntime{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&v1alpha1.AgentRun{}, builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
 		Complete(r)
 }
 
@@ -192,6 +172,41 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 
 		// Stop reconciliation as the item does no longer exist.
 		return &ctrl.Result{}
+	}
+
+	return nil
+}
+
+func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime, run *console.AgentRunFragment) error {
+	logger := log.FromContext(ctx)
+	if err := r.Get(ctx, client.ObjectKey{Name: run.ID, Namespace: agentRuntime.Namespace}, &v1alpha1.AgentRun{}); err == nil {
+		logger.Info("AgentRun already exists", "runID", run.ID)
+		return nil
+	}
+
+	agentRun := &v1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      run.ID,
+			Namespace: agentRuntime.Namespace,
+			Labels: map[string]string{
+				"deployments.plural.sh/agent-runtime": agentRuntime.ConsoleName(),
+			},
+		},
+		Spec: v1alpha1.AgentRunSpec{
+			Prompt:     run.Prompt,
+			Repository: run.Repository,
+			Mode:       run.Mode,
+			FlowID:     &run.Flow.ID,
+		},
+	}
+
+	if err := r.Create(ctx, agentRun); err != nil {
+		logger.Error(err, "failed to create AgentRun CRD", "runID", run.ID)
+		return err
+	}
+	if err := utils.TryAddControllerRef(ctx, r.Client, agentRuntime, agentRun, r.Scheme); err != nil {
+		logger.Error(err, "Error setting ControllerReference for AgentRun.")
+		return err
 	}
 
 	return nil

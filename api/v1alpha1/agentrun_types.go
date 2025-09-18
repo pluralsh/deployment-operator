@@ -9,10 +9,6 @@ import (
 
 // AgentRunSpec defines the desired state of AgentRun
 type AgentRunSpec struct {
-	// RuntimeRef references the AgentRuntime that should be used for this run
-	// +kubebuilder:validation:Required
-	RuntimeRef corev1.ObjectReference `json:"runtimeRef"`
-
 	// Prompt is the task/prompt given to the agent
 	// +kubebuilder:validation:Required
 	Prompt string `json:"prompt"`
