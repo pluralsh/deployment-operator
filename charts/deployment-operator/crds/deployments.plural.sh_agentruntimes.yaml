@@ -154,6 +154,8 @@ spec:
                   Name of this AgentRuntime.
                   If not provided, the name from AgentRuntime.ObjectMeta will be used.
                 type: string
+              targetNamespace:
+                type: string
               template:
                 description: Template defines the pod template for this agent runtime.
                 properties:
@@ -8187,7 +8189,7 @@ spec:
                 - CUSTOM
                 type: string
             required:
-            - config
+            - targetNamespace
             - template
             - type
             type: object

@@ -56,7 +56,7 @@ func (c *client) DeleteAgentRuntime(ctx context.Context, id string) error {
 	return err
 }
 
-func (c *client) ListAgentRuntime(ctx context.Context, after *string, first *int64, q *string, typeArg *console.AgentRuntimeType) (*console.AgentRuntimeConnectionFragment, error) {
+func (c *client) ListAgentRuntime(ctx context.Context, after *string, first *int64, q *string, typeArg *console.AgentRuntimeType) (*console.ListAgentRuntimes_AgentRuntimes, error) {
 	response, err := c.consoleClient.ListAgentRuntimes(ctx, after, first, nil, nil, q, typeArg)
 	if err != nil {
 		return nil, err
@@ -67,13 +67,13 @@ func (c *client) ListAgentRuntime(ctx context.Context, after *string, first *int
 	return response.AgentRuntimes, nil
 }
 
-func (c *client) ListAgentRuns(ctx context.Context, after *string, first *int64) (*console.ListAgentRuns_AgentRuns, error) {
-	response, err := c.consoleClient.ListAgentRuns(ctx, after, first, nil, nil)
+func (c *client) ListAgentRuntimePendingRuns(ctx context.Context, id string, after *string, first *int64) (*console.ListAgentRuntimePendingRuns_AgentRuntime_PendingRuns, error) {
+	response, err := c.consoleClient.ListAgentRuntimePendingRuns(ctx, id, after, first, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	if response.AgentRuns == nil {
-		return nil, stderrors.New("the response from ListAgentRuns is nil")
+	if response.AgentRuntime == nil || response.AgentRuntime.PendingRuns == nil {
+		return nil, stderrors.New("the response from ListAgentRuntimePendingRuns is nil")
 	}
-	return response.AgentRuns, nil
+	return response.AgentRuntime.PendingRuns, nil
 }

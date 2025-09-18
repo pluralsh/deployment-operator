@@ -15,6 +15,9 @@ type AgentRuntimeSpec struct {
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty"`
 
+	// +kubebuilder:validation:Required
+	TargetNamespace string `json:"targetNamespace"`
+
 	// Type specifies the agent runtime to use for executing the stack.
 	// One of CLAUDE, OPENCODE, GEMINI, CUSTOM.
 	// +kubebuilder:validation:Enum=CLAUDE;OPENCODE;GEMINI;CUSTOM
@@ -30,7 +33,8 @@ type AgentRuntimeSpec struct {
 	Template corev1.PodTemplateSpec `json:"template"`
 
 	// Config contains typed configuration depending on the chosen runtime type.
-	Config AgentRuntimeConfig `json:"config"`
+	// +kubebuilder:validation:Optional
+	Config *AgentRuntimeConfig `json:"config,omitempty"`
 
 	// AiProxy specifies whether the agent runtime should be proxied through the AI proxy.
 	AiProxy *bool `json:"aiProxy,omitempty"`

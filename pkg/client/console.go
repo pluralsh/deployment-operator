@@ -82,6 +82,6 @@ type Client interface {
 	IsAgentRuntimeExists(ctx context.Context, id string) (bool, error)
 	UpsertAgentRuntime(ctx context.Context, attrs console.AgentRuntimeAttributes) (*console.AgentRuntimeFragment, error)
 	DeleteAgentRuntime(ctx context.Context, id string) error
-	ListAgentRuntime(ctx context.Context, after *string, first *int64, q *string, typeArg *console.AgentRuntimeType) (*console.AgentRuntimeConnectionFragment, error)
-	ListAgentRuns(ctx context.Context, after *string, first *int64) (*console.ListAgentRuns_AgentRuns, error)
+	ListAgentRuntime(ctx context.Context, after *string, first *int64, q *string, typeArg *console.AgentRuntimeType) (*console.ListAgentRuntimes_AgentRuntimes, error)
+	ListAgentRuntimePendingRuns(ctx context.Context, id string, after *string, first *int64) (*console.ListAgentRuntimePendingRuns_AgentRuntime_PendingRuns, error)
 }

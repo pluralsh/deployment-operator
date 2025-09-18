@@ -29,6 +29,7 @@ func (c ConditionReason) String() string {
 
 const (
 	ReadyConditionReason             ConditionReason = "Ready"
+	ReadyConditionReasonError        ConditionReason = "Error"
 	ErrorConditionReason             ConditionReason = "Error"
 	SynchronizedConditionReason      ConditionReason = "Synchronized"
 	SynchronizedConditionReasonError ConditionReason = "Error"

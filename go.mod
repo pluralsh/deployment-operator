@@ -40,7 +40,7 @@ require (
 	github.com/openshift/api v0.0.0-20231025170628-b8a18fdc040d
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.49.5
+	github.com/pluralsh/console/go/client v1.50.0
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.3.3

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -89,32 +90,33 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	agentRuntime.Status.SHA = &sha
 
+	// Mark as synchronized after the agent runtime is synchronized with the Console API.
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
+
 	var errors []error
-	pager := r.ListAgentRuns(ctx)
+	pager := r.ListAgentRuntimePendingRuns(ctx, agentRuntime.Status.GetID())
 	for pager.HasNext() {
 		runs, err := pager.NextPage()
 		if err != nil {
-			logger.Error(err, "failed to fetch run list")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, fmt.Errorf("failed to fetch agent runtime pending runs: %w", err)
 		}
 
 		for _, run := range runs {
-			if run.Node.Status == console.AgentRunStatusPending {
-				// Create Agent CRD for this pending run to be picked up by agentrun controller
-				if err := r.createAgentRun(ctx, agentRuntime, run.Node); err != nil {
-					errors = append(errors, err)
-				}
+			if err := r.createAgentRun(ctx, agentRuntime, run.Node); err != nil {
+				logger.Error(err, "failed to create agent run", "id", run.Node.ID)
+				errors = append(errors, err)
 			}
 		}
 	}
+
 	if len(errors) > 0 {
 		aggregateError := utilerrors.NewAggregate(errors)
-		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReason, aggregateError.Error())
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReasonError, aggregateError.Error())
 		return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
 	}
 
+	// Mark as ready after the agent run custom resources are created.
 	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
-	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 
 	return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
 }
@@ -128,11 +130,10 @@ func (r *AgentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *AgentRuntimeReconciler) ListAgentRuns(ctx context.Context) *algorithms.Pager[*console.ListAgentRuns_AgentRuns_Edges] {
+func (r *AgentRuntimeReconciler) ListAgentRuntimePendingRuns(ctx context.Context, id string) *algorithms.Pager[*console.ListAgentRuntimePendingRuns_AgentRuntime_PendingRuns_Edges] {
 	logger := log.FromContext(ctx)
-	logger.V(4).Info("create pager")
-	fetch := func(page *string, size int64) ([]*console.ListAgentRuns_AgentRuns_Edges, *algorithms.PageInfo, error) {
-		resp, err := r.consoleClient.ListAgentRuns(ctx, page, &size)
+	fetch := func(page *string, size int64) ([]*console.ListAgentRuntimePendingRuns_AgentRuntime_PendingRuns_Edges, *algorithms.PageInfo, error) {
+		resp, err := r.consoleClient.ListAgentRuntimePendingRuns(ctx, id, page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch stack run")
 			return nil, nil, err
@@ -144,7 +145,7 @@ func (r *AgentRuntimeReconciler) ListAgentRuns(ctx context.Context) *algorithms.
 		}
 		return resp.Edges, pageInfo, nil
 	}
-	return algorithms.NewPager[*console.ListAgentRuns_AgentRuns_Edges](100, fetch)
+	return algorithms.NewPager[*console.ListAgentRuntimePendingRuns_AgentRuntime_PendingRuns_Edges](100, fetch)
 }
 
 func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime) *ctrl.Result {
@@ -186,18 +187,18 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 
 func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime, run *console.AgentRunFragment) error {
 	logger := log.FromContext(ctx)
-	if err := r.Get(ctx, client.ObjectKey{Name: run.ID, Namespace: agentRuntime.Namespace}, &v1alpha1.AgentRun{}); err == nil {
-		logger.Info("AgentRun already exists", "runID", run.ID)
+
+	if err := r.Get(ctx, client.ObjectKey{Name: run.ID, Namespace: agentRuntime.Spec.TargetNamespace}, &v1alpha1.AgentRun{}); err == nil {
+		logger.V(4).Info("agent run already exists",
+			"name", run.ID, "namespace", agentRuntime.Spec.TargetNamespace)
 		return nil
 	}
 
 	agentRun := &v1alpha1.AgentRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      run.ID,
-			Namespace: agentRuntime.Namespace,
-			Labels: map[string]string{
-				"deployments.plural.sh/agent-runtime": agentRuntime.ConsoleName(),
-			},
+			Namespace: agentRuntime.Spec.TargetNamespace,
+			Labels:    map[string]string{"deployments.plural.sh/agent-runtime": agentRuntime.ConsoleName()},
 		},
 		Spec: v1alpha1.AgentRunSpec{
 			Prompt:     run.Prompt,
@@ -208,12 +209,11 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 	}
 
 	if err := r.Create(ctx, agentRun); err != nil {
-		logger.Error(err, "failed to create AgentRun CRD", "runID", run.ID)
-		return err
+		return fmt.Errorf("failed to create agent run: %w", err)
 	}
+
 	if err := utils.TryAddControllerRef(ctx, r.Client, agentRuntime, agentRun, r.Scheme); err != nil {
-		logger.Error(err, "Error setting ControllerReference for AgentRun.")
-		return err
+		return fmt.Errorf("failed to set controller reference for agent run: %w", err)
 	}
 
 	return nil
