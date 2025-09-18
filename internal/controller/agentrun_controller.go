@@ -2,14 +2,23 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	pluralclient "github.com/pluralsh/deployment-operator/pkg/client"
@@ -73,127 +82,113 @@ type AgentRunReconciler struct {
 	ConsoleClient pluralclient.Client
 }
 
-func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, reterr error) {
+func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
 	logger := log.FromContext(ctx)
 
-	// PSEUDOCODE: This is the skeleton implementation
-	// When the actual AgentRun CRD is implemented, replace MockAgentRun with v1alpha1.AgentRun
+	agentRun := &v1alpha1.AgentRun{}
+	if err := r.Get(ctx, req.NamespacedName, agentRun); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	logger.Info("AgentRun controller reconcile called", "request", req.NamespacedName)
+	scope, err := NewDefaultScope(ctx, r.Client, agentRun)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-	// STEP 1: Fetch the AgentRun resource
-	// agentRun := &v1alpha1.AgentRun{}  // This will be the real type later
-	// if err := r.Get(ctx, req.NamespacedName, agentRun); err != nil {
-	//     return ctrl.Result{}, client.IgnoreNotFound(err)
-	// }
+	// Always patch object when exiting this function, so we can persist any object changes.
+	defer func() {
+		if err := scope.PatchObject(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
-	logger.Info("PSEUDOCODE: Would fetch AgentRun resource here")
+	utils.MarkCondition(agentRun.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(agentRun.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
-	// STEP 2: Handle deletion (finalizer logic)
-	// result, err := r.handleDeletion(ctx, agentRun)
-	// if result != nil {
-	//     return *result, err
-	// }
+	result := r.addOrRemoveFinalizer(ctx, agentRun)
+	if result != nil {
+		return *result, nil
+	}
 
-	logger.Info("PSEUDOCODE: Would handle deletion/finalizers here")
+	var agentRuntime *v1alpha1.AgentRuntime
+	if err = r.Get(ctx, client.ObjectKey{Name: agentRun.Spec.RuntimeRef.Name}, agentRuntime); err != nil || agentRuntime == nil {
+		err = fmt.Errorf("failed to find agent runtime: %w", err)
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		return jitterRequeue(requeueWaitForResources, jitter), err
+	}
 
-	// STEP 3: Main reconciliation logic
-	// if err := r.reconcileAgentRun(ctx, agentRun); err != nil {
-	//     return ctrl.Result{RequeueAfter: time.Minute * 5}, err
-	// }
+	// TODO: Sync/upsert with Console API here? To handle manual run creation.
 
-	logger.Info("PSEUDOCODE: Would execute main reconciliation logic here")
+	if err = r.reconcilePod(ctx, agentRun, agentRuntime); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	// For now, just return success to avoid infinite reconciliation
-	return ctrl.Result{RequeueAfter: time.Minute * 10}, nil
+	return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
 }
 
-// reconcileAgentRun contains the main business logic for managing AgentRuns
-// PSEUDOCODE: This method will implement the core logic when the CRD is ready
-func (r *AgentRunReconciler) reconcileAgentRun(ctx context.Context, agentRun *MockAgentRun) error {
-	logger := log.FromContext(ctx)
+func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, agentRun *v1alpha1.AgentRun) *ctrl.Result {
+	if agentRun.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(agentRun, AgentRuntimeFinalizer) {
+		controllerutil.AddFinalizer(agentRun, AgentRuntimeFinalizer)
+	}
 
-	// STEP 1: Check if execution pod already exists
-	// pod, err := r.findAgentRunPod(ctx, agentRun)
-	// if err != nil && !apierrs.IsNotFound(err) {
-	//     return fmt.Errorf("failed to find agent run pod: %w", err)
-	// }
+	// If the agent runtime is being deleted, cleanup and remove the finalizer.
+	if !agentRun.GetDeletionTimestamp().IsZero() {
+		// If the agent runtime does not have an ID, the finalizer can be removed.
+		if !agentRun.Status.HasID() {
+			controllerutil.RemoveFinalizer(agentRun, AgentRuntimeFinalizer)
+			return &ctrl.Result{}
+		}
 
-	logger.Info("PSEUDOCODE: Would check for existing pod")
+		exists, err := r.ConsoleClient.IsAgentRuntimeExists(ctx, agentRun.Status.GetID())
+		if err != nil {
+			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
+		}
 
-	// STEP 2: Create pod if needed
-	// if pod == nil && r.shouldCreatePod(agentRun) {
-	//     if err := r.createAgentRunPod(ctx, agentRun); err != nil {
-	//         return fmt.Errorf("failed to create agent run pod: %w", err)
-	//     }
-	//     agentRun.Status.Phase = AgentRunPhaseRunning
-	//     return nil
-	// }
+		// Remove agent runtime from Console API if it exists.
+		if exists {
+			if err = r.ConsoleClient.DeleteAgentRuntime(ctx, agentRun.Status.GetID()); err != nil {
+				// If it fails to delete the external dependency here, return with the error so that it can be retried.
+				utils.MarkCondition(agentRun.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
+			}
+		}
 
-	logger.Info("PSEUDOCODE: Would create execution pod if needed")
+		// If finalizer is present, remove it.
+		controllerutil.RemoveFinalizer(agentRun, AgentRuntimeFinalizer)
 
-	// STEP 3: Update status based on pod status
-	// if pod != nil {
-	//     return r.updateStatusFromPod(ctx, agentRun, pod)
-	// }
-
-	logger.Info("PSEUDOCODE: Would update AgentRun status based on pod status")
+		// Stop reconciliation as the item does no longer exist.
+		return &ctrl.Result{}
+	}
 
 	return nil
 }
 
-// handleDeletion manages the cleanup process when an AgentRun is being deleted
-// PSEUDOCODE: This will handle finalizer logic and cleanup
-func (r *AgentRunReconciler) handleDeletion(ctx context.Context, agentRun *MockAgentRun) (*ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+// reconcilePod ensures the pod for the agent run exists and is in the desired state.
+func (r *AgentRunReconciler) reconcilePod(ctx context.Context, agentRun *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) error {
+	var pod *corev1.Pod
+	err := r.Get(ctx, client.ObjectKey{Name: agentRun.Name, Namespace: agentRun.Namespace}, pod)
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("failed to get pod: %w", err)
+	}
 
-	// if !agentRun.GetDeletionTimestamp().IsZero() {
-	//     logger.Info("AgentRun is being deleted, cleaning up")
-	//
-	//     // Cleanup pods
-	//     if err := r.cleanupPods(ctx, agentRun); err != nil {
-	//         return &ctrl.Result{}, err
-	//     }
-	//
-	//     // Update Console API
-	//     if agentRun.Status.ConsoleID != nil {
-	//         // r.ConsoleClient.UpdateAgentRunStatus(*agentRun.Status.ConsoleID, "CANCELLED")
-	//     }
-	//
-	//     // Remove finalizer
-	//     controllerutil.RemoveFinalizer(agentRun, AgentRunFinalizer)
-	//     return &ctrl.Result{}, nil
-	// }
+	pod = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        agentRun.Name,
+			Namespace:   agentRun.Namespace,
+			Labels:      agentRuntime.Spec.Template.Labels,
+			Annotations: agentRuntime.Spec.Template.Annotations,
+		},
+		Spec: agentRuntime.Spec.Template.Spec,
+	}
 
-	logger.Info("PSEUDOCODE: Would handle deletion and cleanup here")
-	return nil, nil
-}
+	if err = r.Create(ctx, pod); err != nil {
+		return fmt.Errorf("failed to create pod: %w", err)
+	}
 
-// createAgentRunPod creates a pod to execute the agent task
-// PSEUDOCODE: This will create the actual execution environment
-func (r *AgentRunReconciler) createAgentRunPod(ctx context.Context, agentRun *MockAgentRun) error {
-	logger := log.FromContext(ctx)
+	if err = utils.TryAddControllerRef(ctx, r.Client, agentRun, pod, r.Scheme); err != nil {
+		return fmt.Errorf("failed to add controller ref: %w", err)
+	}
 
-	// podSpec := r.buildPodSpec(agentRun)
-	// pod := &corev1.Pod{
-	//     ObjectMeta: metav1.ObjectMeta{
-	//         Name:      fmt.Sprintf("%s-executor", agentRun.Name),
-	//         Namespace: agentRun.Namespace,
-	//         Labels: map[string]string{
-	//             "app.kubernetes.io/name": "agent-executor",
-	//             "deployments.plural.sh/agent-run": agentRun.Name,
-	//         },
-	//     },
-	//     Spec: podSpec,
-	// }
-	//
-	// if err := controllerutil.SetControllerReference(agentRun, pod, r.Scheme); err != nil {
-	//     return err
-	// }
-	//
-	// return r.Create(ctx, pod)
-
-	logger.Info("PSEUDOCODE: Would create executor pod with agent harness")
 	return nil
 }
 
@@ -230,66 +225,12 @@ func (r *AgentRunReconciler) buildPodSpec(agentRun *MockAgentRun) corev1.PodSpec
 	return corev1.PodSpec{} // Placeholder
 }
 
-// updateStatusFromPod updates the AgentRun status based on the pod's current state
-// PSEUDOCODE: This will sync status between pod and AgentRun
-func (r *AgentRunReconciler) updateStatusFromPod(ctx context.Context, agentRun *MockAgentRun, pod *corev1.Pod) error {
-	logger := log.FromContext(ctx)
-
-	// switch pod.Status.Phase {
-	// case corev1.PodPending:
-	//     agentRun.Status.Phase = AgentRunPhasePending
-	// case corev1.PodRunning:
-	//     agentRun.Status.Phase = AgentRunPhaseRunning
-	//     if agentRun.Status.StartTime == nil {
-	//         agentRun.Status.StartTime = &metav1.Time{Time: time.Now()}
-	//     }
-	// case corev1.PodSucceeded:
-	//     agentRun.Status.Phase = AgentRunPhaseSucceeded
-	//     agentRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
-	//     // Update Console API with success
-	// case corev1.PodFailed:
-	//     agentRun.Status.Phase = AgentRunPhaseFailed
-	//     agentRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
-	//     // Update Console API with failure
-	// }
-	//
-	// // Check for timeout
-	// if r.isTimedOut(agentRun) {
-	//     agentRun.Status.Phase = AgentRunPhaseFailed
-	//     agentRun.Status.Message = "Execution timed out"
-	// }
-
-	logger.Info("PSEUDOCODE: Would update AgentRun status based on pod phase")
-	return nil
-}
-
-// findAgentRunPod locates the pod associated with an AgentRun
-// PSEUDOCODE: This will find the execution pod by labels/name
-func (r *AgentRunReconciler) findAgentRunPod(ctx context.Context, agentRun *MockAgentRun) (*corev1.Pod, error) {
-	// podName := fmt.Sprintf("%s-executor", agentRun.Name)
-	// pod := &corev1.Pod{}
-	// err := r.Get(ctx, client.ObjectKey{
-	//     Namespace: agentRun.Namespace,
-	//     Name:      podName,
-	// }, pod)
-	//
-	// if apierrs.IsNotFound(err) {
-	//     return nil, nil
-	// }
-	// return pod, err
-
-	return nil, nil // Placeholder
-}
-
 // SetupWithManager configures the controller with the manager
 // PSEUDOCODE: This will be updated when the actual CRD is available
 func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// When the AgentRun CRD is implemented, this will become:
-	// return ctrl.NewControllerManagedBy(mgr).
-	//     For(&v1alpha1.AgentRun{}).
-	//     Owns(&corev1.Pod{}).
-	//     Complete(r)
-
-	// For now, return nil since we can't register without the actual CRD
-	return nil
+	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
+		For(&v1alpha1.AgentRun{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&corev1.Pod{}).
+		Complete(r)
 }
