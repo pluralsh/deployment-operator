@@ -168,7 +168,7 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		return fmt.Errorf("failed to reconcile run secret: %w", err)
 	}
 
-	if err := utils.TryAddOwnerRef(ctx, r, pod, secret, r.Scheme); err != nil {
+	if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {
 		return fmt.Errorf("failed to add owner ref: %w", err)
 	}
 
