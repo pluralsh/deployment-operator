@@ -26,13 +26,14 @@ RUN CGO_ENABLED=0 \
 
 FROM cgr.dev/chainguard/wolfi-base:latest
 
-RUN apk update --no-cache && apk add git curl jq
+RUN apk update --no-cache && apk add git
 
 # Switch to the nonroot user
 USER 65532:65532
 
 # Copy the agent-harness binary
 COPY --from=builder /agent-harness /agent-harness
+COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
 
 # TODO: Add MCP server binary when implemented  
 # COPY --from=builder /plural-agent-mcp-server /usr/local/bin/
