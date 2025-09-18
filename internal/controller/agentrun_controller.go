@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -83,8 +82,6 @@ type AgentRunReconciler struct {
 }
 
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
-	logger := log.FromContext(ctx)
-
 	agentRun := &v1alpha1.AgentRun{}
 	if err := r.Get(ctx, req.NamespacedName, agentRun); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -110,11 +107,10 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return *result, nil
 	}
 
-	var agentRuntime *v1alpha1.AgentRuntime
-	if err = r.Get(ctx, client.ObjectKey{Name: agentRun.Spec.RuntimeRef.Name}, agentRuntime); err != nil || agentRuntime == nil {
-		err = fmt.Errorf("failed to find agent runtime: %w", err)
+	agentRuntime, err := r.getAgentRuntime(ctx, agentRun)
+	if err != nil {
 		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
-		return jitterRequeue(requeueWaitForResources, jitter), err
+		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
 	// TODO: Sync/upsert with Console API here? To handle manual run creation.
@@ -148,7 +144,7 @@ func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, agentRun 
 		if exists {
 			if err = r.ConsoleClient.DeleteAgentRuntime(ctx, agentRun.Status.GetID()); err != nil {
 				// If it fails to delete the external dependency here, return with the error so that it can be retried.
-				utils.MarkCondition(agentRun.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+				utils.MarkCondition(agentRun.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 			}
 		}
@@ -161,6 +157,19 @@ func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, agentRun 
 	}
 
 	return nil
+}
+
+func (r *AgentRunReconciler) getAgentRuntime(ctx context.Context, agentRun *v1alpha1.AgentRun) (agentRuntime *v1alpha1.AgentRuntime, err error) {
+	err = r.Get(ctx, client.ObjectKey{Name: agentRun.Spec.RuntimeRef.Name}, agentRuntime)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent runtime: %w", err)
+	}
+
+	if agentRuntime == nil {
+		return nil, fmt.Errorf("agent runtime %s not found", agentRun.Spec.RuntimeRef.Name)
+	}
+
+	return
 }
 
 // reconcilePod ensures the pod for the agent run exists and is in the desired state.
