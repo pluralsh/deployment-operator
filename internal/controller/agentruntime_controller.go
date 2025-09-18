@@ -206,8 +206,10 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 			Prompt:     run.Prompt,
 			Repository: run.Repository,
 			Mode:       run.Mode,
-			FlowID:     &run.Flow.ID,
 		},
+	}
+	if run.Flow != nil {
+		agentRun.Spec.FlowID = lo.ToPtr(run.Flow.ID)
 	}
 
 	if err := r.ensureNamespace(ctx, agentRuntime.Spec.TargetNamespace); err != nil {
