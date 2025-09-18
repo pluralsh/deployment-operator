@@ -127,7 +127,6 @@ func (r *AgentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		For(&v1alpha1.AgentRuntime{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&v1alpha1.AgentRun{}, builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
 		Complete(r)
 }
 
@@ -160,6 +159,21 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 		if !agentRuntime.Status.HasID() {
 			controllerutil.RemoveFinalizer(agentRuntime, AgentRuntimeFinalizer)
 			return &ctrl.Result{}
+		}
+
+		// Remove agent runs.
+		var agentRuns *v1alpha1.AgentRunList
+		if err := r.List(ctx, agentRuns, client.InNamespace(agentRuntime.Spec.TargetNamespace),
+			client.MatchingLabels{"deployments.plural.sh/agent-runtime": agentRuntime.Name}); err != nil {
+			utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
+		}
+
+		for _, agentRun := range agentRuns.Items {
+			if err := r.Delete(ctx, &agentRun); err != nil {
+				utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+				return lo.ToPtr(jitterRequeue(requeueWaitForResources, jitter))
+			}
 		}
 
 		exists, err := r.ConsoleClient.IsAgentRuntimeExists(ctx, agentRuntime.Status.GetID())
@@ -218,10 +232,6 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 
 	if err := r.Create(ctx, agentRun); err != nil {
 		return fmt.Errorf("failed to create agent run: %w", err)
-	}
-
-	if err := utils.TryAddControllerRef(ctx, r.Client, agentRuntime, agentRun, r.Scheme); err != nil {
-		return fmt.Errorf("failed to set controller reference for agent run: %w", err)
 	}
 
 	return nil
