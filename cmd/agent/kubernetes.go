@@ -113,6 +113,7 @@ func registerKubeReconcilersOrDie(
 	extConsoleClient consoleclient.Client,
 	discoveryClient discovery.DiscoveryInterface,
 	enableKubecostProxy bool,
+	consoleURL, deployToken string,
 ) {
 	rolloutsClient, dynamicClient, kubeClient := initKubeClientsOrDie(config)
 
@@ -277,4 +278,21 @@ func registerKubeReconcilersOrDie(
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AgentConfiguration")
 	}
+	if err := (&controller.AgentRuntimeReconciler{
+		Client:        manager.GetClient(),
+		Scheme:        manager.GetScheme(),
+		ConsoleClient: extConsoleClient,
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AgentRuntime")
+	}
+	if err := (&controller.AgentRunReconciler{
+		Client:        manager.GetClient(),
+		Scheme:        manager.GetScheme(),
+		ConsoleClient: extConsoleClient,
+		ConsoleURL:    consoleURL,
+		ConsoleToken:  deployToken,
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AgentRun")
+	}
+
 }

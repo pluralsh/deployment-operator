@@ -265,3 +265,16 @@ func NewStackRunController(options ...Option) (Controller, error) {
 
 	return ctrl.init()
 }
+
+// NewAgentRunController creates a new agent run controller TODO
+func NewAgentRunController(opts ...Option) (Controller, error) {
+	// TODO: Implement agent run controller
+	panic("NewAgentRunController not yet implemented - this is a stub")
+}
+
+// WithAgentRun sets the agent run ID TODO
+func WithAgentRun(agentRunID string) Option {
+	// TODO: Implement agent run option
+	// This will be similar to WithStackRun but for agent runs
+	return nil
+}

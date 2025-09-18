@@ -69,7 +69,7 @@ func (r *ClusterDrainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}()
 
 	if meta.FindStatusCondition(drain.Status.Conditions, v1alpha1.ReadyConditionType.String()) != nil {
-		// Do not requeue; execute once per CR instance
+		// Do not jitterRequeue; execute once per CR instance
 		return ctrl.Result{}, nil
 	}
 
