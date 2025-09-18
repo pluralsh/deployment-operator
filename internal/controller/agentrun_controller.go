@@ -134,6 +134,7 @@ func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, run *v1al
 }
 
 func (r *AgentRunReconciler) getRuntime(ctx context.Context, run *v1alpha1.AgentRun) (runtime *v1alpha1.AgentRuntime, err error) {
+	runtime = &v1alpha1.AgentRuntime{}
 	err = r.Get(ctx, client.ObjectKey{Name: run.Spec.RuntimeRef.Name}, runtime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent runtime: %w", err)

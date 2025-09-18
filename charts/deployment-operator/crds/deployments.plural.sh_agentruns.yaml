@@ -53,10 +53,18 @@ spec:
                 description: Repository is the git repository the agent will work
                   with
                 type: string
+              runtimeRef:
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
             required:
             - mode
             - prompt
             - repository
+            - runtimeRef
             type: object
           status:
             description: AgentRunStatus defines the observed state of AgentRun
