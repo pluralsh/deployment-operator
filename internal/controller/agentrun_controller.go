@@ -3,20 +3,22 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -25,38 +27,10 @@ import (
 
 const (
 	AgentRunFinalizer    = "deployments.plural.sh/agentrun-protection"
-	nonRootUID           = int64(65532)
-	nonRootGID           = nonRootUID
-	defaultVolumeName    = "default"
-	defaultVolumePath    = "/plural"
-	defaultTmpVolumeName = "default-tmp"
-	defaultTmpVolumePath = "/tmp"
-)
-
-var (
-	defaultVolume = corev1.Volume{
-		Name: defaultVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
-	defaultContainerVolumeMount = corev1.VolumeMount{
-		Name:      defaultVolumeName,
-		MountPath: defaultVolumePath,
-	}
-
-	defaultTmpVolume = corev1.Volume{
-		Name: defaultTmpVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
-	defaultTmpContainerVolumeMount = corev1.VolumeMount{
-		Name:      defaultTmpVolumeName,
-		MountPath: defaultTmpVolumePath,
-	}
+	requeueAfterAgentRun = 2 * time.Minute
+	envConsoleURL        = "PLRL_CONSOLE_URL"
+	envConsoleToken      = "PLRL_CONSOLE_TOKEN"
+	envAgentRunID        = "PLRL_AGENT_RUN_ID"
 )
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.
@@ -68,6 +42,8 @@ type AgentRunReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
 	ConsoleClient pluralclient.Client
+	consoleURL    string
+	consoleToken  string
 }
 
 // SetupWithManager configures the controller with the manager.
@@ -80,12 +56,12 @@ func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
-	agentRun := &v1alpha1.AgentRun{}
-	if err := r.Get(ctx, req.NamespacedName, agentRun); err != nil {
+	run := &v1alpha1.AgentRun{}
+	if err := r.Get(ctx, req.NamespacedName, run); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	scope, err := NewDefaultScope(ctx, r.Client, agentRun)
+	scope, err := NewDefaultScope(ctx, r.Client, run)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -97,58 +73,58 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 	}()
 
-	utils.MarkCondition(agentRun.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
-	utils.MarkCondition(agentRun.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
+	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
-	result := r.addOrRemoveFinalizer(ctx, agentRun)
+	result := r.addOrRemoveFinalizer(ctx, run)
 	if result != nil {
 		return *result, nil
 	}
 
-	agentRuntime, err := r.getAgentRuntime(ctx, agentRun)
+	runtime, err := r.getRuntime(ctx, run)
 	if err != nil {
-		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		utils.MarkCondition(runtime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
 	// TODO: Sync/upsert with Console API here? To handle manual run creation.
 
-	if err = r.reconcilePod(ctx, agentRun, agentRuntime); err != nil {
+	if err = r.reconcilePod(ctx, run, runtime); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
+	return jitterRequeue(requeueAfterAgentRun, jitter), nil
 }
 
-func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, agentRun *v1alpha1.AgentRun) *ctrl.Result {
-	if agentRun.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(agentRun, AgentRuntimeFinalizer) {
-		controllerutil.AddFinalizer(agentRun, AgentRunFinalizer)
+func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, run *v1alpha1.AgentRun) *ctrl.Result {
+	if run.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(run, AgentRuntimeFinalizer) {
+		controllerutil.AddFinalizer(run, AgentRunFinalizer)
 	}
 
 	// If the agent run is being deleted, cleanup and remove the finalizer.
-	if !agentRun.GetDeletionTimestamp().IsZero() {
+	if !run.GetDeletionTimestamp().IsZero() {
 		// If the agent run does not have an ID, the finalizer can be removed.
-		if !agentRun.Status.HasID() {
-			controllerutil.RemoveFinalizer(agentRun, AgentRunFinalizer)
+		if !run.Status.HasID() {
+			controllerutil.RemoveFinalizer(run, AgentRunFinalizer)
 			return &ctrl.Result{}
 		}
 
-		exists, err := r.ConsoleClient.IsAgentRunExists(ctx, agentRun.Status.GetID())
+		exists, err := r.ConsoleClient.IsAgentRunExists(ctx, run.Status.GetID())
 		if err != nil {
 			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 		}
 
 		// Cancel agent run from Console API if it exists.
 		if exists {
-			if err = r.ConsoleClient.CancelAgentRun(ctx, agentRun.Status.GetID()); err != nil {
+			if err = r.ConsoleClient.CancelAgentRun(ctx, run.Status.GetID()); err != nil {
 				// If it fails to delete the external dependency here, return with the error so that it can be retried.
-				utils.MarkCondition(agentRun.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+				utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 			}
 		}
 
 		// If finalizer is present, remove it.
-		controllerutil.RemoveFinalizer(agentRun, AgentRunFinalizer)
+		controllerutil.RemoveFinalizer(run, AgentRunFinalizer)
 
 		// Stop reconciliation as the item does no longer exist.
 		return &ctrl.Result{}
@@ -157,68 +133,94 @@ func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, agentRun 
 	return nil
 }
 
-func (r *AgentRunReconciler) getAgentRuntime(ctx context.Context, agentRun *v1alpha1.AgentRun) (agentRuntime *v1alpha1.AgentRuntime, err error) {
-	err = r.Get(ctx, client.ObjectKey{Name: agentRun.Spec.RuntimeRef.Name}, agentRuntime)
+func (r *AgentRunReconciler) getRuntime(ctx context.Context, run *v1alpha1.AgentRun) (runtime *v1alpha1.AgentRuntime, err error) {
+	err = r.Get(ctx, client.ObjectKey{Name: run.Spec.RuntimeRef.Name}, runtime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent runtime: %w", err)
 	}
 
-	if agentRuntime == nil {
-		return nil, fmt.Errorf("agent runtime %s not found", agentRun.Spec.RuntimeRef.Name)
+	if runtime == nil {
+		return nil, fmt.Errorf("agent runtime %s not found", run.Spec.RuntimeRef.Name)
 	}
 
 	return
 }
 
 // reconcilePod ensures the pod for the agent run exists and is in the desired state.
-func (r *AgentRunReconciler) reconcilePod(ctx context.Context, agentRun *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) error {
+func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) error {
 	var pod *corev1.Pod
-	err := r.Get(ctx, client.ObjectKey{Name: agentRun.Name, Namespace: agentRun.Namespace}, pod)
+	err := r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod)
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to get pod: %w", err)
 	}
 
-	pod = r.buildPod(agentRun, agentRuntime)
+	pod = buildAgentRunPod(run, runtime)
 	if err = r.Create(ctx, pod); err != nil {
 		return fmt.Errorf("failed to create pod: %w", err)
 	}
 
-	if err = utils.TryAddControllerRef(ctx, r.Client, agentRun, pod, r.Scheme); err != nil {
+	if err = utils.TryAddControllerRef(ctx, r.Client, run, pod, r.Scheme); err != nil {
 		return fmt.Errorf("failed to add controller ref: %w", err)
+	}
+
+	secret, err := r.reconcilePodSecret(ctx, run)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile run secret: %w", err)
+	}
+
+	if err := utils.TryAddOwnerRef(ctx, r, pod, secret, r.Scheme); err != nil {
+		return fmt.Errorf("failed to add owner ref: %w", err)
 	}
 
 	return nil
 }
 
-// buildPod creates the pod specification for running agent tasks.
-// TODO
-func (r *AgentRunReconciler) buildPod(agentRun *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) *corev1.Pod {
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        agentRun.Name,
-			Namespace:   agentRun.Namespace,
-			Labels:      agentRuntime.Spec.Template.Labels,
-			Annotations: agentRuntime.Spec.Template.Annotations,
-		},
-		Spec: agentRuntime.Spec.Template.Spec,
+func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alpha1.AgentRun) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
+
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: run.Name, Namespace: run.Namespace}, secret); err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get secret: %w", err)
+		}
+
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: run.Name, Namespace: run.Namespace},
+			StringData: r.getSecretData(run),
+		}
+
+		logger.V(2).Info("creating secret", "namespace", secret.Namespace, "name", secret.Name)
+		if err = r.Create(ctx, secret); err != nil {
+			return nil, fmt.Errorf("failed to create secret: %w", err)
+		}
+
+		return secret, nil
 	}
 
-	if pod.Spec.SecurityContext == nil {
-		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-			RunAsNonRoot: lo.ToPtr(true),
-			RunAsUser:    lo.ToPtr(nonRootUID),
-			RunAsGroup:   lo.ToPtr(nonRootGID),
+	if !r.hasSecretData(secret.Data, run) {
+		logger.V(2).Info("updating secret", "namespace", secret.Namespace, "name", secret.Name)
+		secret.StringData = r.getSecretData(run)
+		if err := r.Update(ctx, secret); err != nil {
+			logger.Error(err, "unable to update secret")
+			return nil, err
 		}
 	}
 
-	// Overwrite or set required volumes.
-	pod.Spec.Volumes = append(
-		algorithms.Filter(pod.Spec.Volumes, func(v corev1.Volume) bool {
-			return v.Name != defaultVolumeName && v.Name != defaultTmpVolumeName
-		}),
-		defaultVolume,
-		defaultTmpVolume,
-	)
+	return secret, nil
+}
 
-	return pod
+func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun) map[string]string {
+	return map[string]string{
+		envConsoleURL:   r.consoleURL,
+		envConsoleToken: r.consoleToken,
+		envAgentRunID:   run.Status.GetID(),
+	}
+}
+
+func (r *AgentRunReconciler) hasSecretData(data map[string][]byte, run *v1alpha1.AgentRun) bool {
+	token, hasToken := data[envConsoleToken]
+	url, hasUrl := data[envConsoleURL]
+	id, hasID := data[envConsoleURL]
+	return hasToken && hasUrl && hasID &&
+		string(token) == r.consoleToken && string(url) == r.consoleURL && string(id) == run.Status.GetID()
 }
