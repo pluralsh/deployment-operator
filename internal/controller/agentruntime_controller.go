@@ -226,7 +226,7 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 		agentRun.Spec.FlowID = lo.ToPtr(run.Flow.ID)
 	}
 
-	if err := r.ensureNamespace(ctx, agentRuntime.Spec.TargetNamespace); err != nil {
+	if err := r.ensureTargetNamespace(ctx, agentRuntime.Spec.TargetNamespace); err != nil {
 		return fmt.Errorf("failed to ensure namespace: %w", err)
 	}
 
@@ -237,10 +237,11 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 	return nil
 }
 
-func (r *AgentRuntimeReconciler) ensureNamespace(ctx context.Context, namespace string) error {
+func (r *AgentRuntimeReconciler) ensureTargetNamespace(ctx context.Context, namespace string) error {
 	if namespace == "" {
-		return nil
+		return fmt.Errorf("target namespace is required")
 	}
+
 	if err := r.Get(ctx, client.ObjectKey{Name: namespace}, &corev1.Namespace{}); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
