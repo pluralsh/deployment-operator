@@ -6,6 +6,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,7 +24,39 @@ import (
 )
 
 const (
-	AgentRunFinalizer = "deployments.plural.sh/agentrun-protection"
+	AgentRunFinalizer    = "deployments.plural.sh/agentrun-protection"
+	nonRootUID           = int64(65532)
+	nonRootGID           = nonRootUID
+	defaultVolumeName    = "default"
+	defaultVolumePath    = "/plural"
+	defaultTmpVolumeName = "default-tmp"
+	defaultTmpVolumePath = "/tmp"
+)
+
+var (
+	defaultVolume = corev1.Volume{
+		Name: defaultVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	defaultContainerVolumeMount = corev1.VolumeMount{
+		Name:      defaultVolumeName,
+		MountPath: defaultVolumePath,
+	}
+
+	defaultTmpVolume = corev1.Volume{
+		Name: defaultTmpVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	defaultTmpContainerVolumeMount = corev1.VolumeMount{
+		Name:      defaultTmpVolumeName,
+		MountPath: defaultTmpVolumePath,
+	}
 )
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.
@@ -35,6 +68,15 @@ type AgentRunReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
 	ConsoleClient pluralclient.Client
+}
+
+// SetupWithManager configures the controller with the manager.
+func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
+		For(&v1alpha1.AgentRun{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&corev1.Pod{}).
+		Complete(r)
 }
 
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
@@ -149,6 +191,7 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, agentRun *v1alpha
 }
 
 // buildPod creates the pod specification for running agent tasks.
+// TODO
 func (r *AgentRunReconciler) buildPod(agentRun *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) *corev1.Pod {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -160,42 +203,22 @@ func (r *AgentRunReconciler) buildPod(agentRun *v1alpha1.AgentRun, agentRuntime 
 		Spec: agentRuntime.Spec.Template.Spec,
 	}
 
-	return pod // TODO
+	if pod.Spec.SecurityContext == nil {
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+			RunAsNonRoot: lo.ToPtr(true),
+			RunAsUser:    lo.ToPtr(nonRootUID),
+			RunAsGroup:   lo.ToPtr(nonRootGID),
+		}
+	}
 
-	// return corev1.PodSpec{
-	//     RestartPolicy: corev1.RestartPolicyNever,
-	//     Containers: []corev1.Container{
-	//         {
-	//             Name:    "agent-executor",
-	//             Image:   "pluralsh/agent-harness:latest",
-	//             Command: []string{"/agent-harness"},
-	//             Args: []string{
-	//                 "--run-id=" + agentRun.Name,
-	//                 "--task-type=" + agentRun.Spec.TaskType,
-	//             },
-	//             Env: []corev1.EnvVar{
-	//                 {Name: "CONSOLE_URL", Value: "..."},
-	//                 {Name: "AGENT_ID", Value: agentRun.Spec.AgentID},
-	//             },
-	//             VolumeMounts: []corev1.VolumeMount{
-	//                 {Name: "workspace", MountPath: "/workspace"},
-	//                 {Name: "credentials", MountPath: "/credentials"},
-	//             },
-	//         },
-	//     },
-	//     Volumes: []corev1.Volume{
-	//         {Name: "workspace", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-	//         {Name: "credentials", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "agent-credentials"}}},
-	//     },
-	// }
-}
+	// Overwrite or set required volumes.
+	pod.Spec.Volumes = append(
+		algorithms.Filter(pod.Spec.Volumes, func(v corev1.Volume) bool {
+			return v.Name != defaultVolumeName && v.Name != defaultTmpVolumeName
+		}),
+		defaultVolume,
+		defaultTmpVolume,
+	)
 
-// SetupWithManager configures the controller with the manager
-// PSEUDOCODE: This will be updated when the actual CRD is available
-func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
-		For(&v1alpha1.AgentRun{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&corev1.Pod{}).
-		Complete(r)
+	return pod
 }
