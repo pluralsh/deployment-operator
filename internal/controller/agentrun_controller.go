@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -137,16 +136,7 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, agentRun *v1alpha
 		return fmt.Errorf("failed to get pod: %w", err)
 	}
 
-	pod = &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        agentRun.Name,
-			Namespace:   agentRun.Namespace,
-			Labels:      agentRuntime.Spec.Template.Labels,
-			Annotations: agentRuntime.Spec.Template.Annotations,
-		},
-		Spec: agentRuntime.Spec.Template.Spec,
-	}
-
+	pod = r.buildPod(agentRun, agentRuntime)
 	if err = r.Create(ctx, pod); err != nil {
 		return fmt.Errorf("failed to create pod: %w", err)
 	}
@@ -158,9 +148,20 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, agentRun *v1alpha
 	return nil
 }
 
-// buildPodSpec creates the pod specification for running agent tasks
-// PSEUDOCODE: This will configure the execution environment
-func (r *AgentRunReconciler) buildPodSpec(agentRun *MockAgentRun) corev1.PodSpec {
+// buildPod creates the pod specification for running agent tasks.
+func (r *AgentRunReconciler) buildPod(agentRun *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        agentRun.Name,
+			Namespace:   agentRun.Namespace,
+			Labels:      agentRuntime.Spec.Template.Labels,
+			Annotations: agentRuntime.Spec.Template.Annotations,
+		},
+		Spec: agentRuntime.Spec.Template.Spec,
+	}
+
+	return pod // TODO
+
 	// return corev1.PodSpec{
 	//     RestartPolicy: corev1.RestartPolicyNever,
 	//     Containers: []corev1.Container{
@@ -187,8 +188,6 @@ func (r *AgentRunReconciler) buildPodSpec(agentRun *MockAgentRun) corev1.PodSpec
 	//         {Name: "credentials", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "agent-credentials"}}},
 	//     },
 	// }
-
-	return corev1.PodSpec{} // Placeholder
 }
 
 // SetupWithManager configures the controller with the manager
