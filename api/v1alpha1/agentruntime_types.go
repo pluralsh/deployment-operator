@@ -40,6 +40,21 @@ type AgentRuntimeSpec struct {
 	AiProxy *bool `json:"aiProxy,omitempty"`
 }
 
+type PodTemplateSpec struct {
+	// Labels to apply to the job for organization and selection.
+	// +kubebuilder:validation:Optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations to apply to the job for additional metadata.
+	// +kubebuilder:validation:Optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Specification of the desired behavior of the pod.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec corev1.PodSpec `json:"spec,omitempty"`
+}
+
 // AgentRuntimeConfig contains typed configuration for the agent runtime.
 type AgentRuntimeConfig struct {
 	// Config for Claude CLI runtime.

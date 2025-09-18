@@ -11,6 +11,8 @@ import (
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,7 +34,7 @@ const (
 // AgentRuntimeReconciler reconciles a AgentRuntime object
 type AgentRuntimeReconciler struct {
 	client.Client
-	consoleClient consoleclient.Client
+	ConsoleClient consoleclient.Client
 	Scheme        *runtime.Scheme
 }
 
@@ -81,7 +83,7 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if changed {
-		apiAgentRuntime, err := r.consoleClient.UpsertAgentRuntime(ctx, agentRuntime.Attributes())
+		apiAgentRuntime, err := r.ConsoleClient.UpsertAgentRuntime(ctx, agentRuntime.Attributes())
 		if err != nil {
 			return handleRequeue(nil, err, agentRuntime.SetCondition)
 		}
@@ -133,7 +135,7 @@ func (r *AgentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *AgentRuntimeReconciler) ListAgentRuntimePendingRuns(ctx context.Context, id string) *algorithms.Pager[*console.ListAgentRuntimePendingRuns_AgentRuntime_PendingRuns_Edges] {
 	logger := log.FromContext(ctx)
 	fetch := func(page *string, size int64) ([]*console.ListAgentRuntimePendingRuns_AgentRuntime_PendingRuns_Edges, *algorithms.PageInfo, error) {
-		resp, err := r.consoleClient.ListAgentRuntimePendingRuns(ctx, id, page, &size)
+		resp, err := r.ConsoleClient.ListAgentRuntimePendingRuns(ctx, id, page, &size)
 		if err != nil {
 			logger.Error(err, "failed to fetch stack run")
 			return nil, nil, err
@@ -161,14 +163,14 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 			return &ctrl.Result{}
 		}
 
-		exists, err := r.consoleClient.IsAgentRuntimeExists(ctx, agentRuntime.Status.GetID())
+		exists, err := r.ConsoleClient.IsAgentRuntimeExists(ctx, agentRuntime.Status.GetID())
 		if err != nil {
 			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 		}
 
 		// Remove agent runtime from Console API if it exists.
 		if exists {
-			if err = r.consoleClient.DeleteAgentRuntime(ctx, agentRuntime.Status.GetID()); err != nil {
+			if err = r.ConsoleClient.DeleteAgentRuntime(ctx, agentRuntime.Status.GetID()); err != nil {
 				// If it fails to delete the external dependency here, return with the error so that it can be retried.
 				utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
@@ -208,6 +210,10 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 		},
 	}
 
+	if err := r.ensureNamespace(ctx, agentRuntime.Spec.TargetNamespace); err != nil {
+		return fmt.Errorf("failed to ensure namespace: %w", err)
+	}
+
 	if err := r.Create(ctx, agentRun); err != nil {
 		return fmt.Errorf("failed to create agent run: %w", err)
 	}
@@ -216,5 +222,22 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 		return fmt.Errorf("failed to set controller reference for agent run: %w", err)
 	}
 
+	return nil
+}
+
+func (r *AgentRuntimeReconciler) ensureNamespace(ctx context.Context, namespace string) error {
+	if namespace == "" {
+		return nil
+	}
+	if err := r.Get(ctx, client.ObjectKey{Name: namespace}, &corev1.Namespace{}); err != nil {
+		if !errors.IsNotFound(err) {
+			return err
+		}
+		return r.Create(ctx, &corev1.Namespace{
+			ObjectMeta: v1.ObjectMeta{
+				Name: namespace,
+			},
+		})
+	}
 	return nil
 }

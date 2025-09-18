@@ -1,0 +1,17 @@
+apiVersion: deployments.plural.sh/v1alpha1
+kind: AgentRuntime
+metadata:
+  name: test
+spec:
+  type: "CUSTOM"
+  targetNamespace: "test"
+  template:
+    spec:
+      containers:
+        - name: my-container
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+      restartPolicy: Always
+
+
