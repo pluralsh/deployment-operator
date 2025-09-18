@@ -149,8 +149,13 @@ func (r *AgentRunReconciler) getRuntime(ctx context.Context, run *v1alpha1.Agent
 
 // reconcilePod ensures the pod for the agent run exists and is in the desired state.
 func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) error {
+	secret, err := r.reconcilePodSecret(ctx, run)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile run secret: %w", err)
+	}
+
 	pod := &corev1.Pod{}
-	err := r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod)
+	err = r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod)
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to get pod: %w", err)
 	}
@@ -162,11 +167,6 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 
 	if err = utils.TryAddControllerRef(ctx, r.Client, run, pod, r.Scheme); err != nil {
 		return fmt.Errorf("failed to add controller ref: %w", err)
-	}
-
-	secret, err := r.reconcilePodSecret(ctx, run)
-	if err != nil {
-		return fmt.Errorf("failed to reconcile run secret: %w", err)
 	}
 
 	if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {
@@ -221,7 +221,7 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun) map[string]st
 func (r *AgentRunReconciler) hasSecretData(data map[string][]byte, run *v1alpha1.AgentRun) bool {
 	token, hasToken := data[envConsoleToken]
 	url, hasUrl := data[envConsoleURL]
-	id, hasID := data[envConsoleURL]
+	id, hasID := data[envAgentRunID]
 	return hasToken && hasUrl && hasID &&
 		string(token) == r.ConsoleToken && string(url) == r.ConsoleURL && string(id) == run.Status.GetID()
 }
