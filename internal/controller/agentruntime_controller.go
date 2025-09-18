@@ -112,8 +112,7 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if len(errors) > 0 {
-		aggregateError := utilerrors.NewAggregate(errors)
-		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReasonError, aggregateError.Error())
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReasonError, utilerrors.NewAggregate(errors).Error())
 		return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
 	}
 
@@ -200,9 +199,10 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      run.ID,
 			Namespace: agentRuntime.Spec.TargetNamespace,
-			Labels:    map[string]string{"deployments.plural.sh/agent-runtime": agentRuntime.ConsoleName()},
+			Labels:    map[string]string{"deployments.plural.sh/agent-runtime": agentRuntime.Name},
 		},
 		Spec: v1alpha1.AgentRunSpec{
+			RuntimeRef: v1alpha1.AgentRuntimeReference{Name: agentRuntime.Name},
 			Prompt:     run.Prompt,
 			Repository: run.Repository,
 			Mode:       run.Mode,
@@ -235,11 +235,9 @@ func (r *AgentRuntimeReconciler) ensureNamespace(ctx context.Context, namespace 
 		if !errors.IsNotFound(err) {
 			return err
 		}
-		return r.Create(ctx, &corev1.Namespace{
-			ObjectMeta: v1.ObjectMeta{
-				Name: namespace,
-			},
-		})
+
+		return r.Create(ctx, &corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: namespace}})
 	}
+
 	return nil
 }

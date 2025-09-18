@@ -9,6 +9,9 @@ import (
 
 // AgentRunSpec defines the desired state of AgentRun
 type AgentRunSpec struct {
+	// +kubebuilder:validation:Required
+	RuntimeRef AgentRuntimeReference `json:"runtimeRef"`
+
 	// Prompt is the task/prompt given to the agent
 	// +kubebuilder:validation:Required
 	Prompt string `json:"prompt"`
@@ -50,6 +53,11 @@ type AgentRunStatus struct {
 
 	// Standard status fields (includes ID field for console API)
 	Status `json:",inline"`
+}
+
+type AgentRuntimeReference struct {
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
 }
 
 // AgentRunPhase represents the phase of an agent run
