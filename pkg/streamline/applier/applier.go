@@ -160,7 +160,10 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 
 		err = in.client.
 			Resource(helpers.GVRFromGVK(live.GroupVersionKind())).
-			Namespace(live.GetNamespace()).Delete(ctx, live.GetName(), metav1.DeleteOptions{})
+			Namespace(live.GetNamespace()).Delete(ctx, live.GetName(), metav1.DeleteOptions{
+			GracePeriodSeconds: lo.ToPtr(int64(0)),
+			PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
+		})
 		if errors.IsNotFound(err) {
 			if err := in.store.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(live))); err != nil {
 				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", live.GetUID())
