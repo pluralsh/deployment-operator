@@ -7,13 +7,11 @@ import (
 	"net/url"
 	"time"
 
-	clientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned/typed/rollouts/v1alpha1"
-	"github.com/argoproj/argo-rollouts/pkg/kubectl-argo-rollouts/cmd/abort"
-	"sigs.k8s.io/cli-utils/pkg/inventory"
-
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
+	clientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned/typed/rollouts/v1alpha1"
+	"github.com/argoproj/argo-rollouts/pkg/kubectl-argo-rollouts/cmd/abort"
 	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -25,6 +23,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 const requeueArgoRolloutAfter = time.Second * 5
@@ -57,7 +56,7 @@ func (r *ArgoRolloutReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	serviceID, ok := rollout.Annotations[inventory.OwningInventoryKey]
+	serviceID, ok := rollout.Annotations[common.OwningInventoryKey]
 	if !ok {
 		return ctrl.Result{}, nil
 	}

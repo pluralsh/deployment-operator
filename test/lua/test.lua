@@ -1,4 +1,5 @@
 healthStatus = {
+    status = "Unknown"
 }
 if Obj.status ~= nil then
     local ready = "Ready"

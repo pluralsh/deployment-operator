@@ -11,12 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/cli-utils/pkg/apply/event"
-	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
-
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
-
-	internalschema "github.com/pluralsh/deployment-operator/internal/kubernetes/schema"
 )
 
 const (
@@ -55,118 +49,6 @@ type Progress struct {
 	PingTime     time.Time
 }
 
-func SyncDBCache(u *unstructured.Unstructured) {
-	state := ToStatus(u)
-	ownerRefs := u.GetOwnerReferences()
-	var ownerRef *string
-	if len(ownerRefs) > 0 {
-		ownerRef = lo.ToPtr(string(ownerRefs[0].UID))
-		for _, ref := range ownerRefs {
-			if ref.Controller != nil && *ref.Controller {
-				ownerRef = lo.ToPtr(string(ref.UID))
-				break
-			}
-		}
-	}
-
-	// Sync pods separately, as they have a different sync logic
-	if u.GetKind() == PodKind {
-		SyncPod(u, state, ownerRef)
-		return
-	}
-
-	SyncComponent(u, state, ownerRef) // Sync all components besides pods
-}
-
-func SyncComponent(u *unstructured.Unstructured, state *console.ComponentState, ownerRef *string) {
-	if u.GetDeletionTimestamp() != nil {
-		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
-		return
-	}
-
-	gvk := u.GroupVersionKind()
-	err := db.GetComponentCache().SetComponent(console.ComponentChildAttributes{
-		UID:       string(u.GetUID()),
-		Name:      u.GetName(),
-		Namespace: lo.ToPtr(u.GetNamespace()),
-		Group:     lo.ToPtr(gvk.Group),
-		Version:   gvk.Version,
-		Kind:      gvk.Kind,
-		State:     state,
-		ParentUID: ownerRef,
-	})
-	if err != nil {
-		klog.ErrorS(err, "failed to set component in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
-	}
-}
-
-func SyncPod(u *unstructured.Unstructured, state *console.ComponentState, ownerRef *string) {
-	if u.GetDeletionTimestamp() != nil {
-		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
-		return
-	}
-
-	if lo.FromPtr(state) == console.ComponentStateRunning {
-		_ = db.GetComponentCache().DeleteComponent(string(u.GetUID()))
-		return
-	}
-
-	nodeName, _, _ := unstructured.NestedString(u.Object, "spec", "nodeName")
-	if len(nodeName) == 0 {
-		// If the pod is not assigned to a node, we don't need to keep it in the component cache
-		return
-	}
-
-	err := db.GetComponentCache().SetPod(
-		u.GetName(),
-		u.GetNamespace(),
-		string(u.GetUID()),
-		lo.FromPtr(ownerRef),
-		nodeName,
-		u.GetCreationTimestamp().Unix(),
-		state,
-	)
-	if err != nil {
-		klog.ErrorS(err, "failed to set pod in component cache", "name", u.GetName(), "namespace", u.GetNamespace())
-	}
-}
-
-func StatusEventToComponentAttributes(e event.StatusEvent, vcache map[internalschema.GroupName]string) *console.ComponentAttributes {
-	if e.Resource == nil {
-		return nil
-	}
-	gvk := e.Resource.GroupVersionKind()
-	gname := internalschema.GroupName{
-		Group: gvk.Group,
-		Kind:  gvk.Kind,
-		Name:  e.Resource.GetName(),
-	}
-
-	version := gvk.Version
-	if v, ok := vcache[gname]; ok {
-		version = v
-	}
-
-	synced := e.PollResourceInfo.Status == status.CurrentStatus
-
-	if e.PollResourceInfo.Status == status.UnknownStatus {
-		if ToStatus(e.Resource) != nil {
-			synced = true
-		}
-	}
-
-	return &console.ComponentAttributes{
-		UID:       lo.ToPtr(string(e.Resource.GetUID())),
-		Group:     gvk.Group,
-		Kind:      gvk.Kind,
-		Namespace: e.Resource.GetNamespace(),
-		Name:      e.Resource.GetName(),
-		Version:   version,
-		Synced:    synced,
-		State:     ToStatus(e.Resource),
-	}
-}
-
 func ToStatus(obj *unstructured.Unstructured) *console.ComponentState {
 	h, err := GetResourceHealth(obj)
 	if err != nil {
@@ -189,6 +71,26 @@ func ToStatus(obj *unstructured.Unstructured) *console.ComponentState {
 	}
 
 	return lo.ToPtr(console.ComponentStatePending)
+}
+
+func ToComponentAttributes(obj *unstructured.Unstructured) *console.ComponentAttributes {
+	synced := false
+	state := ToStatus(obj)
+	if state != nil {
+		synced = true
+	}
+	gvk := obj.GroupVersionKind()
+
+	return &console.ComponentAttributes{
+		UID:       lo.ToPtr(string(obj.GetUID())),
+		Group:     gvk.Group,
+		Kind:      gvk.Kind,
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+		Version:   gvk.Version,
+		Synced:    synced,
+		State:     state,
+	}
 }
 
 // GetResourceHealth returns the health of a k8s resource

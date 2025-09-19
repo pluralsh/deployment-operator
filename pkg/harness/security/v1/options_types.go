@@ -1,6 +1,6 @@
 package v1
 
-// TerraformScanOptions TODO
+// TerraformScanOptions defines options for terraform scan.
 type TerraformScanOptions struct {
 	// Dir is a directory containing files that should be scanned.
 	Dir string
@@ -12,16 +12,16 @@ type TerraformScanOptions struct {
 	VariablesFileName string
 }
 
-// ScanOptions TODO
+// ScanOptions is a wrapper for tool-specific scan options.
 type ScanOptions struct {
-	// Terraform TODO
+	// Terraform scan options
 	Terraform TerraformScanOptions
 }
 
-// ScanOption TODO
+// ScanOption is a function that modifies [ScanOptions].
 type ScanOption func(*ScanOptions)
 
-// WithTerraform TODO
+// WithTerraform sets Terraform scan options.
 func WithTerraform(options TerraformScanOptions) ScanOption {
 	return func(o *ScanOptions) {
 		o.Terraform = options

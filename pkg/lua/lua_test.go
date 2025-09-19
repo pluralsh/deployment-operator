@@ -6,9 +6,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+type Status struct {
+	Conditions []metav1.Condition
+}
 
 type HealthStatus struct {
 	Status string `json:"status,omitempty"`
@@ -24,7 +29,7 @@ var _ = Describe("Execute Lua", func() {
 
 		type S struct {
 			metav1.ObjectMeta `json:"metadata,omitempty"`
-			Status            Status
+			Status            deploymentsv1alpha1.MetricsAggregateStatus `json:"status,omitempty"`
 		}
 
 		It("should set progressing status", func() {
@@ -32,7 +37,7 @@ var _ = Describe("Execute Lua", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
-				Status: Status{
+				Status: deploymentsv1alpha1.MetricsAggregateStatus{
 					Conditions: []metav1.Condition{
 						{
 							Status: metav1.ConditionFalse,
@@ -57,7 +62,7 @@ var _ = Describe("Execute Lua", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
-				Status: Status{
+				Status: deploymentsv1alpha1.MetricsAggregateStatus{
 					Conditions: []metav1.Condition{
 						{
 							Status: metav1.ConditionTrue,

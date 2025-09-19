@@ -4,25 +4,25 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
-	"github.com/pluralsh/deployment-operator/pkg/scraper"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
 )
 
-func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openShiftVersion *string, podCount *int64) console.ClusterPing {
-	hs, err := db.GetComponentCache().HealthScore()
+func (p *Pinger) pingAttributes(info *version.Info, pods []string, minKubeletVersion, openShiftVersion *string, podCount *int64) console.ClusterPing {
+	hs, err := p.store.GetHealthScore()
 	if err != nil {
 		klog.ErrorS(err, "failed to get health score")
 	}
 
-	ns, err := db.GetComponentCache().NodeStatistics()
+	ns, err := p.store.GetNodeStatistics()
 	if err != nil {
 		klog.ErrorS(err, "failed to get node statistics")
 	}
 
-	nodCount, namespaceCount, err := db.GetComponentCache().ComponentCounts()
+	nodCount, namespaceCount, err := p.store.GetComponentCounts()
 	if err != nil {
 		klog.ErrorS(err, "failed to get cluster component counts")
 	}
@@ -47,7 +47,7 @@ func pingAttributes(info *version.Info, pods []string, minKubeletVersion, openSh
 		OpenshiftVersion: openShiftVersion,
 	}
 
-	cInsights, err := db.GetComponentCache().ComponentInsights()
+	cInsights, err := p.store.GetComponentInsights()
 	if err != nil {
 		klog.ErrorS(err, "failed to get component insights")
 	}

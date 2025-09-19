@@ -22,6 +22,11 @@ import (
 	"runtime"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -31,13 +36,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-var testEnv *envtest.Environment
-var kClient client.Client
-var cfg *rest.Config
+var (
+	testEnv         *envtest.Environment
+	kClient         client.Client
+	cfg             *rest.Config
+	dynamicClient   dynamic.Interface
+	mapper          meta.RESTMapper
+	clientSet       kubernetes.Interface
+	discoveryClient discovery.DiscoveryInterface
+)
 
 func TestStacks(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -64,6 +77,23 @@ var _ = BeforeSuite(func() {
 	kClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kClient).NotTo(BeNil())
+
+	dynamicClient, err = dynamic.NewForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(dynamicClient).NotTo(BeNil())
+
+	discoveryClient, err = discovery.NewDiscoveryClientForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(discoveryClient).NotTo(BeNil())
+
+	f := utils.NewFactory(cfg)
+	mapper, err = f.ToRESTMapper()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(mapper).NotTo(BeNil())
+
+	clientSet, err = f.KubernetesClientSet()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(clientSet).NotTo(BeNil())
 })
 
 var _ = AfterSuite(func() {

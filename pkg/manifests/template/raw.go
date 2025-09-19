@@ -9,11 +9,12 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/polly/template"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/kubectl/pkg/cmd/util"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 var (
@@ -42,12 +43,8 @@ func renderLiquid(input []byte, svc *console.ServiceDeploymentForAgent) ([]byte,
 	return template.RenderLiquid(input, bindings)
 }
 
-func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
+func (r *raw) Render(svc *console.ServiceDeploymentForAgent, mapper meta.RESTMapper) ([]unstructured.Unstructured, error) {
 	res := make([]unstructured.Unstructured, 0)
-	mapper, err := utilFactory.ToRESTMapper()
-	if err != nil {
-		return nil, err
-	}
 	readerOptions := ReaderOptions{
 		Mapper:           mapper,
 		Namespace:        svc.Namespace,
@@ -103,7 +100,7 @@ func (r *raw) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Fa
 	unique := map[string]struct{}{}
 	final := make([]unstructured.Unstructured, 0, len(res))
 	for _, item := range res {
-		key := cache.ResourceKeyFromUnstructured(&item).ObjectIdentifier()
+		key := string(common.NewKeyFromUnstructured(item))
 		if _, ok := unique[key]; !ok {
 			unique[key] = struct{}{}
 			final = append(final, item)

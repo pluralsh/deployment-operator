@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 )
 
 func TestBackgroundPollUntilContextCancel_DynamicInterval(t *testing.T) {
@@ -39,7 +40,7 @@ func TestBackgroundPollUntilContextCancel_DynamicInterval(t *testing.T) {
 		return false, nil
 	}
 
-	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, getInterval, true, condition)
+	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, getInterval, false, condition)
 	if err != nil {
 		t.Fatalf("syncFirstRun failed: %v", err)
 	}

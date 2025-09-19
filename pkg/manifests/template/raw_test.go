@@ -29,7 +29,7 @@ var _ = Describe("Raw template", func() {
 				ID:   "123",
 				Name: "test",
 			}
-			resp, err := NewRaw(dir).Render(svc, utilFactory)
+			resp, err := NewRaw(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 			Expect(resp[0].GetName()).To(Equal(name))
@@ -37,7 +37,7 @@ var _ = Describe("Raw template", func() {
 		It("should skip templating liquid", func() {
 			dir := filepath.Join("..", "..", "..", "test", "rawTemplated")
 			svc.Templated = lo.ToPtr(false)
-			resp, err := NewRaw(dir).Render(svc, utilFactory)
+			resp, err := NewRaw(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 			Expect(resp[0].GetName()).To(Equal(name))

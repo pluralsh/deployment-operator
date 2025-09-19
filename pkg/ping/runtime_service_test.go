@@ -3,12 +3,13 @@ package ping_test
 import (
 	"context"
 
-	"github.com/pluralsh/deployment-operator/pkg/ping"
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/pluralsh/deployment-operator/pkg/ping"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,7 +59,7 @@ var _ = Describe("Scraper", Ordered, func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetCredentials").Return("", "")
 
-			reconciler, err := ping.New(fakeConsoleClient, cfg, kClient)
+			reconciler, err := ping.New(fakeConsoleClient, cfg, kClient, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			ds := reconciler.GetDeprecatedCustomResources(ctx)
 			Expect(ds).To(HaveLen(1))

@@ -9,6 +9,7 @@ import (
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
+	"github.com/pluralsh/deployment-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -44,27 +45,6 @@ const (
 
 // Represents resource health status
 type HealthStatusCode string
-
-const (
-	SecretKind                   = "Secret"
-	ServiceKind                  = "Service"
-	ServiceAccountKind           = "ServiceAccount"
-	EndpointsKind                = "Endpoints"
-	DeploymentKind               = "Deployment"
-	ReplicaSetKind               = "ReplicaSet"
-	StatefulSetKind              = "StatefulSet"
-	DaemonSetKind                = "DaemonSet"
-	IngressKind                  = "Ingress"
-	JobKind                      = "Job"
-	PersistentVolumeClaimKind    = "PersistentVolumeClaim"
-	CustomResourceDefinitionKind = "CustomResourceDefinition"
-	PodKind                      = "Pod"
-	NodeKind                     = "Node"
-	APIServiceKind               = "APIService"
-	NamespaceKind                = "Namespace"
-	HorizontalPodAutoscalerKind  = "HorizontalPodAutoscaler"
-	CanaryKind                   = "Canary"
-)
 
 type HealthStatus struct {
 	Status  HealthStatusCode `json:"status,omitempty"`
@@ -852,8 +832,10 @@ func getAppsv1DaemonSetHealth(daemon *appsv1.DaemonSet) (*HealthStatus, error) {
 	}, nil
 }
 
-type Status struct {
-	Conditions []metav1.Condition
+type ConditionSimple struct {
+	Type               string `json:"type"`
+	Status             string `json:"status"`
+	LastTransitionTime string `json:"lastTransitionTime"`
 }
 
 const readyCondition = "Ready"
@@ -915,31 +897,28 @@ func GetOtherHealthStatus(obj *unstructured.Unstructured) (*HealthStatus, error)
 	defaultReadyStatus := &HealthStatus{
 		Status: HealthStatusHealthy,
 	}
-	sts := Status{}
-	status, ok := obj.Object["status"]
-	if ok {
-		s, ok := status.(map[string]interface{})
-		if ok {
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(s, &sts); err != nil {
-				return defaultReadyStatus, nil
-			}
-			if cond := meta.FindStatusCondition(sts.Conditions, readyCondition); cond != nil {
-				status := HealthStatusProgressing
+	conds, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
+	if err != nil || !found {
+		return defaultReadyStatus, nil
+	}
 
-				// status older than 5min
-				cutoffTime := metav1.NewTime(time.Now().Add(-5 * time.Minute))
-				if cond.LastTransitionTime.Before(&cutoffTime) && staleIsFailing(obj) {
-					status = HealthStatusDegraded
-				}
+	conditions := utils.UnstructuredToConditions(conds)
 
-				if meta.IsStatusConditionTrue(sts.Conditions, readyCondition) {
-					status = HealthStatusHealthy
-				}
-				return &HealthStatus{
-					Status: status,
-				}, nil
-			}
+	if cond := meta.FindStatusCondition(conditions, readyCondition); cond != nil {
+		status := HealthStatusProgressing
+
+		// status older than 5min
+		cutoffTime := metav1.NewTime(time.Now().Add(-5 * time.Minute))
+		if cond.LastTransitionTime.Before(&cutoffTime) && staleIsFailing(obj) {
+			status = HealthStatusDegraded
 		}
+
+		if meta.IsStatusConditionTrue(conditions, readyCondition) {
+			status = HealthStatusHealthy
+		}
+		return &HealthStatus{
+			Status: status,
+		}, nil
 	}
 
 	return defaultReadyStatus, nil

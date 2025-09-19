@@ -9,7 +9,6 @@ import (
 	"github.com/pluralsh/polly/algorithms"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,9 +35,7 @@ type GateReconciler struct {
 	pollInterval      time.Duration
 }
 
-func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, config *rest.Config, pollInterval time.Duration) (*GateReconciler, error) {
-	utils.DisableClientLimits(config)
-
+func NewGateReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, pollInterval time.Duration) (*GateReconciler, error) {
 	namespace, err := utils.GetOperatorNamespace()
 	if err != nil {
 		return nil, err

@@ -33,9 +33,6 @@ import (
 	"github.com/opencost/opencost/core/pkg/opencost"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -47,11 +44,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/cli-utils/pkg/inventory"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 const kubeCostJitter = time.Minute * 5
@@ -492,7 +493,7 @@ func (r *KubecostExtractorReconciler) getServiceID(ctx context.Context, obj *uns
 		return lo.ToPtr(id), nil
 	}
 
-	svcId, ok := obj.GetAnnotations()[inventory.OwningInventoryKey]
+	svcId, ok := obj.GetAnnotations()[common.OwningInventoryKey]
 	if ok {
 		r.ServiceIDCache.Set(k8sObjectIdentifier, svcId)
 		return lo.ToPtr(svcId), nil
@@ -502,7 +503,7 @@ func (r *KubecostExtractorReconciler) getServiceID(ctx context.Context, obj *uns
 		if err != nil {
 			return nil, err
 		}
-		svcId, ok := refObj.GetAnnotations()[inventory.OwningInventoryKey]
+		svcId, ok := refObj.GetAnnotations()[common.OwningInventoryKey]
 		if ok {
 			r.ServiceIDCache.Set(k8sObjectIdentifier, svcId)
 			return lo.ToPtr(svcId), nil

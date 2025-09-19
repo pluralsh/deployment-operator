@@ -19,15 +19,17 @@ package controller
 import (
 	"context"
 
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/containers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 )
 
 type SetupWithManager func(mgr ctrl.Manager) error
@@ -38,6 +40,7 @@ type CrdRegisterControllerReconciler struct {
 	Scheme                *runtime.Scheme
 	ReconcilerGroups      map[schema.GroupVersionKind]SetupWithManager
 	Mgr                   ctrl.Manager
+	DiscoveryCache        discoverycache.Cache
 	registeredControllers containers.Set[schema.GroupVersionKind]
 }
 
@@ -59,7 +62,6 @@ func (r *CrdRegisterControllerReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	group := crd.Spec.Group
 
-	keys := containers.NewSet[cache.ResourceKey]()
 	for _, v := range crd.Spec.Versions {
 		version := v.Name
 		gvk := schema.GroupVersionKind{
@@ -67,16 +69,15 @@ func (r *CrdRegisterControllerReconciler) Reconcile(ctx context.Context, req ctr
 			Kind:    crd.Spec.Names.Kind,
 			Version: version,
 		}
+
+		if v.Served {
+			r.DiscoveryCache.MaybeResetRESTMapper(gvk)
+			r.DiscoveryCache.Add(gvk)
+		}
+
 		reconcile, ok := r.ReconcilerGroups[gvk]
 		if !ok {
 			continue
-		}
-
-		if crd.Labels != nil {
-			if _, ok := crd.Labels[common.ManagedByLabel]; ok {
-				logger.Info("Registering resource in resource cache", "group", group, "kind", gvk.Kind, "version", version)
-				keys.Add(cache.ResourceKeyFromGroupVersionKind(gvk))
-			}
 		}
 
 		if !r.registeredControllers.Has(gvk) {
@@ -88,12 +89,11 @@ func (r *CrdRegisterControllerReconciler) Reconcile(ctx context.Context, req ctr
 			r.registeredControllers.Add(gvk)
 		}
 	}
-	cache.GetResourceCache().Register(keys)
+
 	return ctrl.Result{}, nil
 }
 
 func (r *CrdRegisterControllerReconciler) maybeDeregisterResource(crd *apiextensionsv1.CustomResourceDefinition) {
-	keys := containers.NewSet[cache.ResourceKey]()
 	for _, v := range crd.Spec.Versions {
 		version := v.Name
 		gvk := schema.GroupVersionKind{
@@ -101,14 +101,13 @@ func (r *CrdRegisterControllerReconciler) maybeDeregisterResource(crd *apiextens
 			Kind:    crd.Spec.Names.Kind,
 			Version: version,
 		}
-		keys.Add(cache.ResourceKeyFromGroupVersionKind(gvk))
+		r.DiscoveryCache.Delete(gvk)
 	}
-	cache.GetResourceCache().Unregister(keys)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CrdRegisterControllerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&apiextensionsv1.CustomResourceDefinition{}).
+		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
 		Complete(r)
 }

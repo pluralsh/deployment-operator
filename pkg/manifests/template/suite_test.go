@@ -25,7 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
@@ -34,12 +34,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	cache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 var k8sClient client.Client
 var utilFactory util.Factory
+var mapper meta.RESTMapper
 var testEnv *envtest.Environment
 var discoveryClient *discovery.DiscoveryClient
 
@@ -71,9 +74,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	cache.RunDiscoveryCacheInBackgroundOrDie(context.Background(), discoveryClient)
-
 	utilFactory = cmdtesting.NewTestFactory()
+	mapper, _ = utilFactory.ToRESTMapper()
+
+	cache.InitGlobalDiscoveryCache(discoveryClient, mapper)
+	err = cache.NewDiscoveryManager(
+		cache.WithCache(cache.GlobalCache()),
+	).Start(context.Background())
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

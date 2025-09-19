@@ -27,21 +27,29 @@ import (
 	. "github.com/onsi/gomega"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
-	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-var testEnv *envtest.Environment
-var kClient client.Client
+var (
+	mapper          meta.RESTMapper
+	testEnv         *envtest.Environment
+	kClient         client.Client
+	discoveryClient discovery.DiscoveryInterface
+)
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -87,6 +95,15 @@ var _ = BeforeSuite(func() {
 	kClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kClient).NotTo(BeNil())
+
+	discoveryClient, err = discovery.NewDiscoveryClientForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(discoveryClient).NotTo(BeNil())
+
+	f := utils.NewFactory(cfg)
+	mapper, err = f.ToRESTMapper()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(mapper).NotTo(BeNil())
 })
 
 var _ = AfterSuite(func() {
