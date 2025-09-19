@@ -37,6 +37,7 @@ var (
 		"selfsubjectrulesreviews/v1",   // it's not possible to watch selfsubjectrulesreviews
 		"tokenreviews/v1",              // it's not possible to watch tokenreviews
 		"subjectaccessreviews/v1",      // it's not possible to watch subjectaccessreviews
+		"metrics.k8s.io/v1beta1",       // it's not possible to watch metrics
 	})
 
 	OptionalResourceVersionList = containers.ToSet([]string{
