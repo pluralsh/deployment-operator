@@ -214,18 +214,16 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 		return
 	}
 
-	resourceKeys := containers.NewSet[smcommon.Key]()
 	deleteKeys := containers.NewSet[smcommon.Key]()
 	resourceKeyToResource := make(map[smcommon.Key]unstructured.Unstructured)
 	for _, obj := range resources {
 		key := smcommon.NewStoreKeyFromUnstructured(obj).VersionlessKey()
-		resourceKeys.Add(key)
 		resourceKeyToResource[key] = obj
 	}
 
 	for _, entry := range entries {
 		entryKey := smcommon.NewStoreKeyFromEntry(entry).VersionlessKey()
-		if !resourceKeys.Has(entryKey) {
+		if _, ok := resourceKeyToResource[entryKey]; !ok {
 			obj := unstructured.Unstructured{}
 			obj.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   entry.Group,
@@ -241,8 +239,7 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 		}
 	}
 
-	for _, resource := range resources {
-		key := smcommon.NewStoreKeyFromUnstructured(resource).VersionlessKey()
+	for key, resource := range resourceKeyToResource {
 		if deleteKeys.Has(key) {
 			continue
 		}
