@@ -386,11 +386,7 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
 	entry, _ := streamline.GetGlobalStore().GetComponent(resource)
 	if managed := in.isManaged(entry, resource); managed {
-		in.errorsChan <- console.ServiceErrorAttributes{
-			Source:  "apply",
-			Message: fmt.Sprintf("resource %s/%s is already managed by another service %s", resource.GetKind(), resource.GetName(), entry.ServiceID),
-			Warning: lo.ToPtr(true),
-		}
+		klog.V(log.LogLevelDebug).Infof("resource %s/%s is already managed by another service %s", resource.GetKind(), resource.GetName(), entry.ServiceID)
 		resource.SetUID(types.UID(entry.UID))
 		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(&resource))
 		return
