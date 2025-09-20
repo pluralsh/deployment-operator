@@ -7,22 +7,25 @@ import (
 )
 
 func UnstructuredToConditions(c []interface{}) []metav1.Condition {
-	conditions := make([]metav1.Condition, len(c))
-	for i, c := range c {
+	conditions := make([]metav1.Condition, 0)
+	for _, c := range c {
 		m := c.(map[string]interface{})
-		conditions[i] = metav1.Condition{
-			Type:   m["type"].(string),
-			Status: metav1.ConditionStatus(m["status"].(string)),
-			// LastTransitionTime is required, so if it doesn't exist, set it to now
-			LastTransitionTime: func() metav1.Time {
-				if t, ok := m["lastTransitionTime"].(string); ok {
-					parsedTime, err := time.Parse(time.RFC3339, t)
+		t, tOk := m["type"].(string)
+		s, sOk := m["status"].(string)
+		tt, _ := m["lastTransitionTime"].(string)
+		if tOk && sOk {
+			conditions = append(conditions, metav1.Condition{
+				Type:   t,
+				Status: metav1.ConditionStatus(s),
+				LastTransitionTime: func() metav1.Time {
+					parsedTime, err := time.Parse(time.RFC3339, tt)
 					if err == nil {
 						return metav1.Time{Time: parsedTime}
 					}
-				}
-				return metav1.Time{Time: time.Now()}
-			}(),
+
+					return metav1.Time{Time: time.Now()}
+				}(),
+			})
 		}
 	}
 	return conditions
