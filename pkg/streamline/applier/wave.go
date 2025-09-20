@@ -296,7 +296,7 @@ func (in *WaveProcessor) processWaveItem(ctx context.Context, id smcommon.Key, r
 
 	switch in.wave.waveType {
 	case DeleteWave:
-		klog.V(log.LogLevelDebug).InfoS("deleting resource", "resource", id)
+		klog.V(log.LogLevelDefault).InfoS("deleting resource", "resource", id)
 		in.onDelete(ctx, resource)
 	case ApplyWave:
 		klog.V(log.LogLevelDebug).InfoS("applying resource", "resource", id)

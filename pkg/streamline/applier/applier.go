@@ -208,8 +208,15 @@ func (in *Applier) addServiceAnnotation(resources []unstructured.Unstructured, s
 	return resources
 }
 
+var (
+	mirrorGroups = map[string]string{
+		"authorization.openshift.io": "rbac.authorization.k8s.io",
+		"rbac.authorization.k8s.io":  "authorization.openshift.io",
+	}
+)
+
 func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured, err error) {
-	entries, err := in.store.GetServiceComponents(serviceID)
+	existing, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
 		return
 	}
@@ -221,9 +228,19 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 		resourceKeyToResource[key] = obj
 	}
 
-	for _, entry := range entries {
-		entryKey := smcommon.NewStoreKeyFromEntry(entry).VersionlessKey()
-		if _, ok := resourceKeyToResource[entryKey]; !ok {
+	for _, entry := range existing {
+		entryKey := smcommon.NewStoreKeyFromEntry(entry)
+		toCheck := []smcommon.Key{entryKey.VersionlessKey()}
+		if mirrorGroup, ok := mirrorGroups[entry.Group]; ok {
+			toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
+		}
+
+		shouldKeep := lo.SomeBy(toCheck, func(key smcommon.Key) bool {
+			_, ok := resourceKeyToResource[key]
+			return ok
+		})
+
+		if !shouldKeep {
 			obj := unstructured.Unstructured{}
 			obj.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   entry.Group,
@@ -235,7 +252,7 @@ func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructu
 			obj.SetUID(types.UID(entry.UID))
 
 			toDelete = append(toDelete, obj)
-			deleteKeys.Add(entryKey)
+			deleteKeys.Add(entryKey.VersionlessKey())
 		}
 	}
 
