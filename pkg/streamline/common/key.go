@@ -43,6 +43,18 @@ func (in StoreKey) VersionlessKey() Key {
 	return Key(fmt.Sprintf("%s/%s/%s/%s", in.GVK.Group, in.GVK.Kind, in.Namespace, in.Name))
 }
 
+func (in StoreKey) ReplaceGroup(group string) StoreKey {
+	return StoreKey{
+		GVK: schema.GroupVersionKind{
+			Group:   group,
+			Version: in.GVK.Version,
+			Kind:    in.GVK.Kind,
+		},
+		Namespace: in.Namespace,
+		Name:      in.Name,
+	}
+}
+
 func NewStoreKeyFromEntry(entry Entry) StoreKey {
 	return StoreKey{
 		GVK:       schema.GroupVersionKind{Group: entry.Group, Version: entry.Version, Kind: entry.Kind},

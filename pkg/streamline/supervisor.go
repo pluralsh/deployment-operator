@@ -273,6 +273,13 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 		return
 	}
 
+	gvk, discErr := in.discoveryCache.KindFor(gvr)
+	if discErr != nil {
+		klog.V(log.LogLevelVerbose).ErrorS(discErr, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
+		metrics.Record().ResourceCacheWatchRemove(gvr.String())
+		return
+	}
+
 	if apierrors.IsNotFound(err) {
 		left, used := in.decreaseAttempts(gvr)
 		if left == 0 {
@@ -282,21 +289,13 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 			return
 		}
 
-		gvk, err := in.discoveryCache.KindFor(gvr)
-		if err != nil {
-			klog.V(log.LogLevelVerbose).ErrorS(err, "failed to register resource, could not get gvk for resource", "gvr", gvr.String())
-			metrics.Record().ResourceCacheWatchRemove(gvr.String())
-			return
-		}
-
 		klog.V(log.LogLevelExtended).ErrorS(err, "resource not found, retrying", "gvr", gvr.String(), "attemptsLeft", left)
-		in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
-		in.registerQueue.AddRateLimited(gvr)
-		return
+	} else {
+		klog.V(log.LogLevelDefault).ErrorS(err, "unknown synchronizer error, restarting", "gvr", gvr.String())
 	}
 
-	klog.V(log.LogLevelDefault).ErrorS(err, "unknown synchronizer error, restarting", "gvr", gvr.String())
-	in.MaybeRegister(gvr)
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
+	in.registerQueue.AddRateLimited(gvr)
 }
 
 func (in *Supervisor) registerInitialResources() {
