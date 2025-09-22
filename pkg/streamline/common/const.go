@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	// LifecycleDeleteAnnotation is the lifecycle annotation key for deletion operation.
+	// LifecycleDeleteAnnotation is the lifecycle annotation key for a deletion operation.
 	// Keep it the same as cli-utils for backwards compatibility.
 	LifecycleDeleteAnnotation = "client.lifecycle.config.k8s.io/deletion"
 
@@ -18,6 +18,9 @@ const (
 	// in the annotations of a resource.
 	OwningInventoryKey = "config.k8s.io/owning-inventory"
 
+	// TrackingIdentifierKey is the key used to store the unique identifier
+	// of a resource in the annotations of a resource.
+	// This is used to make sure that the owning inventory was not copied from another resource.
 	TrackingIdentifierKey = "config.k8s.io/tracking-identifier"
 
 	// ClientFieldManager is a name associated with the actor or entity
