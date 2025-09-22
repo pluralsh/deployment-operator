@@ -9,6 +9,14 @@ import (
 
 type Key string
 
+func (k Key) Equals(a string) bool {
+	return string(k) == a
+}
+
+func (k Key) String() string {
+	return string(k)
+}
+
 func NewKeyFromEntry(entry Entry) Key {
 	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", entry.Group, entry.Version, entry.Kind, entry.Namespace, entry.Name))
 }

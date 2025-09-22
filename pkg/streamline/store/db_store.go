@@ -124,8 +124,8 @@ func (in *DatabaseStore) init() error {
 
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
-	serviceID, hasServiceID := obj.GetAnnotations()[smcommon.OwningInventoryKey]
 	state := NewComponentState(common.ToStatus(&obj))
+	serviceID := smcommon.GetOwningInventory(obj)
 
 	var nodeName string
 	if gvk.Group == "" && gvk.Kind == common.PodKind {
@@ -133,7 +133,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			return nil // If the pod is not assigned to a node, we don't need to store it
 		}
 
-		if !hasServiceID && state == ComponentStateRunning {
+		if serviceID == "" && state == ComponentStateRunning {
 			if err := in.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(obj)); err != nil {
 				klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete pod", "uid", obj.GetUID())
 			}
@@ -224,20 +224,20 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 	for _, obj := range objects {
 		var nodeName string
 		gvk := obj.GroupVersionKind()
-		serviceID, hasServiceID := obj.GetAnnotations()[smcommon.OwningInventoryKey]
+		serviceID := smcommon.GetOwningInventory(obj)
 		state := NewComponentState(common.ToStatus(&obj))
 
 		if gvk.Group == "" && gvk.Kind == common.PodKind {
 			if nodeName, _, _ = unstructured.NestedString(obj.Object, "spec", "nodeName"); len(nodeName) == 0 {
-				return nil // If the pod is not assigned to a node, we don't need to store it
+				continue // If the pod is not assigned to a node, we don't need to store it
 			}
 
-			if !hasServiceID && state == ComponentStateRunning {
+			if serviceID == "" && state == ComponentStateRunning {
 				if err := in.deleteComponent(conn, smcommon.NewStoreKeyFromUnstructured(obj)); err != nil {
 					klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete pod", "uid", obj.GetUID())
 				}
 				klog.V(log.LogLevelDebug).InfoS("skipping pod save", "name", obj.GetName(), "namespace", obj.GetNamespace())
-				return nil // If the pod does not belong to any service and is running, we don't need to store it
+				continue // If the pod does not belong to any service and is running, we don't need to store it
 			}
 		}
 
@@ -255,7 +255,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 		serverSHA, err := HashResource(obj)
 		if err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to calculate resource SHA", "name", obj.GetName(), "namespace", obj.GetNamespace(), "gvk", gvk.String())
-			return err
+			continue
 		}
 
 		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s')",
