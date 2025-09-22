@@ -97,9 +97,21 @@ docker-build-agent-harness-base: ## build base docker agent harness image
 		-f dockerfiles/agent-harness/base.Dockerfile \
 		.
 
+.PHONY: docker-build-agent-harness-gemini
+docker-build-agent-harness-gemini: docker-build-agent-harness-base ## build gemini docker agent harness image
+	docker build \
+		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/agent-harness-gemini \
+		-f dockerfiles/agent-harness/gemini.Dockerfile \
+		.
+
 .PHONY: docker-push-agent-harness-base  
 docker-push-agent-harness-base: docker-build-agent-harness-base ## push agent harness base image
 	docker push ghcr.io/pluralsh/agent-harness-base:latest
+
+.PHONY: docker-push-agent-harness-gemini
+docker-push-agent-harness-gemini: docker-build-agent-harness-gemini ## push gemini agent harness image
+	docker push ghcr.io/pluralsh/agent-harness-gemini:latest
 	
 docker-build: ## build image
 	docker build -t ${IMG} .

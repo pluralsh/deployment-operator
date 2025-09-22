@@ -242,7 +242,7 @@ func (in *stackRunController) init() (Controller, error) {
 	return in, nil
 }
 
-func NewStackRunController(options ...Option) (Controller, error) {
+func NewStackRunController(options ...StackRunOption) (Controller, error) {
 	finishedChan := make(chan struct{})
 	errChan := make(chan error, 1)
 	ctrl := &stackRunController{
@@ -267,14 +267,7 @@ func NewStackRunController(options ...Option) (Controller, error) {
 }
 
 // NewAgentRunController creates a new agent run controller TODO
-func NewAgentRunController(opts ...Option) (Controller, error) {
+func NewAgentRunController(opts ...AgentRunOption) (Controller, error) {
 	// TODO: Implement agent run controller
 	panic("NewAgentRunController not yet implemented - this is a stub")
-}
-
-// WithAgentRun sets the agent run ID TODO
-func WithAgentRun(agentRunID string) Option {
-	// TODO: Implement agent run option
-	// This will be similar to WithStackRun but for agent runs
-	return nil
 }

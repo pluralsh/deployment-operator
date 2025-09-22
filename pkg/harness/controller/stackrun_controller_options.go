@@ -7,43 +7,43 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
-func WithStackRun(id string) Option {
+func WithStackRun(id string) StackRunOption {
 	return func(s *stackRunController) {
 		s.stackRunID = id
 	}
 }
 
-func WithConsoleClient(client console.Client) Option {
+func WithConsoleClient(client console.Client) StackRunOption {
 	return func(s *stackRunController) {
 		s.consoleClient = client
 	}
 }
 
-func WithFetchClient(client helpers.FetchClient) Option {
+func WithFetchClient(client helpers.FetchClient) StackRunOption {
 	return func(s *stackRunController) {
 		s.fetchClient = client
 	}
 }
 
-func WithWorkingDir(dir string) Option {
+func WithWorkingDir(dir string) StackRunOption {
 	return func(s *stackRunController) {
 		s.dir = dir
 	}
 }
 
-func WithSinkOptions(options ...sink.Option) Option {
+func WithSinkOptions(options ...sink.Option) StackRunOption {
 	return func(s *stackRunController) {
 		s.sinkOptions = options
 	}
 }
 
-func WithExecOptions(options ...exec.Option) Option {
+func WithExecOptions(options ...exec.Option) StackRunOption {
 	return func(s *stackRunController) {
 		s.execOptions = options
 	}
 }
 
-func WithConsoleToken(token string) Option {
+func WithConsoleToken(token string) StackRunOption {
 	return func(s *stackRunController) {
 		s.consoleToken = token
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
+	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	stackrunv1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
@@ -65,4 +66,49 @@ type stackRunController struct {
 	stopChan chan struct{}
 }
 
-type Option func(*stackRunController)
+type StackRunOption func(*stackRunController)
+
+type agentRunController struct {
+	sync.Mutex
+
+	// executor
+	executor *executor
+
+	agentRun *agentrunv1.AgentRun
+
+	// consoleClient
+	consoleClient console.Client
+
+	// fetchClient
+	fetchClient helpers.FetchClient
+
+	// execOptions
+	execOptions []exec.Option
+
+	// sinkOptions allows providing custom options to
+	// sink.ConsoleWriter. By default, every command output
+	// is being forwarded both to the os.Stdout and sink.ConsoleWriter.
+	sinkOptions []sink.Option
+
+	agentRunID string
+
+	// consoleToken
+	consoleToken string
+
+	// dir
+	dir string
+
+	// wg
+	wg sync.WaitGroup
+
+	// errChan
+	errChan chan error
+
+	// finishedChan
+	finishedChan chan struct{}
+
+	// stopChan
+	stopChan chan struct{}
+}
+
+type AgentRunOption func(*agentRunController)
