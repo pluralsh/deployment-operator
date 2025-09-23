@@ -6,10 +6,10 @@ import (
 
 	"github.com/pluralsh/deployment-operator/cmd/agent-harness/args"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/controller"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/harness/controller"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
-	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	"k8s.io/klog/v2"

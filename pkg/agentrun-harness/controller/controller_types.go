@@ -5,25 +5,23 @@ import (
 	"sync"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/exec"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
-	stackrunv1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
-	toolv1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
 )
 
 type Controller interface {
 	Start(ctx context.Context) error
 }
 
-type stackRunController struct {
+type agentRunController struct {
 	sync.Mutex
 
 	// executor
 	executor *executor
 
-	// stackRun
-	stackRun *stackrunv1.StackRun
+	agentRun *agentrunv1.AgentRun
 
 	// consoleClient
 	consoleClient console.Client
@@ -39,12 +37,7 @@ type stackRunController struct {
 	// is being forwarded both to the os.Stdout and sink.ConsoleWriter.
 	sinkOptions []sink.Option
 
-	// tool handles one of the supported infrastructure management tools.
-	// List of supported tools is based on the gqlclient.StackType.
-	tool toolv1.Tool
-
-	// stackRunID
-	stackRunID string
+	agentRunID string
 
 	// consoleToken
 	consoleToken string
@@ -65,4 +58,4 @@ type stackRunController struct {
 	stopChan chan struct{}
 }
 
-type Option func(*stackRunController)
+type Option func(*agentRunController)

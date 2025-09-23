@@ -105,6 +105,22 @@ docker-build-agent-harness-gemini: docker-build-agent-harness-base ## build gemi
 		-f dockerfiles/agent-harness/gemini.Dockerfile \
 		.
 
+.PHONY: docker-build-agent-harness-claude
+docker-build-agent-harness-claude: docker-build-agent-harness-base ## build claude docker agent harness image
+	docker build \
+		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/agent-harness-claude \
+		-f dockerfiles/agent-harness/claude.Dockerfile \
+		.
+
+.PHONY: docker-build-agent-harness-opencode
+docker-build-agent-harness-opencode: docker-build-agent-harness-base ## build opencode docker agent harness image
+	docker build \
+		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/agent-harness-opencode \
+		-f dockerfiles/agent-harness/opencode.Dockerfile \
+		.
+
 .PHONY: docker-push-agent-harness-base  
 docker-push-agent-harness-base: docker-build-agent-harness-base ## push agent harness base image
 	docker push ghcr.io/pluralsh/agent-harness-base:latest
@@ -112,6 +128,14 @@ docker-push-agent-harness-base: docker-build-agent-harness-base ## push agent ha
 .PHONY: docker-push-agent-harness-gemini
 docker-push-agent-harness-gemini: docker-build-agent-harness-gemini ## push gemini agent harness image
 	docker push ghcr.io/pluralsh/agent-harness-gemini:latest
+
+.PHONY: docker-push-agent-harness-claude
+docker-push-agent-harness-claude: docker-build-agent-harness-claude ## push claude agent harness image
+	docker push ghcr.io/pluralsh/agent-harness-claude:latest
+
+.PHONY: docker-push-agent-harness-opencode
+docker-push-agent-harness-opencode: docker-build-agent-harness-opencode ## push opencode agent harness image
+	docker push ghcr.io/pluralsh/agent-harness-opencode:latest
 	
 docker-build: ## build image
 	docker build -t ${IMG} .
