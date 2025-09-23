@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 
@@ -39,7 +37,6 @@ type Applier struct {
 }
 
 func (in *Applier) Apply(ctx context.Context,
-	mapper meta.RESTMapper,
 	service client.ServiceDeploymentForAgent,
 	resources []unstructured.Unstructured,
 	opts ...WaveProcessorOption,
@@ -202,6 +199,7 @@ func (in *Applier) addServiceAnnotation(resources []unstructured.Unstructured, s
 		}
 
 		annotations[smcommon.OwningInventoryKey] = serviceID
+		annotations[smcommon.TrackingIdentifierKey] = smcommon.NewKeyFromUnstructured(obj).String()
 		obj.SetAnnotations(annotations)
 	}
 

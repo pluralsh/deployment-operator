@@ -490,7 +490,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	)
 
 	components, errs, err := s.applier.Apply(ctx,
-		s.mapper,
 		*svc,
 		manifests,
 		applier.WithWaveDryRun(dryRun),

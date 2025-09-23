@@ -9,12 +9,21 @@ import (
 
 type Key string
 
+func (k Key) Equals(s string) bool {
+	return string(k) == s
+}
+
+func (k Key) String() string {
+	return string(k)
+}
+
 func NewKeyFromEntry(entry Entry) Key {
 	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", entry.Group, entry.Version, entry.Kind, entry.Namespace, entry.Name))
 }
 
-func NewKeyFromUnstructured(unstructured unstructured.Unstructured) Key {
-	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", unstructured.GroupVersionKind().Group, unstructured.GroupVersionKind().Version, unstructured.GroupVersionKind().Kind, unstructured.GetNamespace(), unstructured.GetName()))
+func NewKeyFromUnstructured(u unstructured.Unstructured) Key {
+	gvk := u.GroupVersionKind()
+	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, u.GetNamespace(), u.GetName()))
 }
 
 // StoreKey is a unique identifier for a resource in the store.
@@ -34,18 +43,6 @@ func (in StoreKey) VersionlessKey() Key {
 	return Key(fmt.Sprintf("%s/%s/%s/%s", in.GVK.Group, in.GVK.Kind, in.Namespace, in.Name))
 }
 
-func NewStoreKeyFromEntry(entry Entry) StoreKey {
-	return StoreKey{
-		GVK: schema.GroupVersionKind{
-			Group:   entry.Group,
-			Version: entry.Version,
-			Kind:    entry.Kind,
-		},
-		Namespace: entry.Namespace,
-		Name:      entry.Name,
-	}
-}
-
 func (in StoreKey) ReplaceGroup(group string) StoreKey {
 	return StoreKey{
 		GVK: schema.GroupVersionKind{
@@ -58,14 +55,14 @@ func (in StoreKey) ReplaceGroup(group string) StoreKey {
 	}
 }
 
-func NewStoreKeyFromUnstructured(unstructured unstructured.Unstructured) StoreKey {
+func NewStoreKeyFromEntry(entry Entry) StoreKey {
 	return StoreKey{
-		GVK: schema.GroupVersionKind{
-			Group:   unstructured.GroupVersionKind().Group,
-			Version: unstructured.GroupVersionKind().Version,
-			Kind:    unstructured.GroupVersionKind().Kind,
-		},
-		Namespace: unstructured.GetNamespace(),
-		Name:      unstructured.GetName(),
+		GVK:       schema.GroupVersionKind{Group: entry.Group, Version: entry.Version, Kind: entry.Kind},
+		Namespace: entry.Namespace,
+		Name:      entry.Name,
 	}
+}
+
+func NewStoreKeyFromUnstructured(u unstructured.Unstructured) StoreKey {
+	return StoreKey{GVK: u.GroupVersionKind(), Namespace: u.GetNamespace(), Name: u.GetName()}
 }
