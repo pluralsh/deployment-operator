@@ -276,3 +276,25 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+.PHONY: mcpserver
+mcpserver: ## build mcp server
+	go build -o bin/mcpserver cmd/mcpserver/main.go
+
+.PHONY: mcpserver-run
+mcpserver-run: mcpserver ## run mcp server locally
+	PLURAL_ACCESS_TOKEN=${PLURAL_ACCESS_TOKEN} \
+	PLURAL_CONSOLE_URL=${PLURAL_CONSOLE_URL} \
+	./bin/mcpserver
+
+.PHONY: docker-build-mcpserver
+docker-build-mcpserver: ## build mcp server docker image
+	docker build \
+		--build-arg=VERSION="0.0.0-dev" \
+		-t ghcr.io/pluralsh/mcpserver:latest \
+		-f dockerfiles/mcpserver/Dockerfile \
+		.
+
+.PHONY: docker-push-mcpserver
+docker-push-mcpserver: docker-build-mcpserver ## push mcp server image
+	docker push ghcr.io/pluralsh/mcpserver:latest
