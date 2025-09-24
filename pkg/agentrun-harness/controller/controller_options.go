@@ -41,3 +41,9 @@ func WithConsoleToken(token string) Option {
 		s.consoleToken = token
 	}
 }
+
+func WithConsoleUrl(url string) Option {
+	return func(s *agentRunController) {
+		s.consoleUrl = url
+	}
+}

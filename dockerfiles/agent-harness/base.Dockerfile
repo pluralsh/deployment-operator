@@ -15,6 +15,7 @@ COPY pkg ./pkg
 COPY internal ./internal
 COPY api ./api
 
+# Build agent-harness binary
 RUN CGO_ENABLED=0 \
     GOOS=${TARGETOS} \
     GOARCH=${TARGETARCH} \
@@ -28,15 +29,13 @@ FROM cgr.dev/chainguard/wolfi-base:latest
 
 RUN apk update --no-cache && apk add --no-cache git curl jq
 
-# Switch to the nonroot user
-USER 65532:65532
-
-# Copy the agent-harness binary
+# Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness
 COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
+COPY --from=ghcr.io/pluralsh/mcpserver:latest /root/mcpserver /usr/local/bin/mcpserver
 
-# TODO: Add MCP server binary when implemented  
-# COPY --from=builder /plural-agent-mcp-server /usr/local/bin/
+# Switch to the nonroot user
+USER 65532:65532
 
 WORKDIR /plural
 

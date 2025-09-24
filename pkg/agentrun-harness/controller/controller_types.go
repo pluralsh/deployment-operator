@@ -29,6 +29,9 @@ type agentRunController struct {
 	// consoleToken is the token used to access the Console API
 	consoleToken string
 
+	// consoleURl is needed for MCP Server
+	consoleUrl string
+
 	// dir is the working directory where the repository will be cloned.
 	dir string
 

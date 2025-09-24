@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	osexec "os/exec"
+
 	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
 
@@ -76,6 +78,10 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 
 // prepare sets up the agent run environment and AI credentials
 func (in *agentRunController) prepare() error {
+	if err := in.startMCPServer(); err != nil {
+		return err
+	}
+
 	env := environment.New(
 		environment.WithAgentRun(in.agentRun),
 		environment.WithWorkingDir(in.dir),
@@ -86,6 +92,18 @@ func (in *agentRunController) prepare() error {
 	}
 
 	return nil
+}
+
+// Start MCP server in background
+func (in *agentRunController) startMCPServer() error {
+	cmd := osexec.Command("/usr/local/bin/mcpserver")
+	cmd.Dir = in.dir
+	cmd.Env = append(os.Environ(),
+		"PLURAL_ACCESS_TOKEN="+in.consoleToken,
+		"PLURAL_CONSOLE_URL="+in.consoleUrl,
+	)
+
+	return cmd.Start()
 }
 
 // executables returns the list of executables for this agent run - runs the appropriate CLI
@@ -164,6 +182,11 @@ func (in *agentRunController) openCodeExecutable(ctx context.Context) exec.Execu
 		"--repository", filepath.Join(in.dir, "repository"),
 	}
 
+	// Add system prompt overrides if needed
+	if systemPrompt := in.getSystemPromptOverride(); systemPrompt != "" {
+		args = append(args, "--system-prompt", systemPrompt)
+	}
+
 	return in.toExecutable(ctx, "opencode-cli", "opencode", args)
 }
 
@@ -180,7 +203,6 @@ func (in *agentRunController) customExecutable(ctx context.Context) exec.Executa
 
 // getSystemPromptOverride returns system prompt override if configured
 func (in *agentRunController) getSystemPromptOverride() string {
-	// TODO: Check for system prompt overrides from environment or config
 	if override := os.Getenv("AGENT_SYSTEM_PROMPT_OVERRIDE"); override != "" {
 		return override
 	}

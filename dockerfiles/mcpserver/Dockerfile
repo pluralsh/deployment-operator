@@ -24,10 +24,6 @@ WORKDIR /root/
 # Copy the binary from the builder stage
 COPY --from=builder /workspace/mcpserver .
 
-# Set environment variables for Plural credentials
-ENV PLURAL_ACCESS_TOKEN=""
-ENV PLURAL_CONSOLE_URL=""
-
 # Expose stdio for MCP communication
 # The MCP server uses stdio transport, so no network ports needed
 
