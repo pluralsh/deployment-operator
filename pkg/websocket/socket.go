@@ -7,15 +7,13 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	phx "github.com/pluralsh/gophoenix"
-	"k8s.io/klog/v2/textlogger"
-)
+	"k8s.io/klog/v2"
 
-var (
-	log = textlogger.NewLogger(textlogger.NewConfig())
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 type Publisher interface {
-	Publish(id string)
+	Publish(id string, kick bool)
 }
 
 type socket struct {
@@ -54,14 +52,14 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 
 func (s *socket) AddPublisher(event string, publisher Publisher) {
 	if event == "" {
-		log.V(1).Info("cannot register publisher without event type")
+		klog.V(log.LogLevelDefault).Info("cannot register publisher without event type")
 		return
 	}
 
 	if !s.publishers.Has(event) {
 		s.publishers.Set(event, publisher)
 	} else {
-		log.V(1).Info("publisher for this event type is already registered", "event", event)
+		klog.V(log.LogLevelDefault).InfoS("publisher for this event type is already registered", "event", event)
 	}
 }
 
@@ -69,7 +67,7 @@ func (s *socket) Join() error {
 	if s.connected && !s.joined {
 		channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
 		if err == nil {
-			log.V(1).Info("connecting to channel", "channel", fmt.Sprintf("cluster:%s", s.clusterId))
+			klog.V(log.LogLevelDefault).InfoS("connecting to channel", "channel", fmt.Sprintf("cluster:%s", s.clusterId))
 			s.channel = channel
 			s.joined = true
 		}
@@ -78,7 +76,7 @@ func (s *socket) Join() error {
 		return nil
 	}
 
-	log.V(1).Info("socket not yet connected, waiting...")
+	klog.V(log.LogLevelDefault).Info("socket not yet connected, waiting...")
 	return nil
 }
 
@@ -110,16 +108,16 @@ func (s *socket) NotifyDisconnect() {
 
 // implement ChannelReceiver
 func (s *socket) OnJoin(payload interface{}) {
-	log.V(1).Info("Joined websocket channel, listening for service updates")
+	klog.V(log.LogLevelDefault).Info("Joined websocket channel, listening for service updates")
 }
 
 func (s *socket) OnJoinError(payload interface{}) {
-	log.V(1).Info("failed to join channel, retrying")
+	klog.V(log.LogLevelDefault).Info("failed to join channel, retrying")
 	s.joined = false
 }
 
 func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
-	log.V(1).Info("left websocket channel")
+	klog.V(log.LogLevelDefault).Info("left websocket channel")
 	s.joined = false
 }
 
@@ -127,11 +125,12 @@ func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
 	if publisher, ok := s.publishers.Get(event); ok {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
-				log.V(1).Info("got new update from websocket", "id", id)
-				publisher.Publish(id)
+				klog.V(log.LogLevelDefault).InfoS("got new update from websocket", "id", id, "event", event, "payload", payload)
+				kick, _ := parsed["kick"].(bool)
+				publisher.Publish(id, kick)
 			}
 		}
 	} else {
-		log.V(1).Info("could not find publisher for event", "event", event)
+		klog.V(log.LogLevelDefault).InfoS("could not find publisher for event", "event", event)
 	}
 }

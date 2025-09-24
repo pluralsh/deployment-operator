@@ -5,7 +5,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/ping"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 
 	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
@@ -26,13 +31,18 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/ping"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+
 	deploymentsv1alpha1 "github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
-	"github.com/pluralsh/deployment-operator/pkg/cache/db"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
-	"github.com/pluralsh/deployment-operator/pkg/scraper"
 )
 
 var (
@@ -62,6 +72,7 @@ func main() {
 	args.Init()
 	config := ctrl.GetConfigOrDie()
 	ctx := ctrl.LoggerInto(ctrl.SetupSignalHandler(), setupLog)
+	utils.DisableClientLimits(config)
 
 	if args.PyroscopeEnabled() {
 		profiler, err := args.InitPyroscope()
@@ -90,35 +101,50 @@ func main() {
 		}()
 	}
 
+	mapper, discoveryClient, clientSet, dynamicClient := initKubeResourcesOrDie(config)
+
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
-	discoveryClient := initDiscoveryClientOrDie(config)
+
+	// Initialize the discovery cache.
+	initDiscoveryCache(discoveryClient, mapper)
+	discoveryCache := discoverycache.GlobalCache()
+
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
-	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient())
+
+	// Start the discovery cache manager in background.
+	runDiscoveryManagerOrDie(ctx, discoveryCache)
 
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 
-	registerConsoleReconcilersOrDie(consoleManager, config, kubeManager.GetClient(), kubeManager.GetScheme(), extConsoleClient)
-	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryClient, args.EnableKubecostProxy(), args.ConsoleUrl(), args.DeployToken())
+	dbStore := initDatabaseStoreOrDie()
+	defer func(dbStore store.Store) {
+		err := dbStore.Shutdown()
+		if err != nil {
+			setupLog.Error(err, "unable to shutdown database store")
+		}
+	}(dbStore)
+	streamline.InitGlobalStore(dbStore)
+
+	runStoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())
+
+	// Start synchronizer supervisor
+	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
+	defer supervisor.Stop()
+
+	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache)
+	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
 
-	// Start resource cache in background if enabled.
-	if args.ResourceCacheEnabled() {
-		db.Init()
-		cache.Init(ctx, config, args.ResourceCacheTTL())
-		scraper.RunServerGroupsScraperInBackgroundOrDie(ctx, config)
-	}
-
-	// Start the discovery cache in background.
-	cache.RunDiscoveryCacheInBackgroundOrDie(ctx, discoveryClient)
-
 	// Start the metrics scarper in background.
-	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryClient, config)
+	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryCache, config)
 
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
+
+	pinger := ping.NewOrDie(extConsoleClient, config, kubeManager.GetClient(), discoveryCache, dbStore)
 
 	// Start cluster pinger
 	ping.RunClusterPingerInBackgroundOrDie(ctx, pinger, args.ClusterPingInterval())
@@ -130,28 +156,110 @@ func main() {
 	runKubeManagerOrDie(ctx, kubeManager)
 }
 
-func initDiscoveryClientOrDie(config *rest.Config) *discovery.DiscoveryClient {
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+func initKubeResourcesOrDie(config *rest.Config) (meta.RESTMapper, discovery.DiscoveryInterface, kubernetes.Interface, dynamic.Interface) {
+	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(config)
+
+	f := utils.NewFactory(config)
+	mapper, err := f.ToRESTMapper()
 	if err != nil {
-		setupLog.Error(err, "unable to create discovery client")
+		setupLog.Error(err, "unable to create mapper")
 		os.Exit(1)
 	}
 
-	return discoveryClient
+	clientSet, err := f.KubernetesClientSet()
+	if err != nil {
+		setupLog.Error(err, "unable to create clientset")
+		os.Exit(1)
+	}
+
+	dynamicClient, err := f.DynamicClient()
+	if err != nil {
+		setupLog.Error(err, "unable to create dynamic client")
+		os.Exit(1)
+	}
+
+	return mapper, discoveryClient, clientSet, dynamicClient
 }
 
 func runConsoleManagerInBackgroundOrDie(ctx context.Context, mgr *consolectrl.Manager) {
-	setupLog.Info("starting console controller manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "unable to start console controller manager")
 		os.Exit(1)
 	}
+	setupLog.Info("started console controller manager")
 }
 
 func runKubeManagerOrDie(ctx context.Context, mgr ctrl.Manager) {
-	setupLog.Info("starting kubernetes controller manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "unable to start kubernetes controller manager")
 		os.Exit(1)
 	}
+	setupLog.Info("started kubernetes controller manager")
+}
+
+func initDiscoveryCache(client discovery.DiscoveryInterface, mapper meta.RESTMapper) {
+	discoverycache.InitGlobalDiscoveryCache(client, mapper,
+		discoverycache.WithOnGroupVersionAdded(func(gv schema.GroupVersion) {
+			discoverycache.UpdateServiceMesh(gv.Group, discoverycache.ServiceMeshUpdateTypeAdded)
+		}),
+		discoverycache.WithOnGroupVersionDeleted(func(gv schema.GroupVersion) {
+			// TODO: consider using just Group deletion event to signal service mesh removal
+			// as it may cause issues if a group has multiple versions and only one is removed
+			discoverycache.UpdateServiceMesh(gv.Group, discoverycache.ServiceMeshUpdateTypeDeleted)
+		}),
+	)
+}
+
+func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
+	now := time.Now()
+	if err := discoverycache.NewDiscoveryManager(
+		discoverycache.WithRefreshInterval(args.DiscoveryCacheRefreshInterval()),
+		discoverycache.WithCache(cache),
+	).Start(ctx); err != nil {
+		setupLog.Error(err, "error starting discovery manager, cache might not be up to date")
+		return
+	}
+
+	setupLog.Info("discovery manager started with initial cache sync", "duration", time.Since(now))
+}
+
+func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache) *streamline.Supervisor {
+	now := time.Now()
+	supervisor := streamline.NewSupervisor(dynamicClient,
+		store,
+		discoveryCache,
+		streamline.WithCacheSyncTimeout(args.SupervisorCacheSyncTimeout()),
+		streamline.WithRestartDelay(args.SupervisorRestartDelay()),
+		streamline.WithMaxNotFoundRetries(args.SupervisorMaxNotFoundRetries()),
+		streamline.WithSynchronizerResyncInterval(args.SupervisorSynchronizerResyncInterval()))
+	supervisor.Run(ctx)
+	setupLog.Info("waiting for synchronizers cache to sync")
+	if err := supervisor.WaitForCacheSync(ctx); err != nil {
+		setupLog.Error(err, "could not warmup synchronizers cache")
+		return supervisor
+	}
+
+	setupLog.Info("started synchronizer supervisor with initial cache sync", "duration", time.Since(now))
+	return supervisor
+}
+
+func initDatabaseStoreOrDie() store.Store {
+	dbStore, err := store.NewDatabaseStore(store.WithStorage(args.StoreStorage()), store.WithFilePath(args.StoreFilePath()))
+	if err != nil {
+		setupLog.Error(err, "unable to initialize database store")
+		os.Exit(1)
+	}
+
+	return dbStore
+}
+
+func runStoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, interval, ttl time.Duration) {
+	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return interval }, false, func(_ context.Context) (done bool, err error) {
+		if err := store.ExpireOlderThan(ttl); err != nil {
+			klog.Error(err, "unable to expire resource cache")
+		}
+		return false, nil
+	})
+
+	setupLog.Info("store cleaner started", "interval", interval, "ttl", ttl)
 }

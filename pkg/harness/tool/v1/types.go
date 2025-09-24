@@ -17,7 +17,7 @@ import (
 // - gathering any available outputs from local files
 // - providing runtime modifiers to alter step command execution arguments, env, etc.
 type Tool interface {
-	// Scan tries to scan the plan or output information for security issues.
+	// Scan tries to scan the state/plan information based on local files.
 	Scan() ([]*console.StackPolicyViolationAttributes, error)
 	// Plan tries to assemble plan information based on local files
 	// created by specific tool after PLAN stage. It then transforms it
@@ -84,13 +84,14 @@ type multiModifier struct {
 }
 
 type Config struct {
-	// WorkDir is a working directory for the tool.
+	// WorkDir is the working directory for the tool.
 	WorkDir string
 
-	// ExecDir is an execution directory for the tool.
+	// ExecDir is the execution directory for the tool.
 	ExecDir string
 
-	// Variables is a JSON encoded string representing variables file.
+	// Variables is a JSON encoded string representing
+	// tool variables.
 	Variables *string
 
 	// Scanner is a security scanner. See [securityv1.Scanner] for more information.

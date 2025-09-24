@@ -2,7 +2,6 @@ package template
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	iofs "io/fs"
 	"log"
@@ -13,12 +12,12 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pluralsh/polly/luautils"
 	lua "github.com/yuin/gopher-lua"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -36,13 +35,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/klog/v2"
-	"k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/pkg/cache"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
 )
+
+var repoFileMutex sync.Mutex
 
 const (
 	appNameLabel                   = "app.kubernetes.io/name"
@@ -54,18 +54,20 @@ const (
 	helmReleaseNamespaceAnnotation = "meta.helm.sh/release-namespace"
 )
 
-func init() {
-	// setup helm cache directory.
+// newEnvSettings creates a fresh EnvSettings for each render to avoid races
+func newEnvSettings() (*cli.EnvSettings, error) {
 	dir, err := os.MkdirTemp("", "repositories")
 	if err != nil {
-		log.Panic(err)
+		return nil, err
 	}
+
+	settings := cli.New()
 	settings.RepositoryCache = dir
 	settings.RepositoryConfig = path.Join(dir, "repositories.yaml")
 	settings.KubeInsecureSkipTLSVerify = true
-}
 
-var settings = cli.New()
+	return settings, nil
+}
 
 func debug(format string, v ...interface{}) {
 	format = fmt.Sprintf("INFO: %s\n", format)
@@ -79,7 +81,7 @@ type helm struct {
 	dir string
 }
 
-func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.Factory) ([]unstructured.Unstructured, error) {
+func (h *helm) Render(svc *console.ServiceDeploymentForAgent, mapper meta.RESTMapper) ([]unstructured.Unstructured, error) {
 	luaValues, luaValuesFiles, err := h.luaValues(svc)
 	if err != nil {
 		var apiErr *lua.ApiError
@@ -95,7 +97,11 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 	}
 	values = algorithms.Merge(values, luaValues)
 
-	config, err := GetActionConfig(svc.Namespace)
+	settings, err := newEnvSettings()
+	if err != nil {
+		return nil, err
+	}
+	config, err := GetActionConfig(svc.Namespace, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +112,7 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 
 	klog.V(loglevel.LogLevelExtended).InfoS("render helm templates:", "enable dependency update", args.EnableHelmDependencyUpdate(), "dependencies", len(c.Dependencies))
 	if len(c.Dependencies) > 0 && args.EnableHelmDependencyUpdate() {
-		if err := h.dependencyUpdate(config, c.Dependencies); err != nil {
+		if err := h.dependencyUpdate(config, c.Dependencies, settings); err != nil {
 			return nil, err
 		}
 	}
@@ -145,11 +151,6 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, utilFactory util.F
 	}
 
 	r := bytes.NewReader(buffer.Bytes())
-	mapper, err := utilFactory.ToRESTMapper()
-	if err != nil {
-		return nil, err
-	}
-
 	manifests, err := streamManifests(r, mapper, "helm", svc.Namespace)
 	if err != nil {
 		return nil, err
@@ -384,19 +385,37 @@ func (h *helm) templateHelm(conf *action.Configuration, release, namespace strin
 		return nil, err
 	}
 	client.KubeVersion = vsn
-	client.APIVersions = algorithms.MapKeys[string, bool](cache.DiscoveryCache().Items())
+	client.APIVersions = h.buildHelmAPIVersions()
 
 	return client.Run(chart, values)
 }
 
-func GetActionConfig(namespace string) (*action.Configuration, error) {
-	actionConfig := new(action.Configuration)
+func (h *helm) buildHelmAPIVersions() []string {
+	return slices.Concat[[]string](
+		algorithms.Map(
+			discoverycache.GlobalCache().GroupVersion().List(),
+			func(gv schema.GroupVersion) string {
+				return gv.String()
+			},
+		),
+		algorithms.Map(
+			discoverycache.GlobalCache().GroupVersionKind().List(),
+			func(gvk schema.GroupVersionKind) string {
+				return fmt.Sprintf("%s/%s", gvk.GroupVersion().String(), gvk.Kind)
+			},
+		),
+	)
+}
+
+// GetActionConfig now receives EnvSettings instead of using a global
+func GetActionConfig(namespace string, settings *cli.EnvSettings) (*action.Configuration, error) {
 	if os.Getenv("KUBECONFIG") != "" {
 		settings.KubeConfig = os.Getenv("KUBECONFIG")
 	}
-
 	settings.SetNamespace(namespace)
 	settings.Debug = false
+
+	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, "", debug); err != nil {
 		return nil, err
 	}
@@ -425,21 +444,20 @@ func kubeVersion(conf *action.Configuration) (*chartutil.KubeVersion, error) {
 	}, nil
 }
 
-func (h *helm) dependencyUpdate(conf *action.Configuration, dependencies []*chart.Dependency) error {
+func (h *helm) dependencyUpdate(conf *action.Configuration, dependencies []*chart.Dependency, settings *cli.EnvSettings) error {
 	for _, dep := range dependencies {
-		if err := AddRepo(dep.Name, dep.Repository); err != nil {
+		if err := AddRepo(dep.Name, dep.Repository, settings); err != nil {
 			return err
 		}
 	}
-	if err := UpdateRepos(); err != nil {
+	if err := UpdateRepos(settings); err != nil {
 		return err
 	}
 
 	man := &downloader.Manager{
-		Out:       log.Writer(),
-		ChartPath: h.dir,
-		Keyring:   defaultKeyring(),
-		// Must be skipped. The updater searches for the repos in the local helm cache directory, not the /temp. Fails in container.
+		Out:              log.Writer(),
+		ChartPath:        h.dir,
+		Keyring:          defaultKeyring(),
 		SkipUpdate:       true,
 		Getters:          getter.All(settings),
 		RegistryClient:   conf.RegistryClient,
@@ -458,19 +476,22 @@ func defaultKeyring() string {
 	return filepath.Join(homedir.HomeDir(), ".gnupg", "pubring.gpg")
 }
 
-var errNoRepositories = errors.New("no repositories found. You must add one before updating")
+// UpdateRepos now receives EnvSettings
+func UpdateRepos(settings *cli.EnvSettings) error {
+	repoFileMutex.Lock()
+	defer repoFileMutex.Unlock()
 
-func UpdateRepos() error {
 	klog.V(loglevel.LogLevelExtended).InfoS("helm repo update...")
 	f, err := repo.LoadFile(settings.RepositoryConfig)
 	switch {
-	case isNotExist(err):
-		return errNoRepositories
+	case os.IsNotExist(err):
+		return errors.New("no repositories found. You must add one before updating")
 	case err != nil:
-		return errors.Wrapf(err, "failed loading file: %s", settings.RepositoryConfig)
+		return fmt.Errorf("failed loading file: %s: %w", settings.RepositoryConfig, err)
 	case len(f.Repositories) == 0:
-		return errNoRepositories
+		return errors.New("no repositories found. You must add one before updating")
 	}
+
 	repos := make([]repo.ChartRepository, 0, len(f.Repositories))
 	for _, cfg := range f.Repositories {
 		r, err := repo.NewChartRepository(cfg, getter.All(settings))
@@ -510,33 +531,16 @@ func updateCharts(repos []repo.ChartRepository, failOnRepoUpdateFail bool) error
 	return nil
 }
 
-func AddRepo(repoName, repoUrl string) error {
+func AddRepo(repoName, repoUrl string, settings *cli.EnvSettings) error {
+	repoFileMutex.Lock()
+	defer repoFileMutex.Unlock()
+
 	repoFile := settings.RepositoryConfig
-	err := os.MkdirAll(filepath.Dir(repoFile), os.ModePerm)
-	if err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(filepath.Dir(repoFile), os.ModePerm); err != nil && !os.IsExist(err) {
 		return err
 	}
+
 	klog.V(loglevel.LogLevelExtended).InfoS("adding helm repo", "name", repoName, "file", repoFile)
-	// Acquire a file lock for process synchronization.
-	repoFileExt := filepath.Ext(repoFile)
-	var lockPath string
-	if len(repoFileExt) > 0 && len(repoFileExt) < len(repoFile) {
-		lockPath = strings.TrimSuffix(repoFile, repoFileExt) + ".lock"
-	} else {
-		lockPath = repoFile + ".lock"
-	}
-	fileLock := flock.New(lockPath)
-	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
-	if err == nil && locked {
-		defer func(fileLock *flock.Flock) {
-			_ = fileLock.Unlock()
-		}(fileLock)
-	}
-	if err != nil {
-		return err
-	}
 
 	b, err := os.ReadFile(repoFile)
 	if err != nil && !os.IsNotExist(err) {
@@ -558,10 +562,6 @@ func AddRepo(repoName, repoUrl string) error {
 	return f.WriteFile(repoFile, 0644)
 }
 
-func isNotExist(err error) bool {
-	return os.IsNotExist(errors.Cause(err))
-}
-
-func HelmSettings() *cli.EnvSettings {
-	return settings
+func HelmSettings() (*cli.EnvSettings, error) {
+	return newEnvSettings()
 }

@@ -16,13 +16,11 @@ import (
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	internallog "github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-const clusterPingerName = "cluster pinger"
-
 func RunClusterPingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, duration time.Duration) {
-	klog.Info("starting ", clusterPingerName)
-
 	interval := func() time.Duration {
 		if clusterPingInterval := common.GetConfigurationManager().GetClusterPingInterval(); clusterPingInterval != nil && *clusterPingInterval > 0 {
 			duration = *clusterPingInterval
@@ -30,22 +28,20 @@ func RunClusterPingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, dura
 		return duration
 	}
 
-	err := helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
+	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, interval, false, func(_ context.Context) (done bool, err error) {
 		if err := pinger.PingCluster(); err != nil {
 			klog.ErrorS(err, "failed ping cluster")
 		}
 		return false, nil
 	})
-	if err != nil {
-		panic(fmt.Errorf("failed to start %s in background: %w", clusterPingerName, err))
-	}
+
+	klog.V(internallog.LogLevelDefault).InfoS("started cluster pinger", "interval", duration)
 }
 
 func (p *Pinger) PingCluster() error {
-	info, err := p.discoveryClient.ServerVersion()
-	if err != nil {
-		klog.ErrorS(err, "failed to get server version")
-		return err
+	info := p.discoveryCache.ServerVersion()
+	if info == nil {
+		return fmt.Errorf("failed to get server version")
 	}
 
 	var podNames []string
@@ -63,17 +59,15 @@ func (p *Pinger) PingCluster() error {
 	minKubeletVersion, azs := p.kubeNodeData()
 
 	var openShiftVersion *string
-	apiGroups, err := p.discoveryClient.ServerGroups()
-	if err == nil {
-		if common.IsRunningOnOpenShift(apiGroups) {
-			version, err := common.GetOpenShiftVersion(p.k8sClient)
-			if err == nil {
-				openShiftVersion = lo.ToPtr(version)
-			}
+	apiGroups := p.discoveryCache.GroupVersion().List()
+	if common.IsRunningOnOpenShift(apiGroups) {
+		version, err := common.GetOpenShiftVersion(p.k8sClient)
+		if err == nil {
+			openShiftVersion = lo.ToPtr(version)
 		}
 	}
 
-	attrs := pingAttributes(info, podNames, minKubeletVersion, openShiftVersion, podCount)
+	attrs := p.pingAttributes(info, podNames, minKubeletVersion, openShiftVersion, podCount)
 	attrs.AvailabilityZones = stabilize(azs)
 	if err := p.consoleClient.PingCluster(attrs); err != nil {
 		attrs.Distro = nil

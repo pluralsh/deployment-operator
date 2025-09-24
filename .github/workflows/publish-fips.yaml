@@ -60,6 +60,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            GO_FIPS_IMAGE_REPO=ghcr.io/pluralsh/go-fips
-            GO_FIPS_IMAGE_TAG=1.23.2
+            GO_FIPS_IMAGE_REPO=ghcr.io/pluralsh/fips/go-fips
+            GO_FIPS_IMAGE_TAG=1.25.1
 

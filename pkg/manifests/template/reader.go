@@ -5,7 +5,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/filters"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
@@ -54,12 +53,12 @@ func (r *StreamManifestReader) Read() ([]unstructured.Unstructured, error) {
 
 	objs := make([]unstructured.Unstructured, 0, len(nodes))
 	for _, n := range nodes {
-		err = manifestreader.RemoveAnnotations(n, kioutil.IndexAnnotation)
+		err = RemoveAnnotations(n, kioutil.IndexAnnotation)
 		if err != nil {
 			return objs, err
 		}
 
-		u, err := manifestreader.KyamlNodeToUnstructured(n)
+		u, err := KyamlNodeToUnstructured(n)
 		if err != nil {
 			return objs, err
 		}

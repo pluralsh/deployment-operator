@@ -3,16 +3,16 @@ package controller
 import (
 	"context"
 
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
-	"github.com/stretchr/testify/mock"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 var _ = Describe("Backup Controller", Ordered, func() {

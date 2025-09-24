@@ -3,18 +3,18 @@ package common
 import (
 	"context"
 	"fmt"
-
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
-	metricsapi "k8s.io/metrics/pkg/apis/metrics"
-
-	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	metricsapi "k8s.io/metrics/pkg/apis/metrics"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
 
 func ParseAPIVersion(apiVersion string) (group, version string) {
@@ -136,28 +136,29 @@ func ConvertNodeMetrics(metrics []v1beta1.NodeMetrics, availableResources map[st
 	return nodeMetrics, nil
 }
 
-func SupportedMetricsAPIVersionAvailable(discoveredAPIGroups *metav1.APIGroupList) bool {
-	for _, discoveredAPIGroup := range discoveredAPIGroups.Groups {
-		if discoveredAPIGroup.Name != metricsapi.GroupName {
+func SupportedMetricsAPIVersionAvailable(apiGroups []schema.GroupVersion) bool {
+	for _, group := range apiGroups {
+		if group.Group != metricsapi.GroupName {
 			continue
 		}
-		for _, version := range discoveredAPIGroup.Versions {
-			for _, supportedVersion := range supportedMetricsAPIVersions {
-				if version.Version == supportedVersion {
-					return true
-				}
+
+		for _, version := range supportedMetricsAPIVersions {
+			if group.Version == version {
+				return true
 			}
 		}
 	}
+
 	return false
 }
 
-func IsRunningOnOpenShift(discoveredAPIGroups *metav1.APIGroupList) bool {
-	for _, group := range discoveredAPIGroups.Groups {
-		if group.Name == "config.openshift.io" {
+func IsRunningOnOpenShift(apiGroups []schema.GroupVersion) bool {
+	for _, group := range apiGroups {
+		if group.Group == "config.openshift.io" {
 			return true
 		}
 	}
+
 	return false
 }
 

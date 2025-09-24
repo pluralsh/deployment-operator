@@ -138,8 +138,8 @@ func (c *Controller) LastReconcileTime() time.Time {
 func (c *Controller) startPoller(ctx context.Context) {
 	defer c.Do.Shutdown()
 
-	klog.V(internallog.LogLevelTrace).InfoS("Starting controller poller", "ctrl", c.Name)
-	err := helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
+	klog.V(internallog.LogLevelExtended).InfoS("Starting controller poller", "ctrl", c.Name)
+	_ = helpers.DynamicPollUntilContextCancel(ctx, c.Do.GetPollInterval(), func(_ context.Context) (bool, error) {
 		defer func() {
 			c.setLastPollTime(time.Now())
 		}()
@@ -152,10 +152,6 @@ func (c *Controller) startPoller(ctx context.Context) {
 		// never stop
 		return false, nil
 	})
-	if err != nil {
-		klog.V(internallog.LogLevelDefault).ErrorS(err, "Controller poller failed", "ctrl", c.Name)
-	}
-
 	klog.V(internallog.LogLevelDefault).InfoS("Controller poller finished", "ctrl", c.Name)
 }
 
@@ -188,14 +184,15 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 	// resource to be synced.
 	log.V(5).Info("Reconciling")
 	result, err := c.reconcile(ctx, id)
+
+	if !result.IsZero() && err != nil {
+		log.V(1).Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
+	}
+
 	switch {
 	case err != nil:
+		log.Error(err, "Reconciler error, requeuing", "numRequeues", c.Do.Queue().NumRequeues(id))
 		c.Do.Queue().AddRateLimited(id)
-
-		if !result.IsZero() {
-			log.V(1).Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes reqeueuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
-		}
-		log.Error(err, "Reconciler error")
 	case result.RequeueAfter > 0:
 		log.V(5).Info(fmt.Sprintf("Reconcile done, requeueing after %s", result.RequeueAfter))
 		// The result.RequeueAfter request will be lost, if it is returned
@@ -204,7 +201,8 @@ func (c *Controller) reconcileHandler(ctx context.Context, id string) {
 		// to result.RequestAfter
 		c.Do.Queue().Forget(id)
 		c.Do.Queue().AddAfter(id, result.RequeueAfter)
-	case result.Requeue:
+		// TODO: Remove once deprecation period ends.
+	case result.Requeue: //nolint:staticcheck
 		log.V(5).Info("Reconcile done, requeueing")
 		c.Do.Queue().AddRateLimited(id)
 	default:

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 )
 
 type TestReconciler struct{}
@@ -107,12 +110,22 @@ var _ = Describe("CRD Controller", Ordered, func() {
 
 		It("should successfully reconcile resource", func() {
 
+			cache := discoverycache.NewCache(discoveryClient, mapper)
+
+			err := discoverycache.NewDiscoveryManager(
+				discoverycache.WithRefreshInterval(time.Millisecond),
+				discoverycache.WithCache(cache),
+			).Start(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			reconciler := &CrdRegisterControllerReconciler{
 				Client:           kClient,
 				Scheme:           kClient.Scheme(),
 				ReconcilerGroups: reconcileGroups,
+				DiscoveryCache:   cache,
 			}
-			_, err := reconciler.Reconcile(ctx, reconcile.Request{
+
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())

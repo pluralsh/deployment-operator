@@ -90,7 +90,7 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("recording constraint", "name", pca.Name)
+	logger.V(3).Info("recording constraint", "name", pca.Name)
 	r.Constraints[pca.Name] = *pca
 
 	for _, chunk := range lo.Chunk(algorithms.MapValues[string, console.PolicyConstraintAttributes](r.Constraints), constraintChunkSize) {
@@ -98,9 +98,11 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		logger.Info("upsert constraint", "number", *res.UpsertPolicyConstraints)
+		logger.V(3).Info("upserting constraint", "number", *res.UpsertPolicyConstraints)
 		time.Sleep(time.Duration(rand.Int63n(int64(500 * time.Millisecond))))
 	}
+
+	logger.Info("upserted constraints", "count", len(r.Constraints))
 	return ctrl.Result{}, nil
 }
 

@@ -6,38 +6,34 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/kubectl/pkg/cmd/util"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
-
-	"k8s.io/client-go/discovery"
-	"k8s.io/kubectl/pkg/cmd/util"
-
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 )
 
 type Pinger struct {
-	consoleClient   client.Client
-	discoveryClient *discovery.DiscoveryClient
-	factory         util.Factory
-	k8sClient       ctrclient.Client
-	clientset       *kubernetes.Clientset
-	apiExtClient    *apiextensionsclient.Clientset
+	consoleClient  client.Client
+	discoveryCache discoverycache.Cache
+	factory        util.Factory
+	k8sClient      ctrclient.Client
+	clientset      *kubernetes.Clientset
+	apiExtClient   *apiextensionsclient.Clientset
+	store          store.Store
 }
 
-func NewOrDie(console client.Client, config *rest.Config, k8sClient ctrclient.Client) *Pinger {
-	pinger, err := New(console, config, k8sClient)
+func NewOrDie(console client.Client, config *rest.Config, k8sClient ctrclient.Client, discoveryCache discoverycache.Cache, store store.Store) *Pinger {
+	pinger, err := New(console, config, k8sClient, discoveryCache, store)
 	if err != nil {
 		panic(fmt.Errorf("failed to create Pinger: %w", err))
 	}
 	return pinger
 }
 
-func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client) (*Pinger, error) {
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return nil, err
-	}
+func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client, discoveryCache discoverycache.Cache, store store.Store) (*Pinger, error) {
 	f := utils.NewFactory(config)
 	cs, err := f.KubernetesClientSet()
 	if err != nil {
@@ -49,11 +45,12 @@ func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client)
 	}
 
 	return &Pinger{
-		consoleClient:   console,
-		discoveryClient: discoveryClient,
-		factory:         f,
-		k8sClient:       k8sClient,
-		clientset:       cs,
-		apiExtClient:    apiExtClient,
+		consoleClient:  console,
+		factory:        f,
+		k8sClient:      k8sClient,
+		clientset:      cs,
+		apiExtClient:   apiExtClient,
+		discoveryCache: discoveryCache,
+		store:          store,
 	}, nil
 }

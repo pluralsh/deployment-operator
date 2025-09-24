@@ -4,16 +4,21 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	consolectrl "github.com/pluralsh/deployment-operator/pkg/controller"
 	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
-	"k8s.io/client-go/rest"
 	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
@@ -47,18 +52,43 @@ const (
 
 func registerConsoleReconcilersOrDie(
 	mgr *consolectrl.Manager,
-	config *rest.Config,
+	mapper meta.RESTMapper,
+	clientSet kubernetes.Interface,
 	k8sClient ctrclient.Client,
+	dynamicClient dynamic.Interface,
+	store store.Store,
 	scheme *runtime.Scheme,
 	consoleClient client.Client,
+	supervisor *streamline.Supervisor,
+	discoveryCache discoverycache.Cache,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
-		r, err := service.NewServiceReconciler(consoleClient, k8sClient, config, args.ControllerCacheTTL(), args.ManifestCacheTTL(), args.ManifestCacheJitter(), args.WorkqueueBaseDelay(), args.WorkqueueMaxDelay(), args.PollInterval(), args.RestoreNamespace(), args.ConsoleUrl(), args.WorkqueueQPS(), args.WorkqueueBurst())
+		r, err := service.NewServiceReconciler(consoleClient,
+			k8sClient,
+			mapper,
+			clientSet,
+			dynamicClient,
+			discoveryCache,
+			store,
+			service.WithRefresh(args.ControllerCacheTTL()),
+			service.WithManifestTTL(args.ManifestCacheTTL()),
+			service.WithManifestTTLJitter(args.ManifestCacheJitter()),
+			service.WithWorkqueueBaseDelay(args.WorkqueueBaseDelay()),
+			service.WithWorkqueueMaxDelay(args.WorkqueueMaxDelay()),
+			service.WithWorkqueueQPS(args.WorkqueueQPS()),
+			service.WithWorkqueueBurst(args.WorkqueueBurst()),
+			service.WithRestoreNamespace(args.RestoreNamespace()),
+			service.WithConsoleURL(args.ConsoleUrl()),
+			service.WithPollInterval(args.PollInterval()),
+			service.WithWaveDelay(args.ApplierWaveDelay()),
+			service.WithWaveDeQueueDelay(args.WaveDeQueueDelay()),
+			service.WithWaveMaxConcurrentApplies(args.WaveMaxConcurrentApplies()),
+			service.WithSupervisor(supervisor))
 		return r, err
 	})
 
 	mgr.AddReconcilerOrDie(pipelinegates.Identifier, func() (v1.Reconciler, error) {
-		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, config, args.PipelineGatesInterval())
+		r, err := pipelinegates.NewGateReconciler(consoleClient, k8sClient, args.PipelineGatesInterval())
 		return r, err
 	})
 
