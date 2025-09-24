@@ -141,6 +141,9 @@ func main() {
 	// Start the metrics scarper in background.
 	scraper.RunMetricsScraperInBackgroundOrDie(ctx, kubeManager.GetClient(), discoveryCache, config)
 
+	// Start the api services scarper in background.
+	scraper.RunAPIServicesScraperInBackgroundOrDie(ctx, config)
+
 	// Start the console manager in background.
 	runConsoleManagerInBackgroundOrDie(ctx, consoleManager)
 

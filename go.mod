@@ -23,7 +23,6 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/go-openapi/jsonpointer v0.22.0
 	github.com/gobuffalo/flect v1.0.3
-	github.com/gofrs/flock v0.12.1
 	github.com/golangci/golangci-lint v1.63.4
 	github.com/google/gnostic-models v0.7.0
 	github.com/grafana/pyroscope-go v1.2.7
@@ -60,6 +59,7 @@ require (
 	k8s.io/cli-runtime v0.34.0
 	k8s.io/client-go v0.34.0
 	k8s.io/klog/v2 v2.130.1
+	k8s.io/kube-aggregator v0.31.3
 	k8s.io/kubectl v0.34.0
 	k8s.io/metrics v0.34.0
 	sigs.k8s.io/controller-runtime v0.22.1
@@ -230,6 +230,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.17.1 // indirect
+	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golangci/dupl v0.0.0-20180902072040-3e9179ac440a // indirect

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/pluralsh/deployment-operator/pkg/scraper"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,23 +28,41 @@ var (
 		"aquasecurity.github.io", // Related to compliance/vulnerability reports. Can cause performance issues.
 	})
 
-	ResourceVersionBlacklist = containers.ToSet([]string{
-		"componentstatuses/v1",         // throwing warnings about deprecation since 1.19
-		"events/v1",                    // no need to watch for resource that are not created by the user
-		"bindings/v1",                  // it's not possible to watch bindings
-		"localsubjectaccessreviews/v1", // it's not possible to watch localsubjectaccessreviews
-		"selfsubjectreviews/v1",        // it's not possible to watch selfsubjectreviews
-		"selfsubjectaccessreviews/v1",  // it's not possible to watch selfsubjectaccessreviews
-		"selfsubjectrulesreviews/v1",   // it's not possible to watch selfsubjectrulesreviews
-		"tokenreviews/v1",              // it's not possible to watch tokenreviews
-		"subjectaccessreviews/v1",      // it's not possible to watch subjectaccessreviews
-		"metrics.k8s.io/v1beta1",       // it's not possible to watch metrics
-	})
+	resourceVersionBlacklist *ResourceVersionBlacklist
 
 	OptionalResourceVersionList = containers.ToSet([]string{
 		"leases/v1", // will be watched dynamically if applier tries to create it
 	})
 )
+
+func init() {
+	resourceVersionBlacklist = &ResourceVersionBlacklist{
+		blackList: containers.ToSet([]string{
+			"componentstatuses/v1",         // throwing warnings about deprecation since 1.19
+			"events/v1",                    // no need to watch for resource that are not created by the user
+			"bindings/v1",                  // it's not possible to watch bindings
+			"localsubjectaccessreviews/v1", // it's not possible to watch localsubjectaccessreviews
+			"selfsubjectreviews/v1",        // it's not possible to watch selfsubjectreviews
+			"selfsubjectaccessreviews/v1",  // it's not possible to watch selfsubjectaccessreviews
+			"selfsubjectrulesreviews/v1",   // it's not possible to watch selfsubjectrulesreviews
+			"tokenreviews/v1",              // it's not possible to watch tokenreviews
+			"subjectaccessreviews/v1",      // it's not possible to watch subjectaccessreviews
+			"metrics.k8s.io/v1beta1",       // it's not possible to watch metrics
+		}),
+	}
+}
+
+type ResourceVersionBlacklist struct {
+	blackList containers.Set[string]
+	mt        sync.Mutex
+}
+
+func (in *ResourceVersionBlacklist) Has(resourceVersion string) bool {
+	in.mt.Lock()
+	defer in.mt.Unlock()
+	in.blackList = in.blackList.Union(containers.ToSet(scraper.GetApiServices().List()))
+	return in.blackList.Has(resourceVersion)
+}
 
 type Option func(*Supervisor)
 
@@ -149,7 +168,8 @@ func (in *Supervisor) MaybeRegister(gvr schema.GroupVersionResource) {
 }
 
 func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
-	if GroupBlacklist.Has(gvr.Group) || ResourceVersionBlacklist.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
+
+	if GroupBlacklist.Has(gvr.Group) || resourceVersionBlacklist.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
 		klog.V(log.LogLevelExtended).InfoS("skipping resource to watch as it is blacklisted", "gvr", gvr.String())
 		return
 	}
