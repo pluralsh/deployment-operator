@@ -6,7 +6,7 @@ ARG AGENT_HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/agent-harness-base
 ARG AGENT_HARNESS_BASE_IMAGE=$AGENT_HARNESS_BASE_IMAGE_REPO:$AGENT_HARNESS_BASE_IMAGE_TAG
 
 # Stage 1: Install OpenCode CLI from npm in Chainguard Node image
-FROM $OPENCODE_NODE_IMAGE as opencode
+FROM $OPENCODE_NODE_IMAGE AS opencode
 
 # Switch to root temporarily to install global packages
 USER root
@@ -18,7 +18,7 @@ RUN npm install -g opencode-ai@latest
 RUN opencode --version
 
 # Stage 2: Copy OpenCode CLI into agent-harness base
-FROM $AGENT_HARNESS_BASE_IMAGE as final
+FROM $AGENT_HARNESS_BASE_IMAGE AS final
 
 # Copy the OpenCode CLI from the Node.js image
 COPY --from=opencode /usr/local/bin/opencode /usr/local/bin/opencode

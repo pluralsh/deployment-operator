@@ -6,7 +6,7 @@ ARG AGENT_HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/agent-harness-base
 ARG AGENT_HARNESS_BASE_IMAGE=$AGENT_HARNESS_BASE_IMAGE_REPO:$AGENT_HARNESS_BASE_IMAGE_TAG
 
 # Stage 1: Install Claude CLI from npm in Chainguard Node image
-FROM $CLAUDE_NODE_IMAGE as claude
+FROM $CLAUDE_NODE_IMAGE AS claude
 
 # Switch to root temporarily to install global packages
 USER root
@@ -18,7 +18,7 @@ RUN npm install -g @anthropic-ai/claude-code
 RUN claude --version
 
 # Stage 2: Copy claude CLI into agent-harness base
-FROM $AGENT_HARNESS_BASE_IMAGE as final
+FROM $AGENT_HARNESS_BASE_IMAGE AS final
 
 # Copy the claude CLI from the Node.js image
 COPY --from=claude /usr/local/bin/claude /usr/local/bin/claude
