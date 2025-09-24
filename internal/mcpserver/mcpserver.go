@@ -1,18 +1,16 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 )
 
 // PluralCredentials holds the Plural console credentials
@@ -21,75 +19,34 @@ type PluralCredentials struct {
 	ConsoleURL  string
 }
 
-// AgentPullRequestInput represents the input for the agent pull request mutation
-type AgentPullRequestInput struct {
-	Repository  string                 `json:"repository"`
-	Branch      string                 `json:"branch,omitempty"`
-	Title       string                 `json:"title"`
-	Description string                 `json:"description,omitempty"`
-	Changes     []FileChange           `json:"changes"`
-	AgentRunID  string                 `json:"agentRunId,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-}
-
-// FileChange represents a file change in the pull request
-type FileChange struct {
-	Path    string `json:"path"`
-	Content string `json:"content"`
-	Action  string `json:"action"` // "create", "update", "delete"
-}
-
-// AgentPullRequestResult represents the result of creating a pull request
-type AgentPullRequestResult struct {
-	PullRequestID  string `json:"pullRequestId"`
-	PullRequestURL string `json:"pullRequestUrl"`
-	Status         string `json:"status"`
-	Message        string `json:"message,omitempty"`
-}
-
-// MCPServer wraps the mcp server with Plural console client
+// MCPServer wraps the mcp server with Plural credentials
 type MCPServer struct {
-	server        *server.MCPServer
-	consoleClient console.ConsoleClient
-	credentials   *PluralCredentials
+	server *server.MCPServer
+	creds  *PluralCredentials
 }
 
 // NewMCPServer creates a new MCP server instance
-func NewMCPServer() (*MCPServer, error) {
-	// Load Plural credentials from environment
-	creds, err := loadPluralCredentials()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load Plural credentials: %w", err)
-	}
-
-	// Create console client
-	consoleClient := console.NewClient(&http.Client{
-		Transport: helpers.NewAuthorizationTokenTransport(creds.AccessToken),
-	}, creds.ConsoleURL, nil)
-
-	// Create MCP server with capabilities
-	mcpServer := server.NewMCPServer(
+func NewMCPServer(creds *PluralCredentials) *MCPServer {
+	// Create a new MCP server
+	s := server.NewMCPServer(
 		"Plural Console GraphQL MCP Server",
 		"1.0.0",
 		server.WithToolCapabilities(true),
 	)
 
-	mcpServerWrapper := &MCPServer{
-		server:        mcpServer,
-		consoleClient: consoleClient,
-		credentials:   creds,
+	mcpServer := &MCPServer{
+		server: s,
+		creds:  creds,
 	}
 
-	// Register the agentPullRequest tool
-	if err := mcpServerWrapper.registerTools(); err != nil {
-		return nil, fmt.Errorf("failed to register tools: %w", err)
-	}
+	// Register tools
+	mcpServer.registerTools()
 
-	return mcpServerWrapper, nil
+	return mcpServer
 }
 
-// loadPluralCredentials loads Plural credentials from environment variables
-func loadPluralCredentials() (*PluralCredentials, error) {
+// LoadPluralCredentials loads and validates Plural credentials from environment variables
+func LoadPluralCredentials() (*PluralCredentials, error) {
 	accessToken := os.Getenv("PLURAL_ACCESS_TOKEN")
 	if accessToken == "" {
 		return nil, fmt.Errorf("PLURAL_ACCESS_TOKEN environment variable is required")
@@ -102,6 +59,7 @@ func loadPluralCredentials() (*PluralCredentials, error) {
 
 	// Ensure the console URL has the correct GraphQL endpoint
 	if !strings.HasSuffix(consoleURL, "/gql") && !strings.HasSuffix(consoleURL, "/ext/gql") {
+		// Add the GraphQL endpoint if not present
 		if strings.HasSuffix(consoleURL, "/") {
 			consoleURL = consoleURL + "ext/gql"
 		} else {
@@ -115,99 +73,85 @@ func loadPluralCredentials() (*PluralCredentials, error) {
 	}, nil
 }
 
-// registerTools registers all available tools with the MCP server
-func (s *MCPServer) registerTools() error {
-	// Define the input schema
-	schema := mcp.ToolInputSchema{
-		Type: "object",
-		Properties: map[string]any{
-			"repository": map[string]any{
-				"type":        "string",
-				"description": "The repository URL or identifier",
-			},
-			"branch": map[string]any{
-				"type":        "string",
-				"description": "The branch name for the pull request (optional, defaults to auto-generated)",
-			},
-			"title": map[string]any{
-				"type":        "string",
-				"description": "The title of the pull request",
-			},
-			"description": map[string]any{
-				"type":        "string",
-				"description": "The description of the pull request (optional)",
-			},
-			"changes": map[string]any{
-				"type":        "array",
-				"description": "Array of file changes to include in the pull request",
-				"items": map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"path": map[string]any{
-							"type":        "string",
-							"description": "File path",
-						},
-						"content": map[string]any{
-							"type":        "string",
-							"description": "File content",
-						},
-						"action": map[string]any{
-							"type":        "string",
-							"description": "Action to perform: create, update, or delete",
-							"enum":        []string{"create", "update", "delete"},
-						},
-					},
-					"required": []string{"path", "action"},
-				},
-			},
-			"agentRunId": map[string]any{
-				"type":        "string",
-				"description": "The ID of the agent run associated with this pull request (optional)",
-			},
-			"metadata": map[string]any{
-				"type":        "object",
-				"description": "Additional metadata for the pull request (optional)",
-			},
-		},
-		Required: []string{"repository", "title", "changes"},
-	}
+// Start starts the MCP server with stdio transport
+func (m *MCPServer) Start() error {
+	fmt.Println("Starting Plural Console MCP Server...")
+	fmt.Printf("Console URL: %s\n", m.creds.ConsoleURL)
+	fmt.Println("Waiting for MCP client connection via stdio...")
 
-	// Register the agentPullRequest tool
-	agentPullRequestTool := mcp.NewTool(
-		"agentPullRequest",
-		mcp.WithDescription("Create a pull request through the Plural console GraphQL API for agent-generated changes"),
-	)
-	agentPullRequestTool.InputSchema = schema
-
-	s.server.AddTool(agentPullRequestTool, s.handleAgentPullRequest)
-	return nil
+	return server.ServeStdio(m.server)
 }
 
-// handleAgentPullRequest handles the agentPullRequest tool call
-func (s *MCPServer) handleAgentPullRequest(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Parse the input arguments
-	var input AgentPullRequestInput
-	argsBytes, ok := req.Params.Arguments.([]byte)
-	if !ok {
-		return mcp.NewToolResultError("Invalid arguments format"), nil
-	}
-	if err := json.Unmarshal(argsBytes, &input); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to parse input arguments: %v", err)), nil
+// registerTools registers all available tools with the MCP server
+func (m *MCPServer) registerTools() {
+	// Define the agentPullRequest tool
+	tool := mcp.NewTool("agentPullRequest",
+		mcp.WithDescription("Create a pull request through the Plural console GraphQL API for agent-generated changes"),
+		mcp.WithString("runId",
+			mcp.Required(),
+			mcp.Description("The agent run ID associated with this pull request"),
+		),
+		mcp.WithString("repository",
+			mcp.Required(),
+			mcp.Description("The repository name (e.g., 'myorg/myrepo')"),
+		),
+		mcp.WithString("title",
+			mcp.Required(),
+			mcp.Description("The title of the pull request"),
+		),
+		mcp.WithString("body",
+			mcp.Required(),
+			mcp.Description("The body/description of the pull request"),
+		),
+		mcp.WithString("base",
+			mcp.Required(),
+			mcp.Description("The base branch (target branch, usually 'main')"),
+		),
+		mcp.WithString("head",
+			mcp.Required(),
+			mcp.Description("The head branch (source branch with changes)"),
+		),
+	)
+
+	// Add the tool with our handler
+	m.server.AddTool(tool, m.agentPullRequestHandler)
+}
+
+// agentPullRequestHandler - actual implementation with GraphQL call
+func (m *MCPServer) agentPullRequestHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Extract required parameters
+	runId, err := request.RequireString("runId")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing runId: %v", err)), nil
 	}
 
-	// Validate required fields
-	if input.Repository == "" {
-		return mcp.NewToolResultError("Repository is required"), nil
+	repository, err := request.RequireString("repository")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing repository: %v", err)), nil
 	}
-	if input.Title == "" {
-		return mcp.NewToolResultError("Title is required"), nil
+
+	title, err := request.RequireString("title")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing title: %v", err)), nil
 	}
-	if len(input.Changes) == 0 {
-		return mcp.NewToolResultError("At least one file change is required"), nil
+
+	body, err := request.RequireString("body")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing body: %v", err)), nil
+	}
+
+	base, err := request.RequireString("base")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing base: %v", err)), nil
+	}
+
+	head, err := request.RequireString("head")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing head: %v", err)), nil
 	}
 
 	// Execute the GraphQL mutation
-	result, err := s.executeAgentPullRequestMutation(ctx, input)
+	result, err := m.executeAgentPullRequestMutation(ctx, runId, repository, title, body, base, head)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to create pull request: %v", err)), nil
 	}
@@ -222,60 +166,55 @@ func (s *MCPServer) handleAgentPullRequest(ctx context.Context, req mcp.CallTool
 }
 
 // executeAgentPullRequestMutation executes the actual GraphQL mutation
-func (s *MCPServer) executeAgentPullRequestMutation(ctx context.Context, input AgentPullRequestInput) (*AgentPullRequestResult, error) {
-	log.Printf("Executing agentPullRequest mutation for repository: %s", input.Repository)
-	log.Printf("Title: %s", input.Title)
-	log.Printf("Changes: %d files", len(input.Changes))
-
+func (m *MCPServer) executeAgentPullRequestMutation(ctx context.Context, runId, repository, title, body, base, head string) (map[string]interface{}, error) {
 	// GraphQL mutation based on the Plural console schema
 	mutation := `
-		mutation AgentPullRequest($input: AgentPullRequestInput!) {
-			agentPullRequest(input: $input) {
+		mutation AgentPullRequest($runId: ID!, $attributes: AgentPullRequestAttributes!) {
+			agentPullRequest(runId: $runId, attributes: $attributes) {
 				id
-				url
 				status
+				url
+				title
 			}
 		}
 	`
 
-	// Convert our input to match the expected GraphQL input format
+	// Prepare variables according to the schema
 	variables := map[string]interface{}{
-		"input": map[string]interface{}{
-			"repository":  input.Repository,
-			"title":       input.Title,
-			"description": input.Description,
-			"changes":     input.Changes,
-			"agentRunId":  input.AgentRunID,
-			"metadata":    input.Metadata,
+		"runId": runId,
+		"attributes": map[string]interface{}{
+			"title":      title,
+			"body":       body,
+			"repository": repository,
+			"base":       base,
+			"head":       head,
 		},
 	}
 
-	// Execute the GraphQL mutation
-	// Note: The console client doesn't have a generic Execute method, so we need to
-	// implement this using HTTP requests directly or extend the console client
-	response, err := s.executeGraphQLMutation(ctx, mutation, variables)
+	// Execute the GraphQL request
+	response, err := m.callPluralGraphQL(ctx, mutation, variables)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute GraphQL mutation: %w", err)
+		return nil, fmt.Errorf("GraphQL request failed: %w", err)
 	}
 
-	// Parse the response
+	// Extract the agentPullRequest result
 	agentPR, ok := response["agentPullRequest"].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid response format from agentPullRequest mutation")
 	}
 
-	result := &AgentPullRequestResult{
-		PullRequestID:  getString(agentPR, "id"),
-		PullRequestURL: getString(agentPR, "url"),
-		Status:         getString(agentPR, "status"),
-		Message:        fmt.Sprintf("Successfully created pull request for %s with %d file changes", input.Repository, len(input.Changes)),
-	}
-
-	return result, nil
+	return map[string]interface{}{
+		"success":        true,
+		"pullRequestId":  getString(agentPR, "id"),
+		"pullRequestUrl": getString(agentPR, "url"),
+		"status":         getString(agentPR, "status"),
+		"title":          getString(agentPR, "title"),
+		"message":        fmt.Sprintf("Successfully created pull request in %s from %s to %s", repository, head, base),
+	}, nil
 }
 
-// executeGraphQLMutation executes a raw GraphQL mutation using HTTP
-func (s *MCPServer) executeGraphQLMutation(ctx context.Context, mutation string, variables map[string]interface{}) (map[string]interface{}, error) {
+// callPluralGraphQL executes a GraphQL request against the Plural console API
+func (m *MCPServer) callPluralGraphQL(ctx context.Context, mutation string, variables map[string]interface{}) (map[string]interface{}, error) {
 	// Prepare the GraphQL request payload
 	payload := map[string]interface{}{
 		"query":     mutation,
@@ -288,14 +227,14 @@ func (s *MCPServer) executeGraphQLMutation(ctx context.Context, mutation string,
 	}
 
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", s.credentials.ConsoleURL, strings.NewReader(string(payloadBytes)))
+	req, err := http.NewRequestWithContext(ctx, "POST", m.creds.ConsoleURL, bytes.NewReader(payloadBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.credentials.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+m.creds.AccessToken)
 
 	// Execute the request
 	client := &http.Client{}
@@ -309,7 +248,8 @@ func (s *MCPServer) executeGraphQLMutation(ctx context.Context, mutation string,
 	var result struct {
 		Data   map[string]interface{} `json:"data"`
 		Errors []struct {
-			Message string `json:"message"`
+			Message string        `json:"message"`
+			Path    []interface{} `json:"path,omitempty"`
 		} `json:"errors"`
 	}
 
@@ -322,6 +262,11 @@ func (s *MCPServer) executeGraphQLMutation(ctx context.Context, mutation string,
 		return nil, fmt.Errorf("GraphQL error: %s", result.Errors[0].Message)
 	}
 
+	// Check for HTTP errors
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
+	}
+
 	return result.Data, nil
 }
 
@@ -331,14 +276,4 @@ func getString(m map[string]interface{}, key string) string {
 		return val
 	}
 	return ""
-}
-
-// Start starts the MCP server with stdio transport
-func (s *MCPServer) Start() error {
-	log.Println("Starting Plural Console GraphQL MCP Server...")
-	log.Printf("Console URL: %s", s.credentials.ConsoleURL)
-	log.Println("Using stdio transport for local communication")
-
-	// Start the server with stdio transport (suitable for local pod execution)
-	return s.Start()
 }

@@ -24,7 +24,7 @@ MOCKERY ?= $(shell which mockery)
 include tools.mk
 
 ifndef GOPATH
-$(error $$GOPATH environment variable not set)
+GOPATH := $(shell go env GOPATH)
 endif
 
 PRE = --ensure
@@ -262,6 +262,7 @@ controller-gen: --tool
 .PHONY: discovery
 discovery: TOOL = discovery
 discovery: --tool
+
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
