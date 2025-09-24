@@ -61,6 +61,7 @@ func registerConsoleReconcilersOrDie(
 	consoleClient client.Client,
 	supervisor *streamline.Supervisor,
 	discoveryCache discoverycache.Cache,
+	namespaceCache streamline.NamespaceCache,
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
 		r, err := service.NewServiceReconciler(consoleClient,
@@ -69,6 +70,7 @@ func registerConsoleReconcilersOrDie(
 			clientSet,
 			dynamicClient,
 			discoveryCache,
+			namespaceCache,
 			store,
 			service.WithRefresh(args.ControllerCacheTTL()),
 			service.WithManifestTTL(args.ManifestCacheTTL()),

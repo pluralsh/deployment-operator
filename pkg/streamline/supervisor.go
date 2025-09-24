@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -47,6 +48,8 @@ var (
 
 type Option func(*Supervisor)
 
+type EventSubscriber func(event watch.Event)
+
 func WithRestartDelay(d time.Duration) Option {
 	return func(s *Supervisor) {
 		s.restartDelay = d
@@ -71,6 +74,12 @@ func WithSynchronizerResyncInterval(d time.Duration) Option {
 	}
 }
 
+func WithEventSubscribers(gvr schema.GroupVersionResource, subscriber []EventSubscriber) Option {
+	return func(s *Supervisor) {
+		s.eventSubscribers.Set(gvr, subscriber)
+	}
+}
+
 type Supervisor struct {
 	mu             sync.RWMutex
 	started        bool
@@ -82,6 +91,8 @@ type Supervisor struct {
 
 	synchronizers          cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
 	restartAttemptsLeftMap cmap.ConcurrentMap[schema.GroupVersionResource, int]
+
+	eventSubscribers cmap.ConcurrentMap[schema.GroupVersionResource, []EventSubscriber]
 
 	dequeueJitter              time.Duration
 	restartDelay               time.Duration
@@ -175,7 +186,8 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 	}
 
 	klog.V(log.LogLevelExtended).InfoS("registering resource to watch", "gvr", gvr.String())
-	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
+	eventSubscribers, _ := in.eventSubscribers.Get(gvr)
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, eventSubscribers))
 	in.registerQueue.Add(gvr)
 }
 
@@ -294,7 +306,8 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 		klog.V(log.LogLevelDefault).ErrorS(err, "unknown synchronizer error, restarting", "gvr", gvr.String())
 	}
 
-	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval))
+	eventSubscribers, _ := in.eventSubscribers.Get(gvr)
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, eventSubscribers))
 	in.registerQueue.AddRateLimited(gvr)
 }
 

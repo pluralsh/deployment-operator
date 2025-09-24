@@ -3,18 +3,13 @@ package utils
 import (
 	"context"
 	"fmt"
-	"maps"
 	"os"
 	"reflect"
 	"strings"
 
-	"github.com/samber/lo"
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -206,58 +201,4 @@ func GetOperatorNamespace() (string, error) {
 		return "", fmt.Errorf("unable to get operator namespace: %w", err)
 	}
 	return string(ns), nil
-}
-
-func CheckNamespace(clientset kubernetes.Interface, namespace string, labels, annotations map[string]string) error {
-	if namespace == "" {
-		return nil
-	}
-
-	ctx := context.Background()
-	nsClient := clientset.CoreV1().Namespaces()
-	existing, err := nsClient.Get(ctx, namespace, metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if _, err = nsClient.Create(ctx, &v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        namespace,
-					Annotations: annotations,
-					Labels:      labels,
-				},
-			}, metav1.CreateOptions{}); err != nil {
-				return err
-			}
-			return nil
-		}
-		return err
-	}
-
-	// update labels and annotations
-	if (!reflect.DeepEqual(labels, existing.Labels) && labels != nil) || (!reflect.DeepEqual(annotations, existing.Annotations) && annotations != nil) {
-		maps.Copy(existing.Labels, labels)
-		maps.Copy(existing.Annotations, annotations)
-		if _, err := nsClient.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func DeleteNamespace(ctx context.Context, client kubernetes.Interface, namespace string) error {
-	if err := client.CoreV1().Namespaces().Delete(
-		ctx,
-		namespace,
-		metav1.DeleteOptions{
-			GracePeriodSeconds: lo.ToPtr(int64(0)),
-			PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
-		},
-	); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-
-	return nil
 }

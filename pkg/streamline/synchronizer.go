@@ -42,15 +42,18 @@ type synchronizer struct {
 	gvk            schema.GroupVersionKind
 	store          store.Store
 	resyncInterval time.Duration
+
+	eventSubscribers []EventSubscriber
 }
 
-func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration) Synchronizer {
+func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration, subscribers []EventSubscriber) Synchronizer {
 	return &synchronizer{
-		gvr:            gvr,
-		gvk:            gvk,
-		client:         client,
-		store:          store,
-		resyncInterval: resyncInterval,
+		gvr:              gvr,
+		gvk:              gvk,
+		client:           client,
+		store:            store,
+		resyncInterval:   resyncInterval,
+		eventSubscribers: subscribers,
 	}
 }
 
@@ -130,13 +133,25 @@ func (in *synchronizer) Start(ctx context.Context) error {
 	}
 }
 
+func (in *synchronizer) notifyEventSubscribers(e watch.Event) {
+	for _, f := range in.eventSubscribers {
+		go f(e)
+	}
+}
+
 func (in *synchronizer) handleList(list unstructured.UnstructuredList) {
+	for _, resource := range list.Items {
+		in.notifyEventSubscribers(watch.Event{Type: watch.Added, Object: resource.DeepCopyObject()})
+	}
+
 	if err := in.store.SaveComponents(list.Items); err != nil {
 		klog.ErrorS(err, "failed to save resource", "gvr", in.gvr)
 	}
 }
 
 func (in *synchronizer) handleEvent(ev watch.Event) {
+	in.notifyEventSubscribers(ev)
+
 	switch ev.Type {
 	case watch.Added, watch.Modified:
 		obj, err := common.ToUnstructured(ev.Object)
