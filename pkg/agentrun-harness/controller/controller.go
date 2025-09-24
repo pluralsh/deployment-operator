@@ -11,6 +11,7 @@ import (
 	"k8s.io/klog/v2"
 
 	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
@@ -81,146 +82,15 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 
 // prepare sets up the agent run environment and AI credentials
 func (in *agentRunController) prepare() error {
-	// Ensure working directory exists
-	if err := os.MkdirAll(in.dir, 0755); err != nil {
-		return fmt.Errorf("failed to create working directory: %w", err)
+	env := environment.New(
+		environment.WithAgentRun(in.agentRun),
+		environment.WithWorkingDir(in.dir),
+	)
+
+	if err := env.Setup(); err != nil {
+		return err
 	}
 
-	// Setup AI credentials and config files
-	if err := in.setupAICredentials(); err != nil {
-		return fmt.Errorf("failed to setup AI credentials: %w", err)
-	}
-
-	// Clone the repository
-	if err := in.cloneRepository(); err != nil {
-		return fmt.Errorf("failed to clone repository: %w", err)
-	}
-
-	//TODO set up default MCP server
-	//TODO set up plural agent MCP server
-
-	return nil
-}
-
-// setupAICredentials configures AI service credentials and config files based on runtime type
-func (in *agentRunController) setupAICredentials() error {
-	if in.agentRun.Runtime == nil {
-		return fmt.Errorf("agent runtime information is missing")
-	}
-
-	configDir := filepath.Join(in.dir, ".config")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
-	switch in.agentRun.Runtime.Type {
-	case gqlclient.AgentRuntimeTypeClaude:
-		return in.setupClaudeConfig(configDir)
-	case gqlclient.AgentRuntimeTypeGemini:
-		return in.setupGeminiConfig(configDir)
-	case gqlclient.AgentRuntimeTypeOpencode:
-		return in.setupOpenCodeConfig(configDir)
-	case gqlclient.AgentRuntimeTypeCustom:
-		return in.setupCustomConfig(configDir)
-	default:
-		return fmt.Errorf("unsupported agent runtime type: %v", in.agentRun.Runtime.Type)
-	}
-}
-
-// setupClaudeConfig creates Claude CLI configuration
-func (in *agentRunController) setupClaudeConfig(configDir string) error {
-	// Create Claude config file
-	claudeConfigPath := filepath.Join(configDir, "claude")
-	if err := os.MkdirAll(claudeConfigPath, 0755); err != nil {
-		return fmt.Errorf("failed to create claude config directory: %w", err)
-	}
-
-	// TODO: Write actual Claude CLI config based on credentials
-	configFile := filepath.Join(claudeConfigPath, "config.json")
-	config := `{
-  "api_key": "` + os.Getenv("CLAUDE_API_KEY") + `",
-  "model": "claude-3-5-sonnet-20241022"
-}`
-
-	if err := os.WriteFile(configFile, []byte(config), 0600); err != nil {
-		return fmt.Errorf("failed to write claude config: %w", err)
-	}
-
-	klog.V(log.LogLevelDebug).InfoS("claude config created", "path", configFile)
-	return nil
-}
-
-// setupGeminiConfig creates Gemini CLI configuration
-func (in *agentRunController) setupGeminiConfig(configDir string) error {
-	// Create Gemini config file
-	geminiConfigPath := filepath.Join(configDir, "gemini")
-	if err := os.MkdirAll(geminiConfigPath, 0755); err != nil {
-		return fmt.Errorf("failed to create gemini config directory: %w", err)
-	}
-
-	// TODO: Write actual Gemini CLI config based on credentials
-	configFile := filepath.Join(geminiConfigPath, "config.json")
-	config := `{
-  "api_key": "` + os.Getenv("GEMINI_API_KEY") + `",
-  "model": "gemini-1.5-pro"
-}`
-
-	if err := os.WriteFile(configFile, []byte(config), 0600); err != nil {
-		return fmt.Errorf("failed to write gemini config: %w", err)
-	}
-
-	klog.V(log.LogLevelDebug).InfoS("gemini config created", "path", configFile)
-	return nil
-}
-
-// setupOpenCodeConfig creates OpenCode CLI configuration
-func (in *agentRunController) setupOpenCodeConfig(configDir string) error {
-	// TODO: Implement OpenCode config setup
-	klog.V(log.LogLevelDebug).InfoS("opencode config setup", "dir", configDir)
-	return nil
-}
-
-// setupCustomConfig creates custom agent configuration
-func (in *agentRunController) setupCustomConfig(configDir string) error {
-	// TODO: Implement custom agent config setup
-	klog.V(log.LogLevelDebug).InfoS("custom agent config setup", "dir", configDir)
-	return nil
-}
-
-// cloneRepository clones the target repository using SCM credentials
-func (in *agentRunController) cloneRepository() error {
-	if in.agentRun.Repository == "" {
-		return fmt.Errorf("repository URL is required")
-	}
-
-	repoDir := filepath.Join(in.dir, "repository")
-
-	// Build git clone command with credentials
-	args := []string{"clone"}
-
-	// Add auth if SCM credentials are available
-	if in.agentRun.ScmCreds != nil {
-		// Configure git credentials
-		args = append(args, "--config", fmt.Sprintf("credential.helper=store --file=%s/.git-credentials", in.dir))
-
-		// Create credentials file
-		credFile := filepath.Join(in.dir, ".git-credentials")
-		credContent := fmt.Sprintf("https://%s:%s@github.com", in.agentRun.ScmCreds.Username, in.agentRun.ScmCreds.Token)
-		if err := os.WriteFile(credFile, []byte(credContent), 0600); err != nil {
-			return fmt.Errorf("failed to write git credentials: %w", err)
-		}
-	}
-
-	args = append(args, in.agentRun.Repository, repoDir)
-	if err := exec.NewExecutable(
-		"git",
-		exec.WithArgs(args),
-		exec.WithDir(in.dir),
-	).Run(context.Background()); err != nil {
-		return fmt.Errorf("failed to clone repository: %w", err)
-	}
-
-	klog.V(log.LogLevelInfo).InfoS("repository cloned", "url", in.agentRun.Repository, "dir", repoDir)
 	return nil
 }
 
