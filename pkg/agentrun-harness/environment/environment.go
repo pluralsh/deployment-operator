@@ -10,6 +10,8 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+
+	types "github.com/pluralsh/deployment-operator/pkg/harness/environment"
 )
 
 // Setup implements Environment interface.
@@ -73,7 +75,7 @@ func (in *environment) cloneRepository() error {
 }
 
 // init ensures that all required values are initialized
-func (in *environment) init() Environment {
+func (in *environment) init() types.Environment {
 	if in.agentRun == nil {
 		klog.Fatal("could not initialize environment: agentRun is nil")
 	}
@@ -86,7 +88,7 @@ func (in *environment) init() Environment {
 }
 
 // New creates a new Environment.
-func New(options ...Option) Environment {
+func New(options ...Option) types.Environment {
 	result := new(environment)
 
 	for _, opt := range options {

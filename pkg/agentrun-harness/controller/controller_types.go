@@ -4,10 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
-	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/exec"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
@@ -18,18 +17,28 @@ type Controller interface {
 type agentRunController struct {
 	sync.Mutex
 
-	// executor
-	executor *executor
+	// wg is used to wait for all commands to finish
+	wg sync.WaitGroup
 
+	// agentRun is the agent run that is being processed
 	agentRun *agentrunv1.AgentRun
 
-	// consoleClient
+	// agentRunID is the ID of the agent run that is being processed
+	agentRunID string
+
+	// consoleClient is the client for Console API
 	consoleClient console.Client
 
-	// fetchClient
-	fetchClient helpers.FetchClient
+	// consoleToken is the token used to access the Console API
+	consoleToken string
 
-	// execOptions
+	// dir is the working directory where the repository will be cloned.
+	dir string
+
+	// executor is the executor that will run the commands
+	executor exec.Executor
+
+	// execOptions allows providing custom options to exec.Executable.
 	execOptions []exec.Option
 
 	// sinkOptions allows providing custom options to
@@ -37,21 +46,10 @@ type agentRunController struct {
 	// is being forwarded both to the os.Stdout and sink.ConsoleWriter.
 	sinkOptions []sink.Option
 
-	agentRunID string
-
-	// consoleToken
-	consoleToken string
-
-	// dir
-	dir string
-
-	// wg
-	wg sync.WaitGroup
-
-	// errChan
+	// errChan is the error channel passed by the caller
 	errChan chan error
 
-	// finishedChan
+	// finishedChan is a channel that is closed when the controller has finished processing
 	finishedChan chan struct{}
 
 	// stopChan

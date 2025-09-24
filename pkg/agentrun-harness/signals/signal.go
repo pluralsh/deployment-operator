@@ -11,6 +11,7 @@ import (
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/errors"
+	types "github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -26,44 +27,23 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 	resyncPeriod := 5 * time.Second
 
 	go wait.Until(func() {
-		stackRun, err := in.client.GetStackRunBase(in.id)
+		agentRun, err := in.client.GetAgentRun(ctx, in.id)
 		if err != nil {
 			klog.ErrorS(err, "could not resync stack run", "id", in.id)
 			return
 		}
 
 		// Allow rerunning cancelled runs when in dev mode.
-		if stackRun != nil && stackRun.Status == gqlclient.StackStatusCancelled && !environment.IsDev() {
+		if agentRun != nil && agentRun.Status == gqlclient.AgentRunStatusCancelled && !environment.IsDev() {
 			cancelFunc(errors.ErrRemoteCancel)
 			cancel()
 		}
 	}, resyncPeriod, ctx.Done())
 }
 
-func NewConsoleSignal(client console.Client, id string) Signal {
+func NewConsoleSignal(client console.Client, id string) types.Signal {
 	return &consoleSignal{
 		client,
 		id,
-	}
-}
-
-type timeoutSignal struct {
-	timeout time.Duration
-}
-
-func (in *timeoutSignal) Listen(cancelFunc context.CancelCauseFunc) {
-	klog.V(log.LogLevelDebug).InfoS("starting timeout signal listener")
-	timer := time.NewTimer(in.timeout)
-
-	go func() {
-		<-timer.C
-		timer.Stop()
-		cancelFunc(errors.ErrTimeout)
-	}()
-}
-
-func NewTimeoutSignal(timeout time.Duration) Signal {
-	return &timeoutSignal{
-		timeout,
 	}
 }

@@ -4,34 +4,30 @@ import (
 	"errors"
 	"os"
 
+	"k8s.io/klog/v2"
+
 	"github.com/pluralsh/deployment-operator/cmd/agent-harness/args"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/controller"
-	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/exec"
+	agentsignals "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
-	"k8s.io/klog/v2"
 )
 
 func main() {
 	consoleClient := client.New(args.ConsoleUrl(), args.ConsoleToken())
-	fetchClient := helpers.Fetch(
-		helpers.FetchWithToken(args.ConsoleToken()),
-		helpers.FetchToDir(args.WorkingDir()),
-	)
 
 	ctx := signals.NewCancelableContext(
 		signals.SetupSignalHandler(signals.ExitCodeTerminated),
-		signals.NewConsoleSignal(consoleClient, args.AgentRunID()),
+		agentsignals.NewConsoleSignal(consoleClient, args.AgentRunID()),
 	)
 
 	opts := []controller.Option{
 		controller.WithAgentRun(args.AgentRunID()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithConsoleToken(args.ConsoleToken()),
-		controller.WithFetchClient(fetchClient),
 		controller.WithWorkingDir(args.WorkingDir()),
 		controller.WithSinkOptions(
 			sink.WithThrottle(args.LogFlushFrequency()),

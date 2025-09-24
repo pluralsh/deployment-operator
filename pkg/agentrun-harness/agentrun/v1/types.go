@@ -92,12 +92,3 @@ func (ar *AgentRun) IsAnalyzeMode() bool {
 func (ar *AgentRun) IsWriteMode() bool {
 	return ar.Mode == console.AgentRunModeWrite
 }
-
-type Lifecycle string
-
-const (
-	LifecyclePreStart  Lifecycle = "pre-start"
-	LifecyclePostStart Lifecycle = "post-start"
-)
-
-type HookFunction func() error

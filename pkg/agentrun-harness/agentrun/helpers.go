@@ -4,6 +4,7 @@ import (
 	"context"
 
 	gqlclient "github.com/pluralsh/console/go/client"
+
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 

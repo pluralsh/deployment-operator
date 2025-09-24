@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	gqlclient "github.com/pluralsh/console/go/client"
+	"k8s.io/klog/v2"
+
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun"
 	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-	"k8s.io/klog/v2"
 )
 
 // preStart function is executed before agent run steps

@@ -10,11 +10,10 @@ import (
 	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
 
-	osexec "os/exec"
-
 	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
-	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -213,11 +212,11 @@ func (in *agentRunController) cloneRepository() error {
 	}
 
 	args = append(args, in.agentRun.Repository, repoDir)
-
-	cmd := osexec.Command("git", args...)
-	cmd.Dir = in.dir
-
-	if err := cmd.Run(); err != nil {
+	if err := exec.NewExecutable(
+		"git",
+		exec.WithArgs(args),
+		exec.WithDir(in.dir),
+	).Run(context.Background()); err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -355,8 +354,8 @@ func (in *agentRunController) toExecutable(ctx context.Context, id, cmd string, 
 		exec.WithArgs(args),
 		exec.WithID(id),
 		exec.WithOutputSinks(consoleWriter),
-		exec.WithHook(agentrunv1.LifecyclePreStart, in.preExecHook(id)),
-		exec.WithHook(agentrunv1.LifecyclePostStart, in.postExecHook(id)),
+		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(id)),
+		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(id)),
 	)
 
 	return exec.NewExecutable(cmd, options...)
@@ -421,10 +420,10 @@ func NewAgentRunController(opts ...Option) (Controller, error) {
 		dir:          "/plural", // default working directory from pod spec
 	}
 
-	ctrl.executor = newExecutor(
+	ctrl.executor = exec.NewExecutor(
 		errChan,
 		finishedChan,
-		WithPostRunFunc(ctrl.postStepRun),
+		exec.WithPostRunFunc(ctrl.postStepRun),
 	)
 
 	for _, option := range opts {

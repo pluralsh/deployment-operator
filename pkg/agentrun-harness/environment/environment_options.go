@@ -11,9 +11,9 @@ func WithWorkingDir(dir string) Option {
 	}
 }
 
-// WithStackRun provides information about stack run used to initialize
+// WithAgentRun provides information about agent run used to initialize
 // the Environment.
-func WithStackRun(agentRun *v1.AgentRun) Option {
+func WithAgentRun(agentRun *v1.AgentRun) Option {
 	return func(e *environment) {
 		e.agentRun = agentRun
 	}
