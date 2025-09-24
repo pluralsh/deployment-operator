@@ -134,7 +134,7 @@ func main() {
 	defer supervisor.Stop()
 
 	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache)
-	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
+	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy(), args.ConsoleUrl(), args.DeployToken())
 
 	//+kubebuilder:scaffold:builder
 
