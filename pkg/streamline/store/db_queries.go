@@ -41,7 +41,7 @@ const (
 		BEGIN
 			UPDATE component
 			SET updated_at = CURRENT_TIMESTAMP
-			WHERE id = NEW.id;
+			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
 
 	`
