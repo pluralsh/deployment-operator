@@ -96,7 +96,29 @@ func (n *namespaceCache) EnsureNamespace(ctx context.Context, namespace string, 
 	}
 
 	currentSHA, ok := n.cache.Get(namespace)
+
 	if !ok {
+		liveNamespace, err := n.client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+		if err == nil && liveNamespace != nil {
+			liveSHA, err := hashNamespaceMetadata(liveNamespace.GetLabels(), liveNamespace.GetAnnotations())
+			if err != nil {
+				return err
+			}
+			if liveSHA != newSHA {
+				patch, err := json.Marshal(map[string]any{"metadata": map[string]any{"labels": labels, "annotations": annotations}})
+				if err != nil {
+					return err
+				}
+
+				if _, err = n.client.CoreV1().Namespaces().Patch(ctx, namespace, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+					return err
+				}
+				n.cache.Set(namespace, newSHA)
+			}
+
+			return nil
+		}
+
 		if _, err = n.client.CoreV1().Namespaces().Create(
 			ctx,
 			&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace, Labels: labels, Annotations: annotations}},
