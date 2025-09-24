@@ -17,7 +17,7 @@ import (
 // - gathering any available outputs from local files
 // - providing runtime modifiers to alter step command execution arguments, env, etc.
 type Tool interface {
-	// Scan TODO
+	// Scan tries to scan the plan or output information for security issues.
 	Scan() ([]*console.StackPolicyViolationAttributes, error)
 	// Plan tries to assemble plan information based on local files
 	// created by specific tool after PLAN stage. It then transforms it
@@ -84,17 +84,18 @@ type multiModifier struct {
 }
 
 type Config struct {
-	// WorkDir TODO
+	// WorkDir is a working directory for the tool.
 	WorkDir string
 
-	// ExecDir TODO
+	// ExecDir is an execution directory for the tool.
 	ExecDir string
 
-	// Variables TODO
+	// Variables is a JSON encoded string representing variables file.
 	Variables *string
 
-	// Scanner TODO
+	// Scanner is a security scanner. See [securityv1.Scanner] for more information.
 	Scanner securityv1.Scanner
 
+	// Run is a stack run that is being processed.
 	Run *stackrunv1.StackRun
 }
