@@ -12,8 +12,12 @@ import (
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	v2 "k8s.io/client-go/applyconfigurations/core/v1"
+	v3 "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,20 +38,27 @@ type NamespaceCache interface {
 
 func NewNamespaceCache(client kubernetes.Interface) NamespaceCache {
 	return &namespaceCache{
-		cache:  cmap.New[string](),
+		cache:  cmap.New[unstructured.Unstructured](),
 		client: client,
 	}
 }
 
 type namespaceCache struct {
-	// cache contains namespaces and SHAs of their metadata to avoid unnecessary API calls.
-	cache cmap.ConcurrentMap[string, string]
-
-	// client to perform Kubernetes API calls.
+	cache  cmap.ConcurrentMap[string, unstructured.Unstructured]
 	client kubernetes.Interface
 }
 
-func (n *namespaceCache) HandleNamespaceEvent(e watch.Event) {
+func (in *namespaceCache) storeNamespace(n v1.Namespace) error {
+	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(n)
+	if err != nil {
+		return err
+	}
+
+	in.cache.Set(n.Namespace, unstructured.Unstructured{Object: u})
+	return nil
+}
+
+func (in *namespaceCache) HandleNamespaceEvent(e watch.Event) {
 	if e.Object == nil {
 		klog.V(log.LogLevelDebug).InfoS("skipping namespace event with nil object", "event", e)
 		return
@@ -66,19 +77,13 @@ func (n *namespaceCache) HandleNamespaceEvent(e watch.Event) {
 
 	switch e.Type {
 	case watch.Added, watch.Modified:
-		sha, err := hashNamespaceMetadata(resource.GetLabels(), resource.GetAnnotations())
-		if err != nil {
-			klog.V(log.LogLevelDebug).InfoS("skipping namespace event with invalid object metadata", "event", e, "error", err)
-			return
-		}
-
-		n.cache.Set(resource.GetName(), sha)
+		in.cache.Set(resource.GetName(), *resource)
 	case watch.Deleted:
-		n.cache.Remove(resource.GetName())
+		in.cache.Remove(resource.GetName())
 	}
 }
 
-func (n *namespaceCache) EnsureNamespace(ctx context.Context, namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
+func (in *namespaceCache) EnsureNamespace(ctx context.Context, namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
 	// Skip namespace applies if the namespace name is empty.
 	if namespace == "" {
 		return nil
@@ -90,64 +95,36 @@ func (n *namespaceCache) EnsureNamespace(ctx context.Context, namespace string, 
 	}
 
 	labels, annotations := getNamespaceMetadata(syncConfig)
-	newSHA, err := hashNamespaceMetadata(labels, annotations)
-	if err != nil {
-		return err
-	}
-
-	currentSHA, ok := n.cache.Get(namespace)
-
+	cachedNamespace, ok := in.cache.Get(namespace)
 	if !ok {
-		liveNamespace, err := n.client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
-		if err == nil && liveNamespace != nil {
-			liveSHA, err := hashNamespaceMetadata(liveNamespace.GetLabels(), liveNamespace.GetAnnotations())
-			if err != nil {
-				return err
-			}
-			if liveSHA != newSHA {
-				patch, err := json.Marshal(map[string]any{"metadata": map[string]any{"labels": labels, "annotations": annotations}})
-				if err != nil {
-					return err
-				}
-
-				if _, err = n.client.CoreV1().Namespaces().Patch(ctx, namespace, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
-					return err
-				}
-				n.cache.Set(namespace, newSHA)
-			}
-
-			return nil
-		}
-
-		if _, err = n.client.CoreV1().Namespaces().Create(
-			ctx,
-			&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace, Labels: labels, Annotations: annotations}},
-			metav1.CreateOptions{}); err != nil {
+		appliedNamespace, err := in.client.CoreV1().Namespaces().Apply(ctx, &v2.NamespaceApplyConfiguration{
+			ObjectMetaApplyConfiguration: &v3.ObjectMetaApplyConfiguration{
+				Name: &namespace, Labels: labels, Annotations: annotations}}, metav1.ApplyOptions{})
+		if err != nil {
 			return err
 		}
 
-		n.cache.Set(namespace, newSHA)
-		return nil
+		return in.storeNamespace(*appliedNamespace)
 	}
 
-	if currentSHA != newSHA {
+	if !utils.MapIncludes(cachedNamespace.GetAnnotations(), annotations) || !utils.MapIncludes(cachedNamespace.GetLabels(), labels) {
 		patch, err := json.Marshal(map[string]any{"metadata": map[string]any{"labels": labels, "annotations": annotations}})
 		if err != nil {
 			return err
 		}
 
-		if _, err = n.client.CoreV1().Namespaces().Patch(ctx, namespace, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		patchedNamespace, err := in.client.CoreV1().Namespaces().Patch(ctx, namespace, types.MergePatchType, patch, metav1.PatchOptions{})
+		if err != nil {
 			return err
 		}
 
-		n.cache.Set(namespace, newSHA)
-		return nil
+		return in.storeNamespace(*patchedNamespace)
 	}
 
 	return nil
 }
 
-func (n *namespaceCache) DeleteNamespace(ctx context.Context, namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
+func (in *namespaceCache) DeleteNamespace(ctx context.Context, namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
 	// Skip namespace deletion if the namespace name is empty.
 	if namespace == "" {
 		return nil
@@ -158,7 +135,7 @@ func (n *namespaceCache) DeleteNamespace(ctx context.Context, namespace string, 
 		return nil
 	}
 
-	return client.IgnoreNotFound(n.client.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{
+	return client.IgnoreNotFound(in.client.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
 	}))
@@ -171,14 +148,4 @@ func getNamespaceMetadata(syncConfig *console.ServiceDeploymentForAgent_SyncConf
 	}
 
 	return
-}
-
-func hashNamespaceMetadata(labels, annotations map[string]string) (string, error) {
-	return utils.HashObject(struct {
-		Labels      map[string]string `json:"labels"`
-		Annotations map[string]string `json:"annotations"`
-	}{
-		Labels:      labels,
-		Annotations: annotations,
-	})
 }
