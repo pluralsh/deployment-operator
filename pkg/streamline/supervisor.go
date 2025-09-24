@@ -110,6 +110,7 @@ func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache d
 		registerQueue:              workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[schema.GroupVersionResource]()),
 		synchronizers:              cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
 		restartAttemptsLeftMap:     cmap.NewStringer[schema.GroupVersionResource, int](),
+		eventSubscribers:           cmap.NewStringer[schema.GroupVersionResource, []EventSubscriber](),
 		maxNotFoundRetries:         3,
 		restartDelay:               1 * time.Second,
 		cacheSyncTimeout:           5 * time.Second,
