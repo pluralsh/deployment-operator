@@ -8,8 +8,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun"
-	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
+	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -46,7 +46,7 @@ func (in *agentRunController) postStart(err error) {
 }
 
 // postExecHook is a callback function started by the exec.Executable after it finishes
-func (in *agentRunController) postExecHook(stepID string) agentrunv1.HookFunction {
+func (in *agentRunController) postExecHook(stepID string) v1.HookFunction {
 	return func() error {
 		klog.V(log.LogLevelDebug).InfoS("post exec hook", "step", stepID)
 
@@ -60,7 +60,7 @@ func (in *agentRunController) postExecHook(stepID string) agentrunv1.HookFunctio
 }
 
 // preExecHook is a callback function started by the exec.Executable before it runs
-func (in *agentRunController) preExecHook(stepID string) agentrunv1.HookFunction {
+func (in *agentRunController) preExecHook(stepID string) v1.HookFunction {
 	return func() error {
 		klog.V(log.LogLevelInfo).InfoS("starting agent CLI execution", "step", stepID, "runtime", in.agentRun.Runtime.Type)
 
