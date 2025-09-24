@@ -98,13 +98,21 @@ func (in *namespaceCache) EnsureNamespace(ctx context.Context, namespace string,
 	labels, annotations := getNamespaceMetadata(syncConfig)
 	cachedNamespace, ok := in.cache.Get(namespace)
 	if !ok {
-		appliedNamespace, err := in.client.CoreV1().Namespaces().Apply(ctx, &v2.NamespaceApplyConfiguration{
-			TypeMetaApplyConfiguration: v3.TypeMetaApplyConfiguration{
-				Kind:       lo.ToPtr("Namespace"),
-				APIVersion: lo.ToPtr("v1"),
+		appliedNamespace, err := in.client.CoreV1().Namespaces().Apply(ctx,
+			&v2.NamespaceApplyConfiguration{
+				TypeMetaApplyConfiguration: v3.TypeMetaApplyConfiguration{
+					Kind:       lo.ToPtr("Namespace"),
+					APIVersion: lo.ToPtr("v1"),
+				},
+				ObjectMetaApplyConfiguration: &v3.ObjectMetaApplyConfiguration{
+					Name:        &namespace,
+					Labels:      labels,
+					Annotations: annotations,
+				},
 			},
-			ObjectMetaApplyConfiguration: &v3.ObjectMetaApplyConfiguration{
-				Name: &namespace, Labels: labels, Annotations: annotations}}, metav1.ApplyOptions{FieldManager: streamcommon.ClientFieldManager})
+			metav1.ApplyOptions{
+				FieldManager: streamcommon.ClientFieldManager,
+			})
 		if err != nil {
 			return err
 		}
