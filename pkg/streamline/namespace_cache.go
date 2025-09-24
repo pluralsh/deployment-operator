@@ -9,6 +9,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	streamcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +49,7 @@ type namespaceCache struct {
 	client kubernetes.Interface
 }
 
-func (in *namespaceCache) storeNamespace(n v1.Namespace) error {
+func (in *namespaceCache) storeNamespace(n *v1.Namespace) error {
 	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(n)
 	if err != nil {
 		return err
@@ -98,13 +99,17 @@ func (in *namespaceCache) EnsureNamespace(ctx context.Context, namespace string,
 	cachedNamespace, ok := in.cache.Get(namespace)
 	if !ok {
 		appliedNamespace, err := in.client.CoreV1().Namespaces().Apply(ctx, &v2.NamespaceApplyConfiguration{
+			TypeMetaApplyConfiguration: v3.TypeMetaApplyConfiguration{
+				Kind:       lo.ToPtr("Namespace"),
+				APIVersion: lo.ToPtr("v1"),
+			},
 			ObjectMetaApplyConfiguration: &v3.ObjectMetaApplyConfiguration{
-				Name: &namespace, Labels: labels, Annotations: annotations}}, metav1.ApplyOptions{})
+				Name: &namespace, Labels: labels, Annotations: annotations}}, metav1.ApplyOptions{FieldManager: streamcommon.ClientFieldManager})
 		if err != nil {
 			return err
 		}
 
-		return in.storeNamespace(*appliedNamespace)
+		return in.storeNamespace(appliedNamespace)
 	}
 
 	if !utils.MapIncludes(cachedNamespace.GetAnnotations(), annotations) || !utils.MapIncludes(cachedNamespace.GetLabels(), labels) {
@@ -118,7 +123,7 @@ func (in *namespaceCache) EnsureNamespace(ctx context.Context, namespace string,
 			return err
 		}
 
-		return in.storeNamespace(*patchedNamespace)
+		return in.storeNamespace(patchedNamespace)
 	}
 
 	return nil
