@@ -168,7 +168,6 @@ func (in *Supervisor) MaybeRegister(gvr schema.GroupVersionResource) {
 }
 
 func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
-
 	if GroupBlacklist.Has(gvr.Group) || resourceVersionBlacklist.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
 		klog.V(log.LogLevelExtended).InfoS("skipping resource to watch as it is blacklisted", "gvr", gvr.String())
 		return

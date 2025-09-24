@@ -61,5 +61,4 @@ func RunAPIServicesScraperInBackgroundOrDie(ctx context.Context, config *rest.Co
 
 		return false, nil
 	})
-
 }
