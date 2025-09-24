@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
@@ -70,11 +69,6 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 		retErr = nil
 	}
 
-	// notify subroutines that we are done
-	close(in.stopChan)
-
-	// wait for all subroutines to finish
-	in.wg.Wait()
 	klog.V(log.LogLevelVerbose).InfoS("all subroutines finished")
 
 	return retErr
@@ -194,27 +188,7 @@ func (in *agentRunController) getSystemPromptOverride() string {
 }
 
 // toExecutable converts a command into an executable
-func (in *agentRunController) toExecutable(ctx context.Context, id, cmd string, args []string) exec.Executable {
-	// synchronize executable and underlying console writer with
-	// the controller to ensure that it does not exit before
-	// ensuring they have completed all work.
-	in.wg.Add(1)
-
-	consoleWriter := sink.NewConsoleWriter(
-		ctx,
-		in.consoleClient,
-		append(
-			in.sinkOptions,
-			sink.WithID(id),
-			sink.WithOnFinish(func() {
-				// Notify controller that all remaining work
-				// has been completed.
-				in.wg.Done()
-			}),
-			sink.WithStopChan(in.stopChan),
-		)...,
-	)
-
+func (in *agentRunController) toExecutable(_ context.Context, id, cmd string, args []string) exec.Executable {
 	// base executable options
 	options := in.execOptions
 	options = append(
@@ -223,7 +197,6 @@ func (in *agentRunController) toExecutable(ctx context.Context, id, cmd string, 
 		exec.WithEnv(in.agentRun.Env()),
 		exec.WithArgs(args),
 		exec.WithID(id),
-		exec.WithOutputSinks(consoleWriter),
 		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(id)),
 		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(id)),
 	)
@@ -284,8 +257,6 @@ func NewAgentRunController(opts ...Option) (Controller, error) {
 	ctrl := &agentRunController{
 		errChan:      errChan,
 		finishedChan: finishedChan,
-		stopChan:     make(chan struct{}),
-		wg:           sync.WaitGroup{},
 		sinkOptions:  make([]sink.Option, 0),
 		dir:          "/plural", // default working directory from pod spec
 	}

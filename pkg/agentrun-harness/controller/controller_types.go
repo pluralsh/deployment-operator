@@ -17,9 +17,6 @@ type Controller interface {
 type agentRunController struct {
 	sync.Mutex
 
-	// wg is used to wait for all commands to finish
-	wg sync.WaitGroup
-
 	// agentRun is the agent run that is being processed
 	agentRun *agentrunv1.AgentRun
 
@@ -46,14 +43,11 @@ type agentRunController struct {
 	// is being forwarded both to the os.Stdout and sink.ConsoleWriter.
 	sinkOptions []sink.Option
 
-	// errChan is the error channel passed by the caller
+	// errChan signals that an error occurred during command execution
 	errChan chan error
 
-	// finishedChan is a channel that is closed when the controller has finished processing
+	// finishedChan signals that all commands execution is finished
 	finishedChan chan struct{}
-
-	// stopChan
-	stopChan chan struct{}
 }
 
 type Option func(*agentRunController)
