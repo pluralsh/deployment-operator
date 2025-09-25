@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	osexec "os/exec"
 	"path/filepath"
 
 	gqlclient "github.com/pluralsh/console/go/client"
@@ -87,18 +86,6 @@ func (in *agentRunController) prepare() error {
 	}
 
 	return nil
-}
-
-// Start MCP server in background
-func (in *agentRunController) startMCPServer() error {
-	cmd := osexec.Command("/usr/local/bin/mcpserver")
-	cmd.Dir = in.dir
-	cmd.Env = append(os.Environ(),
-		"PLURAL_ACCESS_TOKEN="+in.consoleToken,
-		"PLURAL_CONSOLE_URL="+in.consoleUrl,
-	)
-
-	return cmd.Start()
 }
 
 // executables returns the list of executables for this agent run - runs the appropriate CLI
