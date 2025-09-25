@@ -41,7 +41,7 @@ const (
 		BEGIN
 			UPDATE component
 			SET updated_at = CURRENT_TIMESTAMP
-			WHERE id = NEW.id;
+			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
 
 	`
@@ -146,7 +146,8 @@ const (
 		SET
 			manifest_sha = '',
 			transient_manifest_sha = '',
-			apply_sha = ''
+			apply_sha = '',
+		    updated_at = CURRENT_TIMESTAMP
 		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
 	`
 
@@ -155,7 +156,8 @@ const (
 		SET
 			manifest_sha = '',
 			transient_manifest_sha = '',
-			apply_sha = ''
+			apply_sha = '',
+		    updated_at = CURRENT_TIMESTAMP
 		WHERE service_id = ?
 	`
 	commitTransientSHA = `
