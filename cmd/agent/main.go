@@ -108,6 +108,7 @@ func main() {
 	// Initialize the discovery cache.
 	initDiscoveryCache(discoveryClient, mapper)
 	discoveryCache := discoverycache.GlobalCache()
+	namespaceCache := streamline.NewNamespaceCache(clientSet)
 
 	kubeManager := initKubeManagerOrDie(config)
 	consoleManager := initConsoleManagerOrDie()
@@ -130,10 +131,10 @@ func main() {
 	runStoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())
 
 	// Start synchronizer supervisor
-	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache)
+	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache, namespaceCache)
 	defer supervisor.Stop()
 
-	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache)
+	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache, namespaceCache)
 	registerKubeReconcilersOrDie(ctx, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy())
 
 	//+kubebuilder:scaffold:builder
@@ -223,7 +224,7 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 	setupLog.Info("discovery manager started with initial cache sync", "duration", time.Since(now))
 }
 
-func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache) *streamline.Supervisor {
+func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, namespaceCache streamline.NamespaceCache) *streamline.Supervisor {
 	now := time.Now()
 	supervisor := streamline.NewSupervisor(dynamicClient,
 		store,
@@ -231,7 +232,11 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 		streamline.WithCacheSyncTimeout(args.SupervisorCacheSyncTimeout()),
 		streamline.WithRestartDelay(args.SupervisorRestartDelay()),
 		streamline.WithMaxNotFoundRetries(args.SupervisorMaxNotFoundRetries()),
-		streamline.WithSynchronizerResyncInterval(args.SupervisorSynchronizerResyncInterval()))
+		streamline.WithSynchronizerResyncInterval(args.SupervisorSynchronizerResyncInterval()),
+		streamline.WithEventSubscribers(
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			[]streamline.EventSubscriber{namespaceCache.HandleNamespaceEvent}),
+	)
 	supervisor.Run(ctx)
 	setupLog.Info("waiting for synchronizers cache to sync")
 	if err := supervisor.WaitForCacheSync(ctx); err != nil {

@@ -3,12 +3,11 @@ package lua
 import (
 	"fmt"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/polly/luautils"
 	lua "github.com/yuin/gopher-lua"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/pluralsh/deployment-operator/pkg/utils"
 )
 
 func statusConditionExists(s map[string]interface{}, condition string) bool {

@@ -28,7 +28,6 @@ import (
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
@@ -45,12 +44,9 @@ import (
 )
 
 const (
-	Identifier           = "Service Controller"
-	OperatorService      = "deploy-operator"
-	RestoreConfigMapName = "restore-config-map"
-	// The field manager name for the ones agentk owns, see
-	// https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
-	fieldManager                 = "application/apply-patch"
+	Identifier                   = "Service Controller"
+	OperatorService              = "deploy-operator"
+	RestoreConfigMapName         = "restore-config-map"
 	IgnoreFieldsAnnotationName   = "deployments.plural.sh/ignore-fields"
 	BackFillFieldsAnnotationName = "deployments.plural.sh/backfill-fields"
 )
@@ -75,6 +71,7 @@ type ServiceReconciler struct {
 	waveDelay                                                                                        time.Duration
 	supervisor                                                                                       *streamline.Supervisor
 	discoveryCache                                                                                   discoverycache.Cache
+	namespaceCache                                                                                   streamline.NamespaceCache
 }
 
 func NewServiceReconciler(consoleClient client.Client,
@@ -83,11 +80,13 @@ func NewServiceReconciler(consoleClient client.Client,
 	clientSet kubernetes.Interface,
 	dynamicClient dynamic.Interface,
 	discoveryCache discoverycache.Cache,
+	namespaceCache streamline.NamespaceCache,
 	store store.Store,
 	option ...ServiceReconcilerOption,
 ) (*ServiceReconciler, error) {
 	result := &ServiceReconciler{
 		discoveryCache:     discoveryCache,
+		namespaceCache:     namespaceCache,
 		consoleClient:      consoleClient,
 		k8sClient:          k8sClient,
 		clientset:          clientSet,
@@ -434,7 +433,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			logger.Error(err, "Failed to update service status, ignoring for now")
 		}
 
-		err = s.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
+		err = s.namespaceCache.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
 		return ctrl.Result{}, err
 	}
 
@@ -461,8 +460,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationPrepareManifestsFinish),
 	)
 
-	if err = s.CheckNamespace(svc.Namespace, svc.SyncConfig); err != nil {
-		logger.Error(err, "failed to check namespace")
+	if err = s.namespaceCache.EnsureNamespace(ctx, svc.Namespace, svc.SyncConfig); err != nil {
+		logger.Error(err, "failed to ensure namespace")
 		return
 	}
 
@@ -532,37 +531,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	)
 
 	return
-}
-
-func (s *ServiceReconciler) DeleteNamespace(ctx context.Context, namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
-	deleteNamespace := false
-	if syncConfig != nil && syncConfig.DeleteNamespace != nil {
-		deleteNamespace = *syncConfig.DeleteNamespace
-	}
-	if deleteNamespace {
-		return utils.DeleteNamespace(ctx, s.clientset, namespace)
-	}
-	return nil
-}
-
-func (s *ServiceReconciler) CheckNamespace(namespace string, syncConfig *console.ServiceDeploymentForAgent_SyncConfig) error {
-	createNamespace := true
-	var labels map[string]string
-	var annotations map[string]string
-
-	if syncConfig != nil {
-		if syncConfig.NamespaceMetadata != nil {
-			labels = utils.ConvertMap(syncConfig.NamespaceMetadata.Labels)
-			annotations = utils.ConvertMap(syncConfig.NamespaceMetadata.Annotations)
-		}
-		if syncConfig.CreateNamespace != nil {
-			createNamespace = *syncConfig.CreateNamespace
-		}
-	}
-	if createNamespace {
-		return utils.CheckNamespace(s.clientset, namespace, labels, annotations)
-	}
-	return nil
 }
 
 func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) {
