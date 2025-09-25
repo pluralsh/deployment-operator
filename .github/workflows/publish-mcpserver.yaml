@@ -87,6 +87,9 @@ jobs:
 
   publish-image:
     name: Publish base image
+    permissions:
+      contents: 'read'
+      packages: 'write'
     needs: [build-image]
     runs-on: ubuntu-latest
     outputs:
