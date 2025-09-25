@@ -268,7 +268,8 @@ const (
 		SET
 			manifest_sha = '',
 			transient_manifest_sha = '',
-			apply_sha = ''
+			apply_sha = '',
+		    updated_at = CURRENT_TIMESTAMP
 		WHERE updated_at < datetime(?, 'unixepoch')
 	`
 )
