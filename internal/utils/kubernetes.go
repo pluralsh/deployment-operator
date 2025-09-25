@@ -3,18 +3,14 @@ package utils
 import (
 	"context"
 	"fmt"
-	"maps"
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
-	"github.com/samber/lo"
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -208,56 +204,27 @@ func GetOperatorNamespace() (string, error) {
 	return string(ns), nil
 }
 
-func CheckNamespace(clientset kubernetes.Interface, namespace string, labels, annotations map[string]string) error {
-	if namespace == "" {
-		return nil
-	}
+func UnstructuredToConditions(c []interface{}) []metav1.Condition {
+	conditions := make([]metav1.Condition, 0)
+	for _, c := range c {
+		m := c.(map[string]interface{})
+		t, tOk := m["type"].(string)
+		s, sOk := m["status"].(string)
+		tt, _ := m["lastTransitionTime"].(string)
+		if tOk && sOk {
+			conditions = append(conditions, metav1.Condition{
+				Type:   t,
+				Status: metav1.ConditionStatus(s),
+				LastTransitionTime: func() metav1.Time {
+					parsedTime, err := time.Parse(time.RFC3339, tt)
+					if err == nil {
+						return metav1.Time{Time: parsedTime}
+					}
 
-	ctx := context.Background()
-	nsClient := clientset.CoreV1().Namespaces()
-	existing, err := nsClient.Get(ctx, namespace, metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if _, err = nsClient.Create(ctx, &v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        namespace,
-					Annotations: annotations,
-					Labels:      labels,
-				},
-			}, metav1.CreateOptions{}); err != nil {
-				return err
-			}
-			return nil
-		}
-		return err
-	}
-
-	// update labels and annotations
-	if (!reflect.DeepEqual(labels, existing.Labels) && labels != nil) || (!reflect.DeepEqual(annotations, existing.Annotations) && annotations != nil) {
-		maps.Copy(existing.Labels, labels)
-		maps.Copy(existing.Annotations, annotations)
-		if _, err := nsClient.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
-			return err
+					return metav1.Time{Time: time.Now()}
+				}(),
+			})
 		}
 	}
-
-	return nil
-}
-
-func DeleteNamespace(ctx context.Context, client kubernetes.Interface, namespace string) error {
-	if err := client.CoreV1().Namespaces().Delete(
-		ctx,
-		namespace,
-		metav1.DeleteOptions{
-			GracePeriodSeconds: lo.ToPtr(int64(0)),
-			PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationBackground),
-		},
-	); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-
-	return nil
+	return conditions
 }
