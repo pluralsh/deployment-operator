@@ -78,7 +78,7 @@ func LoadPluralCredentials() (*PluralCredentials, error) {
 
 // Start starts the MCP server with stdio transport
 func (m *MCPServer) Start() error {
-	klog.InfoS("Starting Plural Console MCP Server...", "consoleURL", m.creds.ConsoleURL)
+	klog.InfoS("Started Plural Console MCP Server", "consoleURL", m.creds.ConsoleURL)
 	return server.ServeStdio(m.server)
 }
 

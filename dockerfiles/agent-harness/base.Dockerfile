@@ -32,11 +32,12 @@ RUN apk update --no-cache && apk add --no-cache git curl jq
 # Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness
 COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
-COPY --from=ghcr.io/pluralsh/mcpserver:latest /root/mcpserver /usr/local/bin/mcpserver
+# TODO: use official release version
+COPY --from=ghcr.io/pluralsh/mcpserver:sha-ea119c3 /root/mcpserver /usr/local/bin/mcpserver
 
 # Switch to the nonroot user
 USER 65532:65532
 
 WORKDIR /plural
 
-ENTRYPOINT ["/bin/sh", "-c", "mcpserver & /agent-harness --working-dir=/plural"]
+ENTRYPOINT ["/bin/sh", "-c", "mcpserver & /agent-harness --working-dir=/plural & wait"]

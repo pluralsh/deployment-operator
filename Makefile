@@ -10,6 +10,12 @@ IMG ?= deployment-agent:latest
 ENVTEST ?= $(shell which setup-envtest)
 CRDDOCS ?= $(shell which crd-ref-docs)
 
+# Config variables used for testing
+DEFAULT_PLRL_CONSOLE_URL := "https://console.plrl-dev-aws.onplural.sh"
+PLRL_CONSOLE_URL := $(if $(PLRL_CONSOLE_URL),$(PLRL_CONSOLE_URL),$(DEFAULT_PLRL_CONSOLE_URL))
+PLRL_CONSOLE_TOKEN := $(if $(PLRL_CONSOLE_TOKEN),$(PLRL_CONSOLE_TOKEN),test-token)
+PLRL_AGENT_RUN_ID := $(if $(PLRL_AGENT_RUN_ID),$(PLRL_AGENT_RUN_ID),test-id)
+
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
 
@@ -74,6 +80,15 @@ agent-run: agent ## run agent
         --max-concurrent-reconciles=20 \
         --v=1 \
         --deploy-token=${PLURAL_DEPLOY_TOKEN}
+
+.PHONY: agent-harness-run
+agent-harness-run: docker-build-agent-harness-base ## run agent harness
+	docker run \
+		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
+		-e PLRL_CONSOLE_TOKEN=$(PLRL_CONSOLE_TOKEN) \
+		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		--rm -it \
+		ghcr.io/pluralsh/agent-harness-base
 
 ##@ Build
 

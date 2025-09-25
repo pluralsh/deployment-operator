@@ -35,7 +35,7 @@ func main() {
 	server := mcpserver.NewMCPServer(creds)
 
 	// Start server
-	if err := server.Start(); err != nil {
-		klog.Fatalf("Failed to start MCP server: %v", err)
+	if err = server.Start(); err != nil {
+		klog.Fatalf("Plural Console MCP server error: %v, exiting", err)
 	}
 }
