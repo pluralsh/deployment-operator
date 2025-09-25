@@ -1,19 +1,33 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"log"
 	"os"
 
+	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/mcpserver"
 )
+
+func init() {
+	defaultFlagSet := flag.CommandLine
+
+	// Init klog
+	klog.InitFlags(defaultFlagSet)
+}
 
 func main() {
 	// Load credentials
 	creds, err := mcpserver.LoadPluralCredentials()
 	if err != nil {
-		fmt.Printf("Failed to load Plural credentials: %v\n", err)
-		fmt.Println("Please ensure PLURAL_ACCESS_TOKEN and PLURAL_CONSOLE_URL environment variables are set")
+		klog.ErrorS(err,
+			fmt.Sprintf("Failed to load Plural credentials, please ensure %s and %s environment variables are set",
+				controller.EnvConsoleToken,
+				controller.EnvConsoleURL,
+			),
+		)
 		os.Exit(1)
 	}
 
@@ -22,6 +36,6 @@ func main() {
 
 	// Start server
 	if err := server.Start(); err != nil {
-		log.Fatalf("Failed to start MCP server: %v", err)
+		klog.Fatalf("Failed to start MCP server: %v", err)
 	}
 }

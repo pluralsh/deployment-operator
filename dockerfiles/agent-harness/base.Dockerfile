@@ -39,4 +39,4 @@ USER 65532:65532
 
 WORKDIR /plural
 
-ENTRYPOINT ["/agent-harness", "--working-dir=/plural"]
+ENTRYPOINT ["/bin/sh", "-c", "mcpserver & /agent-harness --working-dir=/plural"]

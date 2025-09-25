@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
-
 	osexec "os/exec"
+	"path/filepath"
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
@@ -78,10 +77,6 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 
 // prepare sets up the agent run environment and AI credentials
 func (in *agentRunController) prepare() error {
-	if err := in.startMCPServer(); err != nil {
-		return err
-	}
-
 	env := environment.New(
 		environment.WithAgentRun(in.agentRun),
 		environment.WithWorkingDir(in.dir),

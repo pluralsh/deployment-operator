@@ -11,6 +11,9 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/internal/controller"
 )
 
 // PluralCredentials holds the Plural console credentials
@@ -47,14 +50,14 @@ func NewMCPServer(creds *PluralCredentials) *MCPServer {
 
 // LoadPluralCredentials loads and validates Plural credentials from environment variables
 func LoadPluralCredentials() (*PluralCredentials, error) {
-	accessToken := os.Getenv("PLURAL_ACCESS_TOKEN")
+	accessToken := os.Getenv(controller.EnvConsoleToken)
 	if accessToken == "" {
-		return nil, fmt.Errorf("PLURAL_ACCESS_TOKEN environment variable is required")
+		return nil, fmt.Errorf("%s environment variable is required", controller.EnvConsoleToken)
 	}
 
-	consoleURL := os.Getenv("PLURAL_CONSOLE_URL")
+	consoleURL := os.Getenv(controller.EnvConsoleURL)
 	if consoleURL == "" {
-		return nil, fmt.Errorf("PLURAL_CONSOLE_URL environment variable is required")
+		return nil, fmt.Errorf("%s environment variable is required", controller.EnvConsoleURL)
 	}
 
 	// Ensure the console URL has the correct GraphQL endpoint
@@ -75,10 +78,7 @@ func LoadPluralCredentials() (*PluralCredentials, error) {
 
 // Start starts the MCP server with stdio transport
 func (m *MCPServer) Start() error {
-	fmt.Println("Starting Plural Console MCP Server...")
-	fmt.Printf("Console URL: %s\n", m.creds.ConsoleURL)
-	fmt.Println("Waiting for MCP client connection via stdio...")
-
+	klog.InfoS("Starting Plural Console MCP Server...", "consoleURL", m.creds.ConsoleURL)
 	return server.ServeStdio(m.server)
 }
 
