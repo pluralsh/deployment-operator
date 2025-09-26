@@ -9,6 +9,10 @@ import (
 
 type SyncPhase string
 
+func (s SyncPhase) String() string {
+	return string(s)
+}
+
 const (
 	// LifecycleDeleteAnnotation is the lifecycle annotation key for a deletion operation.
 	// Keep it the same as cli-utils for backwards compatibility.
@@ -39,10 +43,8 @@ const (
 	// SyncPhaseAnnotation allows users to customize resource apply phases when needed.
 	SyncPhaseAnnotation = "deployment.plural.sh/sync-hook"
 
-	SyncPhasePreSync SyncPhase = "pre-sync"
-
-	SyncPhaseSync SyncPhase = "sync"
-
+	SyncPhasePreSync  SyncPhase = "pre-sync"
+	SyncPhaseSync     SyncPhase = "sync"
 	SyncPhasePostSync SyncPhase = "post-sync"
 )
 

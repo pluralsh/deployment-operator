@@ -3,13 +3,11 @@ package applier
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sync"
 	"time"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	"github.com/pluralsh/polly/algorithms"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -69,31 +67,6 @@ func (in *Wave) Len() int {
 	return len(in.items)
 }
 
-type Waves []Wave
-
-func NewWaves(resources []unstructured.Unstructured) Waves {
-	wavesMap := make(map[int]Wave)
-	for _, resource := range resources {
-		i := smcommon.GetSyncWave(resource)
-		if wave, ok := wavesMap[i]; !ok {
-			wavesMap[i] = NewWave([]unstructured.Unstructured{resource}, ApplyWave)
-		} else {
-			wave.Add(resource)
-			wavesMap[i] = wave
-		}
-	}
-
-	waves := lo.Entries(wavesMap)
-
-	slices.SortFunc(waves, func(a, b lo.Entry[int, Wave]) int {
-		return a.Key - b.Key
-	})
-
-	return algorithms.Map(waves, func(e lo.Entry[int, Wave]) Wave {
-		return e.Value
-	})
-}
-
 const (
 	defaultMaxConcurrentApplies = 10
 	defaultDeQueueDelay         = 100 * time.Millisecond
@@ -111,6 +84,8 @@ type WaveProcessor struct {
 
 	// discoveryCache is the discovery discoveryCache used to get information about the API resources.
 	discoveryCache discoverycache.Cache
+
+	phase smcommon.SyncPhase
 
 	// wave to be processed. It contains the resources to be applied or deleted.
 	wave Wave
@@ -363,7 +338,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	c, err := in.clientForResource(resource)
 	if err != nil {
 		in.errorsChan <- console.ServiceErrorAttributes{
-			Source:  "apply",
+			Source:  in.phase.String(),
 			Message: fmt.Sprintf("failed to build client for resource %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 		return
@@ -380,7 +355,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		}
 
 		in.errorsChan <- console.ServiceErrorAttributes{
-			Source:  "apply",
+			Source:  in.phase.String(),
 			Message: fmt.Sprintf("failed to apply %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 
@@ -517,11 +492,12 @@ func WithWaveSvcCache(c *consoleclient.Cache[console.ServiceDeploymentForAgent])
 	}
 }
 
-func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cache, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
+func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cache, phase smcommon.SyncPhase, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
 	result := &WaveProcessor{
 		mu:                   sync.Mutex{},
 		client:               dynamicClient,
 		discoveryCache:       cache,
+		phase:                phase,
 		wave:                 wave,
 		maxConcurrentApplies: defaultMaxConcurrentApplies,
 		deQueueDelay:         defaultDeQueueDelay,

@@ -51,18 +51,13 @@ func (in *Applier) Apply(ctx context.Context,
 
 	toApply, toSkip := in.filterResources(toApply, lo.FromPtr(service.DryRun))
 
-	waves := NewWaves(toApply)
-	waves = append(waves, NewWave(toDelete, DeleteWave))
-
-	// Filter out empty waves
-	waves = algorithms.Filter(waves, func(w Wave) bool {
-		return w.Len() > 0
-	})
+	phase := NewPhase(smcommon.SyncPhaseSync, toApply)
+	phase.AddWave(NewWave(toDelete, DeleteWave))
 
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
-	for _, wave := range waves {
-		processor := NewWaveProcessor(in.client, in.discoveryCache, wave, opts...)
+	for _, wave := range phase.Waves() {
+		processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
 		components, serviceErrors := processor.Run(ctx)
 
 		componentList = append(componentList, components...)
