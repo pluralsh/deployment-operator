@@ -36,6 +36,10 @@ type Applier struct {
 	onApply func(unstructured.Unstructured)
 }
 
+func (in *Applier) skipResource(resource unstructured.Unstructured, dryRun bool) bool {
+	return !in.filters.MatchOmit(resource, lo.Ternary(dryRun, []Filter{FilterCache}, []Filter{})...)
+}
+
 func (in *Applier) Apply(ctx context.Context,
 	service client.ServiceDeploymentForAgent,
 	resources []unstructured.Unstructured,
@@ -43,27 +47,38 @@ func (in *Applier) Apply(ctx context.Context,
 ) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
 	now := time.Now()
 
-	resources = in.addServiceAnnotation(resources, service.ID)
-	toDelete, toApply, err := in.toDelete(service.ID, resources)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	toApply, toSkip := in.filterResources(toApply, lo.FromPtr(service.DryRun))
-
-	phase := NewPhase(smcommon.SyncPhaseSync, toApply)
-	phase.AddWave(NewWave(toDelete, DeleteWave))
+	resources = in.ensureServiceAnnotation(resources, service.ID)
 
 	componentList := make([]client.ComponentAttributes, 0)
 	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
-	for _, wave := range phase.Waves() {
-		processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
-		components, serviceErrors := processor.Run(ctx)
 
-		componentList = append(componentList, components...)
-		serviceErrrorList = append(serviceErrrorList, serviceErrors...)
+	phases := NewPhases(
+		resources,
+		func(resource unstructured.Unstructured) bool {
+			return in.skipResource(resource, lo.FromPtr(service.DryRun))
+		},
+		func(resource unstructured.Unstructured) bool {
+			return true // TODO: Fix deletion and handle dry run.
+		})
 
-		time.Sleep(in.waveDelay)
+	for _, phase := range phases {
+		//toDelete, toApply, err := in.toDelete(service.ID, resources)
+		//if err != nil {
+		//	return nil, nil, err
+		//}
+
+		//phase.AddWave(NewWave(toDelete, DeleteWave))
+		//toApply, toSkip = ...
+
+		for _, wave := range phase.Waves() {
+			processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
+			components, serviceErrors := processor.Run(ctx)
+
+			componentList = append(componentList, components...)
+			serviceErrrorList = append(serviceErrrorList, serviceErrors...)
+
+			time.Sleep(in.waveDelay)
+		}
 	}
 
 	klog.V(log.LogLevelDefault).InfoS(
@@ -173,20 +188,7 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 	return in.getServiceComponents(serviceID)
 }
 
-func (in *Applier) filterResources(resources []unstructured.Unstructured, dryRun bool) (toApply []unstructured.Unstructured, toSkip []unstructured.Unstructured) {
-	for _, resource := range resources {
-		// In case of dry run we want to skip the discoveryCache filter.
-		if in.filters.MatchOmit(resource, lo.Ternary(dryRun, []Filter{FilterCache}, []Filter{})...) {
-			toApply = append(toApply, resource)
-		} else {
-			toSkip = append(toSkip, resource)
-		}
-	}
-
-	return
-}
-
-func (in *Applier) addServiceAnnotation(resources []unstructured.Unstructured, serviceID string) []unstructured.Unstructured {
+func (in *Applier) ensureServiceAnnotation(resources []unstructured.Unstructured, serviceID string) []unstructured.Unstructured {
 	for _, obj := range resources {
 		annotations := obj.GetAnnotations()
 		if annotations == nil {
