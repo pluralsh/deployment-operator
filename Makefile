@@ -10,6 +10,12 @@ IMG ?= deployment-agent:latest
 ENVTEST ?= $(shell which setup-envtest)
 CRDDOCS ?= $(shell which crd-ref-docs)
 
+# Config variables used for testing
+DEFAULT_PLRL_CONSOLE_URL := "https://console.plrl-dev-aws.onplural.sh"
+PLRL_CONSOLE_URL := $(if $(PLRL_CONSOLE_URL),$(PLRL_CONSOLE_URL),$(DEFAULT_PLRL_CONSOLE_URL))
+PLRL_CONSOLE_TOKEN := $(if $(PLRL_CONSOLE_TOKEN),$(PLRL_CONSOLE_TOKEN),test-token)
+PLRL_AGENT_RUN_ID := $(if $(PLRL_AGENT_RUN_ID),$(PLRL_AGENT_RUN_ID),test-id)
+
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
 
@@ -24,7 +30,7 @@ MOCKERY ?= $(shell which mockery)
 include tools.mk
 
 ifndef GOPATH
-$(error $$GOPATH environment variable not set)
+GOPATH := $(shell go env GOPATH)
 endif
 
 PRE = --ensure
@@ -75,6 +81,15 @@ agent-run: agent ## run agent
         --v=1 \
         --deploy-token=${PLURAL_DEPLOY_TOKEN}
 
+.PHONY: agent-harness-run
+agent-harness-run: docker-build-agent-harness-base ## run agent harness
+	docker run \
+		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
+		-e PLRL_CONSOLE_TOKEN=$(PLRL_CONSOLE_TOKEN) \
+		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		--rm -it \
+		ghcr.io/pluralsh/agent-harness-base
+
 ##@ Build
 
 .PHONY: agent
@@ -85,6 +100,58 @@ agent: ## build agent
 harness: ## build stack run harness
 	go build -o bin/stack-run-harness cmd/harness/main.go
 
+.PHONY: agent-harness
+agent-harness: ## build agent harness
+	go build -o bin/agent-harness cmd/agent-harness/*.go
+
+.PHONY: docker-build-agent-harness-base
+docker-build-agent-harness-base: ## build base docker agent harness image
+	docker build \
+		--build-arg=VERSION="0.0.0-dev" \
+		-t ghcr.io/pluralsh/agent-harness-base \
+		-f dockerfiles/agent-harness/base.Dockerfile \
+		.
+
+.PHONY: docker-build-agent-harness-gemini
+docker-build-agent-harness-gemini: docker-build-agent-harness-base ## build gemini docker agent harness image
+	docker build \
+		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/agent-harness-gemini \
+		-f dockerfiles/agent-harness/gemini.Dockerfile \
+		.
+
+.PHONY: docker-build-agent-harness-claude
+docker-build-agent-harness-claude: docker-build-agent-harness-base ## build claude docker agent harness image
+	docker build \
+		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/agent-harness-claude \
+		-f dockerfiles/agent-harness/claude.Dockerfile \
+		.
+
+.PHONY: docker-build-agent-harness-opencode
+docker-build-agent-harness-opencode: docker-build-agent-harness-base ## build opencode docker agent harness image
+	docker build \
+		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/agent-harness-opencode \
+		-f dockerfiles/agent-harness/opencode.Dockerfile \
+		.
+
+.PHONY: docker-push-agent-harness-base  
+docker-push-agent-harness-base: docker-build-agent-harness-base ## push agent harness base image
+	docker push ghcr.io/pluralsh/agent-harness-base:latest
+
+.PHONY: docker-push-agent-harness-gemini
+docker-push-agent-harness-gemini: docker-build-agent-harness-gemini ## push gemini agent harness image
+	docker push ghcr.io/pluralsh/agent-harness-gemini:latest
+
+.PHONY: docker-push-agent-harness-claude
+docker-push-agent-harness-claude: docker-build-agent-harness-claude ## push claude agent harness image
+	docker push ghcr.io/pluralsh/agent-harness-claude:latest
+
+.PHONY: docker-push-agent-harness-opencode
+docker-push-agent-harness-opencode: docker-build-agent-harness-opencode ## push opencode agent harness image
+	docker push ghcr.io/pluralsh/agent-harness-opencode:latest
+	
 docker-build: ## build image
 	docker build -t ${IMG} .
 
@@ -211,6 +278,7 @@ controller-gen: --tool
 discovery: TOOL = discovery
 discovery: --tool
 
+
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
@@ -224,3 +292,25 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+.PHONY: mcpserver
+mcpserver: ## build mcp server
+	go build -o bin/mcpserver cmd/mcpserver/main.go
+
+.PHONY: mcpserver-run
+mcpserver-run: mcpserver ## run mcp server locally
+	PLURAL_ACCESS_TOKEN=${PLURAL_ACCESS_TOKEN} \
+	PLURAL_CONSOLE_URL=${PLURAL_CONSOLE_URL} \
+	./bin/mcpserver
+
+.PHONY: docker-build-mcpserver
+docker-build-mcpserver: ## build mcp server docker image
+	docker build \
+		--build-arg=VERSION="0.0.0-dev" \
+		-t ghcr.io/pluralsh/mcpserver:latest \
+		-f dockerfiles/mcpserver/Dockerfile \
+		.
+
+.PHONY: docker-push-mcpserver
+docker-push-mcpserver: docker-build-mcpserver ## push mcp server image
+	docker push ghcr.io/pluralsh/mcpserver:latest
