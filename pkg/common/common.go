@@ -9,7 +9,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 const (
@@ -46,14 +45,6 @@ func Unmarshal(s string) (map[string]interface{}, error) {
 	}
 
 	return result, nil
-}
-
-func ServiceID(obj *unstructured.Unstructured) string {
-	if annotations := obj.GetAnnotations(); annotations != nil {
-		return annotations[smcommon.OwningInventoryKey]
-	}
-
-	return ""
 }
 
 // WithJitter adds a random jitter to the interval based on the global jitter factor.
