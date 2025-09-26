@@ -14,6 +14,11 @@ const (
 	// for backwards compatibility.
 	PreventDeletion = "detach"
 
+	// ClientFieldManager is a name associated with the actor or entity
+	// that is making changes to the object. Keep it the same as cli-utils
+	// for backwards compatibility.
+	ClientFieldManager = "application/apply-patch"
+
 	// OwningInventoryKey is the key used to store the owning service id
 	// in the annotations of a resource.
 	OwningInventoryKey = "config.k8s.io/owning-inventory"
@@ -23,10 +28,8 @@ const (
 	// This is used to make sure that the owning inventory was not copied from another resource.
 	TrackingIdentifierKey = "config.k8s.io/tracking-identifier"
 
-	// ClientFieldManager is a name associated with the actor or entity
-	// that is making changes to the object. Keep it the same as cli-utils
-	// for backwards compatibility.
-	ClientFieldManager = "application/apply-patch"
+	// SyncWaveAnnotation allows users to customize resource apply ordering when needed.
+	SyncWaveAnnotation = "deployment.plural.sh/sync-wave"
 )
 
 func GetOwningInventory(obj unstructured.Unstructured) string {
