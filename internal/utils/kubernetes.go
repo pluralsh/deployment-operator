@@ -9,6 +9,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/pkg/flowcontrol"
 
@@ -227,4 +229,9 @@ func UnstructuredToConditions(c []interface{}) []metav1.Condition {
 		}
 	}
 	return conditions
+}
+
+func UnstructuredAsJSON(resource *unstructured.Unstructured) string {
+	data, _ := yaml.Marshal(resource)
+	return string(data)
 }

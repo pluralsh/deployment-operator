@@ -1,25 +1,19 @@
 package common
 
 import (
-	"context"
 	"math/rand"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	ctrclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 const (
-	ManagedByLabel             = "plural.sh/managed-by"
-	AgentLabelValue            = "agent"
-	LastProgressTimeAnnotation = "plural.sh/last-progress-time"
+	ManagedByLabel  = "plural.sh/managed-by"
+	AgentLabelValue = "agent"
 )
 
 func ToUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
@@ -51,48 +45,6 @@ func Unmarshal(s string) (map[string]interface{}, error) {
 	}
 
 	return result, nil
-}
-
-func GetLastProgressTimestamp(ctx context.Context, k8sClient ctrclient.Client, obj *unstructured.Unstructured) (progressTime metav1.Time, err error) {
-	progressTime = metav1.Now()
-
-	if obj.GetAnnotations() == nil {
-		obj.SetAnnotations(make(map[string]string))
-	}
-	annotations := obj.GetAnnotations()
-	timeStr, ok := annotations[LastProgressTimeAnnotation]
-
-	defer func() {
-		if !ok {
-			err = utils.TryToUpdate(ctx, k8sClient, obj)
-			if err != nil {
-				return
-			}
-			key := ctrclient.ObjectKeyFromObject(obj)
-			err = k8sClient.Get(ctx, key, obj)
-		}
-	}()
-
-	if !ok {
-		annotations[LastProgressTimeAnnotation] = progressTime.Format(time.RFC3339)
-		obj.SetAnnotations(annotations)
-		return
-	}
-	parsedTime, err := time.Parse(time.RFC3339, timeStr)
-	if err != nil {
-		return
-	}
-	progressTime = metav1.Time{Time: parsedTime}
-
-	return
-}
-
-func ServiceID(obj *unstructured.Unstructured) string {
-	if annotations := obj.GetAnnotations(); annotations != nil {
-		return annotations[smcommon.OwningInventoryKey]
-	}
-
-	return ""
 }
 
 // WithJitter adds a random jitter to the interval based on the global jitter factor.

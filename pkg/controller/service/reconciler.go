@@ -133,7 +133,11 @@ func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
 		return s.consoleClient.GetService(id)
 	})
 	s.manifestCache = manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL)
-	s.applier = applier.NewApplier(s.dynamicClient, s.discoveryCache, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter()))
+	s.applier = applier.NewApplier(s.dynamicClient, s.discoveryCache, s.store,
+		applier.WithWaveDelay(s.waveDelay),
+		applier.WithFilter(applier.FilterCache, applier.CacheFilter()),
+		applier.WithFilter(applier.FilterSkip, applier.SkipFilter()),
+	)
 
 	return s, nil
 }

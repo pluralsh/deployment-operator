@@ -1835,3 +1835,428 @@ func newUnstructured(uid, name, namespace, group, version, kind string) unstruct
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 	return obj
 }
+
+// Helper function to create unstructured.Unstructured objects for testing
+func createUnstructuredResource(group, version, kind, namespace, name string) unstructured.Unstructured {
+	u := unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   group,
+		Version: version,
+		Kind:    kind,
+	})
+	u.SetNamespace(namespace)
+	u.SetName(name)
+	u.SetUID(types.UID(fmt.Sprintf("%s-%s-%s", kind, namespace, name)))
+	return u
+}
+
+func TestComponentCache_AreResourcesHealthy(t *testing.T) {
+	t.Run("should return true for empty resource list", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		resources := []unstructured.Unstructured{}
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.True(t, result, "empty resource list should be considered healthy")
+	})
+
+	t.Run("should return true when all resources are healthy", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create healthy components in the database
+		healthyPod := createComponent("healthy-pod-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("healthy-pod"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(healthyPod)
+		require.NoError(t, err)
+
+		healthyDeployment := createComponent("healthy-deployment-uid", nil,
+			WithGroup("apps"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("healthy-deployment"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(healthyDeployment)
+		require.NoError(t, err)
+
+		healthyService := createComponent("healthy-service-uid", nil,
+			WithGroup(""),
+			WithKind("Service"),
+			WithNamespace("default"),
+			WithName("healthy-service"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(healthyService)
+		require.NoError(t, err)
+
+		// Create unstructured resources to check
+		resources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "healthy-pod"),
+			createUnstructuredResource("apps", "v1", "Deployment", "default", "healthy-deployment"),
+			createUnstructuredResource("", "v1", "Service", "default", "healthy-service"),
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.True(t, result, "all healthy resources should return true")
+	})
+
+	t.Run("should return false when any resource is unhealthy", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create mixed healthy and unhealthy components
+		healthyPod := createComponent("mixed-healthy-pod-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("mixed-healthy-pod"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(healthyPod)
+		require.NoError(t, err)
+
+		failedDeployment := createComponent("mixed-failed-deployment-uid", nil,
+			WithGroup("apps"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("mixed-failed-deployment"),
+			WithState(client.ComponentStateFailed))
+		err = storeInstance.SaveComponentAttributes(failedDeployment)
+		require.NoError(t, err)
+
+		// Create unstructured resources to check
+		resources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "mixed-healthy-pod"),
+			createUnstructuredResource("apps", "v1", "Deployment", "default", "mixed-failed-deployment"),
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.False(t, result, "mixed healthy and unhealthy resources should return false")
+	})
+
+	t.Run("should return false when all resources are unhealthy", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create unhealthy components
+		failedPod := createComponent("all-failed-pod-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("all-failed-pod"),
+			WithState(client.ComponentStateFailed))
+		err = storeInstance.SaveComponentAttributes(failedPod)
+		require.NoError(t, err)
+
+		pendingDeployment := createComponent("all-pending-deployment-uid", nil,
+			WithGroup("apps"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("all-pending-deployment"),
+			WithState(client.ComponentStatePending))
+		err = storeInstance.SaveComponentAttributes(pendingDeployment)
+		require.NoError(t, err)
+
+		// Create unstructured resources to check
+		resources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "all-failed-pod"),
+			createUnstructuredResource("apps", "v1", "Deployment", "default", "all-pending-deployment"),
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.False(t, result, "all unhealthy resources should return false")
+	})
+
+	t.Run("should return false when resources are not found in database", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Don't create any components in the database
+		// Create unstructured resources to check (non-existent)
+		resources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "non-existent-pod"),
+			createUnstructuredResource("apps", "v1", "Deployment", "default", "non-existent-deployment"),
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.False(t, result, "non-existent resources should return false")
+	})
+
+	t.Run("should handle mixed found and not found resources", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create one healthy component
+		healthyPod := createComponent("mixed-found-healthy-pod-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("mixed-found-healthy-pod"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(healthyPod)
+		require.NoError(t, err)
+
+		// Create resources - one exists, one doesn't
+		resources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "mixed-found-healthy-pod"),
+			createUnstructuredResource("apps", "v1", "Deployment", "default", "mixed-found-missing-deployment"),
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.False(t, result, "mixed found and not found resources should return false")
+	})
+
+	t.Run("should handle different namespaces correctly", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create components in different namespaces
+		defaultPod := createComponent("namespace-default-pod-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("test-pod"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(defaultPod)
+		require.NoError(t, err)
+
+		kubeSystemPod := createComponent("namespace-kube-system-pod-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("kube-system"),
+			WithName("test-pod"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(kubeSystemPod)
+		require.NoError(t, err)
+
+		// Check resources in different namespaces
+		resources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "test-pod"),
+			createUnstructuredResource("", "v1", "Pod", "kube-system", "test-pod"),
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.True(t, result, "healthy resources in different namespaces should return true")
+	})
+
+	t.Run("should handle different groups and versions correctly", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create components with different groups and versions
+		appsV1Deployment := createComponent("gvk-apps-v1-deployment-uid", nil,
+			WithGroup("apps"),
+			WithVersion("v1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("test-deployment"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(appsV1Deployment)
+		require.NoError(t, err)
+
+		extensionsV1beta1Deployment := createComponent("gvk-extensions-v1beta1-deployment-uid", nil,
+			WithGroup("extensions"),
+			WithVersion("v1beta1"),
+			WithKind("Deployment"),
+			WithNamespace("default"),
+			WithName("test-deployment"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(extensionsV1beta1Deployment)
+		require.NoError(t, err)
+
+		// Check resources with different GVK
+		resources := []unstructured.Unstructured{
+			createUnstructuredResource("apps", "v1", "Deployment", "default", "test-deployment"),
+			createUnstructuredResource("extensions", "v1beta1", "Deployment", "default", "test-deployment"),
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.True(t, result, "healthy resources with different GVK should return true")
+	})
+
+	t.Run("should handle single resource correctly", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create single healthy component
+		singlePod := createComponent("single-healthy-pod-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("single-healthy-pod"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(singlePod)
+		require.NoError(t, err)
+
+		// Check single resource
+		resources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "single-healthy-pod"),
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.True(t, result, "single healthy resource should return true")
+
+		// Test single unhealthy resource
+		singleFailedPod := createComponent("single-failed-pod-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("single-failed-pod"),
+			WithState(client.ComponentStateFailed))
+		err = storeInstance.SaveComponentAttributes(singleFailedPod)
+		require.NoError(t, err)
+
+		failedResources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "single-failed-pod"),
+		}
+
+		result = storeInstance.AreResourcesHealthy(failedResources)
+		assert.False(t, result, "single unhealthy resource should return false")
+	})
+
+	t.Run("should handle large number of resources efficiently", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create many healthy components
+		const numResources = 100
+		resources := make([]unstructured.Unstructured, numResources)
+
+		for i := 0; i < numResources; i++ {
+			podName := fmt.Sprintf("large-test-pod-%d", i)
+			pod := createComponent(fmt.Sprintf("large-test-pod-uid-%d", i), nil,
+				WithGroup(""),
+				WithKind("Pod"),
+				WithNamespace("default"),
+				WithName(podName),
+				WithState(client.ComponentStateRunning))
+			err = storeInstance.SaveComponentAttributes(pod)
+			require.NoError(t, err)
+
+			resources[i] = createUnstructuredResource("", "v1", "Pod", "default", podName)
+		}
+
+		result := storeInstance.AreResourcesHealthy(resources)
+		assert.True(t, result, "large number of healthy resources should return true")
+
+		// Make one resource unhealthy
+		failedPodName := "large-test-pod-50"
+		failedPod := createComponent("large-test-pod-uid-50", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName(failedPodName),
+			WithState(client.ComponentStateFailed))
+		err = storeInstance.SaveComponentAttributes(failedPod)
+		require.NoError(t, err)
+
+		result = storeInstance.AreResourcesHealthy(resources)
+		assert.False(t, result, "large number of resources with one unhealthy should return false")
+	})
+
+	t.Run("should handle resources with different health states", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create components with different health states
+		runningPod := createComponent("health-states-running-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("health-states-running-pod"),
+			WithState(client.ComponentStateRunning))
+		err = storeInstance.SaveComponentAttributes(runningPod)
+		require.NoError(t, err)
+
+		pendingPod := createComponent("health-states-pending-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("health-states-pending-pod"),
+			WithState(client.ComponentStatePending))
+		err = storeInstance.SaveComponentAttributes(pendingPod)
+		require.NoError(t, err)
+
+		failedPod := createComponent("health-states-failed-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("health-states-failed-pod"),
+			WithState(client.ComponentStateFailed))
+		err = storeInstance.SaveComponentAttributes(failedPod)
+		require.NoError(t, err)
+
+		pausedPod := createComponent("health-states-paused-uid", nil,
+			WithGroup(""),
+			WithKind("Pod"),
+			WithNamespace("default"),
+			WithName("health-states-paused-pod"),
+			WithState(client.ComponentStatePaused))
+		err = storeInstance.SaveComponentAttributes(pausedPod)
+		require.NoError(t, err)
+
+		// Test only healthy (running) resources
+		healthyResources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "health-states-running-pod"),
+		}
+		result := storeInstance.AreResourcesHealthy(healthyResources)
+		assert.True(t, result, "only running resources should return true")
+
+		// Test mixed states including unhealthy ones
+		mixedResources := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "health-states-running-pod"),
+			createUnstructuredResource("", "v1", "Pod", "default", "health-states-pending-pod"),
+		}
+		result = storeInstance.AreResourcesHealthy(mixedResources)
+		assert.False(t, result, "running and pending resources should return false")
+
+		mixedResources2 := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "health-states-running-pod"),
+			createUnstructuredResource("", "v1", "Pod", "default", "health-states-failed-pod"),
+		}
+		result = storeInstance.AreResourcesHealthy(mixedResources2)
+		assert.False(t, result, "running and failed resources should return false")
+
+		mixedResources3 := []unstructured.Unstructured{
+			createUnstructuredResource("", "v1", "Pod", "default", "health-states-running-pod"),
+			createUnstructuredResource("", "v1", "Pod", "default", "health-states-paused-pod"),
+		}
+		result = storeInstance.AreResourcesHealthy(mixedResources3)
+		assert.False(t, result, "running and paused resources should return false")
+	})
+}
