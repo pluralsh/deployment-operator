@@ -200,7 +200,7 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 		return nil, valuesFiles, fmt.Errorf("no service found")
 	}
 
-	if svc.Helm == nil || (svc.Helm.LuaScript == nil && svc.Helm.LuaFile == nil) {
+	if svc.Helm == nil || (svc.Helm.LuaScript == nil && svc.Helm.LuaFile == nil && svc.Helm.LuaFolder == nil) {
 		return newValues, valuesFiles, nil
 	}
 
@@ -228,8 +228,6 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 			return nil, valuesFiles, fmt.Errorf("failed to read lua file %s: %w", *svc.Helm.LuaFile, err)
 		}
 		luaString = string(luaContents)
-	default:
-		return nil, valuesFiles, fmt.Errorf("no lua script or file provided")
 	}
 
 	if svc.Helm.LuaFolder != nil && len(*svc.Helm.LuaFolder) > 0 {
@@ -237,7 +235,11 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 		if err != nil {
 			return nil, valuesFiles, err
 		}
-		luaString = luaFolder + "\n\n" + luaString
+		luaString = luaFolder + luaString
+	}
+
+	if luaString == "" {
+		return nil, valuesFiles, fmt.Errorf("no lua script, file, or folder provided")
 	}
 
 	// Execute the Lua script
@@ -323,7 +325,7 @@ func (h *helm) luaFolder(svc *console.ServiceDeploymentForAgent, folder string) 
 
 	luaFileContents := make([]string, 0)
 	for _, file := range luaFiles {
-		luaContents, err := os.ReadFile(file)
+		luaContents, err := os.ReadFile(filepath.Join(h.dir, file))
 		if err != nil {
 			return "", fmt.Errorf("failed to read lua file %s: %w", file, err)
 		}

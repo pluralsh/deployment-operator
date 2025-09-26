@@ -1452,13 +1452,13 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		obj := newUnstructured("test", "test", "test", "test", "v1", "Test")
 		require.NoError(t, storeInstance.SaveComponent(obj))
 
-		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
+		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
 		require.NoError(t, err)
 
 		entry, err := storeInstance.GetComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
-		assert.NotEmpty(t, entry.ApplySHA)
+		assert.NotEmpty(t, entry.ServerSHA)
 
 		time.Sleep(time.Second)
 
@@ -1468,14 +1468,14 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		entry, err = storeInstance.GetComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
-		assert.NotEmpty(t, entry.ApplySHA)
+		assert.NotEmpty(t, entry.ServerSHA)
 
-		err = storeInstance.UpdateComponentSHA(obj, store.ApplySHA)
+		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
 		require.NoError(t, err)
 		entry, err = storeInstance.GetComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
-		assert.NotEmpty(t, entry.ApplySHA)
+		assert.NotEmpty(t, entry.ServerSHA)
 
 		time.Sleep(1500 * time.Millisecond)
 
@@ -1484,7 +1484,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		entry, err = storeInstance.GetComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
-		assert.NotEmpty(t, entry.ApplySHA)
+		assert.NotEmpty(t, entry.ServerSHA)
 	})
 }
 
