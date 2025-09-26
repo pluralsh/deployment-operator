@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -466,7 +467,7 @@ func (in *WaveProcessor) isManaged(entry *smcommon.Entry, resource unstructured.
 }
 
 func (in *WaveProcessor) withDryRun(ctx context.Context, component *console.ComponentAttributes, resource unstructured.Unstructured, delete bool) *console.ComponentAttributes {
-	desiredJSON := asJSON(&resource)
+	desiredJSON := utils.UnstructuredAsJSON(&resource)
 	if delete {
 		desiredJSON = "# n/a"
 	}
@@ -474,7 +475,7 @@ func (in *WaveProcessor) withDryRun(ctx context.Context, component *console.Comp
 	liveJSON := "# n/a"
 	liveResource := in.refetch(ctx, resource)
 	if liveResource != nil {
-		liveJSON = asJSON(liveResource)
+		liveJSON = utils.UnstructuredAsJSON(liveResource)
 	}
 
 	component.Synced = liveJSON == desiredJSON
