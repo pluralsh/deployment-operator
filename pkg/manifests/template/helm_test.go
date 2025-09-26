@@ -158,5 +158,28 @@ var _ = Describe("Helm template", Ordered, func() {
 			Expect(ns.GetFinalizers()).To(HaveExactElements("a", "b", "c"))
 
 		})
+
+		It("should successfully read lua folder", func() {
+			// check lua script when throw error
+			dir := filepath.Join("..", "..", "..", "test", "helm", "lua-merge-empty")
+
+			svc.Helm = &console.ServiceDeploymentForAgent_Helm{
+				IgnoreHooks: lo.ToPtr(false),
+			}
+
+			svc.Helm.LuaFolder = lo.ToPtr("lua")
+
+			resp, err := NewHelm(dir).Render(svc, mapper)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(resp)).To(Equal(3))
+			var ns unstructured.Unstructured
+			for _, i := range resp {
+				if i.GetName() == "result" {
+					ns = i
+				}
+			}
+			Expect(ns.GetFinalizers()).To(HaveExactElements("a", "b", "c"))
+
+		})
 	})
 })
