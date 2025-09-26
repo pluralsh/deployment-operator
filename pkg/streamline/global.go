@@ -65,3 +65,7 @@ func (in *GlobalStore) Expire(serviceID string) error {
 func (in *GlobalStore) DeleteComponent(key smcommon.StoreKey) error {
 	return in.store.DeleteComponent(key)
 }
+
+func (in *GlobalStore) AreResourcesHealthy(resources []unstructured.Unstructured) bool {
+	return in.store.AreResourcesHealthy(resources)
+}

@@ -3,16 +3,19 @@ package applier
 import (
 	"slices"
 
-	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 type Phase struct {
-	name    smcommon.SyncPhase
-	skipped []unstructured.Unstructured
-	waves   []Wave
+	name       smcommon.SyncPhase
+	skipped    []unstructured.Unstructured
+	waves      []Wave
+	deleteWave Wave
 }
 
 func (p *Phase) Name() smcommon.SyncPhase {
@@ -24,24 +27,33 @@ func (p *Phase) Skipped() []unstructured.Unstructured {
 }
 
 func (p *Phase) Waves() []Wave {
-	return p.waves
+	return append(p.waves, p.deleteWave)
 }
 
 func (p *Phase) AddWave(wave Wave) {
 	p.waves = append(p.waves, wave)
 }
 
-func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, skipFilter, deleteFilter FilterFunc) Phase {
+func (p *Phase) DeletedCount() int {
+	return p.waves[len(p.waves)-1].Len()
+}
+
+func (p *Phase) Successful() bool {
+	resources := p.skipped
+	for _, wave := range p.waves {
+		resources = append(resources, wave.items...)
+	}
+
+	return streamline.GetGlobalStore().AreResourcesHealthy(resources)
+}
+
+func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phase {
 	skipped := make([]unstructured.Unstructured, 0)
-	deleteWave := NewWave([]unstructured.Unstructured{}, DeleteWave)
+	toDelete, toApply := deleteFilter(resources)
+	deleteWave := NewWave(toDelete, DeleteWave)
 
 	wavesMap := make(map[int]Wave)
-	for _, resource := range resources {
-		if deleteFilter(resource) {
-			deleteWave.Add(resource)
-			continue
-		}
-
+	for _, resource := range toApply {
 		if skipFilter(resource) {
 			skipped = append(skipped, resource)
 			continue
@@ -62,18 +74,42 @@ func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, sk
 		return a.Key - b.Key
 	})
 
-	phase := Phase{
-		name:    name,
-		skipped: skipped,
-		waves:   algorithms.Map(waves, func(e lo.Entry[int, Wave]) Wave { return e.Value }),
+	return Phase{
+		name:       name,
+		skipped:    skipped,
+		deleteWave: deleteWave,
+		waves:      algorithms.Map(waves, func(e lo.Entry[int, Wave]) Wave { return e.Value }),
 	}
-
-	phase.AddWave(deleteWave)
-
-	return phase
 }
 
-func NewPhases(resources []unstructured.Unstructured, skipFilter, deleteFilter FilterFunc) map[smcommon.SyncPhase]Phase {
+type Phases map[smcommon.SyncPhase]Phase
+
+func (in Phases) Next(phase *smcommon.SyncPhase, failed bool) *Phase {
+	if phase == nil {
+		return lo.ToPtr(in[smcommon.SyncPhasePreSync])
+	}
+
+	if failed && *phase != smcommon.SyncPhaseSync {
+		return nil
+	}
+
+	if failed {
+		return lo.ToPtr(in[smcommon.SyncPhaseSyncFail])
+	}
+
+	switch *phase {
+	case smcommon.SyncPhasePreSync:
+		return lo.ToPtr(in[smcommon.SyncPhaseSync])
+	case smcommon.SyncPhaseSync:
+		return lo.ToPtr(in[smcommon.SyncPhasePostSync])
+	case smcommon.SyncPhasePostSync:
+		return nil
+	}
+
+	return nil
+}
+
+func NewPhases(resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phases {
 	phases := make(map[smcommon.SyncPhase][]unstructured.Unstructured)
 	for _, resource := range resources {
 		p := smcommon.GetSyncPhase(resource)

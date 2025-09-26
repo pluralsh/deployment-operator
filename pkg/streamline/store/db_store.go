@@ -122,6 +122,68 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
+func (in *DatabaseStore) AreResourcesHealthy(resources []unstructured.Unstructured) bool {
+	if len(resources) == 0 {
+		return true // Empty list is considered healthy
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "failed to get database connection")
+		return false
+	}
+	defer in.pool.Put(conn)
+
+	// Build dynamic query with placeholders for each resource
+	var sb strings.Builder
+	sb.WriteString(`
+		SELECT CASE 
+			WHEN COUNT(*) = 0 THEN 0
+			WHEN COUNT(*) = COUNT(CASE WHEN health = 0 THEN 1 END) THEN 1
+			ELSE 0
+		END as all_healthy,
+		COUNT(*) as resource_count
+		FROM component 
+		WHERE ("group", version, kind, namespace, name) IN (
+	`)
+
+	// Build VALUES clause with placeholders
+	valueStrings := make([]string, 0, len(resources))
+	args := make([]interface{}, 0, len(resources)*5)
+
+	for _, resource := range resources {
+		gvk := resource.GroupVersionKind()
+		valueStrings = append(valueStrings, "(?,?,?,?,?)")
+		args = append(args,
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			resource.GetNamespace(),
+			resource.GetName(),
+		)
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
+	sb.WriteString(")")
+
+	var allHealthy, resourceCount int
+	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
+		Args: args,
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			allHealthy = stmt.ColumnInt(0)
+			resourceCount = stmt.ColumnInt(1)
+			return nil
+		},
+	})
+
+	if err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "failed to check resource health")
+		return false
+	}
+
+	return resourceCount == len(resources) && allHealthy == 1
+}
+
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 	state := NewComponentState(common.ToStatus(&obj))

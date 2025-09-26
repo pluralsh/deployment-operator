@@ -3,8 +3,9 @@ package common
 import (
 	"strconv"
 
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 type SyncPhase string
@@ -46,6 +47,8 @@ const (
 	SyncPhasePreSync  SyncPhase = "pre-sync"
 	SyncPhaseSync     SyncPhase = "sync"
 	SyncPhasePostSync SyncPhase = "post-sync"
+	SyncPhaseSyncFail SyncPhase = "sync-fail"
+	SyncPhaseSkip     SyncPhase = "skip"
 )
 
 var (
@@ -177,6 +180,10 @@ func GetSyncPhase(u unstructured.Unstructured) SyncPhase {
 		return SyncPhasePreSync
 	case string(SyncPhasePostSync):
 		return SyncPhasePostSync
+	case string(SyncPhaseSyncFail):
+		return SyncPhaseSyncFail
+	case string(SyncPhaseSkip):
+		return SyncPhaseSkip
 	case string(SyncPhaseSync):
 		fallthrough
 	default:

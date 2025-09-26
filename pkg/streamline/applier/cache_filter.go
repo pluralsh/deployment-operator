@@ -1,9 +1,10 @@
 package applier
 
 import (
-	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -12,7 +13,7 @@ import (
 )
 
 const (
-	FilterCache Filter = "discoveryCache"
+	FilterCache Filter = "cache-filter"
 )
 
 // CacheFilter filters based on whether resources and/or manifests have changed since last applied.

@@ -6,13 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -375,6 +376,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
+	// TODO: optimize and use ONE db call and update component status from applied resource
 	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
 		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName(), "kind", resource.GetKind())
 	}

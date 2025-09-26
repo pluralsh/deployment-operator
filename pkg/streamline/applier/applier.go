@@ -50,49 +50,67 @@ func (in *Applier) Apply(ctx context.Context,
 	resources = in.ensureServiceAnnotation(resources, service.ID)
 
 	componentList := make([]client.ComponentAttributes, 0)
-	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
+	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
+	toSkip := make([]unstructured.Unstructured, 0)
+
+	deleteFilterFunc, err := in.getDeleteFilterFunc(service.ID)
+	if err != nil {
+		return componentList, serviceErrorList, err
+	}
 
 	phases := NewPhases(
 		resources,
 		func(resource unstructured.Unstructured) bool {
 			return in.skipResource(resource, lo.FromPtr(service.DryRun))
 		},
-		func(resource unstructured.Unstructured) bool {
-			return true // TODO: Fix deletion and handle dry run.
-		})
+		func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured) {
+			return deleteFilterFunc(resources)
+		},
+	)
 
-	for _, phase := range phases {
-		//toDelete, toApply, err := in.toDelete(service.ID, resources)
-		//if err != nil {
-		//	return nil, nil, err
-		//}
+	var failed bool
+	var syncPhase *smcommon.SyncPhase
+	var phase *Phase
+	for {
+		if phase = phases.Next(syncPhase, failed); phase == nil {
+			break
+		}
 
-		//phase.AddWave(NewWave(toDelete, DeleteWave))
-		//toApply, toSkip = ...
-
+		syncPhase = lo.ToPtr(phase.Name())
 		for _, wave := range phase.Waves() {
 			processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
 			components, serviceErrors := processor.Run(ctx)
 
 			componentList = append(componentList, components...)
-			serviceErrrorList = append(serviceErrrorList, serviceErrors...)
+			serviceErrorList = append(serviceErrorList, serviceErrors...)
 
 			time.Sleep(in.waveDelay)
 		}
-	}
 
-	klog.V(log.LogLevelDefault).InfoS(
-		"apply result",
-		"service", service.Name,
-		"id", service.ID,
-		"attempted", len(resources),
-		"applied", len(componentList)-len(toDelete),
-		"deleted", len(toDelete),
-		"skipped", len(toSkip),
-		"failed", len(serviceErrrorList),
-		"dryRun", lo.FromPtr(service.DryRun),
-		"duration", time.Since(now),
-	)
+		if len(serviceErrorList) > 0 {
+			failed = true
+		}
+
+		toSkip = append(toSkip, phase.Skipped()...)
+		klog.V(log.LogLevelDefault).InfoS(
+			"apply result",
+			"service", service.Name,
+			"id", service.ID,
+			"phase", phase.Name(),
+			"attempted", len(resources),
+			"applied", len(componentList)-phase.DeletedCount(),
+			"deleted", phase.DeletedCount(),
+			"skipped", len(phase.Skipped()),
+			"failed", len(serviceErrorList),
+			"dryRun", lo.FromPtr(service.DryRun),
+			"duration", time.Since(now),
+		)
+
+		// wait for successfully applied phase resources to be running/completed
+		if !phase.Successful() {
+			break
+		}
+	}
 
 	for _, resource := range toSkip {
 		var compAttr *client.ComponentAttributes
@@ -126,16 +144,17 @@ func (in *Applier) Apply(ctx context.Context,
 		componentList[idx].Children = lo.ToSlicePtr(children)
 	}
 
-	return componentList, serviceErrrorList, nil
+	return componentList, serviceErrorList, nil
 }
 
 func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.ComponentAttributes, error) {
 	deleted := 0
-	toDelete, _, err := in.toDelete(serviceID, []unstructured.Unstructured{})
+	deleteFilterFunc, err := in.getDeleteFilterFunc(serviceID)
 	if err != nil {
 		return nil, err
 	}
 
+	toDelete, _ := deleteFilterFunc([]unstructured.Unstructured{})
 	for _, resource := range toDelete {
 		live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
 		if errors.IsNotFound(err) {
@@ -210,56 +229,58 @@ var (
 	}
 )
 
-func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured, err error) {
+func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured), error) {
 	existing, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	deleteKeys := containers.NewSet[smcommon.Key]()
-	resourceKeyToResource := make(map[smcommon.Key]unstructured.Unstructured)
-	for _, obj := range resources {
-		key := smcommon.NewStoreKeyFromUnstructured(obj).VersionlessKey()
-		resourceKeyToResource[key] = obj
-	}
-
-	for _, entry := range existing {
-		entryKey := smcommon.NewStoreKeyFromEntry(entry)
-		toCheck := []smcommon.Key{entryKey.VersionlessKey()}
-		if mirrorGroup, ok := mirrorGroups[entry.Group]; ok {
-			toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
+	return func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured) {
+		deleteKeys := containers.NewSet[smcommon.Key]()
+		resourceKeyToResource := make(map[smcommon.Key]unstructured.Unstructured)
+		for _, obj := range resources {
+			key := smcommon.NewStoreKeyFromUnstructured(obj).VersionlessKey()
+			resourceKeyToResource[key] = obj
 		}
 
-		shouldKeep := lo.SomeBy(toCheck, func(key smcommon.Key) bool {
-			_, ok := resourceKeyToResource[key]
-			return ok
-		})
+		for _, entry := range existing {
+			entryKey := smcommon.NewStoreKeyFromEntry(entry)
+			toCheck := []smcommon.Key{entryKey.VersionlessKey()}
+			if mirrorGroup, ok := mirrorGroups[entry.Group]; ok {
+				toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
+			}
 
-		if !shouldKeep {
-			obj := unstructured.Unstructured{}
-			obj.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   entry.Group,
-				Version: entry.Version,
-				Kind:    entry.Kind,
+			shouldKeep := lo.SomeBy(toCheck, func(key smcommon.Key) bool {
+				_, ok := resourceKeyToResource[key]
+				return ok
 			})
-			obj.SetNamespace(entry.Namespace)
-			obj.SetName(entry.Name)
-			obj.SetUID(types.UID(entry.UID))
 
-			toDelete = append(toDelete, obj)
-			deleteKeys.Add(entryKey.VersionlessKey())
+			if !shouldKeep {
+				obj := unstructured.Unstructured{}
+				obj.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   entry.Group,
+					Version: entry.Version,
+					Kind:    entry.Kind,
+				})
+				obj.SetNamespace(entry.Namespace)
+				obj.SetName(entry.Name)
+				obj.SetUID(types.UID(entry.UID))
+
+				toDelete = append(toDelete, obj)
+				deleteKeys.Add(entryKey.VersionlessKey())
+			}
 		}
-	}
 
-	for key, resource := range resourceKeyToResource {
-		if deleteKeys.Has(key) {
-			continue
+		for key, resource := range resourceKeyToResource {
+			if deleteKeys.Has(key) {
+				continue
+			}
+
+			toApply = append(toApply, resource)
 		}
 
-		toApply = append(toApply, resource)
-	}
-
-	return
+		return
+	}, nil
 }
 
 func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAttributes, error) {
