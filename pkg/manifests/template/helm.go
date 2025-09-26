@@ -238,6 +238,10 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 		luaString = luaFolder + luaString
 	}
 
+	if luaString == "" {
+		return nil, valuesFiles, fmt.Errorf("no lua script found")
+	}
+
 	// Execute the Lua script
 	err := L.DoString(luaString)
 	if err != nil {
