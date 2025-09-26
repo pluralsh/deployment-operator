@@ -1,6 +1,8 @@
 package common
 
 import (
+	"strconv"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -54,6 +56,31 @@ func GetTrackingIdentifier(obj unstructured.Unstructured) string {
 	return ""
 }
 
-func ValidateTrackingIdentifier(resource unstructured.Unstructured) bool {
-	return NewKeyFromUnstructured(resource).Equals(GetTrackingIdentifier(resource))
+// ValidateTrackingIdentifier checks if the key created from the resource metadata
+// is equal to the key in the tracking identifier annotation.
+// If that is not the case, then it is likely that the annotation was copied
+// from another resource, and we should not trust it and the owning inventory annotation.
+func ValidateTrackingIdentifier(u unstructured.Unstructured) bool {
+	return NewKeyFromUnstructured(u).Equals(GetTrackingIdentifier(u))
+}
+
+// GetSyncWave retrieves the sync wave from the resource annotations.
+// If the annotation is not present or invalid, it returns nil.
+func GetSyncWave(obj unstructured.Unstructured) *int {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+
+	wave, ok := annotations[SyncWaveAnnotation]
+	if !ok {
+		return nil
+	}
+
+	waveInt, err := strconv.Atoi(wave)
+	if err != nil {
+		return nil
+	}
+
+	return &waveInt
 }
