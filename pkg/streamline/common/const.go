@@ -7,6 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+type SyncPhase string
+
 const (
 	// LifecycleDeleteAnnotation is the lifecycle annotation key for a deletion operation.
 	// Keep it the same as cli-utils for backwards compatibility.
@@ -33,6 +35,15 @@ const (
 
 	// SyncWaveAnnotation allows users to customize resource apply ordering when needed.
 	SyncWaveAnnotation = "deployment.plural.sh/sync-wave"
+
+	// SyncPhaseAnnotation allows users to customize resource apply phases when needed.
+	SyncPhaseAnnotation = "deployment.plural.sh/sync-hook"
+
+	SyncPhasePreSync SyncPhase = "pre-sync"
+
+	SyncPhaseSync SyncPhase = "sync"
+
+	SyncPhasePostSync SyncPhase = "post-sync"
 )
 
 var (
@@ -144,4 +155,29 @@ func defaultWave(u unstructured.Unstructured) int {
 	}
 
 	return i
+}
+
+// GetSyncPhase retrieves the sync phase from the resource annotations.
+// If the annotation is not present or invalid, it returns the default sync phase.
+func GetSyncPhase(u unstructured.Unstructured) SyncPhase {
+	annotations := u.GetAnnotations()
+	if annotations == nil {
+		return SyncPhaseSync
+	}
+
+	phase, ok := annotations[SyncPhaseAnnotation]
+	if !ok {
+		return SyncPhaseSync
+	}
+
+	switch phase {
+	case string(SyncPhasePreSync):
+		return SyncPhasePreSync
+	case string(SyncPhasePostSync):
+		return SyncPhasePostSync
+	case string(SyncPhaseSync):
+		fallthrough
+	default:
+		return SyncPhaseSync
+	}
 }
