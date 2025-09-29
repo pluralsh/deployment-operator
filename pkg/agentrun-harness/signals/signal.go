@@ -29,7 +29,7 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 	go wait.Until(func() {
 		agentRun, err := in.client.GetAgentRun(ctx, in.id)
 		if err != nil {
-			klog.ErrorS(err, "could not resync stack run", "id", in.id)
+			klog.ErrorS(err, "could not resync agent run", "id", in.id)
 			return
 		}
 

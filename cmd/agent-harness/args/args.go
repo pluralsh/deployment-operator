@@ -6,10 +6,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 const (

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -160,6 +161,7 @@ func NewExecutable(command string, options ...Option) Executable {
 		args:          make([]string, 0),
 		env:           make([]string, 0),
 		hookFunctions: make(map[v1.Lifecycle]v1.HookFunction),
+		timeout:       60 * time.Minute,
 	}
 
 	for _, o := range options {

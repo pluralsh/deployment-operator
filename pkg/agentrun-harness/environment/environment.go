@@ -52,7 +52,7 @@ func (in *environment) cloneRepository() error {
 		return fmt.Errorf("repository URL is required")
 	}
 
-	repoDir := filepath.Join(in.dir, "repository")
+	repoDir := "repository"
 
 	// Build git clone command with credentials
 	args := []string{"clone"}
@@ -76,7 +76,7 @@ func (in *environment) cloneRepository() error {
 		exec.WithArgs(args),
 		exec.WithDir(in.dir),
 	).Run(context.Background()); err != nil {
-		return fmt.Errorf("failed to clone repository: %w", err)
+		return err
 	}
 
 	klog.V(log.LogLevelInfo).InfoS("repository cloned", "url", in.agentRun.Repository, "dir", repoDir)
