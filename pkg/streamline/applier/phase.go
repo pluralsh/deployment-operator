@@ -35,7 +35,7 @@ func (p *Phase) AddWave(wave Wave) {
 }
 
 func (p *Phase) DeletedCount() int {
-	return p.waves[len(p.waves)-1].Len()
+	return p.deleteWave.Len()
 }
 
 func (p *Phase) Successful() bool {
