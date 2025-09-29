@@ -8,6 +8,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const AgentRuntimeNameLabel = "deployments.plural.sh/agent-runtime-name"
+
 // AgentRuntimeSpec defines the desired state of AgentRuntime
 type AgentRuntimeSpec struct {
 	// Name of this AgentRuntime.

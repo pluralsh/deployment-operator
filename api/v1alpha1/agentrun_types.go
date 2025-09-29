@@ -7,6 +7,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const AgentRunIDLabel = "deployments.plural.sh/agent-run-id"
+
 // AgentRunSpec defines the desired state of AgentRun
 type AgentRunSpec struct {
 	// +kubebuilder:validation:Required
@@ -162,4 +164,34 @@ func (ar *AgentRun) StatusAttributes() console.AgentRunStatusAttributes {
 		Error:        ar.Status.Error,
 		PodReference: podReference,
 	}
+}
+
+func (in *AgentRun) Diff(hasher Hasher) (changed bool, sha string, err error) {
+	currentSha, err := hasher(in.Spec)
+	if err != nil {
+		return false, "", err
+	}
+
+	return !in.Status.IsSHAEqual(currentSha), currentSha, nil
+}
+
+func (in *AgentRun) EnsureLabels(agentRuntimeName, agentRunID string) {
+	if in.Labels == nil {
+		in.Labels = make(map[string]string)
+	}
+
+	in.Labels[AgentRuntimeNameLabel] = agentRuntimeName
+	in.Labels[AgentRunIDLabel] = agentRunID
+}
+
+func (in *AgentRun) GetAgentRunID() string {
+	if in.Status.HasID() {
+		return in.Status.GetID()
+	}
+
+	if in.Labels == nil {
+		return ""
+	}
+
+	return in.Labels[AgentRunIDLabel]
 }

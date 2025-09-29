@@ -202,8 +202,15 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 
 func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime, run *console.AgentRunFragment) error {
 	logger := log.FromContext(ctx)
+	runList := &v1alpha1.AgentRunList{}
+	if err := r.List(ctx, runList, client.InNamespace(agentRuntime.Spec.TargetNamespace),
+		client.MatchingLabels{
+			v1alpha1.AgentRuntimeNameLabel: agentRuntime.Name,
+			v1alpha1.AgentRunIDLabel:       run.ID}); err != nil {
+		return err
+	}
 
-	if err := r.Get(ctx, client.ObjectKey{Name: run.ID, Namespace: agentRuntime.Spec.TargetNamespace}, &v1alpha1.AgentRun{}); err == nil {
+	if len(runList.Items) > 0 {
 		logger.V(4).Info("agent run already exists",
 			"name", run.ID, "namespace", agentRuntime.Spec.TargetNamespace)
 		return nil
@@ -213,7 +220,10 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      run.ID,
 			Namespace: agentRuntime.Spec.TargetNamespace,
-			Labels:    map[string]string{"deployments.plural.sh/agent-runtime": agentRuntime.Name},
+			Labels: map[string]string{
+				v1alpha1.AgentRuntimeNameLabel: agentRuntime.Name,
+				v1alpha1.AgentRunIDLabel:       run.ID,
+			},
 		},
 		Spec: v1alpha1.AgentRunSpec{
 			RuntimeRef: v1alpha1.AgentRuntimeReference{Name: agentRuntime.Name},

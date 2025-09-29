@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -56,6 +57,8 @@ func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
+	logger := log.FromContext(ctx)
+
 	run := &v1alpha1.AgentRun{}
 	if err := r.Get(ctx, req.NamespacedName, run); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -81,19 +84,56 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return *result, nil
 	}
 
-	runtime, err := r.getRuntime(ctx, run)
+	agentRuntime, err := r.getRuntime(ctx, run)
 	if err != nil {
-		utils.MarkCondition(runtime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
-	// TODO: Sync/upsert with Console API here? To handle manual run creation.
-
-	if err = r.reconcilePod(ctx, run, runtime); err != nil {
+	changed, sha, err := run.Diff(utils.HashObject)
+	if err != nil {
+		logger.Error(err, "unable to calculate agent run SHA")
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	return jitterRequeue(requeueAfterAgentRun, jitter), nil
+	apiAgentRun, err := r.sync(ctx, changed, run, agentRuntime)
+	if err != nil {
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		return ctrl.Result{}, err
+	}
+	run.Status.ID = &apiAgentRun.ID
+	run.Status.SHA = &sha
+	run.EnsureLabels(agentRuntime.GetName(), run.GetAgentRunID())
+
+	if err = r.reconcilePod(ctx, run, agentRuntime); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
+
+	return ctrl.Result{}, nil
+}
+
+func (r *AgentRunReconciler) sync(ctx context.Context, changed bool, run *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) (*console.AgentRunFragment, error) {
+	if run.GetAgentRunID() == "" {
+		apiAgentRun, err := r.ConsoleClient.CreateAgentRun(ctx, agentRuntime.Status.GetID(), run.Attributes())
+		if err != nil {
+			return nil, err
+		}
+		return apiAgentRun, nil
+	}
+
+	if changed {
+		apiAgentRun, err := r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes())
+		if err != nil {
+			return nil, err
+		}
+		return apiAgentRun, nil
+	}
+
+	return r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID())
 }
 
 func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, run *v1alpha1.AgentRun) *ctrl.Result {
