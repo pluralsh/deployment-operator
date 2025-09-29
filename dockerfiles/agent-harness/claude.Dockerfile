@@ -1,18 +1,19 @@
-ARG CLAUDE_NODE_IMAGE_TAG=latest
-ARG CLAUDE_NODE_IMAGE=cgr.dev/chainguard/node:$CLAUDE_NODE_IMAGE_TAG
+ARG NODE_IMAGE_TAG=latest
+ARG NODE_IMAGE=cgr.dev/chainguard/node:$NODE_IMAGE_TAG
+ARG AGENT_VERSION=latest
 
 ARG AGENT_HARNESS_BASE_IMAGE_TAG=latest
 ARG AGENT_HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/agent-harness-base
 ARG AGENT_HARNESS_BASE_IMAGE=$AGENT_HARNESS_BASE_IMAGE_REPO:$AGENT_HARNESS_BASE_IMAGE_TAG
 
 # Stage 1: Install Claude CLI from npm in Chainguard Node image
-FROM $CLAUDE_NODE_IMAGE AS claude
+FROM $NODE_IMAGE AS node
 
 # Switch to root temporarily to install global packages
 USER root
 
 # Install claude CLI globally using npm
-RUN npm install -g @anthropic-ai/claude-code
+RUN npm install -g @anthropic-ai/claude-code@AGENT_VERSION
 
 # Verify installation
 RUN claude --version
@@ -21,11 +22,11 @@ RUN claude --version
 FROM $AGENT_HARNESS_BASE_IMAGE AS final
 
 # Copy the claude CLI from the Node.js image
-COPY --from=claude /usr/local/bin/claude /usr/local/bin/claude
-COPY --from=claude /usr/local/lib/node_modules/@anthropic-ai/claude-code /usr/local/lib/node_modules/@anthropic-ai/claude-code
+COPY --from=node /usr/local/bin/claude /usr/local/bin/claude
+COPY --from=node /usr/local/lib/node_modules/@anthropic-ai/claude-code /usr/local/lib/node_modules/@anthropic-ai/claude-code
 
 # Copy Node.js runtime (needed to run the CLI)
-COPY --from=claude /usr/bin/node /usr/bin/node
+COPY --from=node /usr/bin/node /usr/bin/node
 
 # Ensure proper ownership for nonroot user
 USER root
