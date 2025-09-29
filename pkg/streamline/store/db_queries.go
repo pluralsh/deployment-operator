@@ -14,12 +14,13 @@ const (
 			health INT,
 			node TEXT,
 			created_at TIMESTAMP,
+			updated_at TIMESTAMP,
 			service_id TEXT,
+			sync_phase TEXT,
 			manifest_sha TEXT,
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
-			server_sha TEXT,
-			updated_at TIMESTAMP
+			server_sha TEXT
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
@@ -59,13 +60,13 @@ const (
 	`
 
 	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health
+		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, phase
 		FROM component
 		WHERE service_id = ? AND (parent_uid IS NULL OR parent_uid = '')
 	`
 
 	getComponentsByGVK = `
-		SELECT uid, "group", version, kind, namespace, name, server_sha
+		SELECT uid, "group", version, kind, namespace, name, server_sha, phase
 		FROM component
 		WHERE "group" = ? AND version = ? AND kind = ?
 	`
@@ -117,6 +118,7 @@ const (
 		    node,
 		    created_at,
 		    service_id,
+		    sync_phase,
 		    server_sha
 		) VALUES (
 			?,
@@ -130,6 +132,7 @@ const (
 			?,
 		    ?,
 		    ?,
+		    ?,
 		    ?
 		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
@@ -138,6 +141,7 @@ const (
 			node = excluded.node,
 			created_at = excluded.created_at,
 			service_id = excluded.service_id,
+			sync_phase = excluded.sync_phase,
 			server_sha = excluded.server_sha
 	`
 

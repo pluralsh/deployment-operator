@@ -15,6 +15,7 @@ type Entry struct {
 	Namespace            string
 	Status               string
 	ServiceID            string
+	SyncPhase            string
 	ManifestSHA          string
 	TransientManifestSHA string
 	ApplySHA             string
