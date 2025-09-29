@@ -321,7 +321,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 			continue
 		}
 
-		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s')",
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s','%s')",
 			obj.GetUID(),
 			lo.FromPtr(ownerRef),
 			gvk.Group,

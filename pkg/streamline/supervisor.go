@@ -167,7 +167,7 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 	}
 
 	if in.synchronizers.Has(gvr) {
-		klog.V(log.LogLevelExtended).InfoS("skipping resource to watch as it is already being watched", "gvr", gvr.String())
+		klog.V(log.LogLevelDebug).InfoS("skipping resource to watch as it is already being watched", "gvr", gvr.String())
 		return
 	}
 

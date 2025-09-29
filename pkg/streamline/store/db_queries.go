@@ -60,13 +60,13 @@ const (
 	`
 
 	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, phase
+		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, sync_phase
 		FROM component
 		WHERE service_id = ? AND (parent_uid IS NULL OR parent_uid = '')
 	`
 
 	getComponentsByGVK = `
-		SELECT uid, "group", version, kind, namespace, name, server_sha, phase
+		SELECT uid, "group", version, kind, namespace, name, server_sha, sync_phase
 		FROM component
 		WHERE "group" = ? AND version = ? AND kind = ?
 	`

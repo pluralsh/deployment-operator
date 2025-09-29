@@ -3,11 +3,12 @@ package applier
 import (
 	"slices"
 
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 type Phase struct {
@@ -54,10 +55,18 @@ func (p *Phase) Successful() bool {
 	return streamline.GetGlobalStore().AreResourcesHealthy(resources)
 }
 
+func (p *Phase) ResourceCount() int {
+	return len(p.skipped) + p.deleteWave.Len() + lo.Reduce(p.waves, func(agg int, item Wave, index int) int {
+		return agg + item.Len()
+	}, 0)
+}
+
 func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phase {
 	skipped := make([]unstructured.Unstructured, 0)
 	toDelete, toApply := deleteFilter(resources)
-	deleteWave := NewWave(toDelete, DeleteWave)
+	deleteWave := NewWave(algorithms.Filter(toDelete, func(u unstructured.Unstructured) bool {
+		return smcommon.GetSyncPhase(u) == name
+	}), DeleteWave)
 
 	wavesMap := make(map[int]Wave)
 	for _, resource := range toApply {
@@ -90,29 +99,29 @@ func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, sk
 
 type Phases map[smcommon.SyncPhase]Phase
 
-func (in Phases) Next(phase *smcommon.SyncPhase, failed bool) *Phase {
+func (in Phases) Next(phase *smcommon.SyncPhase, failed bool) (*Phase, bool) {
 	if phase == nil {
-		return in.get(smcommon.SyncPhasePreSync)
+		return in.get(smcommon.SyncPhasePreSync), false
 	}
 
 	if failed && *phase != smcommon.SyncPhaseSync {
-		return nil
+		return nil, false
 	}
 
 	if failed {
-		return in.get(smcommon.SyncPhaseSyncFail)
+		return in.get(smcommon.SyncPhaseSyncFail), false
 	}
 
 	switch *phase {
 	case smcommon.SyncPhasePreSync:
-		return in.get(smcommon.SyncPhaseSync)
+		return in.get(smcommon.SyncPhaseSync), true
 	case smcommon.SyncPhaseSync:
-		return in.get(smcommon.SyncPhasePostSync)
+		return in.get(smcommon.SyncPhasePostSync), false
 	case smcommon.SyncPhasePostSync:
-		return nil
+		return nil, false
 	}
 
-	return nil
+	return nil, false
 }
 
 func (in Phases) get(phase smcommon.SyncPhase) *Phase {

@@ -160,7 +160,7 @@ func (in *WaveProcessor) Run(ctx context.Context) (components []console.Componen
 					continue
 				}
 
-				klog.V(log.LogLevelDebug).InfoS("received component", "component", component)
+				klog.V(log.LogLevelExtended).InfoS("received component", "component", component)
 				components = append(components, component)
 			case err, ok := <-errChan:
 				if !ok {

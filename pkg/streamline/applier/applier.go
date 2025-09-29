@@ -45,8 +45,6 @@ func (in *Applier) Apply(ctx context.Context,
 	resources []unstructured.Unstructured,
 	opts ...WaveProcessorOption,
 ) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
-	now := time.Now()
-
 	resources = in.ensureServiceAnnotation(resources, service.ID)
 
 	componentList := make([]client.ComponentAttributes, 0)
@@ -71,17 +69,36 @@ func (in *Applier) Apply(ctx context.Context,
 	var failed bool
 	var syncPhase *smcommon.SyncPhase
 	var phase *Phase
+	var hasOnFailPhase bool
 	for {
-		if phase = phases.Next(syncPhase, failed); phase == nil {
+		if phase, hasOnFailPhase = phases.Next(syncPhase, failed); phase == nil {
 			break
 		}
 
+		now := time.Now()
 		syncPhase = lo.ToPtr(phase.Name())
+		toSkip = append(toSkip, phase.Skipped()...)
 
 		if !phase.HasWaves() {
+			klog.V(log.LogLevelDefault).InfoS(
+				"apply result",
+				"service", service.Name,
+				"id", service.ID,
+				"phase", phase.Name(),
+				"attempted", phase.ResourceCount(),
+				"applied", 0,
+				"deleted", 0,
+				"skipped", len(phase.Skipped()),
+				"failed", 0,
+				"dryRun", lo.FromPtr(service.DryRun),
+				"duration", time.Since(now),
+			)
+
 			continue
 		}
 
+		componentsCount := 0
+		serviceErrorsCount := 0
 		for _, wave := range phase.Waves() {
 			processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
 			components, serviceErrors := processor.Run(ctx)
@@ -89,30 +106,28 @@ func (in *Applier) Apply(ctx context.Context,
 			componentList = append(componentList, components...)
 			serviceErrorList = append(serviceErrorList, serviceErrors...)
 
+			componentsCount = len(components)
+			serviceErrorsCount = len(serviceErrors)
+
 			time.Sleep(in.waveDelay)
 		}
 
-		if len(serviceErrorList) > 0 {
-			failed = true
-		}
-
-		toSkip = append(toSkip, phase.Skipped()...)
 		klog.V(log.LogLevelDefault).InfoS(
 			"apply result",
 			"service", service.Name,
 			"id", service.ID,
 			"phase", phase.Name(),
-			"attempted", len(resources),
-			"applied", len(componentList)-phase.DeletedCount(),
+			"attempted", phase.ResourceCount(),
+			"applied", componentsCount-phase.DeletedCount(),
 			"deleted", phase.DeletedCount(),
 			"skipped", len(phase.Skipped()),
-			"failed", len(serviceErrorList),
+			"failed", serviceErrorsCount,
 			"dryRun", lo.FromPtr(service.DryRun),
 			"duration", time.Since(now),
 		)
 
-		// wait for successfully applied phase resources to be running/completed
-		if !phase.Successful() {
+		failed = len(serviceErrorList) > 0 || !phase.Successful()
+		if failed && !hasOnFailPhase {
 			break
 		}
 	}
@@ -270,6 +285,9 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				obj.SetNamespace(entry.Namespace)
 				obj.SetName(entry.Name)
 				obj.SetUID(types.UID(entry.UID))
+				obj.SetAnnotations(map[string]string{
+					smcommon.SyncPhaseAnnotation: entry.SyncPhase,
+				})
 
 				toDelete = append(toDelete, obj)
 				deleteKeys.Add(entryKey.VersionlessKey())
