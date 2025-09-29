@@ -13,7 +13,7 @@ FROM $NODE_IMAGE AS node
 USER root
 
 # Install OpenCode CLI globally using npm
-RUN npm install -g opencode-ai@AGENT_VERSION
+RUN npm install -g opencode-ai@$AGENT_VERSION
 
 # Verify installation
 RUN opencode --version

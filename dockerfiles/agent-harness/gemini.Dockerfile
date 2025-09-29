@@ -13,7 +13,7 @@ FROM $NODE_IMAGE AS node
 USER root
 
 # Install Gemini CLI globally using npm
-RUN npm install -g @google/gemini-cli@AGENT_VERSION
+RUN npm install -g @google/gemini-cli@$AGENT_VERSION
 
 # Verify installation
 RUN gemini --version

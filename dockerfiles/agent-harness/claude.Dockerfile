@@ -13,7 +13,7 @@ FROM $NODE_IMAGE AS node
 USER root
 
 # Install claude CLI globally using npm
-RUN npm install -g @anthropic-ai/claude-code@AGENT_VERSION
+RUN npm install -g @anthropic-ai/claude-code@$AGENT_VERSION
 
 # Verify installation
 RUN claude --version
