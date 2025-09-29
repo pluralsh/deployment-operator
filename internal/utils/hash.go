@@ -2,7 +2,7 @@ package utils
 
 import (
 	"crypto/sha256"
-	"encoding/base32"
+	"encoding/base64"
 	"encoding/json"
 )
 
@@ -12,10 +12,5 @@ func HashObject(any interface{}) (string, error) {
 		return "", err
 	}
 	sha := sha256.Sum256(out)
-	return base32.StdEncoding.EncodeToString(sha[:]), nil
-}
-
-func HashString(s string) string {
-	sha := sha256.Sum256([]byte(s))
-	return base32.StdEncoding.EncodeToString(sha[:])
+	return base64.RawURLEncoding.EncodeToString(sha[:]), nil
 }
