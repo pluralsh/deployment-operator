@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -67,8 +66,8 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}()
 
-	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
-	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
 	result := r.addOrRemoveFinalizer(ctx, agentRuntime)
 	if result != nil {
@@ -78,7 +77,7 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	changed, sha, err := agentRuntime.Diff(utils.HashObject)
 	if err != nil {
 		logger.Error(err, "unable to calculate agent runtime SHA")
-		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -93,9 +92,9 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	agentRuntime.Status.SHA = &sha
 
 	// Mark as synchronized after the agent runtime is synchronized with the Console API.
-	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 
-	var errors []error
+	var allErrors []error
 	pager := r.ListAgentRuntimePendingRuns(ctx, agentRuntime.Status.GetID())
 	for pager.HasNext() {
 		runs, err := pager.NextPage()
@@ -106,18 +105,18 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		for _, run := range runs {
 			if err := r.createAgentRun(ctx, agentRuntime, run.Node); err != nil {
 				logger.Error(err, "failed to create agent run", "id", run.Node.ID)
-				errors = append(errors, err)
+				allErrors = append(allErrors, err)
 			}
 		}
 	}
 
-	if len(errors) > 0 {
-		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionFalse, v1alpha1.ReadyConditionReasonError, utilerrors.NewAggregate(errors).Error())
+	if len(allErrors) > 0 {
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReasonError, utilerrors.NewAggregate(allErrors).Error())
 		return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
 	}
 
 	// Mark as ready after the agent run custom resources are created.
-	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, v1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 
 	return jitterRequeue(requeueAfterAgentRuntime, jitter), nil
 }
@@ -164,13 +163,13 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 		// Remove agent runs.
 		agentRuns := &v1alpha1.AgentRunList{}
 		if err := r.List(ctx, agentRuns, client.MatchingLabels{v1alpha1.AgentRuntimeNameLabel: agentRuntime.Name}); err != nil {
-			utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+			utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 		}
 
 		for _, agentRun := range agentRuns.Items {
 			if err := r.Delete(ctx, &agentRun); err != nil {
-				utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+				utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 				return lo.ToPtr(jitterRequeue(requeueWaitForResources, jitter))
 			}
 		}
@@ -184,7 +183,7 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 		if exists {
 			if err = r.ConsoleClient.DeleteAgentRuntime(ctx, agentRuntime.Status.GetID()); err != nil {
 				// If it fails to delete the external dependency here, return with the error so that it can be retried.
-				utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, v1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+				utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 			}
 		}
@@ -256,7 +255,7 @@ func (r *AgentRuntimeReconciler) ensureTargetNamespace(ctx context.Context, name
 			return err
 		}
 
-		return r.Create(ctx, &corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: namespace}})
+		return r.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
 	}
 
 	return nil

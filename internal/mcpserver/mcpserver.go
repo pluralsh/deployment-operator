@@ -64,9 +64,9 @@ func LoadPluralCredentials() (*PluralCredentials, error) {
 	if !strings.HasSuffix(consoleURL, "/gql") && !strings.HasSuffix(consoleURL, "/ext/gql") {
 		// Add the GraphQL endpoint if not present
 		if strings.HasSuffix(consoleURL, "/") {
-			consoleURL = consoleURL + "ext/gql"
+			consoleURL += "ext/gql"
 		} else {
-			consoleURL = consoleURL + "/ext/gql"
+			consoleURL += "/ext/gql"
 		}
 	}
 
@@ -227,7 +227,7 @@ func (m *MCPServer) callPluralGraphQL(ctx context.Context, mutation string, vari
 	}
 
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", m.creds.ConsoleURL, bytes.NewReader(payloadBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.creds.ConsoleURL, bytes.NewReader(payloadBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
@@ -263,7 +263,7 @@ func (m *MCPServer) callPluralGraphQL(ctx context.Context, mutation string, vari
 	}
 
 	// Check for HTTP errors
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
 	}
 

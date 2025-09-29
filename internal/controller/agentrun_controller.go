@@ -189,10 +189,6 @@ func (r *AgentRunReconciler) getRuntime(ctx context.Context, run *v1alpha1.Agent
 		return nil, fmt.Errorf("failed to get agent runtime: %w", err)
 	}
 
-	if runtime == nil {
-		return nil, fmt.Errorf("agent runtime %s not found", run.Spec.RuntimeRef.Name)
-	}
-
 	return
 }
 

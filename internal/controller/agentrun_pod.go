@@ -66,7 +66,7 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        run.Name,
 			Namespace:   run.Namespace,
-			Labels:      runtime.Spec.Template.Labels,
+			Labels:      ensureDefaultLabels(runtime.Spec.Template.Labels, run),
 			Annotations: ensureAnnotations(runtime.Spec.Template.Annotations),
 		},
 		Spec: runtime.Spec.Template.Spec,
@@ -76,9 +76,6 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
 	pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	pod.Spec.Volumes = ensureDefaultVolumes(pod.Spec.Volumes)
-
-	//jobSpec.BackoffLimit = lo.ToPtr(int32(0)) TODO
-	//jobSpec.TTLSecondsAfterFinished = lo.ToPtr(int32(60 * 60)) TODO
 
 	return pod
 }
@@ -91,7 +88,7 @@ func ensureDefaultLabels(labels map[string]string, run *v1alpha1.AgentRun) map[s
 	// Add standard labels for agent runs
 	labels["app.kubernetes.io/name"] = "agent-harness"
 	labels["app.kubernetes.io/component"] = "agent-run"
-	labels["deployments.plural.sh/agent-run-id"] = run.Status.GetID()
+	labels[v1alpha1.AgentRunIDLabel] = run.Status.GetID()
 
 	return labels
 }

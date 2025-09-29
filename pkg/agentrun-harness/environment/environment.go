@@ -30,8 +30,8 @@ func (in *environment) Setup() error {
 		return fmt.Errorf("failed to setup AI credentials: %w", err)
 	}
 
-	//TODO set up default MCP server
-	//TODO set up plural agent MCP server
+	// TODO set up default MCP server
+	// TODO set up plural agent MCP server
 
 	return nil
 }
