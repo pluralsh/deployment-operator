@@ -97,8 +97,6 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
-	run.EnsureLabels(agentRuntime.GetName(), run.GetAgentRunID())
-
 	changed, sha, err := run.Diff(utils.HashObject)
 	if err != nil {
 		logger.Error(err, "unable to calculate agent run SHA")
@@ -113,7 +111,6 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	run.Status.ID = &apiAgentRun.ID
 	run.Status.SHA = &sha
-	run.EnsureLabels(agentRuntime.GetName(), run.GetAgentRunID())
 
 	if err = r.reconcilePod(ctx, run, agentRuntime); err != nil {
 		return ctrl.Result{}, err
@@ -126,14 +123,6 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 }
 
 func (r *AgentRunReconciler) sync(ctx context.Context, changed bool, run *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) (*console.AgentRunFragment, error) {
-	if run.GetAgentRunID() == "" {
-		apiAgentRun, err := r.ConsoleClient.CreateAgentRun(ctx, agentRuntime.Status.GetID(), run.Attributes())
-		if err != nil {
-			return nil, err
-		}
-		return apiAgentRun, nil
-	}
-
 	if changed {
 		apiAgentRun, err := r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes())
 		if err != nil {
