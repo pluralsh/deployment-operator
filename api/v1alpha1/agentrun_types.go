@@ -77,6 +77,7 @@ const (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:scope=Namespaced
+//+kubebuilder:printcolumn:name="Id",type="string",JSONPath=".status.id",description="Console ID"
 
 // AgentRun is the Schema for the agentruns API
 type AgentRun struct {
@@ -180,8 +181,12 @@ func (in *AgentRun) EnsureLabels(agentRuntimeName, agentRunID string) {
 		in.Labels = make(map[string]string)
 	}
 
-	in.Labels[AgentRuntimeNameLabel] = agentRuntimeName
-	in.Labels[AgentRunIDLabel] = agentRunID
+	if agentRunID != "" {
+		in.Labels[AgentRunIDLabel] = agentRunID
+	}
+	if agentRuntimeName != "" {
+		in.Labels[AgentRuntimeNameLabel] = agentRuntimeName
+	}
 }
 
 func (in *AgentRun) GetAgentRunID() string {

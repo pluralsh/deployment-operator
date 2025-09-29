@@ -144,6 +144,7 @@ func (in *AgentRuntime) Attributes() console.AgentRuntimeAttributes {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:scope=Cluster
+//+kubebuilder:printcolumn:name="Id",type="string",JSONPath=".status.id",description="Console ID"
 
 // AgentRuntime is the Schema for the agentruntimes API
 type AgentRuntime struct {

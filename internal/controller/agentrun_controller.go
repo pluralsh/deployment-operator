@@ -89,6 +89,15 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
+	if agentRuntime.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+	if !agentRuntime.Status.HasID() {
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, "agent runtime is not ready")
+		return jitterRequeue(requeueWaitForResources, jitter), nil
+	}
+
+	run.EnsureLabels(agentRuntime.GetName(), run.GetAgentRunID())
 
 	changed, sha, err := run.Diff(utils.HashObject)
 	if err != nil {
@@ -144,7 +153,7 @@ func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, run *v1al
 	// If the agent run is being deleted, cleanup and remove the finalizer.
 	if !run.GetDeletionTimestamp().IsZero() {
 		// If the agent run does not have an ID, the finalizer can be removed.
-		if !run.Status.HasID() {
+		if run.GetAgentRunID() == "" {
 			controllerutil.RemoveFinalizer(run, AgentRunFinalizer)
 			return &ctrl.Result{}
 		}
