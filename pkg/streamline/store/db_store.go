@@ -280,8 +280,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 		  service_id,
 		  sync_phase,
 		  server_sha
-		) VALUES 
-	`)
+		) VALUES `)
 
 	valueStrings := make([]string, 0, len(objects))
 
@@ -337,6 +336,10 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 			smcommon.GetSyncPhase(obj),
 			serverSHA,
 		))
+	}
+
+	if len(valueStrings) == 0 {
+		return nil // Nothing to insert
 	}
 
 	sb.WriteString(strings.Join(valueStrings, ","))
