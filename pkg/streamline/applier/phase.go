@@ -3,12 +3,11 @@ package applier
 import (
 	"slices"
 
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
 type Phase struct {
@@ -27,7 +26,15 @@ func (p *Phase) Skipped() []unstructured.Unstructured {
 }
 
 func (p *Phase) Waves() []Wave {
-	return append(p.waves, p.deleteWave)
+	if p.deleteWave.Len() != 0 {
+		return append(p.waves, p.deleteWave)
+	}
+
+	return p.waves
+}
+
+func (p *Phase) HasWaves() bool {
+	return len(p.Waves()) > 0
 }
 
 func (p *Phase) AddWave(wave Wave) {
@@ -69,7 +76,6 @@ func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, sk
 	}
 
 	waves := lo.Entries(wavesMap)
-
 	slices.SortFunc(waves, func(a, b lo.Entry[int, Wave]) int {
 		return a.Key - b.Key
 	})
@@ -86,7 +92,7 @@ type Phases map[smcommon.SyncPhase]Phase
 
 func (in Phases) Next(phase *smcommon.SyncPhase, failed bool) *Phase {
 	if phase == nil {
-		return lo.ToPtr(in[smcommon.SyncPhasePreSync])
+		return in.get(smcommon.SyncPhasePreSync)
 	}
 
 	if failed && *phase != smcommon.SyncPhaseSync {
@@ -94,14 +100,14 @@ func (in Phases) Next(phase *smcommon.SyncPhase, failed bool) *Phase {
 	}
 
 	if failed {
-		return lo.ToPtr(in[smcommon.SyncPhaseSyncFail])
+		return in.get(smcommon.SyncPhaseSyncFail)
 	}
 
 	switch *phase {
 	case smcommon.SyncPhasePreSync:
-		return lo.ToPtr(in[smcommon.SyncPhaseSync])
+		return in.get(smcommon.SyncPhaseSync)
 	case smcommon.SyncPhaseSync:
-		return lo.ToPtr(in[smcommon.SyncPhasePostSync])
+		return in.get(smcommon.SyncPhasePostSync)
 	case smcommon.SyncPhasePostSync:
 		return nil
 	}
@@ -109,8 +115,23 @@ func (in Phases) Next(phase *smcommon.SyncPhase, failed bool) *Phase {
 	return nil
 }
 
+func (in Phases) get(phase smcommon.SyncPhase) *Phase {
+	p, ok := in[phase]
+	if !ok {
+		return nil
+	}
+
+	return &p
+}
+
 func NewPhases(resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phases {
-	phases := make(map[smcommon.SyncPhase][]unstructured.Unstructured)
+	phases := map[smcommon.SyncPhase][]unstructured.Unstructured{}
+
+	// Ensure all phases are initialized for the `Next` function to work properly.
+	for _, p := range smcommon.SyncPhases {
+		phases[p] = make([]unstructured.Unstructured, 0)
+	}
+
 	for _, resource := range resources {
 		p := smcommon.GetSyncPhase(resource)
 		if phase, ok := phases[p]; !ok {

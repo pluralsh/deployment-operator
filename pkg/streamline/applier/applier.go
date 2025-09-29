@@ -77,6 +77,11 @@ func (in *Applier) Apply(ctx context.Context,
 		}
 
 		syncPhase = lo.ToPtr(phase.Name())
+
+		if !phase.HasWaves() {
+			continue
+		}
+
 		for _, wave := range phase.Waves() {
 			processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
 			components, serviceErrors := processor.Run(ctx)
