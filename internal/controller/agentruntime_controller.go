@@ -200,17 +200,9 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 
 func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime, run *console.AgentRunFragment) error {
 	logger := log.FromContext(ctx)
-	runList := &v1alpha1.AgentRunList{}
-	if err := r.List(ctx, runList, client.InNamespace(agentRuntime.Spec.TargetNamespace),
-		client.MatchingLabels{
-			v1alpha1.AgentRuntimeNameLabel: agentRuntime.Name,
-			v1alpha1.AgentRunIDLabel:       run.ID}); err != nil {
-		return err
-	}
 
-	if len(runList.Items) > 0 {
-		logger.V(4).Info("agent run already exists",
-			"name", run.ID, "namespace", agentRuntime.Spec.TargetNamespace)
+	if r.Get(ctx, client.ObjectKey{Name: run.ID, Namespace: agentRuntime.Spec.TargetNamespace}, &v1alpha1.AgentRun{}) == nil {
+		logger.Info("agent run already exists", "id", run.ID)
 		return nil
 	}
 
