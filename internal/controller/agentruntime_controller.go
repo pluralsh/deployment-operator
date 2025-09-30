@@ -162,7 +162,7 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 
 		// Remove agent runs.
 		agentRuns := &v1alpha1.AgentRunList{}
-		if err := r.List(ctx, agentRuns, client.MatchingLabels{v1alpha1.AgentRuntimeNameLabel: agentRuntime.Name}); err != nil {
+		if err := r.List(ctx, agentRuns, client.InNamespace(agentRuntime.Spec.TargetNamespace), client.MatchingLabels{v1alpha1.AgentRuntimeNameLabel: agentRuntime.Name}); err != nil {
 			utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 		}

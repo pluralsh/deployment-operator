@@ -6,6 +6,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -124,7 +125,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 func (r *AgentRunReconciler) sync(ctx context.Context, changed bool, run *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) (*console.AgentRunFragment, error) {
 	if changed {
-		apiAgentRun, err := r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes())
+		apiAgentRun, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes())
 		if err != nil {
 			return nil, err
 		}
@@ -189,22 +190,44 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 	}
 
 	pod := &corev1.Pod{}
-	err = r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("failed to get pod: %w", err)
+	if err := r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod); err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get pod: %w", err)
+		}
+		pod = buildAgentRunPod(run, runtime)
+		if err = r.Create(ctx, pod); err != nil {
+			return fmt.Errorf("failed to create pod: %w", err)
+		}
+
+		if err = utils.TryAddControllerRef(ctx, r.Client, run, pod, r.Scheme); err != nil {
+			return fmt.Errorf("failed to add controller ref: %w", err)
+		}
+
+		if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {
+			return fmt.Errorf("failed to add owner ref: %w", err)
+		}
+
+		run.Status.PodRef = &corev1.ObjectReference{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+		}
+
+		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes()); err != nil {
+			return fmt.Errorf("failed to update agent run: %w", err)
+		}
+
+		return nil
 	}
 
-	pod = buildAgentRunPod(run, runtime)
-	if err = r.Create(ctx, pod); err != nil {
-		return fmt.Errorf("failed to create pod: %w", err)
-	}
-
-	if err = utils.TryAddControllerRef(ctx, r.Client, run, pod, r.Scheme); err != nil {
-		return fmt.Errorf("failed to add controller ref: %w", err)
-	}
-
-	if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {
-		return fmt.Errorf("failed to add owner ref: %w", err)
+	if pod.Status.Phase != corev1.PodFailed {
+		run.Status.Phase = v1alpha1.AgentRunPhaseFailed
+		msg := helpers.GetPodErrorMessage(pod.Status)
+		if msg != "" {
+			run.Status.Error = lo.ToPtr(msg)
+		}
+		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes()); err != nil {
+			return fmt.Errorf("failed to update agent run: %w", err)
+		}
 	}
 
 	return nil
