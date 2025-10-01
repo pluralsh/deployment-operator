@@ -429,7 +429,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		}
 
 		// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
-		if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), []*console.ServiceErrorAttributes{}); err != nil {
+		if err := s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), []*console.ServiceErrorAttributes{}, nil); err != nil {
 			logger.Error(err, "Failed to update service status, ignoring for now")
 		}
 
@@ -488,11 +488,14 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
 	)
 
+	var appliedResources []any
+
 	components, errs, err := s.applier.Apply(ctx,
 		*svc,
 		manifests,
 		applier.WithWaveDryRun(dryRun),
 		applier.WithWaveOnApply(func(obj unstructured.Unstructured) {
+			appliedResources = append(appliedResources, &obj)
 			if s.supervisor == nil {
 				return
 			}
@@ -517,7 +520,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyFinish),
 	)
 
-	if err = s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), lo.ToSlicePtr(errs)); err != nil {
+	// Extract images metadata from the applied resources
+
+	metadata := s.ExtractImagesMetadata(appliedResources)
+
+	if err = s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), lo.ToSlicePtr(errs), metadata); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	} else {
 		done = true

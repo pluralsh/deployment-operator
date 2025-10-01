@@ -4,7 +4,9 @@ import (
 	"context"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/images"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -25,7 +27,7 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	}
 }
 
-func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error {
+func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes, metadata *console.ServiceMetadataAttributes) error {
 	for _, component := range components {
 		if component.State != nil && *component.State == console.ComponentStateRunning {
 			// Skip checking child pods for the Job. The database cache contains only failed pods, and the Job may succeed after a retry.
@@ -41,9 +43,30 @@ func (s *ServiceReconciler) UpdateStatus(id, revisionID string, sha *string, com
 		}
 	}
 
-	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs)
+	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs, metadata)
 }
 
 func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAttributes) error {
 	return s.consoleClient.UpdateServiceErrors(id, lo.Ternary(err != nil, []*console.ServiceErrorAttributes{err}, []*console.ServiceErrorAttributes{}))
+}
+
+func (s *ServiceReconciler) ExtractImagesMetadata(appliedResources []any) *console.ServiceMetadataAttributes {
+	var allImages []string
+
+	for _, resource := range appliedResources {
+		if unstructuredObj, ok := resource.(*unstructured.Unstructured); ok {
+			if componentImages := images.ExtractImagesFromResource(unstructuredObj); componentImages != nil {
+				allImages = append(allImages, componentImages...)
+			}
+		}
+	}
+
+	if len(allImages) == 0 {
+		return nil
+	}
+
+	uniqueImages := lo.Uniq(allImages)
+	return &console.ServiceMetadataAttributes{
+		Images: lo.ToSlicePtr(uniqueImages),
+	}
 }
