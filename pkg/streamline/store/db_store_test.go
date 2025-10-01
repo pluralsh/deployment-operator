@@ -1956,7 +1956,7 @@ func TestComponentCache_GetResourceHealth(t *testing.T) {
 
 		failed, pending, err := storeInstance.GetResourceHealth(resources)
 		assert.NoError(t, err)
-		assert.False(t, failed, "should correctly detect failed resource")
-		assert.False(t, pending, "should correctly detect pending resource")
+		assert.True(t, failed, "should correctly detect failed resource")
+		assert.True(t, pending, "should correctly detect pending resource")
 	})
 }
