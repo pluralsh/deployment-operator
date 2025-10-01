@@ -230,16 +230,11 @@ func GetSyncPhase(u unstructured.Unstructured, isInstall bool) SyncPhase {
 	case string(SyncPhaseSync):
 		fallthrough
 	default:
-		return defaultPhase(u)
+		return defaultPhase(annotations)
 	}
 }
 
-func defaultPhase(u unstructured.Unstructured) SyncPhase {
-	annotations := u.GetAnnotations()
-	if annotations == nil {
-		return SyncPhaseSync
-	}
-
+func defaultPhase(annotations map[string]string) SyncPhase {
 	hook, ok := annotations[HelmHookAnnotation]
 	if !ok {
 		return SyncPhaseSync
