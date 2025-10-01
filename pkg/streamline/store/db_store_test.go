@@ -2072,14 +2072,14 @@ func TestComponentCache_HasSomeResources(t *testing.T) {
 		}(storeInstance)
 
 		// Create and save one core API resource (empty group)
-		existingResource := newUnstructured("uid-1", "some-test-pod", "default", "", "v1", "Pod")
+		existingResource := newUnstructured("missing-uid-1", "some-missing-service", "default", "", "v1", "Service")
 		err = storeInstance.SaveComponent(existingResource)
 		require.NoError(t, err, "failed to save core resource %s", existingResource.GetName())
 
 		// Test with mix of existing and non-existing core resources
 		coreResources := []unstructured.Unstructured{
 			existingResource,
-			newUnstructured("missing-uid-1", "some-missing-service", "default", "", "v1", "Service"),
+			newUnstructured("uid-1", "some-test-pod", "default", "", "v1", "Pod"),
 		}
 
 		hasSomeResources, err := storeInstance.HasSomeResources(coreResources)

@@ -38,6 +38,9 @@ const (
 	// This is used to make sure that the owning inventory was not copied from another resource.
 	TrackingIdentifierKey = "config.k8s.io/tracking-identifier"
 
+	// HelmHookWeightAnnotation is the annotation key used to store the helm hook weight
+	HelmHookWeightAnnotation = "helm.sh/hook-weight"
+
 	// HelmHookAnnotation is the annotation key used to store the helm hook type
 	// that should be applied during specific phases of the applying lifecycle.
 	HelmHookAnnotation = "helm.sh/hook"
@@ -178,17 +181,31 @@ func ValidateTrackingIdentifier(u unstructured.Unstructured) bool {
 func GetSyncWave(u unstructured.Unstructured) int {
 	annotations := u.GetAnnotations()
 	if annotations == nil {
-		return defaultWave(u)
+		return defaultWave(u.GetKind())
 	}
 
 	wave, ok := annotations[SyncWaveAnnotation]
 	if !ok {
-		return defaultWave(u)
+		return helmWave(annotations, u.GetKind())
 	}
 
 	i, err := strconv.Atoi(wave)
 	if err != nil {
-		return defaultWave(u)
+		return helmWave(annotations, u.GetKind())
+	}
+
+	return i
+}
+
+func helmWave(annotations map[string]string, kind string) int {
+	wave, ok := annotations[HelmHookWeightAnnotation]
+	if !ok {
+		return defaultWave(kind)
+	}
+
+	i, err := strconv.Atoi(wave)
+	if err != nil {
+		return defaultWave(kind)
 	}
 
 	return i
@@ -196,8 +213,8 @@ func GetSyncWave(u unstructured.Unstructured) int {
 
 // defaultWave returns default sync wave for a resource based on its kind.
 // If the sync wave was not defined for a kind, it returns the last default wave.
-func defaultWave(u unstructured.Unstructured) int {
-	i, ok := kindSyncPriorities[u.GetKind()]
+func defaultWave(kind string) int {
+	i, ok := kindSyncPriorities[kind]
 	if !ok {
 		return defaultSyncPriority
 	}

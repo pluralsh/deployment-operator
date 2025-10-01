@@ -3,11 +3,11 @@ package applier
 import (
 	"slices"
 
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
