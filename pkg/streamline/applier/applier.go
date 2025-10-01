@@ -128,15 +128,17 @@ func (in *Applier) Apply(ctx context.Context,
 
 		pending, f, err := phase.ResourceHealth()
 		if err != nil {
-			klog.ErrorS(err, "failed to get phase health")
+			klog.V(log.LogLevelDefault).ErrorS(err, "failed to get phase health", "phase", phase.Name())
 			break
 		}
 		if pending {
+			klog.V(log.LogLevelTrace).InfoS("resources are still pending, will recheck in next reconcile", "phase", phase.Name())
 			break
 		}
 
 		failed = len(serviceErrorList) > 0 || f
 		if failed && !hasOnFailPhase {
+			klog.V(log.LogLevelTrace).InfoS("failed to apply phase", "phase", phase.Name())
 			break
 		}
 	}
