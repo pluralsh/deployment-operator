@@ -38,17 +38,57 @@ const (
 	// This is used to make sure that the owning inventory was not copied from another resource.
 	TrackingIdentifierKey = "config.k8s.io/tracking-identifier"
 
+	// HelmHookAnnotation is the annotation key used to store the helm hook type
+	// that should be applied during specific phases of the applying lifecycle.
+	HelmHookAnnotation = "helm.sh/hook"
+
+	// HelmHookPreInstall resources are applied before the installation of resources.
+	HelmHookPreInstall = "pre-install"
+
+	// HelmHookPostInstall resources are applied after the installation of resources.
+	HelmHookPostInstall = "post-install"
+
+	// HelmHookPreUpgrade resources are applied before the upgrade of resources.
+	HelmHookPreUpgrade = "pre-upgrade"
+
+	// HelmHookPostUpgrade resources are applied after the upgrade of resources.
+	HelmHookPostUpgrade = "post-upgrade"
+
+	// HelmHookPreDelete resources are applied before the deletion of resources.
+	HelmHookPreDelete = "pre-delete"
+
+	// HelmHookPostDelete resources are applied after the deletion of resources.
+	HelmHookPostDelete = "post-delete"
+
 	// SyncWaveAnnotation allows users to customize resource apply ordering when needed.
 	SyncWaveAnnotation = "deployment.plural.sh/sync-wave"
 
 	// SyncPhaseAnnotation allows users to customize resource apply phases when needed.
 	SyncPhaseAnnotation = "deployment.plural.sh/sync-hook"
 
-	SyncPhasePreSync  SyncPhase = "pre-sync"
-	SyncPhaseSync     SyncPhase = "sync"
+	// SyncPhasePreSync is the earliest phase that a resource can be in.
+	SyncPhasePreSync SyncPhase = "pre-sync"
+
+	// SyncPhaseSync is the default phase that a resource is in. It is applied after the PreSync phase succeeds.
+	SyncPhaseSync SyncPhase = "sync"
+
+	// SyncPhasePostSync is the latest phase that a resource can be in. It is applied after the Sync phase succeeds.
 	SyncPhasePostSync SyncPhase = "post-sync"
+
+	// SyncPhaseSyncFail is the phase applied when the Sync phase fails.
 	SyncPhaseSyncFail SyncPhase = "sync-fail"
-	SyncPhaseSkip     SyncPhase = "skip"
+
+	// SyncPhaseSkip means the resource will be skipped during the sync process.
+	SyncPhaseSkip SyncPhase = "skip"
+
+	// SyncPhaseHookDeletePolicy allows users to customize resource deletion behavior.
+	SyncPhaseHookDeletePolicy = "deployment.plural.sh/sync-hook-delete-policy"
+
+	// SyncPhaseDeletePolicySucceeded means the resource should be deleted if the hook succeeds.
+	SyncPhaseDeletePolicySucceeded = "succeeded"
+
+	// SyncPhaseDeletePolicyFailed means the resource should be deleted if the hook fails.
+	SyncPhaseDeletePolicyFailed = "failed"
 
 	// defaultSyncPriority should be after the last priority from kindSyncPriorities.
 	defaultSyncPriority = 4
