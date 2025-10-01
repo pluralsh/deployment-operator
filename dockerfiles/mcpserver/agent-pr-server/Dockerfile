@@ -12,7 +12,7 @@ RUN go mod download
 COPY . .
 
 # Build the MCP server binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o mcpserver cmd/mcpserver/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o agent-pr-mcpserver cmd/mcpserver/agent-pr-server/main.go
 
 # Use a minimal base image
 FROM alpine:3.22.1
@@ -22,10 +22,10 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the binary from the builder stage
-COPY --from=builder /workspace/mcpserver .
+COPY --from=builder /workspace/agent-pr-mcpserver .
 
 # Expose stdio for MCP communication
 # The MCP server uses stdio transport, so no network ports needed
 
 # Run the MCP server
-CMD ["./mcpserver"]
+CMD ["./agent-pr-mcpserver"]
