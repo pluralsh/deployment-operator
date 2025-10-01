@@ -129,8 +129,7 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
-		klog.V(log.LogLevelDefault).ErrorS(err, "failed to get database connection")
-		return false, false, err
+		return false, false, fmt.Errorf("failed to get database connection: %w", err)
 	}
 	defer in.pool.Put(conn)
 
@@ -184,12 +183,61 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 	})
 
 	if err != nil {
-		klog.V(log.LogLevelDefault).ErrorS(err, "failed to check resource health")
-		return false, false, nil
+		return false, false, fmt.Errorf("failed to check resource health: %w", err)
 	}
 
 	pending = pending || resourceCount != len(resources)
 	return pending, failed, nil
+}
+
+func (in *DatabaseStore) HasSomeResources(resources []unstructured.Unstructured) (bool, error) {
+	if len(resources) == 0 {
+		return true, nil
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return false, fmt.Errorf("failed to get database connection: %w", err)
+	}
+	defer in.pool.Put(conn)
+
+	// Build dynamic query with placeholders for each resource
+	var sb strings.Builder
+	sb.WriteString(`SELECT COUNT(*) FROM component WHERE ("group", version, kind, namespace, name) IN (`)
+
+	// Build VALUES clause with placeholders
+	valueStrings := make([]string, 0, len(resources))
+	args := make([]interface{}, 0, len(resources)*5)
+
+	for _, resource := range resources {
+		gvk := resource.GroupVersionKind()
+		valueStrings = append(valueStrings, "(?,?,?,?,?)")
+		args = append(args,
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			resource.GetNamespace(),
+			resource.GetName(),
+		)
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
+	sb.WriteString(")")
+
+	var resourceCount int
+	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
+		Args: args,
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			resourceCount = stmt.ColumnInt(0)
+			return nil
+		},
+	})
+
+	if err != nil {
+		return false, fmt.Errorf("failed to check resource existence: %w", err)
+	}
+
+	return resourceCount > 0, nil
 }
 
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {

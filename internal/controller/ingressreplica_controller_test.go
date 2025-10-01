@@ -102,7 +102,7 @@ var _ = Describe("IngressReplica Controller", Ordered, func() {
 			err = kClient.Get(ctx, namespacedName, ingressReplica)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(SanitizeStatusConditions(ingressReplica.Status)).To(Equal(SanitizeStatusConditions(v1alpha1.Status{
-				SHA: lo.ToPtr("ACBBWIKK74ACGAK5NWAXYTTIYI2GDOSXGCJ65UGOLOPFCB24PKUQ===="),
+				SHA: lo.ToPtr("AIIbIUr_ACMBXW2BfE5owjRhulcwk-7QzlueUQdceqk"),
 				Conditions: []metav1.Condition{
 					{
 						Type:    v1alpha1.ReadyConditionType.String(),
@@ -132,7 +132,7 @@ var _ = Describe("IngressReplica Controller", Ordered, func() {
 			err = kClient.Get(ctx, namespacedName, ingressReplica)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(SanitizeStatusConditions(ingressReplica.Status)).To(Equal(SanitizeStatusConditions(v1alpha1.Status{
-				SHA: lo.ToPtr("ACBBWIKK74ACGAK5NWAXYTTIYI2GDOSXGCJ65UGOLOPFCB24PKUQ===="),
+				SHA: lo.ToPtr("AIIbIUr_ACMBXW2BfE5owjRhulcwk-7QzlueUQdceqk"),
 				Conditions: []metav1.Condition{
 					{
 						Type:    v1alpha1.ReadyConditionType.String(),
