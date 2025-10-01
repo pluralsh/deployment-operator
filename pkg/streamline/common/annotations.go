@@ -54,12 +54,6 @@ const (
 	// HelmHookPostUpgrade resources are applied after the upgrade of resources.
 	HelmHookPostUpgrade = "post-upgrade"
 
-	// HelmHookPreDelete resources are applied before the deletion of resources.
-	HelmHookPreDelete = "pre-delete"
-
-	// HelmHookPostDelete resources are applied after the deletion of resources.
-	HelmHookPostDelete = "post-delete"
-
 	// SyncWaveAnnotation allows users to customize resource apply ordering when needed.
 	SyncWaveAnnotation = "deployment.plural.sh/sync-wave"
 
@@ -213,7 +207,7 @@ func defaultWave(u unstructured.Unstructured) int {
 
 // GetSyncPhase retrieves the sync phase from the resource annotations.
 // If the annotation is not present or invalid, it returns the default sync phase.
-func GetSyncPhase(u unstructured.Unstructured) SyncPhase {
+func GetSyncPhase(u unstructured.Unstructured, isInstall bool) SyncPhase {
 	annotations := u.GetAnnotations()
 	if annotations == nil {
 		return SyncPhaseSync
@@ -235,6 +229,31 @@ func GetSyncPhase(u unstructured.Unstructured) SyncPhase {
 		return SyncPhaseSkip
 	case string(SyncPhaseSync):
 		fallthrough
+	default:
+		return defaultPhase(u)
+	}
+}
+
+func defaultPhase(u unstructured.Unstructured) SyncPhase {
+	annotations := u.GetAnnotations()
+	if annotations == nil {
+		return SyncPhaseSync
+	}
+
+	hook, ok := annotations[HelmHookAnnotation]
+	if !ok {
+		return SyncPhaseSync
+	}
+
+	switch hook {
+	case HelmHookPreInstall:
+		fallthrough
+	case HelmHookPreUpgrade:
+		return SyncPhasePreSync
+	case HelmHookPostInstall:
+		fallthrough
+	case HelmHookPostUpgrade:
+		return SyncPhasePostSync
 	default:
 		return SyncPhaseSync
 	}
