@@ -11,6 +11,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	plrlog "github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -108,4 +109,25 @@ func componentKey(c console.ComponentAttributes) string {
 
 func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAttributes) error {
 	return s.consoleClient.UpdateServiceErrors(id, lo.Ternary(err != nil, []*console.ServiceErrorAttributes{err}, []*console.ServiceErrorAttributes{}))
+}
+
+func (s *ServiceReconciler) ExtractImagesMetadata(appliedResources []any) *console.ServiceMetadataAttributes {
+	var allImages []string
+
+	for _, resource := range appliedResources {
+		if unstructuredObj, ok := resource.(*unstructured.Unstructured); ok {
+			if componentImages := images.ExtractImagesFromResource(unstructuredObj); componentImages != nil {
+				allImages = append(allImages, componentImages...)
+			}
+		}
+	}
+
+	if len(allImages) == 0 {
+		return nil
+	}
+
+	uniqueImages := lo.Uniq(allImages)
+	return &console.ServiceMetadataAttributes{
+		Images: lo.ToSlicePtr(uniqueImages),
+	}
 }
