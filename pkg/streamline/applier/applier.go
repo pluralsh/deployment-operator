@@ -143,14 +143,25 @@ func (in *Applier) Apply(ctx context.Context,
 			break
 		}
 		if pending {
-			klog.V(log.LogLevelTrace).InfoS("resources are still pending, will recheck in next reconcile", "phase", phase.Name())
+			serviceErrorList = append(serviceErrorList, client.ServiceErrorAttributes{
+				Source:  string(phase.Name()),
+				Message: "waiting for resources to be ready",
+				Warning: lo.ToPtr(true),
+			})
+			klog.V(log.LogLevelTrace).InfoS("waiting for resources to be ready", "phase", phase.Name())
 			break
 		}
 
 		failed = len(serviceErrorList) > 0 || f
-		if failed && !hasOnFailPhase {
-			klog.V(log.LogLevelTrace).InfoS("failed to apply phase", "phase", phase.Name())
-			break
+		if failed {
+			serviceErrorList = append(serviceErrorList, client.ServiceErrorAttributes{
+				Source:  string(phase.Name()),
+				Message: "could not complete phase, check errors and failing resources",
+			})
+			if !hasOnFailPhase {
+				klog.V(log.LogLevelTrace).InfoS("failed to apply phase", "phase", phase.Name())
+				break
+			}
 		}
 	}
 
