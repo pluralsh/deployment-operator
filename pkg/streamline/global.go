@@ -69,3 +69,7 @@ func (in *GlobalStore) DeleteComponent(key smcommon.StoreKey) error {
 func (in *GlobalStore) GetResourceHealth(resources []unstructured.Unstructured) (pending, failed bool, err error) {
 	return in.store.GetResourceHealth(resources)
 }
+
+func (in *GlobalStore) HasSomeResources(resources []unstructured.Unstructured) (bool, error) {
+	return in.store.HasSomeResources(resources)
+}

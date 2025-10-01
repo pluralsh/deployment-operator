@@ -2,10 +2,12 @@ package applier
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -51,6 +53,11 @@ func (in *Applier) Apply(ctx context.Context,
 	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
 	toSkip := make([]unstructured.Unstructured, 0)
 
+	isUpgrade, err := streamline.GetGlobalStore().HasSomeResources(resources)
+	if err != nil {
+		return componentList, serviceErrorList, fmt.Errorf("failed to check existing resources: %w", err)
+	}
+
 	deleteFilterFunc, err := in.getDeleteFilterFunc(service.ID)
 	if err != nil {
 		return componentList, serviceErrorList, err
@@ -59,6 +66,10 @@ func (in *Applier) Apply(ctx context.Context,
 	phases := NewPhases(
 		resources,
 		func(resource unstructured.Unstructured) bool {
+			if HelmFilter(isUpgrade)(resource) == false {
+				return false // Skip resource based on Helm hook logic
+			}
+
 			return in.skipResource(resource, lo.FromPtr(service.DryRun))
 		},
 		func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured) {

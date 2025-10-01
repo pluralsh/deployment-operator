@@ -207,7 +207,7 @@ func defaultWave(u unstructured.Unstructured) int {
 
 // GetSyncPhase retrieves the sync phase from the resource annotations.
 // If the annotation is not present or invalid, it returns the default sync phase.
-func GetSyncPhase(u unstructured.Unstructured, isInstall bool) SyncPhase {
+func GetSyncPhase(u unstructured.Unstructured) SyncPhase {
 	annotations := u.GetAnnotations()
 	if annotations == nil {
 		return SyncPhaseSync
