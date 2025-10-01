@@ -122,26 +122,32 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
-func (in *DatabaseStore) AreResourcesHealthy(resources []unstructured.Unstructured) bool {
+func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured) (pending, failed bool, err error) {
 	if len(resources) == 0 {
-		return true // Empty list is considered healthy
+		return false, false, nil // Empty list is considered healthy
 	}
 
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		klog.V(log.LogLevelDefault).ErrorS(err, "failed to get database connection")
-		return false
+		return false, false, err
 	}
 	defer in.pool.Put(conn)
 
 	// Build dynamic query with placeholders for each resource
 	var sb strings.Builder
 	sb.WriteString(`
-		SELECT CASE 
+		SELECT
+		CASE 
 			WHEN COUNT(*) = 0 THEN 0
-			WHEN COUNT(*) = COUNT(CASE WHEN health = 0 THEN 1 END) THEN 1
+			WHEN COUNT(CASE WHEN health IN (1,3) THEN 1 END) > 0 THEN 1
 			ELSE 0
-		END as all_healthy,
+		END as pending,
+		CASE 
+			WHEN COUNT(*) = 0 THEN 0
+			WHEN COUNT(CASE WHEN health = 2 THEN 1 END) > 0 THEN 1
+			ELSE 0
+		END as failed,
 		COUNT(*) as resource_count
 		FROM component 
 		WHERE ("group", version, kind, namespace, name) IN (
@@ -166,22 +172,24 @@ func (in *DatabaseStore) AreResourcesHealthy(resources []unstructured.Unstructur
 	sb.WriteString(strings.Join(valueStrings, ","))
 	sb.WriteString(")")
 
-	var allHealthy, resourceCount int
+	var resourceCount int
 	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
 		Args: args,
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			allHealthy = stmt.ColumnInt(0)
-			resourceCount = stmt.ColumnInt(1)
+			pending = stmt.ColumnBool(0)
+			failed = stmt.ColumnBool(1)
+			resourceCount = stmt.ColumnInt(2)
 			return nil
 		},
 	})
 
 	if err != nil {
 		klog.V(log.LogLevelDefault).ErrorS(err, "failed to check resource health")
-		return false
+		return false, false, nil
 	}
 
-	return resourceCount == len(resources) && allHealthy == 1
+	pending = pending || resourceCount != len(resources)
+	return pending, failed, nil
 }
 
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {

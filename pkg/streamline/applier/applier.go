@@ -126,7 +126,16 @@ func (in *Applier) Apply(ctx context.Context,
 			"duration", time.Since(now),
 		)
 
-		failed = len(serviceErrorList) > 0 || !phase.Successful()
+		pending, f, err := phase.ResourceHealth()
+		if err != nil {
+			klog.ErrorS(err, "failed to get phase health")
+			break
+		}
+		if pending {
+			break
+		}
+
+		failed = len(serviceErrorList) > 0 || f
 		if failed && !hasOnFailPhase {
 			break
 		}

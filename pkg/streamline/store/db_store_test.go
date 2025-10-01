@@ -1859,7 +1859,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 		}(storeInstance)
 
 		resources := []unstructured.Unstructured{}
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.True(t, result, "empty resource list should be considered healthy")
 	})
 
@@ -1905,7 +1905,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("", "v1", "Service", "default", "healthy-service"),
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.True(t, result, "all healthy resources should return true")
 	})
 
@@ -1941,7 +1941,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("apps", "v1", "Deployment", "default", "mixed-failed-deployment"),
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.False(t, result, "mixed healthy and unhealthy resources should return false")
 	})
 
@@ -1977,7 +1977,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("apps", "v1", "Deployment", "default", "all-pending-deployment"),
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.False(t, result, "all unhealthy resources should return false")
 	})
 
@@ -1995,7 +1995,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("apps", "v1", "Deployment", "default", "non-existent-deployment"),
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.False(t, result, "non-existent resources should return false")
 	})
 
@@ -2022,7 +2022,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("apps", "v1", "Deployment", "default", "mixed-found-missing-deployment"),
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.False(t, result, "mixed found and not found resources should return false")
 	})
 
@@ -2058,7 +2058,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("", "v1", "Pod", "kube-system", "test-pod"),
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.True(t, result, "healthy resources in different namespaces should return true")
 	})
 
@@ -2096,7 +2096,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("extensions", "v1beta1", "Deployment", "default", "test-deployment"),
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.True(t, result, "healthy resources with different GVK should return true")
 	})
 
@@ -2122,7 +2122,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("", "v1", "Pod", "default", "single-healthy-pod"),
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.True(t, result, "single healthy resource should return true")
 
 		// Test single unhealthy resource
@@ -2139,7 +2139,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("", "v1", "Pod", "default", "single-failed-pod"),
 		}
 
-		result = storeInstance.AreResourcesHealthy(failedResources)
+		result = storeInstance.GetResourceHealth(failedResources)
 		assert.False(t, result, "single unhealthy resource should return false")
 	})
 
@@ -2168,7 +2168,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			resources[i] = createUnstructuredResource("", "v1", "Pod", "default", podName)
 		}
 
-		result := storeInstance.AreResourcesHealthy(resources)
+		result := storeInstance.GetResourceHealth(resources)
 		assert.True(t, result, "large number of healthy resources should return true")
 
 		// Make one resource unhealthy
@@ -2182,7 +2182,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 		err = storeInstance.SaveComponentAttributes(failedPod)
 		require.NoError(t, err)
 
-		result = storeInstance.AreResourcesHealthy(resources)
+		result = storeInstance.GetResourceHealth(resources)
 		assert.False(t, result, "large number of resources with one unhealthy should return false")
 	})
 
@@ -2234,7 +2234,7 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 		healthyResources := []unstructured.Unstructured{
 			createUnstructuredResource("", "v1", "Pod", "default", "health-states-running-pod"),
 		}
-		result := storeInstance.AreResourcesHealthy(healthyResources)
+		result := storeInstance.GetResourceHealth(healthyResources)
 		assert.True(t, result, "only running resources should return true")
 
 		// Test mixed states including unhealthy ones
@@ -2242,21 +2242,21 @@ func TestComponentCache_AreResourcesHealthy(t *testing.T) {
 			createUnstructuredResource("", "v1", "Pod", "default", "health-states-running-pod"),
 			createUnstructuredResource("", "v1", "Pod", "default", "health-states-pending-pod"),
 		}
-		result = storeInstance.AreResourcesHealthy(mixedResources)
+		result = storeInstance.GetResourceHealth(mixedResources)
 		assert.False(t, result, "running and pending resources should return false")
 
 		mixedResources2 := []unstructured.Unstructured{
 			createUnstructuredResource("", "v1", "Pod", "default", "health-states-running-pod"),
 			createUnstructuredResource("", "v1", "Pod", "default", "health-states-failed-pod"),
 		}
-		result = storeInstance.AreResourcesHealthy(mixedResources2)
+		result = storeInstance.GetResourceHealth(mixedResources2)
 		assert.False(t, result, "running and failed resources should return false")
 
 		mixedResources3 := []unstructured.Unstructured{
 			createUnstructuredResource("", "v1", "Pod", "default", "health-states-running-pod"),
 			createUnstructuredResource("", "v1", "Pod", "default", "health-states-paused-pod"),
 		}
-		result = storeInstance.AreResourcesHealthy(mixedResources3)
+		result = storeInstance.GetResourceHealth(mixedResources3)
 		assert.False(t, result, "running and paused resources should return false")
 	})
 }

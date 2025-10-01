@@ -73,6 +73,6 @@ type Store interface {
 	// Shutdown closes the database connection and deletes the store.
 	Shutdown() error
 
-	// AreResourcesHealthy checks if the provided resources are healthy.
-	AreResourcesHealthy(resources []unstructured.Unstructured) bool
+	// GetResourceHealth checks health statuses of provided resources.
+	GetResourceHealth(resources []unstructured.Unstructured) (pending, failed bool, err error)
 }

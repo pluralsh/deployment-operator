@@ -3,11 +3,11 @@ package applier
 import (
 	"slices"
 
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
@@ -46,13 +46,13 @@ func (p *Phase) DeletedCount() int {
 	return p.deleteWave.Len()
 }
 
-func (p *Phase) Successful() bool {
+func (p *Phase) ResourceHealth() (pending, failed bool, err error) {
 	resources := p.skipped
 	for _, wave := range p.waves {
 		resources = append(resources, wave.items...)
 	}
 
-	return streamline.GetGlobalStore().AreResourcesHealthy(resources)
+	return streamline.GetGlobalStore().GetResourceHealth(resources)
 }
 
 func (p *Phase) ResourceCount() int {
