@@ -90,6 +90,15 @@ agent-harness-run: docker-build-agent-harness-base ## run agent harness
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-base
 
+.PHONY: agent-harness-opencode-run
+agent-harness-opencode-run: docker-build-agent-harness-opencode ## run opencode agent harness
+	docker run \
+		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
+		-e PLRL_CONSOLE_TOKEN=$(PLRL_CONSOLE_TOKEN) \
+		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		--rm -it \
+		ghcr.io/pluralsh/agent-harness-opencode
+
 ##@ Build
 
 .PHONY: agent

@@ -159,17 +159,16 @@ func (in *agentRunController) geminiExecutable(ctx context.Context) exec.Executa
 // openCodeExecutable creates an executable for OpenCode CLI
 func (in *agentRunController) openCodeExecutable(ctx context.Context) exec.Executable {
 	args := []string{
-		"--config", filepath.Join(in.dir, ".config", "opencode", "config.json"),
-		"--prompt", in.agentRun.Prompt,
-		"--repository", filepath.Join(in.dir, "repository"),
+		"run",
+		in.agentRun.Prompt,
 	}
 
 	// Add system prompt overrides if needed
 	if systemPrompt := in.getSystemPromptOverride(); systemPrompt != "" {
-		args = append(args, "--system-prompt", systemPrompt)
+		args[1] = systemPrompt + "\n\n" + in.agentRun.Prompt
 	}
 
-	return in.toExecutable(ctx, "opencode-cli", "opencode", args)
+	return in.toExecutable(ctx, "opencode", "opencode", args)
 }
 
 // customExecutable creates an executable for custom agent

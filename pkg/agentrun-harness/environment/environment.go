@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
@@ -52,34 +53,55 @@ func (in *environment) cloneRepository() error {
 		return fmt.Errorf("repository URL is required")
 	}
 
-	repoDir := "repository"
+	repoDir := filepath.Join(in.dir, "repository")
 
-	// Build git clone command with credentials
-	args := []string{"clone"}
+	// Build git clone command
+	args := []string{"clone", in.agentRun.Repository, repoDir}
+
+	var envVars []string
 
 	// Add auth if SCM credentials are available
 	if in.agentRun.ScmCreds != nil {
-		// Create credentials file
-		credFile := filepath.Join(in.dir, ".git-credentials")
-		credContent := fmt.Sprintf("https://%s:%s@github.com\n", in.agentRun.ScmCreds.Username, in.agentRun.ScmCreds.Token)
-		if err := os.WriteFile(credFile, []byte(credContent), 0600); err != nil {
-			return fmt.Errorf("failed to write git credentials: %w", err)
+		klog.V(log.LogLevelInfo).InfoS("SCM credentials found, setting up git authentication", "username", in.agentRun.ScmCreds.Username)
+
+		// Create git askpass script (like console does)
+		askpassScript := filepath.Join(in.dir, ".git-askpass")
+		askpassContent := "#!/bin/sh\necho $GIT_ACCESS_TOKEN\n"
+		if err := os.WriteFile(askpassScript, []byte(askpassContent), 0755); err != nil {
+			return fmt.Errorf("failed to write git askpass script: %w", err)
 		}
 
-		// Configure git to use the credentials file
-		args = append(args, "--config", fmt.Sprintf("credential.helper=store --file=%s", credFile))
+		// Set environment variables for git authentication
+		envVars = append(envVars,
+			"GIT_ACCESS_TOKEN="+in.agentRun.ScmCreds.Token,
+			"GIT_ASKPASS="+askpassScript,
+		)
+
+		klog.V(log.LogLevelInfo).InfoS("Git authentication configured", "askpass", askpassScript)
+	} else {
+		klog.V(log.LogLevelInfo).InfoS("No SCM credentials available, attempting public repository clone")
 	}
 
-	args = append(args, in.agentRun.Repository, repoDir)
-	if err := exec.NewExecutable(
-		"git",
+	klog.V(log.LogLevelInfo).InfoS("Starting git clone", "repository", in.agentRun.Repository, "target", repoDir, "args", args)
+
+	// Create context with timeout for git clone
+	ctx, cancel := context.WithTimeout(context.Background(), 300000000000) // 5 minutes
+	defer cancel()
+
+	execOptions := []exec.Option{
 		exec.WithArgs(args),
 		exec.WithDir(in.dir),
-	).Run(context.Background()); err != nil {
-		return err
 	}
 
-	klog.V(log.LogLevelInfo).InfoS("repository cloned", "url", in.agentRun.Repository, "dir", repoDir)
+	if len(envVars) > 0 {
+		execOptions = append(execOptions, exec.WithEnv(envVars))
+	}
+
+	if err := exec.NewExecutable("git", execOptions...).Run(ctx); err != nil {
+		return fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("repository cloned successfully", "url", in.agentRun.Repository, "dir", repoDir)
 	return nil
 }
 
@@ -88,6 +110,8 @@ func (in *environment) setupAICredentials() error {
 	if in.agentRun.Runtime == nil {
 		return fmt.Errorf("agent runtime information is missing")
 	}
+
+	klog.V(log.LogLevelInfo).InfoS("agent runtime type", "type", in.agentRun.Runtime.Type)
 
 	configDir := filepath.Join(in.dir, ".config")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -156,8 +180,41 @@ func (in *environment) setupGeminiConfig(configDir string) error {
 
 // setupOpenCodeConfig creates OpenCode CLI configuration
 func (in *environment) setupOpenCodeConfig(configDir string) error {
-	// TODO: Implement OpenCode config setup
-	klog.V(log.LogLevelDebug).InfoS("opencode config setup", "dir", configDir)
+	klog.V(log.LogLevelDebug).InfoS("opencode config setup starting", "dir", configDir)
+
+	// Get console URL and construct AI proxy URL
+	consoleURL := os.Getenv("PLRL_CONSOLE_URL")
+	if consoleURL == "" {
+		return fmt.Errorf("PLRL_CONSOLE_URL environment variable is required")
+	}
+
+	baseURL := strings.TrimSuffix(consoleURL, "/gql")
+	aiProxyURL := baseURL + "/ext/v1/ai/openai/v1"
+
+	deployToken := os.Getenv("PLRL_CONSOLE_TOKEN")
+	if deployToken == "" {
+		return fmt.Errorf("PLRL_CONSOLE_TOKEN environment variable is required")
+	}
+
+	// Set standard OpenAI environment variables that OpenCode will respect
+	os.Setenv("OPENAI_API_KEY", deployToken)
+	os.Setenv("OPENAI_BASE_URL", aiProxyURL)
+
+	// Create minimal OpenCode config in repository directory
+	repoDir := filepath.Join(in.dir, "repository")
+	configFile := filepath.Join(repoDir, "opencode.json")
+
+	config := `{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "claude-3-5-sonnet-20241022",
+  "share": "manual"
+}`
+
+	if err := os.WriteFile(configFile, []byte(config), 0600); err != nil {
+		return fmt.Errorf("failed to write opencode config: %w", err)
+	}
+
+	klog.V(log.LogLevelDebug).InfoS("opencode config created", "path", configFile, "aiProxyURL", aiProxyURL)
 	return nil
 }
 
