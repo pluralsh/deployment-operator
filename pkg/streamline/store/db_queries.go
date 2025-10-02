@@ -36,7 +36,7 @@ const (
 			WHERE id = NEW.id;
 		END;
 		
-		-- Update timestamp automatically on row update
+		-- Update timestamp automatically on row update§
 		CREATE TRIGGER IF NOT EXISTS set_updated_at_on_update
 		AFTER UPDATE ON component
 		BEGIN
@@ -45,7 +45,8 @@ const (
 			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
 
-	CREATE TABLE IF NOT EXISTS manifest (
+		-- Create the manifest table used to track service manifests
+		CREATE TABLE IF NOT EXISTS manifest (
 			id INTEGER PRIMARY KEY,
 			"group" TEXT,
 			version TEXT,
@@ -54,8 +55,10 @@ const (
 			name TEXT,
 			service_id TEXT
 		);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_manifest ON manifest("group", version, kind, namespace, name);
-	CREATE INDEX IF NOT EXISTS idx_manifest_service_id ON manifest(service_id);
+	 
+		-- Add indexes to the manifest table
+		CREATE UNIQUE INDEX IF NOT EXISTS manifest_index_unique ON manifest("group", version, kind, namespace, name);
+		CREATE INDEX IF NOT EXISTS manifest_index_service_id ON manifest(service_id);
 	`
 
 	getComponent = `
@@ -286,5 +289,11 @@ const (
 			apply_sha = '',
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE updated_at < datetime(?, 'unixepoch')
+	`
+
+	getManifests = `
+		SELECT "group", version, kind, namespace, name
+		FROM manifest
+		WHERE service_id = ?
 	`
 )
