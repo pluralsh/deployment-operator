@@ -45,6 +45,17 @@ const (
 			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
 
+	CREATE TABLE IF NOT EXISTS manifest (
+			id INTEGER PRIMARY KEY,
+			"group" TEXT,
+			version TEXT,
+			kind TEXT, 
+			namespace TEXT,
+			name TEXT,
+			service_id TEXT
+		);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_manifest ON manifest("group", version, kind, namespace, name);
+	CREATE INDEX IF NOT EXISTS idx_manifest_service_id ON manifest(service_id);
 	`
 
 	getComponent = `
