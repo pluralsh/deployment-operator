@@ -12,6 +12,7 @@ import (
 	plrlog "github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -114,17 +115,25 @@ func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAtt
 func (s *ServiceReconciler) ExtractImagesMetadata(manifests []unstructured.Unstructured) *console.ServiceMetadataAttributes {
 	var allImages []string
 
-	for _, resource := range manifests {
+	klog.Infof("Extracting images from %d manifests", len(manifests))
+
+	for i, resource := range manifests {
+		klog.Infof("Processing manifest %d: %s %s/%s", i+1, resource.GetKind(), resource.GetNamespace(), resource.GetName())
 		if componentImages := images.ExtractImagesFromResource(&resource); componentImages != nil {
+			klog.Infof("Found %d images in manifest %d: %v", len(componentImages), i+1, componentImages)
 			allImages = append(allImages, componentImages...)
+		} else {
+			klog.Infof("No images found in manifest %d", i+1)
 		}
 	}
 
 	if len(allImages) == 0 {
+		klog.Info("No images found in any manifests")
 		return nil
 	}
 
 	uniqueImages := lo.Uniq(allImages)
+	klog.Infof("Extracted %d unique images: %v", len(uniqueImages), uniqueImages)
 	return &console.ServiceMetadataAttributes{
 		Images: lo.ToSlicePtr(uniqueImages),
 	}
