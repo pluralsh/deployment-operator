@@ -135,6 +135,32 @@ func TestExtractImagesFromResource(t *testing.T) {
 			},
 			want: nil,
 		},
+		{
+			name: "kube-state-metrics deployment",
+			resource: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "apps/v1",
+					"kind":       "Deployment",
+					"metadata": map[string]interface{}{
+						"name":      "vm-server-kube-state-metrics",
+						"namespace": "monitoring",
+					},
+					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"containers": []interface{}{
+									map[string]interface{}{
+										"name":  "kube-state-metrics",
+										"image": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0"},
+		},
 	}
 
 	for _, tt := range tests {
