@@ -817,7 +817,7 @@ func (in *DatabaseStore) SaveManifests(serviceID string, manifests []unstructure
 
 	var sb strings.Builder
 	sb.WriteString(`
-		INSERT INTO component (
+		INSERT INTO manifest (
 		  "group",
 		  version,
 		  kind,
@@ -858,9 +858,9 @@ func (in *DatabaseStore) GetManifests(serviceID string) ([]smcommon.Manifest, er
 					Group:     stmt.ColumnText(0),
 					Version:   stmt.ColumnText(1),
 					Kind:      stmt.ColumnText(2),
-					Name:      stmt.ColumnText(3),
-					Namespace: stmt.ColumnText(4),
-					ServiceID: stmt.ColumnText(5),
+					Namespace: stmt.ColumnText(3),
+					Name:      stmt.ColumnText(4),
+					ServiceID: serviceID,
 				})
 				return nil
 			},
