@@ -206,8 +206,13 @@ func (in *environment) setupOpenCodeConfig(configDir string) error {
 
 	config := `{
   "$schema": "https://opencode.ai/config.json",
-  "model": "claude-3-5-sonnet-20241022",
-  "share": "manual"
+  "provider": {
+    "openai": {
+      "options": {
+        "baseURL": "` + aiProxyURL + `"
+      }
+    }
+  }
 }`
 
 	if err := os.WriteFile(configFile, []byte(config), 0600); err != nil {
