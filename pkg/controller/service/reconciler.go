@@ -522,7 +522,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	// Extract images metadata from the applied resources
 
-	metadata := s.ExtractImagesMetadata(appliedResources)
+	metadata := s.ExtractImagesMetadata(manifests)
 
 	if metadata != nil {
 		if len(metadata.Images) > 0 {
