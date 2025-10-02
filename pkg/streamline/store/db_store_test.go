@@ -2139,7 +2139,7 @@ func TestComponentCache_HasSomeResources(t *testing.T) {
 		}(storeInstance)
 
 		// Test with single non-existing resource
-		nonExistingResource := newUnstructured("some-non-existing-uid", "some-non-existing", "default", "apps", "v1", "Deployment")
+		nonExistingResource := newUnstructured("some-non-existing-uid", "some-missing", "default", "apps", "v1", "Deployment")
 		hasSomeResources, err := storeInstance.HasSomeResources([]unstructured.Unstructured{nonExistingResource})
 		require.NoError(t, err)
 		assert.False(t, hasSomeResources, "single non-existing resource should return false")
@@ -2192,5 +2192,121 @@ func TestComponentCache_HasSomeResources(t *testing.T) {
 		hasSomeResources, err := storeInstance.HasSomeResources(mixedResources)
 		require.NoError(t, err)
 		assert.True(t, hasSomeResources, "should return true when at least one resource of any type exists")
+	})
+}
+
+func TestComponentCache_SaveManifests(t *testing.T) {
+	t.Run("should save and retrieve manifests by service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "svc-basic"
+		manifests := []unstructured.Unstructured{
+			createUnstructuredResource("apps", "v1", "Deployment", "default", "web"),
+			createUnstructuredResource("", "v1", "Service", "default", "web-svc"),
+			createUnstructuredResource("batch", "v1", "Job", "jobs", "db-migrate"),
+		}
+
+		require.NoError(t, storeInstance.SaveManifests(serviceID, manifests))
+
+		result, err := storeInstance.GetManifests(serviceID)
+		require.NoError(t, err)
+		require.Len(t, result, len(manifests))
+
+		// Validate all fields
+		expect := map[string]struct {
+			group, version, kind, ns string
+		}{
+			"web":        {group: "apps", version: "v1", kind: "Deployment", ns: "default"},
+			"web-svc":    {group: "", version: "v1", kind: "Service", ns: "default"},
+			"db-migrate": {group: "batch", version: "v1", kind: "Job", ns: "jobs"},
+		}
+
+		for _, m := range result {
+			assert.Equal(t, serviceID, m.ServiceID)
+			want := expect[m.Name]
+			assert.Equal(t, want.group, m.Group)
+			assert.Equal(t, want.version, m.Version)
+			assert.Equal(t, want.kind, m.Kind)
+			assert.Equal(t, want.ns, m.Namespace)
+		}
+	})
+
+	t.Run("should return error when service ID is empty", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		err = storeInstance.SaveManifests("", []unstructured.Unstructured{createUnstructuredResource("apps", "v1", "Deployment", "default", "web")})
+		require.Error(t, err)
+	})
+
+	t.Run("should no-op on empty manifests slice and return empty list on get", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "svc-empty"
+		require.NoError(t, storeInstance.SaveManifests(serviceID, []unstructured.Unstructured{}))
+
+		result, err := storeInstance.GetManifests(serviceID)
+		require.NoError(t, err)
+		assert.Len(t, result, 0)
+	})
+
+	t.Run("should return empty slice for unknown service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		result, err := storeInstance.GetManifests("non-existent-service")
+		require.NoError(t, err)
+		assert.Len(t, result, 0)
+	})
+
+	t.Run("should upsert and move manifest to a new service on conflict", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		m := createUnstructuredResource("apps", "v1", "Deployment", "default", "moved")
+
+		// Save under service A
+		serviceA := "svc-a"
+		require.NoError(t, storeInstance.SaveManifests(serviceA, []unstructured.Unstructured{m}))
+
+		resA, err := storeInstance.GetManifests(serviceA)
+		require.NoError(t, err)
+		require.Len(t, resA, 1)
+		assert.Equal(t, "moved", resA[0].Name)
+
+		// Save the same identity under service B -> should update service_id
+		serviceB := "svc-b"
+		require.NoError(t, storeInstance.SaveManifests(serviceB, []unstructured.Unstructured{m}))
+
+		resA, err = storeInstance.GetManifests(serviceA)
+		require.NoError(t, err)
+		assert.Len(t, resA, 0, "manifest should no longer belong to service A")
+
+		resB, err := storeInstance.GetManifests(serviceB)
+		require.NoError(t, err)
+		require.Len(t, resB, 1)
+		assert.Equal(t, serviceB, resB[0].ServiceID)
+		assert.Equal(t, "apps", resB[0].Group)
+		assert.Equal(t, "v1", resB[0].Version)
+		assert.Equal(t, "Deployment", resB[0].Kind)
+		assert.Equal(t, "default", resB[0].Namespace)
+		assert.Equal(t, "moved", resB[0].Name)
 	})
 }
