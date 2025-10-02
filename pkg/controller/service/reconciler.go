@@ -524,12 +524,12 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	metadata := s.ExtractImagesMetadata(appliedResources)
 
-	if metadata.Images != nil {
+	if metadata != nil {
 		if len(metadata.Images) > 0 {
 			logger.Info("extracted images from metadata in service", "name", svc.Name, "namespace", svc.Namespace, "images", metadata.Images)
-		} else {
-			logger.Info("didnt extract any images from service", "name", svc.Name, "namespace", svc.Namespace)
 		}
+	} else {
+		logger.Info("didnt extract any images from service", "name", svc.Name, "namespace", svc.Namespace)
 	}
 
 	if err = s.UpdateStatus(svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), lo.ToSlicePtr(errs), metadata); err != nil {
