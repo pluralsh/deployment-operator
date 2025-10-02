@@ -111,14 +111,12 @@ func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAtt
 	return s.consoleClient.UpdateServiceErrors(id, lo.Ternary(err != nil, []*console.ServiceErrorAttributes{err}, []*console.ServiceErrorAttributes{}))
 }
 
-func (s *ServiceReconciler) ExtractImagesMetadata(appliedResources []any) *console.ServiceMetadataAttributes {
+func (s *ServiceReconciler) ExtractImagesMetadata(manifests []unstructured.Unstructured) *console.ServiceMetadataAttributes {
 	var allImages []string
 
-	for _, resource := range appliedResources {
-		if unstructuredObj, ok := resource.(*unstructured.Unstructured); ok {
-			if componentImages := images.ExtractImagesFromResource(unstructuredObj); componentImages != nil {
-				allImages = append(allImages, componentImages...)
-			}
+	for _, resource := range manifests {
+		if componentImages := images.ExtractImagesFromResource(&resource); componentImages != nil {
+			allImages = append(allImages, componentImages...)
 		}
 	}
 
