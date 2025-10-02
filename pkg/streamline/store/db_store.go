@@ -799,6 +799,76 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 	})
 }
 
+func (in *DatabaseStore) SaveManifests(serviceID string, manifests []unstructured.Unstructured) error {
+	if serviceID == "" {
+		return fmt.Errorf("service ID must be provided")
+	}
+
+	l := len(manifests)
+	if l == 0 {
+		return nil
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	var sb strings.Builder
+	sb.WriteString(`
+		INSERT INTO component (
+		  "group",
+		  version,
+		  kind,
+		  namespace,
+		  name,
+		  service_id
+		) VALUES `)
+
+	for i, m := range manifests {
+		gvk := m.GroupVersionKind()
+		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s')",
+			gvk.Group, gvk.Version, gvk.Kind, m.GetNamespace(), m.GetName(), serviceID))
+		if i < l-1 {
+			sb.WriteString(",")
+		}
+	}
+
+	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET service_id = excluded.service_id`)
+
+	return sqlitex.Execute(conn, sb.String(), nil)
+}
+
+func (in *DatabaseStore) GetManifests(serviceID string) ([]smcommon.Manifest, error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer in.pool.Put(conn)
+
+	result := make([]smcommon.Manifest, 0)
+	err = sqlitex.ExecuteTransient(
+		conn,
+		`SELECT "group", version, kind, namespace, name FROM manifest WHERE service_id = ?`,
+		&sqlitex.ExecOptions{
+			Args: []interface{}{serviceID},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				result = append(result, smcommon.Manifest{
+					Group:     stmt.ColumnText(0),
+					Version:   stmt.ColumnText(1),
+					Kind:      stmt.ColumnText(2),
+					Name:      stmt.ColumnText(3),
+					Namespace: stmt.ColumnText(4),
+					ServiceID: stmt.ColumnText(5),
+				})
+				return nil
+			},
+		})
+
+	return result, err
+}
+
 func (in *DatabaseStore) Shutdown() error {
 	in.mu.Lock()
 	defer in.mu.Unlock()

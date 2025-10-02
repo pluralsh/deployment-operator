@@ -290,10 +290,4 @@ const (
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE updated_at < datetime(?, 'unixepoch')
 	`
-
-	getManifests = `
-		SELECT "group", version, kind, namespace, name
-		FROM manifest
-		WHERE service_id = ?
-	`
 )
