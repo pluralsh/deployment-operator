@@ -18,11 +18,11 @@ type Store interface {
 
 	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
 
-	GetComponent(obj unstructured.Unstructured) (*smcommon.Entry, error)
+	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
 
 	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
 
-	GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Entry, error)
+	GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error)
 
 	// DeleteComponent removes a component from the store based on its smcommon.StoreKey.
 	// It returns an error if any issue occurs during the deletion process.
@@ -34,8 +34,8 @@ type Store interface {
 
 	// GetServiceComponents retrieves all parent components associated with a given service ID.
 	// All components with parents are filtered out.
-	// It returns a slice of Entry structs containing information about each component and any error encountered.
-	GetServiceComponents(serviceID string) ([]smcommon.Entry, error)
+	// It returns a slice of Component structs containing information about each component and any error encountered.
+	GetServiceComponents(serviceID string) ([]smcommon.Component, error)
 
 	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
 	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.

@@ -345,7 +345,7 @@ func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAtt
 		return nil, err
 	}
 
-	return algorithms.Map(entries, func(entry smcommon.Entry) client.ComponentAttributes {
+	return algorithms.Map(entries, func(entry smcommon.Component) client.ComponentAttributes {
 		return client.ComponentAttributes{
 			UID:       lo.ToPtr(entry.UID),
 			Group:     entry.Group,

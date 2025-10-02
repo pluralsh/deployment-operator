@@ -74,40 +74,40 @@ func WithState(state client.ComponentState) CreateComponentOption {
 	}
 }
 
-type CreateStoreKeyOption func(entry *common.Entry)
+type CreateStoreKeyOption func(entry *common.Component)
 
 func WithStoreKeyName(name string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Name = name
 	}
 }
 
 func WithStoreKeyNamespace(namespace string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Namespace = namespace
 	}
 }
 
 func WithStoreKeyGroup(group string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Group = group
 	}
 }
 
 func WithStoreKeyVersion(version string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Version = version
 	}
 }
 
 func WithStoreKeyKind(kind string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Kind = kind
 	}
 }
 
 func createStoreKey(option ...CreateStoreKeyOption) common.StoreKey {
-	result := common.Entry{
+	result := common.Component{
 		Group:     testGroup,
 		Version:   testVersion,
 		Kind:      testKind,

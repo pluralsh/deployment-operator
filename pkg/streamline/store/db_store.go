@@ -438,7 +438,7 @@ func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttrib
 	})
 }
 
-func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Entry, err error) {
+func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
@@ -450,7 +450,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 	err = sqlitex.ExecuteTransient(conn, getComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{obj.GetName(), obj.GetNamespace(), gvk.Group, gvk.Version, gvk.Kind},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = &smcommon.Entry{
+			result = &smcommon.Component{
 				UID:                  stmt.ColumnText(0),
 				Group:                stmt.ColumnText(1),
 				Version:              stmt.ColumnText(2),
@@ -499,7 +499,7 @@ func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.Compon
 	return result, err
 }
 
-func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result []smcommon.Entry, err error) {
+func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result []smcommon.Component, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
@@ -509,7 +509,7 @@ func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result
 	err = sqlitex.ExecuteTransient(conn, getComponentsByGVK, &sqlitex.ExecOptions{
 		Args: []interface{}{gvk.Group, gvk.Version, gvk.Kind},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = append(result, smcommon.Entry{
+			result = append(result, smcommon.Component{
 				UID:       stmt.ColumnText(0),
 				Group:     stmt.ColumnText(1),
 				Version:   stmt.ColumnText(2),
@@ -554,18 +554,18 @@ func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
 		&sqlitex.ExecOptions{Args: []any{group, version, kind}})
 }
 
-func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Entry, error) {
+func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Component, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	defer in.pool.Put(conn)
 
-	result := make([]smcommon.Entry, 0)
+	result := make([]smcommon.Component, 0)
 	err = sqlitex.ExecuteTransient(conn, getComponentsByServiceID, &sqlitex.ExecOptions{
 		Args: []interface{}{serviceID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = append(result, smcommon.Entry{
+			result = append(result, smcommon.Component{
 				UID:       stmt.ColumnText(0),
 				ParentUID: stmt.ColumnText(1),
 				Group:     stmt.ColumnText(2),

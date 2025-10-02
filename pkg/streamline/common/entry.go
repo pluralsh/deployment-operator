@@ -5,7 +5,7 @@ import (
 	"github.com/samber/lo"
 )
 
-type Entry struct {
+type Component struct {
 	UID                  string
 	ParentUID            string
 	Group                string
@@ -28,13 +28,13 @@ type Entry struct {
 // - the current server SHA differs from stored apply SHA (indicating resource changed in cluster)
 // - the new manifest SHA differs from stored manifest SHA (indicating the manifest has changed)
 // - the resource is not in a running state
-func (in *Entry) ShouldApply(newManifestSHA string) bool {
+func (in *Component) ShouldApply(newManifestSHA string) bool {
 	return in.ServerSHA == "" || in.ApplySHA == "" || in.ManifestSHA == "" ||
 		in.ServerSHA != in.ApplySHA || newManifestSHA != in.ManifestSHA ||
 		client.ComponentState(in.Status) != client.ComponentStateRunning
 }
 
-func (in *Entry) ToComponentAttributes() client.ComponentAttributes {
+func (in *Component) ToComponentAttributes() client.ComponentAttributes {
 	return client.ComponentAttributes{
 		UID:       lo.ToPtr(in.UID),
 		Synced:    true,

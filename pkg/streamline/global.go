@@ -42,7 +42,7 @@ type GlobalStore struct {
 	store store.Store
 }
 
-func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Entry, err error) {
+func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
 	return in.store.GetComponent(obj)
 }
 

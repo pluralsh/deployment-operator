@@ -387,7 +387,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
 }
 
-func (in *WaveProcessor) isManaged(entry *smcommon.Entry, resource unstructured.Unstructured) bool {
+func (in *WaveProcessor) isManaged(entry *smcommon.Component, resource unstructured.Unstructured) bool {
 	if entry == nil {
 		return false
 	}

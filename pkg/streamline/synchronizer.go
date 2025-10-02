@@ -233,7 +233,7 @@ func (in *synchronizer) resynchronize() {
 	}
 
 	storeResourceSet := containers.NewSet[smcommon.Key]()
-	storeResourceMap := make(map[smcommon.Key]smcommon.Entry)
+	storeResourceMap := make(map[smcommon.Key]smcommon.Component)
 	for _, entry := range entries {
 		key := smcommon.NewKeyFromEntry(entry)
 		storeResourceSet.Add(key)

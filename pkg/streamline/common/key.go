@@ -17,7 +17,7 @@ func (k Key) String() string {
 	return string(k)
 }
 
-func NewKeyFromEntry(entry Entry) Key {
+func NewKeyFromEntry(entry Component) Key {
 	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", entry.Group, entry.Version, entry.Kind, entry.Namespace, entry.Name))
 }
 
@@ -55,7 +55,7 @@ func (in StoreKey) ReplaceGroup(group string) StoreKey {
 	}
 }
 
-func NewStoreKeyFromEntry(entry Entry) StoreKey {
+func NewStoreKeyFromEntry(entry Component) StoreKey {
 	return StoreKey{
 		GVK:       schema.GroupVersionKind{Group: entry.Group, Version: entry.Version, Kind: entry.Kind},
 		Namespace: entry.Namespace,
