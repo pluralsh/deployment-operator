@@ -1,4 +1,4 @@
-package controller
+package exec
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
@@ -28,7 +27,7 @@ func (in *executor) Start(ctx context.Context) error {
 	return fmt.Errorf("unknown execution strategy %v", in.strategy)
 }
 
-func (in *executor) Add(executable exec.Executable) error {
+func (in *executor) Add(executable Executable) error {
 	if in.started {
 		return fmt.Errorf("executor has already started")
 	}
@@ -91,7 +90,7 @@ func (in *executor) parallel(ctx context.Context) {
 	}()
 }
 
-func (in *executor) run(ctx context.Context, executable exec.Executable) (retErr error) {
+func (in *executor) run(ctx context.Context, executable Executable) (retErr error) {
 	if in.preRunFunc != nil {
 		in.preRunFunc(executable.ID())
 	}
@@ -107,7 +106,7 @@ func (in *executor) run(ctx context.Context, executable exec.Executable) (retErr
 	return retErr
 }
 
-func newExecutor(errChan chan error, finishedChan chan struct{}, options ...ExecutorOption) *executor {
+func NewExecutor(errChan chan error, finishedChan chan struct{}, options ...ExecutorOption) Executor {
 	result := &executor{
 		errChan:      errChan,
 		finishedChan: finishedChan,

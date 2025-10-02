@@ -14,7 +14,6 @@ env:
   REGISTRY_IMAGE: pluralsh/stackrun-harness-base
 
 jobs:
-
   build-base-image:
     name: Build base image
     permissions:

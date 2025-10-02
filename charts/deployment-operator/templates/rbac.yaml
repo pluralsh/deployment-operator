@@ -30,13 +30,13 @@ rules:
   resources: ["pods"]
   verbs: ["delete"]
 - apiGroups: ["deployments.plural.sh"]
-  resources: ["customhealths", "kubecostextractors"]
+  resources: ["customhealths", "kubecostextractors", "agentruntimes", "agentruns"]
   verbs: ["create","delete","get", "list", "patch", "update", "watch"]
 - apiGroups: ["deployments.plural.sh"]
-  resources: ["customhealths/finalizers", "kubecostextractors/finalizers"]
+  resources: ["customhealths/finalizers", "kubecostextractors/finalizers", "agentruntimes/finalizers", "agentruns/finalizers"]
   verbs: ["update"]
 - apiGroups: ["deployments.plural.sh"]
-  resources: ["customhealths/status", "kubecostextractors/status"]
+  resources: ["customhealths/status", "kubecostextractors/status", "agentruntimes/status", "agentruns/status"]
   verbs: ["get", "patch", "update", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
