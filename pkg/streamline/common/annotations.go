@@ -278,5 +278,17 @@ func GetPhaseHookDeletePolicy(u unstructured.Unstructured) string {
 		return ""
 	}
 
-	return annotations[SyncPhaseHookDeletePolicy]
+	policy, ok := annotations[SyncPhaseHookDeletePolicy]
+	if !ok {
+		return ""
+	}
+
+	switch policy {
+	case SyncPhaseDeletePolicySucceeded:
+		return SyncPhaseDeletePolicySucceeded
+	case SyncPhaseDeletePolicyFailed:
+		return SyncPhaseDeletePolicyFailed
+	default:
+		return ""
+	}
 }
