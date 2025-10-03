@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
@@ -310,17 +309,11 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 
 			if !shouldKeep {
 				obj := unstructured.Unstructured{}
-				obj.SetGroupVersionKind(schema.GroupVersionKind{
-					Group:   entry.Group,
-					Version: entry.Version,
-					Kind:    entry.Kind,
-				})
+				obj.SetGroupVersionKind(entry.GroupVersionKind())
 				obj.SetNamespace(entry.Namespace)
 				obj.SetName(entry.Name)
 				obj.SetUID(types.UID(entry.UID))
-				obj.SetAnnotations(map[string]string{
-					smcommon.SyncPhaseAnnotation: entry.SyncPhase,
-				})
+				obj.SetAnnotations(map[string]string{smcommon.SyncPhaseAnnotation: entry.SyncPhase})
 
 				toDelete = append(toDelete, obj)
 				deleteKeys.Add(entryKey.VersionlessKey())

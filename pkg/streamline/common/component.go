@@ -3,6 +3,7 @@ package common
 import (
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type Component struct {
@@ -20,6 +21,10 @@ type Component struct {
 	TransientManifestSHA string
 	ApplySHA             string
 	ServerSHA            string
+}
+
+func (in *Component) GroupVersionKind() schema.GroupVersionKind {
+	return schema.GroupVersionKind{Group: in.Group, Version: in.Version, Kind: in.Kind}
 }
 
 // ShouldApply determines if a resource should be applied.
