@@ -303,24 +303,48 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-.PHONY: mcpserver
-mcpserver: ## build mcp server
-	go build -o bin/mcpserver cmd/mcpserver/main.go
+.PHONY: agent-pr-mcpserver
+agent-pr-mcpserver: ## build mcp server
+	go build -o bin/agent-pr-mcpserver cmd/mcpserver/agent-pr-server/main.go
 
-.PHONY: mcpserver-run
-mcpserver-run: mcpserver ## run mcp server locally
+.PHONY: agent-pr-mcpserver-run
+agent-pr-mcpserver-run: agent-pr-mcpserver ## run mcp server locally
 	PLURAL_ACCESS_TOKEN=${PLURAL_ACCESS_TOKEN} \
 	PLURAL_CONSOLE_URL=${PLURAL_CONSOLE_URL} \
-	./bin/mcpserver
+	./bin/agent-pr-mcpserver
 
-.PHONY: docker-build-mcpserver
-docker-build-mcpserver: ## build mcp server docker image
+.PHONY: docker-build-agent-pr-mcpserver
+docker-build-agent-pr-mcpserver: ## build mcp server docker image
 	docker build \
 		--build-arg=VERSION="0.0.0-dev" \
-		-t ghcr.io/pluralsh/mcpserver:latest \
-		-f dockerfiles/mcpserver/Dockerfile \
+		-t ghcr.io/pluralsh/agent-pr-mcpserver:latest \
+		-f dockerfiles/mcpserver/agent-pr-server/Dockerfile \
 		.
 
-.PHONY: docker-push-mcpserver
-docker-push-mcpserver: docker-build-mcpserver ## push mcp server image
-	docker push ghcr.io/pluralsh/mcpserver:latest
+.PHONY: docker-push-agent-pr-mcpserver
+docker-push-agent-pr-mcpserver: docker-build-agent-pr-mcpserver ## push mcp server image
+	docker push ghcr.io/pluralsh/agent-pr-mcpserver:latest
+
+# Terraform MCP Server
+.PHONY: terraform-mcpserver
+terraform-mcpserver: ## build mcp server
+	go build -o bin/terraform-mcpserver cmd/mcpserver/terraform-server/main.go
+
+.PHONY: terraform-mcpserver-run
+terraform-mcpserver-run: terraform-mcpserver ## run mcp server locally
+	PLURAL_ACCESS_TOKEN=${PLURAL_ACCESS_TOKEN} \
+	PLURAL_CONSOLE_URL=${PLURAL_CONSOLE_URL} \
+	./bin/terraform-mcpserver
+
+.PHONY: docker-build-terraform-mcpserver
+docker-build-terraform-mcpserver: ## build mcp server docker image
+	docker build \
+		--build-arg=VERSION="0.0.0-dev" \
+		-t ghcr.io/pluralsh/terraform-mcpserver:latest \
+		-f dockerfiles/mcpserver/terraform-server/Dockerfile \
+		.
+
+.PHONY: docker-push-terraform-mcpserver
+docker-push-terraform-mcpserver: docker-build-terraform-mcpserver ## push mcp server image
+	docker push ghcr.io/pluralsh/terraform-mcpserver:latest
+

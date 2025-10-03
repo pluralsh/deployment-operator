@@ -8,7 +8,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/internal/mcpserver"
+	agentprserver "github.com/pluralsh/deployment-operator/internal/mcpserver/agent-pr-server"
 )
 
 func init() {
@@ -20,7 +20,7 @@ func init() {
 
 func main() {
 	// Load credentials
-	creds, err := mcpserver.LoadPluralCredentials()
+	creds, err := agentprserver.LoadPluralCredentials()
 	if err != nil {
 		klog.ErrorS(err,
 			fmt.Sprintf("Failed to load Plural credentials, please ensure %s and %s environment variables are set",
@@ -32,7 +32,7 @@ func main() {
 	}
 
 	// Create MCP server
-	server := mcpserver.NewMCPServer(creds)
+	server := agentprserver.NewMCPServer(creds)
 
 	// Start server
 	if err = server.Start(); err != nil {
