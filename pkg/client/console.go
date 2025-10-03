@@ -32,7 +32,7 @@ func New(url, token string) Client {
 	return &client{
 		consoleClient: console.NewClient(&http.Client{
 			Transport: helpers.NewAuthorizationTokenTransport(token),
-		}, url, nil),
+		}, url, nil, console.PersistedQueryInterceptor),
 		ctx:   context.Background(),
 		url:   url,
 		token: token,
