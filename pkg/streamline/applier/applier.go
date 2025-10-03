@@ -301,12 +301,10 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
 			}
 
-			shouldKeep := lo.SomeBy(toCheck, func(key smcommon.Key) bool {
+			if shouldKeep := lo.SomeBy(toCheck, func(key smcommon.Key) bool {
 				_, ok := resourceKeyToResource[key]
 				return ok
-			})
-
-			if !shouldKeep {
+			}); !shouldKeep {
 				toDelete = append(toDelete, entry.ToUnstructured())
 				deleteKeys.Add(entryKey.VersionlessKey())
 			}
