@@ -55,14 +55,6 @@ func (in StoreKey) ReplaceGroup(group string) StoreKey {
 	}
 }
 
-func NewStoreKeyFromEntry(entry Component) StoreKey {
-	return StoreKey{
-		GVK:       schema.GroupVersionKind{Group: entry.Group, Version: entry.Version, Kind: entry.Kind},
-		Namespace: entry.Namespace,
-		Name:      entry.Name,
-	}
-}
-
 func NewStoreKeyFromUnstructured(u unstructured.Unstructured) StoreKey {
 	return StoreKey{GVK: u.GroupVersionKind(), Namespace: u.GetNamespace(), Name: u.GetName()}
 }

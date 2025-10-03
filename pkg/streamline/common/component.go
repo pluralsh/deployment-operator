@@ -52,6 +52,10 @@ func (in *Component) ToComponentAttributes() client.ComponentAttributes {
 	}
 }
 
+func (in *Component) ToStoreKey() StoreKey {
+	return StoreKey{GVK: in.GroupVersionKind(), Namespace: in.Namespace, Name: in.Name}
+}
+
 // ShouldApply determines if a resource should be applied.
 // Resource should be applied if at least one of the following conditions is met:
 // - any of the SHAs (Server, Apply, or Manifest) are not set

@@ -30,3 +30,7 @@ func (in *CleanupCandidate) ToUnstructured() unstructured.Unstructured {
 	u.SetUID(types.UID(in.UID))
 	return u
 }
+
+func (in *CleanupCandidate) ToStoreKey() StoreKey {
+	return StoreKey{GVK: in.GroupVersionKind(), Namespace: in.Namespace, Name: in.Name}
+}

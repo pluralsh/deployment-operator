@@ -65,7 +65,7 @@ func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, sk
 	skipped := make([]unstructured.Unstructured, 0)
 	toDelete, toApply := deleteFilter(resources)
 	deleteWave := NewWave(algorithms.Filter(toDelete, func(u unstructured.Unstructured) bool {
-		return smcommon.GetSyncPhase(u) == name
+		return smcommon.GetSyncPhase(u) == name // Ensure that only resources from this phase will be deleted
 	}), DeleteWave)
 
 	wavesMap := make(map[int]Wave)

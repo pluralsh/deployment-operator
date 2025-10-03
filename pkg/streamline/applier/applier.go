@@ -286,6 +286,13 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 		return nil, err
 	}
 
+	// Get cleanup candidates (resources that were already processed and should not be recreated)
+	// TODO: Filter out based on existing components table.
+	cleanupCandidates, err := in.store.GetCleanupCandidates(serviceID)
+	if err != nil {
+		return nil, err
+	}
+
 	return func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured) {
 		deleteKeys := containers.NewSet[smcommon.Key]()
 		resourceKeyToResource := make(map[smcommon.Key]unstructured.Unstructured)
@@ -295,7 +302,7 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 		}
 
 		for _, entry := range existing {
-			entryKey := smcommon.NewStoreKeyFromEntry(entry)
+			entryKey := entry.ToStoreKey()
 			toCheck := []smcommon.Key{entryKey.VersionlessKey()}
 			if mirrorGroup, ok := mirrorGroups[entry.Group]; ok {
 				toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
@@ -308,6 +315,11 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				toDelete = append(toDelete, entry.ToUnstructured())
 				deleteKeys.Add(entryKey.VersionlessKey())
 			}
+		}
+
+		for _, entry := range cleanupCandidates {
+			toDelete = append(toDelete, entry.ToUnstructured())
+			deleteKeys.Add(entry.ToStoreKey().VersionlessKey())
 		}
 
 		for key, resource := range resourceKeyToResource {
