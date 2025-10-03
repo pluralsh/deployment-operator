@@ -311,11 +311,9 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 		}
 
 		for key, resource := range resourceKeyToResource {
-			if deleteKeys.Has(key) {
-				continue
+			if !deleteKeys.Has(key) {
+				toApply = append(toApply, resource)
 			}
-
-			toApply = append(toApply, resource)
 		}
 
 		return
