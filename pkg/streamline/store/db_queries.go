@@ -45,8 +45,8 @@ const (
 			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
 
-		-- Create the cleanup candidate table
-		CREATE TABLE IF NOT EXISTS cleanup_candidate (
+		-- Create the processed hook component table
+		CREATE TABLE IF NOT EXISTS processed_hook_component (
 			id INTEGER PRIMARY KEY,
 			uid TEXT,
 			"group" TEXT,
@@ -57,9 +57,9 @@ const (
 			service_id TEXT
 		);
 	 
-		-- Add indexes to the cleanup candidate table
-		CREATE UNIQUE INDEX IF NOT EXISTS manifest_index_unique ON cleanup_candidate("group", version, kind, namespace, name);
-		CREATE INDEX IF NOT EXISTS manifest_index_service_id ON cleanup_candidate(service_id);
+		-- Add indexes to the processed hook component table
+		CREATE UNIQUE INDEX IF NOT EXISTS processed_hook_component_index_unique ON processed_hook_component("group", version, kind, namespace, name);
+		CREATE INDEX IF NOT EXISTS processed_hook_component_index_service_id ON processed_hook_component(service_id);
 	`
 
 	getComponent = `

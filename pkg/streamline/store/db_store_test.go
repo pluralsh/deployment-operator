@@ -2195,8 +2195,8 @@ func TestComponentCache_HasSomeResources(t *testing.T) {
 	})
 }
 
-func TestComponentCache_CleanupCandidates(t *testing.T) {
-	t.Run("should save and retrieve cleanup candidates by service ID", func(t *testing.T) {
+func TestComponentCache_ProcessedHookComponents(t *testing.T) {
+	t.Run("should save and retrieve processed hook components by service ID", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
@@ -2204,17 +2204,17 @@ func TestComponentCache_CleanupCandidates(t *testing.T) {
 		}(storeInstance)
 
 		serviceID := "svc-basic"
-		cc := []unstructured.Unstructured{
+		r := []unstructured.Unstructured{
 			createUnstructuredResource("apps", "v1", "Deployment", "default", "web"),
 			createUnstructuredResource("", "v1", "Service", "default", "web-svc"),
 			createUnstructuredResource("batch", "v1", "Job", "jobs", "db-migrate"),
 		}
 
-		require.NoError(t, storeInstance.SaveCleanupCandidates(serviceID, cc))
+		require.NoError(t, storeInstance.SaveProcessedHookComponents(serviceID, r))
 
-		result, err := storeInstance.GetCleanupCandidates(serviceID)
+		result, err := storeInstance.GetProcessedHookComponents(serviceID)
 		require.NoError(t, err)
-		require.Len(t, result, len(cc))
+		require.Len(t, result, len(r))
 
 		// Validate all fields
 		expect := map[string]struct {
@@ -2242,11 +2242,11 @@ func TestComponentCache_CleanupCandidates(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		err = storeInstance.SaveCleanupCandidates("", []unstructured.Unstructured{createUnstructuredResource("apps", "v1", "Deployment", "default", "web")})
+		err = storeInstance.SaveProcessedHookComponents("", []unstructured.Unstructured{createUnstructuredResource("apps", "v1", "Deployment", "default", "web")})
 		require.Error(t, err)
 	})
 
-	t.Run("should no-op on empty manifests slice and return empty list on get", func(t *testing.T) {
+	t.Run("should no-op on empty processed hook components slice and return empty list on get", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
@@ -2254,9 +2254,9 @@ func TestComponentCache_CleanupCandidates(t *testing.T) {
 		}(storeInstance)
 
 		serviceID := "svc-empty"
-		require.NoError(t, storeInstance.SaveCleanupCandidates(serviceID, []unstructured.Unstructured{}))
+		require.NoError(t, storeInstance.SaveProcessedHookComponents(serviceID, []unstructured.Unstructured{}))
 
-		result, err := storeInstance.GetCleanupCandidates(serviceID)
+		result, err := storeInstance.GetProcessedHookComponents(serviceID)
 		require.NoError(t, err)
 		assert.Len(t, result, 0)
 	})
@@ -2268,12 +2268,12 @@ func TestComponentCache_CleanupCandidates(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		result, err := storeInstance.GetCleanupCandidates("non-existent-service")
+		result, err := storeInstance.GetProcessedHookComponents("non-existent-service")
 		require.NoError(t, err)
 		assert.Len(t, result, 0)
 	})
 
-	t.Run("should upsert and move manifest to a new service on conflict", func(t *testing.T) {
+	t.Run("should upsert and move processed hook component to a new service on conflict", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
@@ -2284,22 +2284,22 @@ func TestComponentCache_CleanupCandidates(t *testing.T) {
 
 		// Save under service A
 		serviceA := "svc-a"
-		require.NoError(t, storeInstance.SaveCleanupCandidates(serviceA, []unstructured.Unstructured{m}))
+		require.NoError(t, storeInstance.SaveProcessedHookComponents(serviceA, []unstructured.Unstructured{m}))
 
-		resA, err := storeInstance.GetCleanupCandidates(serviceA)
+		resA, err := storeInstance.GetProcessedHookComponents(serviceA)
 		require.NoError(t, err)
 		require.Len(t, resA, 1)
 		assert.Equal(t, "moved", resA[0].Name)
 
 		// Save the same identity under service B -> should update service_id
 		serviceB := "svc-b"
-		require.NoError(t, storeInstance.SaveCleanupCandidates(serviceB, []unstructured.Unstructured{m}))
+		require.NoError(t, storeInstance.SaveProcessedHookComponents(serviceB, []unstructured.Unstructured{m}))
 
-		resA, err = storeInstance.GetCleanupCandidates(serviceA)
+		resA, err = storeInstance.GetProcessedHookComponents(serviceA)
 		require.NoError(t, err)
-		assert.Len(t, resA, 0, "manifest should no longer belong to service A")
+		assert.Len(t, resA, 0, "processed hook component should no longer belong to service A")
 
-		resB, err := storeInstance.GetCleanupCandidates(serviceB)
+		resB, err := storeInstance.GetProcessedHookComponents(serviceB)
 		require.NoError(t, err)
 		require.Len(t, resB, 1)
 		assert.Equal(t, serviceB, resB[0].ServiceID)

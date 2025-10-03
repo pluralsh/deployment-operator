@@ -799,7 +799,7 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 	})
 }
 
-func (in *DatabaseStore) SaveCleanupCandidates(serviceID string, resources []unstructured.Unstructured) error {
+func (in *DatabaseStore) SaveProcessedHookComponents(serviceID string, resources []unstructured.Unstructured) error {
 	if serviceID == "" {
 		return fmt.Errorf("service ID must be provided")
 	}
@@ -817,7 +817,7 @@ func (in *DatabaseStore) SaveCleanupCandidates(serviceID string, resources []uns
 
 	var sb strings.Builder
 	sb.WriteString(`
-		INSERT INTO cleanup_candidate (
+		INSERT INTO processed_hook_component (
 		  "group",
 		  version,
 		  kind,
@@ -841,21 +841,21 @@ func (in *DatabaseStore) SaveCleanupCandidates(serviceID string, resources []uns
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
 
-func (in *DatabaseStore) GetCleanupCandidates(serviceID string) ([]smcommon.CleanupCandidate, error) {
+func (in *DatabaseStore) GetProcessedHookComponents(serviceID string) ([]smcommon.ProcessedHookComponent, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	defer in.pool.Put(conn)
 
-	result := make([]smcommon.CleanupCandidate, 0)
+	result := make([]smcommon.ProcessedHookComponent, 0)
 	err = sqlitex.ExecuteTransient(
 		conn,
-		`SELECT "group", version, kind, namespace, name, uid FROM cleanup_candidate WHERE service_id = ?`,
+		`SELECT "group", version, kind, namespace, name, uid FROM processed_hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{
 			Args: []interface{}{serviceID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
-				result = append(result, smcommon.CleanupCandidate{
+				result = append(result, smcommon.ProcessedHookComponent{
 					Group:     stmt.ColumnText(0),
 					Version:   stmt.ColumnText(1),
 					Kind:      stmt.ColumnText(2),

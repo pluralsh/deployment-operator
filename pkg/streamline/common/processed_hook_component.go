@@ -6,9 +6,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// CleanupCandidate represents resources with a specified deletion policy
-// that were already processed and are ready for cleanup.
-type CleanupCandidate struct {
+// ProcessedHookComponent represents hook resources that were already processed and are ready for cleanup.
+type ProcessedHookComponent struct {
 	UID       string
 	Group     string
 	Version   string
@@ -18,11 +17,11 @@ type CleanupCandidate struct {
 	ServiceID string
 }
 
-func (in *CleanupCandidate) GroupVersionKind() schema.GroupVersionKind {
+func (in *ProcessedHookComponent) GroupVersionKind() schema.GroupVersionKind {
 	return schema.GroupVersionKind{Group: in.Group, Version: in.Version, Kind: in.Kind}
 }
 
-func (in *CleanupCandidate) ToUnstructured() unstructured.Unstructured {
+func (in *ProcessedHookComponent) ToUnstructured() unstructured.Unstructured {
 	u := unstructured.Unstructured{}
 	u.SetGroupVersionKind(in.GroupVersionKind())
 	u.SetNamespace(in.Namespace)
@@ -31,6 +30,6 @@ func (in *CleanupCandidate) ToUnstructured() unstructured.Unstructured {
 	return u
 }
 
-func (in *CleanupCandidate) ToStoreKey() StoreKey {
+func (in *ProcessedHookComponent) ToStoreKey() StoreKey {
 	return StoreKey{GVK: in.GroupVersionKind(), Namespace: in.Namespace, Name: in.Name}
 }
