@@ -84,4 +84,7 @@ type Store interface {
 
 	// GetProcessedHookComponents returns all processed hook components that belong to the specified service.
 	GetProcessedHookComponents(serviceID string) ([]smcommon.ProcessedHookComponent, error)
+
+	// ExpireProcessedHookComponents removes all processed hook components from the store.
+	ExpireProcessedHookComponents(serviceID string) error
 }

@@ -875,6 +875,17 @@ func (in *DatabaseStore) GetProcessedHookComponents(serviceID string) ([]smcommo
 	return result, err
 }
 
+func (in *DatabaseStore) ExpireProcessedHookComponents(serviceID string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, `DELETE FROM processed_hook_component WHERE service_id = ?`,
+		&sqlitex.ExecOptions{Args: []any{serviceID}})
+}
+
 func (in *DatabaseStore) Shutdown() error {
 	in.mu.Lock()
 	defer in.mu.Unlock()
