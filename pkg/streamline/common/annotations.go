@@ -177,7 +177,6 @@ func ValidateTrackingIdentifier(u unstructured.Unstructured) bool {
 }
 
 // GetSyncWave retrieves the sync wave from the resource annotations.
-// If the annotation is not present or invalid, it returns nil.
 func GetSyncWave(u unstructured.Unstructured) int {
 	annotations := u.GetAnnotations()
 	if annotations == nil {
@@ -197,6 +196,7 @@ func GetSyncWave(u unstructured.Unstructured) int {
 	return i
 }
 
+// helmWave retrieves the helm hook weight from the resource annotations.
 func helmWave(annotations map[string]string, kind string) int {
 	wave, ok := annotations[HelmHookWeightAnnotation]
 	if !ok {
