@@ -176,7 +176,7 @@ func (in *Applier) Apply(ctx context.Context,
 			compAttr = common.ToComponentAttributes(live)
 
 			if err := in.store.SaveComponent(*live); err != nil {
-				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component to discoveryCache", "resource", resource)
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component", "resource", resource)
 			}
 		} else {
 			compAttr = lo.ToPtr(cacheEntry.ToComponentAttributes())
