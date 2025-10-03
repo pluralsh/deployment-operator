@@ -2,10 +2,12 @@ package applier
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -14,8 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
@@ -36,53 +36,132 @@ type Applier struct {
 	onApply func(unstructured.Unstructured)
 }
 
+func (in *Applier) skipResource(resource unstructured.Unstructured, dryRun bool) bool {
+	return !in.filters.MatchOmit(resource, lo.Ternary(dryRun, []Filter{FilterCache}, []Filter{})...)
+}
+
 func (in *Applier) Apply(ctx context.Context,
 	service client.ServiceDeploymentForAgent,
 	resources []unstructured.Unstructured,
 	opts ...WaveProcessorOption,
 ) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
-	now := time.Now()
-
-	resources = in.addServiceAnnotation(resources, service.ID)
-	toDelete, toApply, err := in.toDelete(service.ID, resources)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	toApply, toSkip := in.filterResources(toApply, lo.FromPtr(service.DryRun))
-
-	waves := NewWaves(toApply)
-	waves = append(waves, NewWave(toDelete, DeleteWave))
-
-	// Filter out empty waves
-	waves = algorithms.Filter(waves, func(w Wave) bool {
-		return w.Len() > 0
-	})
+	resources = in.ensureServiceAnnotation(resources, service.ID)
 
 	componentList := make([]client.ComponentAttributes, 0)
-	serviceErrrorList := make([]client.ServiceErrorAttributes, 0)
-	for _, wave := range waves {
-		processor := NewWaveProcessor(in.client, in.discoveryCache, wave, opts...)
-		components, serviceErrors := processor.Run(ctx)
+	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
+	toSkip := make([]unstructured.Unstructured, 0)
 
-		componentList = append(componentList, components...)
-		serviceErrrorList = append(serviceErrrorList, serviceErrors...)
-
-		time.Sleep(in.waveDelay)
+	isUpgrade, err := streamline.GetGlobalStore().HasSomeResources(resources)
+	if err != nil {
+		return componentList, serviceErrorList, fmt.Errorf("failed to check existing resources: %w", err)
 	}
 
-	klog.V(log.LogLevelDefault).InfoS(
-		"apply result",
-		"service", service.Name,
-		"id", service.ID,
-		"attempted", len(resources),
-		"applied", len(componentList)-len(toDelete),
-		"deleted", len(toDelete),
-		"skipped", len(toSkip),
-		"failed", len(serviceErrrorList),
-		"dryRun", lo.FromPtr(service.DryRun),
-		"duration", time.Since(now),
+	deleteFilterFunc, err := in.getDeleteFilterFunc(service.ID)
+	if err != nil {
+		return componentList, serviceErrorList, err
+	}
+
+	phases := NewPhases(
+		resources,
+		func(resource unstructured.Unstructured) bool {
+			if HelmFilter(isUpgrade)(resource) == false {
+				return false // Skip resource based on Helm hook logic
+			}
+
+			return in.skipResource(resource, lo.FromPtr(service.DryRun))
+		},
+		func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured) {
+			return deleteFilterFunc(resources)
+		},
 	)
+
+	var failed bool
+	var syncPhase *smcommon.SyncPhase
+	var phase *Phase
+	var hasOnFailPhase bool
+	for {
+		if phase, hasOnFailPhase = phases.Next(syncPhase, failed); phase == nil {
+			break
+		}
+
+		now := time.Now()
+		syncPhase = lo.ToPtr(phase.Name())
+		toSkip = append(toSkip, phase.Skipped()...)
+
+		if !phase.HasWaves() {
+			klog.V(log.LogLevelDefault).InfoS(
+				"apply result",
+				"service", service.Name,
+				"id", service.ID,
+				"phase", phase.Name(),
+				"attempted", phase.ResourceCount(),
+				"applied", 0,
+				"deleted", 0,
+				"skipped", len(phase.Skipped()),
+				"failed", 0,
+				"dryRun", lo.FromPtr(service.DryRun),
+				"duration", time.Since(now),
+			)
+
+			continue
+		}
+
+		componentsCount := 0
+		serviceErrorsCount := 0
+		for _, wave := range phase.Waves() {
+			processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
+			components, serviceErrors := processor.Run(ctx)
+
+			componentList = append(componentList, components...)
+			serviceErrorList = append(serviceErrorList, serviceErrors...)
+
+			componentsCount = len(components)
+			serviceErrorsCount = len(serviceErrors)
+
+			time.Sleep(in.waveDelay)
+		}
+
+		klog.V(log.LogLevelDefault).InfoS(
+			"apply result",
+			"service", service.Name,
+			"id", service.ID,
+			"phase", phase.Name(),
+			"attempted", phase.ResourceCount(),
+			"applied", componentsCount-phase.DeletedCount(),
+			"deleted", phase.DeletedCount(),
+			"skipped", len(phase.Skipped()),
+			"failed", serviceErrorsCount,
+			"dryRun", lo.FromPtr(service.DryRun),
+			"duration", time.Since(now),
+		)
+
+		pending, f, err := phase.ResourceHealth()
+		if err != nil {
+			klog.V(log.LogLevelDefault).ErrorS(err, "failed to get phase health", "phase", phase.Name())
+			break
+		}
+		if pending {
+			serviceErrorList = append(serviceErrorList, client.ServiceErrorAttributes{
+				Source:  string(phase.Name()),
+				Message: "waiting for resources to be ready",
+				Warning: lo.ToPtr(true),
+			})
+			klog.V(log.LogLevelTrace).InfoS("waiting for resources to be ready", "phase", phase.Name())
+			break
+		}
+
+		failed = len(serviceErrorList) > 0 || f
+		if failed {
+			serviceErrorList = append(serviceErrorList, client.ServiceErrorAttributes{
+				Source:  string(phase.Name()),
+				Message: "could not complete phase, check errors and failing resources",
+			})
+			if !hasOnFailPhase {
+				klog.V(log.LogLevelTrace).InfoS("failed to apply phase", "phase", phase.Name())
+				break
+			}
+		}
+	}
 
 	for _, resource := range toSkip {
 		var compAttr *client.ComponentAttributes
@@ -97,7 +176,7 @@ func (in *Applier) Apply(ctx context.Context,
 			compAttr = common.ToComponentAttributes(live)
 
 			if err := in.store.SaveComponent(*live); err != nil {
-				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component to discoveryCache", "resource", resource)
+				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component", "resource", resource)
 			}
 		} else {
 			compAttr = lo.ToPtr(cacheEntry.ToComponentAttributes())
@@ -116,16 +195,17 @@ func (in *Applier) Apply(ctx context.Context,
 		componentList[idx].Children = lo.ToSlicePtr(children)
 	}
 
-	return componentList, serviceErrrorList, nil
+	return componentList, serviceErrorList, nil
 }
 
 func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.ComponentAttributes, error) {
 	deleted := 0
-	toDelete, _, err := in.toDelete(serviceID, []unstructured.Unstructured{})
+	deleteFilterFunc, err := in.getDeleteFilterFunc(serviceID)
 	if err != nil {
 		return nil, err
 	}
 
+	toDelete, _ := deleteFilterFunc([]unstructured.Unstructured{})
 	for _, resource := range toDelete {
 		live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
 		if errors.IsNotFound(err) {
@@ -178,20 +258,7 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 	return in.getServiceComponents(serviceID)
 }
 
-func (in *Applier) filterResources(resources []unstructured.Unstructured, dryRun bool) (toApply []unstructured.Unstructured, toSkip []unstructured.Unstructured) {
-	for _, resource := range resources {
-		// In case of dry run we want to skip the discoveryCache filter.
-		if in.filters.MatchOmit(resource, lo.Ternary(dryRun, []Filter{FilterCache}, []Filter{})...) {
-			toApply = append(toApply, resource)
-		} else {
-			toSkip = append(toSkip, resource)
-		}
-	}
-
-	return
-}
-
-func (in *Applier) addServiceAnnotation(resources []unstructured.Unstructured, serviceID string) []unstructured.Unstructured {
+func (in *Applier) ensureServiceAnnotation(resources []unstructured.Unstructured, serviceID string) []unstructured.Unstructured {
 	for _, obj := range resources {
 		annotations := obj.GetAnnotations()
 		if annotations == nil {
@@ -213,56 +280,75 @@ var (
 	}
 )
 
-func (in *Applier) toDelete(serviceID string, resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured, err error) {
-	existing, err := in.store.GetServiceComponents(serviceID)
+func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured), error) {
+	existingComponents, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
+		return nil, err
+	}
+
+	processedHookComponents, err := in.store.GetProcessedHookComponents(serviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a map of processed hook components for an easy lookup.
+	keyToProcessedHookComponent := make(map[smcommon.Key]smcommon.ProcessedHookComponent)
+	for _, phc := range processedHookComponents {
+		keyToProcessedHookComponent[phc.ToStoreKey().VersionlessKey()] = phc
+	}
+
+	return func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured) {
+		skipApply := containers.NewSet[smcommon.Key]()
+
+		// Create a map of resources for an easy lookup.
+		keyToResource := make(map[smcommon.Key]unstructured.Unstructured)
+		for _, obj := range resources {
+			key := smcommon.NewStoreKeyFromUnstructured(obj).VersionlessKey()
+			keyToResource[key] = obj
+		}
+
+		for _, existingComponent := range existingComponents {
+			entryKey := existingComponent.ToStoreKey()
+			toCheck := []smcommon.Key{entryKey.VersionlessKey()}
+			if mirrorGroup, ok := mirrorGroups[existingComponent.Group]; ok {
+				toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
+			}
+
+			if shouldKeep := lo.SomeBy(toCheck, func(key smcommon.Key) bool {
+				_, ok := keyToResource[key]
+				return ok
+			}); !shouldKeep {
+				toDelete = append(toDelete, existingComponent.ToUnstructured())
+				skipApply.Add(entryKey.VersionlessKey())
+			}
+		}
+
+		for key, resource := range keyToResource {
+			// Custom handling for resources with delete policy annotation.
+			deletionPolicy := smcommon.GetPhaseHookDeletePolicy(resource)
+			processedHookComponent, ok := keyToProcessedHookComponent[key]
+			if deletionPolicy != "" && ok &&
+				((processedHookComponent.Succeeded() && deletionPolicy == smcommon.SyncPhaseDeletePolicySucceeded) ||
+					(processedHookComponent.Failed() && deletionPolicy == smcommon.SyncPhaseDeletePolicyFailed)) {
+
+				// Skip applying resources that have already reached their desired state.
+				skipApply.Add(key)
+
+				// Ensure that these resources are deleted.
+				if r, exists := keyToResource[key]; exists {
+					toDelete = append(toDelete, r)
+				}
+
+				continue
+			}
+
+			if !skipApply.Has(key) {
+				toApply = append(toApply, resource)
+			}
+		}
+
 		return
-	}
-
-	deleteKeys := containers.NewSet[smcommon.Key]()
-	resourceKeyToResource := make(map[smcommon.Key]unstructured.Unstructured)
-	for _, obj := range resources {
-		key := smcommon.NewStoreKeyFromUnstructured(obj).VersionlessKey()
-		resourceKeyToResource[key] = obj
-	}
-
-	for _, entry := range existing {
-		entryKey := smcommon.NewStoreKeyFromEntry(entry)
-		toCheck := []smcommon.Key{entryKey.VersionlessKey()}
-		if mirrorGroup, ok := mirrorGroups[entry.Group]; ok {
-			toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
-		}
-
-		shouldKeep := lo.SomeBy(toCheck, func(key smcommon.Key) bool {
-			_, ok := resourceKeyToResource[key]
-			return ok
-		})
-
-		if !shouldKeep {
-			obj := unstructured.Unstructured{}
-			obj.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   entry.Group,
-				Version: entry.Version,
-				Kind:    entry.Kind,
-			})
-			obj.SetNamespace(entry.Namespace)
-			obj.SetName(entry.Name)
-			obj.SetUID(types.UID(entry.UID))
-
-			toDelete = append(toDelete, obj)
-			deleteKeys.Add(entryKey.VersionlessKey())
-		}
-	}
-
-	for key, resource := range resourceKeyToResource {
-		if deleteKeys.Has(key) {
-			continue
-		}
-
-		toApply = append(toApply, resource)
-	}
-
-	return
+	}, nil
 }
 
 func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAttributes, error) {
@@ -271,7 +357,7 @@ func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAtt
 		return nil, err
 	}
 
-	return algorithms.Map(entries, func(entry smcommon.Entry) client.ComponentAttributes {
+	return algorithms.Map(entries, func(entry smcommon.Component) client.ComponentAttributes {
 		return client.ComponentAttributes{
 			UID:       lo.ToPtr(entry.UID),
 			Group:     entry.Group,

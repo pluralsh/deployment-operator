@@ -18,11 +18,11 @@ type Store interface {
 
 	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
 
-	GetComponent(obj unstructured.Unstructured) (*smcommon.Entry, error)
+	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
 
 	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
 
-	GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Entry, error)
+	GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error)
 
 	// DeleteComponent removes a component from the store based on its smcommon.StoreKey.
 	// It returns an error if any issue occurs during the deletion process.
@@ -34,8 +34,8 @@ type Store interface {
 
 	// GetServiceComponents retrieves all parent components associated with a given service ID.
 	// All components with parents are filtered out.
-	// It returns a slice of Entry structs containing information about each component and any error encountered.
-	GetServiceComponents(serviceID string) ([]smcommon.Entry, error)
+	// It returns a slice of Component structs containing information about each component and any error encountered.
+	GetServiceComponents(serviceID string) ([]smcommon.Component, error)
 
 	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
 	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.
@@ -72,4 +72,16 @@ type Store interface {
 
 	// Shutdown closes the database connection and deletes the store.
 	Shutdown() error
+
+	// GetResourceHealth checks health statuses of provided resources.
+	GetResourceHealth(resources []unstructured.Unstructured) (pending, failed bool, err error)
+
+	// HasSomeResources checks if at least one of the provided resources exists in the store.
+	HasSomeResources(resources []unstructured.Unstructured) (bool, error)
+
+	// GetProcessedHookComponents returns all processed hook components that belong to the specified service.
+	GetProcessedHookComponents(serviceID string) ([]smcommon.ProcessedHookComponent, error)
+
+	// ExpireProcessedHookComponents removes all processed hook components from the store.
+	ExpireProcessedHookComponents(serviceID string) error
 }

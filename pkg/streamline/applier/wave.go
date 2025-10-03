@@ -6,27 +6,26 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
-
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
-
-	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -66,72 +65,6 @@ func (in *Wave) Len() int {
 	return len(in.items)
 }
 
-type Waves []Wave
-
-func NewWaves(resources []unstructured.Unstructured) Waves {
-	defaultWaveCount := 5
-	waves := make([]Wave, 0, defaultWaveCount)
-	for i := 0; i < defaultWaveCount; i++ {
-		waves = append(waves, NewWave([]unstructured.Unstructured{}, ApplyWave))
-	}
-
-	kindToWave := map[string]int{
-		// Wave 0 - core non-namespaced resources
-		common.NamespaceKind:                0,
-		common.CustomResourceDefinitionKind: 0,
-		common.PersistentVolumeKind:         0,
-		common.ClusterRoleKind:              0,
-		common.ClusterRoleListKind:          0,
-		common.ClusterRoleBindingKind:       0,
-		common.ClusterRoleBindingListKind:   0,
-		common.StorageClassKind:             0,
-
-		// Wave 1 - core namespaced configuration resources
-		common.ConfigMapKind:             1,
-		common.SecretKind:                1,
-		common.SecretListKind:            1,
-		common.ServiceAccountKind:        1,
-		common.RoleKind:                  1,
-		common.RoleListKind:              1,
-		common.RoleBindingKind:           1,
-		common.RoleBindingListKind:       1,
-		common.PodDisruptionBudgetKind:   1,
-		common.ResourceQuotaKind:         1,
-		common.NetworkPolicyKind:         1,
-		common.LimitRangeKind:            1,
-		common.PodSecurityPolicyKind:     1,
-		common.IngressClassKind:          1,
-		common.PersistentVolumeClaimKind: 1,
-
-		// Wave 2 - core namespaced workload resources
-		common.DeploymentKind:            2,
-		common.DaemonSetKind:             2,
-		common.StatefulSetKind:           2,
-		common.ReplicaSetKind:            2,
-		common.JobKind:                   2,
-		common.CronJobKind:               2,
-		common.PodKind:                   2,
-		common.ReplicationControllerKind: 2,
-
-		// Wave 3 - core namespaced networking resources
-		common.EndpointsKind:  3,
-		common.ServiceKind:    3,
-		common.IngressKind:    3,
-		common.APIServiceKind: 3,
-	}
-
-	for _, resource := range resources {
-		if waveIdx, exists := kindToWave[resource.GetKind()]; exists {
-			waves[waveIdx].Add(resource)
-		} else {
-			// Unknown resource kind, put it in the last wave
-			waves[len(waves)-1].Add(resource)
-		}
-	}
-
-	return waves
-}
-
 const (
 	defaultMaxConcurrentApplies = 10
 	defaultDeQueueDelay         = 100 * time.Millisecond
@@ -149,6 +82,8 @@ type WaveProcessor struct {
 
 	// discoveryCache is the discovery discoveryCache used to get information about the API resources.
 	discoveryCache discoverycache.Cache
+
+	phase smcommon.SyncPhase
 
 	// wave to be processed. It contains the resources to be applied or deleted.
 	wave Wave
@@ -222,7 +157,7 @@ func (in *WaveProcessor) Run(ctx context.Context) (components []console.Componen
 					continue
 				}
 
-				klog.V(log.LogLevelDebug).InfoS("received component", "component", component)
+				klog.V(log.LogLevelExtended).InfoS("received component", "component", component)
 				components = append(components, component)
 			case err, ok := <-errChan:
 				if !ok {
@@ -401,7 +336,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	c, err := in.clientForResource(resource)
 	if err != nil {
 		in.errorsChan <- console.ServiceErrorAttributes{
-			Source:  "apply",
+			Source:  in.phase.String(),
 			Message: fmt.Sprintf("failed to build client for resource %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 		return
@@ -418,7 +353,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		}
 
 		in.errorsChan <- console.ServiceErrorAttributes{
-			Source:  "apply",
+			Source:  in.phase.String(),
 			Message: fmt.Sprintf("failed to apply %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 
@@ -438,6 +373,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
+	// TODO: optimize and use ONE db call and update component status from applied resource
 	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
 		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName(), "kind", resource.GetKind())
 	}
@@ -451,7 +387,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
 }
 
-func (in *WaveProcessor) isManaged(entry *smcommon.Entry, resource unstructured.Unstructured) bool {
+func (in *WaveProcessor) isManaged(entry *smcommon.Component, resource unstructured.Unstructured) bool {
 	if entry == nil {
 		return false
 	}
@@ -466,7 +402,7 @@ func (in *WaveProcessor) isManaged(entry *smcommon.Entry, resource unstructured.
 }
 
 func (in *WaveProcessor) withDryRun(ctx context.Context, component *console.ComponentAttributes, resource unstructured.Unstructured, delete bool) *console.ComponentAttributes {
-	desiredJSON := asJSON(&resource)
+	desiredJSON := utils.UnstructuredAsJSON(&resource)
 	if delete {
 		desiredJSON = "# n/a"
 	}
@@ -474,7 +410,7 @@ func (in *WaveProcessor) withDryRun(ctx context.Context, component *console.Comp
 	liveJSON := "# n/a"
 	liveResource := in.refetch(ctx, resource)
 	if liveResource != nil {
-		liveJSON = asJSON(liveResource)
+		liveJSON = utils.UnstructuredAsJSON(liveResource)
 	}
 
 	component.Synced = liveJSON == desiredJSON
@@ -555,11 +491,12 @@ func WithWaveSvcCache(c *consoleclient.Cache[console.ServiceDeploymentForAgent])
 	}
 }
 
-func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cache, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
+func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cache, phase smcommon.SyncPhase, wave Wave, opts ...WaveProcessorOption) *WaveProcessor {
 	result := &WaveProcessor{
 		mu:                   sync.Mutex{},
 		client:               dynamicClient,
 		discoveryCache:       cache,
+		phase:                phase,
 		wave:                 wave,
 		maxConcurrentApplies: defaultMaxConcurrentApplies,
 		deQueueDelay:         defaultDeQueueDelay,

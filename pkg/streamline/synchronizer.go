@@ -233,7 +233,7 @@ func (in *synchronizer) resynchronize() {
 	}
 
 	storeResourceSet := containers.NewSet[smcommon.Key]()
-	storeResourceMap := make(map[smcommon.Key]smcommon.Entry)
+	storeResourceMap := make(map[smcommon.Key]smcommon.Component)
 	for _, entry := range entries {
 		key := smcommon.NewKeyFromEntry(entry)
 		storeResourceSet.Add(key)
@@ -247,7 +247,7 @@ func (in *synchronizer) resynchronize() {
 	for _, key := range toDelete.List() {
 		entry := storeResourceMap[key]
 		klog.V(log.LogLevelDebug).InfoS("resync - deleting component from store", "gvr", in.gvr, "resource", entry.UID)
-		if err := in.store.DeleteComponent(smcommon.NewStoreKeyFromEntry(entry)); err != nil {
+		if err := in.store.DeleteComponent(entry.ToStoreKey()); err != nil {
 			klog.ErrorS(err, "failed to delete component from store", "resource", entry.UID)
 		}
 	}
