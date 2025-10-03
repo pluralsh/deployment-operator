@@ -63,10 +63,8 @@ func (p *Phase) ResourceCount() int {
 
 func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phase {
 	skipped := make([]unstructured.Unstructured, 0)
-	toDelete, toApply := deleteFilter(resources)
-	deleteWave := NewWave(algorithms.Filter(toDelete, func(u unstructured.Unstructured) bool {
-		return smcommon.GetSyncPhase(u) == name // Ensure that only resources from this phase will be deleted
-	}), DeleteWave)
+	toDeleteFromAllPhases, toApply := deleteFilter(resources)
+	toDelete := algorithms.Filter(toDeleteFromAllPhases, func(u unstructured.Unstructured) bool { return smcommon.GetSyncPhase(u) == name })
 
 	wavesMap := make(map[int]Wave)
 	for _, resource := range toApply {
@@ -92,7 +90,7 @@ func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, sk
 	return Phase{
 		name:       name,
 		skipped:    skipped,
-		deleteWave: deleteWave,
+		deleteWave: NewWave(toDelete, DeleteWave),
 		waves:      algorithms.Map(waves, func(e lo.Entry[int, Wave]) Wave { return e.Value }),
 	}
 }
