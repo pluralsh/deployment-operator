@@ -48,6 +48,7 @@ const (
 		-- Create the cleanup candidate table
 		CREATE TABLE IF NOT EXISTS cleanup_candidate (
 			id INTEGER PRIMARY KEY,
+			uid TEXT,
 			"group" TEXT,
 			version TEXT,
 			kind TEXT, 

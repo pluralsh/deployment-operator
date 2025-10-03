@@ -823,13 +823,14 @@ func (in *DatabaseStore) SaveCleanupCandidates(serviceID string, resources []uns
 		  kind,
 		  namespace,
 		  name,
+		  uid,
 		  service_id
 		) VALUES `)
 
 	for i, r := range resources {
 		gvk := r.GroupVersionKind()
-		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s')",
-			gvk.Group, gvk.Version, gvk.Kind, r.GetNamespace(), r.GetName(), serviceID))
+		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s')",
+			gvk.Group, gvk.Version, gvk.Kind, r.GetNamespace(), r.GetName(), r.GetUID(), serviceID))
 		if i < l-1 {
 			sb.WriteString(",")
 		}
@@ -850,7 +851,7 @@ func (in *DatabaseStore) GetCleanupCandidates(serviceID string) ([]smcommon.Clea
 	result := make([]smcommon.CleanupCandidate, 0)
 	err = sqlitex.ExecuteTransient(
 		conn,
-		`SELECT "group", version, kind, namespace, name FROM cleanup_candidate WHERE service_id = ?`,
+		`SELECT "group", version, kind, namespace, name, uid FROM cleanup_candidate WHERE service_id = ?`,
 		&sqlitex.ExecOptions{
 			Args: []interface{}{serviceID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
@@ -860,6 +861,7 @@ func (in *DatabaseStore) GetCleanupCandidates(serviceID string) ([]smcommon.Clea
 					Kind:      stmt.ColumnText(2),
 					Namespace: stmt.ColumnText(3),
 					Name:      stmt.ColumnText(4),
+					UID:       stmt.ColumnText(5),
 					ServiceID: serviceID,
 				})
 				return nil
