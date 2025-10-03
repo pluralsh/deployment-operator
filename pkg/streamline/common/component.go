@@ -3,7 +3,9 @@ package common
 import (
 	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type Component struct {
@@ -27,16 +29,14 @@ func (in *Component) GroupVersionKind() schema.GroupVersionKind {
 	return schema.GroupVersionKind{Group: in.Group, Version: in.Version, Kind: in.Kind}
 }
 
-// ShouldApply determines if a resource should be applied.
-// Resource should be applied if at least one of the following conditions is met:
-// - any of the SHAs (Server, Apply, or Manifest) are not set
-// - the current server SHA differs from stored apply SHA (indicating resource changed in cluster)
-// - the new manifest SHA differs from stored manifest SHA (indicating the manifest has changed)
-// - the resource is not in a running state
-func (in *Component) ShouldApply(newManifestSHA string) bool {
-	return in.ServerSHA == "" || in.ApplySHA == "" || in.ManifestSHA == "" ||
-		in.ServerSHA != in.ApplySHA || newManifestSHA != in.ManifestSHA ||
-		client.ComponentState(in.Status) != client.ComponentStateRunning
+func (in *Component) ToUnstructured() unstructured.Unstructured {
+	u := unstructured.Unstructured{}
+	u.SetGroupVersionKind(in.GroupVersionKind())
+	u.SetNamespace(in.Namespace)
+	u.SetName(in.Name)
+	u.SetUID(types.UID(in.UID))
+	u.SetAnnotations(map[string]string{SyncPhaseAnnotation: in.SyncPhase})
+	return u
 }
 
 func (in *Component) ToComponentAttributes() client.ComponentAttributes {
@@ -50,4 +50,16 @@ func (in *Component) ToComponentAttributes() client.ComponentAttributes {
 		Namespace: in.Namespace,
 		State:     lo.ToPtr(client.ComponentState(in.Status)),
 	}
+}
+
+// ShouldApply determines if a resource should be applied.
+// Resource should be applied if at least one of the following conditions is met:
+// - any of the SHAs (Server, Apply, or Manifest) are not set
+// - the current server SHA differs from stored apply SHA (indicating resource changed in cluster)
+// - the new manifest SHA differs from stored manifest SHA (indicating the manifest has changed)
+// - the resource is not in a running state
+func (in *Component) ShouldApply(newManifestSHA string) bool {
+	return in.ServerSHA == "" || in.ApplySHA == "" || in.ManifestSHA == "" ||
+		in.ServerSHA != in.ApplySHA || newManifestSHA != in.ManifestSHA ||
+		client.ComponentState(in.Status) != client.ComponentStateRunning
 }
