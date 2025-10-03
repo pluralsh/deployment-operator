@@ -283,6 +283,8 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	}
 	defer in.pool.Put(conn)
 
+	defer in.maybeSaveProcessedHookComponent(obj)
+
 	return sqlitex.ExecuteTransient(conn, setComponentWithSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			obj.GetUID(),
@@ -409,6 +411,8 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
       sync_phase = excluded.sync_phase,
 	  server_sha = excluded.server_sha
 	`)
+
+	// TODO: Something like defer in.maybeSaveProcessedHookComponent(obj).
 
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
@@ -799,50 +803,35 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 	})
 }
 
-func (in *DatabaseStore) SaveProcessedHookComponents(serviceID string, resources []unstructured.Unstructured) error {
+func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.Unstructured) {
+	serviceID := smcommon.GetOwningInventory(resource)
 	if serviceID == "" {
-		return fmt.Errorf("service ID must be provided")
+		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving processed hook components")
+		return
 	}
 
-	l := len(resources)
-	if l == 0 {
-		return nil
+	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(resource); deletePolicy == "" {
+		klog.V(log.LogLevelTrace).InfoS("delete policy is not set, skipping saving processed hook components")
+		return
 	}
+
+	// TODO: Check status before saving?
 
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
-		return err
+		klog.V(log.LogLevelDebug).ErrorS(err, "failed to get database connection for saving processed hook component")
+		return
 	}
 	defer in.pool.Put(conn)
 
-	var sb strings.Builder
-	sb.WriteString(`
-		INSERT INTO processed_hook_component (
-		  "group",
-		  version,
-		  kind,
-		  namespace,
-		  name,
-		  uid,
-		  status,
-		  service_id
-		) VALUES `)
+	gvk := resource.GroupVersionKind()
 
-	for i, r := range resources {
-		gvk := r.GroupVersionKind()
-		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%d','%s')",
-			gvk.Group, gvk.Version, gvk.Kind, r.GetNamespace(), r.GetName(), r.GetUID(), NewComponentState(common.ToStatus(&r)), serviceID))
-		if i < l-1 {
-			sb.WriteString(",")
-		}
+	if err = sqlitex.Execute(conn, setProcessedHookComponent, &sqlitex.ExecOptions{Args: []any{
+		gvk.Group, gvk.Version, gvk.Kind, resource.GetNamespace(), resource.GetName(), resource.GetUID(),
+		NewComponentState(common.ToStatus(&resource)), serviceID,
+	}}); err != nil {
+		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook component", "resource", resource)
 	}
-
-	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
-	uid = excluded.uid,
-	status = excluded.status,
-	service_id = excluded.service_id`)
-
-	return sqlitex.Execute(conn, sb.String(), nil)
 }
 
 func (in *DatabaseStore) GetProcessedHookComponents(serviceID string) ([]smcommon.ProcessedHookComponent, error) {

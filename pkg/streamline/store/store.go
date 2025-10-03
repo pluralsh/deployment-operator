@@ -79,9 +79,6 @@ type Store interface {
 	// HasSomeResources checks if at least one of the provided resources exists in the store.
 	HasSomeResources(resources []unstructured.Unstructured) (bool, error)
 
-	// SaveProcessedHookComponents saves processed hook components.
-	SaveProcessedHookComponents(serviceID string, resource []unstructured.Unstructured) error
-
 	// GetProcessedHookComponents returns all processed hook components that belong to the specified service.
 	GetProcessedHookComponents(serviceID string) ([]smcommon.ProcessedHookComponent, error)
 

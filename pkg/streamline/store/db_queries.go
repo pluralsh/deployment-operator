@@ -292,4 +292,13 @@ const (
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE updated_at < datetime(?, 'unixepoch')
 	`
+
+	setProcessedHookComponent = `
+		INSERT INTO processed_hook_component ("group", version, kind, namespace, name, uid, status, service_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			status = excluded.status,
+			service_id = excluded.service_id
+	`
 )
