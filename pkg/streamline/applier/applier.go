@@ -331,7 +331,7 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 					if processedHookComponent.Succeeded() && policy == smcommon.SyncPhaseDeletePolicySucceeded {
 						skipApply.Add(key)
 
-						// Delete it if the resource still exists.
+						// Delete the resource if it still exists.
 						if r, exists := keyToResource[key]; exists {
 							toDelete = append(toDelete, r)
 						}
@@ -342,7 +342,7 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 					if processedHookComponent.Failed() && policy == smcommon.SyncPhaseDeletePolicyFailed {
 						skipApply.Add(key)
 
-						// Delete it if the resource still exists.
+						// Delete the resource if it still exists.
 						if r, exists := keyToResource[key]; exists {
 							toDelete = append(toDelete, r)
 						}
