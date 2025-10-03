@@ -325,31 +325,21 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 
 		for key, resource := range keyToResource {
 			// Custom handling for resources with delete policy annotation.
-			// Those resources should not be reapplied if they have reached their desired state and were deleted.
-			if policy := smcommon.GetPhaseHookDeletePolicy(resource); policy != "" {
-				if processedHookComponent, ok := keyToProcessedHookComponent[key]; ok {
-					if processedHookComponent.Succeeded() && policy == smcommon.SyncPhaseDeletePolicySucceeded {
-						skipApply.Add(key)
+			deletionPolicy := smcommon.GetPhaseHookDeletePolicy(resource)
+			processedHookComponent, ok := keyToProcessedHookComponent[key]
+			if deletionPolicy != "" && ok &&
+				((processedHookComponent.Succeeded() && deletionPolicy == smcommon.SyncPhaseDeletePolicySucceeded) ||
+					(processedHookComponent.Failed() && deletionPolicy == smcommon.SyncPhaseDeletePolicyFailed)) {
 
-						// Delete the resource if it still exists.
-						if r, exists := keyToResource[key]; exists {
-							toDelete = append(toDelete, r)
-						}
+				// Skip applying resources that have already reached their desired state.
+				skipApply.Add(key)
 
-						continue
-					}
-
-					if processedHookComponent.Failed() && policy == smcommon.SyncPhaseDeletePolicyFailed {
-						skipApply.Add(key)
-
-						// Delete the resource if it still exists.
-						if r, exists := keyToResource[key]; exists {
-							toDelete = append(toDelete, r)
-						}
-
-						continue
-					}
+				// Ensure that these resources are deleted.
+				if r, exists := keyToResource[key]; exists {
+					toDelete = append(toDelete, r)
 				}
+
+				continue
 			}
 
 			if !skipApply.Has(key) {
