@@ -270,3 +270,13 @@ func defaultPhase(annotations map[string]string) SyncPhase {
 		return SyncPhaseSync
 	}
 }
+
+// GetPhaseHookDeletePolicy retrieves the sync phase hook delete policy from the resource annotations.
+func GetPhaseHookDeletePolicy(u unstructured.Unstructured) string {
+	annotations := u.GetAnnotations()
+	if annotations == nil {
+		return ""
+	}
+
+	return annotations[SyncPhaseHookDeletePolicy]
+}
