@@ -281,49 +281,78 @@ var (
 )
 
 func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured), error) {
-	existing, err := in.store.GetServiceComponents(serviceID)
+	existingComponents, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get cleanup candidates (resources that were already processed and should not be recreated)
-	// TODO: Filter out based on existing components table.
-	cleanupCandidates, err := in.store.GetCleanupCandidates(serviceID)
+	processedHookComponents, err := in.store.GetProcessedHookComponents(serviceID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Create a map of processed hook components for an easy lookup.
+	keyToProcessedHookComponent := make(map[smcommon.Key]smcommon.ProcessedHookComponent)
+	for _, phc := range processedHookComponents {
+		keyToProcessedHookComponent[phc.ToStoreKey().VersionlessKey()] = phc
 	}
 
 	return func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured) {
-		deleteKeys := containers.NewSet[smcommon.Key]()
-		resourceKeyToResource := make(map[smcommon.Key]unstructured.Unstructured)
+		skipApply := containers.NewSet[smcommon.Key]()
+
+		// Create a map of resources for an easy lookup.
+		keyToResource := make(map[smcommon.Key]unstructured.Unstructured)
 		for _, obj := range resources {
 			key := smcommon.NewStoreKeyFromUnstructured(obj).VersionlessKey()
-			resourceKeyToResource[key] = obj
+			keyToResource[key] = obj
 		}
 
-		for _, entry := range existing {
-			entryKey := entry.ToStoreKey()
+		for _, existingComponent := range existingComponents {
+			entryKey := existingComponent.ToStoreKey()
 			toCheck := []smcommon.Key{entryKey.VersionlessKey()}
-			if mirrorGroup, ok := mirrorGroups[entry.Group]; ok {
+			if mirrorGroup, ok := mirrorGroups[existingComponent.Group]; ok {
 				toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
 			}
 
 			if shouldKeep := lo.SomeBy(toCheck, func(key smcommon.Key) bool {
-				_, ok := resourceKeyToResource[key]
+				_, ok := keyToResource[key]
 				return ok
 			}); !shouldKeep {
-				toDelete = append(toDelete, entry.ToUnstructured())
-				deleteKeys.Add(entryKey.VersionlessKey())
+				toDelete = append(toDelete, existingComponent.ToUnstructured())
+				skipApply.Add(entryKey.VersionlessKey())
 			}
 		}
 
-		for _, entry := range cleanupCandidates {
-			toDelete = append(toDelete, entry.ToUnstructured())
-			deleteKeys.Add(entry.ToStoreKey().VersionlessKey())
-		}
+		for key, resource := range keyToResource {
+			// Custom handling for resources with delete policy annotation.
+			// Those resources should not be reapplied if they have reached their desired state and were deleted.
+			if policy := smcommon.GetPhaseHookDeletePolicy(resource); policy != "" {
+				if processedHookComponent, ok := keyToProcessedHookComponent[key]; ok {
+					if processedHookComponent.Succeeded() && policy == smcommon.SyncPhaseDeletePolicySucceeded {
+						skipApply.Add(key)
 
-		for key, resource := range resourceKeyToResource {
-			if !deleteKeys.Has(key) {
+						// Delete it if the resource still exists.
+						if r, exists := keyToResource[key]; exists {
+							toDelete = append(toDelete, r)
+						}
+
+						continue
+					}
+
+					if processedHookComponent.Failed() && policy == smcommon.SyncPhaseDeletePolicyFailed {
+						skipApply.Add(key)
+
+						// Delete it if the resource still exists.
+						if r, exists := keyToResource[key]; exists {
+							toDelete = append(toDelete, r)
+						}
+
+						continue
+					}
+				}
+			}
+
+			if !skipApply.Has(key) {
 				toApply = append(toApply, resource)
 			}
 		}

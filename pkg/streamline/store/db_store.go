@@ -855,7 +855,7 @@ func (in *DatabaseStore) GetProcessedHookComponents(serviceID string) ([]smcommo
 	result := make([]smcommon.ProcessedHookComponent, 0)
 	err = sqlitex.ExecuteTransient(
 		conn,
-		`SELECT "group", version, kind, namespace, name, uid FROM processed_hook_component WHERE service_id = ?`,
+		`SELECT "group", version, kind, namespace, name, uid, status FROM processed_hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{
 			Args: []interface{}{serviceID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
@@ -866,6 +866,7 @@ func (in *DatabaseStore) GetProcessedHookComponents(serviceID string) ([]smcommo
 					Namespace: stmt.ColumnText(3),
 					Name:      stmt.ColumnText(4),
 					UID:       stmt.ColumnText(5),
+					Status:    ComponentState(stmt.ColumnInt32(6)).String(),
 					ServiceID: serviceID,
 				})
 				return nil

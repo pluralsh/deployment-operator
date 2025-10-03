@@ -35,7 +35,7 @@ func (in *Component) ToUnstructured() unstructured.Unstructured {
 	u.SetNamespace(in.Namespace)
 	u.SetName(in.Name)
 	u.SetUID(types.UID(in.UID))
-	u.SetAnnotations(map[string]string{SyncPhaseAnnotation: in.SyncPhase})
+	u.SetAnnotations(map[string]string{SyncPhaseAnnotation: in.SyncPhase}) // !
 	return u
 }
 

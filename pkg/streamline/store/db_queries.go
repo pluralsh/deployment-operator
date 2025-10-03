@@ -54,7 +54,7 @@ const (
 			kind TEXT, 
 			namespace TEXT,
 			name TEXT,
-			status TEXT,
+			status INT,
 			service_id TEXT
 		);
 	 
