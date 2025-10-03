@@ -79,9 +79,9 @@ type Store interface {
 	// HasSomeResources checks if at least one of the provided resources exists in the store.
 	HasSomeResources(resources []unstructured.Unstructured) (bool, error)
 
-	// SaveManifests saves all manifests applied by the service.
-	SaveManifests(serviceID string, manifests []unstructured.Unstructured) error
+	// SaveCleanupCandidates saves cleanup candidates.
+	SaveCleanupCandidates(serviceID string, resource []unstructured.Unstructured) error
 
-	// GetManifests returns all manifests applied by the service.
-	GetManifests(serviceID string) ([]smcommon.Manifest, error)
+	// GetCleanupCandidates returns all cleanup candidates that belong to the specified service.
+	GetCleanupCandidates(serviceID string) ([]smcommon.CleanupCandidate, error)
 }

@@ -45,8 +45,8 @@ const (
 			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
 
-		-- Create the manifest table used to track service manifests
-		CREATE TABLE IF NOT EXISTS manifest (
+		-- Create the cleanup candidate table
+		CREATE TABLE IF NOT EXISTS cleanup_candidate (
 			id INTEGER PRIMARY KEY,
 			"group" TEXT,
 			version TEXT,
@@ -56,9 +56,9 @@ const (
 			service_id TEXT
 		);
 	 
-		-- Add indexes to the manifest table
-		CREATE UNIQUE INDEX IF NOT EXISTS manifest_index_unique ON manifest("group", version, kind, namespace, name);
-		CREATE INDEX IF NOT EXISTS manifest_index_service_id ON manifest(service_id);
+		-- Add indexes to the cleanup candidate table
+		CREATE UNIQUE INDEX IF NOT EXISTS manifest_index_unique ON cleanup_candidate("group", version, kind, namespace, name);
+		CREATE INDEX IF NOT EXISTS manifest_index_service_id ON cleanup_candidate(service_id);
 	`
 
 	getComponent = `

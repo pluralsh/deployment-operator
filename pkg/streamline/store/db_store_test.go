@@ -2195,8 +2195,8 @@ func TestComponentCache_HasSomeResources(t *testing.T) {
 	})
 }
 
-func TestComponentCache_SaveManifests(t *testing.T) {
-	t.Run("should save and retrieve manifests by service ID", func(t *testing.T) {
+func TestComponentCache_CleanupCandidates(t *testing.T) {
+	t.Run("should save and retrieve cleanup candidates by service ID", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
@@ -2204,17 +2204,17 @@ func TestComponentCache_SaveManifests(t *testing.T) {
 		}(storeInstance)
 
 		serviceID := "svc-basic"
-		manifests := []unstructured.Unstructured{
+		cc := []unstructured.Unstructured{
 			createUnstructuredResource("apps", "v1", "Deployment", "default", "web"),
 			createUnstructuredResource("", "v1", "Service", "default", "web-svc"),
 			createUnstructuredResource("batch", "v1", "Job", "jobs", "db-migrate"),
 		}
 
-		require.NoError(t, storeInstance.SaveManifests(serviceID, manifests))
+		require.NoError(t, storeInstance.SaveCleanupCandidates(serviceID, cc))
 
-		result, err := storeInstance.GetManifests(serviceID)
+		result, err := storeInstance.GetCleanupCandidates(serviceID)
 		require.NoError(t, err)
-		require.Len(t, result, len(manifests))
+		require.Len(t, result, len(cc))
 
 		// Validate all fields
 		expect := map[string]struct {
@@ -2242,7 +2242,7 @@ func TestComponentCache_SaveManifests(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		err = storeInstance.SaveManifests("", []unstructured.Unstructured{createUnstructuredResource("apps", "v1", "Deployment", "default", "web")})
+		err = storeInstance.SaveCleanupCandidates("", []unstructured.Unstructured{createUnstructuredResource("apps", "v1", "Deployment", "default", "web")})
 		require.Error(t, err)
 	})
 
@@ -2254,9 +2254,9 @@ func TestComponentCache_SaveManifests(t *testing.T) {
 		}(storeInstance)
 
 		serviceID := "svc-empty"
-		require.NoError(t, storeInstance.SaveManifests(serviceID, []unstructured.Unstructured{}))
+		require.NoError(t, storeInstance.SaveCleanupCandidates(serviceID, []unstructured.Unstructured{}))
 
-		result, err := storeInstance.GetManifests(serviceID)
+		result, err := storeInstance.GetCleanupCandidates(serviceID)
 		require.NoError(t, err)
 		assert.Len(t, result, 0)
 	})
@@ -2268,7 +2268,7 @@ func TestComponentCache_SaveManifests(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		result, err := storeInstance.GetManifests("non-existent-service")
+		result, err := storeInstance.GetCleanupCandidates("non-existent-service")
 		require.NoError(t, err)
 		assert.Len(t, result, 0)
 	})
@@ -2284,22 +2284,22 @@ func TestComponentCache_SaveManifests(t *testing.T) {
 
 		// Save under service A
 		serviceA := "svc-a"
-		require.NoError(t, storeInstance.SaveManifests(serviceA, []unstructured.Unstructured{m}))
+		require.NoError(t, storeInstance.SaveCleanupCandidates(serviceA, []unstructured.Unstructured{m}))
 
-		resA, err := storeInstance.GetManifests(serviceA)
+		resA, err := storeInstance.GetCleanupCandidates(serviceA)
 		require.NoError(t, err)
 		require.Len(t, resA, 1)
 		assert.Equal(t, "moved", resA[0].Name)
 
 		// Save the same identity under service B -> should update service_id
 		serviceB := "svc-b"
-		require.NoError(t, storeInstance.SaveManifests(serviceB, []unstructured.Unstructured{m}))
+		require.NoError(t, storeInstance.SaveCleanupCandidates(serviceB, []unstructured.Unstructured{m}))
 
-		resA, err = storeInstance.GetManifests(serviceA)
+		resA, err = storeInstance.GetCleanupCandidates(serviceA)
 		require.NoError(t, err)
 		assert.Len(t, resA, 0, "manifest should no longer belong to service A")
 
-		resB, err := storeInstance.GetManifests(serviceB)
+		resB, err := storeInstance.GetCleanupCandidates(serviceB)
 		require.NoError(t, err)
 		require.Len(t, resB, 1)
 		assert.Equal(t, serviceB, resB[0].ServiceID)

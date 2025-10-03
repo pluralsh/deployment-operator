@@ -799,12 +799,12 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 	})
 }
 
-func (in *DatabaseStore) SaveManifests(serviceID string, manifests []unstructured.Unstructured) error {
+func (in *DatabaseStore) SaveCleanupCandidates(serviceID string, resources []unstructured.Unstructured) error {
 	if serviceID == "" {
 		return fmt.Errorf("service ID must be provided")
 	}
 
-	l := len(manifests)
+	l := len(resources)
 	if l == 0 {
 		return nil
 	}
@@ -817,7 +817,7 @@ func (in *DatabaseStore) SaveManifests(serviceID string, manifests []unstructure
 
 	var sb strings.Builder
 	sb.WriteString(`
-		INSERT INTO manifest (
+		INSERT INTO cleanup_candidate (
 		  "group",
 		  version,
 		  kind,
@@ -826,10 +826,10 @@ func (in *DatabaseStore) SaveManifests(serviceID string, manifests []unstructure
 		  service_id
 		) VALUES `)
 
-	for i, m := range manifests {
-		gvk := m.GroupVersionKind()
+	for i, r := range resources {
+		gvk := r.GroupVersionKind()
 		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s')",
-			gvk.Group, gvk.Version, gvk.Kind, m.GetNamespace(), m.GetName(), serviceID))
+			gvk.Group, gvk.Version, gvk.Kind, r.GetNamespace(), r.GetName(), serviceID))
 		if i < l-1 {
 			sb.WriteString(",")
 		}
@@ -840,21 +840,21 @@ func (in *DatabaseStore) SaveManifests(serviceID string, manifests []unstructure
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
 
-func (in *DatabaseStore) GetManifests(serviceID string) ([]smcommon.Manifest, error) {
+func (in *DatabaseStore) GetCleanupCandidates(serviceID string) ([]smcommon.CleanupCandidate, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	defer in.pool.Put(conn)
 
-	result := make([]smcommon.Manifest, 0)
+	result := make([]smcommon.CleanupCandidate, 0)
 	err = sqlitex.ExecuteTransient(
 		conn,
-		`SELECT "group", version, kind, namespace, name FROM manifest WHERE service_id = ?`,
+		`SELECT "group", version, kind, namespace, name FROM cleanup_candidate WHERE service_id = ?`,
 		&sqlitex.ExecOptions{
 			Args: []interface{}{serviceID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
-				result = append(result, smcommon.Manifest{
+				result = append(result, smcommon.CleanupCandidate{
 					Group:     stmt.ColumnText(0),
 					Version:   stmt.ColumnText(1),
 					Kind:      stmt.ColumnText(2),
