@@ -824,19 +824,23 @@ func (in *DatabaseStore) SaveProcessedHookComponents(serviceID string, resources
 		  namespace,
 		  name,
 		  uid,
+		  status,
 		  service_id
 		) VALUES `)
 
 	for i, r := range resources {
 		gvk := r.GroupVersionKind()
-		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s')",
-			gvk.Group, gvk.Version, gvk.Kind, r.GetNamespace(), r.GetName(), r.GetUID(), serviceID))
+		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%d','%s')",
+			gvk.Group, gvk.Version, gvk.Kind, r.GetNamespace(), r.GetName(), r.GetUID(), NewComponentState(common.ToStatus(&r)), serviceID))
 		if i < l-1 {
 			sb.WriteString(",")
 		}
 	}
 
-	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET service_id = excluded.service_id`)
+	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+	uid = excluded.uid,
+	status = excluded.status,
+	service_id = excluded.service_id`)
 
 	return sqlitex.Execute(conn, sb.String(), nil)
 }

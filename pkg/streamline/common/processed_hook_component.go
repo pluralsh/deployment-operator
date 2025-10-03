@@ -14,6 +14,7 @@ type ProcessedHookComponent struct {
 	Kind      string
 	Name      string
 	Namespace string
+	Status    string
 	ServiceID string
 }
 
