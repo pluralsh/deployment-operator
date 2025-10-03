@@ -2,8 +2,6 @@ package controller
 
 import (
 	console "github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 )
 
 func WithAgentRun(id string) Option {
@@ -21,18 +19,6 @@ func WithConsoleClient(client console.Client) Option {
 func WithWorkingDir(dir string) Option {
 	return func(s *agentRunController) {
 		s.dir = dir
-	}
-}
-
-func WithSinkOptions(options ...sink.Option) Option {
-	return func(s *agentRunController) {
-		s.sinkOptions = options
-	}
-}
-
-func WithExecOptions(options ...exec.Option) Option {
-	return func(s *agentRunController) {
-		s.execOptions = options
 	}
 }
 

@@ -40,6 +40,23 @@ func (in *executable) Run(ctx context.Context) error {
 	return in.runLifecycleFunction(v1.LifecyclePostStart)
 }
 
+func (in *executable) Start(ctx context.Context) (WaitFn, error) {
+	cmd, err := in.prepare(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
+	if err = cmd.Start(); err != nil {
+		if err := context.Cause(ctx); err != nil {
+			return nil, err
+		}
+		return nil, err
+	}
+
+	return cmd.Wait, in.runLifecycleFunction(v1.LifecyclePostStart)
+}
+
 func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, in.command, in.args...)
 

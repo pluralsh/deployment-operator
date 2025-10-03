@@ -82,13 +82,23 @@ agent-run: agent ## run agent
         --deploy-token=${PLURAL_DEPLOY_TOKEN}
 
 .PHONY: agent-harness-run
-agent-harness-run: docker-build-agent-harness-base ## run agent harness
+agent-harness-run: docker-build-agent-harness-base ## run agent harness base
 	docker run \
 		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
 		-e PLRL_CONSOLE_TOKEN=$(PLRL_CONSOLE_TOKEN) \
 		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-base
+
+.PHONY: agent-harness-opencode-run
+agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent harness w/ opencode
+	docker run \
+		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
+		-e PLRL_CONSOLE_TOKEN=$(PLRL_CONSOLE_TOKEN) \
+		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		-e ARGS="--v=3" \
+		--rm -it \
+		ghcr.io/pluralsh/agent-harness-opencode
 
 ##@ Build
 

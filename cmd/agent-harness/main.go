@@ -12,16 +12,14 @@ import (
 	agentsignals "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
-	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/signals"
-	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 func main() {
 	klog.V(log.LogLevelDefault).InfoS("starting agent harness", "version", environment.Version)
 
-	consoleClient := client.New(args.ConsoleUrl(), args.ConsoleToken())
+	consoleClient := client.New(args.ConsoleAPIUrl(), args.ConsoleToken())
 	ctx := signals.NewCancelableContext(
 		signals.SetupSignalHandler(signals.ExitCodeTerminated),
 		agentsignals.NewConsoleSignal(consoleClient, args.AgentRunID()),
@@ -30,15 +28,9 @@ func main() {
 	opts := []controller.Option{
 		controller.WithAgentRun(args.AgentRunID()),
 		controller.WithConsoleClient(consoleClient),
+		controller.WithConsoleUrl(args.ConsoleUrl()),
 		controller.WithConsoleToken(args.ConsoleToken()),
 		controller.WithWorkingDir(args.WorkingDir()),
-		controller.WithSinkOptions(
-			sink.WithThrottle(args.LogFlushFrequency()),
-			sink.WithBufferSizeLimit(args.LogFlushBufferSize()),
-		),
-		controller.WithExecOptions(
-			exec.WithTimeout(args.Timeout()),
-		),
 	}
 
 	ctrl, err := controller.NewAgentRunController(opts...)

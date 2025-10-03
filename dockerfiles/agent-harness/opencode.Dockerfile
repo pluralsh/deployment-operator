@@ -1,5 +1,5 @@
-ARG NODE_IMAGE_TAG=latest
-ARG NODE_IMAGE=cgr.dev/chainguard/node:$NODE_IMAGE_TAG
+ARG NODE_IMAGE_TAG=24
+ARG NODE_IMAGE=node:${NODE_IMAGE_TAG}-slim
 ARG AGENT_VERSION=latest
 
 ARG AGENT_HARNESS_BASE_IMAGE_TAG=latest
@@ -12,25 +12,24 @@ FROM $NODE_IMAGE AS node
 # Switch to root temporarily to install global packages
 USER root
 
-# Install OpenCode CLI globally using npm
-RUN npm install -g opencode-ai@$AGENT_VERSION
+RUN apt update && apt install -y curl unzip
+
+# Install OpenCode CLI
+RUN curl -fsSL https://opencode.ai/install | bash
 
 # Verify installation
-RUN opencode --version
+RUN /root/.opencode/bin/opencode --version
 
 # Stage 2: Copy OpenCode CLI into agent-harness base
 FROM $AGENT_HARNESS_BASE_IMAGE AS final
 
 # Copy the OpenCode CLI from the Node.js image
-COPY --from=node /usr/local/bin/opencode /usr/local/bin/opencode
-COPY --from=node /usr/local/lib/node_modules/opencode-ai /usr/local/lib/node_modules/opencode-ai
-
-# Copy Node.js runtime (needed to run the CLI)
-COPY --from=node /usr/bin/node /usr/bin/node
+COPY --from=node /root/.opencode/bin/opencode /usr/bin/opencode
 
 # Ensure proper ownership for nonroot user
 USER root
-RUN chown -R 65532:65532 /usr/local/bin/opencode /usr/local/lib/node_modules/opencode-ai /usr/bin/node
+RUN mkdir /.local /.config /.cache
+RUN chown -R 65532:65532 /usr/bin/opencode /.local /.config /.cache
 
 # Switch back to nonroot user
 USER 65532:65532

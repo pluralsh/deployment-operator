@@ -15,6 +15,10 @@ import (
 
 // preStart function is executed before agent run steps
 func (in *agentRunController) preStart() {
+	if in.agentRun.Status != gqlclient.AgentRunStatusPending && !environment.IsDev() {
+		klog.Fatalf("could not start stack run: invalid status: %s", in.agentRun.Status)
+	}
+
 	if err := agentrun.StartAgentRun(in.consoleClient, in.agentRunID); err != nil {
 		klog.ErrorS(err, "could not update agent run status to running")
 	}
@@ -42,13 +46,13 @@ func (in *agentRunController) postStart(err error) {
 		klog.ErrorS(err, "could not complete agent run")
 	}
 
-	klog.V(log.LogLevelInfo).InfoS("agent run completed")
+	klog.V(log.LogLevelExtended).InfoS("agent run completed")
 }
 
 // postExecHook is a callback function started by the exec.Executable after it finishes
-func (in *agentRunController) postExecHook(stepID string) v1.HookFunction {
+func (in *agentRunController) postExecHook() v1.HookFunction {
 	return func() error {
-		klog.V(log.LogLevelDebug).InfoS("post exec hook", "step", stepID)
+		klog.V(log.LogLevelDebug).InfoS("post exec hook")
 
 		// TODO: Parse CLI output and extract:
 		// - Analysis results for analyze mode
@@ -60,9 +64,9 @@ func (in *agentRunController) postExecHook(stepID string) v1.HookFunction {
 }
 
 // preExecHook is a callback function started by the exec.Executable before it runs
-func (in *agentRunController) preExecHook(stepID string) v1.HookFunction {
+func (in *agentRunController) preExecHook() v1.HookFunction {
 	return func() error {
-		klog.V(log.LogLevelInfo).InfoS("starting agent CLI execution", "step", stepID, "runtime", in.agentRun.Runtime.Type)
+		klog.V(log.LogLevelInfo).InfoS("starting agent CLI execution", "runtime", in.agentRun.Runtime.Type)
 
 		if err := in.validateAgentRunStatus(); err != nil {
 			return err

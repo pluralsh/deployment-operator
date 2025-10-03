@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -61,7 +62,17 @@ func init() {
 func ConsoleUrl() string {
 	ensureOrDie("console-url", argConsoleUrl)
 
+	if strings.HasSuffix(*argConsoleUrl, "/ext/gql") {
+		return strings.TrimSuffix(*argConsoleUrl, "/ext/gql")
+	}
+
 	return *argConsoleUrl
+}
+
+func ConsoleAPIUrl() string {
+	ensureOrDie("console-url", argConsoleUrl)
+
+	return fmt.Sprintf("%s/ext/gql", ConsoleUrl())
 }
 
 func ConsoleToken() string {

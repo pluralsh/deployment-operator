@@ -1,0 +1,49 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "{{ .AnalysisAgent }}": {
+      "mode": "primary",
+      "model": "{{ .ProviderID }}/{{ .ModelID }}",
+      "permission": {
+        "bash": {
+          "ls": "allow",
+          "cd": "allow",
+          "pwd": "allow",
+          "git status": "allow",
+          "git diff": "allow",
+          "*": "deny"
+        },
+        "edit": "deny",
+        "webfetch": "deny"
+      }
+    },
+    "{{ .WriteAgent }}": {
+      "mode": "primary",
+      "model": "{{ .ProviderID }}/{{ .ModelID }}",
+      "permission": {
+        "bash": "allow",
+        "edit": "allow",
+        "webfetch": "allow"
+      }
+    }
+  },
+  "username": "plural",
+  "provider": {
+    "{{ .ProviderID }}": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "{{ .ProviderName }}",
+      "options": {
+        "baseURL": "{{ .ConsoleURL }}/ext/v1/ai/openai/v1",
+        "headers": {
+          "Authorization": "Bearer {{ .DeployToken }}"
+        }
+      },
+      "models": {
+        "{{ .ModelID }}": {
+          "name": "{{ .ModelName }}",
+          "reasoning": false
+        }
+      }
+    }
+  }
+}

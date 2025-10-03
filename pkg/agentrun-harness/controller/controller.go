@@ -11,8 +11,9 @@ import (
 
 	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool"
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -44,16 +45,11 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 
 	in.preStart()
 
-	// Add executables to executor
-	for _, e := range in.executables(ctx) {
-		if retErr = in.executor.Add(e); retErr != nil {
-			return retErr
-		}
-	}
-
-	if retErr = in.executor.Start(ctx); retErr != nil {
-		return fmt.Errorf("could not start executor: %w", retErr)
-	}
+	in.tool.Run(
+		ctx,
+		exec.WithHook(v1.LifecyclePreStart, in.preExecHook()),
+		exec.WithHook(v1.LifecyclePostStart, in.postExecHook()),
+	)
 
 	ready = true
 	in.Unlock()
@@ -69,8 +65,7 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 		retErr = nil
 	}
 
-	klog.V(log.LogLevelVerbose).InfoS("all subroutines finished")
-
+	klog.V(log.LogLevelExtended).InfoS("all subroutines finished")
 	return retErr
 }
 
@@ -85,127 +80,24 @@ func (in *agentRunController) prepare() error {
 		return err
 	}
 
-	return nil
-}
+	in.tool = tool.New(in.agentRun.Runtime.Type, toolv1.Config{
+		WorkDir:       in.dir,
+		RepositoryDir: filepath.Join(in.dir, "repository"),
+		FinishedChan:  in.finishedChan,
+		ErrorChan:     in.errChan,
+		Run:           in.agentRun,
+	})
 
-// executables returns the list of executables for this agent run - runs the appropriate CLI
-func (in *agentRunController) executables(ctx context.Context) []exec.Executable {
-	var executables []exec.Executable
-
-	// Run the appropriate coding agent CLI based on runtime type
-	// TODO for each cli agent executable builder, start mcp server as background process
-	switch in.agentRun.Runtime.Type {
-	case gqlclient.AgentRuntimeTypeClaude:
-		executables = append(executables, in.claudeExecutable(ctx))
-	case gqlclient.AgentRuntimeTypeGemini:
-		executables = append(executables, in.geminiExecutable(ctx))
-	case gqlclient.AgentRuntimeTypeOpencode:
-		executables = append(executables, in.openCodeExecutable(ctx))
-	case gqlclient.AgentRuntimeTypeCustom:
-		executables = append(executables, in.customExecutable(ctx))
-	default:
-		klog.ErrorS(fmt.Errorf("unknown agent runtime type: %v", in.agentRun.Runtime.Type), "unsupported runtime type")
-	}
-
-	return executables
-}
-
-// claudeExecutable creates an executable for Claude CLI
-func (in *agentRunController) claudeExecutable(ctx context.Context) exec.Executable {
-	args := []string{
-		"--config", filepath.Join(in.dir, ".config", "claude", "config.json"),
-		"--prompt", in.agentRun.Prompt,
-		"--repository", filepath.Join(in.dir, "repository"),
-	}
-
-	// Add mode-specific flags
-	if in.agentRun.IsAnalyzeMode() {
-		args = append(args, "--analyze-only")
-	} else if in.agentRun.IsWriteMode() {
-		args = append(args, "--write-code")
-	}
-
-	// Add system prompt overrides if needed
-	if systemPrompt := in.getSystemPromptOverride(); systemPrompt != "" {
-		args = append(args, "--system-prompt", systemPrompt)
-	}
-
-	return in.toExecutable(ctx, "claude-cli", "claude", args)
-}
-
-// geminiExecutable creates an executable for Gemini CLI
-func (in *agentRunController) geminiExecutable(ctx context.Context) exec.Executable {
-	args := []string{
-		"--config", filepath.Join(in.dir, ".config", "gemini", "config.json"),
-		"--prompt", in.agentRun.Prompt,
-		"--repository", filepath.Join(in.dir, "repository"),
-	}
-
-	// Add mode-specific flags
-	if in.agentRun.IsAnalyzeMode() {
-		args = append(args, "--mode", "analyze")
-	} else if in.agentRun.IsWriteMode() {
-		args = append(args, "--mode", "write")
-	}
-
-	// Add system prompt overrides if needed
-	if systemPrompt := in.getSystemPromptOverride(); systemPrompt != "" {
-		args = append(args, "--system-prompt", systemPrompt)
-	}
-
-	return in.toExecutable(ctx, "gemini-cli", "gemini", args)
-}
-
-// openCodeExecutable creates an executable for OpenCode CLI
-func (in *agentRunController) openCodeExecutable(ctx context.Context) exec.Executable {
-	args := []string{
-		"--config", filepath.Join(in.dir, ".config", "opencode", "config.json"),
-		"--prompt", in.agentRun.Prompt,
-		"--repository", filepath.Join(in.dir, "repository"),
-	}
-
-	// Add system prompt overrides if needed
-	if systemPrompt := in.getSystemPromptOverride(); systemPrompt != "" {
-		args = append(args, "--system-prompt", systemPrompt)
-	}
-
-	return in.toExecutable(ctx, "opencode-cli", "opencode", args)
-}
-
-// customExecutable creates an executable for custom agent
-func (in *agentRunController) customExecutable(ctx context.Context) exec.Executable {
-	// TODO: Implement custom agent CLI execution
-	args := []string{
-		"--prompt", in.agentRun.Prompt,
-		"--repository", filepath.Join(in.dir, "repository"),
-	}
-
-	return in.toExecutable(ctx, "custom-agent", "custom-agent", args)
+	return in.tool.Configure(in.consoleUrl, in.consoleToken)
 }
 
 // getSystemPromptOverride returns system prompt override if configured
+// TODO: move this to tool specific configuration
 func (in *agentRunController) getSystemPromptOverride() string {
 	if override := os.Getenv("AGENT_SYSTEM_PROMPT_OVERRIDE"); override != "" {
 		return override
 	}
 	return ""
-}
-
-// toExecutable converts a command into an executable
-func (in *agentRunController) toExecutable(_ context.Context, id, cmd string, args []string) exec.Executable {
-	// base executable options
-	options := in.execOptions
-	options = append(
-		options,
-		exec.WithDir(filepath.Join(in.dir, "repository")), // Run CLI in repository directory
-		exec.WithEnv(in.agentRun.Env()),
-		exec.WithArgs(args),
-		exec.WithID(id),
-		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(id)),
-		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(id)),
-	)
-
-	return exec.NewExecutable(cmd, options...)
 }
 
 // completeAgentRun updates the agent run status in the Console API
@@ -261,15 +153,8 @@ func NewAgentRunController(opts ...Option) (Controller, error) {
 	ctrl := &agentRunController{
 		errChan:      errChan,
 		finishedChan: finishedChan,
-		sinkOptions:  make([]sink.Option, 0),
 		dir:          "/plural", // default working directory from pod spec
 	}
-
-	ctrl.executor = exec.NewExecutor(
-		errChan,
-		finishedChan,
-		exec.WithPostRunFunc(ctrl.postStepRun),
-	)
 
 	for _, option := range opts {
 		option(ctrl)
