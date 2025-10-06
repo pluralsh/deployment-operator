@@ -283,7 +283,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	}
 	defer in.pool.Put(conn)
 
-	defer in.maybeSaveProcessedHookComponent(obj)
+	defer in.maybeSaveProcessedHookComponent(obj, state, serviceID)
 
 	return sqlitex.ExecuteTransient(conn, setComponentWithSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
@@ -803,22 +803,20 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 	})
 }
 
-func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.Unstructured) {
-	serviceID := smcommon.GetOwningInventory(resource)
+func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.Unstructured, state ComponentState, serviceID string) {
 	if serviceID == "" {
 		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving processed hook")
 		return
 	}
 
-	status := lo.FromPtr(common.ToStatus(&resource))
 	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(resource); deletePolicy == "" {
 		klog.V(log.LogLevelTrace).InfoS("no delete policy set, skipping saving processed hook")
 		return
-	} else if deletePolicy == smcommon.SyncPhaseDeletePolicySucceeded && status != client.ComponentStateRunning {
-		klog.V(log.LogLevelTrace).InfoS("succeeded delete policy but status is not running, skipping saving processed hook", "status", status)
+	} else if deletePolicy == smcommon.SyncPhaseDeletePolicySucceeded && state != ComponentStateRunning {
+		klog.V(log.LogLevelTrace).InfoS("succeeded delete policy but resource is not running, skipping saving processed hook", "state", state)
 		return
-	} else if deletePolicy == smcommon.SyncPhaseDeletePolicyFailed && status != client.ComponentStateFailed {
-		klog.V(log.LogLevelTrace).InfoS("delete policy is failed but status is not failed, skipping saving processed hook", "status", status)
+	} else if deletePolicy == smcommon.SyncPhaseDeletePolicyFailed && state != ComponentStateFailed {
+		klog.V(log.LogLevelTrace).InfoS("delete policy is failed but resource is not failed, skipping saving processed hook", "state", state)
 		return
 	}
 
@@ -832,8 +830,7 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.U
 	gvk := resource.GroupVersionKind()
 
 	if err = sqlitex.Execute(conn, setProcessedHookComponent, &sqlitex.ExecOptions{Args: []any{
-		gvk.Group, gvk.Version, gvk.Kind, resource.GetNamespace(), resource.GetName(), resource.GetUID(),
-		NewComponentState(&status), serviceID,
+		gvk.Group, gvk.Version, gvk.Kind, resource.GetNamespace(), resource.GetName(), resource.GetUID(), state, serviceID,
 	}}); err != nil {
 		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook", "resource", resource)
 	}
