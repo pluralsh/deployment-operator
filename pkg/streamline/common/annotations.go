@@ -3,7 +3,11 @@ package common
 import (
 	"strconv"
 
+	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
@@ -290,5 +294,16 @@ func GetPhaseHookDeletePolicy(u unstructured.Unstructured) string {
 		return SyncPhaseDeletePolicyFailed
 	default:
 		return ""
+	}
+}
+
+func HasStateDesiredByDeletePolicy(u unstructured.Unstructured, s store.ComponentState) bool {
+	switch GetPhaseHookDeletePolicy(u) {
+	case SyncPhaseDeletePolicySucceeded:
+		return s == store.ComponentStateRunning
+	case SyncPhaseDeletePolicyFailed:
+		return s == store.ComponentStateFailed
+	default:
+		return false
 	}
 }

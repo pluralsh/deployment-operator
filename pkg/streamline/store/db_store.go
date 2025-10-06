@@ -809,14 +809,9 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.U
 		return
 	}
 
-	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(resource); deletePolicy == "" {
-		klog.V(log.LogLevelTrace).InfoS("no delete policy set, skipping saving processed hook")
-		return
-	} else if deletePolicy == smcommon.SyncPhaseDeletePolicySucceeded && state != ComponentStateRunning {
-		klog.V(log.LogLevelTrace).InfoS("succeeded delete policy but resource is not running, skipping saving processed hook", "state", state)
-		return
-	} else if deletePolicy == smcommon.SyncPhaseDeletePolicyFailed && state != ComponentStateFailed {
-		klog.V(log.LogLevelTrace).InfoS("delete policy is failed but resource is not failed, skipping saving processed hook", "state", state)
+	if !smcommon.HasStateDesiredByDeletePolicy(resource, state) {
+		klog.V(log.LogLevelTrace).InfoS("resource does not have desired state, skipping saving processed hook",
+			"resource", resource, "state", state)
 		return
 	}
 
