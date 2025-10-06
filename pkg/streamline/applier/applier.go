@@ -64,7 +64,7 @@ func (in *Applier) Apply(ctx context.Context,
 	phases := NewPhases(
 		resources,
 		func(resource unstructured.Unstructured) bool {
-			if HelmFilter(isUpgrade)(resource) == false {
+			if !HelmFilter(isUpgrade)(resource) {
 				return false // Skip resource based on Helm hook logic
 			}
 
@@ -330,7 +330,6 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 			if deletionPolicy != "" && ok &&
 				((processedHookComponent.Succeeded() && deletionPolicy == smcommon.SyncPhaseDeletePolicySucceeded) ||
 					(processedHookComponent.Failed() && deletionPolicy == smcommon.SyncPhaseDeletePolicyFailed)) {
-
 				// Skip applying resources that have already reached their desired state.
 				skipApply.Add(key)
 

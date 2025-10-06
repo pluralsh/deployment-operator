@@ -26,6 +26,5 @@ func HelmFilter(isUpgrade bool) FilterFunc {
 		}
 
 		return true // For other hooks, always apply
-
 	}
 }
