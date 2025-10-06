@@ -1912,4 +1912,160 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 			assert.Equal(t, want.ns, m.Namespace)
 		}
 	})
+
+	t.Run("should return empty list for non-existent service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		result, err := storeInstance.GetProcessedHookComponents("non-existent-service")
+		require.NoError(t, err)
+		require.Empty(t, result)
+	})
+
+	t.Run("should isolate hooks by service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID1 := "svc-app1"
+		serviceID2 := "svc-app2"
+
+		hooks := []unstructured.Unstructured{
+			createHookJob("default", "app1-migrator", serviceID1),
+			createHookJob("default", "app1-seeder", serviceID1),
+			createHookJob("default", "app2-migrator", serviceID2),
+		}
+
+		require.NoError(t, storeInstance.SaveComponents(hooks))
+
+		// Check service 1 hooks
+		result1, err := storeInstance.GetProcessedHookComponents(serviceID1)
+		require.NoError(t, err)
+		require.Len(t, result1, 2)
+		for _, m := range result1 {
+			assert.Equal(t, serviceID1, m.ServiceID)
+			assert.Contains(t, []string{"app1-migrator", "app1-seeder"}, m.Name)
+		}
+
+		// Check service 2 hooks
+		result2, err := storeInstance.GetProcessedHookComponents(serviceID2)
+		require.NoError(t, err)
+		require.Len(t, result2, 1)
+		assert.Equal(t, serviceID2, result2[0].ServiceID)
+		assert.Equal(t, "app2-migrator", result2[0].Name)
+	})
+
+	t.Run("should handle different hook resource types", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID := "svc-various-hooks"
+
+		// Create different types of hook resources
+		hookJob := createHookJob("default", "migration-job", serviceID)
+
+		hookPod := createUnstructuredResource("", "v1", "Pod", "default", "migration-pod")
+		hookPod.SetAnnotations(map[string]string{
+			common.OwningInventoryKey:        serviceID,
+			common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(hookPod).String(),
+			common.SyncPhaseHookDeletePolicy: common.SyncPhaseDeletePolicySucceeded,
+		})
+		hookPod.Object["spec"] = map[string]interface{}{
+			"nodeName": "node-1",
+		}
+		hookPod.Object["status"] = map[string]interface{}{
+			"phase": "Succeeded",
+		}
+
+		hookConfigMap := createUnstructuredResource("", "v1", "ConfigMap", "default", "migration-config")
+		hookConfigMap.SetAnnotations(map[string]string{
+			common.OwningInventoryKey:        serviceID,
+			common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(hookConfigMap).String(),
+			common.SyncPhaseHookDeletePolicy: common.SyncPhaseDeletePolicySucceeded,
+		})
+
+		hooks := []unstructured.Unstructured{hookJob, hookPod, hookConfigMap}
+
+		require.NoError(t, storeInstance.SaveComponents(hooks))
+
+		result, err := storeInstance.GetProcessedHookComponents(serviceID)
+		require.NoError(t, err)
+		require.Len(t, result, 3)
+
+		kinds := make(map[string]bool)
+		for _, m := range result {
+			kinds[m.Kind] = true
+		}
+		assert.True(t, kinds["Job"])
+		assert.True(t, kinds["Pod"])
+		assert.True(t, kinds["ConfigMap"])
+	})
+
+	t.Run("should preserve UID and status information", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID := "svc-uid-check"
+		hook := createHookJob("default", "test-hook", serviceID)
+		expectedUID := hook.GetUID()
+
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{hook}))
+
+		result, err := storeInstance.GetProcessedHookComponents(serviceID)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+
+		assert.Equal(t, string(expectedUID), result[0].UID)
+		assert.NotEmpty(t, result[0].Status)
+	})
+
+	t.Run("should handle large number of hooks", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID := "svc-many-hooks"
+		hookCount := 50
+		hooks := make([]unstructured.Unstructured, hookCount)
+
+		for i := 0; i < hookCount; i++ {
+			hooks[i] = createHookJob("default", fmt.Sprintf("hook-%d", i), serviceID)
+		}
+
+		require.NoError(t, storeInstance.SaveComponents(hooks))
+
+		result, err := storeInstance.GetProcessedHookComponents(serviceID)
+		require.NoError(t, err)
+		require.Len(t, result, hookCount)
+
+		// Verify all hooks are unique by name
+		names := make(map[string]bool)
+		for _, m := range result {
+			names[m.Name] = true
+		}
+		assert.Len(t, names, hookCount)
+	})
 }
