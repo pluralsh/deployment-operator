@@ -1,172 +1,149 @@
 package images
 
 import (
+	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	console "github.com/pluralsh/console/go/client"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes/scheme"
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
+	"k8s.io/kubectl/pkg/cmd/util"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
+	"github.com/samber/lo"
 )
 
-func Test_parseImageString(t *testing.T) {
-	tests := []struct {
-		name         string
-		imageStr     string
-		wantRegistry string
-		wantRepo     string
-		wantTag      string
-		wantDigest   string
-	}{
-		{
-			name:         "simple image with tag",
-			imageStr:     "nginx:1.21",
-			wantRegistry: "docker.io",
-			wantRepo:     "nginx",
-			wantTag:      "1.21",
-			wantDigest:   "",
-		},
-		{
-			name:         "image with registry and tag",
-			imageStr:     "ghcr.io/org/app:v1.0.0",
-			wantRegistry: "ghcr.io",
-			wantRepo:     "org/app",
-			wantTag:      "v1.0.0",
-			wantDigest:   "",
-		},
-		{
-			name:         "image with digest",
-			imageStr:     "registry.io/app@sha256:abc123",
-			wantRegistry: "registry.io",
-			wantRepo:     "app",
-			wantTag:      "",
-			wantDigest:   "sha256:abc123",
-		},
-		{
-			name:         "image with registry port",
-			imageStr:     "localhost:5000/myapp:latest",
-			wantRegistry: "localhost:5000",
-			wantRepo:     "myapp",
-			wantTag:      "latest",
-			wantDigest:   "",
-		},
-		{
-			name:         "image with tag and digest (digest should win)",
-			imageStr:     "nginx:1.21@sha256:def456",
-			wantRegistry: "docker.io",
-			wantRepo:     "nginx",
-			wantTag:      "",
-			wantDigest:   "sha256:def456",
-		},
-	}
+// These tests use Ginkgo (BDD-style Go testing framework). Refer to
+// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+var k8sClient client.Client
+var utilFactory util.Factory
+var mapper meta.RESTMapper
+var testEnv *envtest.Environment
+var discoveryClient *discovery.DiscoveryClient
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			registry, repo, tag, digest := parseImageString(tt.imageStr)
-			assert.Equal(t, tt.wantRegistry, registry)
-			assert.Equal(t, tt.wantRepo, repo)
-			assert.Equal(t, tt.wantTag, tag)
-			assert.Equal(t, tt.wantDigest, digest)
-		})
-	}
+func TestImageExtractor(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Image Extractor Suite")
 }
 
-func TestExtractImagesFromResource(t *testing.T) {
-	tests := []struct {
-		name     string
-		resource *unstructured.Unstructured
-		want     []string
-	}{
-		{
-			name: "deployment with containers",
-			resource: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"kind": "Deployment",
-					"metadata": map[string]interface{}{
-						"name":      "test-deployment",
-						"namespace": "default",
-					},
-					"spec": map[string]interface{}{
-						"template": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"containers": []interface{}{
-									map[string]interface{}{
-										"name":  "app",
-										"image": "nginx:1.21",
-									},
-									map[string]interface{}{
-										"name":  "sidecar",
-										"image": "alpine:3.14",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: []string{"nginx:1.21", "alpine:3.14"},
-		},
-		{
-			name: "pod with containers",
-			resource: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"kind": "Pod",
-					"spec": map[string]interface{}{
-						"containers": []interface{}{
-							map[string]interface{}{
-								"name":  "app",
-								"image": "redis:6.2",
-							},
-						},
-					},
-				},
-			},
-			want: []string{"redis:6.2"},
-		},
-		{
-			name:     "nil resource",
-			resource: nil,
-			want:     nil,
-		},
-		{
-			name: "unsupported kind",
-			resource: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"kind": "Service",
-				},
-			},
-			want: nil,
-		},
-		{
-			name: "kube-state-metrics deployment",
-			resource: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "apps/v1",
-					"kind":       "Deployment",
-					"metadata": map[string]interface{}{
-						"name":      "vm-server-kube-state-metrics",
-						"namespace": "monitoring",
-					},
-					"spec": map[string]interface{}{
-						"template": map[string]interface{}{
-							"spec": map[string]interface{}{
-								"containers": []interface{}{
-									map[string]interface{}{
-										"name":  "kube-state-metrics",
-										"image": "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: []string{"registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.15.0"},
-		},
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	By("bootstrapping test environment")
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "test", "raw")},
+		ErrorIfCRDPathMissing: true,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ExtractImagesFromResource(tt.resource)
-			assert.Equal(t, tt.want, got)
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient).NotTo(BeNil())
+
+	discoveryClient, err = discovery.NewDiscoveryClientForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(discoveryClient).NotTo(BeNil())
+
+	utilFactory = cmdtesting.NewTestFactory()
+	mapper, _ = utilFactory.ToRESTMapper()
+})
+
+var _ = AfterSuite(func() {
+	By("tearing down the test environment")
+	err := testEnv.Stop()
+	Expect(err).NotTo(HaveOccurred())
+})
+
+var _ = Describe("Image Extractor with Raw Manifests", func() {
+	var (
+		svc *console.ServiceDeploymentForAgent
+	)
+
+	BeforeEach(func() {
+		svc = &console.ServiceDeploymentForAgent{
+			Namespace:     "default",
+			Configuration: make([]*console.ServiceDeploymentForAgent_Configuration, 0),
+		}
+	})
+
+	Context("ExtractImagesFromResource with raw manifests", func() {
+		It("should extract images from raw pod manifest with templating", func() {
+			// Use the raw directory (with liquid templating)
+			dir := filepath.Join("..", "..", "test", "raw")
+
+			// Set up configuration for templating
+			svc.Configuration = []*console.ServiceDeploymentForAgent_Configuration{
+				{
+					Name:  "name",
+					Value: "test-pod",
+				},
+			}
+			svc.Cluster = &console.ServiceDeploymentForAgent_Cluster{
+				ID:   "123",
+				Name: "test",
+			}
+			// Templating is enabled by default
+
+			// Process the raw manifest using NewRaw
+			rawTemplate := template.NewRaw(dir)
+			manifests, err := rawTemplate.Render(svc, mapper)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(manifests).To(HaveLen(1))
+
+			var allImages []string
+			for _, resource := range manifests {
+				allImages = append(allImages, ExtractImagesFromResource(&resource)...)
+			}
+
+			// Verify the extracted images
+			Expect(allImages).To(HaveLen(1))
+			Expect(allImages).To(ContainElement("nginx:1.14.2"))
+
+			// Verify the pod name was templated correctly
+			Expect(manifests[0].GetName()).To(Equal("test-pod"))
 		})
-	}
-}
+
+		It("should handle deployment manifests", func() {
+			// Use the rawTemplated directory with the deployment.yaml.liquid file
+			dir := filepath.Join("..", "..", "test", "rawTemplated")
+
+			// Set templating to false to skip liquid processing
+			svc.Templated = lo.ToPtr(false)
+
+			// Process the raw manifest using NewRaw
+			rawTemplate := template.NewRaw(dir)
+			manifests, err := rawTemplate.Render(svc, mapper)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(manifests).To(HaveLen(2)) // Should have both pod.yaml.liquid and deployment.yaml.liquid
+
+			// Find the deployment manifest
+			var deploymentManifest *unstructured.Unstructured
+			for _, manifest := range manifests {
+				if manifest.GetKind() == "Deployment" {
+					deploymentManifest = &manifest
+					break
+				}
+			}
+			Expect(deploymentManifest).NotTo(BeNil())
+
+			// Extract images from the deployment manifest
+			images := ExtractImagesFromResource(deploymentManifest)
+
+			// Verify the extracted images
+			Expect(images).To(HaveLen(3)) // nginx, redis, and busybox
+			Expect(images).To(ContainElements("nginx:1.21", "redis:6.2-alpine", "busybox:1.35"))
+		})
+	})
+})
