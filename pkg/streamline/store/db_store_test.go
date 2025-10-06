@@ -1849,380 +1849,58 @@ func createUnstructuredResource(group, version, kind, namespace, name string) un
 	return u
 }
 
-func TestComponentCache_GetResourceHealth(t *testing.T) {
-	t.Run("should return true for empty resource list", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
+func createHookJob(namespace, name, serviceID string) unstructured.Unstructured {
+	group := ""
+	version := "v1"
+	kind := "Job"
 
-		pending, failed, err := storeInstance.GetResourceHealth([]unstructured.Unstructured{})
-		assert.NoError(t, err)
-		assert.False(t, pending, "empty resource list should be considered healthy")
-		assert.False(t, failed, "empty resource list should be considered healthy")
+	u := createUnstructuredResource(group, version, kind, namespace, name)
+
+	u.SetAnnotations(map[string]string{
+		common.OwningInventoryKey:        serviceID,
+		common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(u).String(),
+		common.SyncPhaseHookDeletePolicy: common.SyncPhaseDeletePolicySucceeded,
 	})
 
-	t.Run("should return true when all resources are healthy", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
+	u.Object["status"] = map[string]interface{}{
+		"conditions": []interface{}{
+			map[string]interface{}{
+				"type":   "Complete",
+				"status": "True",
+			},
+		},
+	}
 
-		// Create healthy components in the database
-		healthyPod := createComponent("healthy-pod-uid", nil,
-			WithGroup(""),
-			WithKind("Pod"),
-			WithNamespace("default"),
-			WithName("healthy-pod"),
-			WithState(client.ComponentStateRunning))
-		err = storeInstance.SaveComponentAttributes(healthyPod)
-		require.NoError(t, err)
-
-		healthyDeployment := createComponent("healthy-deployment-uid", nil,
-			WithGroup("apps"),
-			WithKind("Deployment"),
-			WithNamespace("default"),
-			WithName("healthy-deployment"),
-			WithState(client.ComponentStateRunning))
-		err = storeInstance.SaveComponentAttributes(healthyDeployment)
-		require.NoError(t, err)
-
-		healthyService := createComponent("healthy-service-uid", nil,
-			WithGroup(""),
-			WithKind("Service"),
-			WithNamespace("default"),
-			WithName("healthy-service"),
-			WithState(client.ComponentStateRunning))
-		err = storeInstance.SaveComponentAttributes(healthyService)
-		require.NoError(t, err)
-
-		// Create unstructured resources to check
-		resources := []unstructured.Unstructured{
-			newUnstructured("healthy-pod-uid", "healthy-pod", "default", "", "v1", "Pod"),
-			newUnstructured("healthy-deployment-uid", "healthy-deployment", "default", "apps", "v1", "Deployment"),
-			newUnstructured("healthy-service-uid", "healthy-service", "default", "", "v1", "Service"),
-		}
-
-		pending, failed, err := storeInstance.GetResourceHealth(resources)
-		assert.NoError(t, err)
-		assert.False(t, pending, "all healthy resources should return false")
-		assert.False(t, failed, "all healthy resources should return false")
-	})
-
-	t.Run("should check if any resource is failed", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Create mixed healthy and unhealthy components
-		healthyPod := createComponent("mixed-healthy-pod-uid", nil,
-			WithGroup(""),
-			WithKind("Pod"),
-			WithNamespace("default"),
-			WithName("mixed-healthy-pod"),
-			WithState(client.ComponentStateRunning))
-		err = storeInstance.SaveComponentAttributes(healthyPod)
-		require.NoError(t, err)
-
-		failedDeployment := createComponent("mixed-failed-deployment-uid", nil,
-			WithGroup("apps"),
-			WithKind("Deployment"),
-			WithNamespace("default"),
-			WithName("mixed-failed-deployment"),
-			WithState(client.ComponentStateFailed))
-		err = storeInstance.SaveComponentAttributes(failedDeployment)
-		require.NoError(t, err)
-
-		pendingDeployment := createComponent("mixed-pending-deployment-uid", nil,
-			WithGroup("apps"),
-			WithKind("Deployment"),
-			WithNamespace("default"),
-			WithName("mixed-pending-deployment"),
-			WithState(client.ComponentStatePending))
-		err = storeInstance.SaveComponentAttributes(pendingDeployment)
-		require.NoError(t, err)
-
-		// Create unstructured resources to check
-		resources := []unstructured.Unstructured{
-			newUnstructured("mixed-healthy-pod-uid", "mixed-healthy-pod", "default", "", "v1", "Pod"),
-			newUnstructured("mixed-failed-deployment-uid", "mixed-failed-deployment", "default", "apps", "v1", "Deployment"),
-			newUnstructured("mixed-pending-deployment-uid", "mixed-pending-deployment", "default", "apps", "v1", "Deployment"),
-		}
-
-		failed, pending, err := storeInstance.GetResourceHealth(resources)
-		assert.NoError(t, err)
-		assert.True(t, failed, "should correctly detect failed resource")
-		assert.True(t, pending, "should correctly detect pending resource")
-	})
-}
-
-func TestComponentCache_HasSomeResources(t *testing.T) {
-	t.Run("should return true for empty resource list", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		hasSomeResources, err := storeInstance.HasSomeResources([]unstructured.Unstructured{})
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "empty resource list should return true")
-	})
-
-	t.Run("should return false when no resources exist", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		resources := []unstructured.Unstructured{
-			newUnstructured("missing-uid-1", "missing-deployment", "default", "apps", "v1", "Deployment"),
-			newUnstructured("missing-uid-2", "missing-service", "default", "", "v1", "Service"),
-			newUnstructured("missing-uid-3", "missing-configmap", "kube-system", "", "v1", "ConfigMap"),
-		}
-
-		hasSomeResources, err := storeInstance.HasSomeResources(resources)
-		require.NoError(t, err)
-		assert.False(t, hasSomeResources, "completely non-existent resources should return false")
-	})
-
-	t.Run("should return true when all resources exist", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Create and save resources
-		resources := []unstructured.Unstructured{
-			newUnstructured("uid-1", "some-test-deployment", "default", "apps", "v1", "Deployment"),
-			newUnstructured("uid-2", "some-test-service", "default", "", "v1", "Service"),
-			newUnstructured("uid-3", "some-test-configmap", "kube-system", "", "v1", "ConfigMap"),
-		}
-
-		for _, resource := range resources {
-			err := storeInstance.SaveComponent(resource)
-			require.NoError(t, err, "failed to save resource %s", resource.GetName())
-		}
-
-		hasSomeResources, err := storeInstance.HasSomeResources(resources)
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "all existing resources should return true")
-	})
-
-	t.Run("should return true when only some resources exist", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Save only one resource
-		existingResource := newUnstructured("uid-1", "some-existing-deployment", "default", "apps", "v1", "Deployment")
-		err = storeInstance.SaveComponent(existingResource)
-		require.NoError(t, err, "failed to save existing resource")
-
-		// Test with both existing and non-existing resources
-		resources := []unstructured.Unstructured{
-			existingResource,
-			newUnstructured("missing-uid-1", "some-missing-deployment", "default", "apps", "v1", "Deployment"),
-			newUnstructured("missing-uid-2", "some-missing-service", "default", "", "v1", "Service"),
-		}
-
-		hasSomeResources, err := storeInstance.HasSomeResources(resources)
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "partially existing resources should return true")
-	})
-
-	t.Run("should return true when only one resource exists", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Save only the last resource in the list
-		existingResource := newUnstructured("uid-1", "some-single-deployment", "default", "apps", "v1", "Deployment")
-		err = storeInstance.SaveComponent(existingResource)
-		require.NoError(t, err, "failed to save existing resource")
-
-		// Test with the existing resource at the end
-		resources := []unstructured.Unstructured{
-			newUnstructured("missing-uid-1", "some-missing-1", "default", "apps", "v1", "Deployment"),
-			newUnstructured("missing-uid-2", "some-missing-2", "default", "", "v1", "Service"),
-			newUnstructured("missing-uid-3", "some-missing-3", "kube-system", "", "v1", "ConfigMap"),
-			existingResource, // Only this one exists
-		}
-
-		hasSomeResources, err := storeInstance.HasSomeResources(resources)
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "should return true when at least one resource exists")
-	})
-
-	t.Run("should handle resources with empty group correctly", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Create and save one core API resource (empty group)
-		existingResource := newUnstructured("missing-uid-1", "some-missing-service", "default", "", "v1", "Service")
-		err = storeInstance.SaveComponent(existingResource)
-		require.NoError(t, err, "failed to save core resource %s", existingResource.GetName())
-
-		// Test with mix of existing and non-existing core resources
-		coreResources := []unstructured.Unstructured{
-			existingResource,
-			newUnstructured("uid-1", "some-test-pod", "default", "", "v1", "Pod"),
-		}
-
-		hasSomeResources, err := storeInstance.HasSomeResources(coreResources)
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "core API resources should be found correctly")
-	})
-
-	t.Run("should handle large number of resources with some existing", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Create many resources but save only a few
-		var resources []unstructured.Unstructured
-		for i := 0; i < 100; i++ {
-			uid := fmt.Sprintf("some-uid-%d", i)
-			name := fmt.Sprintf("some-test-deployment-%d", i)
-			namespace := fmt.Sprintf("some-namespace-%d", i%5) // 5 different namespaces
-			resource := newUnstructured(uid, name, namespace, "apps", "v1", "Deployment")
-			resources = append(resources, resource)
-
-			// Save only every 10th resource
-			if i%10 == 0 {
-				err := storeInstance.SaveComponent(resource)
-				require.NoError(t, err, "failed to save resource %s", resource.GetName())
-			}
-		}
-
-		hasSomeResources, err := storeInstance.HasSomeResources(resources)
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "should return true when some of many resources exist")
-	})
-
-	t.Run("should handle single existing resource correctly", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		resource := newUnstructured("some-single-uid", "some-single-deployment", "default", "apps", "v1", "Deployment")
-		err = storeInstance.SaveComponent(resource)
-		require.NoError(t, err, "failed to save single resource")
-
-		hasSomeResources, err := storeInstance.HasSomeResources([]unstructured.Unstructured{resource})
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "single existing resource should return true")
-	})
-
-	t.Run("should handle single non-existing resource correctly", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Test with single non-existing resource
-		nonExistingResource := newUnstructured("some-non-existing-uid", "some-missing", "default", "apps", "v1", "Deployment")
-		hasSomeResources, err := storeInstance.HasSomeResources([]unstructured.Unstructured{nonExistingResource})
-		require.NoError(t, err)
-		assert.False(t, hasSomeResources, "single non-existing resource should return false")
-	})
-
-	t.Run("should handle resources with same name in different namespaces", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Create and save resource in one namespace
-		existingResource := newUnstructured("uid-1", "some-same-name", "namespace-1", "apps", "v1", "Deployment")
-		err = storeInstance.SaveComponent(existingResource)
-		require.NoError(t, err, "failed to save resource %s in %s", existingResource.GetName(), existingResource.GetNamespace())
-
-		// Test with same name in different namespaces - one exists, one doesn't
-		testResources := []unstructured.Unstructured{
-			existingResource,
-			newUnstructured("missing-uid-1", "some-same-name", "namespace-2", "apps", "v1", "Deployment"), // non-existing in namespace-2
-		}
-
-		hasSomeResources, err := storeInstance.HasSomeResources(testResources)
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "should return true when at least one resource exists in its specific namespace")
-	})
-
-	t.Run("should handle mix of different resource types", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Save only a StatefulSet
-		existingStatefulSet := newUnstructured("uid-1", "some-existing-statefulset", "default", "apps", "v1", "StatefulSet")
-		err = storeInstance.SaveComponent(existingStatefulSet)
-		require.NoError(t, err, "failed to save StatefulSet")
-
-		// Test with mix of different resource types where only StatefulSet exists
-		mixedResources := []unstructured.Unstructured{
-			newUnstructured("missing-uid-1", "some-missing-deployment", "default", "apps", "v1", "Deployment"),
-			newUnstructured("missing-uid-2", "some-missing-service", "default", "", "v1", "Service"),
-			existingStatefulSet, // Only this exists
-			newUnstructured("missing-uid-3", "some-missing-configmap", "kube-system", "", "v1", "ConfigMap"),
-			newUnstructured("missing-uid-4", "some-missing-daemonset", "default", "apps", "v1", "DaemonSet"),
-		}
-
-		hasSomeResources, err := storeInstance.HasSomeResources(mixedResources)
-		require.NoError(t, err)
-		assert.True(t, hasSomeResources, "should return true when at least one resource of any type exists")
-	})
+	return u
 }
 
 func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 	t.Run("should save and retrieve processed hook components by service ID", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
 
 		serviceID := "svc-basic"
 		r := []unstructured.Unstructured{
-			createUnstructuredResource("apps", "v1", "Deployment", "default", "web"),
-			createUnstructuredResource("", "v1", "Service", "default", "web-svc"),
-			createUnstructuredResource("batch", "v1", "Job", "jobs", "db-migrate"),
+			createHookJob("default", "migrator", serviceID),
+			createHookJob("default", "check", serviceID),
 		}
 
-		require.NoError(t, storeInstance.SaveProcessedHookComponents(serviceID, r))
+		require.NoError(t, storeInstance.SaveComponents(r))
 
 		result, err := storeInstance.GetProcessedHookComponents(serviceID)
 		require.NoError(t, err)
 		require.Len(t, result, len(r))
 
-		// Validate all fields
 		expect := map[string]struct {
 			group, version, kind, ns string
 		}{
-			"web":        {group: "apps", version: "v1", kind: "Deployment", ns: "default"},
-			"web-svc":    {group: "", version: "v1", kind: "Service", ns: "default"},
-			"db-migrate": {group: "batch", version: "v1", kind: "Job", ns: "jobs"},
+			"migrator": {group: "", version: "v1", kind: "Job", ns: "default"},
+			"check":    {group: "", version: "v1", kind: "Job", ns: "default"},
 		}
 
 		for _, m := range result {
@@ -2233,80 +1911,5 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 			assert.Equal(t, want.kind, m.Kind)
 			assert.Equal(t, want.ns, m.Namespace)
 		}
-	})
-
-	t.Run("should return error when service ID is empty", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		err = storeInstance.SaveProcessedHookComponents("", []unstructured.Unstructured{createUnstructuredResource("apps", "v1", "Deployment", "default", "web")})
-		require.Error(t, err)
-	})
-
-	t.Run("should no-op on empty processed hook components slice and return empty list on get", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		serviceID := "svc-empty"
-		require.NoError(t, storeInstance.SaveProcessedHookComponents(serviceID, []unstructured.Unstructured{}))
-
-		result, err := storeInstance.GetProcessedHookComponents(serviceID)
-		require.NoError(t, err)
-		assert.Len(t, result, 0)
-	})
-
-	t.Run("should return empty slice for unknown service ID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		result, err := storeInstance.GetProcessedHookComponents("non-existent-service")
-		require.NoError(t, err)
-		assert.Len(t, result, 0)
-	})
-
-	t.Run("should upsert and move processed hook component to a new service on conflict", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		m := createUnstructuredResource("apps", "v1", "Deployment", "default", "moved")
-
-		// Save under service A
-		serviceA := "svc-a"
-		require.NoError(t, storeInstance.SaveProcessedHookComponents(serviceA, []unstructured.Unstructured{m}))
-
-		resA, err := storeInstance.GetProcessedHookComponents(serviceA)
-		require.NoError(t, err)
-		require.Len(t, resA, 1)
-		assert.Equal(t, "moved", resA[0].Name)
-
-		// Save the same identity under service B -> should update service_id
-		serviceB := "svc-b"
-		require.NoError(t, storeInstance.SaveProcessedHookComponents(serviceB, []unstructured.Unstructured{m}))
-
-		resA, err = storeInstance.GetProcessedHookComponents(serviceA)
-		require.NoError(t, err)
-		assert.Len(t, resA, 0, "processed hook component should no longer belong to service A")
-
-		resB, err := storeInstance.GetProcessedHookComponents(serviceB)
-		require.NoError(t, err)
-		require.Len(t, resB, 1)
-		assert.Equal(t, serviceB, resB[0].ServiceID)
-		assert.Equal(t, "apps", resB[0].Group)
-		assert.Equal(t, "v1", resB[0].Version)
-		assert.Equal(t, "Deployment", resB[0].Kind)
-		assert.Equal(t, "default", resB[0].Namespace)
-		assert.Equal(t, "moved", resB[0].Name)
 	})
 }
