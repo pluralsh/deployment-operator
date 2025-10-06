@@ -810,12 +810,17 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.U
 		return
 	}
 
+	status := lo.FromPtr(common.ToStatus(&resource))
 	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(resource); deletePolicy == "" {
 		klog.V(log.LogLevelTrace).InfoS("delete policy is not set, skipping saving processed hook components")
 		return
+	} else if deletePolicy == smcommon.SyncPhaseDeletePolicySucceeded && status != client.ComponentStateRunning {
+		klog.V(log.LogLevelTrace).InfoS("delete policy is succeeded but status is not running, skipping saving processed hook components", "status", status)
+		return
+	} else if deletePolicy == smcommon.SyncPhaseDeletePolicyFailed && status != client.ComponentStateFailed {
+		klog.V(log.LogLevelTrace).InfoS("delete policy is failed but status is not failed, skipping saving processed hook components", "status", status)
+		return
 	}
-
-	// TODO: Check status before saving?
 
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
@@ -828,7 +833,7 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.U
 
 	if err = sqlitex.Execute(conn, setProcessedHookComponent, &sqlitex.ExecOptions{Args: []any{
 		gvk.Group, gvk.Version, gvk.Kind, resource.GetNamespace(), resource.GetName(), resource.GetUID(),
-		NewComponentState(common.ToStatus(&resource)), serviceID,
+		NewComponentState(&status), serviceID,
 	}}); err != nil {
 		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook component", "resource", resource)
 	}
