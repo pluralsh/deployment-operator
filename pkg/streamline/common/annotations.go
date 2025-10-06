@@ -57,6 +57,12 @@ const (
 	// HelmHookPostUpgrade resources are applied after the upgrade of resources.
 	HelmHookPostUpgrade = "post-upgrade"
 
+	HelmHookDeletePolicyAnnotation = "helm.sh/hook-delete-policy"
+
+	HelmHookDeletePolicyHookSucceeded = "hook-succeeded"
+
+	HelmHookDeletePolicyHookFailed = "hook-failed"
+
 	// SyncWaveAnnotation allows users to customize resource apply ordering when needed.
 	SyncWaveAnnotation = "deployment.plural.sh/sync-wave"
 
@@ -280,13 +286,29 @@ func GetPhaseHookDeletePolicy(u unstructured.Unstructured) string {
 
 	policy, ok := annotations[SyncPhaseHookDeletePolicy]
 	if !ok {
-		return ""
+		return helmHookDeletePolicy(annotations)
 	}
 
 	switch policy {
 	case SyncPhaseDeletePolicySucceeded:
 		return SyncPhaseDeletePolicySucceeded
 	case SyncPhaseDeletePolicyFailed:
+		return SyncPhaseDeletePolicyFailed
+	default:
+		return helmHookDeletePolicy(annotations)
+	}
+}
+
+func helmHookDeletePolicy(annotations map[string]string) string {
+	policy, ok := annotations[HelmHookDeletePolicyAnnotation]
+	if !ok {
+		return ""
+	}
+
+	switch policy {
+	case HelmHookDeletePolicyHookSucceeded:
+		return SyncPhaseDeletePolicySucceeded
+	case HelmHookDeletePolicyHookFailed:
 		return SyncPhaseDeletePolicyFailed
 	default:
 		return ""
