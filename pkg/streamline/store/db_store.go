@@ -413,7 +413,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 	  server_sha = excluded.server_sha
 	`)
 
-	// TODO: Something like defer in.maybeSaveProcessedHookComponent(obj).asdasdasdasd
+	in.maybeSaveProcessedHookComponents(conn, objects)
 
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
@@ -822,6 +822,49 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponent(conn *sqlite.Conn, reso
 		resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID,
 	}}); err != nil {
 		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook", "resource", resource)
+	}
+}
+
+func (in *DatabaseStore) maybeSaveProcessedHookComponents(conn *sqlite.Conn, resources []unstructured.Unstructured) {
+	count := len(resources)
+	if count == 0 {
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString(`INSERT INTO processed_hook_component ("group", version, kind, namespace, name, uid, status, service_id) VALUES `)
+
+	for i, resource := range resources {
+		serviceID := smcommon.GetOwningInventory(resource)
+		state := lo.FromPtr(common.ToStatus(&resource))
+
+		if serviceID == "" {
+			klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving processed hook")
+			continue
+		}
+
+		if !smcommon.HasStateDesiredByDeletePolicy(resource, state) {
+			klog.V(log.LogLevelTrace).InfoS("resource does not have desired state, skipping saving processed hook",
+				"resource", resource, "state", state)
+			continue
+		}
+
+		gvk := resource.GroupVersionKind()
+		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s')",
+			gvk.Group, gvk.Version, gvk.Kind,
+			resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID))
+		if i < count-1 {
+			sb.WriteString(",")
+		}
+	}
+
+	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			status = excluded.status,
+			service_id = excluded.service_id`)
+
+	if err := sqlitex.Execute(conn, sb.String(), nil); err != nil {
+		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook", "resources", resources)
 	}
 }
 
