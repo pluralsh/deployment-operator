@@ -242,7 +242,8 @@ func (in *DatabaseStore) HasSomeResources(resources []unstructured.Unstructured)
 
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
-	state := NewComponentState(common.ToStatus(&obj))
+	status := common.ToStatus(&obj)
+	state := NewComponentState(status)
 	serviceID := smcommon.GetOwningInventory(obj)
 
 	var nodeName string
@@ -283,7 +284,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	}
 	defer in.pool.Put(conn)
 
-	defer in.maybeSaveProcessedHookComponent(obj, state, serviceID)
+	defer in.maybeSaveProcessedHookComponent(obj, lo.FromPtr(status), serviceID)
 
 	return sqlitex.ExecuteTransient(conn, setComponentWithSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
@@ -803,7 +804,7 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 	})
 }
 
-func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.Unstructured, state ComponentState, serviceID string) {
+func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.Unstructured, state client.ComponentState, serviceID string) {
 	if serviceID == "" {
 		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving processed hook")
 		return
@@ -824,8 +825,8 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.U
 
 	gvk := resource.GroupVersionKind()
 
-	if err = sqlitex.Execute(conn, setProcessedHookComponent, &sqlitex.ExecOptions{Args: []any{
-		gvk.Group, gvk.Version, gvk.Kind, resource.GetNamespace(), resource.GetName(), resource.GetUID(), state, serviceID,
+	if err = sqlitex.Execute(conn, setProcessedHookComponent, &sqlitex.ExecOptions{Args: []any{gvk.Group, gvk.Version, gvk.Kind,
+		resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID,
 	}}); err != nil {
 		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook", "resource", resource)
 	}

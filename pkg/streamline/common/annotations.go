@@ -4,12 +4,8 @@ import (
 	"strconv"
 
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/klog/v2"
-
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type SyncPhase string
@@ -297,12 +293,12 @@ func GetPhaseHookDeletePolicy(u unstructured.Unstructured) string {
 	}
 }
 
-func HasStateDesiredByDeletePolicy(u unstructured.Unstructured, s store.ComponentState) bool {
+func HasStateDesiredByDeletePolicy(u unstructured.Unstructured, s client.ComponentState) bool {
 	switch GetPhaseHookDeletePolicy(u) {
 	case SyncPhaseDeletePolicySucceeded:
-		return s == store.ComponentStateRunning
+		return s == client.ComponentStateRunning
 	case SyncPhaseDeletePolicyFailed:
-		return s == store.ComponentStateFailed
+		return s == client.ComponentStateFailed
 	default:
 		return false
 	}
