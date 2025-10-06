@@ -806,25 +806,25 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.Unstructured) {
 	serviceID := smcommon.GetOwningInventory(resource)
 	if serviceID == "" {
-		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving processed hook components")
+		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving processed hook")
 		return
 	}
 
 	status := lo.FromPtr(common.ToStatus(&resource))
 	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(resource); deletePolicy == "" {
-		klog.V(log.LogLevelTrace).InfoS("delete policy is not set, skipping saving processed hook components")
+		klog.V(log.LogLevelTrace).InfoS("no delete policy set, skipping saving processed hook")
 		return
 	} else if deletePolicy == smcommon.SyncPhaseDeletePolicySucceeded && status != client.ComponentStateRunning {
-		klog.V(log.LogLevelTrace).InfoS("delete policy is succeeded but status is not running, skipping saving processed hook components", "status", status)
+		klog.V(log.LogLevelTrace).InfoS("succeeded delete policy but status is not running, skipping saving processed hook", "status", status)
 		return
 	} else if deletePolicy == smcommon.SyncPhaseDeletePolicyFailed && status != client.ComponentStateFailed {
-		klog.V(log.LogLevelTrace).InfoS("delete policy is failed but status is not failed, skipping saving processed hook components", "status", status)
+		klog.V(log.LogLevelTrace).InfoS("delete policy is failed but status is not failed, skipping saving processed hook", "status", status)
 		return
 	}
 
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
-		klog.V(log.LogLevelDebug).ErrorS(err, "failed to get database connection for saving processed hook component")
+		klog.V(log.LogLevelDebug).ErrorS(err, "failed to get database connection for saving processed hook")
 		return
 	}
 	defer in.pool.Put(conn)
@@ -835,7 +835,7 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponent(resource unstructured.U
 		gvk.Group, gvk.Version, gvk.Kind, resource.GetNamespace(), resource.GetName(), resource.GetUID(),
 		NewComponentState(&status), serviceID,
 	}}); err != nil {
-		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook component", "resource", resource)
+		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook", "resource", resource)
 	}
 }
 
