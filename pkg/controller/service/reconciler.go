@@ -498,14 +498,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		metrics.WithServiceReconciliationStage(metrics.ServiceReconciliationApplyStart),
 	)
 
-	var appliedResources []any
-
 	components, errs, err := s.applier.Apply(ctx,
 		*svc,
 		manifests,
 		applier.WithWaveDryRun(dryRun),
 		applier.WithWaveOnApply(func(obj unstructured.Unstructured) {
-			appliedResources = append(appliedResources, &obj)
 			if s.supervisor == nil {
 				return
 			}

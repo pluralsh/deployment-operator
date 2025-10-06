@@ -11,6 +11,7 @@ import (
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
@@ -150,131 +151,57 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(kClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: namespace}, &v1.Pod{})).NotTo(HaveOccurred())
 		})
 
-		// It("should extract images metadata from applied resources", func() {
-		// 	reconciler := &service.ServiceReconciler{}
+		It("should extract images from raw manifests using ExtractImagesMetadata", func() {
+			// Use the rawTemplated directory with the test manifest files
+			dir := filepath.Join("..", "..", "..", "test", "rawTemplated")
 
-		// 	appliedResources := []any{
-		// 		&unstructured.Unstructured{
-		// 			Object: map[string]interface{}{
-		// 				"kind": "Deployment",
-		// 				"metadata": map[string]interface{}{
-		// 					"name":      "test-deployment",
-		// 					"namespace": "default",
-		// 				},
-		// 				"spec": map[string]interface{}{
-		// 					"template": map[string]interface{}{
-		// 						"spec": map[string]interface{}{
-		// 							"containers": []interface{}{
-		// 								map[string]interface{}{
-		// 									"name":  "app",
-		// 									"image": "nginx:1.21",
-		// 								},
-		// 								map[string]interface{}{
-		// 									"name":  "sidecar",
-		// 									"image": "alpine:3.14",
-		// 								},
-		// 							},
-		// 						},
-		// 					},
-		// 				},
-		// 			},
-		// 		},
-		// 		&unstructured.Unstructured{
-		// 			Object: map[string]interface{}{
-		// 				"kind": "Pod",
-		// 				"spec": map[string]interface{}{
-		// 					"containers": []interface{}{
-		// 						map[string]interface{}{
-		// 							"name":  "redis",
-		// 							"image": "redis:6.2",
-		// 						},
-		// 					},
-		// 				},
-		// 			},
-		// 		},
-		// 	}
+			// Set up service configuration
+			svc := &console.ServiceDeploymentForAgent{
+				Namespace:     "default",
+				Configuration: make([]*console.ServiceDeploymentForAgent_Configuration, 0),
+				Templated:     lo.ToPtr(false), // Disable templating for rawTemplated files
+			}
 
-		// 	metadata := reconciler.ExtractImagesMetadata(appliedResources)
+			// Process the raw manifests using NewRaw
+			rawTemplate := template.NewRaw(dir)
+			manifests, err := rawTemplate.Render(svc, mapper)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(manifests).To(HaveLen(2)) // Should have both pod.yaml.liquid and deployment.yaml.liquid
 
-		// 	Expect(metadata).NotTo(BeNil())
-		// 	Expect(metadata.Images).To(HaveLen(3))
+			// Create a reconciler instance to access ExtractImagesMetadata
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetCredentials").Return("", "")
+			storeInstance, err := store.NewDatabaseStore()
+			Expect(err).NotTo(HaveOccurred())
+			defer func(storeInstance store.Store) {
+				err := storeInstance.Shutdown()
+				if err != nil {
+					log.Printf("unable to shutdown database store: %v", err)
+				}
+			}(storeInstance)
 
-		// 	imageStrs := make([]string, len(metadata.Images))
-		// 	for i, img := range metadata.Images {
-		// 		imageStrs[i] = *img
-		// 	}
+			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
+			Expect(err).NotTo(HaveOccurred())
 
-		// 	Expect(imageStrs).To(ContainElements("nginx:1.21", "alpine:3.14", "redis:6.2"))
-		// })
+			// Extract images metadata from the processed manifests
+			metadata := reconciler.ExtractImagesMetadata(manifests)
 
-		// It("should extract images metadata from applied resources", func() {
-		// 	reconciler := &service.ServiceReconciler{}
+			// Verify the extracted metadata
+			Expect(metadata).NotTo(BeNil())
+			Expect(metadata.Images).NotTo(BeNil())
+			Expect(len(metadata.Images)).To(Equal(4)) // nginx:1.14.2, nginx:1.21, redis:6.2-alpine, busybox:1.35
 
-		// 	appliedResources := []any{
-		// 		&unstructured.Unstructured{
-		// 			Object: map[string]interface{}{
-		// 				"kind": "Deployment",
-		// 				"metadata": map[string]interface{}{
-		// 					"name":      "test-deployment",
-		// 					"namespace": "default",
-		// 				},
-		// 				"spec": map[string]interface{}{
-		// 					"template": map[string]interface{}{
-		// 						"spec": map[string]interface{}{
-		// 							"containers": []interface{}{
-		// 								map[string]interface{}{
-		// 									"name":  "app",
-		// 									"image": "nginx:1.21",
-		// 								},
-		// 								map[string]interface{}{
-		// 									"name":  "sidecar",
-		// 									"image": "alpine:3.14",
-		// 								},
-		// 							},
-		// 						},
-		// 					},
-		// 				},
-		// 			},
-		// 		},
-		// 		&unstructured.Unstructured{
-		// 			Object: map[string]interface{}{
-		// 				"kind": "Pod",
-		// 				"spec": map[string]interface{}{
-		// 					"containers": []interface{}{
-		// 						map[string]interface{}{
-		// 							"name":  "redis",
-		// 							"image": "redis:6.2",
-		// 						},
-		// 					},
-		// 				},
-		// 			},
-		// 		},
-		// 	}
+			// Verify specific images are present
+			imageStrings := make([]string, len(metadata.Images))
+			for i, img := range metadata.Images {
+				imageStrings[i] = *img
+			}
 
-		// 	metadata := reconciler.ExtractImagesMetadata(appliedResources)
-
-		// 	Expect(metadata).NotTo(BeNil())
-		// 	Expect(metadata.Images).To(HaveLen(3))
-
-		// 	imageStrs := make([]string, len(metadata.Images))
-		// 	for i, img := range metadata.Images {
-		// 		imageStrs[i] = *img
-		// 	}
-
-		// 	Expect(imageStrs).To(ContainElements("nginx:1.21", "alpine:3.14", "redis:6.2"))
-		// })
-
-		// It("should handle empty applied resources", func() {
-		// 	reconciler := &service.ServiceReconciler{}
-
-		// 	// Test with empty resources
-		// 	metadata := reconciler.ExtractImagesMetadata([]any{})
-		// 	Expect(metadata).To(BeNil())
-
-		// 	// Test with non-unstructured resources
-		// 	metadata = reconciler.ExtractImagesMetadata([]any{"not-unstructured", 123})
-		// 	Expect(metadata).To(BeNil())
-		// })
+			Expect(imageStrings).To(ContainElement("nginx:1.14.2"))     // From pod.yaml.liquid
+			Expect(imageStrings).To(ContainElement("nginx:1.21"))       // From deployment.yaml.liquid
+			Expect(imageStrings).To(ContainElement("redis:6.2-alpine")) // From deployment.yaml.liquid
+			Expect(imageStrings).To(ContainElement("busybox:1.35"))     // From deployment.yaml.liquid init container
+		})
 
 	})
 })
