@@ -828,13 +828,14 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponent(conn *sqlite.Conn, reso
 func (in *DatabaseStore) maybeSaveProcessedHookComponents(conn *sqlite.Conn, resources []unstructured.Unstructured) {
 	count := len(resources)
 	if count == 0 {
-		return
+		return // Nothing to insert
 	}
 
 	var sb strings.Builder
 	sb.WriteString(`INSERT INTO processed_hook_component ("group", version, kind, namespace, name, uid, status, service_id) VALUES `)
 
-	for i, resource := range resources {
+	valueStrings := make([]string, 0, len(resources))
+	for _, resource := range resources {
 		serviceID := smcommon.GetOwningInventory(resource)
 		state := lo.FromPtr(common.ToStatus(&resource))
 
@@ -850,18 +851,20 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponents(conn *sqlite.Conn, res
 		}
 
 		gvk := resource.GroupVersionKind()
-		sb.WriteString(fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s')",
-			gvk.Group, gvk.Version, gvk.Kind,
-			resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID))
-		if i < count-1 {
-			sb.WriteString(",")
-		}
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s')", gvk.Group, gvk.Version, gvk.Kind,
+				resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID))
 	}
 
+	if len(valueStrings) == 0 {
+		return // Nothing to insert
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
 	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
-			uid = excluded.uid,
-			status = excluded.status,
-			service_id = excluded.service_id`)
+		uid = excluded.uid,
+		status = excluded.status,
+		service_id = excluded.service_id`)
 
 	if err := sqlitex.Execute(conn, sb.String(), nil); err != nil {
 		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook", "resources", resources)
