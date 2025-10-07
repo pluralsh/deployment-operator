@@ -251,7 +251,7 @@ func GetSyncPhase(u unstructured.Unstructured) SyncPhase {
 	case string(SyncPhaseSkip):
 		return SyncPhaseSkip
 	case string(SyncPhaseSync):
-		fallthrough
+		return SyncPhaseSync
 	default:
 		return defaultPhase(annotations)
 	}
