@@ -11,7 +11,7 @@ import (
 // The list of supported tools is based on the console.AgentRuntimeType.
 type Tool interface {
 	Run(ctx context.Context, options ...exec.Option)
-	Configure(consoleURL string, deployToken string) error
+	Configure(consoleURL, deployToken, consoleToken string) error
 }
 
 type Config struct {

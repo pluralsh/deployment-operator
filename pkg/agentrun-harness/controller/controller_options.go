@@ -22,9 +22,9 @@ func WithWorkingDir(dir string) Option {
 	}
 }
 
-func WithConsoleToken(token string) Option {
+func WithDeployToken(token string) Option {
 	return func(s *agentRunController) {
-		s.consoleToken = token
+		s.deployToken = token
 	}
 }
 

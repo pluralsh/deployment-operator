@@ -10,9 +10,9 @@ import (
 
 const (
 	defaultOpenCodePort  = "4096"
-	defaultModelID       = "gpt-4.1"
+	defaultModelID       = "gpt-4.1-mini"
 	defaultModelName     = "GPT 4.1 Mini"
-	defaultProviderID    = "openai"
+	defaultProviderID    = "openai-proxy"
 	defaultProviderName  = "OpenAI Proxy"
 	defaultAnalysisAgent = "plural-reviewer"
 	defaultWriteAgent    = "plural-writer"

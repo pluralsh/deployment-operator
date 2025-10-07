@@ -88,7 +88,7 @@ func (in *agentRunController) prepare() error {
 		Run:           in.agentRun,
 	})
 
-	return in.tool.Configure(in.consoleUrl, *in.agentRun.PluralCreds.Token)
+	return in.tool.Configure(in.consoleUrl, *in.agentRun.PluralCreds.Token, in.deployToken)
 }
 
 // getSystemPromptOverride returns system prompt override if configured

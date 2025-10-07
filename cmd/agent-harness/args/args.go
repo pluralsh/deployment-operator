@@ -16,7 +16,7 @@ import (
 
 const (
 	EnvConsoleUrl         = "CONSOLE_URL"
-	EnvConsoleToken       = "CONSOLE_TOKEN"
+	EnvDeployToken        = "DEPLOY_TOKEN"
 	EnvAgentRunID         = "AGENT_RUN_ID"
 	EnvWorkingDir         = "WORKING_DIR"
 	EnvTimeout            = "TIMEOUT"
@@ -37,7 +37,7 @@ const (
 
 var (
 	argConsoleUrl         = pflag.String("console-url", helpers.GetPluralEnv(EnvConsoleUrl, ""), "URL to the extended Console API, i.e. https://console.onplural.sh/ext/gql")
-	argConsoleToken       = pflag.String("console-token", helpers.GetPluralEnv(EnvConsoleToken, ""), "Deploy token to the Console API")
+	argDeployToken        = pflag.String("deploy-token", helpers.GetPluralEnv(EnvDeployToken, ""), "Deploy token to the Console API")
 	argAgentRunID         = pflag.String("agent-run-id", helpers.GetPluralEnv(EnvAgentRunID, ""), "ID of the Agent Run to execute")
 	argWorkingDir         = pflag.String("working-dir", helpers.GetPluralEnv(EnvWorkingDir, defaultWorkingDir), "Working directory used to prepare the environment")
 	argTimeout            = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout is the maximum time the agent run can run before it will be cancelled")
@@ -66,6 +66,10 @@ func ConsoleUrl() string {
 		return strings.TrimSuffix(*argConsoleUrl, "/ext/gql")
 	}
 
+	if strings.HasSuffix(*argConsoleUrl, "/gql") {
+		return strings.TrimSuffix(*argConsoleUrl, "/gql")
+	}
+
 	return *argConsoleUrl
 }
 
@@ -75,10 +79,10 @@ func ConsoleAPIUrl() string {
 	return fmt.Sprintf("%s/ext/gql", ConsoleUrl())
 }
 
-func ConsoleToken() string {
-	ensureOrDie("console-token", argConsoleToken)
+func DeployToken() string {
+	ensureOrDie("deploy-token", argDeployToken)
 
-	return *argConsoleToken
+	return *argDeployToken
 }
 
 func AgentRunID() string {

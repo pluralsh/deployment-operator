@@ -27,10 +27,11 @@ func (in *Opencode) Run(ctx context.Context, options ...exec.Option) {
 	go in.runServer(internalCtx, options...)
 }
 
-func (in *Opencode) Configure(consoleURL string, consoleToken string) error {
+func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) error {
 	input := &ConfigTemplateInput{
 		ConsoleURL:    consoleURL,
 		ConsoleToken:  consoleToken,
+		DeployToken:   deployToken,
 		AgentRunID:    in.run.ID,
 		ModelID:       defaultModelID,
 		ModelName:     defaultModelName,
@@ -209,12 +210,15 @@ func (in *Opencode) runPrompt(ctx context.Context) {
 		return
 	}
 
+	// TODO: remove after testing
+	in.run.Prompt = "Create or update main README.md file based on the contents of repository and then create a pull request with the proposed changes for further review."
+
 	in.sessionID = session.ID
 	klog.V(log.LogLevelExtended).InfoS("sending prompt", "prompt", in.run.Prompt)
-	_, err = in.client.Session.Prompt(ctx, session.ID, opencode.SessionPromptParams{
+	res, err := in.client.Session.Prompt(ctx, session.ID, opencode.SessionPromptParams{
 		Parts: opencode.F([]opencode.SessionPromptParamsPartUnion{
 			opencode.TextPartInputParam{
-				Text: opencode.F("Create or update main README.md file based on the contents of repository and then create a pull request with the proposed changes for further review."),
+				Text: opencode.F(in.run.Prompt),
 				Type: opencode.F(opencode.TextPartInputTypeText),
 			},
 		}),
@@ -231,6 +235,7 @@ func (in *Opencode) runPrompt(ctx context.Context) {
 		return
 	}
 
+	klog.V(log.LogLevelDefault).InfoS("prompt sent successfully", "response", res)
 	in.contextCancel(nil)
 }
 

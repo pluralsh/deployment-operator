@@ -19,7 +19,7 @@ import (
 func main() {
 	klog.V(log.LogLevelDefault).InfoS("starting agent harness", "version", environment.Version)
 
-	consoleClient := client.New(args.ConsoleAPIUrl(), args.ConsoleToken())
+	consoleClient := client.New(args.ConsoleAPIUrl(), args.DeployToken())
 	ctx := signals.NewCancelableContext(
 		signals.SetupSignalHandler(signals.ExitCodeTerminated),
 		agentsignals.NewConsoleSignal(consoleClient, args.AgentRunID()),
@@ -29,7 +29,7 @@ func main() {
 		controller.WithAgentRun(args.AgentRunID()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithConsoleUrl(args.ConsoleUrl()),
-		controller.WithConsoleToken(args.ConsoleToken()),
+		controller.WithDeployToken(args.DeployToken()),
 		controller.WithWorkingDir(args.WorkingDir()),
 	}
 

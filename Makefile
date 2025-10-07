@@ -14,6 +14,7 @@ CRDDOCS ?= $(shell which crd-ref-docs)
 DEFAULT_PLRL_CONSOLE_URL := "https://console.plrl-dev-aws.onplural.sh"
 PLRL_CONSOLE_URL := $(if $(PLRL_CONSOLE_URL),$(PLRL_CONSOLE_URL),$(DEFAULT_PLRL_CONSOLE_URL))
 PLRL_CONSOLE_TOKEN := $(if $(PLRL_CONSOLE_TOKEN),$(PLRL_CONSOLE_TOKEN),test-token)
+PLRL_DEPLOY_TOKEN := $(if $(PLRL_DEPLOY_TOKEN),$(PLRL_DEPLOY_TOKEN),test-deploy-token)
 PLRL_AGENT_RUN_ID := $(if $(PLRL_AGENT_RUN_ID),$(PLRL_AGENT_RUN_ID),test-id)
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
@@ -85,7 +86,7 @@ agent-run: agent ## run agent
 agent-harness-run: docker-build-agent-harness-base ## run agent harness base
 	docker run \
 		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
-		-e PLRL_CONSOLE_TOKEN=$(PLRL_CONSOLE_TOKEN) \
+		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
 		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-base
@@ -94,7 +95,7 @@ agent-harness-run: docker-build-agent-harness-base ## run agent harness base
 agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent harness w/ opencode
 	docker run \
 		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
-		-e PLRL_CONSOLE_TOKEN=$(PLRL_CONSOLE_TOKEN) \
+		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
 		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
 		-e ARGS="--v=3" \
 		--rm -it \
@@ -309,7 +310,7 @@ agent-pr-mcpserver: ## build mcp server
 
 .PHONY: agent-pr-mcpserver-run
 agent-pr-mcpserver-run: agent-pr-mcpserver ## run mcp server locally
-	PLURAL_ACCESS_TOKEN=${PLURAL_ACCESS_TOKEN} \
+	PLRL_CONSOLE_TOKEN=${PLRL_CONSOLE_TOKEN} \
 	PLURAL_CONSOLE_URL=${PLURAL_CONSOLE_URL} \
 	./bin/agent-pr-mcpserver
 
