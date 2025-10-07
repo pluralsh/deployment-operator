@@ -373,7 +373,15 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
-	// TODO: optimize and use ONE db call and update component status from applied resource
+	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(resource); deletePolicy != "" {
+		if err := streamline.GetGlobalStore().SaveHookComponentManifestSHA(resource); err != nil {
+			klog.V(log.LogLevelExtended).ErrorS(err, "failed to save hook component manifest sha", "resource", resource.GetName(), "kind", resource.GetKind())
+			in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
+			return
+		}
+	}
+
+	// TODO: Optimize and use one database call and update component status from applied resource.
 	if err := streamline.GetGlobalStore().UpdateComponentSHA(lo.FromPtr(appliedResource), store.ApplySHA); err != nil {
 		klog.V(log.LogLevelExtended).ErrorS(err, "failed to update component SHA", "resource", resource.GetName(), "kind", resource.GetKind())
 	}

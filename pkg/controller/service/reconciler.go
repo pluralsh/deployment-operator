@@ -432,7 +432,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 			return ctrl.Result{}, err
 		}
 
-		if err = s.store.ExpireProcessedHookComponents(svc.ID); err != nil {
+		if err = s.store.ExpireHookComponents(svc.ID); err != nil {
 			logger.Error(err, "failed to expire processed hook components", "service", svc.Name)
 			return ctrl.Result{}, err
 		}

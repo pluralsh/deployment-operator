@@ -3,7 +3,6 @@ package common
 import (
 	"strconv"
 
-	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -312,16 +311,5 @@ func helmHookDeletePolicy(annotations map[string]string) string {
 		return SyncPhaseDeletePolicyFailed
 	default:
 		return ""
-	}
-}
-
-func HasStateDesiredByDeletePolicy(u unstructured.Unstructured, s client.ComponentState) bool {
-	switch GetPhaseHookDeletePolicy(u) {
-	case SyncPhaseDeletePolicySucceeded:
-		return s == client.ComponentStateRunning
-	case SyncPhaseDeletePolicyFailed:
-		return s == client.ComponentStateFailed
-	default:
-		return false
 	}
 }

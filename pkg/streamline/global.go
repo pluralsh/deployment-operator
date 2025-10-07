@@ -73,3 +73,7 @@ func (in *GlobalStore) GetResourceHealth(resources []unstructured.Unstructured) 
 func (in *GlobalStore) HasSomeResources(resources []unstructured.Unstructured) (bool, error) {
 	return in.store.HasSomeResources(resources)
 }
+
+func (in *GlobalStore) SaveHookComponentManifestSHA(u unstructured.Unstructured) error {
+	return in.store.SaveHookComponentManifestSHA(u)
+}

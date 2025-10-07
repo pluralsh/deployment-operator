@@ -45,8 +45,8 @@ const (
 			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
 
-		-- Create the processed hook component table
-		CREATE TABLE IF NOT EXISTS processed_hook_component (
+		-- Create the hook component table
+		CREATE TABLE IF NOT EXISTS hook_component (
 			id INTEGER PRIMARY KEY,
 			uid TEXT,
 			"group" TEXT,
@@ -55,12 +55,13 @@ const (
 			namespace TEXT,
 			name TEXT,
 			status INT,
+			manifest_sha TEXT,
 			service_id TEXT
 		);
 	 
-		-- Add indexes to the processed hook component table
-		CREATE UNIQUE INDEX IF NOT EXISTS processed_hook_component_index_unique ON processed_hook_component("group", version, kind, namespace, name);
-		CREATE INDEX IF NOT EXISTS processed_hook_component_index_service_id ON processed_hook_component(service_id);
+		-- Add indexes to the hook component table
+		CREATE UNIQUE INDEX IF NOT EXISTS hook_component_index_unique ON hook_component("group", version, kind, namespace, name);
+		CREATE INDEX IF NOT EXISTS hook_component_index_service_id ON hook_component(service_id);
 	`
 
 	getComponent = `
@@ -293,12 +294,23 @@ const (
 		WHERE updated_at < datetime(?, 'unixepoch')
 	`
 
-	setProcessedHookComponent = `
-		INSERT INTO processed_hook_component ("group", version, kind, namespace, name, uid, status, service_id)
+	setHookComponent = `
+		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
 			status = excluded.status,
-			service_id = excluded.service_id
+			service_id = excluded.service_id,
+			manifest_sha = excluded.manifest_sha
+	`
+
+	setHookComponentWithManifestSHA = `
+		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, manifest_sha, service_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			status = excluded.status,
+			service_id = excluded.service_id,
+			manifest_sha = excluded.manifest_sha
 	`
 )

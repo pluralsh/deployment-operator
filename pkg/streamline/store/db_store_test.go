@@ -1892,7 +1892,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 
 		require.NoError(t, storeInstance.SaveComponents(r))
 
-		result, err := storeInstance.GetProcessedHookComponents(serviceID)
+		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
 		require.Len(t, result, len(r))
 
@@ -1922,7 +1922,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 			}
 		}()
 
-		result, err := storeInstance.GetProcessedHookComponents("non-existent-service")
+		result, err := storeInstance.GetHookComponents("non-existent-service")
 		require.NoError(t, err)
 		require.Empty(t, result)
 	})
@@ -1948,7 +1948,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 		require.NoError(t, storeInstance.SaveComponents(hooks))
 
 		// Check service 1 hooks
-		result1, err := storeInstance.GetProcessedHookComponents(serviceID1)
+		result1, err := storeInstance.GetHookComponents(serviceID1)
 		require.NoError(t, err)
 		require.Len(t, result1, 2)
 		for _, m := range result1 {
@@ -1957,7 +1957,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 		}
 
 		// Check service 2 hooks
-		result2, err := storeInstance.GetProcessedHookComponents(serviceID2)
+		result2, err := storeInstance.GetHookComponents(serviceID2)
 		require.NoError(t, err)
 		require.Len(t, result2, 1)
 		assert.Equal(t, serviceID2, result2[0].ServiceID)
@@ -2002,7 +2002,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 
 		require.NoError(t, storeInstance.SaveComponents(hooks))
 
-		result, err := storeInstance.GetProcessedHookComponents(serviceID)
+		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
 		require.Len(t, result, 3)
 
@@ -2030,7 +2030,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 
 		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{hook}))
 
-		result, err := storeInstance.GetProcessedHookComponents(serviceID)
+		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
 		require.Len(t, result, 1)
 
@@ -2057,7 +2057,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 
 		require.NoError(t, storeInstance.SaveComponents(hooks))
 
-		result, err := storeInstance.GetProcessedHookComponents(serviceID)
+		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
 		require.Len(t, result, hookCount)
 

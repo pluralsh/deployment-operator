@@ -286,15 +286,15 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 		return nil, err
 	}
 
-	processedHookComponents, err := in.store.GetProcessedHookComponents(serviceID)
+	hookComponents, err := in.store.GetHookComponents(serviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create a map of processed hook components for an easy lookup.
-	keyToProcessedHookComponent := make(map[smcommon.Key]smcommon.ProcessedHookComponent)
-	for _, phc := range processedHookComponents {
-		keyToProcessedHookComponent[phc.ToStoreKey().VersionlessKey()] = phc
+	// Create a map of hook components for an easy lookup.
+	keyToHookComponent := make(map[smcommon.Key]smcommon.HookComponent)
+	for _, phc := range hookComponents {
+		keyToHookComponent[phc.ToStoreKey().VersionlessKey()] = phc
 	}
 
 	return func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured) {
@@ -325,19 +325,19 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 
 		for key, resource := range keyToResource {
 			// Custom handling for resources with delete policy annotation.
+			// If the resource:
+			// - has the delete policy annotation.
+			// - is in our hook component store.
+			// - has reached its desired state (succeeded or failed).
+			// - and has not changed manifest recently.
+			// Then we can skip applying it and ensure that these resources are deleted.
 			deletionPolicy := smcommon.GetPhaseHookDeletePolicy(resource)
-			processedHookComponent, ok := keyToProcessedHookComponent[key]
-			if deletionPolicy != "" && ok &&
-				((processedHookComponent.Succeeded() && deletionPolicy == smcommon.SyncPhaseDeletePolicySucceeded) ||
-					(processedHookComponent.Failed() && deletionPolicy == smcommon.SyncPhaseDeletePolicyFailed)) {
-				// Skip applying resources that have already reached their desired state.
+			hook, ok := keyToHookComponent[key]
+			if deletionPolicy != "" && ok && hook.HasDesiredState(deletionPolicy) && !hook.HasManifestChanged(resource) {
 				skipApply.Add(key)
-
-				// Ensure that these resources are deleted.
 				if r, exists := keyToResource[key]; exists {
 					toDelete = append(toDelete, r)
 				}
-
 				continue
 			}
 

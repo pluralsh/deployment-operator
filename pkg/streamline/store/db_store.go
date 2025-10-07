@@ -284,7 +284,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	}
 	defer in.pool.Put(conn)
 
-	in.maybeSaveProcessedHookComponent(conn, obj, lo.FromPtr(status), serviceID)
+	in.maybeSaveHookComponent(conn, obj, lo.FromPtr(status), serviceID)
 
 	return sqlitex.ExecuteTransient(conn, setComponentWithSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
@@ -413,7 +413,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 	  server_sha = excluded.server_sha
 	`)
 
-	in.maybeSaveProcessedHookComponents(conn, objects)
+	in.maybeSaveHookComponents(conn, objects)
 
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
@@ -804,35 +804,35 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 	})
 }
 
-func (in *DatabaseStore) maybeSaveProcessedHookComponent(conn *sqlite.Conn, resource unstructured.Unstructured, state client.ComponentState, serviceID string) {
+func (in *DatabaseStore) maybeSaveHookComponent(conn *sqlite.Conn, resource unstructured.Unstructured, state client.ComponentState, serviceID string) {
 	if serviceID == "" {
-		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving processed hook")
+		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving hook")
 		return
 	}
 
-	if !smcommon.HasStateDesiredByDeletePolicy(resource, state) {
-		klog.V(log.LogLevelTrace).InfoS("resource does not have desired state, skipping saving processed hook",
+	if smcommon.GetPhaseHookDeletePolicy(resource) == "" {
+		klog.V(log.LogLevelTrace).InfoS("resource does not have delete policy, skipping saving hook",
 			"resource", resource, "state", state)
 		return
 	}
 
 	gvk := resource.GroupVersionKind()
 
-	if err := sqlitex.Execute(conn, setProcessedHookComponent, &sqlitex.ExecOptions{Args: []any{gvk.Group, gvk.Version, gvk.Kind,
+	if err := sqlitex.Execute(conn, setHookComponent, &sqlitex.ExecOptions{Args: []any{gvk.Group, gvk.Version, gvk.Kind,
 		resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID,
 	}}); err != nil {
-		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook", "resource", resource)
+		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save hook", "resource", resource)
 	}
 }
 
-func (in *DatabaseStore) maybeSaveProcessedHookComponents(conn *sqlite.Conn, resources []unstructured.Unstructured) {
+func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []unstructured.Unstructured) {
 	count := len(resources)
 	if count == 0 {
 		return // Nothing to insert
 	}
 
 	var sb strings.Builder
-	sb.WriteString(`INSERT INTO processed_hook_component ("group", version, kind, namespace, name, uid, status, service_id) VALUES `)
+	sb.WriteString(`INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id) VALUES `)
 
 	valueStrings := make([]string, 0, len(resources))
 	for _, resource := range resources {
@@ -840,12 +840,12 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponents(conn *sqlite.Conn, res
 		state := lo.FromPtr(common.ToStatus(&resource))
 
 		if serviceID == "" {
-			klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving processed hook")
+			klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving hook")
 			continue
 		}
 
-		if !smcommon.HasStateDesiredByDeletePolicy(resource, state) {
-			klog.V(log.LogLevelTrace).InfoS("resource does not have desired state, skipping saving processed hook",
+		if smcommon.GetPhaseHookDeletePolicy(resource) == "" {
+			klog.V(log.LogLevelTrace).InfoS("resource does not delete policy, skipping saving hook",
 				"resource", resource, "state", state)
 			continue
 		}
@@ -867,25 +867,25 @@ func (in *DatabaseStore) maybeSaveProcessedHookComponents(conn *sqlite.Conn, res
 		service_id = excluded.service_id`)
 
 	if err := sqlitex.Execute(conn, sb.String(), nil); err != nil {
-		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save processed hook", "resources", resources)
+		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save hook", "resources", resources)
 	}
 }
 
-func (in *DatabaseStore) GetProcessedHookComponents(serviceID string) ([]smcommon.ProcessedHookComponent, error) {
+func (in *DatabaseStore) GetHookComponents(serviceID string) ([]smcommon.HookComponent, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	defer in.pool.Put(conn)
 
-	result := make([]smcommon.ProcessedHookComponent, 0)
+	result := make([]smcommon.HookComponent, 0)
 	err = sqlitex.ExecuteTransient(
 		conn,
-		`SELECT "group", version, kind, namespace, name, uid, status FROM processed_hook_component WHERE service_id = ?`,
+		`SELECT "group", version, kind, namespace, name, uid, status FROM hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{
 			Args: []interface{}{serviceID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
-				result = append(result, smcommon.ProcessedHookComponent{
+				result = append(result, smcommon.HookComponent{
 					Group:     stmt.ColumnText(0),
 					Version:   stmt.ColumnText(1),
 					Kind:      stmt.ColumnText(2),
@@ -902,14 +902,41 @@ func (in *DatabaseStore) GetProcessedHookComponents(serviceID string) ([]smcommo
 	return result, err
 }
 
-func (in *DatabaseStore) ExpireProcessedHookComponents(serviceID string) error {
+func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResource unstructured.Unstructured) error {
+	serviceID := smcommon.GetOwningInventory(manifest)
+	if serviceID == "" {
+		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving hook")
+		return nil
+	}
+
+	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(manifest); deletePolicy == "" {
+		klog.V(log.LogLevelTrace).InfoS("delete policy is empty, skipping saving hook")
+		return nil
+	}
+
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
 	}
 	defer in.pool.Put(conn)
 
-	return sqlitex.ExecuteTransient(conn, `DELETE FROM processed_hook_component WHERE service_id = ?`,
+	gvk := manifest.GroupVersionKind()
+
+	return sqlitex.Execute(conn, setHookComponentWithManifestSHA,
+		&sqlitex.ExecOptions{Args: []any{
+			gvk.Group, gvk.Version, gvk.Kind, manifest.GetNamespace(), manifest.GetName(),
+			appliedResource.GetUID(), NewComponentState(common.ToStatus(&appliedResource)), serviceID,
+		}})
+}
+
+func (in *DatabaseStore) ExpireHookComponents(serviceID string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, `DELETE FROM hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{Args: []any{serviceID}})
 }
 

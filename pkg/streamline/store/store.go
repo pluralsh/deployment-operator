@@ -79,9 +79,12 @@ type Store interface {
 	// HasSomeResources checks if at least one of the provided resources exists in the store.
 	HasSomeResources(resources []unstructured.Unstructured) (bool, error)
 
-	// GetProcessedHookComponents returns all processed hook components that belong to the specified service.
-	GetProcessedHookComponents(serviceID string) ([]smcommon.ProcessedHookComponent, error)
+	// GetHookComponents returns all hook components with a deletion policy that belong to the specified service.
+	GetHookComponents(serviceID string) ([]smcommon.HookComponent, error)
 
-	// ExpireProcessedHookComponents removes all processed hook components from the store.
-	ExpireProcessedHookComponents(serviceID string) error
+	// SaveHookComponentManifestSHA saves manifest SHA for the given hook component.
+	SaveHookComponentManifestSHA(manifest unstructured.Unstructured) error
+
+	// ExpireHookComponents removes all hook components that belong to the specified service from the store.
+	ExpireHookComponents(serviceID string) error
 }
