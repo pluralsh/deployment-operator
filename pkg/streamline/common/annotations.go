@@ -238,7 +238,7 @@ func GetSyncPhase(u unstructured.Unstructured) SyncPhase {
 
 	phase, ok := annotations[SyncPhaseAnnotation]
 	if !ok {
-		return SyncPhaseSync
+		return defaultPhase(annotations)
 	}
 
 	switch phase {
