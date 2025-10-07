@@ -35,12 +35,16 @@ COPY --from=builder /agent-harness /agent-harness
 # TODO: use official release version
 COPY --from=ghcr.io/pluralsh/mcpserver:sha-ea119c3 /root/mcpserver /usr/local/bin/mcpserver
 
-RUN echo -e "#!/bin/sh\necho \$GIT_ACCESS_TOKEN\n" > /.git-askpass
-RUN git config --global core.askPass /.git-askpass
+WORKDIR /plural
+
+RUN echo -e "#!/bin/sh\necho \$GIT_ACCESS_TOKEN" > /plural/.git-askpass && \
+    chmod +x /plural/.git-askpass && \
+    git config --global core.askPass /plural/.git-askpass && \
+    chown -R 65532:65532 /plural
 
 # Switch to the nonroot user
 USER 65532:65532
 
 WORKDIR /plural
 
-ENTRYPOINT ["/bin/sh", "-c", "mcpserver & GIT_ASKPASS=/.git-askpass /agent-harness --working-dir=/plural ${ARGS} & wait"]
+ENTRYPOINT ["/bin/sh", "-c", "GIT_ASKPASS=/plural/.git-askpass /agent-harness --working-dir=/plural ${ARGS}"]

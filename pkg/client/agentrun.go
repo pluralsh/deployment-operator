@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console/go/client"
-	internalerror "github.com/pluralsh/deployment-operator/internal/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	internalerror "github.com/pluralsh/deployment-operator/internal/errors"
 )
 
 func (c *client) IsAgentRunExists(ctx context.Context, id string) (bool, error) {
@@ -77,4 +78,17 @@ func (c *client) UpdateAgentRunTodos(ctx context.Context, id string, attrs []*co
 		return nil, err
 	}
 	return response.UpdateAgentRunTodos, nil
+}
+
+func (c *client) CreateAgentPullRequest(ctx context.Context, runID string, attrs console.AgentPullRequestAttributes) (*console.PullRequestFragment, error) {
+	response, err := c.consoleClient.CreateAgentPullRequest(ctx, runID, attrs)
+	if err != nil {
+		return nil, err
+	}
+
+	if response == nil || response.AgentPullRequest == nil {
+		return nil, nil
+	}
+
+	return response.AgentPullRequest, nil
 }

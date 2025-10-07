@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 
 	"k8s.io/klog/v2"
 
@@ -19,13 +20,9 @@ func (in *environment) Setup() error {
 	if err := in.prepareWorkingDir(); err != nil {
 		return fmt.Errorf("failed to prepare working directory: %w", err)
 	}
-
 	if err := in.cloneRepository(); err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}
-
-	// TODO set up default MCP server
-	// TODO set up plural agent MCP server
 
 	return nil
 }
@@ -65,6 +62,19 @@ func (in *environment) cloneRepository() error {
 		exec.WithArgs(args),
 		exec.WithDir(in.dir),
 	).Run(context.Background()); err != nil {
+		return err
+	}
+
+	repoDirPath := path.Join(in.dir, repoDir)
+	if err := exec.NewExecutable("git",
+		exec.WithArgs([]string{"config", "user.name", in.agentRun.ScmCreds.Username}),
+		exec.WithDir(repoDirPath)).Run(context.Background()); err != nil {
+		return err
+	}
+
+	if err := exec.NewExecutable("git",
+		exec.WithArgs([]string{"config", "user.email", "agent@plural.sh"}),
+		exec.WithDir(repoDirPath)).Run(context.Background()); err != nil {
 		return err
 	}
 

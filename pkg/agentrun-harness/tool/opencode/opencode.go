@@ -2,13 +2,12 @@ package opencode
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
-	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"github.com/sst/opencode-sdk-go"
 	"github.com/sst/opencode-sdk-go/option"
@@ -28,10 +27,11 @@ func (in *Opencode) Run(ctx context.Context, options ...exec.Option) {
 	go in.runServer(internalCtx, options...)
 }
 
-func (in *Opencode) Configure(consoleURL string, deployToken string) error {
+func (in *Opencode) Configure(consoleURL string, consoleToken string) error {
 	input := &ConfigTemplateInput{
 		ConsoleURL:    consoleURL,
-		DeployToken:   deployToken,
+		ConsoleToken:  consoleToken,
+		AgentRunID:    in.run.ID,
 		ModelID:       defaultModelID,
 		ModelName:     defaultModelName,
 		ProviderID:    defaultProviderID,
@@ -64,16 +64,103 @@ func (in *Opencode) waitForServer(ctx context.Context) {
 		close(in.finishedChan)
 		return
 	case <-in.startedChan:
+		go in.runEventListener(ctx)
 		go in.runPrompt(ctx)
 	}
 
 	<-ctx.Done()
-	if err := context.Cause(ctx); err != nil {
+	if err := context.Cause(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		in.errorChan <- err
 		return
 	}
 
 	close(in.finishedChan)
+}
+
+func (in *Opencode) runEventListener(ctx context.Context) {
+	stream := in.client.Event.ListStreaming(ctx, opencode.EventListParams{})
+	for stream.Next() {
+		data := stream.Current()
+		switch data.Type {
+		case opencode.EventListResponseTypeMessageUpdated:
+			properties := data.Properties.(opencode.EventListResponseEventMessageUpdatedProperties)
+			klog.InfoS("message updated",
+				"mode", properties.Info.Mode,
+				"path", properties.Info.Path,
+				"role", properties.Info.Role,
+				"error", properties.Info.Error,
+				"model", properties.Info.ModelID,
+				"provider", properties.Info.ProviderID,
+				"summary", properties.Info.Summary)
+		case opencode.EventListResponseTypeMessagePartUpdated:
+			properties := data.Properties.(opencode.EventListResponseEventMessagePartUpdatedProperties)
+			klog.InfoS("message part updated",
+				"type", properties.Part.Type,
+				"call", properties.Part.CallID,
+				"filename", properties.Part.Filename,
+				"files", properties.Part.Files,
+				"name", properties.Part.Name,
+				"source", properties.Part.Source,
+				"state", func() *opencode.ToolPartState {
+					state, ok := properties.Part.State.(opencode.ToolPartState)
+					if !ok {
+						return nil
+					}
+
+					return &opencode.ToolPartState{
+						Status: state.Status,
+						Error:  state.Error,
+						Input:  state.Input,
+						Title:  state.Title,
+						Output: state.Output,
+					}
+				}(),
+				"tool", properties.Part.Tool,
+				"url", properties.Part.URL,
+				"text", properties.Part.Text)
+		case opencode.EventListResponseTypeMessageRemoved:
+			properties := data.Properties.(opencode.EventListResponseEventMessageRemovedProperties)
+			klog.InfoS("message removed",
+				"message", properties.MessageID,
+				"session", properties.SessionID)
+		case opencode.EventListResponseTypeMessagePartRemoved:
+			properties := data.Properties.(opencode.EventListResponseEventMessagePartRemovedProperties)
+			klog.InfoS("message part removed",
+				"message", properties.MessageID,
+				"part", properties.PartID,
+				"session", properties.SessionID)
+		case opencode.EventListResponseTypeFileEdited:
+			properties := data.Properties.(opencode.EventListResponseEventFileEditedProperties)
+			klog.InfoS("file edited", "file", properties.File)
+		case opencode.EventListResponseTypeFileWatcherUpdated:
+			properties := data.Properties.(opencode.EventListResponseEventFileWatcherUpdatedProperties)
+			klog.InfoS("file watcher updated", "file", properties.File, "event", properties.Event)
+		case opencode.EventListResponseTypePermissionReplied:
+			properties := data.Properties.(opencode.EventListResponseEventPermissionRepliedProperties)
+			klog.InfoS("permission replied", "permission", properties.PermissionID, "response", properties.Response)
+		case opencode.EventListResponseTypePermissionUpdated:
+			properties := data.Properties.(opencode.EventListResponseEventPermissionUpdated)
+			klog.InfoS("permission updated",
+				"title", properties.Properties.Title,
+				"type", properties.Properties.Type,
+				"message", properties.Properties.MessageID,
+				"session", properties.Properties.SessionID,
+				"metadata", properties.Properties.Metadata,
+			)
+		case opencode.EventListResponseTypeServerConnected:
+			properties, ok := data.Properties.(opencode.EventListResponseEventServerConnected)
+			if !ok {
+				continue
+			}
+			klog.InfoS("server connected", "properties", properties.Properties)
+		}
+	}
+
+	if err := stream.Err(); err != nil {
+		in.contextCancel(err)
+	}
+
+	klog.V(log.LogLevelDefault).InfoS("opencode event listener stopped")
 }
 
 func (in *Opencode) runServer(ctx context.Context, options ...exec.Option) {
@@ -105,15 +192,16 @@ func (in *Opencode) runServer(ctx context.Context, options ...exec.Option) {
 	close(in.startedChan)
 
 	err = waitFn()
-	if err != nil {
-		klog.V(log.LogLevelDefault).ErrorS(err, "opencode server stopped")
+	if err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+		klog.V(log.LogLevelDefault).ErrorS(err, "opencode server exited with error")
 		in.contextCancel(err)
 	}
+
+	klog.V(log.LogLevelDefault).InfoS("opencode server stopped")
 }
 
 func (in *Opencode) runPrompt(ctx context.Context) {
-	client := opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", in.port)))
-	session, err := client.Session.New(ctx, opencode.SessionNewParams{
+	session, err := in.client.Session.New(ctx, opencode.SessionNewParams{
 		Title: opencode.F("Plural Agent Run"),
 	})
 	if err != nil {
@@ -121,15 +209,16 @@ func (in *Opencode) runPrompt(ctx context.Context) {
 		return
 	}
 
+	in.sessionID = session.ID
 	klog.V(log.LogLevelExtended).InfoS("sending prompt", "prompt", in.run.Prompt)
-	res, err := client.Session.Prompt(ctx, session.ID, opencode.SessionPromptParams{
+	_, err = in.client.Session.Prompt(ctx, session.ID, opencode.SessionPromptParams{
 		Parts: opencode.F([]opencode.SessionPromptParamsPartUnion{
 			opencode.TextPartInputParam{
-				Text: opencode.F(in.run.Prompt),
+				Text: opencode.F("Create or update main README.md file based on the contents of repository and then create a pull request with the proposed changes for further review."),
 				Type: opencode.F(opencode.TextPartInputTypeText),
 			},
 		}),
-		System: opencode.F(systemPrompt),
+		System: opencode.F(in.systemPrompt()),
 		Agent:  opencode.F(in.agent()),
 		Model: opencode.F(opencode.SessionPromptParamsModel{
 			ModelID:    opencode.F(defaultModelID),
@@ -137,18 +226,20 @@ func (in *Opencode) runPrompt(ctx context.Context) {
 		}),
 	})
 	if err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "failed to send prompt")
 		in.contextCancel(err)
 		return
 	}
 
-	klog.V(log.LogLevelExtended).InfoS("opencode prompt response", "response", strings.Join(algorithms.Map(res.Parts, func(part opencode.Part) string {
-		return part.Text
-	}), " "))
 	in.contextCancel(nil)
 }
 
 func (in *Opencode) agent() string {
-	return lo.Ternary(in.run.Mode == console.AgentRunModeAnalyze, defaultAnalysisAgent, defaultWriteAgent)
+	return lo.Ternary(in.run.Mode == console.AgentRunModeAnalyze, defaultWriteAgent, defaultWriteAgent)
+}
+
+func (in *Opencode) systemPrompt() string {
+	return lo.Ternary(in.run.Mode == console.AgentRunModeAnalyze, systemPromptWriter, systemPromptWriter)
 }
 
 func (in *Opencode) configFilePath() string {
@@ -188,6 +279,7 @@ func New(config v1.Config) v1.Tool {
 		errorChan:     config.ErrorChan,
 		startedChan:   make(chan struct{}),
 		port:          defaultOpenCodePort,
+		client:        opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", defaultOpenCodePort))),
 	}
 
 	if err := result.ensure(); err != nil {

@@ -3,14 +3,16 @@ package opencode
 import (
 	"context"
 
+	"github.com/sst/opencode-sdk-go"
+
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 )
 
 const (
 	defaultOpenCodePort  = "4096"
-	defaultModelID       = "gpt-4.1-mini"
+	defaultModelID       = "gpt-4.1"
 	defaultModelName     = "GPT 4.1 Mini"
-	defaultProviderID    = "openai-proxy"
+	defaultProviderID    = "openai"
 	defaultProviderName  = "OpenAI Proxy"
 	defaultAnalysisAgent = "plural-reviewer"
 	defaultWriteAgent    = "plural-writer"
@@ -29,6 +31,12 @@ type Opencode struct {
 
 	// run is the agent run that is being processed.
 	run *v1.AgentRun
+
+	// client is the opencode client.
+	client *opencode.Client
+
+	// sessionID is the session ID of the current opencode session.
+	sessionID string
 
 	// contextCancel is a function that cancels the internal context
 	contextCancel context.CancelCauseFunc

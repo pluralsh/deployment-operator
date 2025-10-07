@@ -15,7 +15,8 @@ const (
 
 type ConfigTemplateInput struct {
 	ConsoleURL    string
-	DeployToken   string
+	ConsoleToken  string
+	AgentRunID    string
 	ModelID       string
 	ModelName     string
 	ProviderID    string
