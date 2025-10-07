@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -265,7 +266,7 @@ func (in *synchronizer) resynchronize() {
 		resource := liveResourceMap[key]
 		entry := storeResourceMap[key]
 
-		liveSHA, err := store.HashResource(resource)
+		liveSHA, err := utils.HashResource(resource)
 		if err != nil {
 			klog.ErrorS(err, "failed to hash resource", "resource", resource.GetName())
 			continue

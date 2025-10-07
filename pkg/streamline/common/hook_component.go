@@ -2,7 +2,7 @@ package common
 
 import (
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,7 +45,7 @@ func (in *HookComponent) HasDesiredState(deletionPolicy string) bool {
 }
 
 func (in *HookComponent) HasManifestChanged(u unstructured.Unstructured) bool {
-	sha, _ := store.HashResource(u)
+	sha, _ := utils.HashResource(u)
 	return in.ManifestSHA != sha
 }
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -272,7 +273,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 		}
 	}
 
-	serverSHA, err := HashResource(obj)
+	serverSHA, err := utils.HashResource(obj)
 	if err != nil {
 		klog.V(log.LogLevelDefault).ErrorS(err, "failed to calculate resource SHA", "name", obj.GetName(), "namespace", obj.GetNamespace(), "gvk", gvk.String())
 		return err
@@ -374,7 +375,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 			}
 		}
 
-		serverSHA, err := HashResource(obj)
+		serverSHA, err := utils.HashResource(obj)
 		if err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to calculate resource SHA", "name", obj.GetName(), "namespace", obj.GetNamespace(), "gvk", gvk.String())
 			continue
@@ -702,7 +703,7 @@ func (in *DatabaseStore) GetHealthScore() (int64, error) {
 func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType SHAType) error {
 	gvk := obj.GroupVersionKind()
 
-	sha, err := HashResource(obj)
+	sha, err := utils.HashResource(obj)
 	if err != nil {
 		return err
 	}

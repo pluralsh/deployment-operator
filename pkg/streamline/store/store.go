@@ -82,8 +82,8 @@ type Store interface {
 	// GetHookComponents returns all hook components with a deletion policy that belong to the specified service.
 	GetHookComponents(serviceID string) ([]smcommon.HookComponent, error)
 
-	// SaveHookComponentManifestSHA saves manifest SHA for the given hook component.
-	SaveHookComponentManifestSHA(manifest unstructured.Unstructured) error
+	// SaveHookComponentWithManifestSHA saves manifest SHA for the given hook component.
+	SaveHookComponentWithManifestSHA(manifest, appliedResource unstructured.Unstructured) error
 
 	// ExpireHookComponents removes all hook components that belong to the specified service from the store.
 	ExpireHookComponents(serviceID string) error

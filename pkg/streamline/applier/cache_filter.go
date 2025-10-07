@@ -1,6 +1,7 @@
 package applier
 
 import (
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 
@@ -34,7 +35,7 @@ func CacheFilter() FilterFunc {
 			return true
 		}
 
-		newManifestSHA, err := store.HashResource(obj)
+		newManifestSHA, err := utils.HashResource(obj)
 		if err != nil {
 			klog.V(log.LogLevelExtended).ErrorS(err, "failed to hash resource")
 			metrics.Record().ResourceCacheMiss(serviceID)
