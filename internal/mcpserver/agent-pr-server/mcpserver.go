@@ -88,7 +88,7 @@ func (m *MCPServer) registerTools() {
 		),
 		mcp.WithString("repository",
 			mcp.Required(),
-			mcp.Description("The full repository URL (e.g. https://github.com/pluralsh/console). Use HTTPS scheme only, not SSH."),
+			mcp.Description("The repository where the pull request will be created in a format like 'owner/repo'"),
 		),
 		mcp.WithString("title",
 			mcp.Required(),
