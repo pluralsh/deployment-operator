@@ -150,7 +150,7 @@ func (in *Applier) Apply(ctx context.Context,
 			break
 		}
 
-		failed = len(serviceErrorList) > 0 || f
+		failed = lo.ContainsBy(serviceErrorList, func(e client.ServiceErrorAttributes) bool { return e.Warning == nil || !*e.Warning }) || f
 		if failed {
 			serviceErrorList = append(serviceErrorList, client.ServiceErrorAttributes{
 				Source:  string(phase.Name()),
