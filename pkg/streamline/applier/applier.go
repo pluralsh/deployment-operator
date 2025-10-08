@@ -138,12 +138,13 @@ func (in *Applier) Apply(ctx context.Context,
 			"duration", time.Since(now),
 		)
 
-		pending, f, err := phase.ResourceHealth()
+		hasPendingResources, hasFailedResources, err := phase.ResourceHealth()
 		if err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to get phase health", "phase", phase.Name())
 			break
 		}
-		if pending {
+
+		if hasPendingResources {
 			serviceErrorList = append(serviceErrorList, client.ServiceErrorAttributes{
 				Source:  string(phase.Name()),
 				Message: "waiting for resources to be ready",
@@ -153,8 +154,8 @@ func (in *Applier) Apply(ctx context.Context,
 			break
 		}
 
-		// Fail only if at least one error (not a warning) found.
-		failed = lo.ContainsBy(serviceErrorList, func(e client.ServiceErrorAttributes) bool { return !lo.FromPtr(e.Warning) }) || f
+		failed = hasFailedResources ||
+			lo.ContainsBy(serviceErrorList, func(e client.ServiceErrorAttributes) bool { return !lo.FromPtr(e.Warning) })
 		if failed {
 			serviceErrorList = append(serviceErrorList, client.ServiceErrorAttributes{
 				Source:  string(phase.Name()),
