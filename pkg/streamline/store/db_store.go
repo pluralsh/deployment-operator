@@ -819,9 +819,17 @@ func (in *DatabaseStore) maybeSaveHookComponent(conn *sqlite.Conn, resource unst
 
 	gvk := resource.GroupVersionKind()
 
-	if err := sqlitex.Execute(conn, setHookComponent, &sqlitex.ExecOptions{Args: []any{gvk.Group, gvk.Version, gvk.Kind,
-		resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID,
-	}}); err != nil {
+	if err := sqlitex.Execute(conn, setHookComponent, &sqlitex.ExecOptions{
+		Args: []any{
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			resource.GetNamespace(),
+			resource.GetName(),
+			resource.GetUID(),
+			NewComponentState(&state),
+			serviceID,
+		}}); err != nil {
 		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save hook", "resource", resource)
 	}
 }
@@ -882,19 +890,20 @@ func (in *DatabaseStore) GetHookComponents(serviceID string) ([]smcommon.HookCom
 	result := make([]smcommon.HookComponent, 0)
 	err = sqlitex.ExecuteTransient(
 		conn,
-		`SELECT "group", version, kind, namespace, name, uid, status FROM hook_component WHERE service_id = ?`,
+		`SELECT "group", version, kind, namespace, name, uid, status, manifest_sha FROM hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{
 			Args: []interface{}{serviceID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
 				result = append(result, smcommon.HookComponent{
-					Group:     stmt.ColumnText(0),
-					Version:   stmt.ColumnText(1),
-					Kind:      stmt.ColumnText(2),
-					Namespace: stmt.ColumnText(3),
-					Name:      stmt.ColumnText(4),
-					UID:       stmt.ColumnText(5),
-					Status:    ComponentState(stmt.ColumnInt32(6)).String(),
-					ServiceID: serviceID,
+					Group:       stmt.ColumnText(0),
+					Version:     stmt.ColumnText(1),
+					Kind:        stmt.ColumnText(2),
+					Namespace:   stmt.ColumnText(3),
+					Name:        stmt.ColumnText(4),
+					UID:         stmt.ColumnText(5),
+					Status:      ComponentState(stmt.ColumnInt32(6)).String(),
+					ManifestSHA: stmt.ColumnText(7),
+					ServiceID:   serviceID,
 				})
 				return nil
 			},
@@ -915,6 +924,11 @@ func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResou
 		return nil
 	}
 
+	manifestSHA, err := utils.HashResource(manifest)
+	if err != nil {
+		return err
+	}
+
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return err
@@ -923,11 +937,21 @@ func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResou
 
 	gvk := manifest.GroupVersionKind()
 
-	return sqlitex.Execute(conn, setHookComponentWithManifestSHA,
-		&sqlitex.ExecOptions{Args: []any{
-			gvk.Group, gvk.Version, gvk.Kind, manifest.GetNamespace(), manifest.GetName(),
-			appliedResource.GetUID(), NewComponentState(common.ToStatus(&appliedResource)), serviceID,
-		}})
+	return sqlitex.Execute(
+		conn,
+		setHookComponentWithManifestSHA,
+		&sqlitex.ExecOptions{
+			Args: []any{
+				gvk.Group,
+				gvk.Version,
+				gvk.Kind,
+				manifest.GetNamespace(),
+				manifest.GetName(),
+				appliedResource.GetUID(),
+				NewComponentState(common.ToStatus(&appliedResource)),
+				manifestSHA,
+				serviceID,
+			}})
 }
 
 func (in *DatabaseStore) ExpireHookComponents(serviceID string) error {

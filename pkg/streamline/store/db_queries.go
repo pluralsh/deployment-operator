@@ -307,9 +307,8 @@ const (
 		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, manifest_sha, service_id)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
-			uid = excluded.uid,
-			status = excluded.status,
-			service_id = excluded.service_id,
-			manifest_sha = excluded.manifest_sha
+		    uid = excluded.uid,
+		    manifest_sha = excluded.manifest_sha,
+		    service_id = excluded.service_id
 	`
 )
