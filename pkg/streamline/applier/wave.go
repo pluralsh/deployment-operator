@@ -374,7 +374,7 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	}
 
 	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(resource); deletePolicy != "" {
-		if err := streamline.GetGlobalStore().SaveHookComponentWithManifestSHA(resource, lo.FromPtr(appliedResource)); err != nil {
+		if err := streamline.GetGlobalStore().SaveHookComponentWithManifestSHA(lo.FromPtr(appliedResource), entry.TransientManifestSHA); err != nil {
 			klog.V(log.LogLevelExtended).ErrorS(err, "failed to save hook component manifest sha", "resource", resource.GetName(), "kind", resource.GetKind())
 			in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
 			return
