@@ -56,7 +56,7 @@ type Client interface {
 	GetServices(after *string, first *int64) (*console.PagedClusterServicesForAgent, error)
 	GetService(id string) (*console.ServiceDeploymentForAgent, error)
 	GetServiceDeploymentComponents(id string) (*console.GetServiceDeploymentComponents_ServiceDeployment, error)
-	UpdateComponents(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error
+	UpdateComponents(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes, metadata *console.ServiceMetadataAttributes) error
 	UpdateServiceErrors(id string, errs []*console.ServiceErrorAttributes) error
 	ParsePipelineGateCR(pgFragment *console.PipelineGateFragment, operatorNamespace string) (*v1alpha1.PipelineGate, error)
 	GateExists(id string) bool

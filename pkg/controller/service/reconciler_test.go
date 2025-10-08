@@ -9,6 +9,7 @@ import (
 	"time"
 
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -83,11 +85,14 @@ var _ = Describe("Reconciler", Ordered, func() {
 			var err error
 			dir, err = os.MkdirTemp("", "test")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(kClient.Create(ctx, &v1.Namespace{
+			err = kClient.Create(ctx, &v1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: operatorNamespace,
 				},
-			})).NotTo(HaveOccurred())
+			})
+			if err != nil && !errors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
 			// Initializing the server in a goroutine so that
 			// it won't block the graceful shutdown handling below
 			go func() {
@@ -119,7 +124,9 @@ var _ = Describe("Reconciler", Ordered, func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetCredentials").Return("", "")
 			fakeConsoleClient.On("GetService", mock.Anything).Return(consoleService, nil)
-			fakeConsoleClient.On("UpdateComponents", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			fakeConsoleClient.On("UpdateComponents", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.MatchedBy(func(metadata *console.ServiceMetadataAttributes) bool {
+				return metadata == nil || (metadata != nil && metadata.Images != nil)
+			})).Return(nil)
 			fakeConsoleClient.On("UpdateServiceErrors", mock.Anything, mock.Anything).Return(nil)
 
 			storeInstance, err := store.NewDatabaseStore()
@@ -139,6 +146,58 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(kClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: namespace}, &v1.Pod{})).NotTo(HaveOccurred())
+		})
+
+		It("should extract images from raw manifests using ExtractImagesMetadata", func() {
+			// Use the rawTemplated directory with the test manifest files
+			dir := filepath.Join("..", "..", "..", "test", "rawTemplated")
+
+			// Set up service configuration
+			svc := &console.ServiceDeploymentForAgent{
+				Namespace:     "default",
+				Configuration: make([]*console.ServiceDeploymentForAgent_Configuration, 0),
+				Templated:     lo.ToPtr(false), // Disable templating for rawTemplated files
+			}
+
+			// Process the raw manifests using NewRaw
+			rawTemplate := template.NewRaw(dir)
+			manifests, err := rawTemplate.Render(svc, mapper)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(manifests).To(HaveLen(2)) // Should have both pod.yaml.liquid and deployment.yaml.liquid
+
+			// Create a reconciler instance to access ExtractImagesMetadata
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetCredentials").Return("", "")
+			storeInstance, err := store.NewDatabaseStore()
+			Expect(err).NotTo(HaveOccurred())
+			defer func(storeInstance store.Store) {
+				err := storeInstance.Shutdown()
+				if err != nil {
+					log.Printf("unable to shutdown database store: %v", err)
+				}
+			}(storeInstance)
+
+			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
+			Expect(err).NotTo(HaveOccurred())
+
+			// Extract images metadata from the processed manifests
+			metadata := reconciler.ExtractImagesMetadata(manifests)
+
+			// Verify the extracted metadata
+			Expect(metadata).NotTo(BeNil())
+			Expect(metadata.Images).NotTo(BeNil())
+			Expect(len(metadata.Images)).To(Equal(4)) // nginx:1.14.2, nginx:1.21, redis:6.2-alpine, busybox:1.35
+
+			// Verify specific images are present
+			imageStrings := make([]string, len(metadata.Images))
+			for i, img := range metadata.Images {
+				imageStrings[i] = *img
+			}
+
+			Expect(imageStrings).To(ContainElement("nginx:1.14.2"))     // From pod.yaml.liquid
+			Expect(imageStrings).To(ContainElement("nginx:1.21"))       // From deployment.yaml.liquid
+			Expect(imageStrings).To(ContainElement("redis:6.2-alpine")) // From deployment.yaml.liquid
+			Expect(imageStrings).To(ContainElement("busybox:1.35"))     // From deployment.yaml.liquid init container
 		})
 
 	})
