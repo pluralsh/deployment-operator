@@ -811,6 +811,15 @@ func (in *DatabaseStore) maybeSaveHookComponent(conn *sqlite.Conn, resource unst
 		return
 	}
 
+	// Health check recognizes resources being deleted as pending.
+	// Skipping to avoid recording pending as the last state,
+	// which would prevent proper check if a hook has reached its desired state.
+	if resource.GetDeletionTimestamp() != nil {
+		klog.V(log.LogLevelTrace).InfoS("resource is being deleted, skipping saving hook",
+			"resource", resource, "state", state)
+		return
+	}
+
 	if smcommon.GetPhaseHookDeletePolicy(resource) == "" {
 		klog.V(log.LogLevelTrace).InfoS("resource does not have delete policy, skipping saving hook",
 			"resource", resource, "state", state)
@@ -850,6 +859,14 @@ func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []
 
 		if serviceID == "" {
 			klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving hook")
+			continue
+		}
+
+		// The health check logic marks resources being deleted as pending.
+		// This would cause issues when checking if a hook has reached its desired state, so we skip in that case.
+		if resource.GetDeletionTimestamp() != nil {
+			klog.V(log.LogLevelTrace).InfoS("resource is being deleted, skipping saving hook",
+				"resource", resource, "state", state)
 			continue
 		}
 
@@ -927,6 +944,10 @@ func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResou
 	manifestSHA, err := utils.HashResource(manifest)
 	if err != nil {
 		return err
+	}
+	if manifestSHA == "" {
+		klog.V(log.LogLevelTrace).InfoS("manifest SHA empty, skipping saving hook")
+		return nil
 	}
 
 	conn, err := in.pool.Take(context.Background())
