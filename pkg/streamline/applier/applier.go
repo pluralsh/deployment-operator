@@ -108,7 +108,8 @@ func (in *Applier) Apply(ctx context.Context,
 
 		componentsCount := 0
 		serviceErrorsCount := 0
-		for _, wave := range phase.Waves() {
+		waves := phase.Waves()
+		for i, wave := range waves {
 			processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
 			components, serviceErrors := processor.Run(ctx)
 
@@ -118,7 +119,9 @@ func (in *Applier) Apply(ctx context.Context,
 			componentsCount = len(components)
 			serviceErrorsCount = len(serviceErrors)
 
-			time.Sleep(in.waveDelay)
+			if i < len(waves)-1 {
+				time.Sleep(in.waveDelay)
+			}
 		}
 
 		klog.V(log.LogLevelDefault).InfoS(
