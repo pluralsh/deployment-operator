@@ -341,9 +341,11 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 			hook, ok := keyToHookComponent[key]
 			if deletionPolicy != "" && ok && hook.HasDesiredState(deletionPolicy) && !hook.HasManifestChanged(resource) {
 				skipApply.Add(key)
+
 				if r, exists := keyToResource[key]; exists {
 					toDelete = append(toDelete, r)
 				}
+
 				continue
 			}
 
