@@ -912,16 +912,21 @@ func (in *DatabaseStore) GetHookComponents(serviceID string) ([]smcommon.HookCom
 	return result, err
 }
 
-func (in *DatabaseStore) SaveHookComponentWithManifestSHA(appliedResource unstructured.Unstructured, manifestSHA string) error {
-	serviceID := smcommon.GetOwningInventory(appliedResource)
+func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResource unstructured.Unstructured) error {
+	serviceID := smcommon.GetOwningInventory(manifest)
 	if serviceID == "" {
 		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving hook")
 		return nil
 	}
 
-	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(appliedResource); deletePolicy == "" {
+	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(manifest); deletePolicy == "" {
 		klog.V(log.LogLevelTrace).InfoS("delete policy is empty, skipping saving hook")
 		return nil
+	}
+
+	manifestSHA, err := utils.HashResource(manifest)
+	if err != nil {
+		return err
 	}
 
 	conn, err := in.pool.Take(context.Background())
@@ -930,7 +935,7 @@ func (in *DatabaseStore) SaveHookComponentWithManifestSHA(appliedResource unstru
 	}
 	defer in.pool.Put(conn)
 
-	gvk := appliedResource.GroupVersionKind()
+	gvk := manifest.GroupVersionKind()
 
 	return sqlitex.Execute(
 		conn,
@@ -940,8 +945,8 @@ func (in *DatabaseStore) SaveHookComponentWithManifestSHA(appliedResource unstru
 				gvk.Group,
 				gvk.Version,
 				gvk.Kind,
-				appliedResource.GetNamespace(),
-				appliedResource.GetName(),
+				manifest.GetNamespace(),
+				manifest.GetName(),
 				appliedResource.GetUID(),
 				NewComponentState(common.ToStatus(&appliedResource)),
 				manifestSHA,

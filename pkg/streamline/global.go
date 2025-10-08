@@ -74,6 +74,6 @@ func (in *GlobalStore) HasSomeResources(resources []unstructured.Unstructured) (
 	return in.store.HasSomeResources(resources)
 }
 
-func (in *GlobalStore) SaveHookComponentWithManifestSHA(appliedResource unstructured.Unstructured, manifestSHA string) error {
-	return in.store.SaveHookComponentWithManifestSHA(appliedResource, manifestSHA)
+func (in *GlobalStore) SaveHookComponentWithManifestSHA(manifest, appliedResource unstructured.Unstructured) error {
+	return in.store.SaveHookComponentWithManifestSHA(manifest, appliedResource)
 }
