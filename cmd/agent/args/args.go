@@ -42,8 +42,8 @@ const (
 	defaultRefreshInterval         = "2m"
 	defaultRefreshIntervalDuration = 2 * time.Minute
 
-	defaultPollInterval         = "2m"
-	defaultPollIntervalDuration = 2 * time.Minute
+	defaultPollInterval         = "3m"
+	defaultPollIntervalDuration = 3 * time.Minute
 
 	defaultApplierWaveDelay         = "200ms"
 	defaultApplierWaveDelayDuration = 200 * time.Millisecond
