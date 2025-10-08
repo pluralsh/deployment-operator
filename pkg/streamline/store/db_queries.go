@@ -300,8 +300,7 @@ const (
 		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
 			status = excluded.status,
-			service_id = excluded.service_id,
-			manifest_sha = excluded.manifest_sha
+			service_id = excluded.service_id
 	`
 
 	setHookComponentWithManifestSHA = `
