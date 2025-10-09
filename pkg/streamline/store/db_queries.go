@@ -16,7 +16,7 @@ const (
 			created_at TIMESTAMP,
 			updated_at TIMESTAMP,
 			service_id TEXT,
-			sync_phase TEXT,
+			delete_phase TEXT,
 			manifest_sha TEXT,
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
@@ -77,13 +77,13 @@ const (
 	`
 
 	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, sync_phase
+		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase
 		FROM component
 		WHERE service_id = ? AND (parent_uid IS NULL OR parent_uid = '')
 	`
 
 	getComponentsByGVK = `
-		SELECT uid, "group", version, kind, namespace, name, server_sha, sync_phase
+		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase
 		FROM component
 		WHERE "group" = ? AND version = ? AND kind = ?
 	`
@@ -135,7 +135,7 @@ const (
 		    node,
 		    created_at,
 		    service_id,
-		    sync_phase,
+		    delete_phase,
 		    server_sha
 		) VALUES (
 			?,
@@ -158,7 +158,7 @@ const (
 			node = excluded.node,
 			created_at = excluded.created_at,
 			service_id = excluded.service_id,
-			sync_phase = excluded.sync_phase,
+			delete_phase = excluded.delete_phase,
 			server_sha = excluded.server_sha
 	`
 

@@ -300,7 +300,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			nodeName,
 			obj.GetCreationTimestamp().Unix(),
 			serviceID,
-			smcommon.GetSyncPhase(obj),
+			smcommon.GetDeletePhase(obj),
 			serverSHA,
 		},
 	})
@@ -338,7 +338,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 		  node,
 		  created_at,
 		  service_id,
-		  sync_phase,
+		  delete_phase,
 		  server_sha
 		) VALUES `)
 
@@ -393,7 +393,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 			nodeName,
 			obj.GetCreationTimestamp().Unix(),
 			serviceID,
-			smcommon.GetSyncPhase(obj),
+			smcommon.GetDeletePhase(obj),
 			serverSHA,
 		))
 	}
@@ -410,7 +410,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 	  node = excluded.node,
 	  created_at = excluded.created_at,
 	  service_id = excluded.service_id,
-      sync_phase = excluded.sync_phase,
+      delete_phase = excluded.delete_phase,
 	  server_sha = excluded.server_sha
 	`)
 
@@ -516,14 +516,14 @@ func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result
 		Args: []interface{}{gvk.Group, gvk.Version, gvk.Kind},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, smcommon.Component{
-				UID:       stmt.ColumnText(0),
-				Group:     stmt.ColumnText(1),
-				Version:   stmt.ColumnText(2),
-				Kind:      stmt.ColumnText(3),
-				Namespace: stmt.ColumnText(4),
-				Name:      stmt.ColumnText(5),
-				ServerSHA: stmt.ColumnText(6),
-				SyncPhase: stmt.ColumnText(7),
+				UID:         stmt.ColumnText(0),
+				Group:       stmt.ColumnText(1),
+				Version:     stmt.ColumnText(2),
+				Kind:        stmt.ColumnText(3),
+				Namespace:   stmt.ColumnText(4),
+				Name:        stmt.ColumnText(5),
+				ServerSHA:   stmt.ColumnText(6),
+				DeletePhase: stmt.ColumnText(7),
 			})
 
 			return nil
@@ -572,16 +572,16 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Comp
 		Args: []interface{}{serviceID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, smcommon.Component{
-				UID:       stmt.ColumnText(0),
-				ParentUID: stmt.ColumnText(1),
-				Group:     stmt.ColumnText(2),
-				Version:   stmt.ColumnText(3),
-				Kind:      stmt.ColumnText(4),
-				Name:      stmt.ColumnText(5),
-				Namespace: stmt.ColumnText(6),
-				Status:    ComponentState(stmt.ColumnInt32(7)).String(),
-				ServiceID: serviceID,
-				SyncPhase: stmt.ColumnText(8),
+				UID:         stmt.ColumnText(0),
+				ParentUID:   stmt.ColumnText(1),
+				Group:       stmt.ColumnText(2),
+				Version:     stmt.ColumnText(3),
+				Kind:        stmt.ColumnText(4),
+				Name:        stmt.ColumnText(5),
+				Namespace:   stmt.ColumnText(6),
+				Status:      ComponentState(stmt.ColumnInt32(7)).String(),
+				ServiceID:   serviceID,
+				DeletePhase: stmt.ColumnText(8),
 			})
 			return nil
 		},

@@ -15,9 +15,8 @@ const (
 // SkipFilter filters based on whether resources
 func SkipFilter() FilterFunc {
 	return func(obj unstructured.Unstructured) bool {
-		phase := common.GetSyncPhase(obj)
-		if phase == common.SyncPhaseSkip {
-			klog.V(log.LogLevelDebug).InfoS("skip sync phase", "phase", phase, "resource", obj.GroupVersionKind())
+		if common.HasPhase(obj, common.SyncPhaseSkip, false) {
+			klog.V(log.LogLevelDebug).InfoS("skip sync phase", "resource", obj.GroupVersionKind())
 			return false
 		}
 

@@ -63,11 +63,8 @@ func (in *Applier) Apply(ctx context.Context,
 
 	phases := NewPhases(
 		resources,
+		isUpgrade,
 		func(resource unstructured.Unstructured) bool {
-			if !HelmFilter(isUpgrade)(resource) {
-				return false // Skip resource based on Helm hook logic
-			}
-
 			return in.skipResource(resource, lo.FromPtr(service.DryRun))
 		},
 		func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured) {

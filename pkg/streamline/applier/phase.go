@@ -61,10 +61,12 @@ func (p *Phase) ResourceCount() int {
 	}, 0)
 }
 
-func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phase {
+func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, isUpgrade bool, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phase {
 	skipped := make([]unstructured.Unstructured, 0)
 	toDeleteFromAllPhases, toApply := deleteFilter(resources)
-	toDelete := algorithms.Filter(toDeleteFromAllPhases, func(u unstructured.Unstructured) bool { return smcommon.GetSyncPhase(u) == name })
+	toDelete := algorithms.Filter(toDeleteFromAllPhases, func(u unstructured.Unstructured) bool {
+		return smcommon.HasPhase(u, name, isUpgrade)
+	})
 
 	wavesMap := make(map[int]Wave)
 	for _, resource := range toApply {
@@ -131,24 +133,15 @@ func (in Phases) get(phase smcommon.SyncPhase) *Phase {
 	return &p
 }
 
-func NewPhases(resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phases {
+func NewPhases(resources []unstructured.Unstructured, isUpgrade bool, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phases {
 	phases := map[smcommon.SyncPhase][]unstructured.Unstructured{}
-
-	// Ensure all phases are initialized for the `Next` function to work properly.
-	for _, p := range smcommon.SyncPhases {
-		phases[p] = make([]unstructured.Unstructured, 0)
-	}
-
-	for _, resource := range resources {
-		p := smcommon.GetSyncPhase(resource)
-		if phase, ok := phases[p]; !ok {
-			phases[p] = []unstructured.Unstructured{resource}
-		} else {
-			phases[p] = append(phase, resource)
-		}
+	for _, phase := range smcommon.SyncPhases {
+		phases[phase] = lo.Filter(resources, func(resource unstructured.Unstructured, _ int) bool {
+			return smcommon.HasPhase(resource, phase, isUpgrade)
+		})
 	}
 
 	return lo.MapValues(phases, func(u []unstructured.Unstructured, p smcommon.SyncPhase) Phase {
-		return NewPhase(p, u, skipFilter, deleteFilter)
+		return NewPhase(p, u, isUpgrade, skipFilter, deleteFilter)
 	})
 }
