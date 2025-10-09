@@ -244,7 +244,7 @@ func (in *Opencode) runPrompt(ctx context.Context) {
 			return
 		default:
 			if retried >= maxRetries {
-				in.contextCancel(fmt.Errorf("could not send prompt after %d retries", maxRetries))
+				in.contextCancel(fmt.Errorf("could not complete prompt after %d retries", maxRetries))
 				cancel()
 				return
 			}
