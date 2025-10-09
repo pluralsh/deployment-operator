@@ -28,6 +28,7 @@ import (
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	agentcommon "github.com/pluralsh/deployment-operator/pkg/common"
@@ -364,9 +365,9 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 				continue
 			}
 
-			logger.V(4).Info("sending update for", "service", svc.Node.ID)
+			logger.V(4).Info("enqueueing update for", "service", svc.Node.ID)
 			s.svcCache.Add(svc.Node.ID, svc.Node)
-			s.svcQueue.Add(svc.Node.ID)
+			s.svcQueue.AddAfter(svc.Node.ID, utils.Jitter(s.GetPollInterval()()))
 		}
 	}
 

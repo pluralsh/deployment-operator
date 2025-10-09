@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
@@ -128,7 +129,7 @@ func (r *StackReconciler) Poll(ctx context.Context) error {
 		for _, stack := range stacks {
 			logger.V(1).Info("sending update for", "stack run", stack.Node.ID)
 			r.stackCache.Add(stack.Node.ID, stack.Node)
-			r.stackQueue.Add(stack.Node.ID)
+			r.stackQueue.AddAfter(stack.Node.ID, utils.Jitter(r.GetPollInterval()()))
 		}
 	}
 
