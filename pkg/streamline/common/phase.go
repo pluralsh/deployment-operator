@@ -101,6 +101,7 @@ func getHelmDeleteHook(annotations map[string]string) SyncPhase {
 }
 
 // HasPhase checks if the resource belongs to the specified sync phase.
+// TODO: Add tests!
 func HasPhase(u unstructured.Unstructured, phase SyncPhase, isUpgrade bool) bool {
 	annotations := u.GetAnnotations()
 	if annotations == nil {
@@ -119,7 +120,7 @@ func HasPhase(u unstructured.Unstructured, phase SyncPhase, isUpgrade bool) bool
 func hasHelmHook(annotations map[string]string, phase SyncPhase, isUpgrade bool) bool {
 	annotation, ok := annotations[HelmHookAnnotation]
 	if !ok {
-		return phase.Equals(SyncPhaseSync.String()) // If no Helm annotation is found, then put it in the default phase.
+		return phase == SyncPhaseSync // If no Helm annotation is found, then put it in the default phase.
 	}
 
 	hooks := containers.ToSet[string](strings.Split(strings.ReplaceAll(annotation, " ", ""), ","))
@@ -128,7 +129,9 @@ func hasHelmHook(annotations map[string]string, phase SyncPhase, isUpgrade bool)
 		return (hooks.Has(HelmHookPreInstall) && !isUpgrade) || (hooks.Has(HelmHookPreUpgrade) && isUpgrade)
 	case SyncPhasePostSync:
 		return (hooks.Has(HelmHookPostInstall) && !isUpgrade) || (hooks.Has(HelmHookPostUpgrade) && isUpgrade)
-	default:
-		return phase.Equals(SyncPhaseSync.String()) // If no matches are found, then put it in the default phase.
+	case SyncPhaseSync:
+		return hooks.Len() == 0 // If no Helm hooks are found, then put it in the default phase.
 	}
+
+	return false
 }

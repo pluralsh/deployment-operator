@@ -61,11 +61,18 @@ func (p *Phase) ResourceCount() int {
 	}, 0)
 }
 
-func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, isUpgrade bool, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phase {
+func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phase {
 	skipped := make([]unstructured.Unstructured, 0)
 	toDeleteFromAllPhases, toApply := deleteFilter(resources)
 	toDelete := algorithms.Filter(toDeleteFromAllPhases, func(u unstructured.Unstructured) bool {
-		return smcommon.HasPhase(u, name, isUpgrade)
+		// We check for the SyncPhaseAnnotation as this is what is put into
+		// the Unstructured in common.ToUnstructured().
+		annotations := u.GetAnnotations()
+		if annotations == nil {
+			return false
+		}
+
+		return name.Equals(annotations[smcommon.SyncPhaseAnnotation])
 	})
 
 	wavesMap := make(map[int]Wave)
@@ -142,6 +149,6 @@ func NewPhases(resources []unstructured.Unstructured, isUpgrade bool, skipFilter
 	}
 
 	return lo.MapValues(phases, func(u []unstructured.Unstructured, p smcommon.SyncPhase) Phase {
-		return NewPhase(p, u, isUpgrade, skipFilter, deleteFilter)
+		return NewPhase(p, u, skipFilter, deleteFilter)
 	})
 }
