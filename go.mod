@@ -3,6 +3,7 @@ module github.com/pluralsh/deployment-operator
 go 1.25.1
 
 require (
+	dario.cat/mergo v1.0.2
 	github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2 v2.2.3
 	github.com/DataDog/dd-trace-go/v2 v2.2.3
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -37,7 +38,7 @@ require (
 	github.com/openshift/api v0.0.0-20250908150922-8634aa495a26
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.52.0
+	github.com/pluralsh/console/go/client v1.52.2
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.3.3
@@ -79,7 +80,6 @@ require (
 	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go v0.122.0 // indirect
 	cloud.google.com/go/storage v1.56.1 // indirect
-	dario.cat/mergo v1.0.2 // indirect
 	github.com/4meepo/tagalign v1.4.1 // indirect
 	github.com/99designs/gqlgen v0.17.78 // indirect
 	github.com/Abirdcfly/dupword v0.1.3 // indirect

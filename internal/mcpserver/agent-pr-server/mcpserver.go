@@ -111,25 +111,23 @@ func (m *MCPServer) registerTools() {
 // agentPullRequestHandler - actual implementation with GraphQL call
 func (m *MCPServer) agentPullRequestHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Validate required parameters
-	err := m.ensureArguments(request, "runId", "repository", "title", "body", "base", "head")
+	err := m.ensureArguments(request, "runId", "title", "body", "base", "head")
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameters: %v", err)), nil
 	}
 
 	// Extract required parameters
 	runId, _ := request.RequireString("runId")
-	repository, _ := request.RequireString("repository")
 	title, _ := request.RequireString("title")
 	body, _ := request.RequireString("body")
 	base, _ := request.RequireString("base")
 	head, _ := request.RequireString("head")
 
 	pr, err := m.client.CreateAgentPullRequest(ctx, runId, client.AgentPullRequestAttributes{
-		Title:      title,
-		Body:       body,
-		Repository: repository,
-		Base:       base,
-		Head:       head,
+		Title: title,
+		Body:  body,
+		Base:  base,
+		Head:  head,
 	})
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to create pull request: %v", err)), nil
@@ -145,7 +143,7 @@ func (m *MCPServer) agentPullRequestHandler(ctx context.Context, request mcp.Cal
 		Creator        *string          `json:"creator"`
 	}{
 		Success:        true,
-		Message:        fmt.Sprintf("Successfully created pull request in %s from %s to %s", repository, head, base),
+		Message:        fmt.Sprintf("Successfully created pull request from %s to %s", head, base),
 		PullRequestId:  pr.ID,
 		PullRequestUrl: pr.URL,
 		Status:         pr.Status,
