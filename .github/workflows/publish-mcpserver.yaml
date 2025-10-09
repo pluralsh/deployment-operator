@@ -63,7 +63,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: "."
-        file: "./dockerfiles/mcpserver/Dockerfile"
+        file: "./dockerfiles/mcpserver/agent-pr-server/Dockerfile"
         tags: ${{ env.REGISTRY_IMAGE }}
         labels: ${{ steps.meta.outputs.labels }}
         platforms: ${{ matrix.platforms.platform }}
