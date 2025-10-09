@@ -101,7 +101,6 @@ func getHelmDeleteHook(annotations map[string]string) SyncPhase {
 }
 
 // HasPhase checks if the resource belongs to the specified sync phase.
-// TODO: Add tests!
 func HasPhase(u unstructured.Unstructured, phase SyncPhase, isUpgrade bool) bool {
 	annotations := u.GetAnnotations()
 	if annotations == nil {
