@@ -29,7 +29,7 @@ func (in *Component) GroupVersionKind() schema.GroupVersionKind {
 	return schema.GroupVersionKind{Group: in.Group, Version: in.Version, Kind: in.Kind}
 }
 
-func (in *Component) ToUnstructured() unstructured.Unstructured {
+func (in *Component) DeletableUnstructured() unstructured.Unstructured {
 	u := unstructured.Unstructured{}
 	u.SetGroupVersionKind(in.GroupVersionKind())
 	u.SetNamespace(in.Namespace)

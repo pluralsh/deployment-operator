@@ -283,7 +283,7 @@ var (
 )
 
 func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured), error) {
-	existingComponents, err := in.store.GetServiceComponents(serviceID)
+	components, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -309,10 +309,10 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 			keyToResource[key] = obj
 		}
 
-		for _, existingComponent := range existingComponents {
-			entryKey := existingComponent.ToStoreKey()
+		for _, component := range components {
+			entryKey := component.ToStoreKey()
 			toCheck := []smcommon.Key{entryKey.VersionlessKey()}
-			if mirrorGroup, ok := mirrorGroups[existingComponent.Group]; ok {
+			if mirrorGroup, ok := mirrorGroups[component.Group]; ok {
 				toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())
 			}
 
@@ -320,7 +320,7 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				_, ok := keyToResource[key]
 				return ok
 			}); !shouldKeep {
-				toDelete = append(toDelete, existingComponent.ToUnstructured())
+				toDelete = append(toDelete, component.DeletableUnstructured()) // Ensures annotations that are checked later in NewPhase func.
 				skipApply.Add(entryKey.VersionlessKey())
 			}
 		}
@@ -340,6 +340,7 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				skipApply.Add(key)
 
 				if r, exists := keyToResource[key]; exists {
+					r.SetAnnotations(map[string]string{smcommon.SyncPhaseAnnotation: smcommon.GetDeletePhase(r).String()}) // Ensures annotations that are checked later in NewPhase func.
 					toDelete = append(toDelete, r)
 				}
 
