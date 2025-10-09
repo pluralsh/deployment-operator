@@ -123,7 +123,7 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
-func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured) (pending, failed bool, err error) {
+func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
 	if len(resources) == 0 {
 		return false, false, nil // Empty list is considered healthy
 	}
@@ -142,12 +142,12 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 			WHEN COUNT(*) = 0 THEN 0
 			WHEN COUNT(CASE WHEN health IN (1,3) THEN 1 END) > 0 THEN 1
 			ELSE 0
-		END as pending,
+		END as has_pending_resources,
 		CASE 
 			WHEN COUNT(*) = 0 THEN 0
 			WHEN COUNT(CASE WHEN health = 2 THEN 1 END) > 0 THEN 1
 			ELSE 0
-		END as failed,
+		END as has_failed_resources,
 		COUNT(*) as resource_count
 		FROM component 
 		WHERE ("group", version, kind, namespace, name) IN (
@@ -176,8 +176,8 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
 		Args: args,
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			pending = stmt.ColumnBool(0)
-			failed = stmt.ColumnBool(1)
+			hasPendingResources = stmt.ColumnBool(0)
+			hasFailedResources = stmt.ColumnBool(1)
 			resourceCount = stmt.ColumnInt(2)
 			return nil
 		},
@@ -187,8 +187,8 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 		return false, false, fmt.Errorf("failed to check resource health: %w", err)
 	}
 
-	pending = pending || resourceCount != len(resources)
-	return pending, failed, nil
+	hasPendingResources = hasPendingResources || resourceCount != len(resources)
+	return hasPendingResources, hasFailedResources, nil
 }
 
 func (in *DatabaseStore) HasSomeResources(resources []unstructured.Unstructured) (bool, error) {

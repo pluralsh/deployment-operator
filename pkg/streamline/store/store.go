@@ -74,16 +74,16 @@ type Store interface {
 	Shutdown() error
 
 	// GetResourceHealth checks health statuses of provided resources.
-	GetResourceHealth(resources []unstructured.Unstructured) (pending, failed bool, err error)
+	GetResourceHealth(resources []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error)
 
 	// HasSomeResources checks if at least one of the provided resources exists in the store.
-	// It can be used to determine if initial installation or an upgrade is performed.
+	// It can be used to determine if an initial installation or an upgrade is performed.
 	HasSomeResources(resources []unstructured.Unstructured) (bool, error)
 
 	// GetHookComponents returns all hook components with a deletion policy that belong to the specified service.
 	GetHookComponents(serviceID string) ([]smcommon.HookComponent, error)
 
-	// SaveHookComponentWithManifestSHA saves manifest SHA for the given hook component.
+	// SaveHookComponentWithManifestSHA saves the hook component with manifest SHA in the store.
 	SaveHookComponentWithManifestSHA(manifest, appliedResource unstructured.Unstructured) error
 
 	// ExpireHookComponents removes all hook components that belong to the specified service from the store.
