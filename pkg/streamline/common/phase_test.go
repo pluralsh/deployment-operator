@@ -162,13 +162,6 @@ func TestHasPhase(t *testing.T) {
 			want:        true,
 		},
 		{
-			name:        "helm annotation with no recognized hooks - defaults to sync", // TODO FIX
-			annotations: map[string]string{HelmHookAnnotation: "invalid-hook"},
-			phase:       SyncPhaseSync,
-			isUpgrade:   false,
-			want:        false,
-		},
-		{
 			name:        "empty annotations map - defaults to sync phase",
 			annotations: map[string]string{},
 			phase:       SyncPhaseSync,
@@ -212,11 +205,32 @@ func TestHasPhase(t *testing.T) {
 			want:      false,
 		},
 		{
-			name:        "no helm hook during install defaults to sync", // TODO FIX
+			name:        "invalid helm hook during install is not recognized",
+			annotations: map[string]string{HelmHookAnnotation: "invalid-hook"},
+			phase:       SyncPhaseSync,
+			isUpgrade:   false,
+			want:        false,
+		},
+		{
+			name:        "no helm hook during install is not recognized",
 			annotations: map[string]string{HelmHookAnnotation: ""},
 			phase:       SyncPhaseSync,
 			isUpgrade:   false,
-			want:        true,
+			want:        false,
+		},
+		{
+			name:        "invalid sync phase is not recognized",
+			annotations: map[string]string{SyncPhaseAnnotation: "invalid-phase"},
+			phase:       SyncPhaseSync,
+			isUpgrade:   false,
+			want:        false,
+		},
+		{
+			name:        "no sync phase is not recognized",
+			annotations: map[string]string{SyncPhaseAnnotation: ""},
+			phase:       SyncPhaseSync,
+			isUpgrade:   false,
+			want:        false,
 		},
 	}
 
