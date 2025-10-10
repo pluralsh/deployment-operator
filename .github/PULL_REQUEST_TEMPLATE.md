@@ -24,6 +24,9 @@ Test environment: https://console.your-env.onplural.sh/
     - [ ] Service errors are reported properly and visible in the UI.
     - [ ] Service updates are reflected properly in the cluster.
     - [ ] Service resync triggers immediately and works as expected.
+    - [ ] Sync waves annotations are respected.
+    - [ ] Sync phases annotations are respected. Phases are executed in the correct order.
+    - [ ] Sync hook delete policies are respected. Resources are not recreated once they reach the desired state.
     - [ ] Service deletion works and cleanups resources properly.
     - [ ] Services can be recreated after deletion.
     - [ ] Service detachment works and keeps resources unaffected.

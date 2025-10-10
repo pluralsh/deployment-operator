@@ -137,7 +137,8 @@ func (h *helm) Render(svc *console.ServiceDeploymentForAgent, mapper meta.RESTMa
 	if err != nil {
 		return nil, err
 	}
-	if svc.Helm != nil && svc.Helm.IgnoreHooks != nil && !*svc.Helm.IgnoreHooks {
+
+	if svc.Helm != nil && !lo.FromPtr(svc.Helm.IgnoreHooks) {
 		for _, h := range rel.Hooks {
 			_, err = fmt.Fprintln(&buffer, "---")
 			if err != nil {

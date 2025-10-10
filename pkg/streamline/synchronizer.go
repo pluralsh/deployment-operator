@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -233,9 +234,9 @@ func (in *synchronizer) resynchronize() {
 	}
 
 	storeResourceSet := containers.NewSet[smcommon.Key]()
-	storeResourceMap := make(map[smcommon.Key]smcommon.Entry)
+	storeResourceMap := make(map[smcommon.Key]smcommon.Component)
 	for _, entry := range entries {
-		key := smcommon.NewKeyFromEntry(entry)
+		key := entry.StoreKey().Key()
 		storeResourceSet.Add(key)
 		storeResourceMap[key] = entry
 	}
@@ -247,7 +248,7 @@ func (in *synchronizer) resynchronize() {
 	for _, key := range toDelete.List() {
 		entry := storeResourceMap[key]
 		klog.V(log.LogLevelDebug).InfoS("resync - deleting component from store", "gvr", in.gvr, "resource", entry.UID)
-		if err := in.store.DeleteComponent(smcommon.NewStoreKeyFromEntry(entry)); err != nil {
+		if err := in.store.DeleteComponent(entry.StoreKey()); err != nil {
 			klog.ErrorS(err, "failed to delete component from store", "resource", entry.UID)
 		}
 	}
@@ -265,7 +266,7 @@ func (in *synchronizer) resynchronize() {
 		resource := liveResourceMap[key]
 		entry := storeResourceMap[key]
 
-		liveSHA, err := store.HashResource(resource)
+		liveSHA, err := utils.HashResource(resource)
 		if err != nil {
 			klog.ErrorS(err, "failed to hash resource", "resource", resource.GetName())
 			continue

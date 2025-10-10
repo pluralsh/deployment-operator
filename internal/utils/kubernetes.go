@@ -9,6 +9,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/pkg/flowcontrol"
 
@@ -47,23 +49,6 @@ func TryAddControllerRef(ctx context.Context, client ctrlruntimeclient.Client, o
 		}
 
 		return client.Patch(ctx, controlled, ctrlruntimeclient.MergeFromWithOptions(original, ctrlruntimeclient.MergeFromWithOptimisticLock{}))
-	})
-}
-
-func TryToUpdate(ctx context.Context, client ctrlruntimeclient.Client, object ctrlruntimeclient.Object) error {
-	key := ctrlruntimeclient.ObjectKeyFromObject(object)
-
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		original := object.DeepCopyObject().(ctrlruntimeclient.Object)
-		if err := client.Get(ctx, key, object); err != nil {
-			return fmt.Errorf("could not fetch current %s/%s state, got error: %w", object.GetName(), object.GetNamespace(), err)
-		}
-
-		if reflect.DeepEqual(object, original) {
-			return nil
-		}
-
-		return client.Patch(ctx, original, ctrlruntimeclient.MergeFrom(object))
 	})
 }
 
@@ -227,4 +212,9 @@ func UnstructuredToConditions(c []interface{}) []metav1.Condition {
 		}
 	}
 	return conditions
+}
+
+func UnstructuredAsJSON(resource *unstructured.Unstructured) string {
+	data, _ := yaml.Marshal(resource)
+	return string(data)
 }

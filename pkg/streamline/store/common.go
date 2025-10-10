@@ -4,9 +4,6 @@ import (
 	"github.com/pluralsh/console/go/client"
 	"github.com/sahilm/fuzzy"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
 var (
@@ -61,35 +58,4 @@ func NodeStatisticHealth(pendingPods int64) *client.NodeStatisticHealth {
 	default:
 		return lo.ToPtr(client.NodeStatisticHealthFailed)
 	}
-}
-
-// HashResource calculates SHA for an unstructured resource.
-// It uses object metadata (name, namespace, labels, annotations, deletion timestamp)
-// and all other top-level fields except status.
-func HashResource(resource unstructured.Unstructured) (string, error) {
-	resourceCopy := resource.DeepCopy()
-	object := struct {
-		Name              string            `json:"name"`
-		Namespace         string            `json:"namespace"`
-		Labels            map[string]string `json:"labels"`
-		Annotations       map[string]string `json:"annotations"`
-		DeletionTimestamp string            `json:"deletionTimestamp"`
-		Other             map[string]any    `json:"other"`
-	}{
-		Name:        resourceCopy.GetName(),
-		Namespace:   resourceCopy.GetNamespace(),
-		Labels:      resourceCopy.GetLabels(),
-		Annotations: resourceCopy.GetAnnotations(),
-	}
-
-	deletionTimestamp := resourceCopy.GetDeletionTimestamp()
-	if deletionTimestamp != nil {
-		object.DeletionTimestamp = deletionTimestamp.String()
-	}
-
-	unstructured.RemoveNestedField(resourceCopy.Object, "metadata")
-	unstructured.RemoveNestedField(resourceCopy.Object, "status")
-	object.Other = resourceCopy.Object
-
-	return utils.HashObject(object)
 }
