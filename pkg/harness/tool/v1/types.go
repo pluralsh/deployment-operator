@@ -97,6 +97,6 @@ type Config struct {
 	// Scanner is a security scanner. See [securityv1.Scanner] for more information.
 	Scanner securityv1.Scanner
 
-	// Run is a stack run.
+	// Run is a stack run that is being processed.
 	Run *stackrunv1.StackRun
 }

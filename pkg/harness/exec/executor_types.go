@@ -1,13 +1,17 @@
-package controller
+package exec
 
 import (
+	"context"
 	"sync"
-
-	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
+type Executor interface {
+	Start(ctx context.Context) error
+	Add(executable Executable) error
+}
+
 type executor struct {
-	startQueue []exec.Executable
+	startQueue []Executable
 	start      sync.Mutex
 	started    bool
 

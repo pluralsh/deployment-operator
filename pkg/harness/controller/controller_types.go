@@ -20,7 +20,7 @@ type stackRunController struct {
 	sync.Mutex
 
 	// executor
-	executor *executor
+	executor exec.Executor
 
 	// stackRun
 	stackRun *stackrunv1.StackRun

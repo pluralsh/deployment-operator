@@ -73,7 +73,7 @@ func (in *UpgradeInsightsController) Reconcile(ctx context.Context, req reconcil
 	utils.MarkCondition(ui.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(ui.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, time.Now().Format(time.RFC3339))
 
-	return requeue(ui.Spec.GetInterval(), jitter), reterr
+	return jitterRequeue(ui.Spec.GetInterval(), jitter), reterr
 }
 
 func (in *UpgradeInsightsController) handleDelete(ui *v1alpha1.UpgradeInsights) *ctrl.Result {

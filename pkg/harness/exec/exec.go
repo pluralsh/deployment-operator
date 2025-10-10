@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -19,51 +20,38 @@ import (
 )
 
 func (in *executable) Run(ctx context.Context) error {
-	if err := in.runLifecycleFunction(v1.LifecyclePreStart); err != nil {
+	cmd, err := in.prepare(ctx)
+	if err != nil {
 		return err
-	}
-
-	ctx = signals.NewCancelableContext(ctx, signals.NewTimeoutSignal(in.timeout))
-	cmd := exec.CommandContext(ctx, in.command, in.args...)
-	w := in.writer()
-	defer in.close(in.outputSinks)
-
-	// Configure additional writers so that we can simultaneously write output
-	// to multiple destinations
-	// Note: We need to use the same writer for stdout and stderr to guarantee
-	// 		 thread-safe writing, otherwise output from stdout and stderr could be
-	//		 written concurrently and get reordered.
-	cmd.Stdout = w
-	cmd.Stderr = w
-
-	if in.outputAnalyzer != nil {
-		cmd.Stderr = io.MultiWriter(w, in.outputAnalyzer.Stderr())
-	}
-
-	// Configure environment of the executable.
-	// Root process environment is used as a base and passed in env vars
-	// are added on top of that. In case of duplicate keys, custom env
-	// vars passed to the executable will override root process env vars.
-	cmd.Env = append(os.Environ(), in.env...)
-
-	if len(in.workingDirectory) > 0 {
-		cmd.Dir = in.workingDirectory
 	}
 
 	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
-	if err := cmd.Run(); err != nil {
+	if err = cmd.Run(); err != nil {
 		if err := context.Cause(ctx); err != nil {
 			return err
 		}
-
 		return err
 	}
 
-	if err := in.analyze(); err != nil {
+	if err = in.analyze(); err != nil {
 		return err
 	}
 
 	return in.runLifecycleFunction(v1.LifecyclePostStart)
+}
+
+func (in *executable) Start(ctx context.Context) (WaitFn, error) {
+	cmd, err := in.prepare(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
+	if err = cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	return cmd.Wait, in.runLifecycleFunction(v1.LifecyclePostStart)
 }
 
 func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
@@ -93,6 +81,41 @@ func (in *executable) ID() string {
 	}
 
 	return in.id
+}
+
+func (in *executable) prepare(ctx context.Context) (*exec.Cmd, error) {
+	if err := in.runLifecycleFunction(v1.LifecyclePreStart); err != nil {
+		return nil, err
+	}
+
+	ctx = signals.NewCancelableContext(ctx, signals.NewTimeoutSignal(in.timeout))
+	cmd := exec.CommandContext(ctx, in.command, in.args...)
+	w := in.writer()
+	defer in.close(in.outputSinks)
+
+	// Configure additional writers so that we can simultaneously write output
+	// to multiple destinations
+	// Note: We need to use the same writer for stdout and stderr to guarantee
+	// 		 thread-safe writing, otherwise output from stdout and stderr could be
+	//		 written concurrently and get reordered.
+	cmd.Stdout = w
+	cmd.Stderr = w
+
+	if in.outputAnalyzer != nil {
+		cmd.Stderr = io.MultiWriter(w, in.outputAnalyzer.Stderr())
+	}
+
+	// Configure environment of the executable.
+	// Root process environment is used as a base and passed in env vars
+	// are added on top of that. In case of duplicate keys, custom env
+	// vars passed to the executable will override root process env vars.
+	cmd.Env = append(os.Environ(), in.env...)
+
+	if len(in.workingDirectory) > 0 {
+		cmd.Dir = in.workingDirectory
+	}
+
+	return cmd, nil
 }
 
 func (in *executable) writer() io.Writer {
@@ -152,6 +175,7 @@ func NewExecutable(command string, options ...Option) Executable {
 		args:          make([]string, 0),
 		env:           make([]string, 0),
 		hookFunctions: make(map[v1.Lifecycle]v1.HookFunction),
+		timeout:       60 * time.Minute,
 	}
 
 	for _, o := range options {
