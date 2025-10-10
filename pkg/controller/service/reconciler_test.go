@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/cmd/agent/args"
+	"github.com/pluralsh/deployment-operator/pkg/cache"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -82,6 +84,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 		BeforeEach(func() {
 			var err error
 			dir, err = os.MkdirTemp("", "test")
+			cache.InitComponentShaCache(args.ComponentShaCacheTTL())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kClient.Create(ctx, &v1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
