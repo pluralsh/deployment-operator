@@ -1,6 +1,8 @@
 package common
 
 import (
+	"strings"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -8,17 +10,16 @@ const (
 	// SyncPhaseHookDeletePolicy allows users to customize resource deletion behavior.
 	SyncPhaseHookDeletePolicy = "deployment.plural.sh/sync-hook-delete-policy"
 
-	// SyncPhaseDeletePolicySucceeded means the resource should be deleted if the hook succeeds.
-	SyncPhaseDeletePolicySucceeded = "succeeded"
-
-	// SyncPhaseDeletePolicyFailed means the resource should be deleted if the hook fails.
-	SyncPhaseDeletePolicyFailed = "failed"
-
+	// HelmHookDeletePolicyAnnotation allows users to customize resource deletion behavior.
 	HelmHookDeletePolicyAnnotation = "helm.sh/hook-delete-policy"
 
-	HelmHookDeletePolicyHookSucceeded = "hook-succeeded"
+	// HookDeletePolicySucceeded means the resource should be deleted if the hook succeeds.
+	// Used both in SyncPhaseHookDeletePolicy and HelmHookDeletePolicyAnnotation to simplify checks.
+	HookDeletePolicySucceeded = "hook-succeeded"
 
-	HelmHookDeletePolicyHookFailed = "hook-failed"
+	// HookDeletePolicyFailed means the resource should be deleted if the hook fails.
+	// Used both in SyncPhaseHookDeletePolicy and HelmHookDeletePolicyAnnotation for simplify checks.
+	HookDeletePolicyFailed = "hook-failed"
 )
 
 func HasSyncPhaseHookDeletePolicy(u unstructured.Unstructured) bool {
@@ -47,14 +48,7 @@ func GetPhaseHookDeletePolicy(u unstructured.Unstructured) string {
 		return helmHookDeletePolicy(annotations)
 	}
 
-	switch policy {
-	case SyncPhaseDeletePolicySucceeded:
-		return SyncPhaseDeletePolicySucceeded
-	case SyncPhaseDeletePolicyFailed:
-		return SyncPhaseDeletePolicyFailed
-	default:
-		return helmHookDeletePolicy(annotations)
-	}
+	return policy
 }
 
 func helmHookDeletePolicy(annotations map[string]string) string {
@@ -63,12 +57,9 @@ func helmHookDeletePolicy(annotations map[string]string) string {
 		return ""
 	}
 
-	switch policy {
-	case HelmHookDeletePolicyHookSucceeded:
-		return SyncPhaseDeletePolicySucceeded
-	case HelmHookDeletePolicyHookFailed:
-		return SyncPhaseDeletePolicyFailed
-	default:
-		return ""
-	}
+	return policy
+}
+
+func ParseHookDeletePolicy(resource unstructured.Unstructured) []string {
+	return strings.Split(strings.ReplaceAll(GetPhaseHookDeletePolicy(resource), " ", ""), ",")
 }

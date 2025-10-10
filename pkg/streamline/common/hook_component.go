@@ -33,15 +33,16 @@ func (in *HookComponent) Failed() bool {
 	return in.Status == string(client.ComponentStateFailed)
 }
 
-func (in *HookComponent) HasDesiredState(deletionPolicy string) bool {
-	switch deletionPolicy {
-	case SyncPhaseDeletePolicySucceeded:
-		return in.Succeeded()
-	case SyncPhaseDeletePolicyFailed:
-		return in.Failed()
-	default:
-		return false
+func (in *HookComponent) HasDesiredState(policies []string) bool {
+	for _, policy := range policies {
+		if policy == HookDeletePolicySucceeded && in.Succeeded() {
+			return true
+		} else if policy == HookDeletePolicyFailed && in.Failed() {
+			return true
+		}
 	}
+
+	return false
 }
 
 func (in *HookComponent) HasManifestChanged(u unstructured.Unstructured) bool {
