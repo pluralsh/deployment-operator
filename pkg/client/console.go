@@ -78,4 +78,7 @@ type Client interface {
 	SaveUpgradeInsights(attributes []*console.UpgradeInsightAttributes, addons []*console.CloudAddonAttributes) (*console.SaveUpgradeInsights, error)
 	UpsertVulnerabilityReports(vulnerabilities []*console.VulnerabilityReportAttributes) (*console.UpsertVulnerabilities, error)
 	IngestClusterCost(attr console.CostIngestAttributes) (*console.IngestClusterCost, error)
+	GetSentinelRunJob(id string) (*console.SentinelRunJobFragment, error)
+	ListClusterSentinelRunJobs(after *string, first *int64) (*console.ListClusterSentinelRunJobs_ClusterSentinelRunJobs, error)
+	UpdateSentinelRunJobStatus(id string, attr *console.SentinelRunJobUpdateAttributes) (*console.SentinelRunJobFragment, error)
 }

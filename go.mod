@@ -489,3 +489,7 @@ replace (
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.31.1
 	k8s.io/kubelet => k8s.io/kubelet v0.31.1
 )
+
+replace (
+	github.com/pluralsh/console/go/client => /home/lukasz/GolandProjects/plural/console/go/client
+)
