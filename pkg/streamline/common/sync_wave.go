@@ -11,14 +11,14 @@ const (
 	// SyncWaveAnnotation allows users to customize resource apply ordering when needed.
 	SyncWaveAnnotation = "deployment.plural.sh/sync-wave"
 
-	// SyncWaveDefault should be after the last priority from kindSyncPriorities.
-	SyncWaveDefault = 4
-
 	// ArgoSyncWaveAnnotation indicates which wave of the sync the resource or hook should be in.
 	ArgoSyncWaveAnnotation = "argocd.argoproj.io/sync-wave"
 
 	// HelmHookWeightAnnotation is the annotation key used to store the Helm hook weight.
 	HelmHookWeightAnnotation = "helm.sh/hook-weight"
+
+	// SyncWaveDefault should be after the last priority from kindSyncPriorities.
+	SyncWaveDefault = 4
 )
 
 var kindSyncPriorities = map[string]int{
