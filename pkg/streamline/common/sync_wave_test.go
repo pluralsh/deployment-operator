@@ -92,6 +92,66 @@ func TestGetSyncWave(t *testing.T) {
 			annotations: map[string]string{SyncWaveAnnotation: "-1000"},
 			want:        -1000,
 		},
+		{
+			name:        "argocd sync wave annotation with positive value",
+			kind:        common.DeploymentKind,
+			annotations: map[string]string{ArgoSyncWaveAnnotation: "8"},
+			want:        8,
+		},
+		{
+			name:        "argocd sync wave annotation with negative value",
+			kind:        common.ServiceKind,
+			annotations: map[string]string{ArgoSyncWaveAnnotation: "-2"},
+			want:        -2,
+		},
+		{
+			name:        "argocd sync wave annotation with zero",
+			kind:        common.StatefulSetKind,
+			annotations: map[string]string{ArgoSyncWaveAnnotation: "0"},
+			want:        0,
+		},
+		{
+			name:        "invalid argocd sync wave falls back to helm hook weight",
+			kind:        common.DeploymentKind,
+			annotations: map[string]string{ArgoSyncWaveAnnotation: "invalid", HelmHookWeightAnnotation: "6"},
+			want:        6,
+		},
+		{
+			name:        "invalid argocd sync wave and no helm hook falls back to default",
+			kind:        common.DeploymentKind,
+			annotations: map[string]string{ArgoSyncWaveAnnotation: "not-valid"},
+			want:        2,
+		},
+		{
+			name:        "argocd sync wave takes precedence over helm hook weight",
+			kind:        common.ServiceKind,
+			annotations: map[string]string{ArgoSyncWaveAnnotation: "12", HelmHookWeightAnnotation: "5"},
+			want:        12,
+		},
+		{
+			name:        "custom sync wave takes precedence over argocd sync wave",
+			kind:        common.DeploymentKind,
+			annotations: map[string]string{SyncWaveAnnotation: "3", ArgoSyncWaveAnnotation: "20"},
+			want:        3,
+		},
+		{
+			name:        "custom sync wave takes precedence over argocd and helm",
+			kind:        common.DaemonSetKind,
+			annotations: map[string]string{SyncWaveAnnotation: "1", ArgoSyncWaveAnnotation: "10", HelmHookWeightAnnotation: "5"},
+			want:        1,
+		},
+		{
+			name:        "argocd sync wave with large positive value",
+			kind:        common.JobKind,
+			annotations: map[string]string{ArgoSyncWaveAnnotation: "500"},
+			want:        500,
+		},
+		{
+			name:        "argocd sync wave with large negative value",
+			kind:        common.CronJobKind,
+			annotations: map[string]string{ArgoSyncWaveAnnotation: "-100"},
+			want:        -100,
+		},
 	}
 
 	for _, tt := range tests {

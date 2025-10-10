@@ -14,7 +14,10 @@ const (
 	// SyncWaveDefault should be after the last priority from kindSyncPriorities.
 	SyncWaveDefault = 4
 
-	// HelmHookWeightAnnotation is the annotation key used to store the helm hook weight
+	// ArgoSyncWaveAnnotation indicates which wave of the sync the resource or hook should be in.
+	ArgoSyncWaveAnnotation = "argocd.argoproj.io/sync-wave"
+
+	// HelmHookWeightAnnotation is the annotation key used to store the Helm hook weight.
 	HelmHookWeightAnnotation = "helm.sh/hook-weight"
 )
 
@@ -72,12 +75,27 @@ func GetSyncWave(u unstructured.Unstructured) int {
 
 	wave, ok := annotations[SyncWaveAnnotation]
 	if !ok {
-		return helmWave(annotations, u.GetKind())
+		return argoWave(annotations, u.GetKind())
 	}
 
 	i, err := strconv.Atoi(wave)
 	if err != nil {
-		return helmWave(annotations, u.GetKind())
+		return argoWave(annotations, u.GetKind())
+	}
+
+	return i
+}
+
+// argoWave discovers which wave of the sync the resource or hook should be in.
+func argoWave(annotations map[string]string, kind string) int {
+	wave, ok := annotations[ArgoSyncWaveAnnotation]
+	if !ok {
+		return helmWave(annotations, kind)
+	}
+
+	i, err := strconv.Atoi(wave)
+	if err != nil {
+		return helmWave(annotations, kind)
 	}
 
 	return i
