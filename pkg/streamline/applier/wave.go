@@ -373,12 +373,11 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
-	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(resource); deletePolicy != "" {
-		if err := streamline.GetGlobalStore().SaveHookComponentWithManifestSHA(resource, lo.FromPtr(appliedResource)); err != nil {
-			klog.V(log.LogLevelExtended).ErrorS(err, "failed to save hook component manifest sha", "resource", resource.GetName(), "kind", resource.GetKind())
-			in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
-			return
-		}
+	// The following function will skip save if it is unnecessary, i.e. the resource has no delete policy annotation set.
+	if err = streamline.GetGlobalStore().SaveHookComponentWithManifestSHA(resource, lo.FromPtr(appliedResource)); err != nil {
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to save hook component manifest sha", "resource", resource.GetName(), "kind", resource.GetKind())
+		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
+		return
 	}
 
 	// TODO: Optimize and use one database call and update component status from applied resource.
