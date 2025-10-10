@@ -1,4 +1,4 @@
-package stacks
+package sentinel
 
 import (
 	"context"
