@@ -36,7 +36,7 @@ require (
 	github.com/openshift/api v0.0.0-20250908150922-8634aa495a26
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.51.2
+	github.com/pluralsh/console/go/client v1.51.3
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.3.3
@@ -488,8 +488,4 @@ replace (
 	github.com/open-policy-agent/opa => github.com/open-policy-agent/opa v1.4.0
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.31.1
 	k8s.io/kubelet => k8s.io/kubelet v0.31.1
-)
-
-replace (
-	github.com/pluralsh/console/go/client => /home/lukasz/GolandProjects/plural/console/go/client
 )
