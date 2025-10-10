@@ -181,7 +181,7 @@ func (in *Applier) Apply(ctx context.Context,
 				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component", "resource", resource)
 			}
 		} else {
-			compAttr = lo.ToPtr(cacheEntry.ToComponentAttributes())
+			compAttr = lo.ToPtr(cacheEntry.ComponentAttributes())
 		}
 
 		componentList = append(componentList, lo.FromPtr(compAttr))
@@ -310,7 +310,7 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 		}
 
 		for _, component := range components {
-			entryKey := component.ToStoreKey()
+			entryKey := component.StoreKey()
 			toCheck := []smcommon.Key{entryKey.VersionlessKey()}
 			if mirrorGroup, ok := mirrorGroups[component.Group]; ok {
 				toCheck = append(toCheck, entryKey.ReplaceGroup(mirrorGroup).VersionlessKey())

@@ -119,7 +119,7 @@ func createStoreKey(option ...CreateStoreKeyOption) common.StoreKey {
 		opt(&result)
 	}
 
-	return result.ToStoreKey()
+	return result.StoreKey()
 }
 
 func createComponent(uid string, parentUID *string, option ...CreateComponentOption) client.ComponentChildAttributes {

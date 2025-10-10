@@ -39,7 +39,7 @@ func (in *Component) DeletableUnstructured() unstructured.Unstructured {
 	return u
 }
 
-func (in *Component) ToComponentAttributes() client.ComponentAttributes {
+func (in *Component) ComponentAttributes() client.ComponentAttributes {
 	return client.ComponentAttributes{
 		UID:       lo.ToPtr(in.UID),
 		Synced:    true,
@@ -52,7 +52,7 @@ func (in *Component) ToComponentAttributes() client.ComponentAttributes {
 	}
 }
 
-func (in *Component) ToStoreKey() StoreKey {
+func (in *Component) StoreKey() StoreKey {
 	return StoreKey{GVK: in.GroupVersionKind(), Namespace: in.Namespace, Name: in.Name}
 }
 
