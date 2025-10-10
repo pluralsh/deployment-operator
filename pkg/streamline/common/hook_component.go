@@ -49,7 +49,7 @@ func (in *HookComponent) HasManifestChanged(u unstructured.Unstructured) bool {
 	return in.ManifestSHA != sha
 }
 
-func (in *HookComponent) ToUnstructured() unstructured.Unstructured {
+func (in *HookComponent) Unstructured() unstructured.Unstructured {
 	u := unstructured.Unstructured{}
 	u.SetGroupVersionKind(in.GroupVersionKind())
 	u.SetNamespace(in.Namespace)
@@ -58,6 +58,6 @@ func (in *HookComponent) ToUnstructured() unstructured.Unstructured {
 	return u
 }
 
-func (in *HookComponent) ToStoreKey() StoreKey {
+func (in *HookComponent) StoreKey() StoreKey {
 	return StoreKey{GVK: in.GroupVersionKind(), Namespace: in.Namespace, Name: in.Name}
 }

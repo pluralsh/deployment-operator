@@ -288,15 +288,15 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 		return nil, err
 	}
 
-	hookComponents, err := in.store.GetHookComponents(serviceID)
+	hooks, err := in.store.GetHookComponents(serviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create a map of hook components for an easy lookup.
+	// Create a map of hooks for an easy lookup.
 	keyToHookComponent := make(map[smcommon.Key]smcommon.HookComponent)
-	for _, phc := range hookComponents {
-		keyToHookComponent[phc.ToStoreKey().VersionlessKey()] = phc
+	for _, hook := range hooks {
+		keyToHookComponent[hook.StoreKey().VersionlessKey()] = hook
 	}
 
 	return func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured) {
