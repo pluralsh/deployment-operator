@@ -326,13 +326,11 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 		}
 
 		for key, resource := range keyToResource {
-			// Custom handling for resources with delete policy annotation.
 			// If the resource:
 			// - is in our hook component store,
 			// - has reached its desired state according to the delete policies,
 			// - and has not changed manifest recently;
 			// Then we can skip applying it and ensure that these resources are deleted.
-			// If any of these is false when we proceed to apply.
 			deletePolicies := smcommon.ParseHookDeletePolicy(resource)
 			hook, ok := keyToHookComponent[key]
 			if ok && hook.HasDesiredState(deletePolicies) && !hook.HasManifestChanged(resource) {
@@ -344,6 +342,12 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				}
 			}
 
+			// Skip applying hook resource if their manifest did not change.
+			if ok && !hook.HasManifestChanged(resource) {
+				skipApply.Add(key)
+			}
+
+			// Apply resources if they were not marked to be skipped.
 			if !skipApply.Has(key) {
 				toApply = append(toApply, resource)
 			}
