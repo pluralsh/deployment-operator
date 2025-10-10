@@ -60,8 +60,8 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 	// In case of any error finish the execution and return error.
 	case err := <-in.errChan:
 		retErr = err
-	// If execution finished successfully return without error.
-	case <-in.finishedChan:
+	// If execution finished successfully, return without error.
+	case <-in.done:
 		retErr = nil
 	}
 
@@ -83,7 +83,7 @@ func (in *agentRunController) prepare() error {
 	in.tool = tool.New(in.agentRun.Runtime.Type, toolv1.Config{
 		WorkDir:       in.dir,
 		RepositoryDir: filepath.Join(in.dir, "repository"),
-		FinishedChan:  in.finishedChan,
+		FinishedChan:  in.done,
 		ErrorChan:     in.errChan,
 		Run:           in.agentRun,
 	})
@@ -151,9 +151,9 @@ func NewAgentRunController(opts ...Option) (Controller, error) {
 	finishedChan := make(chan struct{})
 	errChan := make(chan error, 1)
 	ctrl := &agentRunController{
-		errChan:      errChan,
-		finishedChan: finishedChan,
-		dir:          "/plural", // default working directory from pod spec
+		errChan: errChan,
+		done:    finishedChan,
+		dir:     "/plural", // default working directory from pod spec
 	}
 
 	for _, option := range opts {

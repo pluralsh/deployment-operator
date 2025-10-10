@@ -40,8 +40,8 @@ type agentRunController struct {
 	// errChan signals that an error occurred during command execution
 	errChan chan error
 
-	// finishedChan signals that all commands execution is finished
-	finishedChan chan struct{}
+	// done signals that all commands execution is finished
+	done chan struct{}
 }
 
 type Option func(*agentRunController)

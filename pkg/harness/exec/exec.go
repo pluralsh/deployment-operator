@@ -48,9 +48,6 @@ func (in *executable) Start(ctx context.Context) (WaitFn, error) {
 
 	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
 	if err = cmd.Start(); err != nil {
-		if err := context.Cause(ctx); err != nil {
-			return nil, err
-		}
 		return nil, err
 	}
 

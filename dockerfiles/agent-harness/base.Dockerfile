@@ -33,11 +33,11 @@ RUN apt update && apt install -y git curl jq tar
 # Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness
 # TODO: use official release version
-COPY --from=ghcr.io/pluralsh/mcpserver:sha-19c3325 /root/agent-pr-mcpserver /usr/local/bin/mcpserver
+COPY --from=ghcr.io/pluralsh/mcpserver:sha-d9d69ad /root/agent-pr-mcpserver /usr/local/bin/mcpserver
 
 WORKDIR /plural
 
-RUN echo -e "#!/bin/sh\necho \$GIT_ACCESS_TOKEN" > /plural/.git-askpass && \
+RUN printf "#!/bin/sh\necho \${GIT_ACCESS_TOKEN}" > /plural/.git-askpass && \
     chmod +x /plural/.git-askpass && \
     git config --global core.askPass /plural/.git-askpass && \
     chown -R 65532:65532 /plural

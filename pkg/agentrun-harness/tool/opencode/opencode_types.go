@@ -32,6 +32,9 @@ type Opencode struct {
 	// run is the agent run that is being processed.
 	run *v1.AgentRun
 
+	// server is the opencode server.
+	server *Server
+
 	// client is the opencode client.
 	client *opencode.Client
 
@@ -49,4 +52,17 @@ type Opencode struct {
 
 	// startedChan is a channel that gets closed when the opencode server is started.
 	startedChan chan struct{}
+}
+
+type Event struct {
+	ID          string
+	EventType   opencode.EventListResponseType
+	MessageType *opencode.PartType
+	Role        *string
+	Mode        *string
+	Model       *string
+	Provider    *string
+	Tool        *string
+	Files       []string
+	State       *opencode.ToolPartState
 }

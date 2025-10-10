@@ -3,7 +3,6 @@ module github.com/pluralsh/deployment-operator
 go 1.25.1
 
 require (
-	dario.cat/mergo v1.0.2
 	github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2 v2.2.3
 	github.com/DataDog/dd-trace-go/v2 v2.2.3
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -28,6 +27,7 @@ require (
 	github.com/google/gnostic-models v0.7.0
 	github.com/grafana/pyroscope-go v1.2.7
 	github.com/hashicorp/terraform-json v0.26.0
+	github.com/imdario/mergo v0.3.16
 	github.com/mark3labs/mcp-go v0.40.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/onsi/ginkgo/v2 v2.25.1
@@ -80,6 +80,7 @@ require (
 	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go v0.122.0 // indirect
 	cloud.google.com/go/storage v1.56.1 // indirect
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/4meepo/tagalign v1.4.1 // indirect
 	github.com/99designs/gqlgen v0.17.78 // indirect
 	github.com/Abirdcfly/dupword v0.1.3 // indirect
@@ -272,7 +273,6 @@ require (
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/iancoleman/orderedmap v0.3.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
-	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jgautheron/goconst v1.7.1 // indirect
