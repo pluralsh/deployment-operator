@@ -191,9 +191,6 @@ func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <
 	done := make(chan struct{})
 	errChan := make(chan error)
 
-	// TODO: remove after testing
-	prompt = "Create or update main README.md file based on the contents of repository and then create a pull request with the proposed changes for further review."
-
 	go func() {
 		klog.V(log.LogLevelExtended).InfoS("sending prompt", "prompt", prompt)
 		res, err := in.client.Session.Prompt(ctx, in.session.ID, opencode.SessionPromptParams{
@@ -266,9 +263,8 @@ func NewServer(port, configFilePath, repositoryDir string, mode console.AgentRun
 		configFilePath: configFilePath,
 		repositoryDir:  repositoryDir,
 		client:         opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", port))),
-		// TODO: use correct prompt/agent based on mode
-		systemPrompt:  lo.Ternary(mode == console.AgentRunModeAnalyze, systemPromptWriter, systemPromptWriter),
-		agent:         lo.Ternary(mode == console.AgentRunModeAnalyze, defaultWriteAgent, defaultWriteAgent),
-		promptTimeout: 10 * time.Minute,
+		systemPrompt:   lo.Ternary(mode == console.AgentRunModeAnalyze, systemPromptAnalyzer, systemPromptWriter),
+		agent:          lo.Ternary(mode == console.AgentRunModeAnalyze, defaultAnalysisAgent, defaultWriteAgent),
+		promptTimeout:  10 * time.Minute,
 	}
 }
