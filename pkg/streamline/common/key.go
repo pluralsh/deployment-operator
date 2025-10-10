@@ -17,10 +17,6 @@ func (k Key) String() string {
 	return string(k)
 }
 
-func NewKeyFromEntry(entry Component) Key {
-	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", entry.Group, entry.Version, entry.Kind, entry.Namespace, entry.Name))
-}
-
 func NewKeyFromUnstructured(u unstructured.Unstructured) Key {
 	gvk := u.GroupVersionKind()
 	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, u.GetNamespace(), u.GetName()))
