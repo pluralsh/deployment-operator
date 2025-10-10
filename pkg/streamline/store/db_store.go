@@ -820,7 +820,7 @@ func (in *DatabaseStore) maybeSaveHookComponent(conn *sqlite.Conn, resource unst
 		return
 	}
 
-	if smcommon.GetPhaseHookDeletePolicy(resource) == "" {
+	if !smcommon.HasSyncPhaseHookDeletePolicy(resource) {
 		klog.V(log.LogLevelTrace).InfoS("resource does not have delete policy, skipping saving hook",
 			"resource", resource, "state", state)
 		return
@@ -870,8 +870,8 @@ func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []
 			continue
 		}
 
-		if smcommon.GetPhaseHookDeletePolicy(resource) == "" {
-			klog.V(log.LogLevelTrace).InfoS("resource does not delete policy, skipping saving hook",
+		if !smcommon.HasSyncPhaseHookDeletePolicy(resource) {
+			klog.V(log.LogLevelTrace).InfoS("resource does not have delete policy, skipping saving hook",
 				"resource", resource, "state", state)
 			continue
 		}
@@ -936,8 +936,8 @@ func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResou
 		return nil
 	}
 
-	if deletePolicy := smcommon.GetPhaseHookDeletePolicy(manifest); deletePolicy == "" {
-		klog.V(log.LogLevelTrace).InfoS("delete policy is empty, skipping saving hook")
+	if !smcommon.HasSyncPhaseHookDeletePolicy(manifest) {
+		klog.V(log.LogLevelTrace).InfoS("resource does not have delete policy, skipping saving hook")
 		return nil
 	}
 

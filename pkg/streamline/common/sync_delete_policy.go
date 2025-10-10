@@ -21,6 +21,20 @@ const (
 	HelmHookDeletePolicyHookFailed = "hook-failed"
 )
 
+func HasSyncPhaseHookDeletePolicy(u unstructured.Unstructured) bool {
+	annotations := u.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+
+	if _, ok := annotations[SyncPhaseHookDeletePolicy]; ok {
+		return true
+	}
+
+	_, ok := annotations[HelmHookDeletePolicyAnnotation]
+	return ok
+}
+
 // GetPhaseHookDeletePolicy retrieves the sync phase hook delete policy from the resource annotations.
 func GetPhaseHookDeletePolicy(u unstructured.Unstructured) string {
 	annotations := u.GetAnnotations()
