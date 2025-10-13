@@ -11,6 +11,7 @@ import (
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/utils"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -127,6 +128,13 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 	if len(resources) == 0 {
 		return false, false, nil // Empty list is considered healthy
 	}
+
+	// We need to filter out resources that are on a blacklist as those are not synchronized to the store.
+	// That means that there will be no entries for those resources in the database,
+	// and they would always be considered pending.
+	resources = lo.Filter(resources, func(item unstructured.Unstructured, index int) bool {
+		return !streamline.GroupBlacklist.Has(item.GroupVersionKind().Group)
+	})
 
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
