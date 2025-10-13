@@ -93,11 +93,13 @@ func getHelmDeleteHook(annotations map[string]string) SyncPhase {
 	hooks := containers.ToSet[string](strings.Split(strings.ReplaceAll(annotation, " ", ""), ","))
 	if hooks.Has(HelmHookPreInstall) || hooks.Has(HelmHookPreUpgrade) {
 		return SyncPhasePreSync
-	} else if hooks.Has(HelmHookPostInstall) || hooks.Has(HelmHookPostUpgrade) {
-		return SyncPhasePostSync
-	} else {
-		return SyncPhaseSync
 	}
+
+	if hooks.Has(HelmHookPostInstall) || hooks.Has(HelmHookPostUpgrade) {
+		return SyncPhasePostSync
+	}
+
+	return SyncPhaseSync
 }
 
 // HasPhase checks if the resource belongs to the specified sync phase.

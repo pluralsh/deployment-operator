@@ -1859,7 +1859,7 @@ func createHookJob(namespace, name, serviceID string) unstructured.Unstructured 
 	u.SetAnnotations(map[string]string{
 		common.OwningInventoryKey:        serviceID,
 		common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(u).String(),
-		common.SyncPhaseHookDeletePolicy: common.SyncPhaseDeletePolicySucceeded,
+		common.SyncPhaseHookDeletePolicy: common.HookDeletePolicySucceeded,
 	})
 
 	u.Object["status"] = map[string]interface{}{
@@ -1982,7 +1982,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 		hookPod.SetAnnotations(map[string]string{
 			common.OwningInventoryKey:        serviceID,
 			common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(hookPod).String(),
-			common.SyncPhaseHookDeletePolicy: common.SyncPhaseDeletePolicySucceeded,
+			common.SyncPhaseHookDeletePolicy: common.HookDeletePolicySucceeded,
 		})
 		hookPod.Object["spec"] = map[string]interface{}{
 			"nodeName": "node-1",
@@ -1995,7 +1995,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 		hookConfigMap.SetAnnotations(map[string]string{
 			common.OwningInventoryKey:        serviceID,
 			common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(hookConfigMap).String(),
-			common.SyncPhaseHookDeletePolicy: common.SyncPhaseDeletePolicySucceeded,
+			common.SyncPhaseHookDeletePolicy: common.HookDeletePolicySucceeded,
 		})
 
 		hooks := []unstructured.Unstructured{hookJob, hookPod, hookConfigMap}
