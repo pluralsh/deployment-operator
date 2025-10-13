@@ -340,11 +340,15 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 					r.SetAnnotations(map[string]string{smcommon.SyncPhaseAnnotation: smcommon.GetDeletePhase(r).String()}) // Ensures annotations that are checked later in NewPhase func.
 					toDelete = append(toDelete, r)
 				}
+
+				continue
 			}
 
 			// Skip applying hook resource if their manifest did not change.
 			if ok && !hook.HasManifestChanged(resource) {
 				skipApply.Add(key)
+
+				continue
 			}
 
 			// Apply resources if they were not marked to be skipped.
