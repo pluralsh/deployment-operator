@@ -123,17 +123,17 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
-func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
-	if len(resources) == 0 {
-		return false, false, nil // Empty list is considered healthy
-	}
-
+func (in *DatabaseStore) GetResourceHealth(r []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
 	// We need to filter out resources that are on a blacklist as those are not synchronized to the store.
 	// That means that there will be no entries for those resources in the database,
 	// and they would always be considered pending.
-	resources = lo.Filter(resources, func(item unstructured.Unstructured, index int) bool {
+	resources := lo.Filter(r, func(item unstructured.Unstructured, index int) bool {
 		return !smcommon.GroupBlacklist.Has(item.GroupVersionKind().Group)
 	})
+
+	if len(resources) == 0 {
+		return false, false, nil // Empty list is considered healthy
+	}
 
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
