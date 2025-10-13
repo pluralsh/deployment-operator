@@ -11,7 +11,6 @@ import (
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -133,7 +132,7 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 	// That means that there will be no entries for those resources in the database,
 	// and they would always be considered pending.
 	resources = lo.Filter(resources, func(item unstructured.Unstructured, index int) bool {
-		return !streamline.GroupBlacklist.Has(item.GroupVersionKind().Group)
+		return !smcommon.GroupBlacklist.Has(item.GroupVersionKind().Group)
 	})
 
 	conn, err := in.pool.Take(context.Background())

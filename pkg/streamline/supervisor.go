@@ -7,7 +7,7 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"github.com/pluralsh/polly/containers"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,29 +21,6 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-)
-
-var (
-	GroupBlacklist = containers.ToSet([]string{
-		"aquasecurity.github.io", // Related to compliance/vulnerability reports. Can cause performance issues.
-	})
-
-	ResourceVersionBlacklist = containers.ToSet([]string{
-		"componentstatuses/v1",         // throwing warnings about deprecation since 1.19
-		"events/v1",                    // no need to watch for resource that are not created by the user
-		"bindings/v1",                  // it's not possible to watch bindings
-		"localsubjectaccessreviews/v1", // it's not possible to watch localsubjectaccessreviews
-		"selfsubjectreviews/v1",        // it's not possible to watch selfsubjectreviews
-		"selfsubjectaccessreviews/v1",  // it's not possible to watch selfsubjectaccessreviews
-		"selfsubjectrulesreviews/v1",   // it's not possible to watch selfsubjectrulesreviews
-		"tokenreviews/v1",              // it's not possible to watch tokenreviews
-		"subjectaccessreviews/v1",      // it's not possible to watch subjectaccessreviews
-		"metrics.k8s.io/v1beta1",       // it's not possible to watch metrics
-	})
-
-	OptionalResourceVersionList = containers.ToSet([]string{
-		"leases/v1", // will be watched dynamically if applier tries to create it
-	})
 )
 
 type Option func(*Supervisor)
@@ -152,7 +129,7 @@ func (in *Supervisor) WaitForCacheSync(ctx context.Context) error {
 }
 
 func (in *Supervisor) MaybeRegister(gvr schema.GroupVersionResource) {
-	if OptionalResourceVersionList.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
+	if smcommon.OptionalResourceVersionList.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
 		klog.V(log.LogLevelVerbose).InfoS("skipping resource to watch as it is optional", "gvr", gvr.String())
 		return
 	}
@@ -161,7 +138,7 @@ func (in *Supervisor) MaybeRegister(gvr schema.GroupVersionResource) {
 }
 
 func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
-	if GroupBlacklist.Has(gvr.Group) || ResourceVersionBlacklist.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
+	if smcommon.GroupBlacklist.Has(gvr.Group) || smcommon.ResourceVersionBlacklist.Has(fmt.Sprintf("%s/%s", gvr.Resource, gvr.Version)) {
 		klog.V(log.LogLevelExtended).InfoS("skipping resource to watch as it is blacklisted", "gvr", gvr.String())
 		return
 	}
