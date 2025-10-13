@@ -65,14 +65,7 @@ func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, sk
 	skipped := make([]unstructured.Unstructured, 0)
 	toDeleteFromAllPhases, toApply := deleteFilter(resources)
 	toDelete := algorithms.Filter(toDeleteFromAllPhases, func(u unstructured.Unstructured) bool {
-		// We check for the SyncPhaseAnnotation as this is what is put
-		// into the Unstructured in delete deleteFilter func.
-		annotations := u.GetAnnotations()
-		if annotations == nil {
-			return false
-		}
-
-		return name.Equals(annotations[smcommon.SyncPhaseAnnotation])
+		return smcommon.HasPhase(u, name, true)
 	})
 
 	wavesMap := make(map[int]Wave)

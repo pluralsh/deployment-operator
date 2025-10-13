@@ -337,7 +337,6 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				skipApply.Add(key)
 
 				if r, exists := keyToResource[key]; exists {
-					r.SetAnnotations(map[string]string{smcommon.SyncPhaseAnnotation: smcommon.GetDeletePhase(r).String()}) // Ensures annotations that are checked later in NewPhase func.
 					toDelete = append(toDelete, r)
 				}
 
