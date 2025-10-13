@@ -39,7 +39,7 @@ var _ = Describe("Raw template", func() {
 			svc.Templated = lo.ToPtr(false)
 			resp, err := NewRaw(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(resp)).To(Equal(1))
+			Expect(len(resp)).To(Equal(5))
 			Expect(resp[0].GetName()).To(Equal(name))
 		})
 
