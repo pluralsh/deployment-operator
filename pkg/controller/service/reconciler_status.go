@@ -10,9 +10,9 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	plrlog "github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/metadata"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -112,29 +112,26 @@ func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAtt
 	return s.consoleClient.UpdateServiceErrors(id, lo.Ternary(err != nil, []*console.ServiceErrorAttributes{err}, []*console.ServiceErrorAttributes{}))
 }
 
-func (s *ServiceReconciler) ExtractImagesMetadata(manifests []unstructured.Unstructured) *console.ServiceMetadataAttributes {
-	var allImages []string
+func (s *ServiceReconciler) ExtractMetadata(manifests []unstructured.Unstructured) *console.ServiceMetadataAttributes {
+	var allImages, allFqdns []string
 
-	klog.Infof("Extracting images from %d manifests", len(manifests))
-
-	for i, resource := range manifests {
-		klog.Infof("Processing manifest %d: %s %s/%s", i+1, resource.GetKind(), resource.GetNamespace(), resource.GetName())
-		if componentImages := images.ExtractImagesFromResource(&resource); componentImages != nil {
-			klog.Infof("Found %d images in manifest %d: %v", len(componentImages), i+1, componentImages)
+	for _, resource := range manifests {
+		if componentImages := metadata.ExtractImagesFromResource(&resource); componentImages != nil {
 			allImages = append(allImages, componentImages...)
-		} else {
-			klog.Infof("No images found in manifest %d", i+1)
+		}
+		if componentFqdns := metadata.ExtractFqdnsFromResource(&resource); componentFqdns != nil {
+			allFqdns = append(allFqdns, componentFqdns...)
 		}
 	}
 
-	if len(allImages) == 0 {
-		klog.Info("No images found in any manifests")
+	uniqueImages, uniqueFqdns := lo.Uniq(allImages), lo.Uniq(allFqdns)
+
+	if len(uniqueImages) == 0 && len(uniqueFqdns) == 0 {
 		return nil
 	}
 
-	uniqueImages := lo.Uniq(allImages)
-	klog.Infof("Extracted %d unique images: %v", len(uniqueImages), uniqueImages)
 	return &console.ServiceMetadataAttributes{
 		Images: lo.ToSlicePtr(uniqueImages),
+		Fqdns:  lo.ToSlicePtr(uniqueFqdns),
 	}
 }

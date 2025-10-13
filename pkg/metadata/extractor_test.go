@@ -1,4 +1,4 @@
-package images
+package metadata
 
 import (
 	"path/filepath"
@@ -126,7 +126,7 @@ var _ = Describe("Image Extractor with Raw Manifests", func() {
 			rawTemplate := template.NewRaw(dir)
 			manifests, err := rawTemplate.Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(manifests).To(HaveLen(2)) // Should have both pod.yaml.liquid and deployment.yaml.liquid
+			Expect(manifests).To(HaveLen(5))
 
 			// Find the deployment manifest
 			var deploymentManifest *unstructured.Unstructured
@@ -144,6 +144,32 @@ var _ = Describe("Image Extractor with Raw Manifests", func() {
 			// Verify the extracted images
 			Expect(images).To(HaveLen(3)) // nginx, redis, and busybox
 			Expect(images).To(ContainElements("nginx:1.21", "redis:6.2-alpine", "busybox:1.35"))
+		})
+		It("should extract FQDNs from ingress and gateway manifests", func() {
+			dir := filepath.Join("..", "..", "test", "rawTemplated")
+			svc.Templated = lo.ToPtr(false)
+
+			rawTemplate := template.NewRaw(dir)
+			manifests, err := rawTemplate.Render(svc, mapper)
+			Expect(err).NotTo(HaveOccurred())
+
+			var allFqdns []string
+			for _, manifest := range manifests {
+				fqdns := ExtractFqdnsFromResource(&manifest)
+				allFqdns = append(allFqdns, fqdns...)
+			}
+
+			// Verify extracted FQDNs from Ingress
+			Expect(allFqdns).To(ContainElement("test.example.com"))
+			Expect(allFqdns).To(ContainElement("www.test.example.com"))
+
+			// Verify extracted FQDNs from HTTPRoute
+			Expect(allFqdns).To(ContainElement("api.test.example.com"))
+			Expect(allFqdns).To(ContainElement("api-v2.test.example.com"))
+
+			// Verify extracted FQDNs from Gateway
+			Expect(allFqdns).To(ContainElement("*.test.example.com"))
+			Expect(allFqdns).To(ContainElement("gateway.test.example.com"))
 		})
 	})
 })

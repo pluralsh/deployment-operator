@@ -234,21 +234,9 @@ velero-crds:
 
 ##@ Tests
 
-# .PHONY: test
-# test: envtest ## run tests
-# 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test $$(go list ./... | grep -v /e2e) -race -v -tags="cache"
-
-.PHONY: test-images
-test-images: envtest ## run images tests
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test ./pkg/images/... -race -v -tags="cache"
-
-.PHONY: test-service
-test-service: envtest ## run service tests
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test ./pkg/controller/service/... -race -v -tags="cache"
-
-
+.PHONY: test
 test: envtest ## run tests
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test ./pkg/images/extractor_test.go ./pkg/images/extractor.go -race -v -tags="cache"
+	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test $$(go list ./... | grep -v /e2e) -race -v -tags="cache"
 
 .PHONY: lint
 lint: $(PRE) ## run linters

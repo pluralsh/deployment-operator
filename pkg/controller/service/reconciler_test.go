@@ -166,7 +166,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			rawTemplate := template.NewRaw(dir)
 			manifests, err := rawTemplate.Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(manifests).To(HaveLen(2)) // Should have both pod.yaml.liquid and deployment.yaml.liquid
+			Expect(manifests).To(HaveLen(5))
 
 			// Create a reconciler instance to access ExtractImagesMetadata
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
@@ -183,8 +183,8 @@ var _ = Describe("Reconciler", Ordered, func() {
 			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
 			Expect(err).NotTo(HaveOccurred())
 
-			// Extract images metadata from the processed manifests
-			metadata := reconciler.ExtractImagesMetadata(manifests)
+			// Extract metadata from the processed manifests
+			metadata := reconciler.ExtractMetadata(manifests)
 
 			// Verify the extracted metadata
 			Expect(metadata).NotTo(BeNil())
@@ -201,6 +201,24 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(imageStrings).To(ContainElement("nginx:1.21"))       // From deployment.yaml.liquid
 			Expect(imageStrings).To(ContainElement("redis:6.2-alpine")) // From deployment.yaml.liquid
 			Expect(imageStrings).To(ContainElement("busybox:1.35"))     // From deployment.yaml.liquid init container
+
+			// Verifiy specific fqdns are present
+			fqdnStrings := make([]string, len(metadata.Fqdns))
+			for i, fqdn := range metadata.Fqdns {
+				fqdnStrings[i] = *fqdn
+			}
+
+			// Verify extracted FQDNs from Ingress
+			Expect(fqdnStrings).To(ContainElement("test.example.com"))
+			Expect(fqdnStrings).To(ContainElement("www.test.example.com"))
+
+			// Verify extracted FQDNs from HTTPRoute
+			Expect(fqdnStrings).To(ContainElement("api.test.example.com"))
+			Expect(fqdnStrings).To(ContainElement("api-v2.test.example.com"))
+
+			// Verify extracted FQDNs from Gateway
+			Expect(fqdnStrings).To(ContainElement("*.test.example.com"))
+			Expect(fqdnStrings).To(ContainElement("gateway.test.example.com"))
 		})
 
 	})
