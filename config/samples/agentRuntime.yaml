@@ -3,15 +3,8 @@ kind: AgentRuntime
 metadata:
   name: test
 spec:
-  type: "CUSTOM"
+  type: "OPENCODE"
   targetNamespace: "test"
-  template:
-    spec:
-      containers:
-        - name: my-container
-          image: nginx:1.25
-          ports:
-            - containerPort: 80
-      restartPolicy: Always
+
 
 

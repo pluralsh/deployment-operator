@@ -427,7 +427,11 @@ func (in *AgentRuntimeSpec) DeepCopyInto(out *AgentRuntimeSpec) {
 		*out = new(AgentRuntimeBindings)
 		(*in).DeepCopyInto(*out)
 	}
-	in.Template.DeepCopyInto(&out.Template)
+	if in.Template != nil {
+		in, out := &in.Template, &out.Template
+		*out = new(v1.PodTemplateSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Config != nil {
 		in, out := &in.Config, &out.Config
 		*out = new(AgentRuntimeConfig)
