@@ -71,7 +71,7 @@ func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, sk
 	skipped := make([]unstructured.Unstructured, 0)
 	toDeleteFromAllPhases, toApply := deleteFilter(resources)
 	toDelete := algorithms.Filter(toDeleteFromAllPhases, func(u unstructured.Unstructured) bool {
-		return smcommon.HasPhase(u, name, true)
+		return smcommon.HasPhase(u, name)
 	})
 
 	wavesMap := make(map[int]Wave)
