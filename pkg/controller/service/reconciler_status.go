@@ -59,13 +59,18 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 	objToHash := struct {
 		Components []*console.ComponentAttributes    `json:"components"`
 		Errs       []*console.ServiceErrorAttributes `json:"errs"`
+		RevisionID string                            `json:"revisionId"`
+		Sha        *string                           `json:"sha,omitempty"`
 	}{
 		Components: components,
 		Errs:       errs,
+		RevisionID: revisionID,
+		Sha:        sha,
 	}
 
 	hashedSha, err := utils.HashObject(objToHash)
 	if err != nil {
+		log.Log.Error(err, "Failed to hash service components")
 		hashedSha = "__ignore__"
 	}
 
@@ -78,7 +83,10 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 		return nil
 	}
 
-	shaCache.Add(id, hashedSha)
+	if hashedSha != "__ignore__" {
+		shaCache.Add(id, hashedSha)
+	}
+
 	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs)
 }
 
