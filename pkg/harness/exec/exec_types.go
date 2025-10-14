@@ -8,9 +8,12 @@ import (
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )
 
+type WaitFn func() error
+
 type Executable interface {
 	ID() string
 	Run(ctx context.Context) error
+	Start(ctx context.Context) (WaitFn, error)
 	RunWithOutput(ctx context.Context) ([]byte, error)
 	Command() string
 }

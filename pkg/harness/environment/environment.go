@@ -7,7 +7,12 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
-// Setup implements Environment interface.
+// Setup implements the Environment interface to prepare for the
+// start of the gqlclient.StackRun.
+//
+// 1. Creates a working dir if it doesn't exist.
+// 2. Downloads the tarball related to stack run and unpacks it into the working dir.
+// 3. Creates any additional files that are part of the gqlclient.StackRun.
 func (in *environment) Setup() error {
 	if err := in.prepareTarball(); err != nil {
 		return err
