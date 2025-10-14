@@ -7,71 +7,67 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// ExtractImagesFromResource extracts container images from a Kubernetes resource
 func ExtractImagesFromResource(resource *unstructured.Unstructured) []string {
 	if resource == nil {
 		return nil
 	}
 
-	var images []string
-	kind := resource.GetKind()
-	namespace := resource.GetNamespace()
-	name := resource.GetName()
+	kind := strings.ToLower(resource.GetKind())
+	ns, name := resource.GetNamespace(), resource.GetName()
 
-	switch strings.ToLower(kind) {
+	appendImages := func(path ...string) (found bool, images []string, err error) {
+		slice, found, err := unstructured.NestedSlice(resource.Object, path...)
+		if err != nil || !found {
+			return found, nil, err
+		}
+		imgs := make([]string, 0, len(slice))
+		for _, c := range slice {
+			if m, ok := c.(map[string]interface{}); ok {
+				if s, ok := m["image"].(string); ok && s != "" {
+					imgs = append(imgs, s)
+				}
+			}
+		}
+		return true, imgs, nil
+	}
+
+	var out []string
+
+	switch kind {
 	case "deployment", "statefulset", "daemonset", "replicaset":
-		containers, found, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "containers")
-		if err != nil {
-			klog.Warningf("failed to extract containers from %s %s/%s: %v", kind, namespace, name, err)
+		if found, imgs, err := appendImages("spec", "template", "spec", "containers"); err != nil {
+			klog.Warningf("failed to extract containers from %s %s/%s: %v", resource.GetKind(), ns, name, err)
 			return nil
-		}
-		if !found {
+		} else if !found {
 			return nil
+		} else {
+			out = append(out, imgs...)
 		}
 
-		for _, container := range containers {
-			if containerMap, ok := container.(map[string]interface{}); ok {
-				if imageStr, found := containerMap["image"].(string); found {
-					images = append(images, imageStr)
-				}
-			}
-		}
-
-		// Also check init containers
-		initContainers, found, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "initContainers")
-		switch {
-		case err == nil && found:
-			for _, container := range initContainers {
-				if containerMap, ok := container.(map[string]interface{}); ok {
-					if imageStr, found := containerMap["image"].(string); found {
-						images = append(images, imageStr)
-					}
-				}
-			}
-		case err != nil:
-			klog.Infof("Error extracting init containers from %s %s/%s: %v", kind, namespace, name, err)
+		if _, imgs, err := appendImages("spec", "template", "spec", "initContainers"); err != nil {
+			klog.Infof("Error extracting init containers from %s %s/%s: %v", resource.GetKind(), ns, name, err)
+		} else {
+			out = append(out, imgs...)
 		}
 
 	case "pod":
-		containers, found, err := unstructured.NestedSlice(resource.Object, "spec", "containers")
-		if err != nil {
-			klog.Warningf("failed to extract containers from pod %s/%s: %v", namespace, name, err)
+		if found, imgs, err := appendImages("spec", "containers"); err != nil {
+			klog.Warningf("failed to extract containers from pod %s/%s: %v", ns, name, err)
 			return nil
-		}
-		if !found {
+		} else if !found {
 			return nil
+		} else {
+			out = append(out, imgs...)
 		}
 
-		for _, container := range containers {
-			if containerMap, ok := container.(map[string]interface{}); ok {
-				if imageStr, found := containerMap["image"].(string); found {
-					images = append(images, imageStr)
-				}
-			}
+		if _, imgs, err := appendImages("spec", "initContainers"); err != nil {
+			klog.Infof("Error extracting init containers from Pod %s/%s: %v", ns, name, err)
+		} else {
+			out = append(out, imgs...)
 		}
 	}
 
-	return images
+	return out
 }
 
 func ExtractFqdnsFromResource(resource *unstructured.Unstructured) []string {
@@ -79,73 +75,94 @@ func ExtractFqdnsFromResource(resource *unstructured.Unstructured) []string {
 		return nil
 	}
 
-	var fqdns []string
-	kind := resource.GetKind()
-	namespace := resource.GetNamespace()
-	name := resource.GetName()
-
-	switch strings.ToLower(kind) {
-	case "ingress":
-		rules, found, err := unstructured.NestedSlice(resource.Object, "spec", "rules")
-		switch {
-		case err == nil && found:
-			for _, rule := range rules {
-				if ruleMap, ok := rule.(map[string]interface{}); ok {
-					if host, found := ruleMap["host"].(string); found && host != "" {
-						fqdns = append(fqdns, host)
-					}
-				}
-			}
-		case err != nil:
-			klog.Infof("Error extracting ingress rules from Ingress %s/%s: %v", namespace, name, err)
+	added := make(map[string]struct{})
+	var out []string
+	add := func(s string) {
+		if s == "" {
+			return
 		}
-
-		tls, found, err := unstructured.NestedSlice(resource.Object, "spec", "tls")
-		switch {
-		case err == nil && found:
-			for _, tlsItem := range tls {
-				if tlsMap, ok := tlsItem.(map[string]interface{}); ok {
-					if hosts, found := tlsMap["hosts"].([]interface{}); found {
-						for _, host := range hosts {
-							if hostStr, ok := host.(string); ok && hostStr != "" {
-								fqdns = append(fqdns, hostStr)
-							}
-						}
-					}
-				}
-			}
-		case err != nil:
-			klog.Infof("Error extracting ingress rules from Ingress %s/%s: %v", namespace, name, err)
-		}
-
-	case "httproute", "grpcroute":
-		hostnames, found, err := unstructured.NestedSlice(resource.Object, "spec", "hostnames")
-		switch {
-		case err == nil && found:
-			for _, host := range hostnames {
-				if hostStr, ok := host.(string); ok && hostStr != "" {
-					fqdns = append(fqdns, hostStr)
-				}
-			}
-		case err != nil:
-			klog.Infof("Error extracting ingress rules from %s %s/%s: %v", kind, namespace, name, err)
-		}
-
-	case "gateway":
-		listeners, found, err := unstructured.NestedSlice(resource.Object, "spec", "listeners")
-		switch {
-		case err == nil && found:
-			for _, listener := range listeners {
-				if listenerMap, ok := listener.(map[string]interface{}); ok {
-					if hostname, found := listenerMap["hostname"].(string); found && hostname != "" {
-						fqdns = append(fqdns, hostname)
-					}
-				}
-			}
-		case err != nil:
-			klog.Infof("Error extracting listeners from Gateway %s/%s: %v", namespace, name, err)
+		if _, seen := added[s]; !seen {
+			added[s] = struct{}{}
+			out = append(out, s)
 		}
 	}
 
-	return fqdns
+	switch strings.ToLower(resource.GetKind()) {
+	case "ingress":
+		extractIngressFQDNs(resource, add)
+	case "httproute", "grpcroute":
+		extractHTTPRouteFQDNs(resource, add)
+	case "gateway":
+		extractGatewayFQDNs(resource, add)
+	}
+
+	return out
+}
+
+func extractIngressFQDNs(u *unstructured.Unstructured, add func(string)) {
+	ns, name := u.GetNamespace(), u.GetName()
+
+	if rules, found, err := unstructured.NestedSlice(u.Object, "spec", "rules"); err != nil {
+		logExtractErr("Ingress", ns, name, "rules", err)
+	} else if found {
+		for _, r := range rules {
+			if m, ok := r.(map[string]interface{}); ok {
+				if host, ok := m["host"].(string); ok {
+					add(host)
+				}
+			}
+		}
+	}
+
+	if tls, found, err := unstructured.NestedSlice(u.Object, "spec", "tls"); err != nil {
+		logExtractErr("Ingress", ns, name, "tls", err)
+	} else if found {
+		for _, t := range tls {
+			m, ok := t.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if hosts, ok := m["hosts"].([]interface{}); ok {
+				for _, h := range hosts {
+					if s, ok := h.(string); ok {
+						add(s)
+					}
+				}
+			}
+		}
+	}
+}
+
+func extractHTTPRouteFQDNs(u *unstructured.Unstructured, add func(string)) {
+	ns, name, kind := u.GetNamespace(), u.GetName(), u.GetKind()
+
+	if hn, found, err := unstructured.NestedSlice(u.Object, "spec", "hostnames"); err != nil {
+		logExtractErr(kind, ns, name, "hostnames", err)
+	} else if found {
+		for _, h := range hn {
+			if s, ok := h.(string); ok {
+				add(s)
+			}
+		}
+	}
+}
+
+func extractGatewayFQDNs(u *unstructured.Unstructured, add func(string)) {
+	ns, name := u.GetNamespace(), u.GetName()
+
+	if listeners, found, err := unstructured.NestedSlice(u.Object, "spec", "listeners"); err != nil {
+		logExtractErr("Gateway", ns, name, "listeners", err)
+	} else if found {
+		for _, l := range listeners {
+			if m, ok := l.(map[string]interface{}); ok {
+				if s, ok := m["hostname"].(string); ok {
+					add(s)
+				}
+			}
+		}
+	}
+}
+
+func logExtractErr(kind, ns, name, field string, err error) {
+	klog.Infof("Error extracting %s from %s %s/%s: %v", field, kind, ns, name, err)
 }
