@@ -63,7 +63,7 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 	logger := log.FromContext(ctx)
 
 	name := GetRunResourceName(run)
-	jobSpec := getRunJobSpec(name, run.Job)
+	jobSpec := getRunJobSpec(name, run.JobSpec)
 	namespace := r.GetRunResourceNamespace(jobSpec)
 
 	foundJob := &batchv1.Job{}
@@ -316,46 +316,46 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 }
 
 func (r *SentinelReconciler) ensureDefaultContainerResourcesRequests(containers []corev1.Container, run *console.SentinelRunJobFragment) ([]corev1.Container, error) {
-	if run.Job == nil || run.Job.Requests == nil {
+	if run.JobSpec == nil || run.JobSpec.Requests == nil {
 		return containers, nil
 	}
-	if run.Job.Requests.Requests == nil && run.Job.Requests.Limits == nil {
+	if run.JobSpec.Requests.Requests == nil && run.JobSpec.Requests.Limits == nil {
 		return containers, nil
 	}
 
 	for i, container := range containers {
-		if run.Job.Requests.Requests != nil {
+		if run.JobSpec.Requests.Requests != nil {
 			if len(container.Resources.Requests) == 0 {
 				containers[i].Resources.Requests = map[corev1.ResourceName]resource.Quantity{}
 			}
-			if run.Job.Requests.Requests.CPU != nil {
-				cpu, err := resource.ParseQuantity(*run.Job.Requests.Requests.CPU)
+			if run.JobSpec.Requests.Requests.CPU != nil {
+				cpu, err := resource.ParseQuantity(*run.JobSpec.Requests.Requests.CPU)
 				if err != nil {
 					return nil, err
 				}
 				containers[i].Resources.Requests[corev1.ResourceCPU] = cpu
 			}
-			if run.Job.Requests.Requests.Memory != nil {
-				memory, err := resource.ParseQuantity(*run.Job.Requests.Requests.Memory)
+			if run.JobSpec.Requests.Requests.Memory != nil {
+				memory, err := resource.ParseQuantity(*run.JobSpec.Requests.Requests.Memory)
 				if err != nil {
 					return nil, err
 				}
 				containers[i].Resources.Requests[corev1.ResourceMemory] = memory
 			}
 		}
-		if run.Job.Requests.Limits != nil {
+		if run.JobSpec.Requests.Limits != nil {
 			if len(container.Resources.Limits) == 0 {
 				containers[i].Resources.Limits = map[corev1.ResourceName]resource.Quantity{}
 			}
-			if run.Job.Requests.Limits.CPU != nil {
-				cpu, err := resource.ParseQuantity(*run.Job.Requests.Limits.CPU)
+			if run.JobSpec.Requests.Limits.CPU != nil {
+				cpu, err := resource.ParseQuantity(*run.JobSpec.Requests.Limits.CPU)
 				if err != nil {
 					return nil, err
 				}
 				containers[i].Resources.Limits[corev1.ResourceCPU] = cpu
 			}
-			if run.Job.Requests.Limits.Memory != nil {
-				memory, err := resource.ParseQuantity(*run.Job.Requests.Limits.Memory)
+			if run.JobSpec.Requests.Limits.Memory != nil {
+				memory, err := resource.ParseQuantity(*run.JobSpec.Requests.Limits.Memory)
 				if err != nil {
 					return nil, err
 				}
