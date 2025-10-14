@@ -1,8 +1,6 @@
 package common
 
-import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
+import "github.com/pluralsh/polly/containers"
 
 const (
 	// LifecycleDeleteAnnotation is the lifecycle annotation key for a deletion operation.
@@ -14,43 +12,31 @@ const (
 	// for backwards compatibility.
 	PreventDeletion = "detach"
 
-	// OwningInventoryKey is the key used to store the owning service id
-	// in the annotations of a resource.
-	OwningInventoryKey = "config.k8s.io/owning-inventory"
-
-	// TrackingIdentifierKey is the key used to store the unique identifier
-	// of a resource in the annotations of a resource.
-	// This is used to make sure that the owning inventory was not copied from another resource.
-	TrackingIdentifierKey = "config.k8s.io/tracking-identifier"
-
 	// ClientFieldManager is a name associated with the actor or entity
 	// that is making changes to the object. Keep it the same as cli-utils
 	// for backwards compatibility.
 	ClientFieldManager = "application/apply-patch"
 )
 
-func GetOwningInventory(obj unstructured.Unstructured) string {
-	annotations := obj.GetAnnotations()
-	if annotations == nil {
-		return ""
-	}
+var (
+	GroupBlacklist = containers.ToSet([]string{
+		"aquasecurity.github.io", // Related to compliance/vulnerability reports. Can cause performance issues.
+	})
 
-	serviceID := annotations[OwningInventoryKey]
-	if serviceID == "" || !ValidateTrackingIdentifier(obj) {
-		return ""
-	}
+	ResourceVersionBlacklist = containers.ToSet([]string{
+		"componentstatuses/v1",         // throwing warnings about deprecation since 1.19
+		"events/v1",                    // no need to watch for resource that are not created by the user
+		"bindings/v1",                  // it's not possible to watch bindings
+		"localsubjectaccessreviews/v1", // it's not possible to watch localsubjectaccessreviews
+		"selfsubjectreviews/v1",        // it's not possible to watch selfsubjectreviews
+		"selfsubjectaccessreviews/v1",  // it's not possible to watch selfsubjectaccessreviews
+		"selfsubjectrulesreviews/v1",   // it's not possible to watch selfsubjectrulesreviews
+		"tokenreviews/v1",              // it's not possible to watch tokenreviews
+		"subjectaccessreviews/v1",      // it's not possible to watch subjectaccessreviews
+		"metrics.k8s.io/v1beta1",       // it's not possible to watch metrics
+	})
 
-	return serviceID
-}
-
-func GetTrackingIdentifier(obj unstructured.Unstructured) string {
-	if annotations := obj.GetAnnotations(); annotations != nil {
-		return annotations[TrackingIdentifierKey]
-	}
-
-	return ""
-}
-
-func ValidateTrackingIdentifier(resource unstructured.Unstructured) bool {
-	return NewKeyFromUnstructured(resource).Equals(GetTrackingIdentifier(resource))
-}
+	OptionalResourceVersionList = containers.ToSet([]string{
+		"leases/v1", // will be watched dynamically if applier tries to create it
+	})
+)

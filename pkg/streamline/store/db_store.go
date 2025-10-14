@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -122,9 +123,85 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
+func (in *DatabaseStore) GetResourceHealth(r []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
+	// We need to filter out resources that are on a blacklist as those are not synchronized to the store.
+	// That means that there will be no entries for those resources in the database,
+	// and they would always be considered pending.
+	resources := lo.Filter(r, func(item unstructured.Unstructured, index int) bool {
+		return !smcommon.GroupBlacklist.Has(item.GroupVersionKind().Group)
+	})
+
+	if len(resources) == 0 {
+		return false, false, nil // Empty list is considered healthy
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return false, false, fmt.Errorf("failed to get database connection: %w", err)
+	}
+	defer in.pool.Put(conn)
+
+	// Build dynamic query with placeholders for each resource
+	var sb strings.Builder
+	sb.WriteString(`
+		SELECT
+		CASE 
+			WHEN COUNT(*) = 0 THEN 0
+			WHEN COUNT(CASE WHEN health IN (1,3) THEN 1 END) > 0 THEN 1
+			ELSE 0
+		END as has_pending_resources,
+		CASE 
+			WHEN COUNT(*) = 0 THEN 0
+			WHEN COUNT(CASE WHEN health = 2 THEN 1 END) > 0 THEN 1
+			ELSE 0
+		END as has_failed_resources,
+		COUNT(*) as resource_count
+		FROM component 
+		WHERE ("group", version, kind, namespace, name) IN (
+	`)
+
+	// Build VALUES clause with placeholders
+	valueStrings := make([]string, 0, len(resources))
+	args := make([]interface{}, 0, len(resources)*5)
+
+	for _, resource := range resources {
+		gvk := resource.GroupVersionKind()
+		valueStrings = append(valueStrings, "(?,?,?,?,?)")
+		args = append(args,
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			resource.GetNamespace(),
+			resource.GetName(),
+		)
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
+	sb.WriteString(")")
+
+	var resourceCount int
+	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
+		Args: args,
+		ResultFunc: func(stmt *sqlite.Stmt) error {
+			hasPendingResources = stmt.ColumnBool(0)
+			hasFailedResources = stmt.ColumnBool(1)
+			resourceCount = stmt.ColumnInt(2)
+			return nil
+		},
+	})
+
+	if err != nil {
+		return false, false, fmt.Errorf("failed to check resource health: %w", err)
+	}
+
+	hasPendingResources = hasPendingResources || resourceCount != len(resources)
+	return hasPendingResources, hasFailedResources, nil
+}
+
 func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
-	state := NewComponentState(common.ToStatus(&obj))
+	status := common.ToStatus(&obj)
+	state := NewComponentState(status)
 	serviceID := smcommon.GetOwningInventory(obj)
 
 	var nodeName string
@@ -153,7 +230,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 		}
 	}
 
-	serverSHA, err := HashResource(obj)
+	serverSHA, err := utils.HashResource(obj)
 	if err != nil {
 		klog.V(log.LogLevelDefault).ErrorS(err, "failed to calculate resource SHA", "name", obj.GetName(), "namespace", obj.GetNamespace(), "gvk", gvk.String())
 		return err
@@ -164,6 +241,8 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 		return err
 	}
 	defer in.pool.Put(conn)
+
+	in.maybeSaveHookComponent(conn, obj, lo.FromPtr(status), serviceID)
 
 	return sqlitex.ExecuteTransient(conn, setComponentWithSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
@@ -178,6 +257,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			nodeName,
 			obj.GetCreationTimestamp().Unix(),
 			serviceID,
+			smcommon.GetDeletePhase(obj),
 			serverSHA,
 		},
 	})
@@ -215,9 +295,9 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 		  node,
 		  created_at,
 		  service_id,
+		  delete_phase,
 		  server_sha
-		) VALUES 
-	`)
+		) VALUES `)
 
 	valueStrings := make([]string, 0, len(objects))
 
@@ -252,13 +332,13 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 			}
 		}
 
-		serverSHA, err := HashResource(obj)
+		serverSHA, err := utils.HashResource(obj)
 		if err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to calculate resource SHA", "name", obj.GetName(), "namespace", obj.GetNamespace(), "gvk", gvk.String())
 			continue
 		}
 
-		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s')",
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s','%s')",
 			obj.GetUID(),
 			lo.FromPtr(ownerRef),
 			gvk.Group,
@@ -270,8 +350,13 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 			nodeName,
 			obj.GetCreationTimestamp().Unix(),
 			serviceID,
+			smcommon.GetDeletePhase(obj),
 			serverSHA,
 		))
+	}
+
+	if len(valueStrings) == 0 {
+		return nil // Nothing to insert
 	}
 
 	sb.WriteString(strings.Join(valueStrings, ","))
@@ -282,8 +367,11 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 	  node = excluded.node,
 	  created_at = excluded.created_at,
 	  service_id = excluded.service_id,
+      delete_phase = excluded.delete_phase,
 	  server_sha = excluded.server_sha
 	`)
+
+	in.maybeSaveHookComponents(conn, objects)
 
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
@@ -313,7 +401,7 @@ func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttrib
 	})
 }
 
-func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Entry, err error) {
+func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
@@ -325,7 +413,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 	err = sqlitex.ExecuteTransient(conn, getComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{obj.GetName(), obj.GetNamespace(), gvk.Group, gvk.Version, gvk.Kind},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = &smcommon.Entry{
+			result = &smcommon.Component{
 				UID:                  stmt.ColumnText(0),
 				Group:                stmt.ColumnText(1),
 				Version:              stmt.ColumnText(2),
@@ -374,7 +462,7 @@ func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.Compon
 	return result, err
 }
 
-func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result []smcommon.Entry, err error) {
+func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result []smcommon.Component, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
@@ -384,14 +472,15 @@ func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result
 	err = sqlitex.ExecuteTransient(conn, getComponentsByGVK, &sqlitex.ExecOptions{
 		Args: []interface{}{gvk.Group, gvk.Version, gvk.Kind},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = append(result, smcommon.Entry{
-				UID:       stmt.ColumnText(0),
-				Group:     stmt.ColumnText(1),
-				Version:   stmt.ColumnText(2),
-				Kind:      stmt.ColumnText(3),
-				Namespace: stmt.ColumnText(4),
-				Name:      stmt.ColumnText(5),
-				ServerSHA: stmt.ColumnText(6),
+			result = append(result, smcommon.Component{
+				UID:         stmt.ColumnText(0),
+				Group:       stmt.ColumnText(1),
+				Version:     stmt.ColumnText(2),
+				Kind:        stmt.ColumnText(3),
+				Namespace:   stmt.ColumnText(4),
+				Name:        stmt.ColumnText(5),
+				ServerSHA:   stmt.ColumnText(6),
+				DeletePhase: stmt.ColumnText(7),
 			})
 
 			return nil
@@ -428,27 +517,28 @@ func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
 		&sqlitex.ExecOptions{Args: []any{group, version, kind}})
 }
 
-func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Entry, error) {
+func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Component, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	defer in.pool.Put(conn)
 
-	result := make([]smcommon.Entry, 0)
+	result := make([]smcommon.Component, 0)
 	err = sqlitex.ExecuteTransient(conn, getComponentsByServiceID, &sqlitex.ExecOptions{
 		Args: []interface{}{serviceID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = append(result, smcommon.Entry{
-				UID:       stmt.ColumnText(0),
-				ParentUID: stmt.ColumnText(1),
-				Group:     stmt.ColumnText(2),
-				Version:   stmt.ColumnText(3),
-				Kind:      stmt.ColumnText(4),
-				Name:      stmt.ColumnText(5),
-				Namespace: stmt.ColumnText(6),
-				Status:    ComponentState(stmt.ColumnInt32(7)).String(),
-				ServiceID: serviceID,
+			result = append(result, smcommon.Component{
+				UID:         stmt.ColumnText(0),
+				ParentUID:   stmt.ColumnText(1),
+				Group:       stmt.ColumnText(2),
+				Version:     stmt.ColumnText(3),
+				Kind:        stmt.ColumnText(4),
+				Name:        stmt.ColumnText(5),
+				Namespace:   stmt.ColumnText(6),
+				Status:      ComponentState(stmt.ColumnInt32(7)).String(),
+				ServiceID:   serviceID,
+				DeletePhase: stmt.ColumnText(8),
 			})
 			return nil
 		},
@@ -570,7 +660,7 @@ func (in *DatabaseStore) GetHealthScore() (int64, error) {
 func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType SHAType) error {
 	gvk := obj.GroupVersionKind()
 
-	sha, err := HashResource(obj)
+	sha, err := utils.HashResource(obj)
 	if err != nil {
 		return err
 	}
@@ -670,6 +760,187 @@ func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
 	return sqlitex.ExecuteTransient(conn, expireOlderThan, &sqlitex.ExecOptions{
 		Args: []interface{}{cutoff},
 	})
+}
+
+func (in *DatabaseStore) maybeSaveHookComponent(conn *sqlite.Conn, resource unstructured.Unstructured, state client.ComponentState, serviceID string) {
+	if serviceID == "" {
+		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving hook")
+		return
+	}
+
+	// Health check recognizes resources being deleted as pending.
+	// Skipping to avoid recording pending as the last state,
+	// which would prevent proper check if a hook has reached its desired state.
+	if resource.GetDeletionTimestamp() != nil {
+		klog.V(log.LogLevelTrace).InfoS("resource is being deleted, skipping saving hook",
+			"resource", resource, "state", state)
+		return
+	}
+
+	if !smcommon.HasSyncPhaseHookDeletePolicy(resource) {
+		klog.V(log.LogLevelTrace).InfoS("resource does not have delete policy, skipping saving hook",
+			"resource", resource, "state", state)
+		return
+	}
+
+	gvk := resource.GroupVersionKind()
+
+	if err := sqlitex.Execute(conn, setHookComponent, &sqlitex.ExecOptions{
+		Args: []any{
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			resource.GetNamespace(),
+			resource.GetName(),
+			resource.GetUID(),
+			NewComponentState(&state),
+			serviceID,
+		}}); err != nil {
+		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save hook", "resource", resource)
+	}
+}
+
+func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []unstructured.Unstructured) {
+	count := len(resources)
+	if count == 0 {
+		return // Nothing to insert
+	}
+
+	var sb strings.Builder
+	sb.WriteString(`INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id) VALUES `)
+
+	valueStrings := make([]string, 0, len(resources))
+	for _, resource := range resources {
+		serviceID := smcommon.GetOwningInventory(resource)
+		state := lo.FromPtr(common.ToStatus(&resource))
+
+		if serviceID == "" {
+			klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving hook")
+			continue
+		}
+
+		// The health check logic marks resources being deleted as pending.
+		// This would cause issues when checking if a hook has reached its desired state, so we skip in that case.
+		if resource.GetDeletionTimestamp() != nil {
+			klog.V(log.LogLevelTrace).InfoS("resource is being deleted, skipping saving hook",
+				"resource", resource, "state", state)
+			continue
+		}
+
+		if !smcommon.HasSyncPhaseHookDeletePolicy(resource) {
+			klog.V(log.LogLevelTrace).InfoS("resource does not have delete policy, skipping saving hook",
+				"resource", resource, "state", state)
+			continue
+		}
+
+		gvk := resource.GroupVersionKind()
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s')", gvk.Group, gvk.Version, gvk.Kind,
+				resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID))
+	}
+
+	if len(valueStrings) == 0 {
+		return // Nothing to insert
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
+	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+		uid = excluded.uid,
+		status = excluded.status,
+		service_id = excluded.service_id`)
+
+	if err := sqlitex.Execute(conn, sb.String(), nil); err != nil {
+		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save hook", "resources", resources)
+	}
+}
+
+func (in *DatabaseStore) GetHookComponents(serviceID string) ([]smcommon.HookComponent, error) {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer in.pool.Put(conn)
+
+	result := make([]smcommon.HookComponent, 0)
+	err = sqlitex.ExecuteTransient(
+		conn,
+		`SELECT "group", version, kind, namespace, name, uid, status, manifest_sha FROM hook_component WHERE service_id = ?`,
+		&sqlitex.ExecOptions{
+			Args: []interface{}{serviceID},
+			ResultFunc: func(stmt *sqlite.Stmt) error {
+				result = append(result, smcommon.HookComponent{
+					Group:       stmt.ColumnText(0),
+					Version:     stmt.ColumnText(1),
+					Kind:        stmt.ColumnText(2),
+					Namespace:   stmt.ColumnText(3),
+					Name:        stmt.ColumnText(4),
+					UID:         stmt.ColumnText(5),
+					Status:      ComponentState(stmt.ColumnInt32(6)).String(),
+					ManifestSHA: stmt.ColumnText(7),
+					ServiceID:   serviceID,
+				})
+				return nil
+			},
+		})
+
+	return result, err
+}
+
+func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResource unstructured.Unstructured) error {
+	serviceID := smcommon.GetOwningInventory(manifest)
+	if serviceID == "" {
+		klog.V(log.LogLevelTrace).InfoS("service ID is empty, skipping saving hook")
+		return nil
+	}
+
+	if !smcommon.HasSyncPhaseHookDeletePolicy(manifest) {
+		klog.V(log.LogLevelTrace).InfoS("resource does not have delete policy, skipping saving hook")
+		return nil
+	}
+
+	manifestSHA, err := utils.HashResource(manifest)
+	if err != nil {
+		return err
+	}
+	if manifestSHA == "" {
+		klog.V(log.LogLevelTrace).InfoS("manifest SHA empty, skipping saving hook")
+		return nil
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	gvk := manifest.GroupVersionKind()
+
+	return sqlitex.Execute(
+		conn,
+		setHookComponentWithManifestSHA,
+		&sqlitex.ExecOptions{
+			Args: []any{
+				gvk.Group,
+				gvk.Version,
+				gvk.Kind,
+				manifest.GetNamespace(),
+				manifest.GetName(),
+				appliedResource.GetUID(),
+				NewComponentState(common.ToStatus(&appliedResource)),
+				manifestSHA,
+				serviceID,
+			}})
+}
+
+func (in *DatabaseStore) ExpireHookComponents(serviceID string) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, `DELETE FROM hook_component WHERE service_id = ?`,
+		&sqlitex.ExecOptions{Args: []any{serviceID}})
 }
 
 func (in *DatabaseStore) Shutdown() error {

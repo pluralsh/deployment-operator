@@ -17,10 +17,6 @@ func (k Key) String() string {
 	return string(k)
 }
 
-func NewKeyFromEntry(entry Entry) Key {
-	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", entry.Group, entry.Version, entry.Kind, entry.Namespace, entry.Name))
-}
-
 func NewKeyFromUnstructured(u unstructured.Unstructured) Key {
 	gvk := u.GroupVersionKind()
 	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, u.GetNamespace(), u.GetName()))
@@ -52,14 +48,6 @@ func (in StoreKey) ReplaceGroup(group string) StoreKey {
 		},
 		Namespace: in.Namespace,
 		Name:      in.Name,
-	}
-}
-
-func NewStoreKeyFromEntry(entry Entry) StoreKey {
-	return StoreKey{
-		GVK:       schema.GroupVersionKind{Group: entry.Group, Version: entry.Version, Kind: entry.Kind},
-		Namespace: entry.Namespace,
-		Name:      entry.Name,
 	}
 }
 

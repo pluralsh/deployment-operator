@@ -14,12 +14,13 @@ const (
 			health INT,
 			node TEXT,
 			created_at TIMESTAMP,
+			updated_at TIMESTAMP,
 			service_id TEXT,
+			delete_phase TEXT,
 			manifest_sha TEXT,
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
-			server_sha TEXT,
-			updated_at TIMESTAMP
+			server_sha TEXT
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
@@ -35,7 +36,7 @@ const (
 			WHERE id = NEW.id;
 		END;
 		
-		-- Update timestamp automatically on row update
+		-- Update timestamp automatically on row update§
 		CREATE TRIGGER IF NOT EXISTS set_updated_at_on_update
 		AFTER UPDATE ON component
 		BEGIN
@@ -44,6 +45,23 @@ const (
 			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
 
+		-- Create the hook component table
+		CREATE TABLE IF NOT EXISTS hook_component (
+			id INTEGER PRIMARY KEY,
+			uid TEXT,
+			"group" TEXT,
+			version TEXT,
+			kind TEXT, 
+			namespace TEXT,
+			name TEXT,
+			status INT,
+			manifest_sha TEXT,
+			service_id TEXT
+		);
+	 
+		-- Add indexes to the hook component table
+		CREATE UNIQUE INDEX IF NOT EXISTS hook_component_index_unique ON hook_component("group", version, kind, namespace, name);
+		CREATE INDEX IF NOT EXISTS hook_component_index_service_id ON hook_component(service_id);
 	`
 
 	getComponent = `
@@ -59,13 +77,13 @@ const (
 	`
 
 	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health
+		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase
 		FROM component
 		WHERE service_id = ? AND (parent_uid IS NULL OR parent_uid = '')
 	`
 
 	getComponentsByGVK = `
-		SELECT uid, "group", version, kind, namespace, name, server_sha
+		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase
 		FROM component
 		WHERE "group" = ? AND version = ? AND kind = ?
 	`
@@ -117,6 +135,7 @@ const (
 		    node,
 		    created_at,
 		    service_id,
+		    delete_phase,
 		    server_sha
 		) VALUES (
 			?,
@@ -130,6 +149,7 @@ const (
 			?,
 		    ?,
 		    ?,
+		    ?,
 		    ?
 		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
@@ -138,6 +158,7 @@ const (
 			node = excluded.node,
 			created_at = excluded.created_at,
 			service_id = excluded.service_id,
+			delete_phase = excluded.delete_phase,
 			server_sha = excluded.server_sha
 	`
 
@@ -271,5 +292,23 @@ const (
 			apply_sha = '',
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE updated_at < datetime(?, 'unixepoch')
+	`
+
+	setHookComponent = `
+		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			status = excluded.status,
+			service_id = excluded.service_id
+	`
+
+	setHookComponentWithManifestSHA = `
+		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, manifest_sha, service_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+		    uid = excluded.uid,
+		    manifest_sha = excluded.manifest_sha,
+		    service_id = excluded.service_id
 	`
 )

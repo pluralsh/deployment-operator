@@ -134,7 +134,11 @@ func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
 		return s.consoleClient.GetService(id)
 	})
 	s.manifestCache = manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL)
-	s.applier = applier.NewApplier(s.dynamicClient, s.discoveryCache, s.store, applier.WithWaveDelay(s.waveDelay), applier.WithFilter(applier.FilterCache, applier.CacheFilter()))
+	s.applier = applier.NewApplier(s.dynamicClient, s.discoveryCache, s.store,
+		applier.WithWaveDelay(s.waveDelay),
+		applier.WithFilter(applier.FilterCache, applier.CacheFilter()),
+		applier.WithFilter(applier.FilterSkip, applier.SkipFilter()),
+	)
 
 	return s, nil
 }
@@ -426,6 +430,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		s.manifestCache.Expire(id)
 		if err != nil {
 			logger.Error(err, "failed to update status")
+			return ctrl.Result{}, err
+		}
+
+		if err = s.store.ExpireHookComponents(svc.ID); err != nil {
+			logger.Error(err, "failed to expire processed hook components", "service", svc.Name)
 			return ctrl.Result{}, err
 		}
 

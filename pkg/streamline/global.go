@@ -42,7 +42,7 @@ type GlobalStore struct {
 	store store.Store
 }
 
-func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Entry, err error) {
+func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
 	return in.store.GetComponent(obj)
 }
 
@@ -64,4 +64,12 @@ func (in *GlobalStore) Expire(serviceID string) error {
 
 func (in *GlobalStore) DeleteComponent(key smcommon.StoreKey) error {
 	return in.store.DeleteComponent(key)
+}
+
+func (in *GlobalStore) GetResourceHealth(resources []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
+	return in.store.GetResourceHealth(resources)
+}
+
+func (in *GlobalStore) SaveHookComponentWithManifestSHA(manifest, appliedResource unstructured.Unstructured) error {
+	return in.store.SaveHookComponentWithManifestSHA(manifest, appliedResource)
 }
