@@ -76,10 +76,6 @@ type Store interface {
 	// GetResourceHealth checks health statuses of provided resources.
 	GetResourceHealth(resources []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error)
 
-	// HasSomeResources checks if at least one of the provided resources exists in the store.
-	// It can be used to determine if an initial installation or an upgrade is performed.
-	HasSomeResources(resources []unstructured.Unstructured) (bool, error)
-
 	// GetHookComponents returns all hook components with a deletion policy that belong to the specified service.
 	GetHookComponents(serviceID string) ([]smcommon.HookComponent, error)
 

@@ -139,11 +139,11 @@ func (in Phases) get(phase smcommon.SyncPhase) *Phase {
 	return &p
 }
 
-func NewPhases(resources []unstructured.Unstructured, isUpgrade bool, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phases {
+func NewPhases(resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phases {
 	phases := map[smcommon.SyncPhase][]unstructured.Unstructured{}
 	for _, phase := range smcommon.SyncPhases {
 		phases[phase] = lo.Filter(resources, func(resource unstructured.Unstructured, _ int) bool {
-			return smcommon.HasPhase(resource, phase, isUpgrade)
+			return smcommon.HasPhase(resource, phase)
 		})
 	}
 

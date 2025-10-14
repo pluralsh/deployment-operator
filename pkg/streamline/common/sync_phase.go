@@ -103,7 +103,7 @@ func getHelmDeleteHook(annotations map[string]string) SyncPhase {
 }
 
 // HasPhase checks if the resource belongs to the specified sync phase.
-func HasPhase(u unstructured.Unstructured, phase SyncPhase, isUpgrade bool) bool {
+func HasPhase(u unstructured.Unstructured, phase SyncPhase) bool {
 	annotations := u.GetAnnotations()
 	if annotations == nil {
 		return phase.Equals(SyncPhaseSync.String()) // If no annotations are found, then put it in the default phase.
@@ -111,14 +111,14 @@ func HasPhase(u unstructured.Unstructured, phase SyncPhase, isUpgrade bool) bool
 
 	annotation, ok := annotations[SyncPhaseAnnotation]
 	if !ok {
-		return hasHelmHook(annotations, phase, isUpgrade) // Fallback to Helm annotation check.
+		return hasHelmHook(annotations, phase) // Fallback to Helm annotation check.
 	}
 
 	phases := containers.ToSet[string](strings.Split(strings.ReplaceAll(annotation, " ", ""), ","))
 	return phases.Has(phase.String())
 }
 
-func hasHelmHook(annotations map[string]string, phase SyncPhase, isUpgrade bool) bool {
+func hasHelmHook(annotations map[string]string, phase SyncPhase) bool {
 	annotation, ok := annotations[HelmHookAnnotation]
 	if !ok {
 		return phase == SyncPhaseSync // If no Helm annotation is found, then put it in the default phase.
@@ -127,9 +127,9 @@ func hasHelmHook(annotations map[string]string, phase SyncPhase, isUpgrade bool)
 	hooks := containers.ToSet[string](strings.Split(strings.ReplaceAll(annotation, " ", ""), ","))
 	switch phase {
 	case SyncPhasePreSync:
-		return (hooks.Has(HelmHookPreInstall) && !isUpgrade) || (hooks.Has(HelmHookPreUpgrade) && isUpgrade)
+		return hooks.Has(HelmHookPreInstall) || hooks.Has(HelmHookPreUpgrade)
 	case SyncPhasePostSync:
-		return (hooks.Has(HelmHookPostInstall) && !isUpgrade) || (hooks.Has(HelmHookPostUpgrade) && isUpgrade)
+		return hooks.Has(HelmHookPostInstall) || hooks.Has(HelmHookPostUpgrade)
 	case SyncPhaseSync:
 		return hooks.Len() == 0 // If no Helm hooks are found, then put it in the default phase.
 	}

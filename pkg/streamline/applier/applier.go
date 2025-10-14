@@ -2,14 +2,11 @@ package applier
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/pluralsh/console/go/client"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/streamline"
-
-	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -51,11 +48,6 @@ func (in *Applier) Apply(ctx context.Context,
 	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
 	toSkip := make([]unstructured.Unstructured, 0)
 
-	isUpgrade, err := streamline.GetGlobalStore().HasSomeResources(resources)
-	if err != nil {
-		return componentList, serviceErrorList, fmt.Errorf("failed to check existing resources: %w", err)
-	}
-
 	deleteFilterFunc, err := in.getDeleteFilterFunc(service.ID)
 	if err != nil {
 		return componentList, serviceErrorList, err
@@ -63,7 +55,6 @@ func (in *Applier) Apply(ctx context.Context,
 
 	phases := NewPhases(
 		resources,
-		isUpgrade,
 		func(resource unstructured.Unstructured) bool {
 			return in.skipResource(resource, lo.FromPtr(service.DryRun))
 		},
