@@ -5,7 +5,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/opencode"
-	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 )
 
 // New creates a specific tool implementation structure based on the provided

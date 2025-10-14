@@ -3,7 +3,7 @@ package v1
 import (
 	"context"
 
-	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
+	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
