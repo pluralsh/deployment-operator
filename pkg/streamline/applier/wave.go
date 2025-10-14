@@ -65,6 +65,37 @@ func (in *Wave) Len() int {
 	return len(in.items)
 }
 
+type WaveStatistics struct {
+	attemptedApplies int
+	applied          int
+	attemptedDeletes int
+	deleted          int
+}
+
+func (in *WaveStatistics) Applied() string {
+	return fmt.Sprintf("%d/%d", in.applied, in.attemptedApplies)
+}
+
+func (in *WaveStatistics) Deleted() string {
+	return fmt.Sprintf("%d/%d", in.deleted, in.attemptedDeletes)
+}
+
+func (in *WaveStatistics) Add(ws WaveStatistics) {
+	in.attemptedApplies += ws.attemptedApplies
+	in.applied += ws.applied
+	in.attemptedDeletes += ws.attemptedDeletes
+	in.deleted += ws.deleted
+}
+
+func NewWaveStatistics(w Wave) WaveStatistics {
+	return WaveStatistics{
+		attemptedApplies: lo.Ternary(w.waveType == ApplyWave, w.Len(), 0),
+		applied:          0,
+		attemptedDeletes: lo.Ternary(w.waveType == DeleteWave, w.Len(), 0),
+		deleted:          0,
+	}
+}
+
 const (
 	defaultMaxConcurrentApplies = 10
 	defaultDeQueueDelay         = 100 * time.Millisecond
@@ -124,6 +155,8 @@ type WaveProcessor struct {
 
 	// svcCache is the discoveryCache used to get the service deployment for an agent.
 	svcCache *consoleclient.Cache[console.ServiceDeploymentForAgent]
+
+	waveStatistics WaveStatistics
 }
 
 func (in *WaveProcessor) Run(ctx context.Context) (components []console.ComponentAttributes, errors []console.ServiceErrorAttributes) {
@@ -269,6 +302,7 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component from store", "resource", resource.GetUID())
 		}
 
+		in.waveStatistics.deleted++
 		return
 	}
 
@@ -283,6 +317,7 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 		}
 
 		// skip deletion when prevented by annotation
+		in.waveStatistics.deleted++ // In statistics, count as deleted
 		return
 	}
 
@@ -305,6 +340,8 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 		}
 		return
 	}
+
+	in.waveStatistics.deleted++
 
 	if in.dryRun {
 		component := common.ToComponentAttributes(live)
@@ -359,6 +396,8 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 
 		return
 	}
+
+	in.waveStatistics.applied++
 
 	if in.onApplyCallback != nil {
 		in.onApplyCallback(resource)
@@ -460,6 +499,10 @@ func (in *WaveProcessor) init() {
 	}
 }
 
+func (in *WaveProcessor) Statistics() WaveStatistics {
+	return in.waveStatistics
+}
+
 type WaveProcessorOption func(*WaveProcessor)
 
 func WithWaveMaxConcurrentApplies(n int) WaveProcessorOption {
@@ -507,6 +550,7 @@ func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cach
 		wave:                 wave,
 		maxConcurrentApplies: defaultMaxConcurrentApplies,
 		deQueueDelay:         defaultDeQueueDelay,
+		waveStatistics:       NewWaveStatistics(wave),
 	}
 
 	for _, opt := range opts {

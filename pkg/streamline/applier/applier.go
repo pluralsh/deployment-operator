@@ -91,11 +91,10 @@ func (in *Applier) Apply(ctx context.Context,
 				"service", service.Name,
 				"id", service.ID,
 				"phase", phase.Name(),
-				"attempted", phase.ResourceCount(),
-				"applied", 0,
-				"deleted", 0,
+				"resources", phase.ResourceCount(),
 				"skipped", len(phase.Skipped()),
-				"failed", 0,
+				"applied", "0/0",
+				"deleted", "0/0",
 				"dryRun", lo.FromPtr(service.DryRun),
 				"duration", time.Since(now),
 			)
@@ -103,9 +102,8 @@ func (in *Applier) Apply(ctx context.Context,
 			continue
 		}
 
-		componentsCount := 0
-		serviceErrorsCount := 0
 		waves := phase.Waves()
+		waveStatistics := WaveStatistics{}
 		for i, wave := range waves {
 			processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
 			components, serviceErrors := processor.Run(ctx)
@@ -113,8 +111,7 @@ func (in *Applier) Apply(ctx context.Context,
 			componentList = append(componentList, components...)
 			serviceErrorList = append(serviceErrorList, serviceErrors...)
 
-			componentsCount = len(components)
-			serviceErrorsCount = len(serviceErrors)
+			waveStatistics.Add(processor.Statistics())
 
 			if i < len(waves)-1 {
 				time.Sleep(in.waveDelay)
@@ -126,11 +123,10 @@ func (in *Applier) Apply(ctx context.Context,
 			"service", service.Name,
 			"id", service.ID,
 			"phase", phase.Name(),
-			"attempted", phase.ResourceCount(),
-			"applied", componentsCount-phase.DeletedCount(),
-			"deleted", phase.DeletedCount(),
-			"skipped", len(phase.Skipped()),
-			"failed", serviceErrorsCount,
+			"resources", phase.ResourceCount(),
+			"skipped", phase.SkippedCount(),
+			"applied", waveStatistics.Applied(),
+			"deleted", waveStatistics.Deleted(),
 			"dryRun", lo.FromPtr(service.DryRun),
 			"duration", time.Since(now),
 		)

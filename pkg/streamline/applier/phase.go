@@ -42,8 +42,20 @@ func (p *Phase) AddWave(wave Wave) {
 	p.waves = append(p.waves, wave)
 }
 
+func (p *Phase) AppliedCount() int {
+	return lo.Reduce(p.waves, func(agg int, item Wave, index int) int { return agg + item.Len() }, 0)
+}
+
+func (p *Phase) SkippedCount() int {
+	return len(p.skipped)
+}
+
 func (p *Phase) DeletedCount() int {
 	return p.deleteWave.Len()
+}
+
+func (p *Phase) ResourceCount() int {
+	return p.AppliedCount() + p.SkippedCount() + p.DeletedCount()
 }
 
 func (p *Phase) ResourceHealth() (pending, failed bool, err error) {
@@ -53,12 +65,6 @@ func (p *Phase) ResourceHealth() (pending, failed bool, err error) {
 	}
 
 	return streamline.GetGlobalStore().GetResourceHealth(resources)
-}
-
-func (p *Phase) ResourceCount() int {
-	return len(p.skipped) + p.deleteWave.Len() + lo.Reduce(p.waves, func(agg int, item Wave, index int) int {
-		return agg + item.Len()
-	}, 0)
 }
 
 func NewPhase(name smcommon.SyncPhase, resources []unstructured.Unstructured, skipFilter FilterFunc, deleteFilter func(resources []unstructured.Unstructured) (toApply, toDelete []unstructured.Unstructured)) Phase {
