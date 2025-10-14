@@ -64,6 +64,9 @@ var (
 )
 
 func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *corev1.Pod {
+	if runtime.Spec.Template == nil {
+		runtime.Spec.Template = &corev1.PodTemplateSpec{}
+	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        run.Name,
