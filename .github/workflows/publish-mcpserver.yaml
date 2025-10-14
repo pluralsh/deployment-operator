@@ -7,6 +7,12 @@ on:
   push:
     tags:
     - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic Version (e.g. 1.2.3)'
+        required: true
+        type: string
 
 env:
   GOPATH: /home/runner/go/
@@ -122,6 +128,7 @@ jobs:
             ghcr.io/pluralsh/mcpserver
             docker.io/pluralsh/mcpserver
           tags: |
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }},priority=1100
             type=semver,pattern={{version}},priority=1000
             type=sha,priority=800
             type=ref,event=pr,priority=600

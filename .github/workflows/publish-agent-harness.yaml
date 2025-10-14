@@ -7,6 +7,12 @@ on:
   push:
     tags:
     - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic Version (e.g. 1.2.3)'
+        required: true
+        type: string
 
 env:
   GOPATH: /home/runner/go/
@@ -123,6 +129,7 @@ jobs:
             ghcr.io/pluralsh/agent-harness-base
             docker.io/pluralsh/agent-harness-base
           tags: |
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }},priority=1100
             type=semver,pattern={{version}},priority=1000
             type=sha,priority=800
             type=ref,event=pr,priority=600
@@ -166,6 +173,7 @@ jobs:
             ghcr.io/pluralsh/agent-harness
             docker.io/pluralsh/agent-harness
           tags: |
+            type=raw,value=${{ inputs.version }},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }},enable=${{ inputs.version != '' }},priority=1100
             type=semver,pattern={{version}},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }},priority=1000
             type=sha,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }},priority=800
             type=ref,event=pr,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }},priority=600
