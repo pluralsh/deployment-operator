@@ -253,10 +253,10 @@ func NewStackRunController(options ...Option) (Controller, error) {
 		sinkOptions:  make([]sink.Option, 0),
 	}
 
-	ctrl.executor = newExecutor(
+	ctrl.executor = exec.NewExecutor(
 		errChan,
 		finishedChan,
-		WithPostRunFunc(ctrl.postStepRun),
+		exec.WithPostRunFunc(ctrl.postStepRun),
 	)
 
 	for _, option := range options {
