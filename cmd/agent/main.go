@@ -118,6 +118,7 @@ func main() {
 
 	// Initialize Pipeline Gate Cache
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
+	cache.InitComponentShaCache(args.ComponentShaCacheTTL())
 
 	dbStore := initDatabaseStoreOrDie()
 	defer func(dbStore store.Store) {
