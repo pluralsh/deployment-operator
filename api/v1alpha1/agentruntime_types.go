@@ -31,8 +31,7 @@ type AgentRuntimeSpec struct {
 	Bindings *AgentRuntimeBindings `json:"bindings,omitempty"`
 
 	// Template defines the pod template for this agent runtime.
-	// +kubebuilder:validation:Required
-	Template corev1.PodTemplateSpec `json:"template"`
+	Template *corev1.PodTemplateSpec `json:"template,omitempty"`
 
 	// Config contains typed configuration depending on the chosen runtime type.
 	// +kubebuilder:validation:Optional

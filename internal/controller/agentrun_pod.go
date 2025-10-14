@@ -29,11 +29,13 @@ const (
 
 var (
 	defaultContainerImages = map[console.AgentRuntimeType]string{
-		console.AgentRuntimeTypeGemini: "ghcr.io/pluralsh/agent-harness-gemini",
+		console.AgentRuntimeTypeGemini:   "ghcr.io/pluralsh/agent-harness",
+		console.AgentRuntimeTypeOpencode: "ghcr.io/pluralsh/agent-harness",
 	}
 
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
-		console.AgentRuntimeTypeGemini: "latest",
+		console.AgentRuntimeTypeGemini:   "latest",                // TODO
+		console.AgentRuntimeTypeOpencode: "0.6.4-opencode-0.13.4", // TODO
 	}
 
 	defaultVolume = corev1.Volume{
