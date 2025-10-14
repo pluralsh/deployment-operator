@@ -8,7 +8,6 @@ import (
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
-// pkg/harness/agentrun/helpers.go (to be created)
 func StartAgentRun(client console.Client, id string) error {
 	_, err := client.UpdateAgentRun(context.Background(), id, gqlclient.AgentRunStatusAttributes{Status: gqlclient.AgentRunStatusRunning})
 	return err
