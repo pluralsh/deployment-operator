@@ -76,15 +76,6 @@ func (in *agentRunController) preExecHook() v1.HookFunction {
 	}
 }
 
-// postStepRun is a callback function started by the executor after executable finishes
-func (in *agentRunController) postStepRun(id string, err error) {
-	if err != nil {
-		klog.ErrorS(err, "CLI execution failed", "step", id)
-	} else {
-		klog.V(log.LogLevelDebug).InfoS("CLI execution completed", "step", id)
-	}
-}
-
 // validateAgentRunStatus checks if agent run can be started
 func (in *agentRunController) validateAgentRunStatus() error {
 	if in.agentRun.Status != gqlclient.AgentRunStatusPending && !environment.IsDev() {

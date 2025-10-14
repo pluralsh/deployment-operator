@@ -1,6 +1,8 @@
 package opencode
 
 const (
+	EnvOverrideSystemPrompt = "PLRL_AGENT_SYSTEM_PROMPT_OVERRIDE"
+
 	systemPromptWriter = `
 You are an autonomous agent. Highly skilled in code development and analysis. You have a great understanding of the codebase and its structure.
 Your sole purpose is to make any user requested changes within a specific repository directory and create a pull request for further review.

@@ -1,8 +1,6 @@
 package opencode
 
 import (
-	"context"
-
 	"github.com/sst/opencode-sdk-go"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
@@ -37,12 +35,6 @@ type Opencode struct {
 
 	// client is the opencode client.
 	client *opencode.Client
-
-	// sessionID is the session ID of the current opencode session.
-	sessionID string
-
-	// contextCancel is a function that cancels the internal context
-	contextCancel context.CancelCauseFunc
 
 	// errorChan is a channel that returns an error if the tool failed
 	errorChan chan error

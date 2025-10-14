@@ -11,13 +11,16 @@ import (
 // New creates a specific tool implementation structure based on the provided
 // console.AgentRuntimeType
 func New(stackType console.AgentRuntimeType, config v1.Config) v1.Tool {
-	// TODO: detect if runtime has proxy enabled as right now only that is supported
+	if !config.Run.IsProxyEnabled() {
+		klog.Fatalf("unsupported agent run configuration: proxy is not enabled")
+	}
+
 	var t v1.Tool
 	switch stackType {
 	case console.AgentRuntimeTypeOpencode:
 		t = opencode.New(config)
 	default:
-		klog.Fatalf("unsupported stack type: %s", stackType)
+		klog.Fatalf("unsupported agent run type: %s", stackType)
 	}
 
 	return t

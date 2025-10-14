@@ -14,6 +14,7 @@ import (
 	"github.com/sst/opencode-sdk-go/option"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -44,6 +45,9 @@ type Server struct {
 
 	// agent is an agent that will be used by the server.
 	agent string
+
+	// mode is a mode of the agent run.
+	mode console.AgentRunMode
 
 	// promptTimeout is a timeout for prompt requests.
 	promptTimeout time.Duration
@@ -257,14 +261,24 @@ func (in *Server) initSession(ctx context.Context) (err error) {
 	return nil
 }
 
+func (in *Server) init() *Server {
+	in.systemPrompt = helpers.GetEnv(
+		EnvOverrideSystemPrompt,
+		lo.Ternary(in.mode == console.AgentRunModeAnalyze, systemPromptAnalyzer, systemPromptWriter),
+	)
+
+	in.agent = lo.Ternary(in.mode == console.AgentRunModeAnalyze, defaultAnalysisAgent, defaultWriteAgent)
+	in.promptTimeout = 10 * time.Minute
+	in.client = opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", in.port)))
+
+	return in
+}
+
 func NewServer(port, configFilePath, repositoryDir string, mode console.AgentRunMode) *Server {
-	return &Server{
+	return (&Server{
 		port:           port,
 		configFilePath: configFilePath,
 		repositoryDir:  repositoryDir,
-		client:         opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", port))),
-		systemPrompt:   lo.Ternary(mode == console.AgentRunModeAnalyze, systemPromptAnalyzer, systemPromptWriter),
-		agent:          lo.Ternary(mode == console.AgentRunModeAnalyze, defaultAnalysisAgent, defaultWriteAgent),
-		promptTimeout:  10 * time.Minute,
-	}
+		mode:           mode,
+	}).init()
 }

@@ -1,4 +1,4 @@
-package terraformserver
+package main
 
 import (
 	"log"

@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	gqlclient "github.com/pluralsh/console/go/client"
@@ -89,15 +88,6 @@ func (in *agentRunController) prepare() error {
 	})
 
 	return in.tool.Configure(in.consoleUrl, *in.agentRun.PluralCreds.Token, in.deployToken)
-}
-
-// getSystemPromptOverride returns system prompt override if configured
-// TODO: move this to tool specific configuration
-func (in *agentRunController) getSystemPromptOverride() string {
-	if override := os.Getenv("AGENT_SYSTEM_PROMPT_OVERRIDE"); override != "" {
-		return override
-	}
-	return ""
 }
 
 // completeAgentRun updates the agent run status in the Console API
