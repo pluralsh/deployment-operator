@@ -1,5 +1,5 @@
-ARG NODE_IMAGE_TAG=latest
-ARG NODE_IMAGE=cgr.dev/chainguard/node:$NODE_IMAGE_TAG
+ARG NODE_IMAGE_TAG=24
+ARG NODE_IMAGE=node:${NODE_IMAGE_TAG}-slim
 ARG AGENT_VERSION=latest
 
 ARG AGENT_HARNESS_BASE_IMAGE_TAG=latest
@@ -26,11 +26,11 @@ COPY --from=node /usr/local/bin/gemini /usr/local/bin/gemini
 COPY --from=node /usr/local/lib/node_modules/@google/gemini-cli /usr/local/lib/node_modules/@google/gemini-cli
 
 # Copy Node.js runtime (needed to run the CLI)
-COPY --from=node /usr/bin/node /usr/bin/node
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
 
 # Ensure proper ownership for nonroot user
 USER root
-RUN chown -R 65532:65532 /usr/local/bin/gemini /usr/local/lib/node_modules/@google/gemini-cli /usr/bin/node
+RUN chown -R 65532:65532 /usr/local/bin/gemini /usr/local/lib/node_modules/@google/gemini-cli /usr/local/bin/node
 
 # Switch back to nonroot user
 USER 65532:65532

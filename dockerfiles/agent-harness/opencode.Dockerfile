@@ -1,6 +1,6 @@
 ARG NODE_IMAGE_TAG=24
 ARG NODE_IMAGE=node:${NODE_IMAGE_TAG}-slim
-ARG AGENT_VERSION=latest
+ARG AGENT_VERSION=0.15.2
 
 ARG AGENT_HARNESS_BASE_IMAGE_TAG=latest
 ARG AGENT_HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/agent-harness-base
@@ -15,7 +15,7 @@ USER root
 RUN apt update && apt install -y curl unzip
 
 # Install OpenCode CLI
-RUN curl -fsSL https://opencode.ai/install | bash
+RUN VERSION=$AGENT_VERSION curl -fsSL https://opencode.ai/install | bash
 
 # Verify installation
 RUN /root/.opencode/bin/opencode --version

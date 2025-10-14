@@ -32,8 +32,7 @@ RUN apt update && apt install -y git curl jq tar
 
 # Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness
-# TODO: use official release version
-COPY --from=ghcr.io/pluralsh/mcpserver:sha-d9d69ad /root/agent-pr-mcpserver /usr/local/bin/mcpserver
+COPY --from=ghcr.io/pluralsh/mcpserver:0.6.4 /root/agent-pr-mcpserver /usr/local/bin/mcpserver
 
 WORKDIR /plural
 
