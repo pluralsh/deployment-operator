@@ -10,13 +10,17 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/controller"
+	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/harness/sink"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 func main() {
+	klog.V(log.LogLevelDefault).InfoS("starting harness", "version", environment.Version)
+
 	consoleClient := client.New(args.ConsoleUrl(), args.ConsoleToken())
 	fetchClient := helpers.Fetch(
 		helpers.FetchWithToken(args.ConsoleToken()),

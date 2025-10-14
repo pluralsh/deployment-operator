@@ -6,14 +6,9 @@ import (
 )
 
 // Environment is responsible for handling harness working directory.
-// It can initialize, download and create files required by the gqlclient.StackRun.
+// It can initialize, download and create required files.
 type Environment interface {
 	// Setup ensures that the environment is correctly initialized
-	// in order to start gqlclient.StackRun.
-	//
-	// 1. Creates a working dir if it doesn't exist.
-	// 2. Downloads the tarball related to stack run and unpacks it into the working dir.
-	// 3. Creates any additional files that are part of the gqlclient.StackRun.
 	Setup() error
 }
 

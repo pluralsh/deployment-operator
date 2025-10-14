@@ -115,7 +115,7 @@ func (r *PipelineGateReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	return requeue(requeueAfter, jitter), nil
+	return jitterRequeue(requeueAfter, jitter), nil
 }
 
 func (r *PipelineGateReconciler) cleanUpGate(ctx context.Context, crGate *v1alpha1.PipelineGate) error {
@@ -183,7 +183,7 @@ func (r *PipelineGateReconciler) reconcilePendingRunningGate(ctx context.Context
 		gate.Status.SetState(console.GateStateClosed)
 		gate.Status.JobRef = nil
 		log.V(1).Info("Job aborted.", "JobName", job.Name, "JobNamespace", job.Namespace)
-		return requeue(requeueAfter, jitter), nil
+		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
 	// check job status
@@ -191,20 +191,20 @@ func (r *PipelineGateReconciler) reconcilePendingRunningGate(ctx context.Context
 		// if the job is failed, then we need to update the gate state to closed, unless it's a rerun
 		log.V(2).Info("Job failed.", "JobName", job.Name, "JobNamespace", job.Namespace)
 		gate.Status.SetState(console.GateStateClosed)
-		return requeue(requeueAfter, jitter), nil
+		return jitterRequeue(requeueAfter, jitter), nil
 	}
 	if hasSucceeded(reconciledJob) {
 		// if the job is complete, then we need to update the gate state to open, unless it's a rerun
 		log.V(1).Info("Job succeeded.", "JobName", job.Name, "JobNamespace", job.Namespace)
 		gate.Status.SetState(console.GateStateOpen)
-		return requeue(requeueAfter, jitter), nil
+		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
 	if err := r.updateJob(ctx, reconciledJob, job); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return requeue(requeueAfter, jitter), nil
+	return jitterRequeue(requeueAfter, jitter), nil
 }
 
 func (r *PipelineGateReconciler) updateJob(ctx context.Context, reconciledJob *batchv1.Job, newJob *batchv1.Job) error {
