@@ -37,7 +37,7 @@ const (
 var (
 	argConsoleUrl         = pflag.String("console-url", helpers.GetPluralEnv(EnvConsoleUrl, ""), "URL to the extended Console API, i.e. https://console.onplural.sh/ext/gql")
 	argConsoleToken       = pflag.String("console-token", helpers.GetPluralEnv(EnvConsoleToken, ""), "Deploy token to the Console API")
-	argStackRunID         = pflag.String("sentinel-run-id", helpers.GetPluralEnv(EnvSentinelRunID, ""), "ID of the Stack Run to execute")
+	argSentinelRunID      = pflag.String("sentinel-run-id", helpers.GetPluralEnv(EnvSentinelRunID, ""), "ID of the Stack Run to execute")
 	argWorkingDir         = pflag.String("working-dir", helpers.GetPluralEnv(EnvWorkingDir, defaultWorkingDir), "Working directory used to prepare the environment")
 	argTimeout            = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout is the maximum time each stack run step can run before it will be cancelled")
 	argLogFlushFrequency  = pflag.String("log-flush-frequency", helpers.GetPluralEnv(EnvLogFlushFrequency, defaultLogFlushFrequency), "Frequency at which logs should be flushed if buffer is not full")
@@ -70,10 +70,10 @@ func ConsoleToken() string {
 	return *argConsoleToken
 }
 
-func StackRunID() string {
-	ensureOrDie("stack-run-id", argStackRunID)
+func SentinelRunID() string {
+	ensureOrDie("sentinel-run-id", argSentinelRunID)
 
-	return *argStackRunID
+	return *argSentinelRunID
 }
 
 func LogLevel() klog.Level {
