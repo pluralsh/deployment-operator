@@ -14,28 +14,11 @@ func ExtractImagesFromResource(resource *unstructured.Unstructured) []string {
 
 	kind := strings.ToLower(resource.GetKind())
 	ns, name := resource.GetNamespace(), resource.GetName()
-
-	appendImages := func(path ...string) (found bool, images []string, err error) {
-		slice, found, err := unstructured.NestedSlice(resource.Object, path...)
-		if err != nil || !found {
-			return found, nil, err
-		}
-		imgs := make([]string, 0, len(slice))
-		for _, c := range slice {
-			if m, ok := c.(map[string]interface{}); ok {
-				if s, ok := m["image"].(string); ok && s != "" {
-					imgs = append(imgs, s)
-				}
-			}
-		}
-		return true, imgs, nil
-	}
-
 	var out []string
 
 	switch kind {
 	case "deployment", "statefulset", "daemonset", "replicaset":
-		if found, imgs, err := appendImages("spec", "template", "spec", "containers"); err != nil {
+		if found, imgs, err := extractImagesFromPath(resource, "spec", "template", "spec", "containers"); err != nil {
 			klog.Warningf("failed to extract containers from %s %s/%s: %v", resource.GetKind(), ns, name, err)
 			return nil
 		} else if !found {
@@ -44,14 +27,14 @@ func ExtractImagesFromResource(resource *unstructured.Unstructured) []string {
 			out = append(out, imgs...)
 		}
 
-		if _, imgs, err := appendImages("spec", "template", "spec", "initContainers"); err != nil {
+		if _, imgs, err := extractImagesFromPath(resource, "spec", "template", "spec", "initContainers"); err != nil {
 			klog.Infof("Error extracting init containers from %s %s/%s: %v", resource.GetKind(), ns, name, err)
 		} else {
 			out = append(out, imgs...)
 		}
 
 	case "pod":
-		if found, imgs, err := appendImages("spec", "containers"); err != nil {
+		if found, imgs, err := extractImagesFromPath(resource, "spec", "containers"); err != nil {
 			klog.Warningf("failed to extract containers from pod %s/%s: %v", ns, name, err)
 			return nil
 		} else if !found {
@@ -60,7 +43,7 @@ func ExtractImagesFromResource(resource *unstructured.Unstructured) []string {
 			out = append(out, imgs...)
 		}
 
-		if _, imgs, err := appendImages("spec", "initContainers"); err != nil {
+		if _, imgs, err := extractImagesFromPath(resource, "spec", "initContainers"); err != nil {
 			klog.Infof("Error extracting init containers from Pod %s/%s: %v", ns, name, err)
 		} else {
 			out = append(out, imgs...)
@@ -75,28 +58,61 @@ func ExtractFqdnsFromResource(resource *unstructured.Unstructured) []string {
 		return nil
 	}
 
-	added := make(map[string]struct{})
-	var out []string
-	add := func(s string) {
-		if s == "" {
-			return
-		}
-		if _, seen := added[s]; !seen {
-			added[s] = struct{}{}
-			out = append(out, s)
-		}
-	}
+	fqdns := newFQDNSet()
 
 	switch strings.ToLower(resource.GetKind()) {
 	case "ingress":
-		extractIngressFQDNs(resource, add)
+		extractIngressFQDNs(resource, fqdns.add)
 	case "httproute", "grpcroute":
-		extractHTTPRouteFQDNs(resource, add)
+		extractHTTPRouteFQDNs(resource, fqdns.add)
 	case "gateway":
-		extractGatewayFQDNs(resource, add)
+		extractGatewayFQDNs(resource, fqdns.add)
 	}
 
-	return out
+	return fqdns.result()
+}
+
+func extractImagesFromPath(resource *unstructured.Unstructured, path ...string) (found bool, images []string, err error) {
+	slice, found, err := unstructured.NestedSlice(resource.Object, path...)
+	if err != nil || !found {
+		return found, nil, err
+	}
+
+	imgs := make([]string, 0, len(slice))
+	for _, c := range slice {
+		if m, ok := c.(map[string]interface{}); ok {
+			if s, ok := m["image"].(string); ok && s != "" {
+				imgs = append(imgs, s)
+			}
+		}
+	}
+	return true, imgs, nil
+}
+
+type fqdnSet struct {
+	added map[string]struct{}
+	out   []string
+}
+
+func newFQDNSet() *fqdnSet {
+	return &fqdnSet{
+		added: make(map[string]struct{}),
+		out:   make([]string, 0),
+	}
+}
+
+func (f *fqdnSet) add(s string) {
+	if s == "" {
+		return
+	}
+	if _, seen := f.added[s]; !seen {
+		f.added[s] = struct{}{}
+		f.out = append(f.out, s)
+	}
+}
+
+func (f *fqdnSet) result() []string {
+	return f.out
 }
 
 func extractIngressFQDNs(u *unstructured.Unstructured, add func(string)) {
