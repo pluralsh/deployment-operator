@@ -28,8 +28,8 @@ var (
 	}
 
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
-		console.AgentRuntimeTypeGemini:   "latest",                // TODO
-		console.AgentRuntimeTypeOpencode: "0.6.5-opencode-0.13.4", // TODO
+		console.AgentRuntimeTypeGemini:   "latest",
+		console.AgentRuntimeTypeOpencode: "0.6.5-opencode-0.15.2",
 	}
 
 	defaultTmpVolume = corev1.Volume{
