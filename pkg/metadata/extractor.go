@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/klog/v2"
 )
 
 func ExtractImagesFromResource(resource *unstructured.Unstructured) []string {
@@ -13,39 +12,24 @@ func ExtractImagesFromResource(resource *unstructured.Unstructured) []string {
 	}
 
 	kind := strings.ToLower(resource.GetKind())
-	ns, name := resource.GetNamespace(), resource.GetName()
 	var out []string
 
 	switch kind {
 	case "deployment", "statefulset", "daemonset", "replicaset":
-		if found, imgs, err := extractImagesFromPath(resource, "spec", "template", "spec", "containers"); err != nil {
-			klog.Warningf("failed to extract containers from %s %s/%s: %v", resource.GetKind(), ns, name, err)
-			return nil
-		} else if !found {
-			return nil
-		} else {
+		if found, imgs, err := extractImagesFromPath(resource, "spec", "template", "spec", "containers"); err == nil && found {
 			out = append(out, imgs...)
 		}
 
-		if _, imgs, err := extractImagesFromPath(resource, "spec", "template", "spec", "initContainers"); err != nil {
-			klog.Infof("Error extracting init containers from %s %s/%s: %v", resource.GetKind(), ns, name, err)
-		} else {
+		if found, imgs, err := extractImagesFromPath(resource, "spec", "template", "spec", "initContainers"); err == nil && found {
 			out = append(out, imgs...)
 		}
 
 	case "pod":
-		if found, imgs, err := extractImagesFromPath(resource, "spec", "containers"); err != nil {
-			klog.Warningf("failed to extract containers from pod %s/%s: %v", ns, name, err)
-			return nil
-		} else if !found {
-			return nil
-		} else {
+		if found, imgs, err := extractImagesFromPath(resource, "spec", "containers"); err == nil && found {
 			out = append(out, imgs...)
 		}
 
-		if _, imgs, err := extractImagesFromPath(resource, "spec", "initContainers"); err != nil {
-			klog.Infof("Error extracting init containers from Pod %s/%s: %v", ns, name, err)
-		} else {
+		if found, imgs, err := extractImagesFromPath(resource, "spec", "initContainers"); err == nil && found {
 			out = append(out, imgs...)
 		}
 	}
@@ -116,11 +100,7 @@ func (f *fqdnSet) result() []string {
 }
 
 func extractIngressFQDNs(u *unstructured.Unstructured, add func(string)) {
-	ns, name := u.GetNamespace(), u.GetName()
-
-	if rules, found, err := unstructured.NestedSlice(u.Object, "spec", "rules"); err != nil {
-		logExtractErr("Ingress", ns, name, "rules", err)
-	} else if found {
+	if rules, found, err := unstructured.NestedSlice(u.Object, "spec", "rules"); err == nil && found {
 		for _, r := range rules {
 			if m, ok := r.(map[string]interface{}); ok {
 				if host, ok := m["host"].(string); ok {
@@ -130,9 +110,7 @@ func extractIngressFQDNs(u *unstructured.Unstructured, add func(string)) {
 		}
 	}
 
-	if tls, found, err := unstructured.NestedSlice(u.Object, "spec", "tls"); err != nil {
-		logExtractErr("Ingress", ns, name, "tls", err)
-	} else if found {
+	if tls, found, err := unstructured.NestedSlice(u.Object, "spec", "tls"); err == nil && found {
 		for _, t := range tls {
 			m, ok := t.(map[string]interface{})
 			if !ok {
@@ -150,11 +128,7 @@ func extractIngressFQDNs(u *unstructured.Unstructured, add func(string)) {
 }
 
 func extractHTTPRouteFQDNs(u *unstructured.Unstructured, add func(string)) {
-	ns, name, kind := u.GetNamespace(), u.GetName(), u.GetKind()
-
-	if hn, found, err := unstructured.NestedSlice(u.Object, "spec", "hostnames"); err != nil {
-		logExtractErr(kind, ns, name, "hostnames", err)
-	} else if found {
+	if hn, found, err := unstructured.NestedSlice(u.Object, "spec", "hostnames"); err == nil && found {
 		for _, h := range hn {
 			if s, ok := h.(string); ok {
 				add(s)
@@ -164,11 +138,7 @@ func extractHTTPRouteFQDNs(u *unstructured.Unstructured, add func(string)) {
 }
 
 func extractGatewayFQDNs(u *unstructured.Unstructured, add func(string)) {
-	ns, name := u.GetNamespace(), u.GetName()
-
-	if listeners, found, err := unstructured.NestedSlice(u.Object, "spec", "listeners"); err != nil {
-		logExtractErr("Gateway", ns, name, "listeners", err)
-	} else if found {
+	if listeners, found, err := unstructured.NestedSlice(u.Object, "spec", "listeners"); err == nil && found {
 		for _, l := range listeners {
 			if m, ok := l.(map[string]interface{}); ok {
 				if s, ok := m["hostname"].(string); ok {
@@ -177,8 +147,4 @@ func extractGatewayFQDNs(u *unstructured.Unstructured, add func(string)) {
 			}
 		}
 	}
-}
-
-func logExtractErr(kind, ns, name, field string, err error) {
-	klog.Infof("Error extracting %s from %s %s/%s: %v", field, kind, ns, name, err)
 }

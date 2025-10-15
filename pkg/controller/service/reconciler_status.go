@@ -16,6 +16,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	ignoreSha = "__ignore__"
+)
+
 func (s *ServiceReconciler) UpdateErrorStatus(ctx context.Context, id string, err error) {
 	if err := s.UpdateErrors(id, errorAttributes("sync", err)); err != nil {
 		log.FromContext(ctx).Error(err, "Failed to update service status, ignoring for now")
@@ -59,21 +63,23 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 	// hash the components and errors to determine if there has been a meaningful change
 	// we need to report to the server
 	objToHash := struct {
-		Components []*console.ComponentAttributes    `json:"components"`
-		Errs       []*console.ServiceErrorAttributes `json:"errs"`
-		RevisionID string                            `json:"revisionId"`
-		Sha        *string                           `json:"sha,omitempty"`
+		Components []*console.ComponentAttributes     `json:"components"`
+		Errs       []*console.ServiceErrorAttributes  `json:"errs"`
+		RevisionID string                             `json:"revisionId"`
+		Sha        *string                            `json:"sha,omitempty"`
+		Metadata   *console.ServiceMetadataAttributes `json:"metadata,omitempty"`
 	}{
 		Components: components,
 		Errs:       errs,
 		RevisionID: revisionID,
 		Sha:        sha,
+		Metadata:   metadata,
 	}
 
 	hashedSha, err := utils.HashObject(objToHash)
 	if err != nil {
 		log.Log.Error(err, "Failed to hash service components")
-		hashedSha = "__ignore__"
+		hashedSha = ignoreSha
 	}
 
 	logger := log.FromContext(ctx).V(int(plrlog.LogLevelDefault))
@@ -85,7 +91,7 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 		return nil
 	}
 
-	if hashedSha != "__ignore__" {
+	if hashedSha != ignoreSha {
 		shaCache.Add(id, hashedSha)
 	}
 

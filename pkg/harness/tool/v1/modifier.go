@@ -11,7 +11,7 @@ func (in *DefaultModifier) Args(args []string) []string {
 
 // WriteCloser implements [PassthroughModifier] interface.
 func (in *DefaultModifier) WriteCloser() []io.WriteCloser {
-	return nil
+	return make([]io.WriteCloser, 0)
 }
 
 // Env implements [EnvModifier] interface.
