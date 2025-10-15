@@ -7,7 +7,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -81,7 +80,7 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 		if err != nil {
 			return nil, err
 		}
-		logger.V(2).Info("creating job for stack run", "id", run.ID, "namespace", job.Namespace, "name", job.Name)
+		logger.V(2).Info("creating job for sentinel run", "id", run.ID, "namespace", job.Namespace, "name", job.Name)
 		if err := r.k8sClient.Create(ctx, job); err != nil {
 			logger.Error(err, "unable to create job")
 			return nil, err
@@ -92,9 +91,8 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 			return nil, err
 		}
 
-		metrics.Record().StackRunJobCreation()
 		if _, err := r.consoleClient.UpdateSentinelRunJobStatus(run.ID, &console.SentinelRunJobUpdateAttributes{
-			Status: lo.ToPtr(run.Status),
+			Status: lo.ToPtr(console.SentinelRunJobStatusRunning),
 			Reference: &console.NamespacedName{
 				Name:      job.Name,
 				Namespace: job.Namespace,
@@ -221,7 +219,10 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 			if containers[index].Image == "" {
 				containers[index].Image = defaultContainerImage
 			}
-			containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
+		}
+
+		for i, _ := range containers {
+			containers[i].VolumeMounts = ensureDefaultVolumeMounts(containers[i].VolumeMounts)
 		}
 
 		return containers
@@ -274,16 +275,7 @@ func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount
 }
 
 func ensureDefaultVolumes(volumes []corev1.Volume) []corev1.Volume {
-	return append(
-		algorithms.Filter(volumes, func(v corev1.Volume) bool {
-			switch v.Name {
-			case defaultJobVolumeName:
-			case defaultJobTmpVolumeName:
-				return false
-			}
-
-			return true
-		}),
+	return append(volumes,
 		defaultJobVolume,
 		defaultJobTmpVolume,
 	)

@@ -8,11 +8,11 @@ import (
 )
 
 type socketPublisher struct {
-	stackRunQueue workqueue.TypedRateLimitingInterface[string]
-	stackRunCache *client.Cache[console.SentinelRunJobFragment]
+	sentinelRunQueue workqueue.TypedRateLimitingInterface[string]
+	sentinelRunCache *client.Cache[console.SentinelRunJobFragment]
 }
 
 func (sp *socketPublisher) Publish(id string, _ bool) {
-	sp.stackRunCache.Expire(id)
-	sp.stackRunQueue.Add(id)
+	sp.sentinelRunCache.Expire(id)
+	sp.sentinelRunQueue.Add(id)
 }

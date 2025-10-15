@@ -78,8 +78,8 @@ func (r *SentinelReconciler) GetPollInterval() func() time.Duration {
 
 func (r *SentinelReconciler) GetPublisher() (string, websocket.Publisher) {
 	return "sentinel.run.event", &socketPublisher{
-		stackRunQueue: r.sentinelQueue,
-		stackRunCache: r.sentinelCache,
+		sentinelRunQueue: r.sentinelQueue,
+		sentinelRunCache: r.sentinelCache,
 	}
 }
 
@@ -116,15 +116,15 @@ func (r *SentinelReconciler) Poll(ctx context.Context) error {
 	pager := r.ListSentinelRunJobs(ctx)
 
 	for pager.HasNext() {
-		stacks, err := pager.NextPage()
+		runs, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch sentinel run list")
 			return err
 		}
-		for _, stack := range stacks {
-			logger.V(1).Info("sending update for", "sentinel run job", stack.Node.ID)
-			r.sentinelCache.Add(stack.Node.ID, stack.Node)
-			r.sentinelQueue.AddAfter(stack.Node.ID, utils.Jitter(r.GetPollInterval()()))
+		for _, run := range runs {
+			logger.V(1).Info("sending update for", "sentinel run job", run.Node.ID)
+			r.sentinelCache.Add(run.Node.ID, run.Node)
+			r.sentinelQueue.AddAfter(run.Node.ID, utils.Jitter(r.GetPollInterval()()))
 		}
 	}
 
