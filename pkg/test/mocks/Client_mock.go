@@ -2442,17 +2442,17 @@ func (_c *ClientMock_UpdateClusterRestore_Call) RunAndReturn(run func(string, go
 	return _c
 }
 
-// UpdateComponents provides a mock function with given fields: id, revisionID, sha, components, errs
-func (_m *ClientMock) UpdateComponents(id string, revisionID string, sha *string, components []*goclient.ComponentAttributes, errs []*goclient.ServiceErrorAttributes) error {
-	ret := _m.Called(id, revisionID, sha, components, errs)
+// UpdateComponents provides a mock function with given fields: id, revisionID, sha, components, errs, metadata
+func (_m *ClientMock) UpdateComponents(id string, revisionID string, sha *string, components []*goclient.ComponentAttributes, errs []*goclient.ServiceErrorAttributes, metadata *goclient.ServiceMetadataAttributes) error {
+	ret := _m.Called(id, revisionID, sha, components, errs, metadata)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateComponents")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, *string, []*goclient.ComponentAttributes, []*goclient.ServiceErrorAttributes) error); ok {
-		r0 = rf(id, revisionID, sha, components, errs)
+	if rf, ok := ret.Get(0).(func(string, string, *string, []*goclient.ComponentAttributes, []*goclient.ServiceErrorAttributes, *goclient.ServiceMetadataAttributes) error); ok {
+		r0 = rf(id, revisionID, sha, components, errs, metadata)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2471,13 +2471,14 @@ type ClientMock_UpdateComponents_Call struct {
 //   - sha *string
 //   - components []*goclient.ComponentAttributes
 //   - errs []*goclient.ServiceErrorAttributes
-func (_e *ClientMock_Expecter) UpdateComponents(id interface{}, revisionID interface{}, sha interface{}, components interface{}, errs interface{}) *ClientMock_UpdateComponents_Call {
-	return &ClientMock_UpdateComponents_Call{Call: _e.mock.On("UpdateComponents", id, revisionID, sha, components, errs)}
+//   - metadata *goclient.ServiceMetadataAttributes
+func (_e *ClientMock_Expecter) UpdateComponents(id interface{}, revisionID interface{}, sha interface{}, components interface{}, errs interface{}, metadata interface{}) *ClientMock_UpdateComponents_Call {
+	return &ClientMock_UpdateComponents_Call{Call: _e.mock.On("UpdateComponents", id, revisionID, sha, components, errs, metadata)}
 }
 
-func (_c *ClientMock_UpdateComponents_Call) Run(run func(id string, revisionID string, sha *string, components []*goclient.ComponentAttributes, errs []*goclient.ServiceErrorAttributes)) *ClientMock_UpdateComponents_Call {
+func (_c *ClientMock_UpdateComponents_Call) Run(run func(id string, revisionID string, sha *string, components []*goclient.ComponentAttributes, errs []*goclient.ServiceErrorAttributes, metadata *goclient.ServiceMetadataAttributes)) *ClientMock_UpdateComponents_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(string), args[2].(*string), args[3].([]*goclient.ComponentAttributes), args[4].([]*goclient.ServiceErrorAttributes))
+		run(args[0].(string), args[1].(string), args[2].(*string), args[3].([]*goclient.ComponentAttributes), args[4].([]*goclient.ServiceErrorAttributes), args[5].(*goclient.ServiceMetadataAttributes))
 	})
 	return _c
 }
@@ -2487,7 +2488,7 @@ func (_c *ClientMock_UpdateComponents_Call) Return(_a0 error) *ClientMock_Update
 	return _c
 }
 
-func (_c *ClientMock_UpdateComponents_Call) RunAndReturn(run func(string, string, *string, []*goclient.ComponentAttributes, []*goclient.ServiceErrorAttributes) error) *ClientMock_UpdateComponents_Call {
+func (_c *ClientMock_UpdateComponents_Call) RunAndReturn(run func(string, string, *string, []*goclient.ComponentAttributes, []*goclient.ServiceErrorAttributes, *goclient.ServiceMetadataAttributes) error) *ClientMock_UpdateComponents_Call {
 	_c.Call.Return(run)
 	return _c
 }

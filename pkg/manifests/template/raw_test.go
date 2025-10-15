@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var _ = Describe("Raw template", func() {
@@ -39,8 +40,17 @@ var _ = Describe("Raw template", func() {
 			svc.Templated = lo.ToPtr(false)
 			resp, err := NewRaw(dir).Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(resp)).To(Equal(1))
-			Expect(resp[0].GetName()).To(Equal(name))
+			Expect(len(resp)).To(Equal(5))
+
+			var podManifest *unstructured.Unstructured
+			for i := range resp {
+				if resp[i].GetKind() == "Pod" && resp[i].GetName() == name {
+					podManifest = &resp[i]
+					break
+				}
+			}
+			Expect(podManifest).NotTo(BeNil())
+			Expect(podManifest.GetName()).To(Equal(name))
 		})
 
 	})

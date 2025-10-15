@@ -35,8 +35,8 @@ func (c *client) GetServiceDeploymentComponents(id string) (*console.GetServiceD
 	return resp.ServiceDeployment, nil
 }
 
-func (c *client) UpdateComponents(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error {
-	_, err := c.consoleClient.UpdateServiceComponents(c.ctx, id, components, revisionID, sha, errs)
+func (c *client) UpdateComponents(id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes, metadata *console.ServiceMetadataAttributes) error {
+	_, err := c.consoleClient.UpdateServiceComponents(c.ctx, id, components, revisionID, sha, errs, metadata)
 	return err
 }
 
