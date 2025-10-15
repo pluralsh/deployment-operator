@@ -220,7 +220,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 			}
 		}
 
-		for i, _ := range containers {
+		for i := range containers {
 			containers[i].VolumeMounts = ensureDefaultVolumeMounts(containers[i].VolumeMounts)
 		}
 		return containers
