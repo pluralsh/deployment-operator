@@ -127,9 +127,6 @@ func ensureDefaultContainer(containers []corev1.Container, run *v1alpha1.AgentRu
 		if len(containers[index].Command) == 0 {
 			containers[index].Command = []string{agentHarnessEntrypoint}
 		}
-		if len(containers[index].Args) == 0 {
-			containers[index].Args = getDefaultContainerArgs(run)
-		}
 	}
 
 	return containers
@@ -172,7 +169,6 @@ func getDefaultContainer(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime)
 		Name:            defaultContainer,
 		Image:           getDefaultContainerImage("", runtime.Spec.Type),
 		Command:         []string{agentHarnessEntrypoint},
-		Args:            getDefaultContainerArgs(run),
 		VolumeMounts:    []corev1.VolumeMount{defaultContainerVolumeMount, defaultTmpContainerVolumeMount},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		EnvFrom:         getDefaultContainerEnvFrom(run.Name),
@@ -193,14 +189,6 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{{
 		SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: secretName}},
 	}}
-}
-
-func getDefaultContainerArgs(run *v1alpha1.AgentRun) []string {
-	return []string{
-		"--working-dir=" + agentHarnessWorkingDir,
-		"--agent-run-id=" + run.Status.GetID(),
-		// Console URL and token will come from secret via EnvFrom
-	}
 }
 
 func getDefaultEnvVars(run *v1alpha1.AgentRun) []corev1.EnvVar {

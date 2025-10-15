@@ -122,6 +122,11 @@ func (in *Applier) Apply(ctx context.Context,
 			"duration", time.Since(now),
 		)
 
+		if !phases.HasResourcesInFollowingPhases(syncPhase) {
+			klog.V(log.LogLevelTrace).InfoS("no more resources to be applied", "service", service.Name)
+			break
+		}
+
 		hasPendingResources, hasFailedResources, err := phase.ResourceHealth()
 		if err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to get phase health", "phase", phase.Name())
