@@ -31,5 +31,4 @@ func (c *client) UpdateSentinelRunJobStatus(id string, attr *console.SentinelRun
 		return nil, err
 	}
 	return resp.UpdateSentinelRunJob, nil
-
 }

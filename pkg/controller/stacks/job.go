@@ -219,7 +219,6 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 			jobSpec.Template.Spec.ServiceAccountName = *jobSpecFragment.ServiceAccount
 		}
 	}
-
 	return jobSpec
 }
 
