@@ -15,13 +15,9 @@ import (
 )
 
 const (
-	EnvConsoleUrl         = "CONSOLE_URL"
-	EnvDeployToken        = "DEPLOY_TOKEN"
-	EnvAgentRunID         = "AGENT_RUN_ID"
-	EnvWorkingDir         = "WORKING_DIR"
-	EnvTimeout            = "TIMEOUT"
-	EnvLogFlushFrequency  = "LOG_FLUSH_FREQUENCY"
-	EnvLogFlushBufferSize = "LOG_FLUSH_BUFFER_SIZE"
+	EnvConsoleUrl  = "CONSOLE_URL"
+	EnvDeployToken = "DEPLOY_TOKEN"
+	EnvAgentRunID  = "AGENT_RUN_ID"
 
 	defaultWorkingDir = "agentrun"
 
@@ -39,10 +35,10 @@ var (
 	argConsoleUrl         = pflag.String("console-url", helpers.GetPluralEnv(EnvConsoleUrl, ""), "URL to the extended Console API, i.e. https://console.onplural.sh/ext/gql")
 	argDeployToken        = pflag.String("deploy-token", helpers.GetPluralEnv(EnvDeployToken, ""), "Deploy token to the Console API")
 	argAgentRunID         = pflag.String("agent-run-id", helpers.GetPluralEnv(EnvAgentRunID, ""), "ID of the Agent Run to execute")
-	argWorkingDir         = pflag.String("working-dir", helpers.GetPluralEnv(EnvWorkingDir, defaultWorkingDir), "Working directory used to prepare the environment")
-	argTimeout            = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout is the maximum time the agent run can run before it will be cancelled")
-	argLogFlushFrequency  = pflag.String("log-flush-frequency", helpers.GetPluralEnv(EnvLogFlushFrequency, defaultLogFlushFrequency), "Frequency at which logs should be flushed if buffer is not full")
-	argLogFlushBufferSize = pflag.Int("log-flush-buffer-size", helpers.ParseIntOrDie(helpers.GetPluralEnv(EnvLogFlushBufferSize, defaultLogFlushBufferSize)), "Buffer size to use for log flushing (in kilobytes)")
+	argWorkingDir         = pflag.String("working-dir", defaultWorkingDir, "Working directory used to prepare the environment")
+	argTimeout            = pflag.String("timeout", defaultTimeout, "Timeout is the maximum time the agent run can run before it will be cancelled")
+	argLogFlushFrequency  = pflag.String("log-flush-frequency", defaultLogFlushFrequency, "Frequency at which logs should be flushed if buffer is not full")
+	argLogFlushBufferSize = pflag.Int("log-flush-buffer-size", helpers.ParseIntOrDie(defaultLogFlushBufferSize), "Buffer size to use for log flushing (in kilobytes)")
 )
 
 func init() {
