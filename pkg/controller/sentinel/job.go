@@ -206,7 +206,6 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 	containers []corev1.Container,
 	run *console.SentinelRunJobFragment,
 ) []corev1.Container {
-
 	// If user specified containers, don't infer anything
 	if len(containers) > 0 {
 		// optionally normalize the default container (if they used the default name)
@@ -224,7 +223,6 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 		for i, _ := range containers {
 			containers[i].VolumeMounts = ensureDefaultVolumeMounts(containers[i].VolumeMounts)
 		}
-
 		return containers
 	}
 
