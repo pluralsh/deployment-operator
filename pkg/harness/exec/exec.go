@@ -24,6 +24,7 @@ func (in *executable) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer in.close(in.outputSinks)
 
 	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
 	if err = cmd.Run(); err != nil {
@@ -51,7 +52,12 @@ func (in *executable) Start(ctx context.Context) (WaitFn, error) {
 		return nil, err
 	}
 
-	return cmd.Wait, in.runLifecycleFunction(v1.LifecyclePostStart)
+	waiter := func() error {
+		defer in.close(in.outputSinks)
+		return cmd.Wait()
+	}
+
+	return waiter, in.runLifecycleFunction(v1.LifecyclePostStart)
 }
 
 func (in *executable) RunWithOutput(ctx context.Context) ([]byte, error) {
@@ -91,7 +97,6 @@ func (in *executable) prepare(ctx context.Context) (*exec.Cmd, error) {
 	ctx = signals.NewCancelableContext(ctx, signals.NewTimeoutSignal(in.timeout))
 	cmd := exec.CommandContext(ctx, in.command, in.args...)
 	w := in.writer()
-	defer in.close(in.outputSinks)
 
 	// Configure additional writers so that we can simultaneously write output
 	// to multiple destinations
