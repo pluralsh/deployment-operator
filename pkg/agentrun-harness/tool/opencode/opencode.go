@@ -51,7 +51,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 				close(in.finishedChan)
 				return
 			case msg := <-messageChan:
-				klog.V(log.LogLevelExtended).InfoS("message received", "message", msg)
+				klog.V(log.LogLevelDefault).InfoS("message received", "message", msg)
 			case err := <-listenErrChan:
 				in.errorChan <- err
 				return

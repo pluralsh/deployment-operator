@@ -6,7 +6,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -217,17 +216,6 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		}
 
 		return nil
-	}
-
-	if pod.Status.Phase != corev1.PodFailed {
-		run.Status.Phase = v1alpha1.AgentRunPhaseFailed
-		msg := helpers.GetPodErrorMessage(pod.Status)
-		if msg != "" {
-			run.Status.Error = lo.ToPtr(msg)
-		}
-		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes()); err != nil {
-			return fmt.Errorf("failed to update agent run: %w", err)
-		}
 	}
 
 	return nil
