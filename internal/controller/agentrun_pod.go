@@ -15,16 +15,10 @@ import (
 const (
 	podDefaultContainerAnnotation = "kubectl.kubernetes.io/default-container"
 	defaultContainer              = "default"
-	defaultVolumeName             = "default"
-	defaultVolumePath             = "/plural"
 	defaultTmpVolumeName          = "default-tmp"
 	defaultTmpVolumePath          = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
-
-	// Agent harness specific constants
-	agentHarnessWorkingDir = "/plural"
-	agentHarnessEntrypoint = "/agent-harness"
 )
 
 var (
@@ -35,19 +29,7 @@ var (
 
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
 		console.AgentRuntimeTypeGemini:   "latest",                // TODO
-		console.AgentRuntimeTypeOpencode: "0.6.4-opencode-0.13.4", // TODO
-	}
-
-	defaultVolume = corev1.Volume{
-		Name: defaultVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-
-	defaultContainerVolumeMount = corev1.VolumeMount{
-		Name:      defaultVolumeName,
-		MountPath: defaultVolumePath,
+		console.AgentRuntimeTypeOpencode: "0.6.5-opencode-0.13.4", // TODO
 	}
 
 	defaultTmpVolume = corev1.Volume{
@@ -123,10 +105,8 @@ func ensureDefaultContainer(containers []corev1.Container, run *v1alpha1.AgentRu
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
 		containers[index].Env = ensureDefaultEnvVars(containers[index].Env, run)
 
-		// Set the agent-harness entrypoint and args
-		if len(containers[index].Command) == 0 {
-			containers[index].Command = []string{agentHarnessEntrypoint}
-		}
+		// Do not allow command to be overridden. Only args can be overridden.
+		containers[index].Command = nil
 	}
 
 	return containers
@@ -135,9 +115,8 @@ func ensureDefaultContainer(containers []corev1.Container, run *v1alpha1.AgentRu
 func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount {
 	return append(
 		algorithms.Filter(mounts, func(v corev1.VolumeMount) bool {
-			return v.Name != defaultVolumeName && v.Name != defaultTmpVolumeName
+			return v.Name != defaultTmpVolumeName
 		}),
-		defaultContainerVolumeMount,
 		defaultTmpContainerVolumeMount,
 	)
 }
@@ -145,9 +124,8 @@ func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount
 func ensureDefaultVolumes(volumes []corev1.Volume) []corev1.Volume {
 	return append(
 		algorithms.Filter(volumes, func(v corev1.Volume) bool {
-			return v.Name != defaultVolumeName && v.Name != defaultTmpVolumeName
+			return v.Name != defaultTmpVolumeName
 		}),
-		defaultVolume,
 		defaultTmpVolume,
 	)
 }
@@ -168,12 +146,10 @@ func getDefaultContainer(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime)
 	return corev1.Container{
 		Name:            defaultContainer,
 		Image:           getDefaultContainerImage("", runtime.Spec.Type),
-		Command:         []string{agentHarnessEntrypoint},
-		VolumeMounts:    []corev1.VolumeMount{defaultContainerVolumeMount, defaultTmpContainerVolumeMount},
+		VolumeMounts:    []corev1.VolumeMount{defaultTmpContainerVolumeMount},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		EnvFrom:         getDefaultContainerEnvFrom(run.Name),
 		Env:             getDefaultEnvVars(run),
-		WorkingDir:      agentHarnessWorkingDir,
 	}
 }
 
@@ -196,10 +172,6 @@ func getDefaultEnvVars(run *v1alpha1.AgentRun) []corev1.EnvVar {
 		{
 			Name:  "AGENT_RUN_ID",
 			Value: run.Status.GetID(),
-		},
-		{
-			Name:  "WORKING_DIR",
-			Value: agentHarnessWorkingDir,
 		},
 	}
 }

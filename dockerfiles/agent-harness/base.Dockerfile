@@ -3,7 +3,6 @@ FROM golang:1.25-alpine AS builder
 ARG TARGETARCH
 ARG TARGETOS  
 ARG VERSION
-ARG ARGS
 
 WORKDIR /workspace
 
@@ -22,7 +21,7 @@ RUN CGO_ENABLED=0 \
     GOARCH=${TARGETARCH} \
     go build \
     -trimpath \
-    -ldflags="-s -w -X github.com/pluralsh/deployment-operator/pkg/harness/environment.Version=${VERSION}" \
+    -ldflags="-s -w -X github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment.Version=${VERSION}" \
     -o /agent-harness \
     cmd/agent-harness/main.go
 
@@ -50,4 +49,4 @@ USER 65532:65532
 
 WORKDIR /plural
 
-ENTRYPOINT ["/bin/sh", "-c", "GIT_ASKPASS=/plural/.git-askpass /agent-harness --working-dir=/plural ${ARGS}"]
+ENTRYPOINT ["/bin/sh", "-c", "GIT_ASKPASS=/plural/.git-askpass /agent-harness --working-dir=/plural \"$@\"", "--"]

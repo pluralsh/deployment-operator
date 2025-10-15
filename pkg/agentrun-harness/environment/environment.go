@@ -45,9 +45,6 @@ func (in *environment) cloneRepository() error {
 
 	repoDir := "repository"
 
-	// Build git clone command with credentials
-	args := []string{"clone"}
-
 	// Add auth if SCM credentials are available
 	if in.agentRun.ScmCreds != nil {
 		klog.V(log.LogLevelDefault).InfoS("configuring git credentials", "username", in.agentRun.ScmCreds.Username)
@@ -56,10 +53,9 @@ func (in *environment) cloneRepository() error {
 		}
 	}
 
-	args = append(args, in.agentRun.Repository, repoDir)
 	if err := exec.NewExecutable(
 		"git",
-		exec.WithArgs(args),
+		exec.WithArgs([]string{"clone", in.agentRun.Repository, repoDir}),
 		exec.WithDir(in.dir),
 	).Run(context.Background()); err != nil {
 		return err
@@ -68,13 +64,15 @@ func (in *environment) cloneRepository() error {
 	repoDirPath := path.Join(in.dir, repoDir)
 	if err := exec.NewExecutable("git",
 		exec.WithArgs([]string{"config", "user.name", in.agentRun.ScmCreds.Username}),
-		exec.WithDir(repoDirPath)).Run(context.Background()); err != nil {
+		exec.WithDir(repoDirPath),
+	).Run(context.Background()); err != nil {
 		return err
 	}
 
 	if err := exec.NewExecutable("git",
 		exec.WithArgs([]string{"config", "user.email", "agent@plural.sh"}),
-		exec.WithDir(repoDirPath)).Run(context.Background()); err != nil {
+		exec.WithDir(repoDirPath),
+	).Run(context.Background()); err != nil {
 		return err
 	}
 
