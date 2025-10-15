@@ -58,6 +58,10 @@ func (p *Phase) ResourceCount() int {
 	return p.AppliedCount() + p.SkippedCount() + p.DeletedCount()
 }
 
+func (p *Phase) HasResources() bool {
+	return p.ResourceCount() > 0
+}
+
 func (p *Phase) ResourceHealth() (pending, failed bool, err error) {
 	resources := p.skipped
 	for _, wave := range p.waves {
@@ -128,6 +132,21 @@ func (in Phases) Next(phase *smcommon.SyncPhase, failed bool) (*Phase, bool) {
 	}
 
 	return nil, false
+}
+
+func (in Phases) HasResourcesInFollowingPhases(phase *smcommon.SyncPhase) bool {
+	if phase == nil {
+		return false
+	}
+
+	switch *phase {
+	case smcommon.SyncPhaseSync:
+		return in.get(smcommon.SyncPhasePostSync).HasResources() || in.get(smcommon.SyncPhaseSyncFail).HasResources()
+	case smcommon.SyncPhasePreSync:
+		return in.get(smcommon.SyncPhaseSync).HasResources() || in.get(smcommon.SyncPhasePostSync).HasResources()
+	default:
+		return false
+	}
 }
 
 func (in Phases) get(phase smcommon.SyncPhase) *Phase {
