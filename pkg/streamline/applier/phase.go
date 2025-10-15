@@ -130,6 +130,21 @@ func (in Phases) Next(phase *smcommon.SyncPhase, failed bool) (*Phase, bool) {
 	return nil, false
 }
 
+func (in Phases) HasResourcesInFollowingPhases(phase *smcommon.SyncPhase) bool {
+	if phase == nil {
+		return false
+	}
+
+	switch *phase {
+	case smcommon.SyncPhaseSync:
+		return in.get(smcommon.SyncPhasePostSync).ResourceCount() != 0 || in.get(smcommon.SyncPhaseSyncFail).ResourceCount() != 0
+	case smcommon.SyncPhasePreSync:
+		return in.get(smcommon.SyncPhaseSync).ResourceCount() != 0 || in.get(smcommon.SyncPhasePostSync).ResourceCount() != 0
+	default:
+		return false
+	}
+}
+
 func (in Phases) get(phase smcommon.SyncPhase) *Phase {
 	p, ok := in[phase]
 	if !ok {
