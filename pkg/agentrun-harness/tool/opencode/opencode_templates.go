@@ -6,7 +6,7 @@ import (
 	"text/template"
 )
 
-//go:embed templates/opencode.json.gotmpl
+//go:embed templates/opencode.json
 var configTemplateText string
 
 const (
@@ -14,16 +14,15 @@ const (
 )
 
 type ConfigTemplateInput struct {
-	ConsoleURL    string
-	ConsoleToken  string
-	DeployToken   string
-	AgentRunID    string
-	ModelID       string
-	ModelName     string
-	ProviderID    string
-	ProviderName  string
-	AnalysisAgent string
-	WriteAgent    string
+	ConsoleURL   string
+	ConsoleToken string
+	DeployToken  string
+	AgentRunID   string
+	Provider     string
+	Model        string
+
+	// OpenAIToken is the OpenAI token. It is only used when the plural AI proxy is disabled.
+	OpenAIToken string
 }
 
 func configTemplate(input *ConfigTemplateInput) (fileName, content string, err error) {

@@ -31,7 +31,7 @@ const (
 	requeueAfterAgentRun = 2 * time.Minute
 	EnvConsoleURL        = "PLRL_CONSOLE_URL"
 	EnvDeployToken       = "PLRL_DEPLOY_TOKEN"
-	envAgentRunID        = "PLRL_AGENT_RUN_ID"
+	EnvAgentRunID        = "PLRL_AGENT_RUN_ID"
 )
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.
@@ -259,14 +259,14 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun) map[string]st
 	return map[string]string{
 		EnvConsoleURL:  r.ConsoleURL,
 		EnvDeployToken: r.DeployToken,
-		envAgentRunID:  run.Status.GetID(),
+		EnvAgentRunID:  run.Status.GetID(),
 	}
 }
 
 func (r *AgentRunReconciler) hasSecretData(data map[string][]byte, run *v1alpha1.AgentRun) bool {
 	token, hasToken := data[EnvDeployToken]
 	url, hasUrl := data[EnvConsoleURL]
-	id, hasID := data[envAgentRunID]
+	id, hasID := data[EnvAgentRunID]
 	return hasToken && hasUrl && hasID &&
 		string(token) == r.DeployToken && string(url) == r.ConsoleURL && string(id) == run.Status.GetID()
 }

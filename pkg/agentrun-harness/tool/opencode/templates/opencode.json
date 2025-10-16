@@ -1,0 +1,115 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "pyright": {
+      "disabled": true
+    }
+  },
+  "agent": {
+    "analysis": {
+      "description": "Analyze code for potential issues, vulnerabilities and improvements",
+      "prompt": "{file:./prompts/analysis.md}",
+      "mode": "primary",
+      "model": "{{ .Provider }}/{{ .Model }}",
+      "temperature": 0.1,
+      "permission": {
+        "bash": {
+          "ls": "allow",
+          "cd": "allow",
+          "pwd": "allow",
+          "git status": "allow",
+          "git diff": "allow",
+          "head": "allow",
+          "tail": "allow",
+          "cat": "allow",
+          "grep": "allow",
+          "find": "allow",
+          "*": "deny"
+        },
+        "edit": "deny",
+        "webfetch": "allow"
+      }
+    },
+    "autonomous": {
+      "description": "Autonomous agent for making code changes and creating pull requests",
+      "prompt": "{file:./prompts/autonomous.md}",
+      "mode": "primary",
+      "model": "{{ .Provider }}/{{ .Model }}",
+      "temperature": 0.3,
+      "permission": {
+        "bash": "allow",
+        "edit": "allow",
+        "webfetch": "allow"
+      }
+    }
+  },
+  "mcp": {
+    "plural": {
+      "type": "local",
+      "command": [
+        "mcpserver"
+      ],
+      "enabled": true,
+      "environment": {
+        "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
+        "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
+        "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}"
+      }
+    }
+  },
+  "username": "plural",
+  "provider": {
+    "plural": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "plural",
+      "options": {
+        "baseURL": "{{ .ConsoleURL }}/ext/v1/ai/openai/v1",
+        "headers": {
+          "Authorization": "Bearer {{ .DeployToken }}"
+        }
+      },
+      "models": {
+        "gpt-4.1-mini": {
+          "name": "gpt-4.1-mini",
+          "reasoning": false
+        },
+        "gpt-4.1": {
+          "name": "gpt-4.1",
+          "reasoning": false
+        },
+        "gpt-5-mini": {
+          "name": "gpt-5-mini",
+          "reasoning": true
+        },
+        "gpt-5": {
+          "name": "gpt-5",
+          "reasoning": true
+        }
+      }
+    },
+    "openai": {
+      "name": "openai",
+      "options": {
+        "apiKey": "{{ .OpenAIToken }}"
+      },
+      "models": {
+        "gpt-4.1-mini": {
+          "name": "gpt-4.1-mini",
+          "reasoning": false
+        },
+        "gpt-4.1": {
+          "name": "gpt-4.1",
+          "reasoning": false
+        },
+        "gpt-5-mini": {
+          "name": "gpt-5-mini",
+          "reasoning": true
+        },
+        "gpt-5": {
+          "name": "gpt-5",
+          "reasoning": true
+        }
+      }
+    }
+  }
+}

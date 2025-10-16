@@ -31,13 +31,15 @@ RUN apt update && apt install -y git curl jq tar
 
 # Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness
-COPY --from=ghcr.io/pluralsh/mcpserver:0.6.4 /root/agent-pr-mcpserver /usr/local/bin/mcpserver
+COPY --from=ghcr.io/pluralsh/mcpserver:latest /root/mcpserver /usr/local/bin/mcpserver
 
 # Create the nonroot user with UID 65532
 RUN groupadd -g 65532 nonroot && \
     useradd -u 65532 -g 65532 -m -s /bin/bash nonroot
 
 WORKDIR /plural
+
+COPY dockerfiles/agent-harness/.opencode /plural/.opencode
 
 RUN printf "#!/bin/sh\necho \${GIT_ACCESS_TOKEN}" > /plural/.git-askpass && \
     chmod +x /plural/.git-askpass && \

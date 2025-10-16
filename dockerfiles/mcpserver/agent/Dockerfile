@@ -1,5 +1,9 @@
 FROM golang:1.25.1-alpine AS builder
 
+ARG TARGETARCH
+ARG TARGETOS
+ARG VERSION
+
 WORKDIR /workspace
 
 # Copy go mod and sum files
@@ -12,7 +16,14 @@ RUN go mod download
 COPY . .
 
 # Build the MCP server binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o agent-pr-mcpserver cmd/mcpserver/agent-pr-server/main.go
+RUN CGO_ENABLED=0 \
+    GOOS=${TARGETOS} \
+    GOARCH=${TARGETARCH} \
+    go build \
+    -trimpath \
+    -ldflags="-s -w -X github.com/pluralsh/deployment-operator/cmd/mcpserver/agent.Version=${VERSION}" \
+    -o mcpserver \
+    cmd/mcpserver/agent/main.go
 
 # Use a minimal base image
 FROM alpine:3.22.1
@@ -22,10 +33,10 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the binary from the builder stage
-COPY --from=builder /workspace/agent-pr-mcpserver .
+COPY --from=builder /workspace/mcpserver .
 
 # Expose stdio for MCP communication
 # The MCP server uses stdio transport, so no network ports needed
 
 # Run the MCP server
-CMD ["./agent-pr-mcpserver"]
+CMD ["./mcpserver"]

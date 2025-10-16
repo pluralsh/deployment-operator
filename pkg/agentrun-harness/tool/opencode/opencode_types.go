@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"github.com/pluralsh/polly/containers"
 	"github.com/sst/opencode-sdk-go"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
@@ -8,12 +9,31 @@ import (
 
 const (
 	defaultOpenCodePort  = "4096"
-	defaultModelID       = "gpt-4.1-mini"
-	defaultModelName     = "GPT 4.1 Mini"
-	defaultProviderID    = "openai-proxy"
-	defaultProviderName  = "OpenAI Proxy"
-	defaultAnalysisAgent = "plural-reviewer"
-	defaultWriteAgent    = "plural-writer"
+	defaultAnalysisAgent = "analysis"
+	defaultWriteAgent    = "autonomous"
+	defaultProvider      = "plural"
+	defaultModel         = string(ModelGPT41Mini)
+)
+
+type Provider string
+
+const (
+	ProviderPlural Provider = "plural"
+	ProviderOpenAI Provider = "openai" // TODO: extend controller to inject required config via env vars
+)
+
+type Model string
+
+const (
+	ModelGPT41Mini Model = "gpt-4.1-mini"
+	ModelGPT41     Model = "gpt-4.1"
+	ModelGPT5Mini  Model = "gpt-5-mini"
+	ModelGPT5      Model = "gpt-5"
+)
+
+var (
+	supportedProviders = containers.ToSet([]Provider{ProviderPlural})
+	supportedModels    = containers.ToSet([]Model{ModelGPT41Mini, ModelGPT41, ModelGPT5Mini, ModelGPT5})
 )
 
 // Opencode implements v1.Tool interface.

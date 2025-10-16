@@ -20,6 +20,26 @@ func (in *Opencode) Run(ctx context.Context, options ...exec.Option) {
 	go in.start(ctx, options...)
 }
 
+func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) error {
+	input := &ConfigTemplateInput{
+		ConsoleURL:   consoleURL,
+		ConsoleToken: consoleToken,
+		DeployToken:  deployToken,
+		AgentRunID:   in.run.ID,
+	}
+	_, content, err := configTemplate(input)
+	if err != nil {
+		return err
+	}
+
+	if err = helpers.File().Create(in.configFilePath(), content); err != nil {
+		return fmt.Errorf("failed configuring opencode config file %q: %w", ConfigFileName, err)
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("opencode configured", "configFile", in.configFilePath())
+	return nil
+}
+
 func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	maxRestarts := 2
 	restarts := 0
@@ -70,34 +90,8 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	}
 }
 
-func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) error {
-	input := &ConfigTemplateInput{
-		ConsoleURL:    consoleURL,
-		ConsoleToken:  consoleToken,
-		DeployToken:   deployToken,
-		AgentRunID:    in.run.ID,
-		ModelID:       defaultModelID,
-		ModelName:     defaultModelName,
-		ProviderID:    defaultProviderID,
-		ProviderName:  defaultProviderName,
-		AnalysisAgent: defaultAnalysisAgent,
-		WriteAgent:    defaultWriteAgent,
-	}
-	_, content, err := configTemplate(input)
-	if err != nil {
-		return err
-	}
-
-	if err = helpers.File().Create(in.configFilePath(), content); err != nil {
-		return fmt.Errorf("failed configuring opencode config file %q: %w", ConfigFileName, err)
-	}
-
-	klog.V(log.LogLevelExtended).InfoS("opencode configured", "configFile", in.configFilePath())
-	return nil
-}
-
 func (in *Opencode) configFilePath() string {
-	return path.Join(in.dir, ".config", ConfigFileName)
+	return path.Join(in.dir, ".opencode", ConfigFileName)
 }
 
 func (in *Opencode) ensure() error {
