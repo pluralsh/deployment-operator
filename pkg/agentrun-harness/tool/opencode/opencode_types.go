@@ -1,7 +1,6 @@
 package opencode
 
 import (
-	"github.com/pluralsh/polly/containers"
 	"github.com/sst/opencode-sdk-go"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
@@ -11,7 +10,7 @@ const (
 	defaultOpenCodePort  = "4096"
 	defaultAnalysisAgent = "analysis"
 	defaultWriteAgent    = "autonomous"
-	defaultProvider      = "plural"
+	defaultProvider      = string(ProviderPlural)
 	defaultModel         = string(ModelGPT41Mini)
 )
 
@@ -29,11 +28,6 @@ const (
 	ModelGPT41     Model = "gpt-4.1"
 	ModelGPT5Mini  Model = "gpt-5-mini"
 	ModelGPT5      Model = "gpt-5"
-)
-
-var (
-	supportedProviders = containers.ToSet([]Provider{ProviderPlural})
-	supportedModels    = containers.ToSet([]Model{ModelGPT41Mini, ModelGPT41, ModelGPT5Mini, ModelGPT5})
 )
 
 // Opencode implements v1.Tool interface.
