@@ -26,6 +26,10 @@ type MCPServer struct {
 	server *server.MCPServer
 	client console.Client
 	creds  *PluralCredentials
+
+	// Cache for the latest agent run data
+	cachedAgentRun *client.AgentRunFragment
+	cachedRunID    string
 }
 
 // NewMCPServer creates a new MCP server instance
@@ -80,7 +84,7 @@ func (m *MCPServer) Start() error {
 // registerTools registers all available tools with the MCP server
 func (m *MCPServer) registerTools() {
 	// Define the agentPullRequest tool
-	tool := mcp.NewTool("agentPullRequest",
+	agentPullRequestTool := mcp.NewTool("agentPullRequest",
 		mcp.WithDescription("Create a pull request through the Plural console GraphQL API for agent-generated changes"),
 		mcp.WithString("runId",
 			mcp.Required(),
@@ -109,7 +113,57 @@ func (m *MCPServer) registerTools() {
 	)
 
 	// Add the tool with our handler
-	m.server.AddTool(tool, m.agentPullRequestHandler)
+	m.server.AddTool(agentPullRequestTool, m.agentPullRequestHandler)
+
+	updateAgentRunAnalysisTool := mcp.NewTool("updateAgentRunAnalysis",
+		mcp.WithDescription("Update the analysis of the agent run"),
+		mcp.WithString("runId",
+			mcp.Required(),
+			mcp.Description("The agent run ID"),
+		),
+		mcp.WithString("summary",
+			mcp.Required(),
+			mcp.Description("The summary of the analysis"),
+		),
+		mcp.WithString("analysis",
+			mcp.Required(),
+			mcp.Description("The analysis of the agent run"),
+		),
+		mcp.WithArray("bullets",
+			mcp.Required(),
+			mcp.Description("The bullets of the analysis"),
+		),
+	)
+
+	m.server.AddTool(updateAgentRunAnalysisTool, m.updateAgentRunAnalysisHandler)
+
+	updateAgentRunTodosTool := mcp.NewTool("updateAgentRunTodos",
+		mcp.WithDescription("Update the todos of the agent run"),
+		mcp.WithString("runId",
+			mcp.Required(),
+			mcp.Description("The agent run ID"),
+		),
+		mcp.WithString("title",
+			mcp.Required(),
+			mcp.Description("The title of the todo"),
+		),
+		mcp.WithBoolean("done",
+			mcp.Required(),
+			mcp.Description("Whether the todo is done"),
+		),
+	)
+
+	m.server.AddTool(updateAgentRunTodosTool, m.updateAgentRunTodosHandler)
+
+	getAgentRunTodosTool := mcp.NewTool("getAgentRunTodos",
+		mcp.WithDescription("Get the current todos list for the agent run"),
+		mcp.WithString("runId",
+			mcp.Required(),
+			mcp.Description("The agent run ID"),
+		),
+	)
+
+	m.server.AddTool(getAgentRunTodosTool, m.getAgentRunTodosHandler)
 }
 
 // agentPullRequestHandler - actual implementation with GraphQL call
@@ -155,6 +209,140 @@ func (m *MCPServer) agentPullRequestHandler(ctx context.Context, request mcp.Cal
 		Status:         pr.Status,
 		Title:          pr.Title,
 		Creator:        pr.Creator,
+	})
+}
+
+func (m *MCPServer) updateAgentRunAnalysisHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Validate string parameters
+	err := m.ensureArguments(request, "runId", "summary", "analysis")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameters: %v", err)), nil
+	}
+
+	// Validate bullets parameter separately with specific error handling
+	bullets, err := request.RequireStringSlice("bullets")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing or invalid bullets parameter: %v", err)), nil
+	}
+
+	// Extract validated parameters
+	runId, _ := request.RequireString("runId")
+	summary, _ := request.RequireString("summary")
+	analysis, _ := request.RequireString("analysis")
+
+	// Convert []string to []*string for the client call
+	bulletPointers := make([]*string, len(bullets))
+	for i := range bullets {
+		bulletPointers[i] = &bullets[i]
+	}
+
+	agentRun, err := m.client.UpdateAgentRunAnalysis(ctx, runId, client.AgentAnalysisAttributes{
+		Summary:  summary,
+		Analysis: analysis,
+		Bullets:  bulletPointers,
+	})
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to update agent run analysis: %v", err)), nil
+	}
+
+	// Cache the updated agent run
+	m.cachedAgentRun = agentRun
+	m.cachedRunID = runId
+
+	return mcp.NewToolResultJSON(struct {
+		Success  bool     `json:"success"`
+		Message  string   `json:"message"`
+		Summary  string   `json:"summary"`
+		Analysis string   `json:"analysis"`
+		Bullets  []string `json:"bullets"`
+	}{
+		Success:  true,
+		Message:  fmt.Sprintf("Successfully updated agent run analysis for %s", runId),
+		Summary:  summary,
+		Analysis: analysis,
+		Bullets:  bullets,
+	})
+}
+
+func (m *MCPServer) updateAgentRunTodosHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	err := m.ensureArguments(request, "runId", "title", "done")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameters: %v", err)), nil
+	}
+
+	runId, _ := request.RequireString("runId")
+	title, _ := request.RequireString("title")
+	done, _ := request.RequireBool("done")
+
+	agentRun, err := m.client.UpdateAgentRunTodos(ctx, runId, []*client.AgentTodoAttributes{
+		{
+			Title: title,
+			Done:  done,
+		},
+	})
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to update agent run todos: %v", err)), nil
+	}
+
+	// Cache the updated agent run
+	m.cachedAgentRun = agentRun
+	m.cachedRunID = runId
+
+	return mcp.NewToolResultJSON(struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+		Title   string `json:"title"`
+		Done    bool   `json:"done"`
+	}{
+		Success: true,
+		Message: fmt.Sprintf("Successfully updated agent run todos for %s", runId),
+		Title:   title,
+		Done:    done,
+	})
+}
+
+func (m *MCPServer) getAgentRunTodosHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	err := m.ensureArguments(request, "runId")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Missing required parameters: %v", err)), nil
+	}
+
+	runId, _ := request.RequireString("runId")
+
+	// If we don't have cached data for this run ID, fetch it from the API
+	if m.cachedAgentRun == nil || m.cachedRunID != runId {
+		agentRun, err := m.client.GetAgentRun(ctx, runId)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get agent run: %v", err)), nil
+		}
+		m.cachedAgentRun = agentRun
+		m.cachedRunID = runId
+	}
+
+	todos := make([]map[string]interface{}, 0)
+	if m.cachedAgentRun.Todos != nil {
+		for _, todo := range m.cachedAgentRun.Todos {
+			todoMap := map[string]interface{}{
+				"title":       todo.Title,
+				"done":        todo.Done,
+				"description": todo.Description,
+			}
+			todos = append(todos, todoMap)
+		}
+	}
+
+	return mcp.NewToolResultJSON(struct {
+		Success bool                     `json:"success"`
+		Message string                   `json:"message"`
+		RunId   string                   `json:"runId"`
+		Todos   []map[string]interface{} `json:"todos"`
+		Source  string                   `json:"source"`
+	}{
+		Success: true,
+		Message: fmt.Sprintf("Retrieved todos for agent run %s from cache", runId),
+		RunId:   runId,
+		Todos:   todos,
+		Source:  "cache",
 	})
 }
 
