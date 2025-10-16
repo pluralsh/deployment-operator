@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		klog.ErrorS(err,
 			fmt.Sprintf("Failed to load Plural credentials, please ensure %s and %s environment variables are set",
-				controller.EnvConsoleToken,
+				controller.EnvDeployToken,
 				controller.EnvConsoleURL,
 			),
 		)

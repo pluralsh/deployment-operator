@@ -112,7 +112,6 @@ func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 	errChan := make(chan error, 1)
 	events := make(map[string]Event)
 
-	klog.V(log.LogLevelDefault).InfoS("starting opencode server event listener")
 	stream := in.client.Event.ListStreaming(ctx, opencode.EventListParams{})
 
 	go func() {
@@ -152,6 +151,7 @@ func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 		klog.V(log.LogLevelDefault).InfoS("opencode event listener stopped")
 	}()
 
+	klog.V(log.LogLevelDefault).InfoS("started opencode server event listener")
 	return msgChan, errChan
 }
 
@@ -196,7 +196,7 @@ func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <
 	errChan := make(chan error)
 
 	go func() {
-		klog.V(log.LogLevelExtended).InfoS("sending prompt", "prompt", prompt)
+		klog.V(log.LogLevelDefault).InfoS("sending prompt", "prompt", prompt)
 		res, err := in.client.Session.Prompt(ctx, in.session.ID, opencode.SessionPromptParams{
 			Parts: opencode.F([]opencode.SessionPromptParamsPartUnion{
 				opencode.TextPartInputParam{
@@ -220,7 +220,7 @@ func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <
 
 		close(done)
 		close(errChan)
-		klog.V(log.LogLevelExtended).InfoS("prompt sent successfully", "response", res)
+		klog.V(log.LogLevelDefault).InfoS("prompt sent successfully", "response", res)
 	}()
 
 	return done, errChan

@@ -51,9 +51,9 @@ func NewMCPServer(creds *PluralCredentials) *MCPServer {
 
 // LoadPluralCredentials loads and validates Plural credentials from environment variables
 func LoadPluralCredentials() (*PluralCredentials, error) {
-	accessToken := os.Getenv(controller.EnvConsoleToken)
+	accessToken := os.Getenv(controller.EnvDeployToken)
 	if accessToken == "" {
-		return nil, fmt.Errorf("%s environment variable is required", controller.EnvConsoleToken)
+		return nil, fmt.Errorf("%s environment variable is required", controller.EnvDeployToken)
 	}
 
 	consoleURL := os.Getenv(controller.EnvConsoleURL)

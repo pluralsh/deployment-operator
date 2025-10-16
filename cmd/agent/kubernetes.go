@@ -298,7 +298,7 @@ func registerKubeReconcilersOrDie(
 		Scheme:        manager.GetScheme(),
 		ConsoleClient: extConsoleClient,
 		ConsoleURL:    consoleURL,
-		ConsoleToken:  deployToken,
+		DeployToken:   deployToken,
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AgentRun")
 	}

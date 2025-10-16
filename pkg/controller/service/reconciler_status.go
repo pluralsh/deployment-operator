@@ -10,8 +10,14 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	plrlog "github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/metadata"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	ignoreSha = "__ignore__"
 )
 
 func (s *ServiceReconciler) UpdateErrorStatus(ctx context.Context, id string, err error) {
@@ -31,7 +37,7 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	}
 }
 
-func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes) error {
+func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes, metadata *console.ServiceMetadataAttributes) error {
 	for _, component := range components {
 		if component.State != nil && *component.State == console.ComponentStateRunning {
 			// Skip checking child pods for the Job. The database cache contains only failed pods, and the Job may succeed after a retry.
@@ -57,16 +63,23 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 	// hash the components and errors to determine if there has been a meaningful change
 	// we need to report to the server
 	objToHash := struct {
-		Components []*console.ComponentAttributes    `json:"components"`
-		Errs       []*console.ServiceErrorAttributes `json:"errs"`
+		Components []*console.ComponentAttributes     `json:"components"`
+		Errs       []*console.ServiceErrorAttributes  `json:"errs"`
+		RevisionID string                             `json:"revisionId"`
+		Sha        *string                            `json:"sha,omitempty"`
+		Metadata   *console.ServiceMetadataAttributes `json:"metadata,omitempty"`
 	}{
 		Components: components,
 		Errs:       errs,
+		RevisionID: revisionID,
+		Sha:        sha,
+		Metadata:   metadata,
 	}
 
 	hashedSha, err := utils.HashObject(objToHash)
 	if err != nil {
-		hashedSha = "__ignore__"
+		log.Log.Error(err, "Failed to hash service components")
+		hashedSha = ignoreSha
 	}
 
 	logger := log.FromContext(ctx).V(int(plrlog.LogLevelDefault))
@@ -78,8 +91,11 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 		return nil
 	}
 
-	shaCache.Add(id, hashedSha)
-	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs)
+	if hashedSha != ignoreSha {
+		shaCache.Add(id, hashedSha)
+	}
+
+	return s.consoleClient.UpdateComponents(id, revisionID, sha, components, errs, metadata)
 }
 
 func componentChildKey(c console.ComponentChildAttributes) string {
@@ -100,4 +116,28 @@ func componentKey(c console.ComponentAttributes) string {
 
 func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAttributes) error {
 	return s.consoleClient.UpdateServiceErrors(id, lo.Ternary(err != nil, []*console.ServiceErrorAttributes{err}, []*console.ServiceErrorAttributes{}))
+}
+
+func (s *ServiceReconciler) ExtractMetadata(manifests []unstructured.Unstructured) *console.ServiceMetadataAttributes {
+	var allImages, allFqdns []string
+
+	for _, resource := range manifests {
+		if componentImages := metadata.ExtractImagesFromResource(&resource); componentImages != nil {
+			allImages = append(allImages, componentImages...)
+		}
+		if componentFqdns := metadata.ExtractFqdnsFromResource(&resource); componentFqdns != nil {
+			allFqdns = append(allFqdns, componentFqdns...)
+		}
+	}
+
+	uniqueImages, uniqueFqdns := lo.Uniq(allImages), lo.Uniq(allFqdns)
+
+	if len(uniqueImages) == 0 && len(uniqueFqdns) == 0 {
+		return nil
+	}
+
+	return &console.ServiceMetadataAttributes{
+		Images: lo.ToSlicePtr(uniqueImages),
+		Fqdns:  lo.ToSlicePtr(uniqueFqdns),
+	}
 }

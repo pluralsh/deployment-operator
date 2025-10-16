@@ -97,9 +97,8 @@ agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent har
 		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
 		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
 		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
-		-e ARGS="--v=3" \
 		--rm -it \
-		ghcr.io/pluralsh/agent-harness-opencode
+		ghcr.io/pluralsh/agent-harness-opencode --v=3
 
 ##@ Build
 

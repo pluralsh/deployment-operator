@@ -6,7 +6,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,7 +30,7 @@ const (
 	AgentRunFinalizer    = "deployments.plural.sh/agentrun-protection"
 	requeueAfterAgentRun = 2 * time.Minute
 	EnvConsoleURL        = "PLRL_CONSOLE_URL"
-	EnvConsoleToken      = "PLRL_CONSOLE_TOKEN"
+	EnvDeployToken       = "PLRL_DEPLOY_TOKEN"
 	envAgentRunID        = "PLRL_AGENT_RUN_ID"
 )
 
@@ -45,7 +44,7 @@ type AgentRunReconciler struct {
 	Scheme        *runtime.Scheme
 	ConsoleClient pluralclient.Client
 	ConsoleURL    string
-	ConsoleToken  string
+	DeployToken   string
 }
 
 // SetupWithManager configures the controller with the manager.
@@ -219,17 +218,6 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		return nil
 	}
 
-	if pod.Status.Phase != corev1.PodFailed {
-		run.Status.Phase = v1alpha1.AgentRunPhaseFailed
-		msg := helpers.GetPodErrorMessage(pod.Status)
-		if msg != "" {
-			run.Status.Error = lo.ToPtr(msg)
-		}
-		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes()); err != nil {
-			return fmt.Errorf("failed to update agent run: %w", err)
-		}
-	}
-
 	return nil
 }
 
@@ -269,16 +257,16 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 
 func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun) map[string]string {
 	return map[string]string{
-		EnvConsoleURL:   r.ConsoleURL,
-		EnvConsoleToken: r.ConsoleToken,
-		envAgentRunID:   run.Status.GetID(),
+		EnvConsoleURL:  r.ConsoleURL,
+		EnvDeployToken: r.DeployToken,
+		envAgentRunID:  run.Status.GetID(),
 	}
 }
 
 func (r *AgentRunReconciler) hasSecretData(data map[string][]byte, run *v1alpha1.AgentRun) bool {
-	token, hasToken := data[EnvConsoleToken]
+	token, hasToken := data[EnvDeployToken]
 	url, hasUrl := data[EnvConsoleURL]
 	id, hasID := data[envAgentRunID]
 	return hasToken && hasUrl && hasID &&
-		string(token) == r.ConsoleToken && string(url) == r.ConsoleURL && string(id) == run.Status.GetID()
+		string(token) == r.DeployToken && string(url) == r.ConsoleURL && string(id) == run.Status.GetID()
 }

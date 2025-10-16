@@ -107,6 +107,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 	modifier := in.tool.Modifier(step.Stage)
 	args := step.Args
 	env := in.stackRun.Env()
+
 	consoleWriter := sink.NewConsoleWriter(
 		ctx,
 		in.consoleClient,

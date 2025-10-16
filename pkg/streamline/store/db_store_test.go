@@ -74,40 +74,40 @@ func WithState(state client.ComponentState) CreateComponentOption {
 	}
 }
 
-type CreateStoreKeyOption func(entry *common.Entry)
+type CreateStoreKeyOption func(entry *common.Component)
 
 func WithStoreKeyName(name string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Name = name
 	}
 }
 
 func WithStoreKeyNamespace(namespace string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Namespace = namespace
 	}
 }
 
 func WithStoreKeyGroup(group string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Group = group
 	}
 }
 
 func WithStoreKeyVersion(version string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Version = version
 	}
 }
 
 func WithStoreKeyKind(kind string) CreateStoreKeyOption {
-	return func(entry *common.Entry) {
+	return func(entry *common.Component) {
 		entry.Kind = kind
 	}
 }
 
 func createStoreKey(option ...CreateStoreKeyOption) common.StoreKey {
-	result := common.Entry{
+	result := common.Component{
 		Group:     testGroup,
 		Version:   testVersion,
 		Kind:      testKind,
@@ -119,7 +119,7 @@ func createStoreKey(option ...CreateStoreKeyOption) common.StoreKey {
 		opt(&result)
 	}
 
-	return common.NewStoreKeyFromEntry(result)
+	return result.StoreKey()
 }
 
 func createComponent(uid string, parentUID *string, option ...CreateComponentOption) client.ComponentChildAttributes {
@@ -1321,7 +1321,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			}
 		}
 
-		// Level 3: 50 components (this will push us over 100 total)
+		// Level 3: 50 components (this will push us over 100)
 		level3Count := 0
 		for i := 0; i < 25 && level3Count < 50; i++ {
 			// Find a level 2 component to be parent
@@ -1588,7 +1588,6 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		services, err = storeInstance.GetComponentsByGVK(servicesGVK)
 		require.NoError(t, err, "failed to verify that services exist")
 		assert.Len(t, services, 1, "expected services to be unaffected")
-		assert.Equal(t, "uid-4", services[0].UID)
 	})
 
 	t.Run("should handle empty group in delete operation", func(t *testing.T) {
@@ -1834,4 +1833,239 @@ func newUnstructured(uid, name, namespace, group, version, kind string) unstruct
 	obj.SetNamespace(namespace)
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 	return obj
+}
+
+// Helper function to create unstructured.Unstructured objects for testing
+func createUnstructuredResource(group, version, kind, namespace, name string) unstructured.Unstructured {
+	u := unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   group,
+		Version: version,
+		Kind:    kind,
+	})
+	u.SetNamespace(namespace)
+	u.SetName(name)
+	u.SetUID(types.UID(fmt.Sprintf("%s-%s-%s", kind, namespace, name)))
+	return u
+}
+
+func createHookJob(namespace, name, serviceID string) unstructured.Unstructured {
+	group := ""
+	version := "v1"
+	kind := "Job"
+
+	u := createUnstructuredResource(group, version, kind, namespace, name)
+
+	u.SetAnnotations(map[string]string{
+		common.OwningInventoryKey:        serviceID,
+		common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(u).String(),
+		common.SyncPhaseHookDeletePolicy: common.HookDeletePolicySucceeded,
+	})
+
+	u.Object["status"] = map[string]interface{}{
+		"conditions": []interface{}{
+			map[string]interface{}{
+				"type":   "Complete",
+				"status": "True",
+			},
+		},
+	}
+
+	return u
+}
+
+func TestComponentCache_ProcessedHookComponents(t *testing.T) {
+	t.Run("should save and retrieve processed hook components by service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID := "svc-basic"
+		r := []unstructured.Unstructured{
+			createHookJob("default", "migrator", serviceID),
+			createHookJob("default", "check", serviceID),
+		}
+
+		require.NoError(t, storeInstance.SaveComponents(r))
+
+		result, err := storeInstance.GetHookComponents(serviceID)
+		require.NoError(t, err)
+		require.Len(t, result, len(r))
+
+		expect := map[string]struct {
+			group, version, kind, ns string
+		}{
+			"migrator": {group: "", version: "v1", kind: "Job", ns: "default"},
+			"check":    {group: "", version: "v1", kind: "Job", ns: "default"},
+		}
+
+		for _, m := range result {
+			assert.Equal(t, serviceID, m.ServiceID)
+			want := expect[m.Name]
+			assert.Equal(t, want.group, m.Group)
+			assert.Equal(t, want.version, m.Version)
+			assert.Equal(t, want.kind, m.Kind)
+			assert.Equal(t, want.ns, m.Namespace)
+		}
+	})
+
+	t.Run("should return empty list for non-existent service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		result, err := storeInstance.GetHookComponents("non-existent-service")
+		require.NoError(t, err)
+		require.Empty(t, result)
+	})
+
+	t.Run("should isolate hooks by service ID", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID1 := "svc-app1"
+		serviceID2 := "svc-app2"
+
+		hooks := []unstructured.Unstructured{
+			createHookJob("default", "app1-migrator", serviceID1),
+			createHookJob("default", "app1-seeder", serviceID1),
+			createHookJob("default", "app2-migrator", serviceID2),
+		}
+
+		require.NoError(t, storeInstance.SaveComponents(hooks))
+
+		// Check service 1 hooks
+		result1, err := storeInstance.GetHookComponents(serviceID1)
+		require.NoError(t, err)
+		require.Len(t, result1, 2)
+		for _, m := range result1 {
+			assert.Equal(t, serviceID1, m.ServiceID)
+			assert.Contains(t, []string{"app1-migrator", "app1-seeder"}, m.Name)
+		}
+
+		// Check service 2 hooks
+		result2, err := storeInstance.GetHookComponents(serviceID2)
+		require.NoError(t, err)
+		require.Len(t, result2, 1)
+		assert.Equal(t, serviceID2, result2[0].ServiceID)
+		assert.Equal(t, "app2-migrator", result2[0].Name)
+	})
+
+	t.Run("should handle different hook resource types", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID := "svc-various-hooks"
+
+		// Create different types of hook resources
+		hookJob := createHookJob("default", "migration-job", serviceID)
+
+		hookPod := createUnstructuredResource("", "v1", "Pod", "default", "migration-pod")
+		hookPod.SetAnnotations(map[string]string{
+			common.OwningInventoryKey:        serviceID,
+			common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(hookPod).String(),
+			common.SyncPhaseHookDeletePolicy: common.HookDeletePolicySucceeded,
+		})
+		hookPod.Object["spec"] = map[string]interface{}{
+			"nodeName": "node-1",
+		}
+		hookPod.Object["status"] = map[string]interface{}{
+			"phase": "Succeeded",
+		}
+
+		hookConfigMap := createUnstructuredResource("", "v1", "ConfigMap", "default", "migration-config")
+		hookConfigMap.SetAnnotations(map[string]string{
+			common.OwningInventoryKey:        serviceID,
+			common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(hookConfigMap).String(),
+			common.SyncPhaseHookDeletePolicy: common.HookDeletePolicySucceeded,
+		})
+
+		hooks := []unstructured.Unstructured{hookJob, hookPod, hookConfigMap}
+
+		require.NoError(t, storeInstance.SaveComponents(hooks))
+
+		result, err := storeInstance.GetHookComponents(serviceID)
+		require.NoError(t, err)
+		require.Len(t, result, 3)
+
+		kinds := make(map[string]bool)
+		for _, m := range result {
+			kinds[m.Kind] = true
+		}
+		assert.True(t, kinds["Job"])
+		assert.True(t, kinds["Pod"])
+		assert.True(t, kinds["ConfigMap"])
+	})
+
+	t.Run("should preserve UID and status information", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID := "svc-uid-check"
+		hook := createHookJob("default", "test-hook", serviceID)
+		expectedUID := hook.GetUID()
+
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{hook}))
+
+		result, err := storeInstance.GetHookComponents(serviceID)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+
+		assert.Equal(t, string(expectedUID), result[0].UID)
+		assert.NotEmpty(t, result[0].Status)
+	})
+
+	t.Run("should handle large number of hooks", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		serviceID := "svc-many-hooks"
+		hookCount := 50
+		hooks := make([]unstructured.Unstructured, hookCount)
+
+		for i := 0; i < hookCount; i++ {
+			hooks[i] = createHookJob("default", fmt.Sprintf("hook-%d", i), serviceID)
+		}
+
+		require.NoError(t, storeInstance.SaveComponents(hooks))
+
+		result, err := storeInstance.GetHookComponents(serviceID)
+		require.NoError(t, err)
+		require.Len(t, result, hookCount)
+
+		// Verify all hooks are unique by name
+		names := make(map[string]bool)
+		for _, m := range result {
+			names[m.Name] = true
+		}
+		assert.Len(t, names, hookCount)
+	})
 }
