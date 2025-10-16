@@ -21,11 +21,11 @@ const (
 	EnvTimeout       = "TIMEOUT"
 	EnvOutputFormat  = "OUTPUT_FORMAT"
 
-	defaultWorkingDir = "plural"
+	defaultWorkingDir = "sentinel"
 
 	// Defaults to 180 minute for run cancellation
-	defaultTimeout         = "10m"
-	defaultTimeoutDuration = 10 * time.Minute
+	defaultTimeout         = "30m"
+	defaultTimeoutDuration = 30 * time.Minute
 	defaultOutputFormat    = "JUNIT"
 )
 
@@ -98,6 +98,8 @@ func Timeout() time.Duration {
 
 	return timeout
 }
+
+func TimeoutDuration() string { return *argTimeout }
 
 func OutputFormat() string { return *argOutputFormat }
 

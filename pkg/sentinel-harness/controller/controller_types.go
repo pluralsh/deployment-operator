@@ -22,6 +22,8 @@ type sentinelRunController struct {
 
 	// consoleToken
 	consoleToken string
+
+	timeoutDuration string
 }
 
 type Option func(*sentinelRunController)

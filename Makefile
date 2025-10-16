@@ -115,6 +115,10 @@ harness: ## build stack run harness
 agent-harness: ## build agent harness
 	go build -o bin/agent-harness cmd/agent-harness/*.go
 
+.PHONY: sentinel-harness
+sentinel-harness: ## build sentinel harness
+	go build -o bin/sentinel-harness cmd/sentinel-harness/*.go
+
 .PHONY: docker-build-agent-harness-base
 docker-build-agent-harness-base: ## build base docker agent harness image
 	docker build \

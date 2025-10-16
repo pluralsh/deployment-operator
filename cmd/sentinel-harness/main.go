@@ -32,6 +32,7 @@ func main() {
 		controller.WithConsoleToken(args.ConsoleToken()),
 		controller.WithWorkingDir(args.WorkingDir()),
 		controller.WithOutputFormat(args.OutputFormat()),
+		controller.WithTimeout(args.TimeoutDuration()),
 	}
 
 	ctrl, err := controller.NewSentinelRunController(opts...)
@@ -53,10 +54,6 @@ func handleFatalError(err error) {
 	case errors.Is(err, internalerrors.ErrTimeout):
 		klog.ErrorS(err, "Timed out waiting for sentinel run to complete")
 		os.Exit(signals.ExitCodeTimeout.Int())
-
-	case errors.Is(err, internalerrors.ErrRemoteCancel):
-		klog.ErrorS(err, "Sentinel run has been cancelled remotely")
-		os.Exit(signals.ExitCodeCancel.Int())
 
 	case errors.Is(err, internalerrors.ErrTerminated):
 		klog.ErrorS(err, "Sentinel run terminated via signal")

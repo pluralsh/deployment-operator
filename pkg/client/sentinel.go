@@ -25,10 +25,10 @@ func (c *client) GetSentinelRunJob(id string) (*console.SentinelRunJobFragment, 
 	return resp.SentinelRunJob, nil
 }
 
-func (c *client) UpdateSentinelRunJobStatus(id string, attr *console.SentinelRunJobUpdateAttributes) (*console.SentinelRunJobFragment, error) {
-	resp, err := c.consoleClient.UpdateSentinelRunJobStatus(c.ctx, id, attr)
+func (c *client) UpdateSentinelRunJobStatus(id string, attr *console.SentinelRunJobUpdateAttributes) error {
+	_, err := c.consoleClient.UpdateSentinelRunJobStatus(c.ctx, id, attr)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return resp.UpdateSentinelRunJob, nil
+	return nil
 }

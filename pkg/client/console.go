@@ -94,5 +94,5 @@ type Client interface {
 	CreateAgentPullRequest(ctx context.Context, runID string, attrs console.AgentPullRequestAttributes) (*console.PullRequestFragment, error)
 	GetSentinelRunJob(id string) (*console.SentinelRunJobFragment, error)
 	ListClusterSentinelRunJobs(after *string, first *int64) (*console.ListClusterSentinelRunJobs_ClusterSentinelRunJobs, error)
-	UpdateSentinelRunJobStatus(id string, attr *console.SentinelRunJobUpdateAttributes) (*console.SentinelRunJobFragment, error)
+	UpdateSentinelRunJobStatus(id string, attr *console.SentinelRunJobUpdateAttributes) error
 }

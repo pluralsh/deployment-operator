@@ -33,3 +33,9 @@ func WithOutputFormat(format string) Option {
 		s.outputFormat = format
 	}
 }
+
+func WithTimeout(timeout string) Option {
+	return func(s *sentinelRunController) {
+		s.timeoutDuration = timeout
+	}
+}
