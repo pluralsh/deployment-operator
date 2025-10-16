@@ -18,6 +18,8 @@ type sentinelRunController struct {
 
 	dir string
 
+	outputFormat string
+
 	// consoleToken
 	consoleToken string
 }

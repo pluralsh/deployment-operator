@@ -92,7 +92,7 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 		}
 
 		if _, err := r.consoleClient.UpdateSentinelRunJobStatus(run.ID, &console.SentinelRunJobUpdateAttributes{
-			Status: lo.ToPtr(console.SentinelRunJobStatusRunning),
+			Status: lo.ToPtr(run.Status),
 			Reference: &console.NamespacedName{
 				Name:      job.Name,
 				Namespace: job.Namespace,

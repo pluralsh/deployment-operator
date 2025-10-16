@@ -27,3 +27,9 @@ func WithConsoleToken(token string) Option {
 		s.consoleToken = token
 	}
 }
+
+func WithOutputFormat(format string) Option {
+	return func(s *sentinelRunController) {
+		s.outputFormat = format
+	}
+}

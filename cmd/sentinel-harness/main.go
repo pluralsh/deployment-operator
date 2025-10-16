@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"os"
 
@@ -20,16 +21,17 @@ func main() {
 
 	consoleClient := client.New(args.ConsoleUrl(), args.ConsoleToken())
 
-	ctx := signals.NewCancelableContext(
-		signals.SetupSignalHandler(signals.ExitCodeTerminated),
-		signals.NewConsoleSignal(consoleClient, args.SentinelRunID()),
-	)
+	signalCtx := signals.SetupSignalHandler(signals.ExitCodeTerminated)
+	ctx := signals.NewCancelableContext(signalCtx)
+	ctx, cancel := context.WithTimeoutCause(ctx, args.Timeout(), internalerrors.ErrTimeout)
+	defer cancel()
 
 	opts := []controller.Option{
 		controller.WithSentinelRun(args.SentinelRunID()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithConsoleToken(args.ConsoleToken()),
 		controller.WithWorkingDir(args.WorkingDir()),
+		controller.WithOutputFormat(args.OutputFormat()),
 	}
 
 	ctrl, err := controller.NewSentinelRunController(opts...)
@@ -43,18 +45,25 @@ func main() {
 }
 
 func handleFatalError(err error) {
-	switch {
-	case errors.Is(err, internalerrors.ErrTimeout):
-		klog.ErrorS(err, "timed out waiting for stack run step to complete", "timeout", args.Timeout())
-		os.Exit(signals.ExitCodeTimeout.Int())
-	case errors.Is(err, internalerrors.ErrRemoteCancel):
-		klog.ErrorS(err, "stack run has been cancelled")
-		os.Exit(signals.ExitCodeCancel.Int())
-	case errors.Is(err, internalerrors.ErrTerminated):
-		klog.ErrorS(err, "stack run has been terminated")
-		os.Exit(signals.ExitCodeTerminated.Int())
+	if err == nil {
+		return
 	}
 
-	klog.ErrorS(err, "stack run failed")
-	os.Exit(signals.ExitCodeOther.Int())
+	switch {
+	case errors.Is(err, internalerrors.ErrTimeout):
+		klog.ErrorS(err, "Timed out waiting for sentinel run to complete")
+		os.Exit(signals.ExitCodeTimeout.Int())
+
+	case errors.Is(err, internalerrors.ErrRemoteCancel):
+		klog.ErrorS(err, "Sentinel run has been cancelled remotely")
+		os.Exit(signals.ExitCodeCancel.Int())
+
+	case errors.Is(err, internalerrors.ErrTerminated):
+		klog.ErrorS(err, "Sentinel run terminated via signal")
+		os.Exit(signals.ExitCodeTerminated.Int())
+
+	default:
+		klog.ErrorS(err, "Sentinel run failed unexpectedly")
+		os.Exit(signals.ExitCodeOther.Int())
+	}
 }
