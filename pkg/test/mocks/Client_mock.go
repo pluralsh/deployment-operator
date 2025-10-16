@@ -2658,33 +2658,21 @@ func (_c *ClientMock_UpdateGate_Call) RunAndReturn(run func(string, goclient.Gat
 }
 
 // UpdateSentinelRunJobStatus provides a mock function with given fields: id, attr
-func (_m *ClientMock) UpdateSentinelRunJobStatus(id string, attr *goclient.SentinelRunJobUpdateAttributes) (*goclient.SentinelRunJobFragment, error) {
+func (_m *ClientMock) UpdateSentinelRunJobStatus(id string, attr *goclient.SentinelRunJobUpdateAttributes) error {
 	ret := _m.Called(id, attr)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateSentinelRunJobStatus")
 	}
 
-	var r0 *goclient.SentinelRunJobFragment
-	var r1 error
-	if rf, ok := ret.Get(0).(func(string, *goclient.SentinelRunJobUpdateAttributes) (*goclient.SentinelRunJobFragment, error)); ok {
-		return rf(id, attr)
-	}
-	if rf, ok := ret.Get(0).(func(string, *goclient.SentinelRunJobUpdateAttributes) *goclient.SentinelRunJobFragment); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, *goclient.SentinelRunJobUpdateAttributes) error); ok {
 		r0 = rf(id, attr)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*goclient.SentinelRunJobFragment)
-		}
+		r0 = ret.Error(0)
 	}
 
-	if rf, ok := ret.Get(1).(func(string, *goclient.SentinelRunJobUpdateAttributes) error); ok {
-		r1 = rf(id, attr)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // ClientMock_UpdateSentinelRunJobStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateSentinelRunJobStatus'
@@ -2706,12 +2694,12 @@ func (_c *ClientMock_UpdateSentinelRunJobStatus_Call) Run(run func(id string, at
 	return _c
 }
 
-func (_c *ClientMock_UpdateSentinelRunJobStatus_Call) Return(_a0 *goclient.SentinelRunJobFragment, _a1 error) *ClientMock_UpdateSentinelRunJobStatus_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *ClientMock_UpdateSentinelRunJobStatus_Call) Return(_a0 error) *ClientMock_UpdateSentinelRunJobStatus_Call {
+	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *ClientMock_UpdateSentinelRunJobStatus_Call) RunAndReturn(run func(string, *goclient.SentinelRunJobUpdateAttributes) (*goclient.SentinelRunJobFragment, error)) *ClientMock_UpdateSentinelRunJobStatus_Call {
+func (_c *ClientMock_UpdateSentinelRunJobStatus_Call) RunAndReturn(run func(string, *goclient.SentinelRunJobUpdateAttributes) error) *ClientMock_UpdateSentinelRunJobStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }
