@@ -110,6 +110,9 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 		return nil, err
 	}
 	health, err := common.GetResourceHealth(unstructuredJob)
+	if err != nil {
+		return nil, err
+	}
 	if health != nil && health.Status == common.HealthStatusDegraded {
 		if err := r.consoleClient.UpdateSentinelRunJobStatus(run.ID, &console.SentinelRunJobUpdateAttributes{
 			Status: lo.ToPtr(console.SentinelRunJobStatusFailed),

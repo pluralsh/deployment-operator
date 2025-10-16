@@ -19,7 +19,6 @@ const (
 )
 
 func NewSentinelRunController(options ...Option) (Controller, error) {
-
 	ctrl := &sentinelRunController{}
 
 	for _, option := range options {
