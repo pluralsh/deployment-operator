@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	console "github.com/pluralsh/console/go/client"
@@ -102,6 +103,19 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 		}
 
 		return job, nil
+	}
+
+	unstructuredJob, err := common.ToUnstructured(foundJob)
+	if err != nil {
+		return nil, err
+	}
+	health, err := common.GetResourceHealth(unstructuredJob)
+	if health != nil && health.Status == common.HealthStatusDegraded {
+		if err := r.consoleClient.UpdateSentinelRunJobStatus(run.ID, &console.SentinelRunJobUpdateAttributes{
+			Status: lo.ToPtr(console.SentinelRunJobStatusFailed),
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	return foundJob, nil

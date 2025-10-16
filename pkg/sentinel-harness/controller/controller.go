@@ -47,7 +47,6 @@ func (in *sentinelRunController) Start(ctx context.Context) error {
 	if err != nil {
 		if err := in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{
 			Status: lo.ToPtr(console.SentinelRunJobStatusFailed),
-			Output: lo.ToPtr(err.Error()),
 		}); err != nil {
 			return err
 		}
