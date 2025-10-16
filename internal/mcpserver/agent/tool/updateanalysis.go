@@ -1,4 +1,4 @@
-package agent
+package tool
 
 import (
 	"context"
@@ -17,21 +17,17 @@ func (in *UpdateAnalysis) Install(server *server.MCPServer) {
 		mcp.NewTool(
 			in.name,
 			mcp.WithDescription(in.description),
-			mcp.WithString("title",
+			mcp.WithString("summary",
 				mcp.Required(),
-				mcp.Description("The title of the pull request"),
+				mcp.Description("The summary of the analysis"),
 			),
-			mcp.WithString("body",
+			mcp.WithString("analysis",
 				mcp.Required(),
-				mcp.Description("The body/description of the pull request"),
+				mcp.Description("The detailed analysis"),
 			),
-			mcp.WithString("base",
-				mcp.Required(),
-				mcp.Description("The base branch (target branch, usually 'main')"),
-			),
-			mcp.WithString("head",
-				mcp.Required(),
-				mcp.Description("The head branch (source branch with changes)"),
+			mcp.WithArray("bullets",
+				mcp.Description("An array of bullet points to provide additional context"),
+				mcp.WithStringItems(),
 			),
 		),
 		in.handler,

@@ -192,7 +192,7 @@ docker-build-harness-ansible-fips: docker-build-harness-base-fips ## build fips 
     		.
 
 .PHONY: docker-build-agent-harness-base
-docker-build-agent-harness-base: docker-build-agent-mcpserver ## build base docker agent harness image
+docker-build-agent-harness-base: ## build base docker agent harness image
 	docker build \
 		--build-arg=VERSION="0.0.0-dev" \
 		-t ghcr.io/pluralsh/agent-harness-base \
@@ -221,14 +221,6 @@ docker-build-agent-harness-opencode: docker-build-agent-harness-base ## build op
 		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
 		-t ghcr.io/pluralsh/agent-harness-opencode \
 		-f dockerfiles/agent-harness/opencode.Dockerfile \
-		.
-
-.PHONY: docker-build-agent-mcpserver
-docker-build-agent-mcpserver: ## build mcp server docker image
-	docker build \
-		--build-arg=VERSION="0.0.0-dev" \
-		-t ghcr.io/pluralsh/mcpserver:latest \
-		-f dockerfiles/mcpserver/agent/Dockerfile \
 		.
 
 .PHONY: docker-build-terraform-mcpserver

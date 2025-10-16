@@ -157,6 +157,7 @@ func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 }
 
 func (in *Server) parseListenerData(e opencode.EventListResponse) (*Event, bool) {
+	klog.V(log.LogLevelTrace).InfoS("received event", "type", e.Type, "data", e.Properties)
 	switch e.Type {
 	case opencode.EventListResponseTypeMessageUpdated:
 		properties := e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/cmd/mcpserver/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/mcpserver/agent"
+	"github.com/pluralsh/deployment-operator/internal/mcpserver/agent/tool"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -33,9 +34,9 @@ func main() {
 		client,
 		agent.WithTools(),
 		agent.WithVersion(Version),
-		agent.WithTool(agent.NewCreatePullRequest(client, args.AgentRunID())),
-		agent.WithTool(agent.NewUpdateTodos(client, args.AgentRunID())),
-		agent.WithTool(agent.NewUpdateAnalysis(client, args.AgentRunID())),
+		agent.WithTool(tool.NewCreatePullRequest(client, args.AgentRunID())),
+		agent.WithTool(tool.NewUpdateTodos(client, args.AgentRunID())),
+		agent.WithTool(tool.NewUpdateAnalysis(client, args.AgentRunID())),
 	)
 
 	if err := server.Start(); err != nil {

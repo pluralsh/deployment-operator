@@ -61,7 +61,7 @@ After creating the PR, provide:
 In case of error, provide:
 - Error Message: Detailed description of the error
 - Error Code: Error code or number
-- Request Details: Request parameters used (do not print secrets; you may state that 'runId' was sourced from environment and sanitized)
+- Request Details: Request parameters used (do not print secrets)
 
 ## Guidelines
 - Be precise and efficient
