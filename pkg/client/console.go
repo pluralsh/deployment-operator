@@ -92,4 +92,7 @@ type Client interface {
 	UpdateAgentRunAnalysis(ctx context.Context, runtimeID string, attrs console.AgentAnalysisAttributes) (*console.AgentRunFragment, error)
 	UpdateAgentRunTodos(ctx context.Context, id string, attrs []*console.AgentTodoAttributes) (*console.AgentRunFragment, error)
 	CreateAgentPullRequest(ctx context.Context, runID string, attrs console.AgentPullRequestAttributes) (*console.PullRequestFragment, error)
+	GetSentinelRunJob(id string) (*console.SentinelRunJobFragment, error)
+	ListClusterSentinelRunJobs(after *string, first *int64) (*console.ListClusterSentinelRunJobs_ClusterSentinelRunJobs, error)
+	UpdateSentinelRunJobStatus(id string, attr *console.SentinelRunJobUpdateAttributes) error
 }

@@ -114,6 +114,26 @@ harness: ## build stack run harness
 agent-harness: ## build agent harness
 	go build -o bin/agent-harness cmd/agent-harness/*.go
 
+.PHONY: sentinel-harness
+sentinel-harness: ## build sentinel harness
+	go build -o bin/sentinel-harness cmd/sentinel-harness/*.go
+
+.PHONY: docker-build-sentinel-harness-base
+docker-build-sentinel-harness-base: ## build base docker sentinel harness image
+	docker build \
+		--build-arg=VERSION="0.0.0-dev" \
+		-t ghcr.io/pluralsh/sentinel-harness-base \
+		-f dockerfiles/sentinel-harness/base.Dockerfile \
+		.
+
+.PHONY: docker-build-sentinel-harness-terratest
+docker-build-sentinel-harness-terratest: docker-build-sentinel-harness-base ## build terratest docker sentinel harness image
+	docker build \
+		--build-arg=SENTINEL_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/sentinel-harness-terratest \
+		-f dockerfiles/sentinel-harness/terratest.Dockerfile \
+		.
+
 .PHONY: docker-build-agent-harness-base
 docker-build-agent-harness-base: ## build base docker agent harness image
 	docker build \
