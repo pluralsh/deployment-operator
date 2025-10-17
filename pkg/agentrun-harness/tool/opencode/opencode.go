@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"path"
 
+	console "github.com/pluralsh/console/go/client"
 	"github.com/sst/opencode-sdk-go"
 	"github.com/sst/opencode-sdk-go/option"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
@@ -18,6 +20,35 @@ import (
 
 func (in *Opencode) Run(ctx context.Context, options ...exec.Option) {
 	go in.start(ctx, options...)
+}
+
+func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) error {
+	input := &ConfigTemplateInput{
+		ConsoleURL:   consoleURL,
+		ConsoleToken: consoleToken,
+		DeployToken:  deployToken,
+		AgentRunID:   in.run.ID,
+	}
+
+	switch in.run.Runtime.Type {
+	case console.AgentRuntimeTypeOpencode:
+		input.Provider = DefaultProvider()
+		input.Endpoint = helpers.GetEnv(controller.EnvOpenCodeEndpoint, input.Provider.Endpoint())
+		input.Model = DefaultModel()
+		input.Token = helpers.GetEnv(controller.EnvOpenCodeToken, "")
+	}
+
+	_, content, err := configTemplate(input)
+	if err != nil {
+		return err
+	}
+
+	if err = helpers.File().Create(in.configFilePath(), content); err != nil {
+		return fmt.Errorf("failed configuring opencode config file %q: %w", ConfigFileName, err)
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("opencode configured", "configFile", in.configFilePath())
+	return nil
 }
 
 func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
@@ -70,34 +101,8 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	}
 }
 
-func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) error {
-	input := &ConfigTemplateInput{
-		ConsoleURL:    consoleURL,
-		ConsoleToken:  consoleToken,
-		DeployToken:   deployToken,
-		AgentRunID:    in.run.ID,
-		ModelID:       defaultModelID,
-		ModelName:     defaultModelName,
-		ProviderID:    defaultProviderID,
-		ProviderName:  defaultProviderName,
-		AnalysisAgent: defaultAnalysisAgent,
-		WriteAgent:    defaultWriteAgent,
-	}
-	_, content, err := configTemplate(input)
-	if err != nil {
-		return err
-	}
-
-	if err = helpers.File().Create(in.configFilePath(), content); err != nil {
-		return fmt.Errorf("failed configuring opencode config file %q: %w", ConfigFileName, err)
-	}
-
-	klog.V(log.LogLevelExtended).InfoS("opencode configured", "configFile", in.configFilePath())
-	return nil
-}
-
 func (in *Opencode) configFilePath() string {
-	return path.Join(in.dir, ".config", ConfigFileName)
+	return path.Join(in.dir, ".opencode", ConfigFileName)
 }
 
 func (in *Opencode) ensure() error {

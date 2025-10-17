@@ -15,6 +15,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
@@ -156,6 +157,7 @@ func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 }
 
 func (in *Server) parseListenerData(e opencode.EventListResponse) (*Event, bool) {
+	klog.V(log.LogLevelTrace).InfoS("received event", "type", e.Type, "data", e.Properties)
 	switch e.Type {
 	case opencode.EventListResponseTypeMessageUpdated:
 		properties := e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties)
@@ -197,20 +199,12 @@ func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <
 
 	go func() {
 		klog.V(log.LogLevelDefault).InfoS("sending prompt", "prompt", prompt)
-		res, err := in.client.Session.Prompt(ctx, in.session.ID, opencode.SessionPromptParams{
-			Parts: opencode.F([]opencode.SessionPromptParamsPartUnion{
-				opencode.TextPartInputParam{
-					Text: opencode.F(prompt),
-					Type: opencode.F(opencode.TextPartInputTypeText),
-				},
-			}),
-			System: opencode.F(in.systemPrompt),
-			Agent:  opencode.F(in.agent),
-			Model: opencode.F(opencode.SessionPromptParamsModel{
-				ModelID:    opencode.F(defaultModelID),
-				ProviderID: opencode.F(defaultProviderID),
-			}),
-		}, option.WithRequestTimeout(in.promptTimeout))
+		res, err := in.client.Session.Prompt(
+			ctx,
+			in.session.ID,
+			in.toParams(prompt),
+			option.WithRequestTimeout(in.promptTimeout),
+		)
 		if err != nil {
 			errChan <- err
 			close(errChan)
@@ -224,6 +218,29 @@ func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <
 	}()
 
 	return done, errChan
+}
+
+func (in *Server) toParams(prompt string) opencode.SessionPromptParams {
+	params := opencode.SessionPromptParams{
+		Parts: opencode.F([]opencode.SessionPromptParamsPartUnion{
+			opencode.TextPartInputParam{
+				Text: opencode.F(prompt),
+				Type: opencode.F(opencode.TextPartInputTypeText),
+			},
+		}),
+		Agent: opencode.F(in.agent),
+		Model: opencode.F(opencode.SessionPromptParamsModel{
+			ModelID:    opencode.F(string(DefaultModel())),
+			ProviderID: opencode.F(string(DefaultProvider())),
+		}),
+	}
+
+	if len(in.systemPrompt) > 0 {
+		params.System = opencode.F(in.systemPrompt)
+	}
+
+	klog.V(log.LogLevelDefault).InfoS("using prompt params", "model", DefaultModel(), "provider", DefaultProvider())
+	return params
 }
 
 func (in *Server) Stop() {
@@ -262,11 +279,7 @@ func (in *Server) initSession(ctx context.Context) (err error) {
 }
 
 func (in *Server) init() *Server {
-	in.systemPrompt = helpers.GetEnv(
-		EnvOverrideSystemPrompt,
-		lo.Ternary(in.mode == console.AgentRunModeAnalyze, systemPromptAnalyzer, systemPromptWriter),
-	)
-
+	in.systemPrompt = helpers.GetEnv(environment.EnvOverrideSystemPrompt, "")
 	in.agent = lo.Ternary(in.mode == console.AgentRunModeAnalyze, defaultAnalysisAgent, defaultWriteAgent)
 	in.promptTimeout = 10 * time.Minute
 	in.client = opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", in.port)))
