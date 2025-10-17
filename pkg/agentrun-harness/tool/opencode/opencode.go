@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"path"
 
+	console "github.com/pluralsh/console/go/client"
 	"github.com/sst/opencode-sdk-go"
 	"github.com/sst/opencode-sdk-go/option"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
@@ -27,6 +29,15 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 		DeployToken:  deployToken,
 		AgentRunID:   in.run.ID,
 	}
+
+	switch in.run.Runtime.Type {
+	case console.AgentRuntimeTypeOpencode:
+		input.Provider = DefaultProvider()
+		input.Endpoint = helpers.GetEnv(controller.EnvOpenCodeEndpoint, input.Provider.Endpoint())
+		input.Model = DefaultModel()
+		input.Token = helpers.GetEnv(controller.EnvOpenCodeToken, "")
+	}
+
 	_, content, err := configTemplate(input)
 	if err != nil {
 		return err

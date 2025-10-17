@@ -230,8 +230,8 @@ func (in *Server) toParams(prompt string) opencode.SessionPromptParams {
 		}),
 		Agent: opencode.F(in.agent),
 		Model: opencode.F(opencode.SessionPromptParamsModel{
-			ModelID:    opencode.F(defaultModel),
-			ProviderID: opencode.F(defaultProvider),
+			ModelID:    opencode.F(string(DefaultModel())),
+			ProviderID: opencode.F(string(DefaultProvider())),
 		}),
 	}
 
@@ -239,6 +239,7 @@ func (in *Server) toParams(prompt string) opencode.SessionPromptParams {
 		params.System = opencode.F(in.systemPrompt)
 	}
 
+	klog.V(log.LogLevelDefault).InfoS("using prompt params", "model", DefaultModel(), "provider", DefaultProvider())
 	return params
 }
 

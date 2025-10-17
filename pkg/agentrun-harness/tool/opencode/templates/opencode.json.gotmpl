@@ -87,11 +87,12 @@
           "reasoning": true
         }
       }
-    },
-    "openai": {
-      "name": "openai",
+    }{{ if ne .Provider "plural" }},
+    "{{ .Provider }}": {
+      "name": "{{ .Provider }}",
       "options": {
-        "apiKey": "{{ .OpenAIToken }}"
+        "baseURL": "{{ .Endpoint }}",
+        "apiKey": "{{ .Token }}"
       },
       "models": {
         "gpt-4.1-mini": {
@@ -112,5 +113,6 @@
         }
       }
     }
+    {{ end }}
   }
 }

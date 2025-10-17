@@ -11,9 +11,13 @@ CRDDOCS ?= $(shell which crd-ref-docs)
 # Config variables used for testing
 DEFAULT_PLRL_CONSOLE_URL := "https://console.plrl-dev-aws.onplural.sh"
 PLRL_CONSOLE_URL := $(if $(PLRL_CONSOLE_URL),$(PLRL_CONSOLE_URL),$(DEFAULT_PLRL_CONSOLE_URL))
-PLRL_CONSOLE_TOKEN := $(if $(PLRL_CONSOLE_TOKEN),$(PLRL_CONSOLE_TOKEN),test-token)
-PLRL_DEPLOY_TOKEN := $(if $(PLRL_DEPLOY_TOKEN),$(PLRL_DEPLOY_TOKEN),test-deploy-token)
-PLRL_AGENT_RUN_ID := $(if $(PLRL_AGENT_RUN_ID),$(PLRL_AGENT_RUN_ID),test-id)
+PLRL_CONSOLE_TOKEN := $(if $(PLRL_CONSOLE_TOKEN),$(PLRL_CONSOLE_TOKEN),"")
+PLRL_DEPLOY_TOKEN := $(if $(PLRL_DEPLOY_TOKEN),$(PLRL_DEPLOY_TOKEN),"")
+PLRL_AGENT_RUN_ID := $(if $(PLRL_AGENT_RUN_ID),$(PLRL_AGENT_RUN_ID),"")
+PLRL_OPENCODE_PROVIDER := $(if $(PLRL_OPENCODE_PROVIDER),$(PLRL_OPENCODE_PROVIDER),"")
+PLRL_OPENCODE_ENDPOINT := $(if $(PLRL_OPENCODE_ENDPOINT),$(PLRL_OPENCODE_ENDPOINT),"")
+PLRL_OPENCODE_MODEL := $(if $(PLRL_OPENCODE_MODEL),$(PLRL_OPENCODE_MODEL),"")
+PLRL_OPENCODE_TOKEN := $(if $(PLRL_OPENCODE_TOKEN),$(PLRL_OPENCODE_TOKEN),"")
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
@@ -102,6 +106,10 @@ agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent har
 		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
 		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
 		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		-e PLRL_OPENCODE_PROVIDER=$(PLRL_OPENCODE_PROVIDER) \
+		-e PLRL_OPENCODE_ENDPOINT=$(PLRL_OPENCODE_ENDPOINT) \
+		-e PLRL_OPENCODE_MODEL=$(PLRL_OPENCODE_MODEL) \
+		-e PLRL_OPENCODE_TOKEN=$(PLRL_OPENCODE_TOKEN) \
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-opencode --v=3
 
