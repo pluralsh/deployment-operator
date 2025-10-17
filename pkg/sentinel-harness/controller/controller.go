@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
 	"gotest.tools/gotestsum/cmd"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -63,10 +66,19 @@ func (in *sentinelRunController) Start(ctx context.Context) error {
 }
 
 func (in *sentinelRunController) runTests() (string, error) {
+	err := os.Chdir(in.testDir)
+	if err != nil {
+		return "", err
+	}
+
+	klog.V(log.LogLevelDefault).InfoS("running tests", "testDir", in.testDir)
+
+	junitPath := filepath.Join(in.outputDir, junitfile)
+
 	if err := cmd.Run("", []string{
 		"--format", "testname",
-		"--junitfile", junitfile,
-		"--jsonfile", jsonFile,
+		"--junitfile", junitPath,
+		"--jsonfile", filepath.Join(in.outputDir, jsonFile),
 		"--",
 		"--test.v",
 		"--test.timeout", in.timeoutDuration,
@@ -77,13 +89,13 @@ func (in *sentinelRunController) runTests() (string, error) {
 		return "", err
 	}
 
-	output, err := DecodeTestJSONFileToString(jsonFile)
+	output, err := DecodeTestJSONFileToString(filepath.Join(in.outputDir, jsonFile))
 	if err != nil {
 		return "", err
 	}
 
 	if in.outputFormat == junitFormat {
-		out, err := os.ReadFile(junitfile)
+		out, err := os.ReadFile(junitPath)
 		if err != nil {
 			return "", err
 		}

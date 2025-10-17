@@ -17,11 +17,13 @@ const (
 	EnvConsoleUrl    = "CONSOLE_URL"
 	EnvConsoleToken  = "CONSOLE_TOKEN"
 	EnvSentinelRunID = "SENTINEL_RUN_ID"
-	EnvWorkingDir    = "WORKING_DIR"
+	EnvTestDir       = "TEST_DIR"
+	EnvOutputDir     = "OUTPUT_DIR"
 	EnvTimeout       = "TIMEOUT"
 	EnvOutputFormat  = "OUTPUT_FORMAT"
 
-	defaultWorkingDir = "sentinel"
+	defaultTestDir   = "/sentinel"
+	defaultOutputDir = "/plural"
 
 	// Defaults to 180 minute for run cancellation
 	defaultTimeout         = "30m"
@@ -33,7 +35,8 @@ var (
 	argConsoleUrl    = pflag.String("console-url", helpers.GetPluralEnv(EnvConsoleUrl, ""), "URL to the extended Console API, i.e. https://console.onplural.sh/ext/gql")
 	argConsoleToken  = pflag.String("console-token", helpers.GetPluralEnv(EnvConsoleToken, ""), "Deploy token to the Console API")
 	argSentinelRunID = pflag.String("sentinel-run-id", helpers.GetPluralEnv(EnvSentinelRunID, ""), "ID of the Sentinel Run to execute")
-	argWorkingDir    = pflag.String("working-dir", helpers.GetPluralEnv(EnvWorkingDir, defaultWorkingDir), "Working directory used to prepare the environment")
+	argTestDir       = pflag.String("test-dir", helpers.GetPluralEnv(EnvTestDir, defaultTestDir), "Test directory used to run sentinel tests from")
+	argOutputDir     = pflag.String("output-dir", helpers.GetPluralEnv(EnvOutputDir, defaultOutputDir), "Output directory used to store test results")
 	argTimeout       = pflag.String("timeout", helpers.GetPluralEnv(EnvTimeout, defaultTimeout), "Timeout is the maximum time each sentinel run step can run before it will be cancelled")
 	argOutputFormat  = pflag.String("output-format", helpers.GetPluralEnv(EnvOutputFormat, defaultOutputFormat), "Output format to use for test results (options: JUNIT, PLAINTEXT)")
 )
@@ -85,8 +88,12 @@ func LogLevel() klog.Level {
 	return klog.Level(level)
 }
 
-func WorkingDir() string {
-	return *argWorkingDir
+func TestDir() string {
+	return *argTestDir
+}
+
+func OutputDir() string {
+	return *argOutputDir
 }
 
 func Timeout() time.Duration {

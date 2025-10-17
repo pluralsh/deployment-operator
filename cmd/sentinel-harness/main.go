@@ -30,7 +30,8 @@ func main() {
 		controller.WithSentinelRun(args.SentinelRunID()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithConsoleToken(args.ConsoleToken()),
-		controller.WithWorkingDir(args.WorkingDir()),
+		controller.WithTestDir(args.TestDir()),
+		controller.WithOutputDir(args.OutputDir()),
 		controller.WithOutputFormat(args.OutputFormat()),
 		controller.WithTimeout(args.TimeoutDuration()),
 	}

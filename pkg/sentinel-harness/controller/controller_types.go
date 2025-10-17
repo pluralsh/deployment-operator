@@ -16,7 +16,9 @@ type sentinelRunController struct {
 	// consoleClient
 	consoleClient console.Client
 
-	dir string
+	testDir string
+
+	outputDir string
 
 	outputFormat string
 

@@ -16,9 +16,15 @@ func WithConsoleClient(client console.Client) Option {
 	}
 }
 
-func WithWorkingDir(dir string) Option {
+func WithTestDir(dir string) Option {
 	return func(s *sentinelRunController) {
-		s.dir = dir
+		s.testDir = dir
+	}
+}
+
+func WithOutputDir(dir string) Option {
+	return func(s *sentinelRunController) {
+		s.outputDir = dir
 	}
 }
 
