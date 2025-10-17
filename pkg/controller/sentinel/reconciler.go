@@ -6,6 +6,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/polly/algorithms"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
@@ -25,18 +26,19 @@ const (
 )
 
 type SentinelReconciler struct {
-	consoleClient client.Client
-	k8sClient     ctrlclient.Client
-	scheme        *runtime.Scheme
-	sentinelQueue workqueue.TypedRateLimitingInterface[string]
-	sentinelCache *client.Cache[console.SentinelRunJobFragment]
-	namespace     string
-	consoleURL    string
-	deployToken   string
-	pollInterval  time.Duration
+	consoleClient  client.Client
+	k8sClient      ctrlclient.Client
+	scheme         *runtime.Scheme
+	sentinelQueue  workqueue.TypedRateLimitingInterface[string]
+	sentinelCache  *client.Cache[console.SentinelRunJobFragment]
+	namespace      string
+	consoleURL     string
+	deployToken    string
+	pollInterval   time.Duration
+	namespaceCache streamline.NamespaceCache
 }
 
-func NewSentinelReconciler(consoleClient client.Client, k8sClient ctrlclient.Client, scheme *runtime.Scheme, refresh, pollInterval time.Duration, namespace, consoleURL, deployToken string) *SentinelReconciler {
+func NewSentinelReconciler(namespaceCache streamline.NamespaceCache, consoleClient client.Client, k8sClient ctrlclient.Client, scheme *runtime.Scheme, refresh, pollInterval time.Duration, namespace, consoleURL, deployToken string) *SentinelReconciler {
 	return &SentinelReconciler{
 		consoleClient: consoleClient,
 		k8sClient:     k8sClient,
@@ -45,10 +47,11 @@ func NewSentinelReconciler(consoleClient client.Client, k8sClient ctrlclient.Cli
 		sentinelCache: client.NewCache[console.SentinelRunJobFragment](refresh, func(id string) (*console.SentinelRunJobFragment, error) {
 			return consoleClient.GetSentinelRunJob(id)
 		}),
-		consoleURL:   consoleURL,
-		deployToken:  deployToken,
-		pollInterval: pollInterval,
-		namespace:    namespace,
+		consoleURL:     consoleURL,
+		deployToken:    deployToken,
+		pollInterval:   pollInterval,
+		namespace:      namespace,
+		namespaceCache: namespaceCache,
 	}
 }
 

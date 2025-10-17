@@ -66,6 +66,12 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 	jobSpec := getRunJobSpec(name, run.JobSpec)
 	namespace := r.GetRunResourceNamespace(jobSpec)
 
+	if err := r.namespaceCache.EnsureNamespace(ctx, namespace, &console.ServiceDeploymentForAgent_SyncConfig{
+		CreateNamespace: lo.ToPtr(true),
+	}); err != nil {
+		return nil, err
+	}
+
 	foundJob := &batchv1.Job{}
 	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, foundJob); err != nil {
 		if !apierrs.IsNotFound(err) {
@@ -239,6 +245,8 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 
 		for i := range containers {
 			containers[i].VolumeMounts = ensureDefaultVolumeMounts(containers[i].VolumeMounts)
+			containers[i].Env = make([]corev1.EnvVar, 0)
+			containers[i].EnvFrom = r.getDefaultContainerEnvFrom(run)
 		}
 		return containers
 	}

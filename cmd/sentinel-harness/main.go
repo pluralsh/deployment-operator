@@ -10,10 +10,10 @@ import (
 
 	"github.com/pluralsh/deployment-operator/cmd/sentinel-harness/args"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/sentinel-harness/controller"
+	"github.com/pluralsh/deployment-operator/pkg/sentinel-harness/environment"
 )
 
 func main() {

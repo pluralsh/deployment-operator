@@ -123,7 +123,7 @@ func registerConsoleReconcilersOrDie(
 			setupLog.Error(err, "unable to get operator namespace")
 			os.Exit(1)
 		}
-		r := sentinel.NewSentinelReconciler(consoleClient, k8sClient, scheme, args.ControllerCacheTTL(), sentinelPollInterval, namespace, args.ConsoleUrl(), args.DeployToken())
+		r := sentinel.NewSentinelReconciler(namespaceCache, consoleClient, k8sClient, scheme, args.ControllerCacheTTL(), sentinelPollInterval, namespace, args.ConsoleUrl(), args.DeployToken())
 		return r, nil
 	})
 }
