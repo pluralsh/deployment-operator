@@ -78,7 +78,7 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 			return nil, err
 		}
 
-		secret, err := r.upsertRunSecret(ctx, name, namespace, run.ID)
+		secret, err := r.upsertRunSecret(ctx, name, namespace, run.ID, run.Format.String())
 		if err != nil {
 			return nil, err
 		}

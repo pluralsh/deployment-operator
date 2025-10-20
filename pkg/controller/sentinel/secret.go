@@ -14,13 +14,15 @@ const (
 	envConsoleURL   = "PLRL_CONSOLE_URL"
 	envConsoleToken = "PLRL_CONSOLE_TOKEN"
 	envRunID        = "PLRL_SENTINEL_RUN_ID"
+	envFormat       = "PLRL_OUTPUT_FORMAT"
 )
 
-func (r *SentinelReconciler) getRunSecretData(runID string) map[string]string {
+func (r *SentinelReconciler) getRunSecretData(runID, format string) map[string]string {
 	return map[string]string{
 		envConsoleURL:   r.consoleURL,
 		envConsoleToken: r.deployToken,
 		envRunID:        runID,
+		envFormat:       format,
 	}
 }
 
@@ -32,7 +34,7 @@ func (r *SentinelReconciler) hasRunSecretData(data map[string][]byte, runID stri
 		string(token) == r.deployToken && string(url) == r.consoleURL && string(id) == runID
 }
 
-func (r *SentinelReconciler) upsertRunSecret(ctx context.Context, name, namespace, runID string) (*corev1.Secret, error) {
+func (r *SentinelReconciler) upsertRunSecret(ctx context.Context, name, namespace, runID, format string) (*corev1.Secret, error) {
 	logger := log.FromContext(ctx)
 
 	secret := &corev1.Secret{}
@@ -43,7 +45,7 @@ func (r *SentinelReconciler) upsertRunSecret(ctx context.Context, name, namespac
 
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-			StringData: r.getRunSecretData(runID),
+			StringData: r.getRunSecretData(runID, format),
 		}
 		logger.V(2).Info("creating secret", "namespace", secret.Namespace, "name", secret.Name)
 		if err := r.k8sClient.Create(ctx, secret); err != nil {
@@ -56,7 +58,7 @@ func (r *SentinelReconciler) upsertRunSecret(ctx context.Context, name, namespac
 
 	if !r.hasRunSecretData(secret.Data, runID) {
 		logger.V(2).Info("updating secret", "namespace", secret.Namespace, "name", secret.Name)
-		secret.StringData = r.getRunSecretData(runID)
+		secret.StringData = r.getRunSecretData(runID, format)
 		if err := r.k8sClient.Update(ctx, secret); err != nil {
 			logger.Error(err, "unable to update secret")
 			return nil, err
