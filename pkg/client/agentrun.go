@@ -64,7 +64,7 @@ func (c *client) UpdateAgentRun(ctx context.Context, id string, attrs console.Ag
 	return response.UpdateAgentRun, nil
 }
 
-func (c *client) UpdateAgentRunAnalysis(ctx context.Context, runtimeID string, attrs console.AgentAnalysisAttributes) (*console.AgentRunFragment, error) {
+func (c *client) UpdateAgentRunAnalysis(ctx context.Context, runtimeID string, attrs console.AgentAnalysisAttributes) (*console.AgentRunBaseFragment, error) {
 	response, err := c.consoleClient.UpdateAgentRunAnalysis(ctx, runtimeID, attrs)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (c *client) UpdateAgentRunAnalysis(ctx context.Context, runtimeID string, a
 	return response.UpdateAgentRunAnalysis, nil
 }
 
-func (c *client) UpdateAgentRunTodos(ctx context.Context, id string, attrs []*console.AgentTodoAttributes) (*console.AgentRunFragment, error) {
+func (c *client) UpdateAgentRunTodos(ctx context.Context, id string, attrs []*console.AgentTodoAttributes) (*console.AgentRunBaseFragment, error) {
 	response, err := c.consoleClient.UpdateAgentRunTodos(ctx, id, attrs)
 	if err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package tool
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -52,17 +53,47 @@ func (in *UpdateTodos) handler(ctx context.Context, request mcp.CallToolRequest)
 }
 
 func (in *UpdateTodos) fromRequest(request mcp.CallToolRequest) ([]*client.AgentTodoAttributes, error) {
-	todosInterface, ok := request.GetArguments()["todos"]
+	raw, ok := request.GetArguments()["todos"]
 	if !ok {
 		return nil, fmt.Errorf("missing todos argument")
 	}
 
-	todos, ok := todosInterface.([]client.AgentTodoAttributes)
+	items, ok := raw.([]any)
 	if !ok {
-		return nil, fmt.Errorf("todos argument is not a list")
+		return nil, fmt.Errorf("todos argument is not a list: %v", raw)
 	}
 
-	return lo.ToSlicePtr(todos), nil
+	todos := make([]*client.AgentTodoAttributes, 0, len(items))
+	for i, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("todos[%d] must be an object, got %T", i, item)
+		}
+
+		title := fmt.Sprint(m["title"])
+		description := fmt.Sprint(m["description"])
+		done := in.toBool(m["done"])
+
+		todos = append(todos, &client.AgentTodoAttributes{
+			Title:       title,
+			Description: description,
+			Done:        done,
+		})
+	}
+
+	return todos, nil
+}
+
+func (in *UpdateTodos) toBool(v any) bool {
+	switch x := v.(type) {
+	case bool:
+		return x
+	case string:
+		b, _ := strconv.ParseBool(x)
+		return b
+	default:
+		return false
+	}
 }
 
 func NewUpdateTodos(client console.Client, agentRunID string) Tool {
