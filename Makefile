@@ -233,10 +233,12 @@ velero-crds:
 	@rm -r velero.tgz velero
 
 ##@ Tests
-
 .PHONY: test
-test: envtest ## run tests
-	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" go test $$(go list ./... | grep -v /e2e) -race -v -tags="cache"
+test: tools ## run tests
+	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" \
+	gotestsum --format pkgname -- \
+		$$(go list ./... | grep -v /e2e) \
+		-race -v -tags="cache"
 
 .PHONY: lint
 lint: $(PRE) ## run linters
@@ -288,6 +290,9 @@ controller-gen: --tool
 discovery: TOOL = discovery
 discovery: --tool
 
+.PHONY: gotestsum
+gotestsum: TOOL = gotestsum
+gotestsum: --tool
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
