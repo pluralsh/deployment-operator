@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	console "github.com/pluralsh/console/go/client"
 	"github.com/sst/opencode-sdk-go"
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
@@ -85,6 +86,9 @@ type Opencode struct {
 	// client is the opencode client.
 	client *opencode.Client
 
+	// messages is a list of messages received from the server.
+	messages []Event
+
 	// errorChan is a channel that returns an error if the tool failed
 	errorChan chan error
 
@@ -96,14 +100,6 @@ type Opencode struct {
 }
 
 type Event struct {
-	ID          string
-	EventType   opencode.EventListResponseType
-	MessageType *opencode.PartType
-	Role        *string
-	Mode        *string
-	Model       *string
-	Provider    *string
-	Tool        *string
-	Files       []string
-	State       *opencode.ToolPartState
+	ID      string
+	Message *console.AgentMessageAttributes
 }

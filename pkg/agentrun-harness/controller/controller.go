@@ -99,8 +99,9 @@ func (in *agentRunController) completeAgentRun(status gqlclient.AgentRunStatus, 
 	}
 
 	statusAttrs := gqlclient.AgentRunStatusAttributes{
-		Status: status,
-		Error:  errorMsg,
+		Status:   status,
+		Error:    errorMsg,
+		Messages: in.tool.Messages(),
 	}
 
 	_, err := in.consoleClient.UpdateAgentRun(context.Background(), in.agentRunID, statusAttrs)

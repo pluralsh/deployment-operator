@@ -7,6 +7,7 @@ import (
 	"path"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/algorithms"
 	"github.com/sst/opencode-sdk-go"
 	"github.com/sst/opencode-sdk-go/option"
 	"k8s.io/klog/v2"
@@ -51,6 +52,12 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 	return nil
 }
 
+func (in *Opencode) Messages() []*console.AgentMessageAttributes {
+	return algorithms.Map(in.messages, func(e Event) *console.AgentMessageAttributes {
+		return e.Message
+	})
+}
+
 func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	maxRestarts := 2
 	restarts := 0
@@ -83,6 +90,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 				return
 			case msg := <-messageChan:
 				klog.V(log.LogLevelDefault).InfoS("message received", "message", msg)
+				in.messages = append(in.messages, msg)
 			case err := <-listenErrChan:
 				in.errorChan <- err
 				return

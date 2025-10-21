@@ -139,7 +139,6 @@ func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 
 			if done {
 				msgChan <- event
-				delete(events, e.ID)
 			}
 		}
 
@@ -161,36 +160,77 @@ func (in *Server) parseListenerData(e opencode.EventListResponse) (*Event, bool)
 	switch e.Type {
 	case opencode.EventListResponseTypeMessageUpdated:
 		properties := e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties)
+		tokens, _ := properties.Info.Tokens.(opencode.AssistantMessageTokens)
 		return &Event{
-			ID:        properties.Info.ID,
-			EventType: opencode.EventListResponseTypeMessageUpdated,
-			Role:      lo.ToPtr(string(properties.Info.Role)),
-			Mode:      lo.ToPtr(properties.Info.Mode),
-			Model:     lo.ToPtr(properties.Info.ModelID),
-			Provider:  lo.ToPtr(properties.Info.ProviderID),
+			ID: properties.Info.ID,
+			Message: &console.AgentMessageAttributes{
+				Role: lo.Ternary(properties.Info.Role == opencode.MessageRoleUser, console.AiRoleUser, console.AiRoleAssistant),
+				Cost: &console.AgentMessageCostAttributes{
+					Total: properties.Info.Cost,
+					Tokens: &console.AgentMessageTokensAttributes{
+						Input:     lo.ToPtr(tokens.Input),
+						Output:    lo.ToPtr(tokens.Output),
+						Reasoning: lo.ToPtr(tokens.Reasoning),
+					},
+				},
+			},
 		}, false
 	case opencode.EventListResponseTypeMessagePartUpdated:
 		properties := e.Properties.(opencode.EventListResponseEventMessagePartUpdatedProperties)
-		files, _ := properties.Part.Files.([]string)
 		state, _ := properties.Part.State.(opencode.ToolPartState)
+		tokens, _ := properties.Part.Tokens.(opencode.StepFinishPartTokens)
+		filePartSource, _ := properties.Part.Source.(opencode.FilePartSource)
+		agentPartSource, _ := properties.Part.Source.(opencode.AgentPartSource)
 		return &Event{
-			ID:          properties.Part.MessageID,
-			EventType:   opencode.EventListResponseTypeMessagePartUpdated,
-			MessageType: lo.ToPtr(lo.Ternary(properties.Part.Type == "step-finish", "", properties.Part.Type)),
-			Tool:        lo.ToPtr(properties.Part.Tool),
-			Files:       files,
-			State:       lo.ToPtr(state),
+			ID: properties.Part.MessageID,
+			Message: &console.AgentMessageAttributes{
+				Message: properties.Part.Text,
+				Cost: &console.AgentMessageCostAttributes{
+					Total: properties.Part.Cost,
+					Tokens: &console.AgentMessageTokensAttributes{
+						Input:     lo.ToPtr(tokens.Input),
+						Output:    lo.ToPtr(tokens.Output),
+						Reasoning: lo.ToPtr(tokens.Reasoning),
+					},
+				},
+				Metadata: &console.AgentMessageMetadataAttributes{
+					Reasoning: &console.AgentMessageReasoningAttributes{
+						Text:  lo.ToPtr(agentPartSource.Value),
+						Start: lo.ToPtr(agentPartSource.Start),
+						End:   lo.ToPtr(agentPartSource.End),
+					},
+					File: &console.AgentMessageFileAttributes{
+						Name:  lo.ToPtr(filePartSource.Name),
+						Text:  lo.ToPtr(filePartSource.Text.Value),
+						Start: lo.ToPtr(filePartSource.Text.Start),
+						End:   lo.ToPtr(filePartSource.Text.End),
+					},
+					Tool: &console.AgentMessageToolAttributes{
+						Name:   lo.ToPtr(properties.Part.Tool),
+						State:  lo.ToPtr(toAgentToolState(state.Status)),
+						Output: lo.ToPtr(state.Output),
+					},
+				},
+			},
 		}, properties.Part.Type == "step-finish"
-	case opencode.EventListResponseTypeFileEdited:
-		properties := e.Properties.(opencode.EventListResponseEventFileEditedProperties)
-		return &Event{
-			ID:        fmt.Sprintf("%s-%s", properties.File, lo.RandomString(5, lo.AlphanumericCharset)),
-			EventType: opencode.EventListResponseTypeFileEdited,
-			Files:     []string{properties.File},
-		}, true
 	default:
 		return nil, false
 	}
+}
+
+func toAgentToolState(state opencode.ToolPartStateStatus) console.AgentMessageToolState {
+	switch state {
+	case opencode.ToolPartStateStatusRunning:
+		return console.AgentMessageToolStateRunning
+	case opencode.ToolPartStateStatusCompleted:
+		return console.AgentMessageToolStateCompleted
+	case opencode.ToolPartStateStatusPending:
+		return console.AgentMessageToolStatePending
+	case opencode.ToolPartStateStatusError:
+		return console.AgentMessageToolStateError
+	}
+
+	return console.AgentMessageToolStateCompleted
 }
 
 func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <-chan error) {
@@ -199,7 +239,7 @@ func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <
 
 	go func() {
 		klog.V(log.LogLevelDefault).InfoS("sending prompt", "prompt", prompt)
-		res, err := in.client.Session.Prompt(
+		_, err := in.client.Session.Prompt(
 			ctx,
 			in.session.ID,
 			in.toParams(prompt),
@@ -214,7 +254,7 @@ func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <
 
 		close(done)
 		close(errChan)
-		klog.V(log.LogLevelDefault).InfoS("prompt sent successfully", "response", res)
+		klog.V(log.LogLevelDefault).InfoS("prompt sent successfully")
 	}()
 
 	return done, errChan
