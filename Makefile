@@ -234,7 +234,7 @@ velero-crds:
 
 ##@ Tests
 .PHONY: test
-test: envtest gotestsum ## run tests
+test: gotestsum envtest ## run tests
 	@KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(GOPATH)/bin -p path)" \
 	gotestsum --format pkgname -- \
 		$$(go list ./... | grep -v /e2e) \
