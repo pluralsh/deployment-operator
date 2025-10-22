@@ -206,6 +206,7 @@ func (in *Server) toParams(prompt string) opencode.SessionPromptParams {
 	}
 
 	if len(in.systemPrompt) > 0 {
+		klog.V(log.LogLevelDefault).InfoS("system prompt overridden by environment variable", "value", in.systemPrompt)
 		params.System = opencode.F(in.systemPrompt)
 	}
 
