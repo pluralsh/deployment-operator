@@ -27,6 +27,9 @@ RUN CGO_ENABLED=0 \
 
 FROM golang:1.25-alpine AS final
 
+ARG TARGETARCH
+ARG TARGETOS
+
 # Install runtime dependencies + kubectl
 RUN apk add --no-cache curl ca-certificates && \
     KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
