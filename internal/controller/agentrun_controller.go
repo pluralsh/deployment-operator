@@ -268,7 +268,7 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 func (r *AgentRunReconciler) getAgentRuntimeConfig(ctx context.Context, namespace string, config *v1alpha1.AgentRuntimeConfig) (*v1alpha1.AgentRuntimeConfigRaw, error) {
 	return config.ToAgentRuntimeConfigRaw(func(selector corev1.SecretKeySelector) (*corev1.Secret, error) {
 		secret := &corev1.Secret{}
-		err := r.Client.Get(ctx, client.ObjectKey{
+		err := r.Get(ctx, client.ObjectKey{
 			Namespace: namespace,
 			Name:      selector.Name,
 		}, secret)
