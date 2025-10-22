@@ -5,17 +5,19 @@ PROJECT_NAME := deployment-operator
 IMAGE_REGISTRIES := ghcr.io
 IMAGE_REPOSITORY := plural
 
-IMG ?= deployment-agent:latest
-
 ENVTEST ?= $(shell which setup-envtest)
 CRDDOCS ?= $(shell which crd-ref-docs)
 
 # Config variables used for testing
 DEFAULT_PLRL_CONSOLE_URL := "https://console.plrl-dev-aws.onplural.sh"
 PLRL_CONSOLE_URL := $(if $(PLRL_CONSOLE_URL),$(PLRL_CONSOLE_URL),$(DEFAULT_PLRL_CONSOLE_URL))
-PLRL_CONSOLE_TOKEN := $(if $(PLRL_CONSOLE_TOKEN),$(PLRL_CONSOLE_TOKEN),test-token)
-PLRL_DEPLOY_TOKEN := $(if $(PLRL_DEPLOY_TOKEN),$(PLRL_DEPLOY_TOKEN),test-deploy-token)
-PLRL_AGENT_RUN_ID := $(if $(PLRL_AGENT_RUN_ID),$(PLRL_AGENT_RUN_ID),test-id)
+PLRL_CONSOLE_TOKEN := $(if $(PLRL_CONSOLE_TOKEN),$(PLRL_CONSOLE_TOKEN),"")
+PLRL_DEPLOY_TOKEN := $(if $(PLRL_DEPLOY_TOKEN),$(PLRL_DEPLOY_TOKEN),"")
+PLRL_AGENT_RUN_ID := $(if $(PLRL_AGENT_RUN_ID),$(PLRL_AGENT_RUN_ID),"")
+PLRL_OPENCODE_PROVIDER := $(if $(PLRL_OPENCODE_PROVIDER),$(PLRL_OPENCODE_PROVIDER),"")
+PLRL_OPENCODE_ENDPOINT := $(if $(PLRL_OPENCODE_ENDPOINT),$(PLRL_OPENCODE_ENDPOINT),"")
+PLRL_OPENCODE_MODEL := $(if $(PLRL_OPENCODE_MODEL),$(PLRL_OPENCODE_MODEL),"")
+PLRL_OPENCODE_TOKEN := $(if $(PLRL_OPENCODE_TOKEN),$(PLRL_OPENCODE_TOKEN),"")
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
@@ -65,6 +67,13 @@ genmock: mockery ## generates mocks before running tests
 codegen-chart-crds: ## copy CRDs to the helm chart
 	@cp -a config/crd/bases/. charts/deployment-operator/crds
 
+.PHONY: velero-crds
+velero-crds: ## download velero CRDs
+	@curl -L $(VELERO_CHART_URL) --output velero.tgz
+	@tar zxvf velero.tgz velero/crds
+	@mv velero/crds/* charts/deployment-operator/crds
+	@rm -r velero.tgz velero
+
 ##@ Run
 
 .PHONY: agent-run
@@ -82,14 +91,14 @@ agent-run: agent ## run agent
         --v=1 \
         --deploy-token=${PLURAL_DEPLOY_TOKEN}
 
-.PHONY: agent-harness-run
-agent-harness-run: docker-build-agent-harness-base ## run agent harness base
+.PHONY: harness-run
+harness-run: docker-build-harness-terraform docker-build-harness-ansible ## run harness
 	docker run \
-		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
-		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
-		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
-		--rm -it \
-		ghcr.io/pluralsh/agent-harness-base
+		harness:latest \
+		--v=5 \
+		--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
+		--console-token=${PLURAL_DEPLOY_TOKEN} \
+		--stack-run-id=${PLURAL_STACK_RUN_ID}
 
 .PHONY: agent-harness-opencode-run
 agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent harness w/ opencode
@@ -97,8 +106,25 @@ agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent har
 		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
 		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
 		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		-e PLRL_OPENCODE_PROVIDER=$(PLRL_OPENCODE_PROVIDER) \
+		-e PLRL_OPENCODE_ENDPOINT=$(PLRL_OPENCODE_ENDPOINT) \
+		-e PLRL_OPENCODE_MODEL=$(PLRL_OPENCODE_MODEL) \
+		-e PLRL_OPENCODE_TOKEN=$(PLRL_OPENCODE_TOKEN) \
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-opencode --v=3
+
+.PHONY: agent-mcpserver-run
+agent-mcpserver-run: agent-mcpserver ## run mcp server locally
+	PLRL_CONSOLE_TOKEN=${PLRL_CONSOLE_TOKEN} \
+	PLRL_CONSOLE_URL=${PLRL_CONSOLE_URL} \
+	PLRL_AGENT_RUN_ID=${PLRL_AGENT_RUN_ID} \
+	./bin/agent-mcpserver
+
+.PHONY: terraform-mcpserver-run
+terraform-mcpserver-run: terraform-mcpserver ## run mcp server locally
+	PLURAL_ACCESS_TOKEN=${PLURAL_ACCESS_TOKEN} \
+	PLURAL_CONSOLE_URL=${PLURAL_CONSOLE_URL} \
+	./bin/terraform-mcpserver
 
 ##@ Build
 
@@ -113,6 +139,65 @@ harness: ## build stack run harness
 .PHONY: agent-harness
 agent-harness: ## build agent harness
 	go build -o bin/agent-harness cmd/agent-harness/*.go
+
+.PHONY: agent-mcpserver
+agent-mcpserver: ## build agent harness mcp server
+	go build -o bin/agent-mcpserver cmd/mcpserver/agent/main.go
+
+.PHONY: terraform-mcpserver
+terraform-mcpserver: ## build terraform mcp server
+	go build -o bin/terraform-mcpserver cmd/mcpserver/terraform-server/main.go
+
+##@ Docker
+
+.PHONY: docker-build-agent-fips
+docker-build-agent-fips: ## build docker fips agent image
+	docker build \
+    	  	-t deployment-agent-fips \
+    		-f dockerfiles/agent/fips.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-base
+docker-build-harness-base: ## build base docker harness image
+	docker build \
+			--build-arg=VERSION="0.0.0-dev" \
+    	  	-t harness-base \
+    		-f dockerfiles/harness/base.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-terraform
+docker-build-harness-terraform: docker-build-harness-base ## build terraform docker harness image
+	docker build \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
+    	  	-t harness \
+    		-f dockerfiles/harness/terraform.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-ansible
+docker-build-harness-ansible: docker-build-harness-base ## build terraform docker harness image
+	docker build \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
+    	  	-t harness \
+    		-f dockerfiles/harness/ansible.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-base-fips
+docker-build-harness-base-fips: ## build fips base docker harness image
+	docker build \
+			--no-cache \
+			--build-arg=VERSION="0.0.0-dev" \
+    	  	-t harness-base-fips \
+    		-f dockerfiles/harness/base.fips.Dockerfile \
+    		.
+
+.PHONY: docker-build-harness-ansible-fips
+docker-build-harness-ansible-fips: docker-build-harness-base-fips ## build fips ansible docker harness image
+	docker build \
+			--no-cache \
+		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
+    	  	-t harness-fips \
+    		-f dockerfiles/harness/ansible.fips.Dockerfile \
+    		.
 
 .PHONY: docker-build-agent-harness-base
 docker-build-agent-harness-base: ## build base docker agent harness image
@@ -146,91 +231,13 @@ docker-build-agent-harness-opencode: docker-build-agent-harness-base ## build op
 		-f dockerfiles/agent-harness/opencode.Dockerfile \
 		.
 
-.PHONY: docker-push-agent-harness-base  
-docker-push-agent-harness-base: docker-build-agent-harness-base ## push agent harness base image
-	docker push ghcr.io/pluralsh/agent-harness-base:latest
-
-.PHONY: docker-push-agent-harness-gemini
-docker-push-agent-harness-gemini: docker-build-agent-harness-gemini ## push gemini agent harness image
-	docker push ghcr.io/pluralsh/agent-harness-gemini:latest
-
-.PHONY: docker-push-agent-harness-claude
-docker-push-agent-harness-claude: docker-build-agent-harness-claude ## push claude agent harness image
-	docker push ghcr.io/pluralsh/agent-harness-claude:latest
-
-.PHONY: docker-push-agent-harness-opencode
-docker-push-agent-harness-opencode: docker-build-agent-harness-opencode ## push opencode agent harness image
-	docker push ghcr.io/pluralsh/agent-harness-opencode:latest
-	
-docker-build: ## build image
-	docker build -t ${IMG} .
-
-docker-push: ## push image
-	docker push ${IMG}
-
-.PHONY: docker-build-harness-base-fips
-docker-build-harness-base-fips: ## build fips base docker harness image
+.PHONY: docker-build-terraform-mcpserver
+docker-build-terraform-mcpserver: ## build mcp server docker image
 	docker build \
-			--no-cache \
-			--build-arg=VERSION="0.0.0-dev" \
-    	  	-t harness-base-fips \
-    		-f dockerfiles/harness/base.fips.Dockerfile \
-    		.
-
-.PHONY: docker-build-harness-ansible-fips
-docker-build-harness-ansible-fips: docker-build-harness-base-fips ## build fips ansible docker harness image
-	docker build \
-			--no-cache \
-		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
-    	  	-t harness-fips \
-    		-f dockerfiles/harness/ansible.fips.Dockerfile \
-    		.
-
-.PHONY: docker-build-harness-base
-docker-build-harness-base: ## build base docker harness image
-	docker build \
-			--build-arg=VERSION="0.0.0-dev" \
-    	  	-t harness-base \
-    		-f dockerfiles/harness/base.Dockerfile \
-    		.
-
-.PHONY: docker-build-harness-terraform
-docker-build-harness-terraform: docker-build-harness-base ## build terraform docker harness image
-	docker build \
-		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
-    	  	-t harness \
-    		-f dockerfiles/harness/terraform.Dockerfile \
-    		.
-
-.PHONY: docker-build-harness-ansible
-docker-build-harness-ansible: docker-build-harness-base ## build terraform docker harness image
-	docker build \
-		  	--build-arg=HARNESS_IMAGE_TAG="latest" \
-    	  	-t harness \
-    		-f dockerfiles/harness/ansible.Dockerfile \
-    		.
-
-.PHONY: docker-run-harness
-docker-run-harness: docker-build-harness-terraform docker-build-harness-ansible ## build and run terraform docker harness image
-	docker run \
-			harness:latest \
-			--v=5 \
-			--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
-			--console-token=${PLURAL_DEPLOY_TOKEN} \
-			--stack-run-id=${PLURAL_STACK_RUN_ID}
-
-.PHONY: docker-build-agent-fips
-docker-build-agent-fips: ## build docker fips agent image
-	docker build \
-    	  	-t deployment-agent-fips \
-    		-f dockerfiles/agent/fips.Dockerfile \
-    		.
-
-velero-crds:
-	@curl -L $(VELERO_CHART_URL) --output velero.tgz
-	@tar zxvf velero.tgz velero/crds
-	@mv velero/crds/* charts/deployment-operator/crds
-	@rm -r velero.tgz velero
+		--build-arg=VERSION="0.0.0-dev" \
+		-t ghcr.io/pluralsh/terraform-mcpserver:latest \
+		-f dockerfiles/mcpserver/terraform-server/Dockerfile \
+		.
 
 ##@ Tests
 .PHONY: test
@@ -248,7 +255,9 @@ lint: $(PRE) ## run linters
 fix: $(PRE) ## fix issues found by linters
 	golangci-lint run --fix ./...
 
-release-vsn: # tags and pushes a new release
+##@ Release
+
+release-vsn: ## tags and pushes a new release
 	@read -p "Version: " tag; \
 	git checkout main; \
 	git pull --rebase; \
@@ -260,6 +269,7 @@ delete-tag:  ## deletes a tag from git locally and upstream
 	git tag -d $$tag; \
 	git push origin :$$tag
 
+##@ Dependencies
 
 .PHONY: tools
 tools: ## install required tools
@@ -272,7 +282,7 @@ tools: --tool
 
 .PHONY: envtest
 envtest: TOOL = setup-envtest
-envtest: --tool ## Download and install setup-envtest in the $GOPATH/bin
+envtest: --tool ## download and install setup-envtest in the $GOPATH/bin
 
 .PHONY: mockery
 mockery: TOOL = mockery
@@ -307,49 +317,3 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
-
-.PHONY: agent-pr-mcpserver
-agent-pr-mcpserver: ## build mcp server
-	go build -o bin/agent-pr-mcpserver cmd/mcpserver/agent-pr-server/main.go
-
-.PHONY: agent-pr-mcpserver-run
-agent-pr-mcpserver-run: agent-pr-mcpserver ## run mcp server locally
-	PLRL_CONSOLE_TOKEN=${PLRL_CONSOLE_TOKEN} \
-	PLURAL_CONSOLE_URL=${PLURAL_CONSOLE_URL} \
-	./bin/agent-pr-mcpserver
-
-.PHONY: docker-build-agent-pr-mcpserver
-docker-build-agent-pr-mcpserver: ## build mcp server docker image
-	docker build \
-		--build-arg=VERSION="0.0.0-dev" \
-		-t ghcr.io/pluralsh/agent-pr-mcpserver:latest \
-		-f dockerfiles/mcpserver/agent-pr-server/Dockerfile \
-		.
-
-.PHONY: docker-push-agent-pr-mcpserver
-docker-push-agent-pr-mcpserver: docker-build-agent-pr-mcpserver ## push mcp server image
-	docker push ghcr.io/pluralsh/agent-pr-mcpserver:latest
-
-# Terraform MCP Server
-.PHONY: terraform-mcpserver
-terraform-mcpserver: ## build mcp server
-	go build -o bin/terraform-mcpserver cmd/mcpserver/terraform-server/main.go
-
-.PHONY: terraform-mcpserver-run
-terraform-mcpserver-run: terraform-mcpserver ## run mcp server locally
-	PLURAL_ACCESS_TOKEN=${PLURAL_ACCESS_TOKEN} \
-	PLURAL_CONSOLE_URL=${PLURAL_CONSOLE_URL} \
-	./bin/terraform-mcpserver
-
-.PHONY: docker-build-terraform-mcpserver
-docker-build-terraform-mcpserver: ## build mcp server docker image
-	docker build \
-		--build-arg=VERSION="0.0.0-dev" \
-		-t ghcr.io/pluralsh/terraform-mcpserver:latest \
-		-f dockerfiles/mcpserver/terraform-server/Dockerfile \
-		.
-
-.PHONY: docker-push-terraform-mcpserver
-docker-push-terraform-mcpserver: docker-build-terraform-mcpserver ## push mcp server image
-	docker push ghcr.io/pluralsh/terraform-mcpserver:latest
-

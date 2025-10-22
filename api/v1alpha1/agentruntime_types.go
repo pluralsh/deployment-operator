@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	corev1 "k8s.io/api/core/v1"
@@ -67,6 +69,33 @@ type AgentRuntimeConfig struct {
 	OpenCode *OpenCodeConfig `json:"opencode,omitempty"`
 }
 
+func (in *AgentRuntimeConfig) ToAgentRuntimeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*AgentRuntimeConfigRaw, error) {
+	openCode, err := in.OpenCode.ToOpenCodeConfigRaw(secretGetter)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AgentRuntimeConfigRaw{
+		Claude:   nil,
+		OpenCode: openCode,
+	}, nil
+}
+
+// AgentRuntimeConfigRaw contains raw configuration for the agent runtime.
+//
+// NOTE: Do not embed this struct directly, use AgentRuntimeConfig instead.
+// This is only used to read original AgentRuntimeConfig secret data and be
+// able to inject it into the pod as env vars.
+type AgentRuntimeConfigRaw struct {
+	// Claude is the raw configuration for the Claude runtime.
+	// +kubebuilder:validation:Optional
+	Claude *ClaudeConfigRaw `json:"claude,omitempty"`
+
+	// OpenCode is the raw configuration for the OpenCode runtime.
+	// +kubebuilder:validation:Optional
+	OpenCode *OpenCodeConfigRaw `json:"opencode,omitempty"`
+}
+
 // ClaudeConfig contains configuration for the Claude CLI runtime.
 type ClaudeConfig struct {
 	// ApiKeySecretRef Reference to a Kubernetes Secret containing the Claude API key.
@@ -79,16 +108,82 @@ type ClaudeConfig struct {
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
+// ClaudeConfigRaw contains configuration for the Claude CLI runtime.
+//
+// NOTE: Do not embed this struct directly, use ClaudeConfig instead.
+// This is only used to read original ClaudeConfig secret data and be
+// able to inject it into the pod as env vars.
+type ClaudeConfigRaw struct {
+	// ApiKey is the raw API key to use.
+	ApiKey string `json:"apiKey"`
+
+	// Model Name of the model to use.
+	Model *string `json:"model,omitempty"`
+
+	// ExtraArgs CLI args for advanced flags not modeled here
+	ExtraArgs []string `json:"extraArgs,omitempty"`
+}
+
 // OpenCodeConfig contains configuration for the OpenCode CLI runtime.
 type OpenCodeConfig struct {
-	// API endpoint for the OpenCode service.
+	// Provider is the OpenCode provider to use.
+	// +kubebuilder:validation:Enum=plural;openai
+	// +kubebuilder:validation:Required
+	Provider string `json:"provider"`
+
+	// Endpoint API endpoint for the OpenCode service.
+	// +kubebuilder:validation:Required
 	Endpoint string `json:"endpoint"`
 
-	// Reference to a Kubernetes Secret containing the API token for OpenCode.
+	// Model is the LLM model to use.
+	// +kubebuilder:validation:Optional
+	Model *string `json:"model,omitempty"`
+
+	// TokenSecretRef is a reference to a Kubernetes Secret containing the API token for OpenCode.
+	// +kubebuilder:validation:Required
 	TokenSecretRef corev1.SecretKeySelector `json:"tokenSecretRef"`
 
-	// Extra args for advanced or experimental CLI flags.
+	// ExtraArgs args for advanced or experimental CLI flags.
+	// Deprecated: It is being ignored by the agent harness.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
+}
+
+func (in *OpenCodeConfig) ToOpenCodeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*OpenCodeConfigRaw, error) {
+	tokenSecret, err := secretGetter(in.TokenSecretRef)
+	if err != nil {
+		return nil, err
+	}
+
+	token, exists := tokenSecret.Data[in.TokenSecretRef.Key]
+	if !exists {
+		return nil, fmt.Errorf("token secret does not contain key %s", in.TokenSecretRef.Key)
+	}
+
+	return &OpenCodeConfigRaw{
+		Provider: in.Provider,
+		Endpoint: in.Endpoint,
+		Model:    in.Model,
+		Token:    string(token),
+	}, nil
+}
+
+// OpenCodeConfigRaw contains configuration for the OpenCode CLI runtime.
+//
+// NOTE: Do not embed this struct directly, use OpenCodeConfig instead.
+// This is only used to read original OpenCodeConfig secret data and be
+// able to inject it into the pod as env vars.
+type OpenCodeConfigRaw struct {
+	// Provider is the OpenCode provider to use.
+	Provider string `json:"provider"`
+
+	// Endpoint API endpoint for the OpenCode service.
+	Endpoint string `json:"endpoint"`
+
+	// Model is the LLM model to use.
+	Model *string `json:"model,omitempty"`
+
+	// Token is the raw API token for OpenCode.
+	Token string `json:"tokenSecretRef"`
 }
 
 type AgentRuntimeBindings struct {

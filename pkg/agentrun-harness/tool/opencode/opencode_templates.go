@@ -14,16 +14,24 @@ const (
 )
 
 type ConfigTemplateInput struct {
-	ConsoleURL    string
-	ConsoleToken  string
-	DeployToken   string
-	AgentRunID    string
-	ModelID       string
-	ModelName     string
-	ProviderID    string
-	ProviderName  string
-	AnalysisAgent string
-	WriteAgent    string
+	ConsoleURL   string
+	ConsoleToken string
+	DeployToken  string
+	AgentRunID   string
+
+	// Fields used when AI proxy is disabled.
+
+	// Provider is the AI provider to use.
+	Provider Provider
+
+	// Endpoint is the AI provider API endpoint.
+	Endpoint string
+
+	// Model is the AI model to use.
+	Model Model
+
+	// Token is the API token for the AI provider.
+	Token string
 }
 
 func configTemplate(input *ConfigTemplateInput) (fileName, content string, err error) {

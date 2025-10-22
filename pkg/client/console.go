@@ -89,7 +89,8 @@ type Client interface {
 	CancelAgentRun(ctx context.Context, id string) error
 	CreateAgentRun(ctx context.Context, runtimeID string, attrs console.AgentRunAttributes) (*console.AgentRunFragment, error)
 	UpdateAgentRun(ctx context.Context, id string, attrs console.AgentRunStatusAttributes) (*console.AgentRunFragment, error)
-	UpdateAgentRunAnalysis(ctx context.Context, runtimeID string, attrs console.AgentAnalysisAttributes) (*console.AgentRunFragment, error)
-	UpdateAgentRunTodos(ctx context.Context, id string, attrs []*console.AgentTodoAttributes) (*console.AgentRunFragment, error)
+	UpdateAgentRunAnalysis(ctx context.Context, runtimeID string, attrs console.AgentAnalysisAttributes) (*console.AgentRunBaseFragment, error)
+	UpdateAgentRunTodos(ctx context.Context, id string, attrs []*console.AgentTodoAttributes) (*console.AgentRunBaseFragment, error)
 	CreateAgentPullRequest(ctx context.Context, runID string, attrs console.AgentPullRequestAttributes) (*console.PullRequestFragment, error)
+	CreateAgentMessage(ctx context.Context, runID string, attrs console.AgentMessageAttributes) (*console.CreateAgentMessage_CreateAgentMessage, error)
 }
