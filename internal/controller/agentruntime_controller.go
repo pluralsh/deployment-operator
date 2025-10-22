@@ -33,8 +33,9 @@ const (
 // AgentRuntimeReconciler reconciles a AgentRuntime object
 type AgentRuntimeReconciler struct {
 	client.Client
-	ConsoleClient consoleclient.Client
-	Scheme        *runtime.Scheme
+	ConsoleClient    consoleclient.Client
+	Scheme           *runtime.Scheme
+	CacheSyncTimeout time.Duration
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=agentruntimes,verbs=get;list;watch;create;update;patch;delete
@@ -124,7 +125,7 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 // SetupWithManager sets up the controller with the Manager.
 func (r *AgentRuntimeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 1, CacheSyncTimeout: r.CacheSyncTimeout}).
 		For(&v1alpha1.AgentRuntime{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
