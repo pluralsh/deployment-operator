@@ -30,8 +30,7 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 		AgentRunID:   in.run.ID,
 	}
 
-	switch in.run.Runtime.Type {
-	case console.AgentRuntimeTypeOpencode:
+	if in.run.Runtime.Type == console.AgentRuntimeTypeOpencode {
 		input.Provider = DefaultProvider()
 		input.Endpoint = helpers.GetEnv(controller.EnvOpenCodeEndpoint, input.Provider.Endpoint())
 		input.Model = DefaultModel()

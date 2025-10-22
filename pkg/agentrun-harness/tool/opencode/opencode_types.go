@@ -19,8 +19,7 @@ const (
 type Provider string
 
 func (in Provider) Endpoint() string {
-	switch in {
-	case ProviderOpenAI:
+	if in == ProviderOpenAI {
 		return "https://api.openai.com/v1"
 	}
 

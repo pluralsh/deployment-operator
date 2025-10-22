@@ -127,6 +127,7 @@ type ClaudeConfigRaw struct {
 // OpenCodeConfig contains configuration for the OpenCode CLI runtime.
 type OpenCodeConfig struct {
 	// Provider is the OpenCode provider to use.
+	// +kubebuilder:validation:Enum=plural;openai
 	// +kubebuilder:validation:Required
 	Provider string `json:"provider"`
 
@@ -143,7 +144,7 @@ type OpenCodeConfig struct {
 	TokenSecretRef corev1.SecretKeySelector `json:"tokenSecretRef"`
 
 	// ExtraArgs args for advanced or experimental CLI flags.
-	// DEPRECATED: It is being ignored by the agent harness.
+	// Deprecated: It is being ignored by the agent harness.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
