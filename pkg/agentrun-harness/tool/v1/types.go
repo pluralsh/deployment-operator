@@ -3,6 +3,8 @@ package v1
 import (
 	"context"
 
+	console "github.com/pluralsh/console/go/client"
+
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
@@ -10,8 +12,15 @@ import (
 // Tool handles one of the supported AI agents CLI tools.
 // The list of supported tools is based on the console.AgentRuntimeType.
 type Tool interface {
+	// Run executes the tool in the background. Use Config to get the tool configuration
+	// and signal when the tool is finished or failed.
 	Run(ctx context.Context, options ...exec.Option)
+
+	// Configure configures the tool.
 	Configure(consoleURL, deployToken, consoleToken string) error
+
+	// OnMessage registers a callback called when a new message is received.
+	OnMessage(func(message *console.AgentMessageAttributes))
 }
 
 type Config struct {

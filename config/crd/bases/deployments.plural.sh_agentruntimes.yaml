@@ -117,16 +117,24 @@ spec:
                     description: Config for OpenCode CLI runtime.
                     properties:
                       endpoint:
-                        description: API endpoint for the OpenCode service.
+                        description: Endpoint API endpoint for the OpenCode service.
                         type: string
                       extraArgs:
-                        description: Extra args for advanced or experimental CLI flags.
+                        description: |-
+                          ExtraArgs args for advanced or experimental CLI flags.
+                          DEPRECATED: It is being ignored by the agent harness.
                         items:
                           type: string
                         type: array
+                      model:
+                        description: Model is the LLM model to use.
+                        type: string
+                      provider:
+                        description: Provider is the OpenCode provider to use.
+                        type: string
                       tokenSecretRef:
-                        description: Reference to a Kubernetes Secret containing the
-                          API token for OpenCode.
+                        description: TokenSecretRef is a reference to a Kubernetes
+                          Secret containing the API token for OpenCode.
                         properties:
                           key:
                             description: The key of the secret to select from.  Must
@@ -151,6 +159,7 @@ spec:
                         x-kubernetes-map-type: atomic
                     required:
                     - endpoint
+                    - provider
                     - tokenSecretRef
                     type: object
                 type: object
