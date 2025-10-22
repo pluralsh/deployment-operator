@@ -7,7 +7,6 @@ import (
 	"path"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
 	"github.com/sst/opencode-sdk-go"
 	"github.com/sst/opencode-sdk-go/option"
 	"k8s.io/klog/v2"
@@ -52,12 +51,6 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 	return nil
 }
 
-func (in *Opencode) Messages() []*console.AgentMessageAttributes {
-	return algorithms.Map(in.messages, func(e Event) *console.AgentMessageAttributes {
-		return e.Message
-	})
-}
-
 func (in *Opencode) OnMessage(f func(message *console.AgentMessageAttributes)) {
 	in.onMessage = f
 }
@@ -79,6 +72,9 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 		}
 
 		messageChan, listenErrChan := in.server.Listen(ctx)
+
+		// Send the initial prompt as a message too
+		in.onMessage(&console.AgentMessageAttributes{Message: in.run.Prompt, Role: console.AiRoleUser})
 		promptDone, promptErr := in.server.Prompt(ctx, in.run.Prompt)
 
 	restart:
@@ -94,7 +90,6 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 				return
 			case msg := <-messageChan:
 				klog.V(log.LogLevelDefault).InfoS("message received", "message", msg)
-				in.messages = append(in.messages, msg)
 				in.onMessage(msg.Message)
 			case err := <-listenErrChan:
 				in.errorChan <- err

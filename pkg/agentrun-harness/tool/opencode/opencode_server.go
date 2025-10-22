@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/imdario/mergo"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/sst/opencode-sdk-go"
@@ -111,34 +110,32 @@ func (in *Server) Start(ctx context.Context, options ...exec.Option) error {
 func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 	msgChan := make(chan Event)
 	errChan := make(chan error, 1)
-	events := make(map[string]Event)
+	events := make(map[string]*Event)
 
 	stream := in.client.Event.ListStreaming(ctx, opencode.EventListParams{})
 
 	go func() {
 		for stream.Next() {
 			data := stream.Current()
-			e, done := in.parseListenerData(data)
-			if e == nil {
+			klog.V(log.LogLevelTrace).InfoS("received event", "data", data.Properties)
+
+			id := in.getID(data)
+			if len(id) == 0 {
 				continue
 			}
 
-			event, exists := events[e.ID]
+			event, exists := events[id]
 			if !exists {
-				if done {
-					msgChan <- *e
-				} else {
-					events[e.ID] = *e
-				}
-
-				continue
+				event = &Event{}
 			}
 
-			_ = mergo.Merge(&event, e, mergo.WithOverride)
-			events[e.ID] = event
+			event.FromEventResponse(data)
+			events[id] = event
 
-			if done {
-				msgChan <- event
+			if event.Done {
+				event.Sanitize()
+				msgChan <- *event
+				delete(events, id)
 			}
 		}
 
@@ -155,82 +152,15 @@ func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 	return msgChan, errChan
 }
 
-func (in *Server) parseListenerData(e opencode.EventListResponse) (*Event, bool) {
-	klog.V(log.LogLevelTrace).InfoS("received event", "type", e.Type, "data", e.Properties)
+func (in *Server) getID(e opencode.EventListResponse) string {
 	switch e.Type {
 	case opencode.EventListResponseTypeMessageUpdated:
-		properties := e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties)
-		tokens, _ := properties.Info.Tokens.(opencode.AssistantMessageTokens)
-		return &Event{
-			ID: properties.Info.ID,
-			Message: &console.AgentMessageAttributes{
-				Role: lo.Ternary(properties.Info.Role == opencode.MessageRoleUser, console.AiRoleUser, console.AiRoleAssistant),
-				Cost: &console.AgentMessageCostAttributes{
-					Total: properties.Info.Cost,
-					Tokens: &console.AgentMessageTokensAttributes{
-						Input:     lo.ToPtr(tokens.Input),
-						Output:    lo.ToPtr(tokens.Output),
-						Reasoning: lo.ToPtr(tokens.Reasoning),
-					},
-				},
-			},
-		}, false
+		return e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties).Info.ID
 	case opencode.EventListResponseTypeMessagePartUpdated:
-		properties := e.Properties.(opencode.EventListResponseEventMessagePartUpdatedProperties)
-		state, _ := properties.Part.State.(opencode.ToolPartState)
-		tokens, _ := properties.Part.Tokens.(opencode.StepFinishPartTokens)
-		filePartSource, _ := properties.Part.Source.(opencode.FilePartSource)
-		agentPartSource, _ := properties.Part.Source.(opencode.AgentPartSource)
-		return &Event{
-			ID: properties.Part.MessageID,
-			Message: &console.AgentMessageAttributes{
-				Message: properties.Part.Text,
-				Cost: &console.AgentMessageCostAttributes{
-					Total: properties.Part.Cost,
-					Tokens: &console.AgentMessageTokensAttributes{
-						Input:     lo.ToPtr(tokens.Input),
-						Output:    lo.ToPtr(tokens.Output),
-						Reasoning: lo.ToPtr(tokens.Reasoning),
-					},
-				},
-				Metadata: &console.AgentMessageMetadataAttributes{
-					Reasoning: &console.AgentMessageReasoningAttributes{
-						Text:  lo.ToPtr(agentPartSource.Value),
-						Start: lo.ToPtr(agentPartSource.Start),
-						End:   lo.ToPtr(agentPartSource.End),
-					},
-					File: &console.AgentMessageFileAttributes{
-						Name:  lo.ToPtr(filePartSource.Name),
-						Text:  lo.ToPtr(filePartSource.Text.Value),
-						Start: lo.ToPtr(filePartSource.Text.Start),
-						End:   lo.ToPtr(filePartSource.Text.End),
-					},
-					Tool: &console.AgentMessageToolAttributes{
-						Name:   lo.ToPtr(properties.Part.Tool),
-						State:  lo.ToPtr(toAgentToolState(state.Status)),
-						Output: lo.ToPtr(state.Output),
-					},
-				},
-			},
-		}, properties.Part.Type == "step-finish"
+		return e.Properties.(opencode.EventListResponseEventMessagePartUpdatedProperties).Part.MessageID
 	default:
-		return nil, false
+		return ""
 	}
-}
-
-func toAgentToolState(state opencode.ToolPartStateStatus) console.AgentMessageToolState {
-	switch state {
-	case opencode.ToolPartStateStatusRunning:
-		return console.AgentMessageToolStateRunning
-	case opencode.ToolPartStateStatusCompleted:
-		return console.AgentMessageToolStateCompleted
-	case opencode.ToolPartStateStatusPending:
-		return console.AgentMessageToolStatePending
-	case opencode.ToolPartStateStatusError:
-		return console.AgentMessageToolStateError
-	}
-
-	return console.AgentMessageToolStateCompleted
 }
 
 func (in *Server) Prompt(ctx context.Context, prompt string) (<-chan struct{}, <-chan error) {
