@@ -1,15 +1,13 @@
-package stacks
+package sentinel
 
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -24,7 +22,7 @@ import (
 
 const (
 	podDefaultContainerAnnotation = "kubectl.kubernetes.io/default-container"
-	jobSelector                   = "stackrun.deployments.plural.sh"
+	jobSelector                   = "sentinelrun.deployments.plural.sh"
 	DefaultJobContainer           = "default"
 	defaultJobVolumeName          = "default"
 	defaultJobVolumePath          = "/plural"
@@ -32,19 +30,10 @@ const (
 	defaultJobTmpVolumePath       = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
+	defaultContainerImage         = "ghcr.io/pluralsh/harness-sentinel:latest"
 )
 
 var (
-	defaultContainerImages = map[console.StackType]string{
-		console.StackTypeTerraform: "ghcr.io/pluralsh/harness",
-		console.StackTypeAnsible:   "ghcr.io/pluralsh/harness",
-	}
-
-	defaultContainerVersions = map[console.StackType]string{
-		console.StackTypeTerraform: "1.8.2",
-		console.StackTypeAnsible:   "latest",
-	}
-
 	defaultJobVolume = corev1.Volume{
 		Name: defaultJobVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -68,22 +57,20 @@ var (
 		Name:      defaultJobTmpVolumeName,
 		MountPath: defaultJobTmpVolumePath,
 	}
-
-	defaultImageTag = "0.4.29"
 )
 
-func init() {
-	if os.Getenv("IMAGE_TAG") != "" {
-		defaultImageTag = os.Getenv("IMAGE_TAG")
-	}
-}
-
-func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.StackRunMinimalFragment) (*batchv1.Job, error) {
+func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.SentinelRunJobFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
 
 	name := GetRunResourceName(run)
 	jobSpec := getRunJobSpec(name, run.JobSpec)
 	namespace := r.GetRunResourceNamespace(jobSpec)
+
+	if err := r.namespaceCache.EnsureNamespace(ctx, namespace, &console.ServiceDeploymentForAgent_SyncConfig{
+		CreateNamespace: lo.ToPtr(true),
+	}); err != nil {
+		return nil, err
+	}
 
 	foundJob := &batchv1.Job{}
 	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, foundJob); err != nil {
@@ -91,7 +78,7 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 			return nil, err
 		}
 
-		secret, err := r.upsertRunSecret(ctx, name, namespace, run.ID)
+		secret, err := r.upsertRunSecret(ctx, name, namespace, run.ID, run.Format.String())
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +87,7 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 		if err != nil {
 			return nil, err
 		}
-		logger.V(2).Info("creating job for stack run", "id", run.ID, "namespace", job.Namespace, "name", job.Name)
+		logger.V(2).Info("creating job for sentinel run", "id", run.ID, "namespace", job.Namespace, "name", job.Name)
 		if err := r.k8sClient.Create(ctx, job); err != nil {
 			logger.Error(err, "unable to create job")
 			return nil, err
@@ -111,10 +98,9 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 			return nil, err
 		}
 
-		metrics.Record().StackRunJobCreation()
-		if err := r.consoleClient.UpdateStackRun(run.ID, console.StackRunAttributes{
-			Status: run.Status,
-			JobRef: &console.NamespacedName{
+		if err := r.consoleClient.UpdateSentinelRunJobStatus(run.ID, &console.SentinelRunJobUpdateAttributes{
+			Status: lo.ToPtr(run.Status),
+			Reference: &console.NamespacedName{
 				Name:      job.Name,
 				Namespace: job.Namespace,
 			},
@@ -125,16 +111,32 @@ func (r *StackReconciler) reconcileRunJob(ctx context.Context, run *console.Stac
 		return job, nil
 	}
 
+	unstructuredJob, err := common.ToUnstructured(foundJob)
+	if err != nil {
+		return nil, err
+	}
+	health, err := common.GetResourceHealth(unstructuredJob)
+	if err != nil {
+		return nil, err
+	}
+	if health != nil && health.Status == common.HealthStatusDegraded {
+		if err := r.consoleClient.UpdateSentinelRunJobStatus(run.ID, &console.SentinelRunJobUpdateAttributes{
+			Status: lo.ToPtr(console.SentinelRunJobStatusFailed),
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	return foundJob, nil
 }
 
 // GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
-func GetRunResourceName(run *console.StackRunMinimalFragment) string {
-	return fmt.Sprintf("stack-%s", run.ID)
+func GetRunResourceName(run *console.SentinelRunJobFragment) string {
+	return fmt.Sprintf("sentinel-%s", run.ID)
 }
 
 // GetRunResourceNamespace returns a resource namespace used for a job and a secret connected to a given run.
-func (r *StackReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (namespace string) {
+func (r *SentinelReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (namespace string) {
 	if jobSpec != nil {
 		namespace = jobSpec.Template.Namespace
 	}
@@ -146,7 +148,7 @@ func (r *StackReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (nam
 	return
 }
 
-func (r *StackReconciler) GenerateRunJob(run *console.StackRunMinimalFragment, jobSpec *batchv1.JobSpec, name, namespace string) (*batchv1.Job, error) {
+func (r *SentinelReconciler) GenerateRunJob(run *console.SentinelRunJobFragment, jobSpec *batchv1.JobSpec, name, namespace string) (*batchv1.Job, error) {
 	var err error
 	// If user-defined job spec was not available initialize it here.
 	if jobSpec == nil {
@@ -219,30 +221,44 @@ func getRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 			jobSpec.Template.Spec.ServiceAccountName = *jobSpecFragment.ServiceAccount
 		}
 	}
+
 	return jobSpec
 }
 
-func (r *StackReconciler) ensureDefaultContainer(containers []corev1.Container, run *console.StackRunMinimalFragment) []corev1.Container {
-	if index := algorithms.Index(containers, func(container corev1.Container) bool {
-		return container.Name == DefaultJobContainer
-	}); index == -1 {
-		containers = append(containers, r.getDefaultContainer(run))
-	} else {
-		if containers[index].Image == "" {
-			containers[index].Image = r.getDefaultContainerImage(run)
+func (r *SentinelReconciler) ensureDefaultContainer(
+	containers []corev1.Container,
+	run *console.SentinelRunJobFragment,
+) []corev1.Container {
+	// If user specified containers, don't infer anything
+	if len(containers) > 0 {
+		// optionally normalize the default container (if they used the default name)
+		index := algorithms.Index(containers, func(c corev1.Container) bool {
+			return c.Name == DefaultJobContainer
+		})
+
+		if index != -1 {
+			// Only patch minimal defaults, don’t override user intent
+			if containers[index].Image == "" {
+				containers[index].Image = defaultContainerImage
+			}
 		}
 
-		containers[index].EnvFrom = r.getDefaultContainerEnvFrom(run)
-
-		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
+		for i := range containers {
+			containers[i].VolumeMounts = ensureDefaultVolumeMounts(containers[i].VolumeMounts)
+			containers[i].Env = make([]corev1.EnvVar, 0)
+			containers[i].EnvFrom = r.getDefaultContainerEnvFrom(run)
+		}
+		return containers
 	}
-	return containers
+
+	// If no containers at all, inject a default one (for safety)
+	return []corev1.Container{r.getDefaultContainer(run)}
 }
 
-func (r *StackReconciler) getDefaultContainer(run *console.StackRunMinimalFragment) corev1.Container {
+func (r *SentinelReconciler) getDefaultContainer(run *console.SentinelRunJobFragment) corev1.Container {
 	return corev1.Container{
 		Name:  DefaultJobContainer,
-		Image: r.getDefaultContainerImage(run),
+		Image: defaultContainerImage,
 		VolumeMounts: []corev1.VolumeMount{
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
@@ -253,73 +269,7 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunMinimalFragme
 	}
 }
 
-func (r *StackReconciler) getDefaultContainerImage(run *console.StackRunMinimalFragment) string {
-	// In case image is not provided, it will use our default image.
-	// Image name format: <defaultImage>:<tag>
-	// Note: User has to make sure that the tag is correct and matches our naming scheme.
-	//
-	// In case image is provided, it will replace both image and tag with provided values.
-	// Image name format: <image>:<tag>
-	if r.hasCustomTag(run) {
-		return fmt.Sprintf("%s:%s", r.getImage(run), *run.Configuration.Tag)
-	}
-
-	// In case there is a custom version and a custom image provided, it will replace both image and version
-	// with provided values.
-	// Image name format: <image>:<version>
-	if r.hasCustomImage(run) && r.hasCustomVersion(run) {
-		return fmt.Sprintf("%s:%s", *run.Configuration.Image, *run.Configuration.Version)
-	}
-
-	// In case only image is provided, do not follow our default naming scheme.
-	// Image name format: <image>:<defaultTag>
-	// Note: User has to make sure that the image contains the tag matching our defaults.
-	if r.hasCustomImage(run) {
-		return fmt.Sprintf("%s:%s", *run.Configuration.Image, r.getTag(run))
-	}
-
-	// In any other case return image in the default format: <defaultImage>:<defaultTag>-<stackType>-<defaultVersionOrVersion>.
-	// In this case only a custom tool version is ever provided to override our defaults.
-	return fmt.Sprintf("%s:%s-%s-%s", r.getImage(run), r.getTag(run), strings.ToLower(string(run.Type)), r.getVersion(run))
-}
-
-func (r *StackReconciler) hasCustomImage(run *console.StackRunMinimalFragment) bool {
-	return run.Configuration.Image != nil && len(*run.Configuration.Image) > 0
-}
-
-func (r *StackReconciler) getImage(run *console.StackRunMinimalFragment) string {
-	if r.hasCustomImage(run) {
-		return *run.Configuration.Image
-	}
-
-	return defaultContainerImages[run.Type]
-}
-
-func (r *StackReconciler) hasCustomVersion(run *console.StackRunMinimalFragment) bool {
-	return run.Configuration.Version != nil && len(*run.Configuration.Version) > 0
-}
-
-func (r *StackReconciler) getVersion(run *console.StackRunMinimalFragment) string {
-	if r.hasCustomVersion(run) {
-		return *run.Configuration.Version
-	}
-
-	return defaultContainerVersions[run.Type]
-}
-
-func (r *StackReconciler) hasCustomTag(run *console.StackRunMinimalFragment) bool {
-	return run.Configuration.Tag != nil && len(*run.Configuration.Tag) > 0
-}
-
-func (r *StackReconciler) getTag(run *console.StackRunMinimalFragment) string {
-	if r.hasCustomTag(run) {
-		return *run.Configuration.Tag
-	}
-
-	return defaultImageTag
-}
-
-func (r *StackReconciler) getDefaultContainerEnvFrom(run *console.StackRunMinimalFragment) []corev1.EnvFromSource {
+func (r *SentinelReconciler) getDefaultContainerEnvFrom(run *console.SentinelRunJobFragment) []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{
@@ -348,16 +298,7 @@ func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount
 }
 
 func ensureDefaultVolumes(volumes []corev1.Volume) []corev1.Volume {
-	return append(
-		algorithms.Filter(volumes, func(v corev1.Volume) bool {
-			switch v.Name {
-			case defaultJobVolumeName:
-			case defaultJobTmpVolumeName:
-				return false
-			}
-
-			return true
-		}),
+	return append(volumes,
 		defaultJobVolume,
 		defaultJobTmpVolume,
 	)
@@ -389,7 +330,7 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 	}
 }
 
-func (r *StackReconciler) ensureDefaultContainerResourcesRequests(containers []corev1.Container, run *console.StackRunMinimalFragment) ([]corev1.Container, error) {
+func (r *SentinelReconciler) ensureDefaultContainerResourcesRequests(containers []corev1.Container, run *console.SentinelRunJobFragment) ([]corev1.Container, error) {
 	if run.JobSpec == nil || run.JobSpec.Requests == nil {
 		return containers, nil
 	}
