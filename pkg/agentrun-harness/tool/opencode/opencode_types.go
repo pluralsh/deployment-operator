@@ -89,6 +89,9 @@ type Opencode struct {
 	// messages is a list of messages received from the server.
 	messages []Event
 
+	// onMessage is a callback called when a new message is received.
+	onMessage func(message *console.AgentMessageAttributes)
+
 	// errorChan is a channel that returns an error if the tool failed
 	errorChan chan error
 

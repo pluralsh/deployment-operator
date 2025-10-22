@@ -58,6 +58,10 @@ func (in *Opencode) Messages() []*console.AgentMessageAttributes {
 	})
 }
 
+func (in *Opencode) OnMessage(f func(message *console.AgentMessageAttributes)) {
+	in.onMessage = f
+}
+
 func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	maxRestarts := 2
 	restarts := 0
@@ -91,6 +95,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 			case msg := <-messageChan:
 				klog.V(log.LogLevelDefault).InfoS("message received", "message", msg)
 				in.messages = append(in.messages, msg)
+				in.onMessage(msg.Message)
 			case err := <-listenErrChan:
 				in.errorChan <- err
 				return

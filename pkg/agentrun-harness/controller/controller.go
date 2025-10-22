@@ -44,6 +44,17 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 
 	in.preStart()
 
+	in.tool.OnMessage(func(message *gqlclient.AgentMessageAttributes) {
+		if message == nil {
+			return
+		}
+
+		_, err := in.consoleClient.CreateAgentMessage(ctx, in.agentRunID, *message)
+		if err != nil {
+			klog.ErrorS(err, "failed to create agent message", "message", message)
+		}
+	})
+
 	in.tool.Run(
 		ctx,
 		exec.WithHook(v1.LifecyclePreStart, in.preExecHook()),
@@ -99,9 +110,8 @@ func (in *agentRunController) completeAgentRun(status gqlclient.AgentRunStatus, 
 	}
 
 	statusAttrs := gqlclient.AgentRunStatusAttributes{
-		Status:   status,
-		Error:    errorMsg,
-		Messages: in.tool.Messages(),
+		Status: status,
+		Error:  errorMsg,
 	}
 
 	_, err := in.consoleClient.UpdateAgentRun(context.Background(), in.agentRunID, statusAttrs)

@@ -23,6 +23,9 @@ type Tool interface {
 	// Make sure that the tool is finished before calling this method, or it will
 	// return an empty list.
 	Messages() []*console.AgentMessageAttributes
+
+	// OnMessage registers a callback called when a new message is received.
+	OnMessage(func(message *console.AgentMessageAttributes))
 }
 
 type Config struct {
