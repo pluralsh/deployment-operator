@@ -27,7 +27,13 @@ RUN CGO_ENABLED=0 \
 
 FROM golang:1.25-alpine AS final
 
-RUN apk update --no-cache
+# Install runtime dependencies + kubectl
+RUN apk add --no-cache curl ca-certificates && \
+    KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
+    curl -L -o /kubectl \
+      "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
+    chmod +x /kubectl
+
 # Switch to the nonroot user
 USER 65532:65532
 

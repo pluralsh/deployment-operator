@@ -30,25 +30,17 @@ This is required to compile your test suite.
 FROM golang:1.25-alpine AS final
 ```
 
-### Install Dependencies
-Install any additional dependencies your tests may require.
-For example, if your tests interact with AWS services, you may need to install the AWS CLI
-The `Terratest` uses kubectl to interact with the cluster.
-
-```
-RUN apk add --no-cache curl ca-certificates && \
-    KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
-    curl -L -o /usr/local/bin/kubectl \
-      "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
-    chmod +x /usr/local/bin/kubectl
-```
-
 ### Copy Test Suite sentinel-harness Binary
-Finally, copy your test suite into the container.
+Finally, copy your test suite into the container. 
 ```
 COPY --from=harness /sentinel-harness /usr/local/bin/sentinel-harness
-# Change ownership of the harness binary to UID/GID 65532
-RUN chown -R 65532:65532 /usr/local/bin/sentinel-harness
+COPY --from=harness /kubectl /usr/local/bin/kubectl
+
+# Ensure permissions are correct
+RUN chmod +x /usr/local/bin/sentinel-harness /usr/local/bin/kubectl && \
+    chown -R 65532:65532 /usr/local/bin/sentinel-harness
+
+# Copy test files
 COPY dockerfiles/sentinel-harness/terratest /sentinel
 ```
 
