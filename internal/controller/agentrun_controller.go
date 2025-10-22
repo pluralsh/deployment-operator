@@ -46,16 +46,17 @@ const (
 // 3. Reporting status back to Console API
 type AgentRunReconciler struct {
 	client.Client
-	Scheme        *runtime.Scheme
-	ConsoleClient pluralclient.Client
-	ConsoleURL    string
-	DeployToken   string
+	Scheme           *runtime.Scheme
+	ConsoleClient    pluralclient.Client
+	ConsoleURL       string
+	DeployToken      string
+	CacheSyncTimeout time.Duration
 }
 
 // SetupWithManager configures the controller with the manager.
 func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 1, CacheSyncTimeout: r.CacheSyncTimeout}).
 		For(&v1alpha1.AgentRun{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&corev1.Pod{}).
 		Complete(r)
