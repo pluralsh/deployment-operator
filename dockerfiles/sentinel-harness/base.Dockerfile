@@ -33,17 +33,13 @@ ARG TARGETOS
 # Install runtime dependencies + kubectl
 RUN apk add --no-cache curl ca-certificates && \
     KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
-    curl -L -o /kubectl \
+    curl -L -o /usr/local/bin/kubectl \
       "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${TARGETOS}/${TARGETARCH}/kubectl" && \
-    chmod +x /kubectl
-
-# Switch to the nonroot user
-USER 65532:65532
+    chmod +x /usr/local/bin/kubectl
 
 # Set up the environment
 # - copy the harness binary
-COPY --from=builder /sentinel-harness /sentinel-harness
+COPY --from=builder /sentinel-harness /usr/local/bin/sentinel-harness
+RUN chmod +x /usr/local/bin/sentinel-harness
 
 WORKDIR /plural
-
-ENTRYPOINT ["/sentinel-harness", "--working-dir=/plural"]

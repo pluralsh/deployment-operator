@@ -22,24 +22,9 @@ This provides the compiled `sentinel-harness` binary responsible for managing an
 FROM ghcr.io/pluralsh/sentinel-harness-base:<tag> AS harness
 ```
 
-### Go Runtime Environment
-Next, add the Go runtime environment.
-This is required to compile your test suite.
-
-```
-FROM golang:1.25-alpine AS final
-```
-
-### Copy Test Suite sentinel-harness Binary
+### Copy Test Suite
 Finally, copy your test suite into the container. 
 ```
-COPY --from=harness /sentinel-harness /usr/local/bin/sentinel-harness
-COPY --from=harness /kubectl /usr/local/bin/kubectl
-
-# Ensure permissions are correct
-RUN chmod +x /usr/local/bin/sentinel-harness /usr/local/bin/kubectl && \
-    chown -R 65532:65532 /usr/local/bin/sentinel-harness
-
 # Copy test files
 COPY dockerfiles/sentinel-harness/terratest /sentinel
 ```
