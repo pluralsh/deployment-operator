@@ -163,6 +163,10 @@ spec:
                     - tokenSecretRef
                     type: object
                 type: object
+              default:
+                description: Default indicates whether this is the default agent runtime
+                  for coding agents.
+                type: boolean
               name:
                 description: |-
                   Name of this AgentRuntime.

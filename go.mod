@@ -27,7 +27,6 @@ require (
 	github.com/google/gnostic-models v0.7.0
 	github.com/grafana/pyroscope-go v1.2.7
 	github.com/hashicorp/terraform-json v0.26.0
-	github.com/imdario/mergo v0.3.16
 	github.com/mark3labs/mcp-go v0.40.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/onsi/ginkgo/v2 v2.25.1
@@ -38,7 +37,7 @@ require (
 	github.com/openshift/api v0.0.0-20250908150922-8634aa495a26
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.53.0
+	github.com/pluralsh/console/go/client v1.54.0
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
 	github.com/pluralsh/polly v0.3.3
@@ -277,6 +276,7 @@ require (
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/iancoleman/orderedmap v0.3.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
+	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jgautheron/goconst v1.7.1 // indirect

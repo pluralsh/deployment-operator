@@ -19,6 +19,10 @@ type AgentRuntimeSpec struct {
 	// +kubebuilder:validation:Optional
 	Name *string `json:"name,omitempty"`
 
+	// Default indicates whether this is the default agent runtime for coding agents.
+	// +kubebuilder:validation:Optional
+	Default *bool `json:"default,omitempty"`
+
 	// +kubebuilder:validation:Required
 	TargetNamespace string `json:"targetNamespace"`
 
@@ -221,6 +225,7 @@ func (in *AgentRuntime) ConsoleID() *string {
 func (in *AgentRuntime) Attributes() console.AgentRuntimeAttributes {
 	attrs := console.AgentRuntimeAttributes{
 		Name:    in.ConsoleName(),
+		Default: in.Spec.Default,
 		Type:    in.Spec.Type,
 		AiProxy: in.Spec.AiProxy,
 	}
