@@ -10,7 +10,7 @@ WORKDIR /workspace
 COPY go.* ./
 RUN go mod download
 
-COPY cmd/agent-harness ./cmd/agent-harness
+COPY cmd/ ./cmd
 COPY pkg ./pkg
 COPY internal ./internal
 COPY api ./api
@@ -25,19 +25,31 @@ RUN CGO_ENABLED=0 \
     -o /agent-harness \
     cmd/agent-harness/main.go
 
+# Build the MCP server binary
+RUN CGO_ENABLED=0 \
+    GOOS=${TARGETOS} \
+    GOARCH=${TARGETARCH} \
+    go build \
+    -trimpath \
+    -ldflags="-s -w -X github.com/pluralsh/deployment-operator/cmd/mcpserver/agent.Version=${VERSION}" \
+    -o /mcpserver \
+    cmd/mcpserver/agent/main.go
+
 FROM debian:13-slim
 
 RUN apt update && apt install -y git curl jq tar
 
 # Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness
-COPY --from=ghcr.io/pluralsh/mcpserver:0.6.4 /root/agent-pr-mcpserver /usr/local/bin/mcpserver
+COPY --from=builder /mcpserver /usr/local/bin/mcpserver
 
 # Create the nonroot user with UID 65532
 RUN groupadd -g 65532 nonroot && \
     useradd -u 65532 -g 65532 -m -s /bin/bash nonroot
 
 WORKDIR /plural
+
+COPY dockerfiles/agent-harness/.opencode /plural/.opencode
 
 RUN printf "#!/bin/sh\necho \${GIT_ACCESS_TOKEN}" > /plural/.git-askpass && \
     chmod +x /plural/.git-askpass && \

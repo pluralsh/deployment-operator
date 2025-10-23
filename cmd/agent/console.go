@@ -24,6 +24,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/controller/namespaces"
 	"github.com/pluralsh/deployment-operator/pkg/controller/pipelinegates"
 	"github.com/pluralsh/deployment-operator/pkg/controller/restore"
+	"github.com/pluralsh/deployment-operator/pkg/controller/sentinel"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
@@ -47,7 +48,8 @@ func initConsoleManagerOrDie() *consolectrl.Manager {
 
 const (
 	// Use custom (short) poll intervals for these reconcilers.
-	stacksPollInterval = 30 * time.Second
+	stacksPollInterval   = 30 * time.Second
+	sentinelPollInterval = 30 * time.Second
 )
 
 func registerConsoleReconcilersOrDie(
@@ -112,6 +114,16 @@ func registerConsoleReconcilersOrDie(
 		}
 
 		r := stacks.NewStackReconciler(consoleClient, k8sClient, scheme, args.ControllerCacheTTL(), stacksPollInterval, namespace, args.ConsoleUrl(), args.DeployToken())
+		return r, nil
+	})
+
+	mgr.AddReconcilerOrDie(sentinel.Identifier, func() (v1.Reconciler, error) {
+		namespace, err := utils.GetOperatorNamespace()
+		if err != nil {
+			setupLog.Error(err, "unable to get operator namespace")
+			os.Exit(1)
+		}
+		r := sentinel.NewSentinelReconciler(namespaceCache, consoleClient, k8sClient, scheme, args.ControllerCacheTTL(), sentinelPollInterval, namespace, args.ConsoleUrl(), args.DeployToken())
 		return r, nil
 	})
 }

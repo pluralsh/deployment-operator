@@ -13,12 +13,6 @@ func StartAgentRun(client console.Client, id string) error {
 	return err
 }
 
-func CompleteAgentRun(client console.Client, id string, analysis *gqlclient.AgentAnalysisAttributes) error {
-	_, err := client.UpdateAgentRun(context.Background(), id, gqlclient.AgentRunStatusAttributes{Status: gqlclient.AgentRunStatusSuccessful}) // Include analysis results, todos, etc.
-
-	return err
-}
-
 func FailAgentRun(client console.Client, id string, errorMsg string) error {
 	_, err := client.UpdateAgentRun(context.Background(), id, gqlclient.AgentRunStatusAttributes{
 		Status: gqlclient.AgentRunStatusFailed,

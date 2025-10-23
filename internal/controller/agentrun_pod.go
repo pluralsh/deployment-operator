@@ -22,14 +22,11 @@ const (
 )
 
 var (
-	defaultContainerImages = map[console.AgentRuntimeType]string{
-		console.AgentRuntimeTypeGemini:   "ghcr.io/pluralsh/agent-harness",
-		console.AgentRuntimeTypeOpencode: "ghcr.io/pluralsh/agent-harness",
-	}
+	defaultContainerImage = "ghcr.io/pluralsh/agent-harness"
 
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
-		console.AgentRuntimeTypeGemini:   "latest",                // TODO
-		console.AgentRuntimeTypeOpencode: "0.6.5-opencode-0.13.4", // TODO
+		console.AgentRuntimeTypeGemini:   "latest", // TODO
+		console.AgentRuntimeTypeOpencode: "0.6.5-opencode-0.15.4",
 	}
 
 	defaultTmpVolume = corev1.Volume{
@@ -158,7 +155,7 @@ func getDefaultContainerImage(image string, agentRuntimeType console.AgentRuntim
 		return image
 	}
 
-	return fmt.Sprintf("%s:%s", defaultContainerImages[agentRuntimeType], defaultContainerVersions[agentRuntimeType])
+	return fmt.Sprintf("%s:%s", defaultContainerImage, defaultContainerVersions[agentRuntimeType])
 }
 
 func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
@@ -167,13 +164,8 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 	}}
 }
 
-func getDefaultEnvVars(run *v1alpha1.AgentRun) []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "AGENT_RUN_ID",
-			Value: run.Status.GetID(),
-		},
-	}
+func getDefaultEnvVars(_ *v1alpha1.AgentRun) []corev1.EnvVar {
+	return []corev1.EnvVar{}
 }
 
 func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun) []corev1.EnvVar {
