@@ -30,7 +30,7 @@ const (
 	defaultJobTmpVolumePath       = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
-	defaultContainerImage         = "ghcr.io/pluralsh/harness-sentinel:latest"
+	defaultContainerImage         = "ghcr.io/pluralsh/sentinel-harness:latest"
 )
 
 var (
