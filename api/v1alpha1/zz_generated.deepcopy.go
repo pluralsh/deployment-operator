@@ -422,6 +422,11 @@ func (in *AgentRuntimeSpec) DeepCopyInto(out *AgentRuntimeSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Default != nil {
+		in, out := &in.Default, &out.Default
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Bindings != nil {
 		in, out := &in.Bindings, &out.Bindings
 		*out = new(AgentRuntimeBindings)
