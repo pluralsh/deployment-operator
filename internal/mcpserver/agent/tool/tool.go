@@ -50,3 +50,8 @@ type UpdateTodosInputSchema struct {
 type UpdateAnalysis struct {
 	ConsoleTool
 }
+
+// GetAgentRunTodos is an MCP tool that gets the todos for a given agent run
+type GetAgentRunTodosTool struct {
+	ConsoleTool
+}

@@ -44,6 +44,9 @@ func (in *UpdateAnalysis) handler(ctx context.Context, request mcp.CallToolReque
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to update analysis: %v", err)), nil
 	}
+	SetAgentRun(in.agentRunID, &client.AgentRunFragment{
+		Todos: agentRun.GetTodos(),
+	})
 
 	return mcp.NewToolResultJSON(struct {
 		Success bool   `json:"success"`
