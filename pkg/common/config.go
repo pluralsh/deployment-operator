@@ -1,6 +1,8 @@
 package common
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +25,7 @@ type ConfigurationManager struct {
 	compatibilityUploadInterval *time.Duration
 	pipelineGateInterval        *time.Duration
 	maxConcurrentReconciles     *int
+	customBaseRegistryURL       *string
 }
 
 func GetConfigurationManager() *ConfigurationManager {
@@ -71,6 +74,7 @@ func (s *ConfigurationManager) SetValue(config v1alpha1.AgentConfigurationSpec) 
 	s.servicePollInterval = interval
 
 	s.maxConcurrentReconciles = config.MaxConcurrentReconciles
+	s.customBaseRegistryURL = config.CustomBaseRegistryURL
 
 	return nil
 }
@@ -126,4 +130,32 @@ func (s *ConfigurationManager) GetServicePollInterval() *time.Duration {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.servicePollInterval
+}
+
+func (s *ConfigurationManager) GetCustomBaseRegistryURL() *string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.customBaseRegistryURL
+}
+
+func (s *ConfigurationManager) SwapCustomBaseRegistry(image string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.customBaseRegistryURL == nil {
+		return image
+	}
+	if image == "" {
+		return image
+	}
+
+	parts := strings.SplitN(image, "/", 2)
+
+	// image has a registry (like "registry.plural.sh/nginx:latest")
+	if len(parts) == 2 && (strings.Contains(parts[0], ".") || strings.Contains(parts[0], ":")) {
+		return fmt.Sprintf("%s/%s", s.customBaseRegistryURL, parts[1])
+	}
+
+	// image has no registry (like "nginx:latest")
+	return fmt.Sprintf("%s/%s", s.customBaseRegistryURL, image)
 }
