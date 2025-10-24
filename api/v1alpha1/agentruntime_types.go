@@ -74,6 +74,10 @@ type AgentRuntimeConfig struct {
 }
 
 func (in *AgentRuntimeConfig) ToAgentRuntimeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*AgentRuntimeConfigRaw, error) {
+	if in == nil {
+		return nil, nil
+	}
+
 	openCode, err := in.OpenCode.ToOpenCodeConfigRaw(secretGetter)
 	if err != nil {
 		return nil, err
@@ -153,6 +157,10 @@ type OpenCodeConfig struct {
 }
 
 func (in *OpenCodeConfig) ToOpenCodeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*OpenCodeConfigRaw, error) {
+	if in == nil {
+		return nil, nil
+	}
+
 	tokenSecret, err := secretGetter(in.TokenSecretRef)
 	if err != nil {
 		return nil, err
