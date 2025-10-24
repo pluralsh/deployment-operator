@@ -284,6 +284,10 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 		EnvAgentRunID:  run.Status.GetID(),
 	}
 
+	if config == nil {
+		return result
+	}
+
 	if runtimeType == console.AgentRuntimeTypeOpencode {
 		if config.OpenCode == nil {
 			return result
