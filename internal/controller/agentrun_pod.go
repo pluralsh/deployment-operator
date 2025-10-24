@@ -156,7 +156,7 @@ func getDefaultContainerImage(image string, agentRuntimeType console.AgentRuntim
 		return image
 	}
 
-	return fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapCustomBaseRegistry(defaultContainerImage), defaultContainerVersions[agentRuntimeType])
+	return fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage), defaultContainerVersions[agentRuntimeType])
 }
 
 func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {

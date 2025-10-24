@@ -439,5 +439,5 @@ func (r *StackReconciler) ensureDefaultContainerResourcesRequests(containers []c
 }
 
 func getDefaultContainerImage() string {
-	return common.GetConfigurationManager().SwapCustomBaseRegistry(defaultContainerImage)
+	return common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage)
 }
