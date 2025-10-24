@@ -153,9 +153,9 @@ func (s *ConfigurationManager) SwapBaseRegistry(image string) string {
 
 	// image has a registry (like "registry.plural.sh/nginx:latest")
 	if len(parts) == 2 && (strings.Contains(parts[0], ".") || strings.Contains(parts[0], ":")) {
-		return fmt.Sprintf("%s/%s", s.baseRegistryURL, parts[1])
+		return fmt.Sprintf("%s/%s", *s.baseRegistryURL, parts[1])
 	}
 
 	// image has no registry (like "nginx:latest")
-	return fmt.Sprintf("%s/%s", s.baseRegistryURL, image)
+	return fmt.Sprintf("%s/%s", *s.baseRegistryURL, image)
 }
