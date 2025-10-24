@@ -383,5 +383,5 @@ func (r *SentinelReconciler) ensureDefaultContainerResourcesRequests(containers 
 }
 
 func getDefaultImage() string {
-	return common.GetConfigurationManager().SwapCustomBaseRegistry(defaultContainerImage)
+	return common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage)
 }
