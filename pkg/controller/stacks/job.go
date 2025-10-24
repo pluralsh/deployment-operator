@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	console "github.com/pluralsh/console/go/client"
@@ -32,14 +33,10 @@ const (
 	defaultJobTmpVolumePath       = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
+	defaultContainerImage         = "ghcr.io/pluralsh/harness"
 )
 
 var (
-	defaultContainerImages = map[console.StackType]string{
-		console.StackTypeTerraform: "ghcr.io/pluralsh/harness",
-		console.StackTypeAnsible:   "ghcr.io/pluralsh/harness",
-	}
-
 	defaultContainerVersions = map[console.StackType]string{
 		console.StackTypeTerraform: "1.8.2",
 		console.StackTypeAnsible:   "latest",
@@ -292,7 +289,7 @@ func (r *StackReconciler) getImage(run *console.StackRunMinimalFragment) string 
 		return *run.Configuration.Image
 	}
 
-	return defaultContainerImages[run.Type]
+	return getDefaultContainerImage()
 }
 
 func (r *StackReconciler) hasCustomVersion(run *console.StackRunMinimalFragment) bool {
@@ -439,4 +436,8 @@ func (r *StackReconciler) ensureDefaultContainerResourcesRequests(containers []c
 	}
 
 	return containers, nil
+}
+
+func getDefaultContainerImage() string {
+	return common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage)
 }

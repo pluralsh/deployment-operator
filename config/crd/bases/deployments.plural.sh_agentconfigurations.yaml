@@ -39,6 +39,11 @@ spec:
           spec:
             description: AgentConfigurationSpec defines the desired state of AgentConfiguration
             properties:
+              baseRegistryURL:
+                description: |-
+                  BaseRegistryURL allows overriding the default base registry URL.
+                  For stack run jobs, agent run pods, sentinel run jobs.
+                type: string
               clusterPingInterval:
                 description: |-
                   ClusterPingInterval specifies the interval at which the agent pings the cluster.

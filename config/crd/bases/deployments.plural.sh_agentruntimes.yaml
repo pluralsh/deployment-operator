@@ -122,7 +122,7 @@ spec:
                       extraArgs:
                         description: |-
                           ExtraArgs args for advanced or experimental CLI flags.
-                          DEPRECATED: It is being ignored by the agent harness.
+                          Deprecated: It is being ignored by the agent harness.
                         items:
                           type: string
                         type: array
@@ -131,6 +131,9 @@ spec:
                         type: string
                       provider:
                         description: Provider is the OpenCode provider to use.
+                        enum:
+                        - plural
+                        - openai
                         type: string
                       tokenSecretRef:
                         description: TokenSecretRef is a reference to a Kubernetes

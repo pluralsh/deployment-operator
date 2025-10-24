@@ -35,6 +35,10 @@ type AgentConfigurationSpec struct {
 	// VulnerabilityReportUploadInterval sets how often vulnerability reports are uploaded.
 	// Set to "0s" to disable vulnerability report uploads.
 	VulnerabilityReportUploadInterval *string `json:"vulnerabilityReportUploadInterval,omitempty"`
+
+	// BaseRegistryURL allows overriding the default base registry URL.
+	// For stack run jobs, agent run pods, sentinel run jobs.
+	BaseRegistryURL *string `json:"baseRegistryURL,omitempty"`
 }
 
 //+kubebuilder:object:root=true
