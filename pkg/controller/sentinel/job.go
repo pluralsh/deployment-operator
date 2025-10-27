@@ -93,11 +93,6 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 			return nil, err
 		}
 
-		if err := utils.TryAddOwnerRef(ctx, r.k8sClient, job, secret, r.scheme); err != nil {
-			logger.Error(err, "error setting owner reference for job secret")
-			return nil, err
-		}
-
 		if err := r.consoleClient.UpdateSentinelRunJobStatus(run.ID, &console.SentinelRunJobUpdateAttributes{
 			Status: lo.ToPtr(run.Status),
 			Reference: &console.NamespacedName{
@@ -105,6 +100,11 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 				Namespace: job.Namespace,
 			},
 		}); err != nil {
+			return nil, err
+		}
+
+		if err := utils.TryAddOwnerRef(ctx, r.k8sClient, job, secret, r.scheme); err != nil {
+			logger.Error(err, "error setting owner reference for job secret")
 			return nil, err
 		}
 
@@ -122,6 +122,10 @@ func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.S
 	if health != nil && health.Status == common.HealthStatusDegraded {
 		if err := r.consoleClient.UpdateSentinelRunJobStatus(run.ID, &console.SentinelRunJobUpdateAttributes{
 			Status: lo.ToPtr(console.SentinelRunJobStatusFailed),
+			Reference: &console.NamespacedName{
+				Name:      foundJob.Name,
+				Namespace: foundJob.Namespace,
+			},
 		}); err != nil {
 			return nil, err
 		}
