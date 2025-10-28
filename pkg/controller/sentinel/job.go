@@ -243,7 +243,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 		if index != -1 {
 			// Only patch minimal defaults, don’t override user intent
 			if containers[index].Image == "" {
-				containers[index].Image = defaultContainerImage
+				containers[index].Image = getDefaultImage()
 			}
 		}
 
@@ -262,7 +262,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 func (r *SentinelReconciler) getDefaultContainer(run *console.SentinelRunJobFragment) corev1.Container {
 	return corev1.Container{
 		Name:  DefaultJobContainer,
-		Image: defaultContainerImage,
+		Image: getDefaultImage(),
 		VolumeMounts: []corev1.VolumeMount{
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
@@ -384,4 +384,8 @@ func (r *SentinelReconciler) ensureDefaultContainerResourcesRequests(containers 
 	}
 
 	return containers, nil
+}
+
+func getDefaultImage() string {
+	return common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage)
 }

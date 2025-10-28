@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -155,7 +156,7 @@ func getDefaultContainerImage(image string, agentRuntimeType console.AgentRuntim
 		return image
 	}
 
-	return fmt.Sprintf("%s:%s", defaultContainerImage, defaultContainerVersions[agentRuntimeType])
+	return fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage), defaultContainerVersions[agentRuntimeType])
 }
 
 func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
