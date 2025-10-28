@@ -422,32 +422,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	if svc.DeletedAt != nil {
-		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		components, err := s.applier.Destroy(ctx, id)
-		metrics.Record().ServiceDeletion(id)
-		s.svcCache.Expire(id)
-		s.manifestCache.Expire(id)
-		if err != nil {
-			logger.Error(err, "failed to update status")
-			return ctrl.Result{}, err
-		}
-
-		if err = s.store.ExpireHookComponents(svc.ID); err != nil {
-			logger.Error(err, "failed to expire processed hook components", "service", svc.Name)
-			return ctrl.Result{}, err
-		}
-
-		// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
-		if err := s.UpdateStatus(ctx, svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), []*console.ServiceErrorAttributes{}, nil); err != nil {
-			logger.Error(err, "Failed to update service status, ignoring for now")
-		}
-
-		err = s.namespaceCache.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
-		return ctrl.Result{}, err
-	}
-
-	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
+	logger.V(2).Info("fetch service manifests", "name", svc.Name, "namespace", svc.Namespace)
 	dir, err := s.manifestCache.Fetch(svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)
@@ -462,6 +437,56 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
+	if svc.DeletedAt != nil {
+		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		activeDependents := getActiveDependents(svc.Name)
+		if len(activeDependents) > 0 {
+			components := make([]*console.ComponentAttributes, len(manifests))
+			for _, manifest := range manifests {
+				components = append(components, agentcommon.ToComponentAttributes(&manifest))
+			}
+			if err := s.UpdateStatus(ctx, svc.ID, svc.Revision.ID, svc.Sha, components, []*console.ServiceErrorAttributes{
+				{
+					Message: "service is being deleted, but there are active dependents: " + strings.Join(activeDependents, ", "),
+					Warning: lo.ToPtr(true),
+				},
+			}, nil); err != nil {
+				logger.Error(err, "Failed to update service status, ignoring for now")
+			}
+
+			return ctrl.Result{}, nil
+		}
+
+		components, err := s.applier.Destroy(ctx, id)
+		metrics.Record().ServiceDeletion(id)
+		s.svcCache.Expire(id)
+		s.manifestCache.Expire(id)
+		if err != nil {
+			logger.Error(err, "failed to update status")
+			return ctrl.Result{}, err
+		}
+
+		if err = s.store.ExpireHookComponents(svc.ID); err != nil {
+			logger.Error(err, "failed to expire processed hook components", "service", svc.Name)
+			return ctrl.Result{}, err
+		}
+
+		if len(components) == 0 {
+			removeService(svc.Name)
+		}
+
+		// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
+		if err := s.UpdateStatus(ctx, svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), []*console.ServiceErrorAttributes{}, nil); err != nil {
+			logger.Error(err, "Failed to update service status, ignoring for now")
+		}
+
+		err = s.namespaceCache.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
+		return ctrl.Result{}, err
+	}
+
+	s.registerDependencies(svc)
+
+	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 	manifests = postProcess(manifests)
 	metrics.Record().ServiceReconciliation(
 		id,
