@@ -8,6 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/pluralsh/console/go/client"
 
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
@@ -23,10 +24,6 @@ func (in *CreatePullRequest) Install(server *server.MCPServer) {
 			mcp.WithString("body",
 				mcp.Required(),
 				mcp.Description("The body/description of the pull request"),
-			),
-			mcp.WithString("base",
-				mcp.Required(),
-				mcp.Description("The base branch (target branch, usually 'main')"),
 			),
 			mcp.WithString("head",
 				mcp.Required(),
@@ -76,13 +73,16 @@ func (in *CreatePullRequest) fromRequest(request mcp.CallToolRequest) (result cl
 		return
 	}
 
-	if result.Base, err = request.RequireString("base"); err != nil {
-		return
-	}
-
 	if result.Head, err = request.RequireString("head"); err != nil {
 		return
 	}
+
+	config, err := environment.Load()
+	if err != nil {
+		return
+	}
+
+	result.Base = config.BaseBranch
 
 	return
 }

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"os"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -23,11 +24,12 @@ const (
 )
 
 var (
-	defaultContainerImage = "ghcr.io/pluralsh/agent-harness"
+	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
+	defaultContainerImageTag = "latest"
 
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
 		console.AgentRuntimeTypeGemini:   "latest", // TODO
-		console.AgentRuntimeTypeOpencode: "0.6.8-opencode-0.15.4",
+		console.AgentRuntimeTypeOpencode: "%s-opencode-0.15.4",
 	}
 
 	defaultTmpVolume = corev1.Volume{
@@ -42,6 +44,12 @@ var (
 		MountPath: defaultTmpVolumePath,
 	}
 )
+
+func init() {
+	if os.Getenv("IMAGE_TAG") != "" {
+		defaultContainerImageTag = os.Getenv("IMAGE_TAG")
+	}
+}
 
 func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *corev1.Pod {
 	if runtime.Spec.Template == nil {
@@ -156,7 +164,9 @@ func getDefaultContainerImage(image string, agentRuntimeType console.AgentRuntim
 		return image
 	}
 
-	return fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage), defaultContainerVersions[agentRuntimeType])
+	tag := fmt.Sprintf(defaultContainerVersions[agentRuntimeType], defaultContainerImageTag)
+
+	return fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage), tag)
 }
 
 func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
