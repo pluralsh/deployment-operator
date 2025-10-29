@@ -84,6 +84,7 @@ func (in *environment) cloneRepository() error {
 	}
 
 	config := &Config{
+		Dir:        repoDirPath,
 		BaseBranch: strings.TrimSpace(string(output)),
 	}
 

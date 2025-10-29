@@ -12,6 +12,7 @@ const (
 
 type Config struct {
 	BaseBranch string
+	Dir        string
 }
 
 func Load() (*Config, error) {
