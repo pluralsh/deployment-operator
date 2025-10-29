@@ -434,8 +434,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 				logger.Error(err, "failed to update errors")
 				return ctrl.Result{}, err
 			}
-
-			return ctrl.Result{}, plrlerrors.ErrExpected
+			done = true
+			return ctrl.Result{}, nil
 		}
 
 		components, err := s.applier.Destroy(ctx, id)
