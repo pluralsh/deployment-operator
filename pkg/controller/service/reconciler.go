@@ -354,6 +354,8 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 		return nil
 	}
 
+	// clenaup services from previous runs that are no longer present
+	cleanupServices()
 	pager := s.ListServices(ctx)
 
 	for pager.HasNext() {
@@ -372,6 +374,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 			logger.V(4).Info("enqueueing update for", "service", svc.Node.ID)
 			s.svcCache.Add(svc.Node.ID, svc.Node)
 			s.svcQueue.AddAfter(svc.Node.ID, utils.Jitter(30*time.Second))
+			addService(svc.Node.ID)
 		}
 	}
 

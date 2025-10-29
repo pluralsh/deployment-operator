@@ -4,9 +4,11 @@ import (
 	"sync"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/containers"
 )
 
 var (
+	allServices    = containers.NewSet[string]()
 	servicePresent = make(map[console.ServiceDependencyFragment][]*console.ServiceDependencyFragment)
 	cacheMu        sync.RWMutex
 )
@@ -43,8 +45,7 @@ func (s *ServiceReconciler) getActiveDependents(svcName string) []string {
 			if d.Name == svcName {
 				// check if the service is still in the cache
 				// it could have been detached
-				_, err := s.svcCache.Get(service.ID)
-				if err == nil {
+				if allServices.Has(service.ID) {
 					dependents = append(dependents, service.Name)
 					break
 				}
@@ -60,4 +61,16 @@ func removeService(svc *console.ServiceDeploymentForAgent) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
 	delete(servicePresent, console.ServiceDependencyFragment{Name: svc.Name, ID: svc.ID})
+}
+
+func addService(id string) {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	allServices.Add(id)
+}
+
+func cleanupServices() {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	allServices = containers.NewSet[string]()
 }
