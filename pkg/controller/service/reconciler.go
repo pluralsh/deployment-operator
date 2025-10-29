@@ -423,7 +423,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	}
 
 	s.registerDependencies(svc)
-	
+
 	if svc.DeletedAt != nil {
 		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
 		activeDependents := getActiveDependents(svc.Name)
