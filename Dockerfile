@@ -23,10 +23,10 @@ COPY /internal internal/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GO111MODULE=on GOEXPERIMENT=greenteagc go build -a -o deployment-agent cmd/agent/*.go
 
-# # Get helm binary for kustomize helm inflate to work
-# RUN curl -L https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz | tar xz && \
-#     mv linux-${TARGETARCH}/helm /usr/local/bin/helm && \
-#     chmod +x /usr/local/bin/helm
+# Get helm binary for kustomize helm inflate to work
+RUN curl -L https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz | tar xz && \
+    mv linux-${TARGETARCH}/helm /usr/local/bin/helm && \
+    chmod +x /usr/local/bin/helm
 
 FROM alpine:3.21
 WORKDIR /workspace
@@ -37,7 +37,7 @@ RUN mkdir /.kube && \
 
 COPY --from=builder /workspace/deployment-agent .
 # Copy Helm binary from builder
-# COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
+COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 
 USER 65532:65532
 

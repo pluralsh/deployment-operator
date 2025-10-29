@@ -1,6 +1,7 @@
 package tool
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -41,19 +42,28 @@ func (in *CreateBranch) handler(ctx context.Context, request mcp.CallToolRequest
 
 	repoDir := config.Dir
 
-	cmd := exec.NewExecutable("git", exec.WithArgs([]string{"checkout", "-b", in.BranchName}), exec.WithDir(repoDir))
-	if err := cmd.Run(ctx); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to checkout branch: %v", err)), nil
+	currentBranch, _ := exec.NewExecutable("git", exec.WithArgs([]string{"branch", "--show-current"}), exec.WithDir(repoDir)).RunWithOutput(ctx)
+
+	if string(bytes.TrimSpace(currentBranch)) != in.BranchName {
+		cmd := exec.NewExecutable("git", exec.WithArgs([]string{"checkout", "-b", in.BranchName}), exec.WithDir(repoDir))
+		if out, err := cmd.RunWithOutput(ctx); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to checkout branch: %v: %s", err, out)), nil
+		}
+	}
+
+	cmd := exec.NewExecutable("git", exec.WithArgs([]string{"add", "."}), exec.WithDir(repoDir))
+	if out, err := cmd.RunWithOutput(ctx); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to add changes: %v: %s", err, out)), nil
 	}
 
 	cmd = exec.NewExecutable("git", exec.WithArgs([]string{"commit", "-m", in.CommitMessage}), exec.WithDir(repoDir))
-	if err := cmd.Run(ctx); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to commit changes: %v", err)), nil
+	if out, err := cmd.RunWithOutput(ctx); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to commit changes: %v: %s", err, out)), nil
 	}
 
 	cmd = exec.NewExecutable("git", exec.WithArgs([]string{"push", "--set-upstream", "origin", in.BranchName}), exec.WithDir(repoDir))
-	if err := cmd.Run(ctx); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to push changes: %v", err)), nil
+	if out, err := cmd.RunWithOutput(ctx); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to push changes: %v: %s", err, out)), nil
 	}
 
 	return mcp.NewToolResultJSON(struct {
