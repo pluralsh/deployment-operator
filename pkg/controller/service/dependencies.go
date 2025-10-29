@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	servicePresent = make(map[string][]*console.ServiceDependencyFragment)
+	servicePresent = make(map[console.ServiceDependencyFragment][]*console.ServiceDependencyFragment)
 	cacheMu        sync.RWMutex
 )
 
@@ -16,42 +16,48 @@ func (s *ServiceReconciler) registerDependencies(svc *console.ServiceDeploymentF
 	defer cacheMu.Unlock()
 
 	// Update or add the service with its latest dependencies
-	servicePresent[svc.Name] = svc.Dependencies
+	servicePresent[console.ServiceDependencyFragment{Name: svc.Name, ID: svc.ID}] = svc.Dependencies
 
 	// Sideload dependencies: ensure they exist in the map
 	for _, dep := range svc.Dependencies {
-		if _, exists := servicePresent[dep.Name]; !exists {
+		if _, exists := servicePresent[*dep]; !exists {
 			depSvc, err := s.svcCache.Get(dep.ID)
 			if err != nil && depSvc != nil && depSvc.DeletedAt == nil {
-				servicePresent[dep.Name] = depSvc.Dependencies
+				servicePresent[*dep] = depSvc.Dependencies
 			}
 		}
 	}
 }
 
 // getActiveDependents returns a list of service names that depend on the given service
-func getActiveDependents(svcName string) []string {
+func (s *ServiceReconciler) getActiveDependents(svcName string) []string {
 	cacheMu.RLock()
 	defer cacheMu.RUnlock()
 
 	var dependents []string
-	for name, deps := range servicePresent {
-		if name == svcName {
+	for service, deps := range servicePresent {
+		if service.Name == svcName {
 			continue
 		}
 		for _, d := range deps {
 			if d.Name == svcName {
-				dependents = append(dependents, name)
-				break
+				// check if the service is still in the cache
+				// it could have been detached
+				_, err := s.svcCache.Get(service.ID)
+				if err == nil {
+					dependents = append(dependents, service.Name)
+					break
+				}
 			}
 		}
 	}
+
 	return dependents
 }
 
 // removeService removes a service from the map
-func removeService(svcName string) {
+func removeService(svc *console.ServiceDeploymentForAgent) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
-	delete(servicePresent, svcName)
+	delete(servicePresent, console.ServiceDependencyFragment{Name: svc.Name, ID: svc.ID})
 }

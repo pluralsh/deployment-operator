@@ -426,7 +426,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 
 	if svc.DeletedAt != nil {
 		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
-		activeDependents := getActiveDependents(svc.Name)
+		activeDependents := s.getActiveDependents(svc.Name)
 		if len(activeDependents) > 0 {
 			if err := s.UpdateErrors(id, &console.ServiceErrorAttributes{
 				Message: "service is being deleted, but there are active dependents: " + strings.Join(activeDependents, ", "),
@@ -455,7 +455,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		}
 
 		if len(components) == 0 {
-			removeService(svc.Name)
+			removeService(svc)
 		}
 
 		// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
