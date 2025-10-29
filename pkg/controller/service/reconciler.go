@@ -422,39 +422,20 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	logger.V(2).Info("fetch service manifests", "name", svc.Name, "namespace", svc.Namespace)
-	dir, err := s.manifestCache.Fetch(svc)
-	if err != nil {
-		logger.Error(err, "failed to parse manifests", "service", svc.Name)
-		// mark as the expected error so that it won't get propagated to the API as a service error
-		err = plrlerrors.ErrExpected
-		return
-	}
-
-	manifests, err := template.Render(dir, svc, s.mapper)
-	if err != nil {
-		logger.Error(err, "failed to render manifests", "service", svc.Name)
-		return
-	}
-
 	if svc.DeletedAt != nil {
 		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
 		activeDependents := getActiveDependents(svc.Name)
 		if len(activeDependents) > 0 {
-			components := make([]*console.ComponentAttributes, len(manifests))
-			for _, manifest := range manifests {
-				components = append(components, agentcommon.ToComponentAttributes(&manifest))
-			}
-			if err := s.UpdateStatus(ctx, svc.ID, svc.Revision.ID, svc.Sha, components, []*console.ServiceErrorAttributes{
-				{
-					Message: "service is being deleted, but there are active dependents: " + strings.Join(activeDependents, ", "),
-					Warning: lo.ToPtr(true),
-				},
-			}, nil); err != nil {
-				logger.Error(err, "Failed to update service status, ignoring for now")
+			if err := s.UpdateErrors(id, &console.ServiceErrorAttributes{
+				Message: "service is being deleted, but there are active dependents: " + strings.Join(activeDependents, ", "),
+				Warning: lo.ToPtr(true),
+				Source:  "delete",
+			}); err != nil {
+				logger.Error(err, "failed to update errors")
+				return ctrl.Result{}, err
 			}
 
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, plrlerrors.ErrExpected
 		}
 
 		components, err := s.applier.Destroy(ctx, id)
@@ -487,6 +468,20 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	s.registerDependencies(svc)
 
 	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
+	dir, err := s.manifestCache.Fetch(svc)
+	if err != nil {
+		logger.Error(err, "failed to parse manifests", "service", svc.Name)
+		// mark as the expected error so that it won't get propagated to the API as a service error
+		err = plrlerrors.ErrExpected
+		return
+	}
+
+	manifests, err := template.Render(dir, svc, s.mapper)
+	if err != nil {
+		logger.Error(err, "failed to render manifests", "service", svc.Name)
+		return
+	}
+
 	manifests = postProcess(manifests)
 	metrics.Record().ServiceReconciliation(
 		id,
