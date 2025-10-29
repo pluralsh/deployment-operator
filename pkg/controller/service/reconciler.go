@@ -458,7 +458,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		}
 
 		if len(components) == 0 {
-			removeService(svc)
+			unregisterDependencies(svc)
 		}
 
 		// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)

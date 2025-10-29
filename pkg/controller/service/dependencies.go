@@ -56,8 +56,8 @@ func (s *ServiceReconciler) getActiveDependents(svcName string) []string {
 	return dependents
 }
 
-// removeService removes a service from the map
-func removeService(svc *console.ServiceDeploymentForAgent) {
+// unregisterDependencies removes a service from the map
+func unregisterDependencies(svc *console.ServiceDeploymentForAgent) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
 	delete(servicePresent, console.ServiceDependencyFragment{Name: svc.Name, ID: svc.ID})
