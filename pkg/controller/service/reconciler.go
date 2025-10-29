@@ -422,6 +422,8 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
+	s.registerDependencies(svc)
+	
 	if svc.DeletedAt != nil {
 		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
 		activeDependents := getActiveDependents(svc.Name)
@@ -464,8 +466,6 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		err = s.namespaceCache.DeleteNamespace(ctx, svc.Namespace, svc.SyncConfig)
 		return ctrl.Result{}, err
 	}
-
-	s.registerDependencies(svc)
 
 	logger.V(2).Info("syncing service", "name", svc.Name, "namespace", svc.Namespace)
 	dir, err := s.manifestCache.Fetch(svc)
