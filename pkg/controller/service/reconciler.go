@@ -354,7 +354,7 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 		return nil
 	}
 
-	// clenaup services from previous runs that are no longer present
+	// cleanup services from previous runs that are no longer present
 	cleanupServices()
 	pager := s.ListServices(ctx)
 
