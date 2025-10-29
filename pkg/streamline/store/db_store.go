@@ -720,7 +720,7 @@ func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error
 	})
 }
 
-func (in *DatabaseStore) SyncSHA(obj unstructured.Unstructured) error {
+func (in *DatabaseStore) SyncAppliedResource(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 
 	sha, err := utils.HashResource(obj)
@@ -744,7 +744,8 @@ func (in *DatabaseStore) SyncSHA(obj unstructured.Unstructured) error {
 				THEN manifest_sha 
 				ELSE transient_manifest_sha 
 			END,
-			transient_manifest_sha = NULL
+			transient_manifest_sha = NULL,
+			manifest = 1
 		WHERE "group" = ? 
 		  AND version = ? 
 		  AND kind = ? 

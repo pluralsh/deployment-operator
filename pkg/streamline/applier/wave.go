@@ -411,15 +411,17 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
-	// The following function will skip save if it is unnecessary, i.e. the resource has no delete policy annotation set.
+	// The following function will skip save if it is unnecessary, i.e., the resource has no delete policy annotation set.
 	if err = streamline.GetGlobalStore().SaveHookComponentWithManifestSHA(resource, lo.FromPtr(appliedResource)); err != nil {
 		klog.V(log.LogLevelExtended).ErrorS(err, "failed to save hook component manifest sha", "resource", resource.GetName(), "kind", resource.GetKind())
 		in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
 		return
 	}
 
-	if err := streamline.GetGlobalStore().SyncSHA(lo.FromPtr(appliedResource)); err != nil {
-		klog.V(log.LogLevelExtended).ErrorS(err, "failed to sync resource SHA", "resource", resource.GetName(), "kind", resource.GetKind())
+	// Sync component SHAs and mark the component with the manifest flag.
+	if err := streamline.GetGlobalStore().SyncAppliedResource(lo.FromPtr(appliedResource)); err != nil {
+		klog.V(log.LogLevelExtended).ErrorS(err, "failed to sync resource SHA",
+			"resource", resource.GetName(), "kind", resource.GetKind())
 	}
 
 	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))

@@ -61,9 +61,9 @@ type Store interface {
 	// CommitTransientSHA commits a transient SHA to the store.
 	CommitTransientSHA(unstructured.Unstructured) error
 
-	// SyncSHA synchronizes the component SHA information after the resource is applied.
-	// It updates apply SHA, server SHA and also commits transient manifest SHA.
-	SyncSHA(obj unstructured.Unstructured) error
+	// SyncAppliedResource synchronizes the component information after its manifest is applied.
+	// It updates apply SHA, server SHA, commits transient manifest SHA and marks the component with the manifest flag.
+	SyncAppliedResource(obj unstructured.Unstructured) error
 
 	// ExpireSHA removes component SHA information.
 	ExpireSHA(unstructured.Unstructured) error
