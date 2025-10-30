@@ -69,7 +69,7 @@ func (in *UpdateAnalysis) fromRequest(request mcp.CallToolRequest) (result clien
 		result.Bullets = lo.ToSlicePtr(bullets)
 	}
 
-	return
+	return result, nil
 }
 
 func NewUpdateAnalysis(client console.Client, agentRunID string) Tool {
