@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -76,8 +77,19 @@ func (in *environment) cloneRepository() error {
 		return err
 	}
 
+	cmd := exec.NewExecutable("git", exec.WithArgs([]string{"branch", "--show-current"}), exec.WithDir(repoDirPath))
+	output, err := cmd.RunWithOutput(context.Background())
+	if err != nil {
+		return err
+	}
+
+	config := &Config{
+		Dir:        repoDirPath,
+		BaseBranch: strings.TrimSpace(string(output)),
+	}
+
 	klog.V(log.LogLevelInfo).InfoS("repository cloned", "url", in.agentRun.Repository, "dir", repoDir)
-	return nil
+	return config.Save()
 }
 
 // init ensures that all required values are initialized
