@@ -66,6 +66,8 @@ func unregisterDependencies(svc *console.ServiceDeploymentForAgent) {
 func updateAllServices(newSet containers.Set[string]) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
-
+	// Add all newly seen services
+	allServices = allServices.Union(newSet)
+	// Remove any that are no longer present
 	allServices = allServices.Intersect(newSet)
 }
