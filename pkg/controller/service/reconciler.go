@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pluralsh/polly/containers"
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
@@ -354,6 +355,8 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 		return nil
 	}
 
+	// Build a new set of services seen in this poll
+	currentServices := containers.NewSet[string]()
 	pager := s.ListServices(ctx)
 
 	for pager.HasNext() {
@@ -371,9 +374,12 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 
 			logger.V(4).Info("enqueueing update for", "service", svc.Node.ID)
 			s.svcCache.Add(svc.Node.ID, svc.Node)
+			currentServices.Add(svc.Node.Name)
 			s.svcQueue.AddAfter(svc.Node.ID, utils.Jitter(15*time.Second))
 		}
 	}
+
+	updateAllServices(currentServices)
 
 	return nil
 }
@@ -422,8 +428,24 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
+	s.registerDependencies(svc)
+
 	if svc.DeletedAt != nil {
 		logger.V(2).Info("deleting service", "name", svc.Name, "namespace", svc.Namespace)
+		activeDependents := s.getActiveDependents(svc.Name)
+		if len(activeDependents) > 0 {
+			if err := s.UpdateErrors(id, &console.ServiceErrorAttributes{
+				Message: "service is being deleted, but there are active dependents: " + strings.Join(activeDependents, ", "),
+				Warning: lo.ToPtr(true),
+				Source:  "delete",
+			}); err != nil {
+				logger.Error(err, "failed to update errors")
+				return ctrl.Result{}, err
+			}
+			done = true
+			return ctrl.Result{}, nil
+		}
+
 		components, err := s.applier.Destroy(ctx, id)
 		metrics.Record().ServiceDeletion(id)
 		s.svcCache.Expire(id)
@@ -436,6 +458,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		if err = s.store.ExpireHookComponents(svc.ID); err != nil {
 			logger.Error(err, "failed to expire processed hook components", "service", svc.Name)
 			return ctrl.Result{}, err
+		}
+
+		if len(components) == 0 {
+			unregisterDependencies(svc)
 		}
 
 		// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
