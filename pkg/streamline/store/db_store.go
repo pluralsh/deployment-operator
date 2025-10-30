@@ -720,6 +720,46 @@ func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error
 	})
 }
 
+func (in *DatabaseStore) SyncAppliedResource(obj unstructured.Unstructured) error {
+	gvk := obj.GroupVersionKind()
+
+	sha, err := utils.HashResource(obj)
+	if err != nil {
+		return err
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, `
+		UPDATE component 
+		SET 
+		    apply_sha = ?,
+		    server_sha = ?,
+			manifest_sha = CASE 
+				WHEN transient_manifest_sha IS NULL OR transient_manifest_sha = '' 
+				THEN manifest_sha 
+				ELSE transient_manifest_sha 
+			END,
+			transient_manifest_sha = NULL,
+			manifest = 1
+		WHERE "group" = ? 
+		  AND version = ? 
+		  AND kind = ? 
+		  AND namespace = ? 
+		  AND name = ?
+	`, &sqlitex.ExecOptions{
+		Args: []interface{}{
+			sha,                                                                 // Apply SHA.
+			sha,                                                                 // Server SHA.
+			gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName(), // WHERE clause parameters.
+		},
+	})
+}
+
 func (in *DatabaseStore) ExpireSHA(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 
