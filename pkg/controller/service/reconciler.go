@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pluralsh/polly/containers"
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
@@ -354,8 +355,8 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 		return nil
 	}
 
-	// cleanup services from previous runs that are no longer present
-	cleanupServices()
+	// Build a new set of services seen in this poll
+	currentServices := containers.NewSet[string]()
 	pager := s.ListServices(ctx)
 
 	for pager.HasNext() {
@@ -374,9 +375,11 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 			logger.V(4).Info("enqueueing update for", "service", svc.Node.ID)
 			s.svcCache.Add(svc.Node.ID, svc.Node)
 			s.svcQueue.AddAfter(svc.Node.ID, utils.Jitter(30*time.Second))
-			addService(svc.Node.ID)
+			currentServices.Add(svc.Node.Name)
 		}
 	}
+
+	updateAllServices(currentServices)
 
 	return nil
 }

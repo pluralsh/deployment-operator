@@ -9,7 +9,7 @@ import (
 
 var (
 	allServices    = containers.NewSet[string]()
-	servicePresent = make(map[console.ServiceDependencyFragment][]*console.ServiceDependencyFragment)
+	servicePresent = make(map[string][]*console.ServiceDependencyFragment)
 	cacheMu        sync.RWMutex
 )
 
@@ -18,14 +18,14 @@ func (s *ServiceReconciler) registerDependencies(svc *console.ServiceDeploymentF
 	defer cacheMu.Unlock()
 
 	// Update or add the service with its latest dependencies
-	servicePresent[console.ServiceDependencyFragment{Name: svc.Name, ID: svc.ID}] = svc.Dependencies
+	servicePresent[svc.Name] = svc.Dependencies
 
 	// Sideload dependencies: ensure they exist in the map
 	for _, dep := range svc.Dependencies {
-		if _, exists := servicePresent[*dep]; !exists {
+		if _, exists := servicePresent[dep.Name]; !exists {
 			depSvc, err := s.svcCache.Get(dep.ID)
 			if err != nil && depSvc != nil && depSvc.DeletedAt == nil {
-				servicePresent[*dep] = depSvc.Dependencies
+				servicePresent[dep.Name] = depSvc.Dependencies
 			}
 		}
 	}
@@ -37,16 +37,16 @@ func (s *ServiceReconciler) getActiveDependents(svcName string) []string {
 	defer cacheMu.RUnlock()
 
 	var dependents []string
-	for service, deps := range servicePresent {
-		if service.Name == svcName {
+	for name, deps := range servicePresent {
+		if name == svcName {
 			continue
 		}
 		for _, d := range deps {
 			if d.Name == svcName {
 				// check if the service is still in the cache
 				// it could have been detached
-				if allServices.Has(service.ID) {
-					dependents = append(dependents, service.Name)
+				if allServices.Has(name) {
+					dependents = append(dependents, name)
 					break
 				}
 			}
@@ -60,17 +60,12 @@ func (s *ServiceReconciler) getActiveDependents(svcName string) []string {
 func unregisterDependencies(svc *console.ServiceDeploymentForAgent) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
-	delete(servicePresent, console.ServiceDependencyFragment{Name: svc.Name, ID: svc.ID})
+	delete(servicePresent, svc.Name)
 }
 
-func addService(id string) {
+func updateAllServices(newSet containers.Set[string]) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
-	allServices.Add(id)
-}
 
-func cleanupServices() {
-	cacheMu.Lock()
-	defer cacheMu.Unlock()
-	allServices = containers.NewSet[string]()
+	allServices = allServices.Intersect(newSet)
 }
