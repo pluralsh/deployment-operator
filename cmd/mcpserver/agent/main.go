@@ -37,6 +37,7 @@ func main() {
 		agent.WithTool(tool.NewCreatePullRequest(client, args.AgentRunID())),
 		agent.WithTool(tool.NewUpdateTodos(client, args.AgentRunID())),
 		agent.WithTool(tool.NewUpdateAnalysis(client, args.AgentRunID())),
+		agent.WithTool(tool.NewCreateBranch(client, args.AgentRunID())),
 	)
 
 	if err := server.Start(); err != nil {

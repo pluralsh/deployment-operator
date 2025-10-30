@@ -15,7 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,6 +38,7 @@ type AgentRuntimeReconciler struct {
 	ConsoleClient    consoleclient.Client
 	Scheme           *runtime.Scheme
 	CacheSyncTimeout time.Duration
+	Ctx              context.Context
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=agentruntimes,verbs=get;list;watch;create;update;patch;delete
@@ -197,6 +200,36 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 	}
 
 	return nil
+}
+
+func (r *AgentRuntimeReconciler) Publish(runId string, kick bool) {
+	err := r.createRunFromId(runId)
+	if err != nil {
+		log := log.FromContext(r.Ctx)
+		log.Error(err, "failed to create agent run", "id", runId)
+	}
+}
+
+func (r *AgentRuntimeReconciler) createRunFromId(runId string) error {
+	ctx := r.Ctx
+
+	run, err := r.ConsoleClient.GetAgentRun(ctx, runId)
+	if err != nil {
+		return fmt.Errorf("failed to get agent run: %w", err)
+	}
+
+	runtimeName := run.Runtime.Name
+
+	agentRuntime := &v1alpha1.AgentRuntime{}
+	nsn := types.NamespacedName{
+		Name:      runtimeName,
+		Namespace: "",
+	}
+	if err := r.Get(ctx, nsn, agentRuntime); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+
+	return r.createAgentRun(ctx, agentRuntime, run)
 }
 
 func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime, run *console.AgentRunFragment) error {

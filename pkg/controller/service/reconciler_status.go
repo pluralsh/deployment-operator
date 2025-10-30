@@ -37,7 +37,7 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	}
 }
 
-func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes, metadata *console.ServiceMetadataAttributes) error {
+func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID string, sha *string, status console.ServiceDeploymentStatus, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes, metadata *console.ServiceMetadataAttributes) error {
 	for _, component := range components {
 		if component.State != nil && *component.State == console.ComponentStateRunning {
 			// Skip checking child pods for the Job. The database cache contains only failed pods, and the Job may succeed after a retry.
@@ -68,12 +68,14 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 		RevisionID string                             `json:"revisionId"`
 		Sha        *string                            `json:"sha,omitempty"`
 		Metadata   *console.ServiceMetadataAttributes `json:"metadata,omitempty"`
+		Status     console.ServiceDeploymentStatus    `json:"status"`
 	}{
 		Components: components,
 		Errs:       errs,
 		RevisionID: revisionID,
 		Sha:        sha,
 		Metadata:   metadata,
+		Status:     status,
 	}
 
 	hashedSha, err := utils.HashObject(objToHash)

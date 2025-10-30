@@ -50,3 +50,9 @@ type UpdateTodosInputSchema struct {
 type UpdateAnalysis struct {
 	ConsoleTool
 }
+
+type CreateBranch struct {
+	ConsoleTool
+	CommitMessage string
+	BranchName    string
+}

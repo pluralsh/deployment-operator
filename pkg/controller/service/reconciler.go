@@ -374,8 +374,8 @@ func (s *ServiceReconciler) Poll(ctx context.Context) error {
 
 			logger.V(4).Info("enqueueing update for", "service", svc.Node.ID)
 			s.svcCache.Add(svc.Node.ID, svc.Node)
-			s.svcQueue.AddAfter(svc.Node.ID, utils.Jitter(30*time.Second))
 			currentServices.Add(svc.Node.Name)
+			s.svcQueue.AddAfter(svc.Node.ID, utils.Jitter(15*time.Second))
 		}
 	}
 
@@ -465,7 +465,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		}
 
 		// delete service when components len == 0 (no new statuses, inventory file is empty, all deleted)
-		if err := s.UpdateStatus(ctx, svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), []*console.ServiceErrorAttributes{}, nil); err != nil {
+		if err := s.UpdateStatus(ctx, svc.ID, svc.Revision.ID, svc.Sha, svc.Status, lo.ToSlicePtr(components), []*console.ServiceErrorAttributes{}, nil); err != nil {
 			logger.Error(err, "Failed to update service status, ignoring for now")
 		}
 
@@ -556,7 +556,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	// Extract images metadata from the applied resources
 	metadata := s.ExtractMetadata(manifests)
 
-	if err = s.UpdateStatus(ctx, svc.ID, svc.Revision.ID, svc.Sha, lo.ToSlicePtr(components), lo.ToSlicePtr(errs), metadata); err != nil {
+	if err = s.UpdateStatus(ctx, svc.ID, svc.Revision.ID, svc.Sha, svc.Status, lo.ToSlicePtr(components), lo.ToSlicePtr(errs), metadata); err != nil {
 		logger.Error(err, "Failed to update service status, ignoring for now")
 	} else {
 		done = true
