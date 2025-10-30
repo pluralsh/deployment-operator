@@ -80,7 +80,7 @@ const (
 	getComponentsByServiceID = `
 		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase
 		FROM component
-		WHERE service_id = ? AND (manifest = 0 OR (parent_uid is NULL or parent_uid = ''))
+		WHERE service_id = ? AND (manifest = 1 OR (parent_uid is NULL or parent_uid = ''))
 	`
 
 	getComponentsByGVK = `
