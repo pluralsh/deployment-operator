@@ -79,7 +79,8 @@ type Client interface {
 	UpsertVulnerabilityReports(vulnerabilities []*console.VulnerabilityReportAttributes) (*console.UpsertVulnerabilities, error)
 	IngestClusterCost(attr console.CostIngestAttributes) (*console.IngestClusterCost, error)
 	GetAgentRuntime(ctx context.Context, id string) (*console.AgentRuntimeFragment, error)
-	IsAgentRuntimeExists(ctx context.Context, id string) (bool, error)
+	IsAgentRuntimeExists(ctx context.Context, name string) (bool, error)
+	GetAgentRuntimeByName(ctx context.Context, name string) (*console.AgentRuntimeFragment, error)
 	UpsertAgentRuntime(ctx context.Context, attrs console.AgentRuntimeAttributes) (*console.AgentRuntimeFragment, error)
 	DeleteAgentRuntime(ctx context.Context, id string) error
 	ListAgentRuntime(ctx context.Context, after *string, first *int64, q *string, typeArg *console.AgentRuntimeType) (*console.ListAgentRuntimes_AgentRuntimes, error)

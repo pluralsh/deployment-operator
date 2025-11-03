@@ -86,13 +86,18 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if changed {
-		apiAgentRuntime, err := r.ConsoleClient.UpsertAgentRuntime(ctx, agentRuntime.Attributes())
+		_, err := r.ConsoleClient.UpsertAgentRuntime(ctx, agentRuntime.Attributes())
 		if err != nil {
 			return handleRequeue(nil, err, agentRuntime.SetCondition)
 		}
-
-		agentRuntime.Status.ID = &apiAgentRuntime.ID
 	}
+	apiAgentRuntime, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName())
+	if err != nil {
+		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		return ctrl.Result{}, err
+	}
+
+	agentRuntime.Status.ID = &apiAgentRuntime.ID
 	agentRuntime.Status.SHA = &sha
 
 	// Mark as synchronized after the agent runtime is synchronized with the Console API.
@@ -158,10 +163,14 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 
 	// If the agent runtime is being deleted, cleanup and remove the finalizer.
 	if !agentRuntime.GetDeletionTimestamp().IsZero() {
-		// If the agent runtime does not have an ID, the finalizer can be removed.
-		if !agentRuntime.Status.HasID() {
-			controllerutil.RemoveFinalizer(agentRuntime, AgentRuntimeFinalizer)
-			return &ctrl.Result{}
+		existingAgentRuntime, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName())
+		if err != nil {
+			if errors.IsNotFound(err) {
+				controllerutil.RemoveFinalizer(agentRuntime, AgentRuntimeFinalizer)
+				return &ctrl.Result{}
+			}
+			utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 		}
 
 		// Remove agent runs.
@@ -178,18 +187,11 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 			}
 		}
 
-		exists, err := r.ConsoleClient.IsAgentRuntimeExists(ctx, agentRuntime.Status.GetID())
-		if err != nil {
-			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
-		}
-
 		// Remove agent runtime from Console API if it exists.
-		if exists {
-			if err = r.ConsoleClient.DeleteAgentRuntime(ctx, agentRuntime.Status.GetID()); err != nil {
-				// If it fails to delete the external dependency here, return with the error so that it can be retried.
-				utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
-				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
-			}
+		if err = r.ConsoleClient.DeleteAgentRuntime(ctx, existingAgentRuntime.ID); err != nil {
+			// If it fails to delete the external dependency here, return with the error so that it can be retried.
+			utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
 		}
 
 		// If finalizer is present, remove it.
