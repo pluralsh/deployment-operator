@@ -35,7 +35,7 @@ type Store interface {
 	// GetServiceComponents retrieves all parent components associated with a given service ID.
 	// All components with parents are filtered out.
 	// It returns a slice of Component structs containing information about each component and any error encountered.
-	GetServiceComponents(serviceID string) ([]smcommon.Component, error)
+	GetServiceComponents(serviceID string) (smcommon.Components, error)
 
 	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
 	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.

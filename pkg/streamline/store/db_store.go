@@ -517,7 +517,7 @@ func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
 		&sqlitex.ExecOptions{Args: []any{group, version, kind}})
 }
 
-func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Component, error) {
+func (in *DatabaseStore) GetServiceComponents(serviceID string) (smcommon.Components, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err

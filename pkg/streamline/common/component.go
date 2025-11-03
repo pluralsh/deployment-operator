@@ -2,6 +2,7 @@ package common
 
 import (
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,6 +19,7 @@ type Component struct {
 	Namespace            string
 	Status               string
 	ServiceID            string
+	Manifest             bool // TODO: Fetch from the store.
 	DeletePhase          string
 	ManifestSHA          string
 	TransientManifestSHA string
@@ -56,6 +58,10 @@ func (in *Component) StoreKey() StoreKey {
 	return StoreKey{GVK: in.GroupVersionKind(), Namespace: in.Namespace, Name: in.Name}
 }
 
+func (in *Component) Key() Key {
+	return in.StoreKey().Key()
+}
+
 // ShouldApply determines if a resource should be applied.
 // Resource should be applied if at least one of the following conditions is met:
 // - any of the SHAs (Server, Apply, or Manifest) are not set
@@ -66,4 +72,10 @@ func (in *Component) ShouldApply(newManifestSHA string) bool {
 	return in.ServerSHA == "" || in.ApplySHA == "" || in.ManifestSHA == "" ||
 		in.ServerSHA != in.ApplySHA || newManifestSHA != in.ManifestSHA ||
 		client.ComponentState(in.Status) != client.ComponentStateRunning
+}
+
+type Components []Component
+
+func (in Components) ComponentAttributes() []client.ComponentAttributes {
+	return algorithms.Map(in, func(c Component) client.ComponentAttributes { return c.ComponentAttributes() })
 }

@@ -166,6 +166,9 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 			klog.ErrorS(err, "failed to save resource", "gvr", in.gvr, "name", obj.GetName())
 			return
 		}
+
+		// Once a component is saved, check if it belongs to a service and update service components if needed.
+		in.maybeSyncServiceComponents(*obj, false)
 	case watch.Deleted:
 		obj, err := common.ToUnstructured(ev.Object)
 		if err != nil {
@@ -173,12 +176,46 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 			return
 		}
 
+		// Before deleting the component, check if it belongs to a service and update service components if needed.
+		in.maybeSyncServiceComponents(*obj, true)
+
 		klog.V(log.LogLevelTrace).InfoS("deleting resource from the store", "gvr", in.gvr, "name", obj.GetName())
 		if err = in.store.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(obj))); err != nil {
 			klog.ErrorS(err, "failed to delete resource", "gvr", in.gvr, "name", obj.GetName())
 			return
 		}
 	}
+}
+
+func (in *synchronizer) maybeSyncServiceComponents(resource unstructured.Unstructured, isDeleted bool) {
+	// Check if the resource belongs to a service.
+	serviceId := smcommon.GetOwningInventory(resource)
+	if serviceId == "" {
+		return
+	}
+
+	// Get service components.
+	components, err := in.store.GetServiceComponents(serviceId)
+	if err != nil {
+		klog.ErrorS(err, "failed to get service components", "service", serviceId)
+		return
+	}
+
+	key := smcommon.NewKeyFromUnstructured(resource)
+
+	// Check if the resource is part of the service components and is manifest-linked.
+	// Using the component list saves one additional lookup in the store.
+	if _, ok := lo.Find(components, func(c smcommon.Component) bool { return key == c.Key() && c.Manifest }); !ok {
+		return
+	}
+
+	// Filter out the deleted component as the function is called before deletion from the store.
+	if isDeleted {
+		components = lo.Filter(components, func(c smcommon.Component, index int) bool { return key != c.Key() })
+	}
+
+	// Update components.
+	_ = components.ComponentAttributes()
 }
 
 func (in *synchronizer) Stop() {
