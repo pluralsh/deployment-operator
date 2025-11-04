@@ -58,11 +58,12 @@ func WithEventSubscribers(gvr schema.GroupVersionResource, subscriber []EventSub
 }
 
 type Supervisor struct {
-	mu             sync.RWMutex
-	started        bool
-	client         dynamic.Interface
-	discoveryCache discoverycache.Cache
-	store          store.Store
+	mu                 sync.RWMutex
+	started            bool
+	client             dynamic.Interface
+	discoveryCache     discoverycache.Cache
+	statusSynchronizer StatusSynchronizer
+	store              store.Store
 
 	registerQueue workqueue.TypedRateLimitingInterface[schema.GroupVersionResource]
 
@@ -79,9 +80,10 @@ type Supervisor struct {
 	maxConcurrentRegistrations int
 }
 
-func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, options ...Option) *Supervisor {
+func NewSupervisor(client dynamic.Interface, store store.Store, statusSynchronizer StatusSynchronizer, discoveryCache discoverycache.Cache, options ...Option) *Supervisor {
 	s := &Supervisor{
 		client:                     client,
+		statusSynchronizer:         statusSynchronizer,
 		discoveryCache:             discoveryCache,
 		store:                      store,
 		registerQueue:              workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[schema.GroupVersionResource]()),
@@ -165,7 +167,7 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 
 	klog.V(log.LogLevelExtended).InfoS("registering resource to watch", "gvr", gvr.String())
 	eventSubscribers, _ := in.eventSubscribers.Get(gvr)
-	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, eventSubscribers))
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, in.statusSynchronizer, eventSubscribers))
 	in.registerQueue.Add(gvr)
 }
 
@@ -285,7 +287,7 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 	}
 
 	eventSubscribers, _ := in.eventSubscribers.Get(gvr)
-	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, eventSubscribers))
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, in.statusSynchronizer, eventSubscribers))
 	in.registerQueue.AddRateLimited(gvr)
 }
 

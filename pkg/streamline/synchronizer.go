@@ -44,17 +44,20 @@ type synchronizer struct {
 	store          store.Store
 	resyncInterval time.Duration
 
+	statusSynchronizer StatusSynchronizer
+
 	eventSubscribers []EventSubscriber
 }
 
-func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration, subscribers []EventSubscriber) Synchronizer {
+func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration, statusSynchronizer StatusSynchronizer, subscribers []EventSubscriber) Synchronizer {
 	return &synchronizer{
-		gvr:              gvr,
-		gvk:              gvk,
-		client:           client,
-		store:            store,
-		resyncInterval:   resyncInterval,
-		eventSubscribers: subscribers,
+		gvr:                gvr,
+		gvk:                gvk,
+		client:             client,
+		store:              store,
+		resyncInterval:     resyncInterval,
+		statusSynchronizer: statusSynchronizer,
+		eventSubscribers:   subscribers,
 	}
 }
 
@@ -215,7 +218,10 @@ func (in *synchronizer) maybeSyncServiceComponents(resource unstructured.Unstruc
 	}
 
 	// Update components.
-	_ = components.ComponentAttributes()
+	// TODO: Revision ID.
+	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, "", lo.ToSlicePtr(components.ComponentAttributes())); err != nil {
+		klog.ErrorS(err, "failed to update service components", "service", serviceId)
+	}
 }
 
 func (in *synchronizer) Stop() {

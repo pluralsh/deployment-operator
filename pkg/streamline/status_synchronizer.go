@@ -1,7 +1,6 @@
 package streamline
 
 import (
-	"context"
 	"slices"
 	"strings"
 	"time"
@@ -11,25 +10,26 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
-type StatusSynchronizer struct {
-	client      console.Client
-	shaCache    *cache.SimpleCache[string]
-	rateLimiter *rate.Limiter
-}
-
 // NewStatusSynchronizer creates a new StatusSynchronizer with rate limiting set to 10 calls per second.
-func NewStatusSynchronizer(client console.Client, cacheTTL time.Duration) *StatusSynchronizer {
-	return &StatusSynchronizer{
+func NewStatusSynchronizer(client client.Client, cacheTTL time.Duration) StatusSynchronizer {
+	return StatusSynchronizer{
 		client:      client,
 		shaCache:    cache.NewSimpleCache[string](cacheTTL),
 		rateLimiter: rate.NewLimiter(rate.Limit(10), 1),
 	}
 }
 
-func (in *StatusSynchronizer) UpdateServiceComponents(ctx context.Context, serviceId, revisionId string, components []*console.ComponentAttributes) error {
+type StatusSynchronizer struct {
+	client      client.Client
+	shaCache    *cache.SimpleCache[string]
+	rateLimiter *rate.Limiter
+}
+
+func (in *StatusSynchronizer) UpdateServiceComponents(serviceId, revisionId string, components []*console.ComponentAttributes) error {
 	// Ensure consistent ordering for comparison.
 	slices.SortFunc(components, func(a, b *console.ComponentAttributes) int {
 		return strings.Compare(common.ComponentAttributesKey(*a), common.ComponentAttributesKey(*b))
@@ -58,7 +58,8 @@ func (in *StatusSynchronizer) UpdateServiceComponents(ctx context.Context, servi
 		return nil
 	}
 
-	if _, err = in.client.UpdateServiceComponents(ctx, serviceId, components, revisionId, nil, nil, nil); err != nil {
+	// TODO: SHA and revision ID.
+	if err = in.client.UpdateComponents(serviceId, revisionId, nil, components, nil, nil); err != nil {
 		return err
 	}
 
