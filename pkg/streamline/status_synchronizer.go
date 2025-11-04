@@ -29,7 +29,7 @@ type StatusSynchronizer struct {
 	rateLimiter *rate.Limiter
 }
 
-func (in *StatusSynchronizer) UpdateServiceComponents(serviceId, revisionId string, components []*console.ComponentAttributes) error {
+func (in *StatusSynchronizer) UpdateServiceComponents(serviceId string, components []*console.ComponentAttributes) error {
 	// Ensure consistent ordering for comparison.
 	slices.SortFunc(components, func(a, b *console.ComponentAttributes) int {
 		return strings.Compare(common.ComponentAttributesKey(*a), common.ComponentAttributesKey(*b))
@@ -38,11 +38,9 @@ func (in *StatusSynchronizer) UpdateServiceComponents(serviceId, revisionId stri
 	// Hash the components to determine if there has been a meaningful change we need to report to the server.
 	sha, err := utils.HashObject(struct {
 		ServiceId  string                         `json:"serviceId"`
-		RevisionId string                         `json:"revisionId"`
 		Attributes []*console.ComponentAttributes `json:"attributes"`
 	}{
 		ServiceId:  serviceId,
-		RevisionId: revisionId,
 		Attributes: components,
 	})
 	if err != nil {
@@ -58,8 +56,7 @@ func (in *StatusSynchronizer) UpdateServiceComponents(serviceId, revisionId stri
 		return nil
 	}
 
-	// TODO: SHA and revision ID.
-	if err = in.client.UpdateComponents(serviceId, revisionId, nil, components, nil, nil); err != nil {
+	if err = in.client.UpdateComponents(serviceId, "", nil, components, nil, nil); err != nil {
 		return err
 	}
 

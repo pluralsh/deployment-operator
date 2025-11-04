@@ -218,8 +218,7 @@ func (in *synchronizer) maybeSyncServiceComponents(resource unstructured.Unstruc
 	}
 
 	// Update components.
-	// TODO: Revision ID.
-	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, "", lo.ToSlicePtr(components.ComponentAttributes())); err != nil {
+	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, lo.ToSlicePtr(components.ComponentAttributes())); err != nil {
 		klog.ErrorS(err, "failed to update service components", "service", serviceId)
 	}
 }
