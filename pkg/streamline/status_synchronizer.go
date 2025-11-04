@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"time"
 
 	"golang.org/x/time/rate"
 
@@ -13,22 +14,22 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
-var statusSynchronizer *StatusSynchronizer
-
 type StatusSynchronizer struct {
 	client      console.Client
+	shaCache    *cache.SimpleCache[string]
 	rateLimiter *rate.Limiter
 }
 
 // NewStatusSynchronizer creates a new StatusSynchronizer with rate limiting set to 10 calls per second.
-func NewStatusSynchronizer(client console.Client) *StatusSynchronizer {
+func NewStatusSynchronizer(client console.Client, cacheTTL time.Duration) *StatusSynchronizer {
 	return &StatusSynchronizer{
 		client:      client,
+		shaCache:    cache.NewSimpleCache[string](cacheTTL),
 		rateLimiter: rate.NewLimiter(rate.Limit(10), 1),
 	}
 }
 
-func (s *StatusSynchronizer) UpdateServiceComponents(ctx context.Context, serviceId, revisionId string, components []*console.ComponentAttributes) error {
+func (in *StatusSynchronizer) UpdateServiceComponents(ctx context.Context, serviceId, revisionId string, components []*console.ComponentAttributes) error {
 	// Ensure consistent ordering for comparison.
 	slices.SortFunc(components, func(a, b *console.ComponentAttributes) int {
 		return strings.Compare(common.ComponentAttributesKey(*a), common.ComponentAttributesKey(*b))
@@ -48,20 +49,20 @@ func (s *StatusSynchronizer) UpdateServiceComponents(ctx context.Context, servic
 		return err
 	}
 
-	if old, ok := cache.ComponentShaCache().Get(serviceId); ok && old == sha {
+	if old, ok := in.shaCache.Get(serviceId); ok && old == sha {
 		return nil
 	}
 
 	// Rate limit API calls. If the rate limit is exceeded, skip the update silently.
-	if !s.rateLimiter.Allow() {
+	if !in.rateLimiter.Allow() {
 		return nil
 	}
 
-	if _, err = s.client.UpdateServiceComponents(ctx, serviceId, components, revisionId, nil, nil, nil); err != nil {
+	if _, err = in.client.UpdateServiceComponents(ctx, serviceId, components, revisionId, nil, nil, nil); err != nil {
 		return err
 	}
 
-	cache.ComponentShaCache().Add(serviceId, sha)
+	in.shaCache.Add(serviceId, sha)
 
 	return nil
 }
