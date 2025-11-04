@@ -427,6 +427,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 				ApplySHA:             stmt.ColumnText(10),
 				ServerSHA:            stmt.ColumnText(11),
 				ServiceID:            stmt.ColumnText(12),
+				Manifest:             stmt.ColumnBool(13),
 			}
 			return nil
 		},
@@ -481,6 +482,7 @@ func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result
 				Name:        stmt.ColumnText(5),
 				ServerSHA:   stmt.ColumnText(6),
 				DeletePhase: stmt.ColumnText(7),
+				Manifest:    stmt.ColumnBool(8),
 			})
 
 			return nil
@@ -539,6 +541,7 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string) (smcommon.Compon
 				Status:      ComponentState(stmt.ColumnInt32(7)).String(),
 				ServiceID:   serviceID,
 				DeletePhase: stmt.ColumnText(8),
+				Manifest:    stmt.ColumnBool(9),
 			})
 			return nil
 		},

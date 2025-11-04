@@ -19,7 +19,7 @@ type Component struct {
 	Namespace            string
 	Status               string
 	ServiceID            string
-	Manifest             bool // TODO: Fetch from the store.
+	Manifest             bool
 	DeletePhase          string
 	ManifestSHA          string
 	TransientManifestSHA string
