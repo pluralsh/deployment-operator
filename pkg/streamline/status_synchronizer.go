@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"golang.org/x/time/rate"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
@@ -14,7 +16,16 @@ import (
 var statusSynchronizer *StatusSynchronizer
 
 type StatusSynchronizer struct {
-	client console.Client
+	client      console.Client
+	rateLimiter *rate.Limiter
+}
+
+// NewStatusSynchronizer creates a new StatusSynchronizer with rate limiting set to 10 calls per second.
+func NewStatusSynchronizer(client console.Client) *StatusSynchronizer {
+	return &StatusSynchronizer{
+		client:      client,
+		rateLimiter: rate.NewLimiter(rate.Limit(10), 1),
+	}
 }
 
 func (s *StatusSynchronizer) UpdateServiceComponents(ctx context.Context, serviceId, revisionId string, components []*console.ComponentAttributes) error {
@@ -41,8 +52,16 @@ func (s *StatusSynchronizer) UpdateServiceComponents(ctx context.Context, servic
 		return nil
 	}
 
+	// Rate limit API calls. If the rate limit is exceeded, skip the update silently.
+	if !s.rateLimiter.Allow() {
+		return nil
+	}
+
+	if _, err = s.client.UpdateServiceComponents(ctx, serviceId, components, revisionId, nil, nil, nil); err != nil {
+		return err
+	}
+
 	cache.ComponentShaCache().Add(serviceId, sha)
 
-	_, err = s.client.UpdateServiceComponents(ctx, serviceId, components, revisionId, nil, nil, nil)
-	return err
+	return nil
 }
