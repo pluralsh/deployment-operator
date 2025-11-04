@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -593,7 +594,7 @@ func isExpectedError(err error) bool {
 	var httpErr *manis.HTTPError
 	if errors.As(err, &httpErr) {
 		switch httpErr.StatusCode {
-		case 402, 403, 429:
+		case http.StatusPaymentRequired, http.StatusForbidden, http.StatusTooManyRequests:
 			return true
 		}
 	}
