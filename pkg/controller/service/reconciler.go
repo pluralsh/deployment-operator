@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -477,8 +478,10 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 	dir, err := s.manifestCache.Fetch(svc)
 	if err != nil {
 		logger.Error(err, "failed to parse manifests", "service", svc.Name)
-		// mark as the expected error so that it won't get propagated to the API as a service error
-		err = plrlerrors.ErrExpected
+		if isExpectedError(err) {
+			// mark as the expected error so that it won't get propagated to the API as a service error
+			err = plrlerrors.ErrExpected
+		}
 		return
 	}
 
@@ -585,4 +588,15 @@ func (s *ServiceReconciler) isClusterRestore(ctx context.Context) (bool, error) 
 		return false, nil
 	}
 	return true, nil
+}
+
+func isExpectedError(err error) bool {
+	var httpErr *manis.HTTPError
+	if errors.As(err, &httpErr) {
+		switch httpErr.StatusCode {
+		case http.StatusPaymentRequired, http.StatusForbidden, http.StatusTooManyRequests:
+			return true
+		}
+	}
+	return false
 }
