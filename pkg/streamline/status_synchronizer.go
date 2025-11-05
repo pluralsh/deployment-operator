@@ -19,7 +19,7 @@ func NewStatusSynchronizer(client client.Client, cacheTTL time.Duration) StatusS
 	return StatusSynchronizer{
 		client:      client,
 		shaCache:    cache.NewSimpleCache[string](cacheTTL),
-		rateLimiter: rate.NewLimiter(rate.Limit(10), 1),
+		rateLimiter: rate.NewLimiter(rate.Limit(50), 10),
 	}
 }
 

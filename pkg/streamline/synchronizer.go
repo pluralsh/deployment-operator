@@ -10,6 +10,7 @@ import (
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/workqueue"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,20 +45,19 @@ type synchronizer struct {
 	store          store.Store
 	resyncInterval time.Duration
 
-	statusSynchronizer StatusSynchronizer
-
+	componentQueue   workqueue.TypedRateLimitingInterface[string]
 	eventSubscribers []EventSubscriber
 }
 
-func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration, statusSynchronizer StatusSynchronizer, subscribers []EventSubscriber) Synchronizer {
+func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration, componentQueue workqueue.TypedRateLimitingInterface[string], subscribers []EventSubscriber) Synchronizer {
 	return &synchronizer{
-		gvr:                gvr,
-		gvk:                gvk,
-		client:             client,
-		store:              store,
-		resyncInterval:     resyncInterval,
-		statusSynchronizer: statusSynchronizer,
-		eventSubscribers:   subscribers,
+		gvr:              gvr,
+		gvk:              gvk,
+		client:           client,
+		store:            store,
+		resyncInterval:   resyncInterval,
+		componentQueue:   componentQueue,
+		eventSubscribers: subscribers,
 	}
 }
 
@@ -179,48 +179,30 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 			return
 		}
 
-		// Before deleting the component, check if it belongs to a service and update service components if needed.
-		in.maybeSyncServiceComponents(*obj, true)
-
 		klog.V(log.LogLevelTrace).InfoS("deleting resource from the store", "gvr", in.gvr, "name", obj.GetName())
 		if err = in.store.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(obj))); err != nil {
 			klog.ErrorS(err, "failed to delete resource", "gvr", in.gvr, "name", obj.GetName())
 			return
 		}
+		in.maybeSyncServiceComponents(*obj, true)
 	}
 }
 
-func (in *synchronizer) maybeSyncServiceComponents(resource unstructured.Unstructured, isDeleted bool) {
+func (in *synchronizer) maybeSyncServiceComponents(resource unstructured.Unstructured, delete bool) {
 	// Check if the resource belongs to a service.
 	serviceId := smcommon.GetOwningInventory(resource)
 	if serviceId == "" {
 		return
 	}
 
-	// Get service components.
-	components, err := in.store.GetServiceComponents(serviceId)
-	if err != nil {
-		klog.ErrorS(err, "failed to get service components", "service", serviceId)
-		return
+	if !delete {
+		component, err := in.store.GetComponent(resource)
+		if err != nil || component == nil || !component.Manifest {
+			return
+		}
 	}
 
-	key := smcommon.NewKeyFromUnstructured(resource)
-
-	// Check if the resource is part of the service components and is manifest-linked.
-	// Using the component list saves one additional lookup in the store.
-	if _, ok := lo.Find(components, func(c smcommon.Component) bool { return key == c.Key() && c.Manifest }); !ok {
-		return
-	}
-
-	// Filter out the deleted component as the function is called before deletion from the store.
-	if isDeleted {
-		components = lo.Filter(components, func(c smcommon.Component, index int) bool { return key != c.Key() })
-	}
-
-	// Update components.
-	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, lo.ToSlicePtr(components.ComponentAttributes())); err != nil {
-		klog.ErrorS(err, "failed to update service components", "service", serviceId)
-	}
+	in.componentQueue.AddRateLimited(serviceId)
 }
 
 func (in *synchronizer) Stop() {
