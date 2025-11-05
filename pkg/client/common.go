@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+
 	console "github.com/pluralsh/console/go/client"
 )
 
@@ -20,4 +22,16 @@ func (c *client) GetGroup(name string) (*console.GroupFragment, error) {
 	}
 
 	return getGroup.Group, nil
+}
+
+func (c *client) Me() (*console.Me_Me, error) {
+	response, err := c.consoleClient.Me(c.ctx)
+	if err != nil {
+		return nil, err
+	}
+	if response == nil || response.Me == nil {
+		return nil, fmt.Errorf("me query returned nil")
+	}
+
+	return response.Me, nil
 }
