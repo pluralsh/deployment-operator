@@ -61,12 +61,15 @@ func (in *CreateBranch) handler(ctx context.Context, request mcp.CallToolRequest
 		return mcp.NewToolResultError(fmt.Sprintf("could not fetch user creds for operator: %v", err)), nil
 	}
 
-	commitArgs := []string{"commit", "-m", in.CommitMessage}
+	var envVars []string
 	if user != nil && user.Email != "" && user.Name != "" {
-		commitArgs = append(commitArgs, "--author", fmt.Sprintf("%s <%s>", user.Name, user.Email))
+		envVars = []string{
+			fmt.Sprintf("GIT_COMMITTER_NAME=%s", user.Name),
+			fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", user.Email),
+		}
 	}
 
-	cmd = exec.NewExecutable("git", exec.WithArgs(commitArgs), exec.WithDir(repoDir))
+	cmd = exec.NewExecutable("git", exec.WithArgs([]string{"commit", "-m", in.CommitMessage}), exec.WithDir(repoDir), exec.WithEnv(envVars))
 	if out, err := cmd.RunWithOutput(ctx); err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to commit changes: %v: %s", err, out)), nil
 	}
