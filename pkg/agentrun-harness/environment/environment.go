@@ -64,10 +64,7 @@ func (in *environment) cloneRepository() error {
 
 	var userName, userEmail string
 	if in.consoleTokenClient != nil {
-		user, err := in.consoleTokenClient.Me()
-		if err != nil {
-			return err
-		}
+		user, _ := in.consoleTokenClient.Me()
 		if user != nil && user.Name != "" && user.Email != "" {
 			userName = user.Name
 			userEmail = user.Email
