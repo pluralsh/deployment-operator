@@ -51,6 +51,12 @@ type UpdateAnalysis struct {
 	ConsoleTool
 }
 
+type CreateBranch struct {
+	ConsoleTool
+	CommitMessage string
+	BranchName    string
+}
+
 // GetAgentRunTodos is an MCP tool that gets the todos for a given agent run
 type GetAgentRunTodosTool struct {
 	ConsoleTool
