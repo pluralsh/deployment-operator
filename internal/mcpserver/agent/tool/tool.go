@@ -55,3 +55,6 @@ type UpdateAnalysis struct {
 type GetAgentRunTodosTool struct {
 	ConsoleTool
 }
+
+// cachedAgentRun holds the current agent run fragment shared across tools
+var cachedAgentRun *client.AgentRunFragment
