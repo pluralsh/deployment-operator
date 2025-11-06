@@ -62,16 +62,32 @@ func (in *environment) cloneRepository() error {
 		return err
 	}
 
+	var userName, userEmail string
+	if in.consoleTokenClient != nil {
+		user, _ := in.consoleTokenClient.Me()
+		if user != nil && user.Name != "" && user.Email != "" {
+			userName = user.Name
+			userEmail = user.Email
+		}
+	}
+
+	if userName == "" && in.agentRun.ScmCreds != nil {
+		userName = in.agentRun.ScmCreds.Username
+	}
+	if userEmail == "" {
+		userEmail = "agent@plural.sh" // fallback
+	}
+
 	repoDirPath := path.Join(in.dir, repoDir)
 	if err := exec.NewExecutable("git",
-		exec.WithArgs([]string{"config", "user.name", in.agentRun.ScmCreds.Username}),
+		exec.WithArgs([]string{"config", "user.name", userName}),
 		exec.WithDir(repoDirPath),
 	).Run(context.Background()); err != nil {
 		return err
 	}
 
 	if err := exec.NewExecutable("git",
-		exec.WithArgs([]string{"config", "user.email", "agent@plural.sh"}),
+		exec.WithArgs([]string{"config", "user.email", userEmail}),
 		exec.WithDir(repoDirPath),
 	).Run(context.Background()); err != nil {
 		return err
