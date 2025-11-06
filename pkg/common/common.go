@@ -1,9 +1,11 @@
 package common
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
@@ -23,6 +25,10 @@ func ToUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
 	}
 
 	return &unstructured.Unstructured{Object: objMap}, nil
+}
+
+func ComponentAttributesKey(c console.ComponentAttributes) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s", c.Group, c.Version, c.Kind, c.Name, c.Namespace)
 }
 
 func GetResourceVersion(obj runtime.Object, fallbackResourceVersion string) string {
