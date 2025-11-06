@@ -8,6 +8,8 @@ import (
 	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/pkg/client"
+
 	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool"
@@ -81,9 +83,11 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 
 // prepare sets up the agent run environment and AI credentials
 func (in *agentRunController) prepare() error {
+	consoleTokenClient := client.New(fmt.Sprintf("%s/gql", in.consoleUrl), *in.agentRun.PluralCreds.Token)
 	env := environment.New(
 		environment.WithAgentRun(in.agentRun),
 		environment.WithWorkingDir(in.dir),
+		environment.WithConsoleTokenClient(consoleTokenClient),
 	)
 
 	if err := env.Setup(); err != nil {
