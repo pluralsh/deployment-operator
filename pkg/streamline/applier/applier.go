@@ -5,9 +5,6 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
-	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -15,6 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
+
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -280,6 +280,11 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 		return nil, err
 	}
 
+	componentsSet := containers.NewSet[smcommon.Key]()
+	for _, component := range components {
+		componentsSet.Add(component.StoreKey().VersionlessKey())
+	}
+
 	hooks, err := in.store.GetHookComponents(serviceID)
 	if err != nil {
 		return nil, err
@@ -328,8 +333,8 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 			if ok && hook.HasDesiredState(deletePolicies) && !hook.HasManifestChanged(resource) {
 				skipApply.Add(key)
 
-				if r, exists := keyToResource[key]; exists {
-					toDelete = append(toDelete, r)
+				if componentsSet.Has(key) {
+					toDelete = append(toDelete, resource)
 				}
 
 				continue
@@ -353,22 +358,12 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 }
 
 func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAttributes, error) {
-	entries, err := in.store.GetServiceComponents(serviceID)
+	components, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	return algorithms.Map(entries, func(entry smcommon.Component) client.ComponentAttributes {
-		return client.ComponentAttributes{
-			UID:       lo.ToPtr(entry.UID),
-			Group:     entry.Group,
-			Kind:      entry.Kind,
-			Namespace: entry.Namespace,
-			Name:      entry.Name,
-			Version:   entry.Version,
-			State:     lo.ToPtr(client.ComponentState(entry.Status)),
-		}
-	}), nil
+	return components.ComponentAttributes(), nil
 }
 
 type Option func(*Applier)

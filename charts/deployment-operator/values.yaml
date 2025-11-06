@@ -21,6 +21,8 @@ additionalVolumeMounts: ~
 #    file: my-cert.pem
 certs: []
 
+extraArgs: []
+
 replicaCount: 1
 
 livenessProbe:

@@ -9,6 +9,7 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	plrlog "github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/metadata"
 	"github.com/samber/lo"
@@ -37,7 +38,7 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	}
 }
 
-func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID string, sha *string, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes, metadata *console.ServiceMetadataAttributes) error {
+func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID string, sha *string, status console.ServiceDeploymentStatus, components []*console.ComponentAttributes, errs []*console.ServiceErrorAttributes, metadata *console.ServiceMetadataAttributes) error {
 	for _, component := range components {
 		if component.State != nil && *component.State == console.ComponentStateRunning {
 			// Skip checking child pods for the Job. The database cache contains only failed pods, and the Job may succeed after a retry.
@@ -57,7 +58,7 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 	}
 
 	slices.SortFunc(components, func(a, b *console.ComponentAttributes) int {
-		return strings.Compare(componentKey(*a), componentKey(*b))
+		return strings.Compare(common.ComponentAttributesKey(*a), common.ComponentAttributesKey(*b))
 	})
 
 	// hash the components and errors to determine if there has been a meaningful change
@@ -68,12 +69,14 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 		RevisionID string                             `json:"revisionId"`
 		Sha        *string                            `json:"sha,omitempty"`
 		Metadata   *console.ServiceMetadataAttributes `json:"metadata,omitempty"`
+		Status     console.ServiceDeploymentStatus    `json:"status"`
 	}{
 		Components: components,
 		Errs:       errs,
 		RevisionID: revisionID,
 		Sha:        sha,
 		Metadata:   metadata,
+		Status:     status,
 	}
 
 	hashedSha, err := utils.HashObject(objToHash)
@@ -108,10 +111,6 @@ func componentChildKey(c console.ComponentChildAttributes) string {
 		ns = *c.Namespace
 	}
 	return fmt.Sprintf("%s/%s/%s/%s/%s", group, c.Version, c.Kind, c.Name, ns)
-}
-
-func componentKey(c console.ComponentAttributes) string {
-	return fmt.Sprintf("%s/%s/%s/%s/%s", c.Group, c.Version, c.Kind, c.Name, c.Namespace)
 }
 
 func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAttributes) error {

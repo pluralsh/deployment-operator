@@ -2069,3 +2069,252 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 		assert.Len(t, names, hookCount)
 	})
 }
+
+func TestComponentCache_SyncAppliedResource(t *testing.T) {
+	t.Run("should update apply_sha and server_sha when resource is synced", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create a test resource
+		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "test-deployment")
+		obj.Object["spec"] = map[string]interface{}{"replicas": "3"}
+
+		// Save the component first
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+
+		// Get the component before sync
+		componentBefore, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentBefore)
+
+		// Sync the applied resource
+		require.NoError(t, storeInstance.SyncAppliedResource(obj))
+
+		// Get the component after sync
+		componentAfter, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentAfter)
+
+		// Verify that apply_sha and server_sha are set and equal
+		require.NotEmpty(t, componentAfter.ApplySHA)
+		require.NotEmpty(t, componentAfter.ServerSHA)
+		require.Equal(t, componentAfter.ApplySHA, componentAfter.ServerSHA)
+	})
+
+	t.Run("should keep manifest_sha unchanged when transient_manifest_sha is NULL", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := createUnstructuredResource("apps", "v1", "StatefulSet", "default", "test-statefulset")
+		obj.Object["spec"] = map[string]interface{}{"replicas": "2"}
+
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+
+		// Get the component before sync to check manifest_sha
+		componentBefore, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentBefore)
+		originalManifestSHA := componentBefore.ManifestSHA
+
+		// Sync the resource
+		require.NoError(t, storeInstance.SyncAppliedResource(obj))
+
+		// Get the component after sync
+		componentAfter, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentAfter)
+
+		// manifest_sha should remain unchanged when transient_manifest_sha is NULL
+		require.Equal(t, originalManifestSHA, componentAfter.ManifestSHA)
+		// transient_manifest_sha should be NULL (empty string)
+		require.Empty(t, componentAfter.TransientManifestSHA)
+	})
+
+	t.Run("should update manifest_sha from transient_manifest_sha when present", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := createUnstructuredResource("apps", "v1", "DaemonSet", "kube-system", "test-daemonset")
+		obj.Object["spec"] = map[string]interface{}{
+			"selector": map[string]interface{}{
+				"matchLabels": map[string]interface{}{
+					"app": "test",
+				},
+			},
+		}
+
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+
+		// First, set a transient_manifest_sha by calling UpdateComponentSHA
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
+
+		// Get the component to verify transient_manifest_sha is set
+		componentBeforeSync, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentBeforeSync)
+		require.NotEmpty(t, componentBeforeSync.TransientManifestSHA)
+		transientSHA := componentBeforeSync.TransientManifestSHA
+		originalManifestSHA := componentBeforeSync.ManifestSHA
+
+		// Sync the resource
+		require.NoError(t, storeInstance.SyncAppliedResource(obj))
+
+		// Get the component after sync
+		componentAfter, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentAfter)
+
+		// manifest_sha should now be equal to the previous transient_manifest_sha
+		require.Equal(t, transientSHA, componentAfter.ManifestSHA)
+		require.NotEqual(t, originalManifestSHA, componentAfter.ManifestSHA)
+		// transient_manifest_sha should be cleared (NULL/empty)
+		require.Empty(t, componentAfter.TransientManifestSHA)
+	})
+
+	t.Run("should clear transient_manifest_sha after sync", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := createUnstructuredResource("", "v1", "ConfigMap", "default", "test-configmap")
+		obj.Object["data"] = map[string]interface{}{
+			"key": "value",
+		}
+
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
+
+		// Verify transient_manifest_sha is set before sync
+		componentBefore, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotEmpty(t, componentBefore.TransientManifestSHA)
+
+		// Sync the resource
+		require.NoError(t, storeInstance.SyncAppliedResource(obj))
+
+		// Verify transient_manifest_sha is cleared after sync
+		componentAfter, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.Empty(t, componentAfter.TransientManifestSHA)
+	})
+
+	t.Run("should not affect other columns during sync", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		obj := createUnstructuredResource("", "v1", "Secret", "default", "test-secret")
+		obj.Object["data"] = map[string]interface{}{
+			"password": "secret",
+		}
+
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
+
+		// Get component before sync
+		componentBefore, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentBefore)
+
+		// Sync the resource
+		require.NoError(t, storeInstance.SyncAppliedResource(obj))
+
+		// Get component after sync
+		componentAfter, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentAfter)
+
+		// Verify other columns remain unchanged
+		require.Equal(t, componentBefore.UID, componentAfter.UID)
+		require.Equal(t, componentBefore.Group, componentAfter.Group)
+		require.Equal(t, componentBefore.Version, componentAfter.Version)
+		require.Equal(t, componentBefore.Kind, componentAfter.Kind)
+		require.Equal(t, componentBefore.Namespace, componentAfter.Namespace)
+		require.Equal(t, componentBefore.Name, componentAfter.Name)
+		require.Equal(t, componentBefore.ParentUID, componentAfter.ParentUID)
+		require.Equal(t, componentBefore.ServiceID, componentAfter.ServiceID)
+	})
+
+	t.Run("should handle non-existent component gracefully", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create a resource but don't save it
+		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "non-existent")
+
+		// Syncing a non-existent resource should not error (UPDATE affects 0 rows)
+		require.NoError(t, storeInstance.SyncAppliedResource(obj))
+	})
+
+	t.Run("should handle resources with empty group", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Core resources have empty group
+		obj := createUnstructuredResource("", "v1", "Pod", "default", "test-pod")
+		obj.Object["spec"] = map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"name":  "nginx",
+					"image": "nginx:latest",
+				},
+			},
+			"nodeName": "test-node",
+		}
+
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+		require.NoError(t, storeInstance.SyncAppliedResource(obj))
+
+		component, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, component)
+		require.NotEmpty(t, component.ApplySHA)
+		require.Equal(t, component.ApplySHA, component.ServerSHA)
+	})
+
+	t.Run("should handle resources with cluster scope (empty namespace)", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// ClusterRole has empty namespace
+		obj := createUnstructuredResource("rbac.authorization.k8s.io", "v1", "ClusterRole", "", "test-clusterrole")
+		obj.Object["rules"] = []interface{}{
+			map[string]interface{}{
+				"apiGroups": []interface{}{""},
+				"resources": []interface{}{"pods"},
+				"verbs":     []interface{}{"get", "list"},
+			},
+		}
+
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+		require.NoError(t, storeInstance.SyncAppliedResource(obj))
+
+		component, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, component)
+		require.NotEmpty(t, component.ApplySHA)
+		require.Equal(t, component.ApplySHA, component.ServerSHA)
+	})
+}

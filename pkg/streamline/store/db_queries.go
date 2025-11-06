@@ -20,7 +20,8 @@ const (
 			manifest_sha TEXT,
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
-			server_sha TEXT
+			server_sha TEXT,
+			manifest BOOLEAN DEFAULT 0
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
@@ -65,7 +66,7 @@ const (
 	`
 
 	getComponent = `
-		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id, manifest
 		FROM component
 		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ?
 	`
@@ -77,13 +78,13 @@ const (
 	`
 
 	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase
+		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest
 		FROM component
-		WHERE service_id = ? AND (parent_uid IS NULL OR parent_uid = '')
+		WHERE service_id = ? AND (manifest = 1 OR (parent_uid is NULL or parent_uid = ''))
 	`
 
 	getComponentsByGVK = `
-		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase
+		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase, manifest
 		FROM component
 		WHERE "group" = ? AND version = ? AND kind = ?
 	`

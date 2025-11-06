@@ -54,6 +54,10 @@ func (in *GlobalStore) CommitTransientSHA(obj unstructured.Unstructured) error {
 	return in.store.CommitTransientSHA(obj)
 }
 
+func (in *GlobalStore) SyncAppliedResource(obj unstructured.Unstructured) error {
+	return in.store.SyncAppliedResource(obj)
+}
+
 func (in *GlobalStore) ExpireSHA(obj unstructured.Unstructured) error {
 	return in.store.ExpireSHA(obj)
 }

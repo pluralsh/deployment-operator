@@ -427,6 +427,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 				ApplySHA:             stmt.ColumnText(10),
 				ServerSHA:            stmt.ColumnText(11),
 				ServiceID:            stmt.ColumnText(12),
+				Manifest:             stmt.ColumnBool(13),
 			}
 			return nil
 		},
@@ -481,6 +482,7 @@ func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result
 				Name:        stmt.ColumnText(5),
 				ServerSHA:   stmt.ColumnText(6),
 				DeletePhase: stmt.ColumnText(7),
+				Manifest:    stmt.ColumnBool(8),
 			})
 
 			return nil
@@ -517,7 +519,7 @@ func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
 		&sqlitex.ExecOptions{Args: []any{group, version, kind}})
 }
 
-func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Component, error) {
+func (in *DatabaseStore) GetServiceComponents(serviceID string) (smcommon.Components, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err
@@ -539,6 +541,7 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string) ([]smcommon.Comp
 				Status:      ComponentState(stmt.ColumnInt32(7)).String(),
 				ServiceID:   serviceID,
 				DeletePhase: stmt.ColumnText(8),
+				Manifest:    stmt.ColumnBool(9),
 			})
 			return nil
 		},
@@ -716,6 +719,46 @@ func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error
 	return sqlitex.ExecuteTransient(conn, commitTransientSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
 			gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName(), // WHERE clause parameters
+		},
+	})
+}
+
+func (in *DatabaseStore) SyncAppliedResource(obj unstructured.Unstructured) error {
+	gvk := obj.GroupVersionKind()
+
+	sha, err := utils.HashResource(obj)
+	if err != nil {
+		return err
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	return sqlitex.ExecuteTransient(conn, `
+		UPDATE component 
+		SET 
+		    apply_sha = ?,
+		    server_sha = ?,
+			manifest_sha = CASE 
+				WHEN transient_manifest_sha IS NULL OR transient_manifest_sha = '' 
+				THEN manifest_sha 
+				ELSE transient_manifest_sha 
+			END,
+			transient_manifest_sha = NULL,
+			manifest = 1
+		WHERE "group" = ? 
+		  AND version = ? 
+		  AND kind = ? 
+		  AND namespace = ? 
+		  AND name = ?
+	`, &sqlitex.ExecOptions{
+		Args: []interface{}{
+			sha,                                                                 // Apply SHA.
+			sha,                                                                 // Server SHA.
+			gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName(), // WHERE clause parameters.
 		},
 	})
 }
