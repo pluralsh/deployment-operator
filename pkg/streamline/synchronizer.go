@@ -10,6 +10,7 @@ import (
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/workqueue"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,16 +45,18 @@ type synchronizer struct {
 	store          store.Store
 	resyncInterval time.Duration
 
+	componentQueue   workqueue.TypedRateLimitingInterface[string]
 	eventSubscribers []EventSubscriber
 }
 
-func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration, subscribers []EventSubscriber) Synchronizer {
+func NewSynchronizer(client dynamic.Interface, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, store store.Store, resyncInterval time.Duration, componentQueue workqueue.TypedRateLimitingInterface[string], subscribers []EventSubscriber) Synchronizer {
 	return &synchronizer{
 		gvr:              gvr,
 		gvk:              gvk,
 		client:           client,
 		store:            store,
 		resyncInterval:   resyncInterval,
+		componentQueue:   componentQueue,
 		eventSubscribers: subscribers,
 	}
 }
@@ -166,6 +169,9 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 			klog.ErrorS(err, "failed to save resource", "gvr", in.gvr, "name", obj.GetName())
 			return
 		}
+
+		// Once a component is saved, check if it belongs to a service and update service components if needed.
+		in.maybeSyncServiceComponents(*obj, false)
 	case watch.Deleted:
 		obj, err := common.ToUnstructured(ev.Object)
 		if err != nil {
@@ -178,7 +184,25 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 			klog.ErrorS(err, "failed to delete resource", "gvr", in.gvr, "name", obj.GetName())
 			return
 		}
+		in.maybeSyncServiceComponents(*obj, true)
 	}
+}
+
+func (in *synchronizer) maybeSyncServiceComponents(resource unstructured.Unstructured, delete bool) {
+	// Check if the resource belongs to a service.
+	serviceId := smcommon.GetOwningInventory(resource)
+	if serviceId == "" {
+		return
+	}
+
+	if !delete {
+		component, err := in.store.GetComponent(resource)
+		if err != nil || component == nil || !component.Manifest {
+			return
+		}
+	}
+
+	in.componentQueue.AddRateLimited(serviceId)
 }
 
 func (in *synchronizer) Stop() {

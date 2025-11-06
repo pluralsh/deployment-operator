@@ -66,7 +66,7 @@ const (
 	`
 
 	getComponent = `
-		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id, manifest
 		FROM component
 		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ?
 	`
@@ -78,13 +78,13 @@ const (
 	`
 
 	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase
+		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest
 		FROM component
 		WHERE service_id = ? AND (manifest = 1 OR (parent_uid is NULL or parent_uid = ''))
 	`
 
 	getComponentsByGVK = `
-		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase
+		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase, manifest
 		FROM component
 		WHERE "group" = ? AND version = ? AND kind = ?
 	`

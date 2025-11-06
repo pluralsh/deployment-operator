@@ -58,42 +58,50 @@ func WithEventSubscribers(gvr schema.GroupVersionResource, subscriber []EventSub
 }
 
 type Supervisor struct {
-	mu             sync.RWMutex
-	started        bool
-	client         dynamic.Interface
-	discoveryCache discoverycache.Cache
-	store          store.Store
+	mu                 sync.RWMutex
+	started            bool
+	client             dynamic.Interface
+	discoveryCache     discoverycache.Cache
+	statusSynchronizer StatusSynchronizer
+	store              store.Store
 
-	registerQueue workqueue.TypedRateLimitingInterface[schema.GroupVersionResource]
+	registerQueue  workqueue.TypedRateLimitingInterface[schema.GroupVersionResource]
+	componentQueue workqueue.TypedRateLimitingInterface[string]
 
 	synchronizers          cmap.ConcurrentMap[schema.GroupVersionResource, Synchronizer]
 	restartAttemptsLeftMap cmap.ConcurrentMap[schema.GroupVersionResource, int]
 
 	eventSubscribers cmap.ConcurrentMap[schema.GroupVersionResource, []EventSubscriber]
 
-	dequeueJitter              time.Duration
-	restartDelay               time.Duration
-	cacheSyncTimeout           time.Duration
-	synchronizerResyncInterval time.Duration
-	maxNotFoundRetries         int
-	maxConcurrentRegistrations int
+	dequeueJitter                 time.Duration
+	updateJitter                  time.Duration
+	restartDelay                  time.Duration
+	cacheSyncTimeout              time.Duration
+	synchronizerResyncInterval    time.Duration
+	maxNotFoundRetries            int
+	maxConcurrentRegistrations    int
+	maxConcurrentComponentUpdates int
 }
 
-func NewSupervisor(client dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, options ...Option) *Supervisor {
+func NewSupervisor(client dynamic.Interface, store store.Store, statusSynchronizer StatusSynchronizer, discoveryCache discoverycache.Cache, options ...Option) *Supervisor {
 	s := &Supervisor{
-		client:                     client,
-		discoveryCache:             discoveryCache,
-		store:                      store,
-		registerQueue:              workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[schema.GroupVersionResource]()),
-		synchronizers:              cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
-		restartAttemptsLeftMap:     cmap.NewStringer[schema.GroupVersionResource, int](),
-		eventSubscribers:           cmap.NewStringer[schema.GroupVersionResource, []EventSubscriber](),
-		maxNotFoundRetries:         3,
-		restartDelay:               1 * time.Second,
-		cacheSyncTimeout:           5 * time.Second,
-		synchronizerResyncInterval: 30 * time.Minute,
-		dequeueJitter:              200 * time.Millisecond,
-		maxConcurrentRegistrations: 20,
+		client:                        client,
+		statusSynchronizer:            statusSynchronizer,
+		discoveryCache:                discoveryCache,
+		store:                         store,
+		registerQueue:                 workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[schema.GroupVersionResource]()),
+		componentQueue:                workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
+		synchronizers:                 cmap.NewStringer[schema.GroupVersionResource, Synchronizer](),
+		restartAttemptsLeftMap:        cmap.NewStringer[schema.GroupVersionResource, int](),
+		eventSubscribers:              cmap.NewStringer[schema.GroupVersionResource, []EventSubscriber](),
+		maxNotFoundRetries:            3,
+		restartDelay:                  1 * time.Second,
+		cacheSyncTimeout:              5 * time.Second,
+		synchronizerResyncInterval:    30 * time.Minute,
+		dequeueJitter:                 200 * time.Millisecond,
+		updateJitter:                  5 * time.Millisecond,
+		maxConcurrentRegistrations:    20,
+		maxConcurrentComponentUpdates: 10,
 	}
 
 	for _, option := range options {
@@ -165,7 +173,7 @@ func (in *Supervisor) Register(gvr schema.GroupVersionResource) {
 
 	klog.V(log.LogLevelExtended).InfoS("registering resource to watch", "gvr", gvr.String())
 	eventSubscribers, _ := in.eventSubscribers.Get(gvr)
-	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, eventSubscribers))
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, in.componentQueue, eventSubscribers))
 	in.registerQueue.Add(gvr)
 }
 
@@ -195,6 +203,16 @@ func (in *Supervisor) Run(ctx context.Context) {
 			go func() {
 				for in.processNextWorkItem(ctx) {
 					time.Sleep(common.WithJitter(in.dequeueJitter))
+				}
+			}()
+		}
+	}()
+
+	go func() {
+		for i := 0; i < in.maxConcurrentComponentUpdates; i++ {
+			go func() {
+				for in.processComponentUpdate() {
+					time.Sleep(common.WithJitter(in.updateJitter))
 				}
 			}()
 		}
@@ -285,7 +303,7 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 	}
 
 	eventSubscribers, _ := in.eventSubscribers.Get(gvr)
-	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, eventSubscribers))
+	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, in.componentQueue, eventSubscribers))
 	in.registerQueue.AddRateLimited(gvr)
 }
 
@@ -328,4 +346,33 @@ func (in *Supervisor) decreaseAttempts(gvr schema.GroupVersionResource) (left in
 
 func (in *Supervisor) clearAttempts(gvr schema.GroupVersionResource) {
 	in.restartAttemptsLeftMap.Remove(gvr)
+}
+
+func (in *Supervisor) processComponentUpdate() bool {
+	serviceId, shutdown := in.componentQueue.Get()
+	if shutdown {
+		return false
+	}
+
+	defer func() {
+		in.componentQueue.Forget(serviceId)
+		in.componentQueue.Done(serviceId)
+	}()
+
+	in.flushComponentUpdates(serviceId)
+	return true
+}
+
+func (in *Supervisor) flushComponentUpdates(serviceId string) {
+	// Get service components.
+	components, err := in.store.GetServiceComponents(serviceId)
+	if err != nil {
+		klog.ErrorS(err, "failed to get service components", "service", serviceId)
+		return
+	}
+
+	// Update components.
+	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, lo.ToSlicePtr(components.ComponentAttributes())); err != nil {
+		klog.ErrorS(err, "failed to update service components", "service", serviceId)
+	}
 }

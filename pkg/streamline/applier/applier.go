@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -359,22 +358,12 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 }
 
 func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAttributes, error) {
-	entries, err := in.store.GetServiceComponents(serviceID)
+	components, err := in.store.GetServiceComponents(serviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	return algorithms.Map(entries, func(entry smcommon.Component) client.ComponentAttributes {
-		return client.ComponentAttributes{
-			UID:       lo.ToPtr(entry.UID),
-			Group:     entry.Group,
-			Kind:      entry.Kind,
-			Namespace: entry.Namespace,
-			Name:      entry.Name,
-			Version:   entry.Version,
-			State:     lo.ToPtr(client.ComponentState(entry.Status)),
-		}
-	}), nil
+	return components.ComponentAttributes(), nil
 }
 
 type Option func(*Applier)

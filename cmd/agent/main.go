@@ -131,8 +131,10 @@ func main() {
 
 	runStoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())
 
+	statusSynchronizer := streamline.NewStatusSynchronizer(extConsoleClient, args.ComponentShaCacheTTL())
+
 	// Start synchronizer supervisor
-	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, discoveryCache, namespaceCache)
+	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, statusSynchronizer, discoveryCache, namespaceCache)
 	defer supervisor.Stop()
 
 	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache, namespaceCache)
@@ -225,10 +227,11 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 	setupLog.Info("discovery manager started with initial cache sync", "duration", time.Since(now))
 }
 
-func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, discoveryCache discoverycache.Cache, namespaceCache streamline.NamespaceCache) *streamline.Supervisor {
+func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, statusSynchronizer streamline.StatusSynchronizer, discoveryCache discoverycache.Cache, namespaceCache streamline.NamespaceCache) *streamline.Supervisor {
 	now := time.Now()
 	supervisor := streamline.NewSupervisor(dynamicClient,
 		store,
+		statusSynchronizer,
 		discoveryCache,
 		streamline.WithCacheSyncTimeout(args.SupervisorCacheSyncTimeout()),
 		streamline.WithRestartDelay(args.SupervisorRestartDelay()),
