@@ -9,6 +9,7 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	plrlog "github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/metadata"
 	"github.com/samber/lo"
@@ -57,7 +58,7 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 	}
 
 	slices.SortFunc(components, func(a, b *console.ComponentAttributes) int {
-		return strings.Compare(componentKey(*a), componentKey(*b))
+		return strings.Compare(common.ComponentAttributesKey(*a), common.ComponentAttributesKey(*b))
 	})
 
 	// hash the components and errors to determine if there has been a meaningful change
@@ -110,10 +111,6 @@ func componentChildKey(c console.ComponentChildAttributes) string {
 		ns = *c.Namespace
 	}
 	return fmt.Sprintf("%s/%s/%s/%s/%s", group, c.Version, c.Kind, c.Name, ns)
-}
-
-func componentKey(c console.ComponentAttributes) string {
-	return fmt.Sprintf("%s/%s/%s/%s/%s", c.Group, c.Version, c.Kind, c.Name, c.Namespace)
 }
 
 func (s *ServiceReconciler) UpdateErrors(id string, err *console.ServiceErrorAttributes) error {
