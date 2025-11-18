@@ -78,6 +78,6 @@ func (in *GlobalStore) SaveHookComponentWithManifestSHA(manifest, appliedResourc
 	return in.store.SaveHookComponentWithManifestSHA(manifest, appliedResource)
 }
 
-func (in *GlobalStore) SaveComponent(obj unstructured.Unstructured) error {
-	return in.store.SaveComponent(obj)
+func (in *GlobalStore) SaveComponents(objs []unstructured.Unstructured) error {
+	return in.store.SaveComponents(objs)
 }

@@ -82,6 +82,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
+	var objects []unstructured.Unstructured
 	resources := releaseutil.SplitManifests(release[0].Manifest)
 	for _, resource := range resources {
 		if resource == "" {
@@ -107,10 +108,11 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		obj.GetAnnotations()[common.OwningInventoryKey] = serviceID
 		obj.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(hr, fluxcd.GroupVersion.WithKind("HelmRelease"))})
+		objects = append(objects, *obj)
+	}
 
-		if err := streamline.GetGlobalStore().SaveComponent(*obj); err != nil {
-			logger.Error(err, "Unable to save HelmRelease's component", "name", obj.GetName())
-		}
+	if err := streamline.GetGlobalStore().SaveComponents(objects); err != nil {
+		logger.Error(err, "Unable to save HelmRelease's components")
 	}
 
 	return jitterRequeue(interval, jitter), nil
