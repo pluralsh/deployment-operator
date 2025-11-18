@@ -82,7 +82,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
-	var objects []unstructured.Unstructured
+	objects := make([]unstructured.Unstructured, 0)
 	resources := releaseutil.SplitManifests(release[0].Manifest)
 	for _, resource := range resources {
 		if resource == "" {
