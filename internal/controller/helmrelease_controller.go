@@ -19,8 +19,12 @@ package controller
 import (
 	"context"
 
+	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	rspb "helm.sh/helm/v3/pkg/release"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +57,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if hr.Annotations == nil {
 		return ctrl.Result{}, nil
 	}
-	_, ok := hr.Annotations[common.OwningInventoryKey]
+	serviceID, ok := hr.Annotations[common.OwningInventoryKey]
 	if !ok {
 		logger.Info("HelmRelease does not belong to a service", "name", hr.Name)
 		return ctrl.Result{}, nil
@@ -78,17 +82,35 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
-	var objects []releaseutil.SimpleHead
 	resources := releaseutil.SplitManifests(release[0].Manifest)
-	for _, r := range resources {
-		if r == "" {
+	for _, resource := range resources {
+		if resource == "" {
 			continue
 		}
 		result := &releaseutil.SimpleHead{}
-		if err := yaml.Unmarshal([]byte(r), result); err != nil {
+		if err := yaml.Unmarshal([]byte(resource), result); err != nil {
 			return ctrl.Result{}, err
 		}
-		objects = append(objects, *result)
+
+		obj := &unstructured.Unstructured{}
+		obj.SetAPIVersion(result.Version)
+		obj.SetKind(result.Kind)
+		if err = r.Get(ctx, client.ObjectKey{Name: result.Metadata.Name, Namespace: releaseNamespace}, obj); err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return ctrl.Result{}, err
+		}
+
+		if obj.GetAnnotations() == nil {
+			obj.SetAnnotations(map[string]string{})
+		}
+		obj.GetAnnotations()[common.OwningInventoryKey] = serviceID
+		obj.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(hr, fluxcd.GroupVersion.WithKind("HelmRelease"))})
+
+		if err := streamline.GetGlobalStore().SaveComponent(*obj); err != nil {
+			logger.Error(err, "Unable to save HelmRelease's component", "name", obj.GetName())
+		}
 	}
 
 	return jitterRequeue(interval, jitter), nil
