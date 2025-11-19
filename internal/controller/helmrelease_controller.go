@@ -73,13 +73,15 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if rel.Chart == nil {
 			return rel.Name == hr.Name
 		}
+		// filter by chart version and name
 		return rel.Name == hr.Name && hr.Spec.Chart.Spec.Version == rel.Chart.Metadata.Version
 	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	// Flux has not installed the helm resources yet
 	if len(release) == 0 {
-		logger.Info("HelmRelease release not found in storage", "name", hr.Name)
+		logger.Info("Release not found in the storage", "name", hr.Name)
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
@@ -106,12 +108,13 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		keys = append(keys, key)
 	}
 
+	// set the helm resources as children of the service
 	updated, err := streamline.GetGlobalStore().SetServiceChildren(serviceID, string(hr.GetUID()), keys)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	// the helm resources are not in the cache/store yet
 	if updated == 0 {
-		// the helm resources are not in the store yet
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
