@@ -376,6 +376,64 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
 
+func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	defer func() {
+		in.pool.Put(conn)
+		klog.V(log.LogLevelDebug).InfoS("saved components in batch",
+			"count", len(keys),
+			"duration", time.Since(now),
+		)
+	}()
+
+	var sb strings.Builder
+	sb.WriteString(`
+		INSERT INTO component (
+		  parent_uid,
+		  "group",
+		  version,
+		  kind,
+		  namespace,
+		  name,
+		  service_id              
+		) VALUES `)
+
+	valueStrings := make([]string, 0, len(keys))
+
+	for _, key := range keys {
+		gvk := key.GVK
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s')",
+			parentUID,
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			key.Namespace,
+			key.Name,
+			serviceID,
+		))
+	}
+
+	if len(valueStrings) == 0 {
+		return nil // Nothing to insert
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
+	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+	  parent_uid = excluded.parent_uid,
+	  service_id = excluded.service_id
+	`)
+
+	return sqlitex.Execute(conn, sb.String(), nil)
+}
+
 func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {

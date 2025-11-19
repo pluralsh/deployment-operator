@@ -19,13 +19,15 @@ package controller
 import (
 	"context"
 
+	fluxcd "github.com/fluxcd/helm-controller/api/v2"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	rspb "helm.sh/helm/v3/pkg/release"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -34,10 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/yaml"
-
-	fluxcd "github.com/fluxcd/helm-controller/api/v2"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	"helm.sh/helm/v3/pkg/storage/driver"
 )
 
 type HelmReleaseReconciler struct {
@@ -57,7 +55,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if hr.Annotations == nil {
 		return ctrl.Result{}, nil
 	}
-	serviceID, ok := hr.Annotations[common.OwningInventoryKey]
+	serviceID, ok := hr.Annotations[smcommon.OwningInventoryKey]
 	if !ok {
 		logger.Info("HelmRelease does not belong to a service", "name", hr.Name)
 		return ctrl.Result{}, nil
@@ -82,7 +80,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
-	objects := make([]unstructured.Unstructured, 0)
+	keys := make([]smcommon.StoreKey, 0)
 	resources := releaseutil.SplitManifests(release[0].Manifest)
 	for _, resource := range resources {
 		if resource == "" {
@@ -92,26 +90,19 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err := yaml.Unmarshal([]byte(resource), result); err != nil {
 			return ctrl.Result{}, err
 		}
-
-		obj := &unstructured.Unstructured{}
-		obj.SetAPIVersion(result.Version)
-		obj.SetKind(result.Kind)
-		if err = r.Get(ctx, client.ObjectKey{Name: result.Metadata.Name, Namespace: releaseNamespace}, obj); err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return ctrl.Result{}, err
-		}
-
-		if obj.GetAnnotations() == nil {
-			obj.SetAnnotations(map[string]string{})
-		}
-		obj.GetAnnotations()[common.OwningInventoryKey] = serviceID
-		obj.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(hr, fluxcd.GroupVersion.WithKind("HelmRelease"))})
-		objects = append(objects, *obj)
+		group, version := common.ParseAPIVersion(result.Version)
+		keys = append(keys, smcommon.StoreKey{
+			GVK: schema.GroupVersionKind{
+				Group:   group,
+				Version: version,
+				Kind:    result.Kind,
+			},
+			Namespace: releaseNamespace,
+			Name:      result.Metadata.Name,
+		})
 	}
 
-	if err := streamline.GetGlobalStore().SaveComponents(objects); err != nil {
+	if err := streamline.GetGlobalStore().SetServiceChildren(serviceID, string(hr.GetUID()), keys); err != nil {
 		logger.Error(err, "Unable to save HelmRelease's components")
 	}
 

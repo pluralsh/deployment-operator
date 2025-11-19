@@ -2318,3 +2318,59 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.Equal(t, component.ApplySHA, component.ServerSHA)
 	})
 }
+
+func TestComponentCache_SetServiceChildren(t *testing.T) {
+	t.Run("should create a new component if doesn't exist", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create a test resource
+		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "test-deployment")
+		obj.Object["spec"] = map[string]interface{}{"replicas": "3"}
+
+		// Save the component
+		require.NoError(t, storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
+			{
+				GVK:       obj.GroupVersionKind(),
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			},
+		}))
+
+		// Get the component
+		componentBefore, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentBefore)
+	})
+
+	t.Run("should update the component", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create a test resource
+		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "existing-deployment")
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+
+		// Update the component
+		require.NoError(t, storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
+			{
+				GVK:       obj.GroupVersionKind(),
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			},
+		}))
+
+		// Get the component before sync
+		componentBefore, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentBefore)
+		require.Equal(t, componentBefore.ServiceID, "abc")
+		require.Equal(t, componentBefore.ParentUID, "123")
+	})
+}

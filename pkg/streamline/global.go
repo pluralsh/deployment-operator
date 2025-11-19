@@ -78,6 +78,6 @@ func (in *GlobalStore) SaveHookComponentWithManifestSHA(manifest, appliedResourc
 	return in.store.SaveHookComponentWithManifestSHA(manifest, appliedResource)
 }
 
-func (in *GlobalStore) SaveComponents(objs []unstructured.Unstructured) error {
-	return in.store.SaveComponents(objs)
+func (in *GlobalStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) error {
+	return in.store.SetServiceChildren(serviceID, parentUID, keys)
 }
