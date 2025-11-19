@@ -70,7 +70,10 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	secrets := driver.NewSecrets(r.ClientSet.CoreV1().Secrets(releaseNamespace))
 	release, err := secrets.List(func(rel *rspb.Release) bool {
-		return rel.Name == hr.Name
+		if rel.Chart == nil {
+			return rel.Name == hr.Name
+		}
+		return rel.Name == hr.Name && hr.Spec.Chart.Spec.Version == rel.Chart.Metadata.Version
 	})
 	if err != nil {
 		return ctrl.Result{}, err
