@@ -91,7 +91,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, err
 		}
 		group, version := common.ParseAPIVersion(result.Version)
-		keys = append(keys, smcommon.StoreKey{
+		key := smcommon.StoreKey{
 			GVK: schema.GroupVersionKind{
 				Group:   group,
 				Version: version,
@@ -99,11 +99,17 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			},
 			Namespace: releaseNamespace,
 			Name:      result.Metadata.Name,
-		})
+		}
+		keys = append(keys, key)
 	}
 
-	if err := streamline.GetGlobalStore().SetServiceChildren(serviceID, string(hr.GetUID()), keys); err != nil {
-		logger.Error(err, "Unable to save HelmRelease's components")
+	updated, err := streamline.GetGlobalStore().SetServiceChildren(serviceID, string(hr.GetUID()), keys)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if updated == 0 {
+		// the helm resources are not in the store yet
+		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
 	return jitterRequeue(interval, jitter), nil

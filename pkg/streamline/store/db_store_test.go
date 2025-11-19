@@ -2320,7 +2320,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 }
 
 func TestComponentCache_SetServiceChildren(t *testing.T) {
-	t.Run("should create a new component if doesn't exist", func(t *testing.T) {
+	t.Run("should return 0 if component doesn't exist", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
@@ -2329,21 +2329,16 @@ func TestComponentCache_SetServiceChildren(t *testing.T) {
 
 		// Create a test resource
 		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "test-deployment")
-		obj.Object["spec"] = map[string]interface{}{"replicas": "3"}
 
-		// Save the component
-		require.NoError(t, storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
+		updated, err := storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
 			{
 				GVK:       obj.GroupVersionKind(),
 				Namespace: obj.GetNamespace(),
 				Name:      obj.GetName(),
 			},
-		}))
-
-		// Get the component
-		componentBefore, err := storeInstance.GetComponent(obj)
+		})
 		require.NoError(t, err)
-		require.NotNil(t, componentBefore)
+		require.Equal(t, 0, updated)
 	})
 
 	t.Run("should update the component", func(t *testing.T) {
@@ -2357,14 +2352,17 @@ func TestComponentCache_SetServiceChildren(t *testing.T) {
 		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "existing-deployment")
 		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 
-		// Update the component
-		require.NoError(t, storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
+		updated, err := storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
 			{
 				GVK:       obj.GroupVersionKind(),
 				Namespace: obj.GetNamespace(),
 				Name:      obj.GetName(),
 			},
-		}))
+		})
+
+		// Update the component
+		require.NoError(t, err)
+		require.Equal(t, 1, updated)
 
 		// Get the component before sync
 		componentBefore, err := storeInstance.GetComponent(obj)
