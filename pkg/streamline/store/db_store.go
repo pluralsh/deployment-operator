@@ -395,16 +395,35 @@ func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []
 	}()
 
 	updatedCount := 0
+	// Begin transaction
+	if err := sqlitex.Execute(conn, "BEGIN TRANSACTION", nil); err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		if err != nil {
+			if e := sqlitex.Execute(conn, "ROLLBACK", nil); e != nil {
+				klog.ErrorS(e, "failed to rollback transaction")
+				return
+			}
+			return
+		}
+		if e := sqlitex.Execute(conn, "COMMIT", nil); e != nil {
+			klog.ErrorS(e, "failed to commit transaction")
+			return
+		}
+	}()
+
 	stmt := `
-	UPDATE component
-	SET parent_uid = ?, service_id = ?
-	WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
-	RETURNING 1
+		UPDATE component
+		SET parent_uid = ?, service_id = ?
+		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
+		RETURNING 1
 `
 
 	for _, key := range keys {
 		gvk := key.GVK
-		err := sqlitex.Execute(conn, stmt, &sqlitex.ExecOptions{
+		err = sqlitex.Execute(conn, stmt, &sqlitex.ExecOptions{
 			Args: []interface{}{
 				parentUID,
 				serviceID,
@@ -420,11 +439,11 @@ func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []
 			},
 		})
 		if err != nil {
-			return updatedCount, err
+			return updatedCount, err // rollback triggered in defer
 		}
 	}
 
-	return updatedCount, err
+	return updatedCount, nil
 }
 
 func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
