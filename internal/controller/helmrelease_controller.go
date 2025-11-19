@@ -44,7 +44,7 @@ type HelmReleaseReconciler struct {
 	ClientSet kubernetes.Interface
 }
 
-// Reconcile executes the drain logic once per ClusterDrain object
+// Reconcile executes the drain logic once per HelmRelease object
 func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	hr := &fluxcd.HelmRelease{}
