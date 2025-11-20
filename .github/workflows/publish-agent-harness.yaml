@@ -212,7 +212,7 @@ jobs:
   publish-agent-harness-with-programming-languages-support:
     name: Build and push agent harness containers with programming language support
     runs-on: ubuntu-latest
-    needs: [ publish-agent-harness ]
+    needs: [ publish-base-image, publish-agent-harness ]
     env:
       NODE_VERSION: 24.8.0
     strategy:
@@ -253,9 +253,9 @@ jobs:
             docker.io/pluralsh/agent-harness
           tags: |
             type=raw,value=${{ inputs.version }},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.tag }},enable=${{ inputs.version != '' }},priority=1100
-            type=semver,pattern={{version}},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }},priority=1000
-            type=sha,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }},priority=800
-            type=ref,event=pr,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }},priority=600
+            type=semver,pattern={{version}},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.tag }},priority=1000
+            type=sha,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.tag }},priority=800
+            type=ref,event=pr,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.tag }},priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -286,5 +286,5 @@ jobs:
             TAG=${{ matrix.languages.tag }}
             NODE_VERSION=${{ env.NODE_VERSION }}
             AGENT_VERSION=${{ matrix.agents.version }}
-            AGENT_HARNESS_IMAGE_TAG=${{ inputs.version }}-${{ matrix.agents.name }}-${{ matrix.agents.version }}
-            AGENT_HARNESS_IMAGE_REPO=ghcr.io/pluralsh/agent-harness-base
+            AGENT_HARNESS_IMAGE_TAG=${{ needs.publish-base-image.outputs.version }}-${{ matrix.agents.name }}-${{ matrix.agents.version }}
+            AGENT_HARNESS_IMAGE_REPO=ghcr.io/pluralsh/agent-harness
