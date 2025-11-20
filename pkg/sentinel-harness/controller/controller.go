@@ -69,11 +69,6 @@ func (in *sentinelRunController) Start(ctx context.Context) error {
 }
 
 func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragment) (string, error) {
-	err := os.Chdir(in.testDir)
-	if err != nil {
-		return "", err
-	}
-
 	if fragment.UsesGit != nil && *fragment.UsesGit {
 		klog.V(log.LogLevelDefault).InfoS("getting git repository")
 		testDir, err := in.fetch()
@@ -81,6 +76,11 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 			return "", err
 		}
 		in.testDir = testDir
+	}
+
+	err := os.Chdir(in.testDir)
+	if err != nil {
+		return "", err
 	}
 
 	klog.V(log.LogLevelDefault).InfoS("running tests", "testDir", in.testDir)
