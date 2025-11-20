@@ -5,20 +5,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
 	"gotest.tools/gotestsum/cmd"
 	"k8s.io/klog/v2"
 )
 
 const (
-	junitFormat = "JUNIT"
-	junitfile   = "unit-tests.xml"
-	jsonFile    = "unit-tests.json"
+	junitFormat         = "JUNIT"
+	junitfile           = "unit-tests.xml"
+	jsonFile            = "unit-tests.json"
+	sentinelTarballPath = "/ext/v1/git/sentinels/tarballs"
 )
 
 func NewSentinelRunController(options ...Option) (Controller, error) {
@@ -45,7 +48,7 @@ func (in *sentinelRunController) Start(ctx context.Context) error {
 		return err
 	}
 
-	output, err := in.runTests()
+	output, err := in.runTests(sentinelRunJob)
 	if err != nil {
 		if err := in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{
 			Status: lo.ToPtr(console.SentinelRunJobStatusFailed),
@@ -65,10 +68,19 @@ func (in *sentinelRunController) Start(ctx context.Context) error {
 	return nil
 }
 
-func (in *sentinelRunController) runTests() (string, error) {
+func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragment) (string, error) {
 	err := os.Chdir(in.testDir)
 	if err != nil {
 		return "", err
+	}
+
+	if fragment.UsesGit != nil && *fragment.UsesGit {
+		klog.V(log.LogLevelDefault).InfoS("getting git repository")
+		testDir, err := in.fetch()
+		if err != nil {
+			return "", err
+		}
+		in.testDir = testDir
 	}
 
 	klog.V(log.LogLevelDefault).InfoS("running tests", "testDir", in.testDir)
@@ -114,6 +126,42 @@ func (in *sentinelRunController) init() (Controller, error) {
 	}
 
 	return in, nil
+}
+
+func (in *sentinelRunController) fetch() (string, error) {
+	dir, err := os.MkdirTemp("", "tests")
+	if err != nil {
+		return "", err
+	}
+
+	tarballUrl, err := createTarballURL(in.consoleURL, in.sentinelRunID)
+	if err != nil {
+		return "", err
+	}
+
+	resp, _, err := manifests.GetReader(tarballUrl, in.consoleToken)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Close()
+
+	if err := manifests.Untar(dir, resp); err != nil {
+		return "", err
+	}
+
+	return dir, nil
+}
+
+func createTarballURL(consoleURL, runJobId string) (string, error) {
+	u, err := url.Parse(consoleURL)
+	if err != nil {
+		return "", err
+	}
+	u.Path = sentinelTarballPath
+	q := u.Query()
+	q.Set("id", runJobId)
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }
 
 type TestEvent struct {

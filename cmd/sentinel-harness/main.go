@@ -34,6 +34,7 @@ func main() {
 		controller.WithOutputDir(args.OutputDir()),
 		controller.WithOutputFormat(args.OutputFormat()),
 		controller.WithTimeout(args.TimeoutDuration()),
+		controller.WithConsoleURL(args.ConsoleUrl()),
 	}
 
 	ctrl, err := controller.NewSentinelRunController(opts...)
