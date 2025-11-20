@@ -1,4 +1,5 @@
 # Node image version is controlled in the agent-harness images themselves.
+ARG TAG
 
 ARG AGENT_HARNESS_IMAGE_TAG
 ARG AGENT_HARNESS_IMAGE_REPO
