@@ -34,7 +34,7 @@ require (
 	github.com/open-policy-agent/frameworks/constraint v0.0.0-20250908215021-e67dab92c8a3
 	github.com/open-policy-agent/gatekeeper/v3 v3.20.1
 	github.com/opencost/opencost/core v1.117.3
-	github.com/openshift/api v0.0.0-20250908150922-8634aa495a26
+	github.com/openshift/api v0.0.0-20251120040117-916c7003ed78
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/pluralsh/console/go/client v1.54.4
@@ -57,9 +57,9 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/gotestsum v1.13.0
 	helm.sh/helm/v3 v3.18.6
-	k8s.io/api v0.34.0
+	k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver v0.34.0
-	k8s.io/apimachinery v0.34.0
+	k8s.io/apimachinery v0.34.1
 	k8s.io/cli-runtime v0.34.0
 	k8s.io/client-go v0.34.0
 	k8s.io/klog/v2 v2.130.1
