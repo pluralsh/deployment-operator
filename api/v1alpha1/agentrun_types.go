@@ -29,6 +29,14 @@ type AgentRunSpec struct {
 	// FlowID is the flow this agent run is associated with (optional)
 	// +kubebuilder:validation:Optional
 	FlowID *string `json:"flowId,omitempty"`
+
+	// Language is the programming language used in the agent run.
+	// +kubebuilder:validation:Optional
+	Language *console.AgentRunLanguage `json:"language,omitempty"`
+
+	// LanguageVersion is the version of the language to use, if you wish to specify.
+	// +kubebuilder:validation:Optional
+	LanguageVersion *string `json:"languageVersion,omitempty"`
 }
 
 // AgentRunStatus defines the observed state of AgentRun

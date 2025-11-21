@@ -252,10 +252,12 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 			},
 		},
 		Spec: v1alpha1.AgentRunSpec{
-			RuntimeRef: v1alpha1.AgentRuntimeReference{Name: agentRuntime.Name},
-			Prompt:     run.Prompt,
-			Repository: run.Repository,
-			Mode:       run.Mode,
+			RuntimeRef:      v1alpha1.AgentRuntimeReference{Name: agentRuntime.Name},
+			Prompt:          run.Prompt,
+			Repository:      run.Repository,
+			Mode:            run.Mode,
+			Language:        run.Language,
+			LanguageVersion: run.LanguageVersion,
 		},
 	}
 	if run.Flow != nil {
