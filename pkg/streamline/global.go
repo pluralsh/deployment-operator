@@ -77,3 +77,7 @@ func (in *GlobalStore) GetResourceHealth(resources []unstructured.Unstructured) 
 func (in *GlobalStore) SaveHookComponentWithManifestSHA(manifest, appliedResource unstructured.Unstructured) error {
 	return in.store.SaveHookComponentWithManifestSHA(manifest, appliedResource)
 }
+
+func (in *GlobalStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error) {
+	return in.store.SetServiceChildren(serviceID, parentUID, keys)
+}

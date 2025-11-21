@@ -12,6 +12,7 @@ import (
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
 	rolloutv1alpha1 "github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	roclientset "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
+	fluxcd "github.com/fluxcd/helm-controller/api/v2"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -122,6 +123,7 @@ func initKubeClientsOrDie(config *rest.Config) (rolloutsClient *roclientset.Clie
 
 func registerKubeReconcilersOrDie(
 	ctx context.Context,
+	clientSet kubernetes.Interface,
 	manager ctrl.Manager,
 	consoleManager *consolectrl.Manager,
 	config *rest.Config,
@@ -166,6 +168,11 @@ func registerKubeReconcilersOrDie(
 		ConsoleClient: extConsoleClient,
 		Ctx:           ctx,
 	}
+	helmReleaseController := &controller.HelmReleaseReconciler{
+		Client:    manager.GetClient(),
+		Scheme:    manager.GetScheme(),
+		ClientSet: clientSet,
+	}
 
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
 		{
@@ -193,6 +200,11 @@ func registerKubeReconcilersOrDie(
 			Version: trivy.SchemeGroupVersion.Version,
 			Kind:    "VulnerabilityReport",
 		}: vulnerabilityReportController.SetupWithManager,
+		{
+			Group:   fluxcd.GroupVersion.Group,
+			Version: fluxcd.GroupVersion.Version,
+			Kind:    fluxcd.HelmReleaseKind,
+		}: helmReleaseController.SetupWithManager,
 	}
 
 	if err := (&controller.CrdRegisterControllerReconciler{

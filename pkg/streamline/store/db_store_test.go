@@ -2318,3 +2318,57 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.Equal(t, component.ApplySHA, component.ServerSHA)
 	})
 }
+
+func TestComponentCache_SetServiceChildren(t *testing.T) {
+	t.Run("should return 0 if component doesn't exist", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create a test resource
+		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "test-deployment")
+
+		updated, err := storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
+			{
+				GVK:       obj.GroupVersionKind(),
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, updated)
+	})
+
+	t.Run("should update the component", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create a test resource
+		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "existing-deployment")
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
+
+		updated, err := storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
+			{
+				GVK:       obj.GroupVersionKind(),
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			},
+		})
+
+		// Update the component
+		require.NoError(t, err)
+		require.Equal(t, 1, updated)
+
+		// Get the component before sync
+		componentBefore, err := storeInstance.GetComponent(obj)
+		require.NoError(t, err)
+		require.NotNil(t, componentBefore)
+		require.Equal(t, componentBefore.ServiceID, "abc")
+		require.Equal(t, componentBefore.ParentUID, "123")
+	})
+}

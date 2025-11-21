@@ -88,4 +88,7 @@ type Store interface {
 
 	// ExpireHookComponents removes all hook components that belong to the specified service from the store.
 	ExpireHookComponents(serviceID string) error
+
+	// SetServiceChildren sets the children of a service based on the provided parent UID and keys.
+	SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error)
 }
