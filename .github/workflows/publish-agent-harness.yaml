@@ -33,6 +33,12 @@ jobs:
       claude: ${{ env.CLAUDE_VERSION }}
       gemini: ${{ env.GEMINI_VERSION }}
       opencode: ${{ env.OPENCODE_VERSION }}
+    steps:
+      - run: |
+          echo "NODE_VERSION=$NODE_VERSION" >> $GITHUB_OUTPUT
+          echo "CLAUDE_VERSION=$CLAUDE_VERSION" >> $GITHUB_OUTPUT
+          echo "GEMINI_VERSION=$GEMINI_VERSION" >> $GITHUB_OUTPUT
+          echo "OPENCODE_VERSION=$OPENCODE_VERSION" >> $GITHUB_OUTPUT
 
   build-base-image:
     name: Build base image
