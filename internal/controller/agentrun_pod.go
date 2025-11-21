@@ -27,8 +27,10 @@ var (
 	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
 	defaultContainerImageTag = "latest"
 
+	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
-		console.AgentRuntimeTypeGemini:   "latest", // TODO
+		console.AgentRuntimeTypeClaude:   "%s-claude-1.0.128",
+		console.AgentRuntimeTypeGemini:   "%s-gemini-0.6.1",
 		console.AgentRuntimeTypeOpencode: "%s-opencode-0.15.4",
 	}
 
