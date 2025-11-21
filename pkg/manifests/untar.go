@@ -11,8 +11,8 @@ import (
 	"sync"
 )
 
-func untar(dst string, r io.Reader) (err error) {
-	log.V(1).Info("beginning to untar stream")
+func Untar(dst string, r io.Reader) (err error) {
+	log.V(1).Info("beginning to Untar stream")
 
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
@@ -28,7 +28,7 @@ func untar(dst string, r io.Reader) (err error) {
 			err = dirErr
 		}
 		if empty && err == nil {
-			err = fmt.Errorf("untar failed, directory is empty")
+			err = fmt.Errorf("Untar failed, directory is empty")
 		}
 	}(gzr)
 

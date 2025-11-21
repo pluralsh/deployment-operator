@@ -22,7 +22,7 @@ var (
 )
 
 func getBody(url, token string) (string, error) {
-	resp, _, err := getReader(url, token)
+	resp, _, err := GetReader(url, token)
 	if err != nil {
 		return "", err
 	}
@@ -37,7 +37,7 @@ func getBody(url, token string) (string, error) {
 	return string(body), nil
 }
 
-func getReader(url, token string) (io.ReadCloser, http.Header, error) {
+func GetReader(url, token string) (io.ReadCloser, http.Header, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, nil, err
@@ -100,7 +100,7 @@ func fetch(url, token, sha string) (string, error) {
 		return "", err
 	}
 
-	resp, header, err := getReader(url, token)
+	resp, header, err := GetReader(url, token)
 	if err != nil {
 		return "", err
 	}
@@ -112,7 +112,7 @@ func fetch(url, token, sha string) (string, error) {
 
 	log.V(1).Info("finished request to", "url", url)
 
-	if err := untar(dir, resp); err != nil {
+	if err := Untar(dir, resp); err != nil {
 		return "", err
 	}
 

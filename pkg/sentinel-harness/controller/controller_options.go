@@ -45,3 +45,9 @@ func WithTimeout(timeout string) Option {
 		s.timeoutDuration = timeout
 	}
 }
+
+func WithConsoleURL(url string) Option {
+	return func(s *sentinelRunController) {
+		s.consoleURL = url
+	}
+}
