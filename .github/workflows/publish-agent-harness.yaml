@@ -215,16 +215,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ publish-base-image, publish-agent-harness ]
     env:
-      NODE_VERSION: 24.8.0
+      CLAUDE_VERSION: 1.0.128
+      GEMINI_VERSION: 0.6.1
+      OPENCODE_VERSION: 0.15.4
     strategy:
       matrix:
         agents:
           - name: claude
-            version: 1.0.128
+            version: ${{ env.CLAUDE_VERSION }}
           - name: gemini
-            version: 0.6.1
+            version: ${{ env.GEMINI_VERSION }}
           - name: opencode
-            version: 0.15.4
+            version: ${{ env.OPENCODE_VERSION }}
         languages:
           - image: golang
             tag: 1.24
@@ -238,9 +240,23 @@ jobs:
             - languages:
                 image: golang
                 tag: 1.23
+              agents:
+                - name: claude
+                  version: ${{ env.CLAUDE_VERSION }}
+                - name: gemini
+                  version: ${{ env.GEMINI_VERSION }}
+                - name: opencode
+                  version: ${{ env.OPENCODE_VERSION }}
             - languages:
                 image: golang
                 tag: 1.22
+              agents:
+                - name: claude
+                  version: ${{ env.CLAUDE_VERSION }}
+                - name: gemini
+                  version: ${{ env.GEMINI_VERSION }}
+                - name: opencode
+                  version: ${{ env.OPENCODE_VERSION }}
     permissions:
       contents: write
       discussions: write
@@ -292,7 +308,5 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             TAG=${{ matrix.languages.tag }}
-            NODE_VERSION=${{ env.NODE_VERSION }}
-            AGENT_VERSION=${{ matrix.agents.version }}
             AGENT_HARNESS_IMAGE_TAG=${{ needs.publish-base-image.outputs.version }}-${{ matrix.agents.name }}-${{ matrix.agents.version }}
             AGENT_HARNESS_IMAGE_REPO=ghcr.io/pluralsh/agent-harness
