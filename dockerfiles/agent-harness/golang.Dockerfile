@@ -13,3 +13,5 @@ COPY --from=golang /go /go
 
 ENV GOPATH=/go
 ENV PATH=/usr/local/go/bin:${GOPATH}/bin:${PATH}
+
+USER 65532:65532

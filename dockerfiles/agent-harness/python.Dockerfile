@@ -10,3 +10,5 @@ FROM $AGENT_HARNESS_IMAGE AS final
 
 COPY --from=python /usr/local /usr/local
 COPY --from=python /usr/lib /usr/lib
+
+USER 65532:65532

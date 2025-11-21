@@ -16,3 +16,5 @@ COPY --from=openjdk /etc/ssl/certs /etc/ssl/certs
 
 ENV JAVA_HOME=/usr/local/openjdk/
 ENV PATH=${JAVA_HOME}/bin:${PATH}
+
+USER 65532:65532
