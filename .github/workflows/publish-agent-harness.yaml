@@ -35,10 +35,10 @@ jobs:
       opencode: ${{ env.OPENCODE_VERSION }}
     steps:
       - run: |
-          echo "NODE_VERSION=$NODE_VERSION" >> $GITHUB_OUTPUT
-          echo "CLAUDE_VERSION=$CLAUDE_VERSION" >> $GITHUB_OUTPUT
-          echo "GEMINI_VERSION=$GEMINI_VERSION" >> $GITHUB_OUTPUT
-          echo "OPENCODE_VERSION=$OPENCODE_VERSION" >> $GITHUB_OUTPUT
+          echo "NODE_VERSION=$NODE_VERSION"
+          echo "CLAUDE_VERSION=$CLAUDE_VERSION"
+          echo "GEMINI_VERSION=$GEMINI_VERSION"
+          echo "OPENCODE_VERSION=$OPENCODE_VERSION"
 
   build-base-image:
     name: Build base image
@@ -242,47 +242,125 @@ jobs:
             version: ${{ needs.output-versions.outputs.opencode }}
         languages:
           - image: golang
-            tag: 1.24
+            version: 1.24
+          - image: java
+            version: 25
           - image: node
-            tag: ${{ needs.publish-agent-harness.outputs.node-version }}
-          - image: openjdk
-            tag: 25-rc-slim
+            version: ${{ needs.output-versions.outputs.node }}
           - image: python
-            tag: 3.14-slim
+            version: 3.14
         include:
+            # Golang 1.23
             - languages:
                 image: golang
-                tag: 1.23
+                version: 1.23
               agents:
                 name: claude
                 version: ${{ needs.output-versions.outputs.claude }}
             - languages:
                 image: golang
-                tag: 1.23
+                version: 1.23
               agents:
                 name: gemini
                 version: ${{ needs.output-versions.outputs.gemini }}
             - languages:
                 image: golang
-                tag: 1.23
+                version: 1.23
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            # Golang 1.22
             - languages:
                 image: golang
-                tag: 1.22
+                version: 1.22
               agents:
                 name: claude
                 version: ${{ needs.output-versions.outputs.claude }}
             - languages:
                 image: golang
-                tag: 1.22
+                version: 1.22
               agents:
                 name: gemini
                 version: ${{ needs.output-versions.outputs.gemini }}
             - languages:
                 image: golang
-                tag: 1.22
+                version: 1.22
+              agents:
+                name: opencode
+                version: ${{ needs.output-versions.outputs.opencode }}
+            # Java 24
+            - languages:
+                image: java
+                version: 24
+              agents:
+                name: claude
+                version: ${{ needs.output-versions.outputs.claude }}
+            - languages:
+                image: java
+                version: 24
+              agents:
+                name: gemini
+                version: ${{ needs.output-versions.outputs.gemini }}
+            - languages:
+                image: java
+                version: 24
+              agents:
+                name: opencode
+                version: ${{ needs.output-versions.outputs.opencode }}
+            # Java 23
+            - languages:
+                image: java
+                version: 23
+              agents:
+                name: claude
+                version: ${{ needs.output-versions.outputs.claude }}
+            - languages:
+                image: java
+                version: 23
+              agents:
+                name: gemini
+                version: ${{ needs.output-versions.outputs.gemini }}
+            - languages:
+                image: java
+                version: 23
+              agents:
+                name: opencode
+                version: ${{ needs.output-versions.outputs.opencode }}
+            # Python 3.13
+            - languages:
+                image: python
+                version: 3.13
+              agents:
+                name: claude
+                version: ${{ needs.output-versions.outputs.claude }}
+            - languages:
+                image: python
+                version: 3.13
+              agents:
+                name: gemini
+                version: ${{ needs.output-versions.outputs.gemini }}
+            - languages:
+                image: python
+                version: 3.13
+              agents:
+                name: opencode
+                version: ${{ needs.output-versions.outputs.opencode }}
+            # Python 3.12
+            - languages:
+                image: python
+                version: 3.12
+              agents:
+                name: claude
+                version: ${{ needs.output-versions.outputs.claude }}
+            - languages:
+                image: python
+                version: 3.12
+              agents:
+                name: gemini
+                version: ${{ needs.output-versions.outputs.gemini }}
+            - languages:
+                image: python
+                version: 3.12
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
@@ -305,10 +383,10 @@ jobs:
             ghcr.io/pluralsh/agent-harness
             docker.io/pluralsh/agent-harness
           tags: |
-            type=raw,value=${{ inputs.version }},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.tag }},enable=${{ inputs.version != '' }},priority=1100
-            type=semver,pattern={{version}},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.tag }},priority=1000
-            type=sha,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.tag }},priority=800
-            type=ref,event=pr,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.tag }},priority=600
+            type=raw,value=${{ inputs.version }},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.version }},enable=${{ inputs.version != '' }},priority=1100
+            type=semver,pattern={{version}},suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.version }},priority=1000
+            type=sha,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.version }},priority=800
+            type=ref,event=pr,suffix=-${{ matrix.agents.name }}-${{ matrix.agents.version }}-${{ matrix.languages.image }}-${{ matrix.languages.version }},priority=600
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -336,6 +414,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            TAG=${{ matrix.languages.tag }}
+            VERSION=${{ matrix.languages.version }}
             AGENT_HARNESS_IMAGE_TAG=${{ needs.publish-base-image.outputs.version }}-${{ matrix.agents.name }}-${{ matrix.agents.version }}
             AGENT_HARNESS_IMAGE_REPO=ghcr.io/pluralsh/agent-harness
