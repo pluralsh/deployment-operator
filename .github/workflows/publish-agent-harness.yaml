@@ -234,6 +234,13 @@ jobs:
             tag: 25-rc-slim
           - image: python
             tag: 3.14-slim
+        include:
+            - languages:
+                image: golang
+                tag: 1.23
+            - languages:
+                image: golang
+                tag: 1.22
     permissions:
       contents: write
       discussions: write
