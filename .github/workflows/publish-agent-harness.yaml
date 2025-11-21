@@ -241,22 +241,38 @@ jobs:
                 image: golang
                 tag: 1.23
               agents:
-                - name: claude
-                  version: ${{ env.CLAUDE_VERSION }}
-                - name: gemini
-                  version: ${{ env.GEMINI_VERSION }}
-                - name: opencode
-                  version: ${{ env.OPENCODE_VERSION }}
+                name: claude
+                version: ${{ env.CLAUDE_VERSION }}
+            - languages:
+                image: golang
+                tag: 1.23
+              agents:
+                name: gemini
+                version: ${{ env.GEMINI_VERSION }}
+            - languages:
+                image: golang
+                tag: 1.23
+              agents:
+                name: opencode
+                version: ${{ env.OPENCODE_VERSION }}
             - languages:
                 image: golang
                 tag: 1.22
               agents:
-                - name: claude
-                  version: ${{ env.CLAUDE_VERSION }}
-                - name: gemini
-                  version: ${{ env.GEMINI_VERSION }}
-                - name: opencode
-                  version: ${{ env.OPENCODE_VERSION }}
+                name: claude
+                version: ${{ env.CLAUDE_VERSION }}
+            - languages:
+                image: golang
+                tag: 1.22
+              agents:
+                name: gemini
+                version: ${{ env.GEMINI_VERSION }}
+            - languages:
+                image: golang
+                tag: 1.22
+              agents:
+                name: opencode
+                version: ${{ env.OPENCODE_VERSION }}
     permissions:
       contents: write
       discussions: write
