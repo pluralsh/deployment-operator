@@ -74,8 +74,8 @@ func TestUntarWithBrokenStream(t *testing.T) {
 	// Destination directory for extraction (use a temp directory for testing)
 	dst := t.TempDir()
 
-	// Call the untar function with the broken reader
-	err := untar(dst, br)
+	// Call the Untar function with the broken reader
+	err := Untar(dst, br)
 
 	// Validate that an error is returned
 	if err == nil {

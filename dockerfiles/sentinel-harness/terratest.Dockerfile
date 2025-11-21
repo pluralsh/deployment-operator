@@ -24,4 +24,6 @@ USER 65532:65532
 
 WORKDIR /sentinel
 
+RUN go mod download
+
 ENTRYPOINT ["sentinel-harness", "--test-dir=/sentinel", "--output-dir=/plural"]
