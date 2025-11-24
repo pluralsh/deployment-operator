@@ -6,9 +6,11 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
-func (in *GetAgentRunTodosTool) Install(server *server.MCPServer) {
+func (in *FetchTodos) Install(server *server.MCPServer) {
 	server.AddTool(
 		mcp.NewTool(
 			in.name,
@@ -18,25 +20,23 @@ func (in *GetAgentRunTodosTool) Install(server *server.MCPServer) {
 	)
 }
 
-func (in *GetAgentRunTodosTool) handler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	runId, err := request.RequireString("runId")
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to get runId: %v", err)), nil
-	}
-
-	// if the agentRun is not in the cache, fetch it from the API and cache it
-	if cachedAgentRun == nil {
-		fragment, err := in.client.GetAgentRun(ctx, runId)
+func (in *FetchTodos) handler(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// if todos are not cached, fetch them from the server
+	if GetCachedTodos() == nil {
+		todos, err := in.client.GetAgentRunTodos(ctx, in.agentRunID)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get agent run: %v", err)), nil
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get agent run todos: %v", err)), nil
 		}
-		cachedAgentRun = fragment
+
+		if len(todos) > 0 {
+			UpdateCachedTodos(todos)
+		}
 	}
 
-	// we need to convert the todos in order to return the correct format for the MCP server
+	// we need to convert the todos to return the correct format for the MCP server
 	todos := make([]map[string]interface{}, 0)
-	if cachedAgentRun != nil && cachedAgentRun.Todos != nil {
-		for _, todo := range cachedAgentRun.Todos {
+	if GetCachedTodos() != nil {
+		for _, todo := range GetCachedTodos() {
 			todoMap := map[string]interface{}{
 				"title":       todo.Title,
 				"done":        todo.Done,
@@ -49,14 +49,21 @@ func (in *GetAgentRunTodosTool) handler(ctx context.Context, request mcp.CallToo
 	return mcp.NewToolResultJSON(struct {
 		Success bool                     `json:"success"`
 		Message string                   `json:"message"`
-		RunId   string                   `json:"runId"`
 		Todos   []map[string]interface{} `json:"todos"`
-		Source  string                   `json:"source"`
 	}{
 		Success: true,
-		Message: fmt.Sprintf("Successfully fetched todos for agent run %s", runId),
-		RunId:   runId,
+		Message: fmt.Sprintf("successfully updated todos for agent run %s", in.agentRunID),
 		Todos:   todos,
-		Source:  "cache",
 	})
+}
+
+func NewFetchTodos(client console.Client, agentRunID string) Tool {
+	return &FetchTodos{
+		ConsoleTool: ConsoleTool{
+			name:        "fetchAgentRunTodos",
+			description: "Fetches the todos for the current agent run",
+			client:      client,
+			agentRunID:  agentRunID,
+		},
+	}
 }

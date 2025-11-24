@@ -34,7 +34,10 @@ func (in *UpdateTodos) handler(ctx context.Context, request mcp.CallToolRequest)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to update todos: %v", err)), nil
 	}
-	cachedAgentRun = nil
+
+	for _, todo := range agentRun.Todos {
+		MarkCachedTodoItem(todo.Title, lo.FromPtr(todo.Done))
+	}
 
 	return mcp.NewToolResultJSON(struct {
 		Success bool                        `json:"success"`
@@ -101,7 +104,7 @@ func NewUpdateTodos(client console.Client, agentRunID string) Tool {
 	return &UpdateTodos{
 		ConsoleTool: ConsoleTool{
 			name:        "updateAgentRunTodos",
-			description: "Update the todo checklist progress in the system to keep track of what needs to be done for a given agent run",
+			description: "Updates the todo checklist progress in the system to keep track of what needs to be done for a given agent run",
 			client:      client,
 			agentRunID:  agentRunID,
 		},

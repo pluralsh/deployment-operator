@@ -105,3 +105,16 @@ func (c *client) CreateAgentMessage(ctx context.Context, runID string, attrs con
 
 	return response.CreateAgentMessage, nil
 }
+
+func (c *client) GetAgentRunTodos(ctx context.Context, id string) ([]*console.AgentTodoFragment, error) {
+	response, err := c.consoleClient.GetAgentRunTodos(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if response == nil || response.AgentRun == nil || response.AgentRun.Todos == nil {
+		return nil, nil
+	}
+
+	return response.AgentRun.Todos, nil
+}

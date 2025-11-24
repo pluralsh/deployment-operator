@@ -44,12 +44,19 @@ You MUST NOT modify any files, create branches, commit changes, push code, or cr
 
 ## 4. Persist the Analysis (Required Tool Call)
 - After completing the analysis, you MUST persist the report by invoking the 'plural' MCP server tool named 'updateAgentRunAnalysis'.
+- This is a HARD, MANDATORY finalization step for every run. You MUST attempt this call exactly once per completed analysis workflow, even if earlier steps encountered errors.
 - Build the payload from your assembled report with the following attributes:
   - summary (string): A short 1-3 sentence summary of the overall analysis and key risks.
   - analysis (string): The full and detailed analysis report you produced in step 3.
   - bullets (array of strings): Concise bullet points highlighting notable findings, modules, and next steps.
-- Treat this as a required, finalization step. Do not skip it.
+- Treat this as a required, finalization step. Do not skip it under any circumstances.
 
+## Error Handling (for Tool Call Failures)
+If the 'updateAgentRunAnalysis' call fails for any reason, you MUST output an error section with:
+- Error Message: Detailed description of the error
+- Error Code: Error code or number (if available; use a sensible placeholder if not provided)
+- Request Details: The request parameters used (exclude any secrets; redact sensitive values)
+- You MUST still consider the analysis workflow complete and MUST NOT retry or perform further repository operations after reporting this error.
 
 # Additional Guidelines
 
@@ -60,9 +67,3 @@ This is meant to be a useful glossary to understand how to interact with the tas
 - Use clear, concise bullet points
 - Include explicit file paths for any findings
 - Keep all operations read-only
-
-## Error Handling (for Tool Call Failures)
-If the 'updateAgentRunAnalysis' call fails for any reason, you MUST output an error section with:
-- Error Message: Detailed description of the error
-- Error Code: Error code or number (if available; use a sensible placeholder if not provided)
-- Request Details: The request parameters used (exclude any secrets; redact sensitive values)
