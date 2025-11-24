@@ -24,16 +24,6 @@ const (
 )
 
 var (
-	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
-	defaultContainerImageTag = "latest"
-
-	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
-	defaultContainerVersions = map[console.AgentRuntimeType]string{
-		console.AgentRuntimeTypeClaude:   "%s-claude-1.0.128",
-		console.AgentRuntimeTypeGemini:   "%s-gemini-0.6.1",
-		console.AgentRuntimeTypeOpencode: "%s-opencode-0.15.4",
-	}
-
 	defaultTmpVolume = corev1.Volume{
 		Name: defaultTmpVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -44,6 +34,30 @@ var (
 	defaultTmpContainerVolumeMount = corev1.VolumeMount{
 		Name:      defaultTmpVolumeName,
 		MountPath: defaultTmpVolumePath,
+	}
+
+	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
+	defaultContainerImageTag = "v0.6.13-alpha.1" // TODO: Update after release.
+
+	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
+	defaultContainerVersions = map[console.AgentRuntimeType]string{
+		console.AgentRuntimeTypeClaude:   "%s-claude-1.0.128",
+		console.AgentRuntimeTypeGemini:   "%s-gemini-0.6.1",
+		console.AgentRuntimeTypeOpencode: "%s-opencode-0.15.4",
+	}
+
+	languages = map[console.AgentRunLanguage]string{
+		console.AgentRunLanguageGo:         "golang",
+		console.AgentRunLanguageJava:       "java",
+		console.AgentRunLanguageJavascript: "node",
+		console.AgentRunLanguagePython:     "python",
+	}
+
+	defaultVersions = map[console.AgentRunLanguage]string{
+		console.AgentRunLanguageGo:         "1.24",
+		console.AgentRunLanguageJava:       "25",
+		console.AgentRunLanguageJavascript: "24",
+		console.AgentRunLanguagePython:     "3.14",
 	}
 )
 
@@ -161,13 +175,18 @@ func getDefaultContainer(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime)
 	}
 }
 
-func getDefaultContainerImage(image string, agentRuntimeType console.AgentRuntimeType, language *console.AgentRunLanguage, languageVersion *string) string {
+func getDefaultContainerImage(image string, agentRuntimeType console.AgentRuntimeType, language *console.AgentRunLanguage, version *string) string {
 	if image != "" {
 		return image
 	}
 
-	// TODO: Support language and languageVersion specific images in the future.
 	tag := fmt.Sprintf(defaultContainerVersions[agentRuntimeType], defaultContainerImageTag)
+
+	// If the language name is recognized, append it to the tag along with the version (or default version).
+	if lang, ok := languages[lo.FromPtr(language)]; ok {
+		tag = fmt.Sprintf("%s-%s-%s", tag, lang,
+			lo.Ternary(lo.IsEmpty(version), defaultVersions[lo.FromPtr(language)], lo.FromPtr(version)))
+	}
 
 	return fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage), tag)
 }
