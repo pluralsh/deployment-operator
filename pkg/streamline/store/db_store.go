@@ -376,6 +376,76 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
 
+func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error) {
+	if len(keys) == 0 {
+		return 0, nil
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	now := time.Now()
+	defer func() {
+		in.pool.Put(conn)
+		klog.V(log.LogLevelDebug).InfoS("saved components in batch",
+			"count", len(keys),
+			"duration", time.Since(now),
+		)
+	}()
+
+	updatedCount := 0
+	// Begin transaction
+	if err := sqlitex.Execute(conn, "BEGIN TRANSACTION", nil); err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		if err != nil {
+			if e := sqlitex.Execute(conn, "ROLLBACK", nil); e != nil {
+				klog.ErrorS(e, "failed to rollback transaction")
+				return
+			}
+			return
+		}
+		if e := sqlitex.Execute(conn, "COMMIT", nil); e != nil {
+			klog.ErrorS(e, "failed to commit transaction")
+			return
+		}
+	}()
+
+	stmt := `
+		UPDATE component
+		SET parent_uid = ?, service_id = ?
+		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
+		RETURNING 1
+`
+
+	for _, key := range keys {
+		gvk := key.GVK
+		err = sqlitex.Execute(conn, stmt, &sqlitex.ExecOptions{
+			Args: []interface{}{
+				parentUID,
+				serviceID,
+				gvk.Group,
+				gvk.Version,
+				gvk.Kind,
+				key.Namespace,
+				key.Name,
+			},
+			ResultFunc: func(_ *sqlite.Stmt) error {
+				updatedCount++
+				return nil
+			},
+		})
+		if err != nil {
+			return updatedCount, err // rollback triggered in defer
+		}
+	}
+
+	return updatedCount, nil
+}
+
 func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
