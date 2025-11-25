@@ -38,7 +38,7 @@ You MUST follow this order:
 2. Code & config analysis (read‑only).
 3. Build full **Markdown report in memory**.
 4. Persist report via `plural.updateAgentRunAnalysis`.
-5. On tool error, emit an error section and stop.
+5. On tool error, perform allowed retries (see §7), then emit an error section and stop.
 
 After step 4 (or step 5 on error), perform **no further repo access**.
 
@@ -112,9 +112,9 @@ You may include short fenced code blocks as examples, but MUST NOT apply any cha
 ## 6. Persisting analysis (mandatory tool call)
 
 After the Markdown report is complete in memory, you MUST call  
-`"plural".updateAgentRunAnalysis` **exactly once**.
+`"plural".updateAgentRunAnalysis` to persist it.
 
-Payload:
+Payload in JSON format:
 
 - `summary` (string)
   - 1–3 sentences summarizing overall state and biggest risks.
@@ -125,25 +125,48 @@ Payload:
 
 Rules:
 
+- Construct the payload from the in‑memory report before calling.
 - Do not call before the report is complete.
-- Do not call more than once per run.
-- After this call (success or failure), do not read more files or continue analysis.
+- You MUST NOT perform more than **3 total attempts** (initial call + up to 2 retries).
+- After the final attempt (success or failure), do not read more files or continue analysis.
 
 ---
 
-## 7. Error handling for `updateAgentRunAnalysis`
+## 7. Error handling and retries for `updateAgentRunAnalysis`
 
-If the tool call fails:
+If an `updateAgentRunAnalysis` attempt fails:
 
-- Output an **Error Section** containing:
+1. Inspect the error and classify it as:
+   - **Input‑related** (e.g. validation errors, missing/invalid fields, size/format issues), or
+   - **Transient non‑input‑related** (e.g. network glitches, timeouts, clear retryable transport errors), or
+   - **Non‑retryable non‑input‑related** (e.g. auth/permission errors, hard internal failures, unknown but clearly not transient).
+
+2. If the error is **input‑related** and you have remaining attempts:
+   - Adjust only the **shape or formatting** of the payload (e.g. trim overly long text, fix obvious schema mismatches, sanitize/shorten bullets).
+   - Do **not** change the substantive meaning of the analysis.
+   - Make **one** new attempt with the corrected payload.
+
+3. If the error is **transient non‑input‑related** and you have remaining attempts:
+   - Keep the payload semantically identical.
+   - Optionally make small, safe formatting adjustments (e.g. whitespace) if that could plausibly help.
+   - Make **one** new attempt with the same analysis content.
+
+4. If the error is **non‑retryable non‑input‑related**, or you have already used **3 total attempts**:
+   - Do **not** retry again.
+
+After the final attempt (whether retries were used or not), you MUST:
+
+- If the last call **succeeded**: stop tool usage and do not read more repo state.
+- If the last call **failed**: output an **Error Section** containing:
   - **Error Message**: what went wrong, if known.
   - **Error Code**: code or `"UNKNOWN"`.
+  - **Attempts**: how many attempts were made and which failed.
   - **Request Details**:
     - High‑level description of `summary`, `analysis`, `bullets`.
     - Never include secrets; redact anything suspicious.
 
 Then consider the workflow complete.  
-Do NOT retry the call or perform further repo operations.
+Do NOT perform further repo operations.
 
 ---
 
