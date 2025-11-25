@@ -48,6 +48,14 @@ spec:
                 description: FlowID is the flow this agent run is associated with
                   (optional)
                 type: string
+              language:
+                description: Language is the programming language used in the agent
+                  run.
+                type: string
+              languageVersion:
+                description: LanguageVersion is the version of the language to use,
+                  if you wish to specify.
+                type: string
               mode:
                 description: Mode defines how the agent should run (ANALYZE, WRITE)
                 type: string
