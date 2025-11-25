@@ -30,13 +30,25 @@ func (in *UpdateTodos) handler(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError(fmt.Sprintf("could not map request to attributes: %v", err)), nil
 	}
 
+	if HasCachedTodos() {
+		if len(GetCachedTodos()) != len(attrs) {
+			return mcp.NewToolResultError("cached todos length do not match request todos"), nil
+		}
+
+		if !EqualsCachedTodos(attrs) {
+			return mcp.NewToolResultError("cached todos order or titles do not match request todos"), nil
+		}
+	}
+
 	agentRun, err := in.client.UpdateAgentRunTodos(ctx, in.agentRunID, attrs)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to update todos: %v", err)), nil
 	}
 
-	for _, todo := range agentRun.Todos {
-		MarkCachedTodoItem(todo.Title, lo.FromPtr(todo.Done))
+	if !HasCachedTodos() {
+		UpdateCachedTodos(agentRun.Todos)
+	} else {
+		MarkCachedTodoItems(agentRun.Todos)
 	}
 
 	return mcp.NewToolResultJSON(struct {

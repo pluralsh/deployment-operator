@@ -22,7 +22,7 @@ func (in *FetchTodos) Install(server *server.MCPServer) {
 
 func (in *FetchTodos) handler(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// if todos are not cached, fetch them from the server
-	if GetCachedTodos() == nil {
+	if !HasCachedTodos() {
 		todos, err := in.client.GetAgentRunTodos(ctx, in.agentRunID)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get agent run todos: %v", err)), nil
@@ -35,7 +35,7 @@ func (in *FetchTodos) handler(ctx context.Context, _ mcp.CallToolRequest) (*mcp.
 
 	// we need to convert the todos to return the correct format for the MCP server
 	todos := make([]map[string]interface{}, 0)
-	if GetCachedTodos() != nil {
+	if HasCachedTodos() {
 		for _, todo := range GetCachedTodos() {
 			todoMap := map[string]interface{}{
 				"title":       todo.Title,
@@ -52,7 +52,7 @@ func (in *FetchTodos) handler(ctx context.Context, _ mcp.CallToolRequest) (*mcp.
 		Todos   []map[string]interface{} `json:"todos"`
 	}{
 		Success: true,
-		Message: fmt.Sprintf("successfully updated todos for agent run %s", in.agentRunID),
+		Message: fmt.Sprintf("successfully fetched todos for agent run %s", in.agentRunID),
 		Todos:   todos,
 	})
 }
