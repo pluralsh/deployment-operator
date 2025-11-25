@@ -294,6 +294,11 @@ func (s *ServiceReconciler) enforceNamespace(objs []unstructured.Unstructured, s
 }
 
 func postProcess(mans []unstructured.Unstructured) []unstructured.Unstructured {
+	// Filter out any resources that don't have a kind or api version.
+	mans = lo.Filter(mans, func(m unstructured.Unstructured, _ int) bool {
+		return m.GetKind() != "" && m.GetAPIVersion() != ""
+	})
+
 	return lo.Map(mans, func(man unstructured.Unstructured, ind int) unstructured.Unstructured {
 		labels := man.GetLabels()
 		if labels == nil {
