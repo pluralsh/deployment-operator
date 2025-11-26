@@ -56,6 +56,8 @@ func (in *StatusSynchronizer) UpdateServiceComponents(serviceId string, componen
 		return nil
 	}
 
+	// TODO: Sync statuses of components that were not processed yet.
+
 	if err = in.client.UpdateComponents(serviceId, "", nil, components, nil, nil); err != nil {
 		return err
 	}

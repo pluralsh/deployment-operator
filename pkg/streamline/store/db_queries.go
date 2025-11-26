@@ -21,7 +21,7 @@ const (
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
 			server_sha TEXT,
-			manifest BOOLEAN DEFAULT 0
+			manifest BOOLEAN DEFAULT 0 -- Indicates if the component was created from an original manifest set of a service
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);

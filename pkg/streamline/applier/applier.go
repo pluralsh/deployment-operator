@@ -189,7 +189,58 @@ func (in *Applier) Apply(ctx context.Context,
 		componentList[idx].Children = lo.ToSlicePtr(children)
 	}
 
+	// Append unsynced resources to the component list so all of them will be visible in the UI.
+	componentList, err = in.appendUnsyncedResources(service.ID, componentList, resources)
+
 	return componentList, serviceErrorList, nil
+}
+
+func (in *Applier) appendUnsyncedResources(serviceId string, components []client.ComponentAttributes, resources []unstructured.Unstructured) ([]client.ComponentAttributes, error) {
+	result := make([]client.ComponentAttributes, 0)
+	keys := containers.NewSet[smcommon.Key]()
+
+	for _, component := range components {
+		result = append(result, component)
+		keys.Add(smcommon.NewStoreKeyFromComponentAttributes(component).Key())
+	}
+
+	hooks, err := in.store.GetHookComponents(serviceId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a map of hooks for an easy lookup.
+	keyToHookComponent := make(map[smcommon.Key]smcommon.HookComponent)
+	for _, hook := range hooks {
+		keyToHookComponent[hook.StoreKey().Key()] = hook
+	}
+
+	for _, resource := range resources {
+		key := smcommon.NewStoreKeyFromUnstructured(resource).Key()
+
+		if !keys.Has(key) {
+			// If a resource has any delete policy, check if it was already deleted.
+			// If it was deleted, then do not include it in the result.
+			deletePolicies := smcommon.ParseHookDeletePolicy(resource)
+			hook, ok := keyToHookComponent[key]
+			if len(deletePolicies) > 0 && ok && hook.HasDesiredState(deletePolicies) {
+				continue
+			}
+
+			gvk := resource.GroupVersionKind()
+			result = append(result, client.ComponentAttributes{
+				Group:     gvk.Group,
+				Version:   gvk.Version,
+				Kind:      gvk.Kind,
+				Name:      resource.GetName(),
+				Namespace: resource.GetNamespace(),
+				Synced:    false,
+				State:     lo.ToPtr(client.ComponentStatePending),
+			})
+		}
+	}
+
+	return result, nil
 }
 
 func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.ComponentAttributes, error) {
