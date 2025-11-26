@@ -548,6 +548,65 @@ func (_c *ClientMock_GetAgentRun_Call) RunAndReturn(run func(context.Context, st
 	return _c
 }
 
+// GetAgentRunTodos provides a mock function with given fields: ctx, id
+func (_m *ClientMock) GetAgentRunTodos(ctx context.Context, id string) ([]*goclient.AgentTodoFragment, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAgentRunTodos")
+	}
+
+	var r0 []*goclient.AgentTodoFragment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]*goclient.AgentTodoFragment, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []*goclient.AgentTodoFragment); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*goclient.AgentTodoFragment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetAgentRunTodos_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAgentRunTodos'
+type ClientMock_GetAgentRunTodos_Call struct {
+	*mock.Call
+}
+
+// GetAgentRunTodos is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+func (_e *ClientMock_Expecter) GetAgentRunTodos(ctx interface{}, id interface{}) *ClientMock_GetAgentRunTodos_Call {
+	return &ClientMock_GetAgentRunTodos_Call{Call: _e.mock.On("GetAgentRunTodos", ctx, id)}
+}
+
+func (_c *ClientMock_GetAgentRunTodos_Call) Run(run func(ctx context.Context, id string)) *ClientMock_GetAgentRunTodos_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetAgentRunTodos_Call) Return(_a0 []*goclient.AgentTodoFragment, _a1 error) *ClientMock_GetAgentRunTodos_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetAgentRunTodos_Call) RunAndReturn(run func(context.Context, string) ([]*goclient.AgentTodoFragment, error)) *ClientMock_GetAgentRunTodos_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAgentRuntime provides a mock function with given fields: ctx, id
 func (_m *ClientMock) GetAgentRuntime(ctx context.Context, id string) (*goclient.AgentRuntimeFragment, error) {
 	ret := _m.Called(ctx, id)

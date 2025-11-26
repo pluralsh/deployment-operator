@@ -38,6 +38,7 @@ func main() {
 		agent.WithTool(tool.NewUpdateTodos(client, args.AgentRunID())),
 		agent.WithTool(tool.NewUpdateAnalysis(client, args.AgentRunID())),
 		agent.WithTool(tool.NewCreateBranch(client, args.AgentRunID())),
+		agent.WithTool(tool.NewFetchTodos(client, args.AgentRunID())),
 	)
 
 	if err := server.Start(); err != nil {

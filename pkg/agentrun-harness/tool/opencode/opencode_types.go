@@ -49,10 +49,11 @@ const (
 	ModelGPT41     Model = "gpt-4.1"
 	ModelGPT5Mini  Model = "gpt-5-mini"
 	ModelGPT5      Model = "gpt-5"
+	ModelGPT51     Model = "gpt-5.1"
 )
 
 func DefaultModel() Model {
-	switch helpers.GetEnv(controller.EnvOpenCodeModel, string(ModelGPT41Mini)) {
+	switch helpers.GetEnv(controller.EnvOpenCodeModel, string(ModelGPT5Mini)) {
 	case string(ModelGPT41Mini):
 		return ModelGPT41Mini
 	case string(ModelGPT41):
@@ -62,7 +63,7 @@ func DefaultModel() Model {
 	case string(ModelGPT5):
 		return ModelGPT5
 	default:
-		return ModelGPT41Mini
+		return ModelGPT5Mini
 	}
 }
 
