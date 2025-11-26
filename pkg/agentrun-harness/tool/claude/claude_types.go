@@ -1,8 +1,10 @@
 package claude
 
 import (
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 )
 
 type Model string
@@ -27,4 +29,18 @@ func DefaultModel() Model {
 	default:
 		return ClaudeOpus45
 	}
+}
+
+type Claude struct {
+	// dir is a working directory used to run opencode.
+	dir string
+
+	// repositoryDir is a directory where the cloned repository is located.
+	repositoryDir string
+
+	// run is the agent run that is being processed.
+	run *v1.AgentRun
+
+	// onMessage is a callback called when a new message is received.
+	onMessage func(message *console.AgentMessageAttributes)
 }
