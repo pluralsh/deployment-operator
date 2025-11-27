@@ -35,7 +35,11 @@
       "model": "{{ .Provider }}/{{ .Model }}",
       "temperature": 0.3,
       "tools": {
-        "plural*": true
+        "plural*": true,
+        "plural_updateAgentRunAnalysis": false,
+        "write": false,
+        "todowrite": false,
+        "edit": false
       },
       "permission": {
         "bash": "allow",
