@@ -31,6 +31,14 @@ use (
 Now the Go Workspace settings will allow me to use the local version of the `polly` source code when compiling and testing  
 
 
+# Integration Testing
+
+Every PR should be fully e2e tested on a realistic cluster.  The simplest mechanism to do this is to:
+
+1. Grab the image tag that was created from your pr, should be here: https://github.com/pluralsh/deployment-operator/pkgs/container/deployment-operator
+2. Find a safe test cluster in a Plural Console, go to its `deploy-operator` service, and add a `tag` secret pointing to that tag. (note this is defined in charts/deployment-operator/values.yaml.liquid)
+3. Virtually all deployment-operator derived functionality will now derive from that tag, including stacks, sentinels and agent runtime runs.
+
 # Helm Chart Tests
 
 To test that the deployment-operator Helm chart can be successfully installed, run:

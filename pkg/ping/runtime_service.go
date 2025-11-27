@@ -25,9 +25,19 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	controllerv1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 	internallog "github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/polly/containers"
 )
 
 const runtimeServicePingerName = "runtime service pinger"
+
+var uniqueComponents = containers.ToSet[string]([]string{
+	"cilium",
+	"contour",
+	"velero",
+	"calico",
+	"tigera-operator",
+	"gatekeeper",
+})
 
 func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, duration time.Duration) {
 	klog.Info("starting ", runtimeServicePingerName)
@@ -54,12 +64,13 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 	runtimeServices := make(map[string]client.NamespaceVersion, 100)
 	hasEBPFDaemonSet := false
 
+	components := uniqueComponents.List()
 	klog.V(internallog.LogLevelDebug).Info("aggregating from deployments")
 	for _, deployment := range p.deployments(ctx) {
 		AddRuntimeServiceInfo(deployment.Namespace,
 			deployment.GetLabels(),
 			runtimeServices,
-			p.heuristicVersionSearch(deployment.Spec.Template.Spec),
+			p.heuristicVersionSearch(deployment.Spec.Template.Spec, components),
 		)
 	}
 
@@ -68,7 +79,7 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 		AddRuntimeServiceInfo(ss.Namespace,
 			ss.GetLabels(),
 			runtimeServices,
-			p.heuristicVersionSearch(ss.Spec.Template.Spec),
+			p.heuristicVersionSearch(ss.Spec.Template.Spec, components),
 		)
 	}
 
@@ -77,7 +88,7 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 		AddRuntimeServiceInfo(ds.Namespace,
 			ds.GetLabels(),
 			runtimeServices,
-			p.heuristicVersionSearch(ds.Spec.Template.Spec),
+			p.heuristicVersionSearch(ds.Spec.Template.Spec, components),
 		)
 
 		if discovery.IsEBPFDaemonSet(ds) {
@@ -107,21 +118,21 @@ func (p *Pinger) daemonSets(ctx context.Context) []appsv1.DaemonSet {
 
 type HeuristicVersionSearch func() string
 
-func (p *Pinger) heuristicVersionSearch(spec v1.PodSpec) HeuristicVersionSearch {
+func (p *Pinger) heuristicVersionSearch(spec v1.PodSpec, components []string) HeuristicVersionSearch {
 	return func() string {
 		// This can be extended to add more heuristics in the future
 		// For now, we only have one heuristic that goes through pod spec.
-		return p.podSpecHeuristicVersionSearch(spec)
+		return p.podSpecHeuristicVersionSearch(spec, components)
 	}
 }
 
-func (p *Pinger) podSpecHeuristicVersionSearch(podSpec v1.PodSpec) string {
+func (p *Pinger) podSpecHeuristicVersionSearch(podSpec v1.PodSpec, components []string) string {
 	for _, container := range podSpec.Containers {
-		// This can be extended to add more services in the future
-		// For now, we only have one heuristic that looks for Cilium.
-		if strings.Contains(container.Image, client.CiliumServiceName) {
-			if version := p.extractVersionFromImage(container.Image, client.CiliumServiceName); len(version) > 0 {
-				return version
+		for _, component := range components {
+			if strings.Contains(container.Image, component) {
+				if version := p.extractVersionFromImage(container.Image, component); len(version) > 0 {
+					return version
+				}
 			}
 		}
 	}
@@ -135,10 +146,10 @@ func (p *Pinger) extractVersionFromImage(image, service string) string {
 
 	// Patterns that expect <service>:<version> format
 	patterns := []string{
-		fmt.Sprintf(`%s:v(\d+\.\d+\.\d+(?:-[a-zA-Z0-9\.-]+)?)`, regexp.QuoteMeta(serviceLower)),
-		fmt.Sprintf(`%s:(\d+\.\d+\.\d+(?:-[a-zA-Z0-9\.-]+)?)`, regexp.QuoteMeta(serviceLower)),
-		fmt.Sprintf(`%s.*:v(\d+\.\d+\.\d+(?:-[a-zA-Z0-9\.-]+)?)`, regexp.QuoteMeta(serviceLower)),
-		fmt.Sprintf(`%s.*:(\d+\.\d+\.\d+(?:-[a-zA-Z0-9\.-]+)?)`, regexp.QuoteMeta(serviceLower)),
+		fmt.Sprintf(`%s:v(\d+\.\d+\.\d+)(?:-[a-zA-Z0-9\.-]+)?`, regexp.QuoteMeta(serviceLower)),
+		fmt.Sprintf(`%s:(\d+\.\d+\.\d+)(?:-[a-zA-Z0-9\.-]+)?`, regexp.QuoteMeta(serviceLower)),
+		fmt.Sprintf(`%s.*:v(\d+\.\d+\.\d+)(?:-[a-zA-Z0-9\.-]+)?`, regexp.QuoteMeta(serviceLower)),
+		fmt.Sprintf(`%s.*:(\d+\.\d+\.\d+)(?:-[a-zA-Z0-9\.-]+)?`, regexp.QuoteMeta(serviceLower)),
 	}
 
 	for _, pattern := range patterns {
@@ -148,6 +159,7 @@ func (p *Pinger) extractVersionFromImage(image, service string) string {
 			}
 		}
 	}
+
 	return ""
 }
 
@@ -164,6 +176,10 @@ func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[s
 	if name := labels["app.kubernetes.io/name"]; len(name) > 0 {
 		serviceName = name
 	} else if name = labels["app.kubernetes.io/part-of"]; len(name) > 0 {
+		serviceName = name
+	} else if name = labels["app"]; len(name) > 0 && uniqueComponents.Has(name) {
+		serviceName = name
+	} else if name = labels["component"]; len(name) > 0 && uniqueComponents.Has(name) {
 		serviceName = name
 	}
 

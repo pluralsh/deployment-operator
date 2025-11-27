@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -232,21 +233,65 @@ func (in *Server) Restart(ctx context.Context, options ...exec.Option) error {
 	return in.Start(ctx, options...)
 }
 
-func (in *Server) initSession(ctx context.Context) (err error) {
-	if in.session != nil {
-		if _, err = in.client.Session.Delete(ctx, in.session.ID, opencode.SessionDeleteParams{}); err != nil {
+func (in *Server) initSession(ctx context.Context) error {
+	const (
+		maxAttempts    = 5
+		initialBackoff = 200 * time.Millisecond
+	)
+
+	backoff := initialBackoff
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// allow ctx cancellation between attempts
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		if in.session != nil {
+			if _, err := in.client.Session.Delete(ctx, in.session.ID, opencode.SessionDeleteParams{}); err != nil {
+				// delete errors are considered hard failures
+				return err
+			}
+		}
+
+		session, err := in.client.Session.New(ctx, opencode.SessionNewParams{
+			Title: opencode.F("Plural Agent Run"),
+		})
+		if err == nil {
+			in.session = session
+			return nil
+		}
+
+		// retry only on connection-refused style errors
+		isConnRefused := false
+		if errStr := err.Error(); errStr != "" && strings.Contains(errStr, "connection refused") {
+			isConnRefused = true
+		}
+
+		if !isConnRefused || attempt == maxAttempts {
+			// non-retriable error or exhausted attempts
 			return err
 		}
+
+		klog.V(log.LogLevelDefault).InfoS(
+			"failed to init opencode session, will retry",
+			"attempt", attempt,
+			"maxAttempts", maxAttempts,
+			"backoff", backoff.String(),
+			"error", err.Error(),
+		)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+
+		// simple linear backoff
+		backoff += initialBackoff
 	}
 
-	in.session, err = in.client.Session.New(ctx, opencode.SessionNewParams{
-		Title: opencode.F("Plural Agent Run"),
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return fmt.Errorf("failed to init opencode session")
 }
 
 func (in *Server) init() *Server {
