@@ -247,11 +247,11 @@ func (in *executable) RunStream(ctx context.Context, cb func([]byte)) error {
 	if aErr := in.analyze(); aErr != nil {
 		waitErr = errors.Join(waitErr, aErr)
 	}
-	if hookErr := in.runLifecycleFunction(v1.LifecyclePostStart); hookErr != nil {
-		waitErr = errors.Join(waitErr, hookErr)
-	}
 	if ctxErr := context.Cause(ctx); ctxErr != nil {
 		waitErr = errors.Join(waitErr, ctxErr)
+	}
+	if hookErr := in.runLifecycleFunction(v1.LifecyclePostStart); hookErr != nil {
+		waitErr = errors.Join(waitErr, hookErr)
 	}
 
 	return waitErr

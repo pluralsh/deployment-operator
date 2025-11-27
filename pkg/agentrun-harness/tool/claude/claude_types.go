@@ -57,3 +57,35 @@ type Claude struct {
 	// model is the model used to generate code.
 	model Model
 }
+
+type StreamEvent struct {
+	Type    string        `json:"type"`
+	Message *MessageEvent `json:"message,omitempty"`
+	// there are other event types but you only need `message` for now
+	SessionID       string `json:"session_id"`
+	UUID            string `json:"uuid"`
+	ParentToolUseID string `json:"parent_tool_use_id"`
+}
+
+type MessageEvent struct {
+	Model        string       `json:"model"`
+	ID           string       `json:"id"`
+	Type         string       `json:"type"`
+	Role         string       `json:"role"`
+	StopReason   *string      `json:"stop_reason"`
+	StopSequence *string      `json:"stop_sequence"`
+	Usage        *Usage       `json:"usage"`
+	Content      []ContentMsg `json:"content"`
+}
+
+type ContentMsg struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type Usage struct {
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+}

@@ -2,7 +2,9 @@ package claude
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/controller"
@@ -39,15 +41,31 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		)...,
 	)
 
+	// Send the initial prompt as a message too
+	if in.onMessage != nil {
+		in.onMessage(&console.AgentMessageAttributes{Message: in.run.Prompt, Role: console.AiRoleUser})
+	}
+
 	err := in.executable.RunStream(ctx, func(line []byte) {
-		fmt.Println("STREAM:", string(line))
+		event := &StreamEvent{}
+		if err := json.Unmarshal(line, event); err != nil {
+			klog.ErrorS(err, "failed to unmarshal claude stream event", "line", string(line))
+			return
+		}
+
+		if event.Type == "assistant" && event.Message != nil {
+			if in.onMessage != nil {
+				in.onMessage(mapClaudeContentToAgentMessage(event))
+			}
+		}
 	})
 	if err != nil {
-		klog.ErrorS(err, "stream execution failed")
+		klog.ErrorS(err, "claude execution failed")
+		return
 	}
 }
 
-func (in *Claude) Configure(consoleURL, deployToken, consoleToken string) error {
+func (in *Claude) Configure(_, _, _ string) error {
 	return nil
 }
 
@@ -69,4 +87,48 @@ func (in *Claude) ensure() error {
 	}
 
 	return nil
+}
+
+func mapClaudeContentToAgentMessage(event *StreamEvent) *console.AgentMessageAttributes {
+	msg := &console.AgentMessageAttributes{
+		Role: mapRole(event.Message.Role),
+	}
+
+	var builder strings.Builder
+	for _, c := range event.Message.Content {
+		if c.Type == "text" {
+			builder.WriteString(c.Text)
+		}
+	}
+	msg.Message = builder.String()
+
+	// Map usage → Cost
+	if event.Message.Usage != nil {
+		total := float64(event.Message.Usage.InputTokens + event.Message.Usage.OutputTokens)
+		input := float64(event.Message.Usage.InputTokens)
+		output := float64(event.Message.Usage.OutputTokens)
+
+		msg.Cost = &console.AgentMessageCostAttributes{
+			Total: total,
+			Tokens: &console.AgentMessageTokensAttributes{
+				Input:  &input,
+				Output: &output,
+			},
+		}
+	}
+
+	return msg
+}
+
+func mapRole(role string) console.AiRole {
+	switch strings.ToLower(role) {
+	case "assistant":
+		return console.AiRoleAssistant
+	case "system":
+		return console.AiRoleSystem
+	case "user":
+		return console.AiRoleUser
+	default:
+		return console.AiRoleUser
+	}
 }
