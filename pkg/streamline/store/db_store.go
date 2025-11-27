@@ -897,7 +897,8 @@ func (in *DatabaseStore) SyncAppliedResource(obj unstructured.Unstructured) erro
 				ELSE transient_manifest_sha 
 			END,
 			transient_manifest_sha = NULL,
-			manifest = 1
+			manifest = 1,
+			applied = 1
 		WHERE "group" = ? 
 		  AND version = ? 
 		  AND kind = ? 
