@@ -30,11 +30,26 @@ func (in *UpdateTodos) handler(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError(fmt.Sprintf("could not map request to attributes: %v", err)), nil
 	}
 
+	if HasCachedTodos() {
+		if len(GetCachedTodos()) != len(attrs) {
+			return mcp.NewToolResultError("cached todos length do not match request todos"), nil
+		}
+
+		if !EqualsCachedTodos(attrs) {
+			return mcp.NewToolResultError("cached todos order or titles do not match request todos"), nil
+		}
+	}
+
 	agentRun, err := in.client.UpdateAgentRunTodos(ctx, in.agentRunID, attrs)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to update todos: %v", err)), nil
 	}
-	cachedAgentRun = nil
+
+	if !HasCachedTodos() {
+		UpdateCachedTodos(agentRun.Todos)
+	} else {
+		MarkCachedTodoItems(agentRun.Todos)
+	}
 
 	return mcp.NewToolResultJSON(struct {
 		Success bool                        `json:"success"`
@@ -101,7 +116,7 @@ func NewUpdateTodos(client console.Client, agentRunID string) Tool {
 	return &UpdateTodos{
 		ConsoleTool: ConsoleTool{
 			name:        "updateAgentRunTodos",
-			description: "Update the todo checklist progress in the system to keep track of what needs to be done for a given agent run",
+			description: "Updates the todo checklist progress in the system to keep track of what needs to be done for a given agent run",
 			client:      client,
 			agentRunID:  agentRunID,
 		},

@@ -57,10 +57,7 @@ type CreateBranch struct {
 	BranchName    string
 }
 
-// GetAgentRunTodos is an MCP tool that gets the todos for a given agent run
-type GetAgentRunTodosTool struct {
+// FetchTodos is an MCP tool that gets the todos for a given agent run
+type FetchTodos struct {
 	ConsoleTool
 }
-
-// cachedAgentRun holds the current agent run fragment shared across tools
-var cachedAgentRun *client.AgentRunFragment
