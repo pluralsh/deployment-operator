@@ -260,6 +260,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			serviceID,
 			smcommon.GetDeletePhase(obj),
 			serverSHA,
+			true,
 		},
 	})
 }
