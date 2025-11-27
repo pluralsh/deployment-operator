@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pluralsh/polly/algorithms"
@@ -20,7 +22,7 @@ import (
 )
 
 func (in *executable) Run(ctx context.Context) error {
-	cmd, err := in.prepare(ctx)
+	cmd, err := in.prepare(ctx, false)
 	if err != nil {
 		return err
 	}
@@ -42,7 +44,7 @@ func (in *executable) Run(ctx context.Context) error {
 }
 
 func (in *executable) Start(ctx context.Context) (WaitFn, error) {
-	cmd, err := in.prepare(ctx)
+	cmd, err := in.prepare(ctx, false)
 	if err != nil {
 		return nil, err
 	}
@@ -89,25 +91,26 @@ func (in *executable) ID() string {
 	return in.id
 }
 
-func (in *executable) prepare(ctx context.Context) (*exec.Cmd, error) {
+func (in *executable) prepare(ctx context.Context, streaming bool) (*exec.Cmd, error) {
 	if err := in.runLifecycleFunction(v1.LifecyclePreStart); err != nil {
 		return nil, err
 	}
 
 	ctx = signals.NewCancelableContext(ctx, signals.NewTimeoutSignal(in.timeout))
 	cmd := exec.CommandContext(ctx, in.command, in.args...)
-	w := in.writer()
+	if !streaming {
+		w := in.writer()
+		// Configure additional writers so that we can simultaneously write output
+		// to multiple destinations
+		// Note: We need to use the same writer for stdout and stderr to guarantee
+		// 		 thread-safe writing, otherwise output from stdout and stderr could be
+		//		 written concurrently and get reordered.
+		cmd.Stdout = w
+		cmd.Stderr = w
 
-	// Configure additional writers so that we can simultaneously write output
-	// to multiple destinations
-	// Note: We need to use the same writer for stdout and stderr to guarantee
-	// 		 thread-safe writing, otherwise output from stdout and stderr could be
-	//		 written concurrently and get reordered.
-	cmd.Stdout = w
-	cmd.Stderr = w
-
-	if in.outputAnalyzer != nil {
-		cmd.Stderr = io.MultiWriter(w, in.outputAnalyzer.Stderr())
+		if in.outputAnalyzer != nil {
+			cmd.Stderr = io.MultiWriter(w, in.outputAnalyzer.Stderr())
+		}
 	}
 
 	// Configure environment of the executable.
@@ -188,4 +191,68 @@ func NewExecutable(command string, options ...Option) Executable {
 	}
 
 	return result
+}
+
+func (in *executable) RunStream(ctx context.Context, cb func([]byte)) error {
+	// Call prepare() to get properly configured cmd
+	cmd, err := in.prepare(ctx, true)
+	if err != nil {
+		return err
+	}
+
+	// Pipes for streaming
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("executing", "command", in.Command())
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Stream lines from a reader, call callback, and write to sinks
+	streamReader := func(r io.Reader) {
+		defer wg.Done()
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			line := append([]byte(nil), scanner.Bytes()...)
+			if cb != nil {
+				cb(line)
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			klog.ErrorS(err, "scanner error in RunStream")
+		}
+	}
+
+	go streamReader(stdoutPipe)
+	go streamReader(stderrPipe)
+
+	waitErr := cmd.Wait()
+	wg.Wait()
+
+	// close sinks
+	in.close(in.outputSinks)
+
+	// run analyzer & lifecycle hooks
+	if aErr := in.analyze(); aErr != nil {
+		waitErr = errors.Join(waitErr, aErr)
+	}
+	if hookErr := in.runLifecycleFunction(v1.LifecyclePostStart); hookErr != nil {
+		waitErr = errors.Join(waitErr, hookErr)
+	}
+	if ctxErr := context.Cause(ctx); ctxErr != nil {
+		waitErr = errors.Join(waitErr, ctxErr)
+	}
+
+	return waitErr
 }
