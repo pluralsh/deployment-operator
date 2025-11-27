@@ -408,7 +408,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 	  created_at = excluded.created_at,
 	  service_id = excluded.service_id,
       delete_phase = excluded.delete_phase,
-	  server_sha = excluded.server_sha
+	  server_sha = excluded.server_sha,
       applied = excluded.applied
 	`)
 
