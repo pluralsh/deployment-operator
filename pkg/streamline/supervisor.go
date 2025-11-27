@@ -365,7 +365,7 @@ func (in *Supervisor) processComponentUpdate() bool {
 
 func (in *Supervisor) flushComponentUpdates(serviceId string) {
 	// Get service components.
-	components, err := in.store.GetServiceComponents(serviceId)
+	components, err := in.store.GetServiceComponents(serviceId, false)
 	if err != nil {
 		klog.ErrorS(err, "failed to get service components", "service", serviceId)
 		return

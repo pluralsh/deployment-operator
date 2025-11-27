@@ -48,6 +48,11 @@ func (in *Applier) Apply(ctx context.Context,
 	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
 	toSkip := make([]unstructured.Unstructured, 0)
 
+	err := in.store.SyncServiceComponents(service.ID, resources)
+	if err != nil {
+		return componentList, serviceErrorList, err
+	}
+
 	deleteFilterFunc, err := in.getDeleteFilterFunc(service.ID)
 	if err != nil {
 		return componentList, serviceErrorList, err
@@ -326,7 +331,7 @@ var (
 )
 
 func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured), error) {
-	components, err := in.store.GetServiceComponents(serviceID)
+	components, err := in.store.GetServiceComponents(serviceID, true)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +414,7 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 }
 
 func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAttributes, error) {
-	components, err := in.store.GetServiceComponents(serviceID)
+	components, err := in.store.GetServiceComponents(serviceID, true)
 	if err != nil {
 		return nil, err
 	}

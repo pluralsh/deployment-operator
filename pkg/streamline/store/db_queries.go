@@ -21,7 +21,8 @@ const (
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
 			server_sha TEXT,
-			manifest BOOLEAN DEFAULT 0 -- Indicates if the component was created from an original manifest set of a service
+			manifest BOOLEAN DEFAULT 0, -- Indicates if the component was created from an original manifest set of a service
+			applied BOOLEAN DEFAULT 0 -- Indicates if the component was already applied to the cluster
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
@@ -77,12 +78,6 @@ const (
 		WHERE uid = ?
 	`
 
-	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest
-		FROM component
-		WHERE service_id = ? AND (manifest = 1 OR (parent_uid is NULL or parent_uid = ''))
-	`
-
 	getComponentsByGVK = `
 		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase, manifest
 		FROM component
@@ -101,7 +96,8 @@ const (
 			health,
 		    node,
 		    created_at,
-		    service_id
+		    service_id,
+		    applied
 		) VALUES (
 			?,
 			?,
@@ -113,6 +109,7 @@ const (
 			?,
 			?,
 		    ?,
+		    ?,
 		    ?
 		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
@@ -120,7 +117,8 @@ const (
 			health = excluded.health,
 			node = excluded.node,
 			created_at = excluded.created_at,
-			service_id = excluded.service_id
+			service_id = excluded.service_id,
+			applied = excluded.applied
 	`
 
 	setComponentWithSHA = `
@@ -137,7 +135,8 @@ const (
 		    created_at,
 		    service_id,
 		    delete_phase,
-		    server_sha
+		    server_sha,
+		    applied
 		) VALUES (
 			?,
 			?,
@@ -151,6 +150,7 @@ const (
 		    ?,
 		    ?,
 		    ?,
+		    ?,
 		    ?
 		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
@@ -160,7 +160,8 @@ const (
 			created_at = excluded.created_at,
 			service_id = excluded.service_id,
 			delete_phase = excluded.delete_phase,
-			server_sha = excluded.server_sha
+			server_sha = excluded.server_sha,
+		    applied = excluded.applied
 	`
 
 	expireSHA = `
