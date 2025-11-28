@@ -74,7 +74,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error 
 		Env("PLRL_CONSOLE_TOKEN", consoleToken).
 		Env("PLRL_CONSOLE_URL", consoleURL).
 		Done()
-	if err := mcp.WriteToFile(filepath.Join(in.configPath(), ".claude.json")); err != nil {
+	if err := mcp.WriteToFile(filepath.Join(in.configPath(), ".mcp.json")); err != nil {
 		return err
 	}
 
@@ -105,11 +105,11 @@ func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error 
 			"Bash",
 			"WebFetch")
 	}
-	return settings.WriteToFile(filepath.Join(in.configPath(), ".claude/settings.json"))
+	return settings.WriteToFile(filepath.Join(in.configPath(), "settings.json"))
 }
 
 func (in *Claude) configPath() string {
-	return path.Join(in.dir, "claude")
+	return path.Join(in.dir, ".claude")
 }
 
 func (in *Claude) OnMessage(f func(message *console.AgentMessageAttributes)) {

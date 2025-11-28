@@ -12,11 +12,12 @@ type SettingsBuilder struct {
 }
 
 type Settings struct {
-	Model       string                 `json:"model"`
-	Temperature float64                `json:"temperature"`
-	Permissions Permissions            `json:"permissions"`
-	Env         map[string]string      `json:"env,omitempty"`
-	Custom      map[string]interface{} `json:",inline,omitempty"`
+	Model                      string                 `json:"model"`
+	Temperature                float64                `json:"temperature"`
+	EnableAllProjectMcpServers bool                   `json:"enableAllProjectMcpServers,omitempty"`
+	Permissions                Permissions            `json:"permissions"`
+	Env                        map[string]string      `json:"env,omitempty"`
+	Custom                     map[string]interface{} `json:",inline,omitempty"`
 }
 
 type Permissions struct {
@@ -27,8 +28,9 @@ type Permissions struct {
 func NewSettingsBuilder() *SettingsBuilder {
 	return &SettingsBuilder{
 		settings: Settings{
-			Model:       string(DefaultModel()),
-			Temperature: 0.1,
+			Model:                      string(DefaultModel()),
+			Temperature:                0.1,
+			EnableAllProjectMcpServers: true,
 			Permissions: Permissions{
 				Allow: []string{},
 				Deny:  []string{},
