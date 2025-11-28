@@ -87,3 +87,83 @@ func (b *SettingsBuilder) WriteToFile(path string) error {
 
 	return nil
 }
+
+type MCPConfig struct {
+	MCPServers map[string]MCPServer `json:"mcpServers"`
+}
+
+type MCPServer struct {
+	Command string            `json:"command"`
+	Args    []string          `json:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+}
+
+type MCPConfigBuilder struct {
+	cfg MCPConfig
+}
+
+func NewMCPConfigBuilder() *MCPConfigBuilder {
+	return &MCPConfigBuilder{
+		cfg: MCPConfig{
+			MCPServers: make(map[string]MCPServer),
+		},
+	}
+}
+
+func (b *MCPConfigBuilder) AddServer(name, command string) *MCPServerBuilder {
+	return &MCPServerBuilder{
+		parent: b,
+		name:   name,
+		server: MCPServer{Command: command, Env: map[string]string{}},
+	}
+}
+
+func (b *MCPConfigBuilder) Build() MCPConfig {
+	return b.cfg
+}
+
+func (b *MCPConfigBuilder) ToJSON() ([]byte, error) {
+	return json.MarshalIndent(b.cfg, "", "  ")
+}
+
+func (b *MCPConfigBuilder) WriteToFile(path string) error {
+	// Create directory if needed
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Marshal with indentation
+	data, err := json.MarshalIndent(b.cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal settings: %w", err)
+	}
+
+	// Write to file
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+type MCPServerBuilder struct {
+	parent *MCPConfigBuilder
+	name   string
+	server MCPServer
+}
+
+func (sb *MCPServerBuilder) Args(args ...string) *MCPServerBuilder {
+	sb.server.Args = args
+	return sb
+}
+
+func (sb *MCPServerBuilder) Env(key, value string) *MCPServerBuilder {
+	sb.server.Env[key] = value
+	return sb
+}
+
+func (sb *MCPServerBuilder) Done() *MCPConfigBuilder {
+	sb.parent.cfg.MCPServers[sb.name] = sb.server
+	return sb.parent
+}

@@ -68,6 +68,16 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error {
+	mcp := NewMCPConfigBuilder()
+	mcp.
+		AddServer("plural", "mcpserver").
+		Env("PLRL_CONSOLE_TOKEN", consoleToken).
+		Env("PLRL_CONSOLE_URL", consoleURL).
+		Done()
+	if err := mcp.WriteToFile(filepath.Join(in.configPath(), ".claude.json")); err != nil {
+		return err
+	}
+
 	settings := NewSettingsBuilder()
 	if in.run.Mode == console.AgentRunModeAnalyze {
 		settings.AllowTools(
