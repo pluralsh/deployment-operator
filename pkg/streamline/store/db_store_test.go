@@ -64,6 +64,7 @@ func WithParent(uid string) CreateComponentOption {
 	}
 }
 
+// WithService should be called as a last option to ensure that TrackingIdentifierKey will be valid.
 func WithService(id string) CreateComponentOption {
 	return func(u *unstructured.Unstructured) {
 		u.SetAnnotations(map[string]string{
@@ -1608,10 +1609,10 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 		serviceID := "test-service-123"
 
 		// Create components with the target service ID
-		err = storeInstance.SaveComponent(createComponent("service-comp-1", WithService(serviceID), WithGVK("apps", "v1", "Deployment"), WithName("app-deployment"), WithNamespace("default")))
+		err = storeInstance.SaveComponent(createComponent("service-comp-1", WithGVK("apps", "v1", "Deployment"), WithName("app-deployment"), WithNamespace("default"), WithService(serviceID)))
 		require.NoError(t, err)
 
-		err = storeInstance.SaveComponent(createComponent("service-comp-2", WithService(serviceID), WithGVK("", "v1", "Pod"), WithName("app-pod"), WithNamespace("default")))
+		err = storeInstance.SaveComponent(createComponent("service-comp-2", WithGVK("", "v1", "Job"), WithName("app-job"), WithNamespace("default"), WithService(serviceID)))
 		require.NoError(t, err)
 
 		// Create component with different service ID
@@ -1619,7 +1620,7 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create component with no service ID
-		err = storeInstance.SaveComponent(createComponent("no-service-comp", nil, WithGVK("", "v1", "Service"), WithName("no-service"), WithNamespace("default")))
+		err = storeInstance.SaveComponent(createComponent("no-service-comp", WithGVK("", "v1", "Service"), WithName("no-service"), WithNamespace("default")))
 		require.NoError(t, err)
 
 		components, err := storeInstance.GetServiceComponents(serviceID, true)
