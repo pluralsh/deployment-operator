@@ -15,6 +15,7 @@ type Executable interface {
 	Run(ctx context.Context) error
 	Start(ctx context.Context) (WaitFn, error)
 	RunWithOutput(ctx context.Context) ([]byte, error)
+	RunStream(ctx context.Context, cb func([]byte)) error
 	Command() string
 }
 

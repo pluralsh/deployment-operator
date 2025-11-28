@@ -94,13 +94,17 @@ func (in *agentRunController) prepare() error {
 		return err
 	}
 
-	in.tool = tool.New(in.agentRun.Runtime.Type, toolv1.Config{
+	var err error
+	in.tool, err = tool.New(in.agentRun.Runtime.Type, toolv1.Config{
 		WorkDir:       in.dir,
 		RepositoryDir: filepath.Join(in.dir, "repository"),
 		FinishedChan:  in.done,
 		ErrorChan:     in.errChan,
 		Run:           in.agentRun,
 	})
+	if err != nil {
+		klog.Fatal(err)
+	}
 
 	return in.tool.Configure(in.consoleUrl, *in.agentRun.PluralCreds.Token, in.deployToken)
 }
