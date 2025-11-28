@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -141,29 +142,30 @@ func createComponent(uid string, parentUID *string, option ...CreateComponentOpt
 	return result
 }
 
-func componentAttributesToUnstructured(attrs client.ComponentChildAttributes) unstructured.Unstructured {
+func componentAttributesToUnstructured(attrs client.ComponentChildAttributes, serviceID ...string) unstructured.Unstructured {
 	u := unstructured.Unstructured{}
-	u.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   lo.FromPtr(attrs.Group),
-		Version: attrs.Version,
-		Kind:    attrs.Kind,
-	})
+	u.SetGroupVersionKind(schema.GroupVersionKind{Group: lo.FromPtr(attrs.Group), Version: attrs.Version, Kind: attrs.Kind})
 	u.SetNamespace(lo.FromPtr(attrs.Namespace))
 	u.SetName(attrs.Name)
 	u.SetUID(types.UID(attrs.UID))
+
 	if attrs.ParentUID != nil {
-		ownerRefs := []map[string]interface{}{
-			{
-				"apiVersion": lo.FromPtr(attrs.Group) + "/" + attrs.Version,
-				"kind":       attrs.Kind,
-				"name":       attrs.Name,
-				"uid":        *attrs.ParentUID,
-			},
-		}
-		u.Object["metadata"] = map[string]interface{}{
-			"ownerReferences": ownerRefs,
-		}
+		u.SetOwnerReferences([]v1.OwnerReference{{
+			APIVersion: lo.FromPtr(attrs.Group) + "/" + attrs.Version,
+			Kind:       attrs.Kind,
+			Name:       attrs.Name,
+			UID:        types.UID(*attrs.ParentUID),
+		}})
 	}
+
+	// Set annotations with service ID if provided
+	if len(serviceID) > 0 && serviceID[0] != "" {
+		u.SetAnnotations(map[string]string{
+			common.OwningInventoryKey:    serviceID[0],
+			common.TrackingIdentifierKey: common.NewKeyFromUnstructured(u).String(),
+		})
+	}
+
 	return u
 }
 
@@ -1696,21 +1698,21 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 
 		// Create components with the target service ID
 		component1 := createComponent("service-comp-1", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("app-deployment"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(component1, "test-node", time.Now().Unix(), serviceID)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component1, serviceID))
 		require.NoError(t, err)
 
 		component2 := createComponent("service-comp-2", nil, WithGroup(""), WithVersion("v1"), WithKind("Pod"), WithName("app-pod"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(component2, "test-node", time.Now().Unix(), serviceID)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component2, serviceID))
 		require.NoError(t, err)
 
 		// Create component with different service ID
 		otherComponent := createComponent("other-comp", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("other-deployment"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(otherComponent, "test-node", time.Now().Unix(), "other-service")
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(otherComponent, "other-service"))
 		require.NoError(t, err)
 
 		// Create component with no service ID
 		noServiceComponent := createComponent("no-service-comp", nil, WithGroup(""), WithVersion("v1"), WithKind("Service"), WithName("no-service"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(noServiceComponent, "test-node", time.Now().Unix(), nil)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(noServiceComponent))
 		require.NoError(t, err)
 
 		components, err := storeInstance.GetServiceComponents(serviceID, true)
