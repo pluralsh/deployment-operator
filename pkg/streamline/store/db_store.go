@@ -516,32 +516,6 @@ func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []
 	return updatedCount, nil
 }
 
-func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return err
-	}
-	defer in.pool.Put(conn)
-
-	if len(args) != 3 {
-		args = []any{nil, nil, nil}
-	}
-
-	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
-		Args: append([]interface{}{
-			obj.UID,
-			lo.FromPtr(obj.ParentUID),
-			lo.FromPtr(obj.Group),
-			obj.Version,
-			obj.Kind,
-			lo.FromPtr(obj.Namespace),
-			obj.Name,
-			NewComponentState(obj.State),
-			true,
-		}, args...),
-	})
-}
-
 func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {

@@ -21,10 +21,6 @@ type Store interface {
 	// and were not applied are removed from the store.
 	SyncServiceComponents(serviceID string, resources []unstructured.Unstructured) error
 
-	// SaveComponentAttributes saves component from component attributes in the store.
-	// TODO: Delete it as it is used only in tests.
-	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
-
 	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
 
 	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)

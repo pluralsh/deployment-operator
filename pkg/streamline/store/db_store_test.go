@@ -141,6 +141,32 @@ func createComponent(uid string, parentUID *string, option ...CreateComponentOpt
 	return result
 }
 
+func componentAttributesToUnstructured(attrs client.ComponentChildAttributes) unstructured.Unstructured {
+	u := unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   lo.FromPtr(attrs.Group),
+		Version: attrs.Version,
+		Kind:    attrs.Kind,
+	})
+	u.SetNamespace(lo.FromPtr(attrs.Namespace))
+	u.SetName(attrs.Name)
+	u.SetUID(types.UID(attrs.UID))
+	if attrs.ParentUID != nil {
+		ownerRefs := []map[string]interface{}{
+			{
+				"apiVersion": lo.FromPtr(attrs.Group) + "/" + attrs.Version,
+				"kind":       attrs.Kind,
+				"name":       attrs.Name,
+				"uid":        *attrs.ParentUID,
+			},
+		}
+		u.Object["metadata"] = map[string]interface{}{
+			"ownerReferences": ownerRefs,
+		}
+	}
+	return u
+}
+
 func TestComponentCache_Init(t *testing.T) {
 	t.Run("cache should initialize", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
@@ -168,11 +194,11 @@ func TestComponentCache_SetComponent(t *testing.T) {
 		uid := testUID
 
 		component := createComponent(uid, nil, WithName("parent-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		childComponent := createComponent(testChildUID, &uid, WithName("child-component"))
-		err = storeInstance.SaveComponentAttributes(childComponent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(childComponent))
 		require.NoError(t, err)
 
 		children, err := storeInstance.GetComponentChildren(uid)
@@ -194,37 +220,37 @@ func TestComponentCache_ComponentChildren(t *testing.T) {
 		// Root
 		rootUID := "root-uid"
 		component := createComponent(rootUID, nil, WithName("root-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 1
 		uid1 := "uid-1"
 		component = createComponent(uid1, &rootUID, WithName("level-1-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 2
 		uid2 := "uid-2"
 		component = createComponent(uid2, &uid1, WithName("level-2-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 3
 		uid3 := "uid-3"
 		component = createComponent(uid3, &uid2, WithName("level-3-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 4
 		uid4 := "uid-4"
 		component = createComponent(uid4, &uid3, WithName("level-4-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 5
 		uid5 := "uid-5"
 		component = createComponent(uid5, &uid4, WithName("level-5-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		children, err := storeInstance.GetComponentChildren(rootUID)
@@ -242,42 +268,42 @@ func TestComponentCache_ComponentChildren(t *testing.T) {
 		// Root
 		rootUID := testUID
 		component := createComponent(rootUID, nil, WithName("multi-root-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 1
 		uid1 := "uid-1"
 		component = createComponent(uid1, &rootUID, WithName("multi-level-1-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 2
 		uid2 := "uid-2"
 		component = createComponent(uid2, &uid1, WithName("multi-level-2-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 3
 		uid3 := "uid-3"
 		component = createComponent(uid3, &uid2, WithName("multi-level-3-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 4
 		uid4 := "uid-4"
 		component = createComponent(uid4, &uid3, WithName("multi-level-4-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		uid44 := "uid-44"
 		component = createComponent(uid44, &uid3, WithName("multi-level-4b-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Level 5
 		uid5 := "uid-5"
 		component = createComponent(uid5, &uid4, WithName("multi-level-5-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		children, err := storeInstance.GetComponentChildren(rootUID)
@@ -296,16 +322,16 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 
 		uid := testUID
 		component := createComponent(uid, nil, WithName("delete-parent-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		childUid := "child-uid"
 		childComponent := createComponent(childUid, &uid, WithName("delete-child-component"))
-		err = storeInstance.SaveComponentAttributes(childComponent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(childComponent))
 		require.NoError(t, err)
 
 		grandchildComponent := createComponent("grandchild-uid", &childUid, WithName("delete-grandchild-component"))
-		err = storeInstance.SaveComponentAttributes(grandchildComponent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(grandchildComponent))
 		require.NoError(t, err)
 
 		children, err := storeInstance.GetComponentChildren(uid)
@@ -329,21 +355,21 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 
 		uid := testUID
 		component := createComponent(uid, nil, WithName("multi-delete-parent"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		childUid := "child-uid"
 		childComponent := createComponent(childUid, &uid, WithName("multi-delete-child"))
-		err = storeInstance.SaveComponentAttributes(childComponent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(childComponent))
 		require.NoError(t, err)
 
 		grandchildComponent := createComponent("grandchild-uid", &childUid, WithName("multi-delete-grandchild"))
-		err = storeInstance.SaveComponentAttributes(grandchildComponent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(grandchildComponent))
 		require.NoError(t, err)
 
 		child2Uid := "child2-uid"
 		child2Component := createComponent(child2Uid, &uid, WithName("multi-delete-child2"))
-		err = storeInstance.SaveComponentAttributes(child2Component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child2Component))
 		require.NoError(t, err)
 
 		children, err := storeInstance.GetComponentChildren(uid)
@@ -371,11 +397,11 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 
 		uid := testUID
 		component := createComponent(uid, nil, WithName("group-test-parent"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		child := createComponent("child-uid", &uid, WithGroup(group), WithName("group-test-child"))
-		err = storeInstance.SaveComponentAttributes(child)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child))
 		require.NoError(t, err)
 
 		children, err := storeInstance.GetComponentChildren(uid)
@@ -386,7 +412,7 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		// Test empty group
 		child.UID = "child2-uid"
 		child.Group = lo.ToPtr("")
-		err = storeInstance.SaveComponentAttributes(child)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child))
 		require.NoError(t, err)
 
 		tested, err := storeInstance.GetComponentByUID("child2-uid")
@@ -396,7 +422,7 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		// Test nil group
 		child.UID = "child3-uid"
 		child.Group = lo.ToPtr("")
-		err = storeInstance.SaveComponentAttributes(child)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child))
 		require.NoError(t, err)
 
 		tested, err = storeInstance.GetComponentByUID("child3-uid")
@@ -415,15 +441,15 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		uid := testUID
 		component := createComponent(uid, nil, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("test-pod-1"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		child1 := createComponent("child1", &uid, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("child-pod-1"))
-		err = storeInstance.SaveComponentAttributes(child1)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child1))
 		require.NoError(t, err)
 
 		child2 := createComponent("child2", &uid, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("child-pod-2"))
-		err = storeInstance.SaveComponentAttributes(child2)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child2))
 		require.NoError(t, err)
 
 		score, err := storeInstance.GetHealthScore()
@@ -431,7 +457,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		assert.Equal(t, int64(100), score)
 
 		child3 := createComponent("child3", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"), WithName("child-pod-3"))
-		err = storeInstance.SaveComponentAttributes(child3)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child3))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -439,7 +465,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		assert.Equal(t, int64(75), score)
 
 		child4 := createComponent("child4", &uid, WithState(client.ComponentStateFailed), WithKind("Deployment"), WithName("child-deployment-1"))
-		err = storeInstance.SaveComponentAttributes(child4)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child4))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -448,7 +474,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		// Invalid certificate should deduct an additional 10 points.
 		child5 := createComponent("child5", &uid, WithState(client.ComponentStateFailed), WithKind("Certificate"), WithName("child-cert-1"))
-		err = storeInstance.SaveComponentAttributes(child5)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child5))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -457,7 +483,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		// Failing resources in kube-system namespace should deduct an additional 20 points.
 		child6 := createComponent("child6", &uid, WithState(client.ComponentStateFailed), WithKind("Pod"), WithNamespace("kube-system"), WithName("child-pod-kube-system"))
-		err = storeInstance.SaveComponentAttributes(child6)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child6))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -467,7 +493,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		// Failing persistent volume should deduct an additional 10 points.
 		// The score should not go below 0.
 		child7 := createComponent("child7", &uid, WithState(client.ComponentStateFailed), WithKind("PersistentVolume"), WithName("child-pv-1"))
-		err = storeInstance.SaveComponentAttributes(child7)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(child7))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -484,7 +510,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		uid := testUID
 		component := createComponent(uid, nil, WithState(client.ComponentStateRunning), WithName("standalone-component"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		score, err := storeInstance.GetHealthScore()
@@ -500,24 +526,24 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		}(storeInstance)
 
 		baseComponent := createComponent(testUID, nil, WithState(client.ComponentStateRunning), WithName("base-test-component"))
-		err = storeInstance.SaveComponentAttributes(baseComponent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(baseComponent))
 		require.NoError(t, err)
 
 		runningPod := createComponent("running-pod", nil, WithState(client.ComponentStateRunning), WithKind("Pod"), WithName("running-pod-unique"))
-		err = storeInstance.SaveComponentAttributes(runningPod)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(runningPod))
 		require.NoError(t, err)
 
 		runningDeployment := createComponent("running-deployment", nil, WithState(client.ComponentStateRunning), WithKind("Deployment"), WithName("running-deployment-unique"))
-		err = storeInstance.SaveComponentAttributes(runningDeployment)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(runningDeployment))
 		require.NoError(t, err)
 
 		runningService := createComponent("running-service", nil, WithState(client.ComponentStateRunning), WithKind("Service"), WithName("running-service-unique"))
-		err = storeInstance.SaveComponentAttributes(runningService)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(runningService))
 		require.NoError(t, err)
 
 		// Test CoreDNS failure (50 point deduction)
 		coredns := createComponent("coredns", nil, WithState(client.ComponentStateFailed), WithKind("Deployment"), WithName("coredns-test"))
-		err = storeInstance.SaveComponentAttributes(coredns)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(coredns))
 		require.NoError(t, err)
 
 		score, err := storeInstance.GetHealthScore()
@@ -526,7 +552,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		// Test AWS CNI failure (additional 50 point deduction)
 		awscni := createComponent("aws-cni", nil, WithState(client.ComponentStateFailed), WithKind("DaemonSet"), WithName("aws-cni-test"))
-		err = storeInstance.SaveComponentAttributes(awscni)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(awscni))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -535,7 +561,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		// Test ingress-nginx service failure (would deduct 50 but already at 0)
 		ingress := createComponent("ingress", nil, WithState(client.ComponentStateFailed), WithKind("Service"), WithName("ingress-nginx-controller-test"), WithNamespace("ingress-nginx"))
-		err = storeInstance.SaveComponentAttributes(ingress)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(ingress))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -551,12 +577,12 @@ func TestComponentCache_HealthScore(t *testing.T) {
 		}(storeInstance)
 
 		baseComponent := createComponent(testUID, nil, WithState(client.ComponentStateRunning), WithName("base-combined-test"))
-		err = storeInstance.SaveComponentAttributes(baseComponent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(baseComponent))
 		require.NoError(t, err)
 
 		// Failed Certificate (10 point deduction)
 		cert := createComponent("cert", nil, WithState(client.ComponentStateFailed), WithKind("Certificate"), WithName("test-cert-combined"))
-		err = storeInstance.SaveComponentAttributes(cert)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(cert))
 		require.NoError(t, err)
 
 		score, err := storeInstance.GetHealthScore()
@@ -565,7 +591,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		// Failed kube-system resource (20 point deduction)
 		kubeSystem := createComponent("kube-system-res", nil, WithState(client.ComponentStateFailed), WithKind("Pod"), WithNamespace("kube-system"), WithName("kube-system-pod-test"))
-		err = storeInstance.SaveComponentAttributes(kubeSystem)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(kubeSystem))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -574,7 +600,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		// Failed PersistentVolume (10 point deduction)
 		pv := createComponent("pv", nil, WithState(client.ComponentStateFailed), WithKind("PersistentVolume"), WithName("test-pv-combined"))
-		err = storeInstance.SaveComponentAttributes(pv)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(pv))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -583,7 +609,7 @@ func TestComponentCache_HealthScore(t *testing.T) {
 
 		// Failed istio-system resource (50 point deduction)
 		istio := createComponent("istio-res", nil, WithState(client.ComponentStateFailed), WithKind("Service"), WithNamespace("istio-system"), WithName("istio-service-test"))
-		err = storeInstance.SaveComponentAttributes(istio)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(istio))
 		require.NoError(t, err)
 
 		score, err = storeInstance.GetHealthScore()
@@ -606,7 +632,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err = storeInstance.SaveComponentAttributes(component1)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component1))
 		require.NoError(t, err)
 
 		// Component with different name - should succeed
@@ -616,7 +642,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-other-app"))
-		err = storeInstance.SaveComponentAttributes(component2)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component2))
 		require.NoError(t, err)
 
 		// Component with different namespace - should succeed
@@ -626,7 +652,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("production"),
 			WithName("my-app"))
-		err = storeInstance.SaveComponentAttributes(component3)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component3))
 		require.NoError(t, err)
 
 		// Component with different kind - should succeed
@@ -636,7 +662,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("StatefulSet"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err = storeInstance.SaveComponentAttributes(component4)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component4))
 		require.NoError(t, err)
 
 		// Component with different version - should succeed
@@ -646,7 +672,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err = storeInstance.SaveComponentAttributes(component5)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component5))
 		require.NoError(t, err)
 
 		// Component with different group - should succeed
@@ -656,7 +682,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err = storeInstance.SaveComponentAttributes(component6)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component6))
 		require.NoError(t, err)
 	})
 
@@ -673,11 +699,11 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("my-app"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		component.State = lo.ToPtr(client.ComponentStatePaused)
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 	})
 
@@ -694,7 +720,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("duplicate-app"))
-		err = storeInstance.SaveComponentAttributes(component1)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component1))
 		require.NoError(t, err)
 
 		component2 := createComponent("uid-2", nil,
@@ -703,7 +729,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithKind("Deployment"),
 			WithNamespace("default"),
 			WithName("duplicate-app"))
-		err = storeInstance.SaveComponentAttributes(component2)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component2))
 		require.NoError(t, err)
 	})
 
@@ -724,7 +750,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithNamespace("default"),
 			WithName("updatable-app"),
 			WithState(client.ComponentStateRunning))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Update the same component with different state - should succeed
@@ -735,7 +761,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 			WithNamespace("default"),
 			WithName("updatable-app"),
 			WithState(client.ComponentStateFailed))
-		err = storeInstance.SaveComponentAttributes(updatedComponent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(updatedComponent))
 		require.NoError(t, err)
 	})
 
@@ -762,11 +788,11 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		u.SetNamespace(namespace)
 
 		component := createComponent("uid-1", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		sameComponentWithDifferentUID := createComponent("uid-2", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
-		err = storeInstance.SaveComponentAttributes(sameComponentWithDifferentUID)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(sameComponentWithDifferentUID))
 		require.NoError(t, err)
 
 		dbc, err := storeInstance.GetComponent(u)
@@ -797,12 +823,12 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		u.SetNamespace(namespace)
 
 		componentWithEmptyNamespace := createComponent("uid", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name), WithNamespace(namespace))
-		err = storeInstance.SaveComponentAttributes(componentWithEmptyNamespace)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(componentWithEmptyNamespace))
 		require.NoError(t, err)
 
 		componentWithNilNamespace := createComponent("uid-2", nil, WithGroup(group), WithVersion(version), WithKind(kind), WithName(name))
 		componentWithNilNamespace.Namespace = nil
-		err = storeInstance.SaveComponentAttributes(componentWithNilNamespace)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(componentWithNilNamespace))
 		require.NoError(t, err)
 
 		databaseComponent, err := storeInstance.GetComponent(u)
@@ -816,8 +842,16 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 }
 
 func createPod(s store.Store, name, uid string, timestamp int64) error {
-	return s.SaveComponentAttributes(
-		createComponent(uid, nil, WithKind("Pod"), WithName(name), WithNamespace(testNamespace), WithState(client.ComponentStateFailed)), testNode, timestamp, nil)
+	component := createComponent(uid, nil, WithKind("Pod"), WithName(name), WithNamespace(testNamespace), WithState(client.ComponentStateFailed))
+	u := componentAttributesToUnstructured(component)
+	if len(testNode) > 0 {
+		if u.Object["metadata"] == nil {
+			u.Object["metadata"] = map[string]interface{}{}
+		}
+		meta := u.Object["metadata"].(map[string]interface{})
+		meta["nodeName"] = testNode
+	}
+	return s.SaveComponent(u)
 }
 
 func TestPendingPodsCache(t *testing.T) {
@@ -969,7 +1003,7 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 		// Insert all test components into cache
 		for _, tc := range testComponents {
-			err := storeInstance.SaveComponentAttributes(tc)
+			err := storeInstance.SaveComponent(componentAttributesToUnstructured(tc))
 			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
 		}
 
@@ -1035,7 +1069,7 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 		// Insert all test components into cache
 		for _, tc := range testComponents {
-			err := storeInstance.SaveComponentAttributes(tc)
+			err := storeInstance.SaveComponent(componentAttributesToUnstructured(tc))
 			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
 		}
 
@@ -1101,7 +1135,7 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 
 		// Insert all test components into cache
 		for _, tc := range testComponents {
-			err := storeInstance.SaveComponentAttributes(tc)
+			err := storeInstance.SaveComponent(componentAttributesToUnstructured(tc))
 			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
 		}
 
@@ -1158,7 +1192,7 @@ func TestComponentCountsCache(t *testing.T) {
 
 		// Insert all test components into cache
 		for _, tc := range testComponents {
-			err := storeInstance.SaveComponentAttributes(tc)
+			err := storeInstance.SaveComponent(componentAttributesToUnstructured(tc))
 			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
 		}
 
@@ -1178,29 +1212,29 @@ func TestComponentCountsCache(t *testing.T) {
 
 		// Create 2 nodes
 		node1 := createComponent("node-1", nil, WithKind("Node"), WithName("worker-1"))
-		err = storeInstance.SaveComponentAttributes(node1)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(node1))
 		require.NoError(t, err)
 
 		node2 := createComponent("node-2", nil, WithKind("Node"), WithName("worker-2"))
-		err = storeInstance.SaveComponentAttributes(node2)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(node2))
 		require.NoError(t, err)
 
 		// Create 3 namespaces
 		ns1 := createComponent("ns-1", nil, WithKind("Namespace"), WithName("default"))
-		err = storeInstance.SaveComponentAttributes(ns1)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(ns1))
 		require.NoError(t, err)
 
 		ns2 := createComponent("ns-2", nil, WithKind("Namespace"), WithName("kube-system"))
-		err = storeInstance.SaveComponentAttributes(ns2)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(ns2))
 		require.NoError(t, err)
 
 		ns3 := createComponent("ns-3", nil, WithKind("Namespace"), WithName("production"))
-		err = storeInstance.SaveComponentAttributes(ns3)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(ns3))
 		require.NoError(t, err)
 
 		// Create some other resources that should not be counted
 		pod := createComponent("pod-1", nil, WithKind("Pod"), WithName("test-pod"))
-		err = storeInstance.SaveComponentAttributes(pod)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(pod))
 		require.NoError(t, err)
 
 		nodeCount, namespaceCount, err := storeInstance.GetComponentCounts()
@@ -1222,7 +1256,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 		// Create parent component
 		parentUID := "parent-with-many-children"
 		parent := createComponent(parentUID, nil, WithName("parent-with-many-children"))
-		err = storeInstance.SaveComponentAttributes(parent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(parent))
 		require.NoError(t, err)
 
 		// Create 150 child components to test the 100 limit
@@ -1231,7 +1265,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			childUID := fmt.Sprintf("child-%d", i)
 			childName := fmt.Sprintf("child-component-%d", i)
 			child := createComponent(childUID, &parentUID, WithName(childName))
-			err := storeInstance.SaveComponentAttributes(child)
+			err := storeInstance.SaveComponent(componentAttributesToUnstructured(child))
 			require.NoError(t, err)
 		}
 
@@ -1258,7 +1292,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 		// Create parent component
 		parentUID := "parent-with-few-children"
 		parent := createComponent(parentUID, nil, WithName("parent-with-few-children"))
-		err = storeInstance.SaveComponentAttributes(parent)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(parent))
 		require.NoError(t, err)
 
 		// Create 50 child components (under the limit)
@@ -1267,7 +1301,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			childUID := fmt.Sprintf("few-child-%d", i)
 			childName := fmt.Sprintf("few-child-component-%d", i)
 			child := createComponent(childUID, &parentUID, WithName(childName))
-			err := storeInstance.SaveComponentAttributes(child)
+			err := storeInstance.SaveComponent(componentAttributesToUnstructured(child))
 			require.NoError(t, err)
 		}
 
@@ -1294,7 +1328,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 		// Create root component
 		rootUID := "root-with-deep-hierarchy"
 		root := createComponent(rootUID, nil, WithName("root-with-deep-hierarchy"))
-		err = storeInstance.SaveComponentAttributes(root)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(root))
 		require.NoError(t, err)
 
 		// Create a multi-level hierarchy that exceeds 100 total descendants
@@ -1304,7 +1338,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			uid := fmt.Sprintf("level1-%d", i)
 			level1UIDs[i] = uid
 			component := createComponent(uid, &rootUID, WithName(fmt.Sprintf("level1-component-%d", i)))
-			err := storeInstance.SaveComponentAttributes(component)
+			err := storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 			require.NoError(t, err)
 		}
 
@@ -1315,7 +1349,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			for j := 0; j < 2 && level2Count < 40; j++ {
 				uid := fmt.Sprintf("level2-%d-%d", i, j)
 				component := createComponent(uid, &parentUID, WithName(fmt.Sprintf("level2-component-%d-%d", i, j)))
-				err := storeInstance.SaveComponentAttributes(component)
+				err := storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 				require.NoError(t, err)
 				level2Count++
 			}
@@ -1329,7 +1363,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			for j := 0; j < 2 && level3Count < 50; j++ {
 				uid := fmt.Sprintf("level3-%d-%d", i, j)
 				component := createComponent(uid, &level2UID, WithName(fmt.Sprintf("level3-component-%d-%d", i, j)))
-				err := storeInstance.SaveComponentAttributes(component)
+				err := storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 				require.NoError(t, err)
 				level3Count++
 			}
@@ -1500,20 +1534,20 @@ func TestGetComponentsByGVK(t *testing.T) {
 
 		// Insert components with matching GVK and different names/namespaces to avoid unique conflict
 		c1 := createComponent("gvk-uid-1", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-1"), WithName("alpha"))
-		require.NoError(t, storeInstance.SaveComponentAttributes(c1))
+		require.NoError(t, storeInstance.SaveComponent(componentAttributesToUnstructured(c1)))
 
 		c2 := createComponent("gvk-uid-2", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-2"), WithName("beta"))
-		require.NoError(t, storeInstance.SaveComponentAttributes(c2))
+		require.NoError(t, storeInstance.SaveComponent(componentAttributesToUnstructured(c2)))
 
 		c3 := createComponent("gvk-uid-3", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-3"), WithName("gamma"))
-		require.NoError(t, storeInstance.SaveComponentAttributes(c3))
+		require.NoError(t, storeInstance.SaveComponent(componentAttributesToUnstructured(c3)))
 
 		// Insert components with different GVK to ensure they are filtered out
 		diff1 := createComponent("other-uid-1", nil, WithGroup("apps"), WithVersion("v1"), WithKind("StatefulSet"), WithNamespace("ns-1"), WithName("alpha"))
-		require.NoError(t, storeInstance.SaveComponentAttributes(diff1))
+		require.NoError(t, storeInstance.SaveComponent(componentAttributesToUnstructured(diff1)))
 
 		diff2 := createComponent("other-uid-2", nil, WithGroup("extensions"), WithVersion("v1"), WithKind("Deployment"), WithNamespace("ns-1"), WithName("delta"))
-		require.NoError(t, storeInstance.SaveComponentAttributes(diff2))
+		require.NoError(t, storeInstance.SaveComponent(componentAttributesToUnstructured(diff2)))
 
 		entries, err := storeInstance.GetComponentsByGVK(gvk)
 		require.NoError(t, err)
@@ -1548,26 +1582,26 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 
 		// Create components with same GVK but different names/namespaces
 		component1 := createComponent("uid-1", nil, WithGroup(deploymentsGVK.Group), WithVersion(deploymentsGVK.Version), WithKind(deploymentsGVK.Kind), WithName("deployment-1"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(component1)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component1))
 		require.NoError(t, err)
 
 		component2 := createComponent("uid-2", nil,
 			WithGroup(deploymentsGVK.Group), WithVersion(deploymentsGVK.Version), WithKind(deploymentsGVK.Kind),
 			WithName("deployment-2"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(component2)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component2))
 		require.NoError(t, err)
 
 		component3 := createComponent("uid-3", nil,
 			WithGroup(deploymentsGVK.Group), WithVersion(deploymentsGVK.Version), WithKind(deploymentsGVK.Kind),
 			WithName("deployment-3"), WithNamespace("kube-system"))
-		err = storeInstance.SaveComponentAttributes(component3)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component3))
 		require.NoError(t, err)
 
 		// Create component with different GVK
 		component4 := createComponent("uid-4", nil,
 			WithGroup(servicesGVK.Group), WithVersion(servicesGVK.Version), WithKind(servicesGVK.Kind),
 			WithName("service-1"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(component4)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component4))
 		require.NoError(t, err)
 
 		components, err := storeInstance.GetComponentsByGVK(deploymentsGVK)
@@ -1599,15 +1633,15 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 
 		// Create components with empty group (core resources)
 		pod1 := createComponent("pod-uid-1", nil, WithGroup(""), WithVersion("v1"), WithKind("Pod"), WithName("pod-1"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(pod1)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(pod1))
 		require.NoError(t, err)
 
 		pod2 := createComponent("pod-uid-2", nil, WithGroup(""), WithVersion("v1"), WithKind("Pod"), WithName("pod-2"), WithNamespace("kube-system"))
-		err = storeInstance.SaveComponentAttributes(pod2)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(pod2))
 		require.NoError(t, err)
 
 		service := createComponent("service-uid", nil, WithGroup(""), WithVersion("v1"), WithKind("Service"), WithName("service-1"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(service)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(service))
 		require.NoError(t, err)
 
 		// Verify pods exist
@@ -1638,7 +1672,7 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		}(storeInstance)
 
 		component := createComponent("existing-uid", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("existing-deployment"), WithNamespace("default"))
-		err = storeInstance.SaveComponentAttributes(component)
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		err = storeInstance.DeleteComponents("nonexistent", "v1", "NonExistentKind")
@@ -1704,7 +1738,7 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 
 		// Create some components with different service IDs
 		component := createComponent("test-comp", nil, WithName("test-component"))
-		err = storeInstance.SaveComponentAttributes(component, "test-node", time.Now().Unix(), "existing-service")
+		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
 		require.NoError(t, err)
 
 		// Try to get components for non-existent service
