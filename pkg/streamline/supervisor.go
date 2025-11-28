@@ -387,10 +387,9 @@ func (in *Supervisor) flushComponentUpdates(serviceId string) {
 	// Exclude non-existing components with a deletion policy that have reached their desired state.
 	attributes := make([]client.ComponentAttributes, 0, len(components))
 	for _, component := range components {
-		// TODO: Fetch delete policies from the store and use it here.
-		//if hook, ok := keyToHookComponent[component.Key()]; ok && hook.HasDesiredState([]string{}) {
-		//	continue
-		//}
+		if hook, ok := keyToHookComponent[component.Key()]; ok && hook.HadDesiredState() {
+			continue
+		}
 
 		attributes = append(attributes, component.ComponentAttributes())
 	}

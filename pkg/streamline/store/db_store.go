@@ -988,6 +988,7 @@ func (in *DatabaseStore) maybeSaveHookComponent(conn *sqlite.Conn, resource unst
 			resource.GetUID(),
 			NewComponentState(&state),
 			serviceID,
+			smcommon.GetPhaseHookDeletePolicy(resource),
 		}}); err != nil {
 		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save hook", "resource", resource)
 	}
@@ -1000,7 +1001,7 @@ func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []
 	}
 
 	var sb strings.Builder
-	sb.WriteString(`INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id) VALUES `)
+	sb.WriteString(`INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id, delete_policies) VALUES `)
 
 	valueStrings := make([]string, 0, len(resources))
 	for _, resource := range resources {
@@ -1028,8 +1029,9 @@ func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []
 
 		gvk := resource.GroupVersionKind()
 		valueStrings = append(valueStrings,
-			fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s')", gvk.Group, gvk.Version, gvk.Kind,
-				resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID))
+			fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s','%s')", gvk.Group, gvk.Version, gvk.Kind,
+				resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID,
+				smcommon.GetPhaseHookDeletePolicy(resource)))
 	}
 
 	if len(valueStrings) == 0 {
@@ -1057,20 +1059,21 @@ func (in *DatabaseStore) GetHookComponents(serviceID string) ([]smcommon.HookCom
 	result := make([]smcommon.HookComponent, 0)
 	err = sqlitex.ExecuteTransient(
 		conn,
-		`SELECT "group", version, kind, namespace, name, uid, status, manifest_sha FROM hook_component WHERE service_id = ?`,
+		`SELECT "group", version, kind, namespace, name, uid, status, manifest_sha, delete_policies FROM hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{
 			Args: []interface{}{serviceID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
 				result = append(result, smcommon.HookComponent{
-					Group:       stmt.ColumnText(0),
-					Version:     stmt.ColumnText(1),
-					Kind:        stmt.ColumnText(2),
-					Namespace:   stmt.ColumnText(3),
-					Name:        stmt.ColumnText(4),
-					UID:         stmt.ColumnText(5),
-					Status:      ComponentState(stmt.ColumnInt32(6)).String(),
-					ManifestSHA: stmt.ColumnText(7),
-					ServiceID:   serviceID,
+					Group:          stmt.ColumnText(0),
+					Version:        stmt.ColumnText(1),
+					Kind:           stmt.ColumnText(2),
+					Namespace:      stmt.ColumnText(3),
+					Name:           stmt.ColumnText(4),
+					UID:            stmt.ColumnText(5),
+					Status:         ComponentState(stmt.ColumnInt32(6)).String(),
+					ManifestSHA:    stmt.ColumnText(7),
+					ServiceID:      serviceID,
+					DeletePolicies: smcommon.SplitHookDeletePolicy(stmt.ColumnText(8)),
 				})
 				return nil
 			},

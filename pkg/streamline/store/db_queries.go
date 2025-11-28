@@ -58,7 +58,8 @@ const (
 			name TEXT,
 			status INT,
 			manifest_sha TEXT,
-			service_id TEXT
+			service_id TEXT,
+			delete_policies TEXT
 		);
 	 
 		-- Add indexes to the hook component table
@@ -297,12 +298,13 @@ const (
 	`
 
 	setHookComponent = `
-		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id, delete_policies)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
 			status = excluded.status,
-			service_id = excluded.service_id
+			service_id = excluded.service_id,
+			delete_policies = excluded.delete_policies
 	`
 
 	setHookComponentWithManifestSHA = `
