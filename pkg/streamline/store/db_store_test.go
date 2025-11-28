@@ -51,6 +51,74 @@ func createComponent(uid string, option ...CreateComponentOption) unstructured.U
 	return u
 }
 
+func createPod(uid, name, namespace string, status client.ComponentState, timestamp int64) unstructured.Unstructured {
+	u := createComponent(uid, WithGVK("", "v1", "Pod"), WithName(name), WithNamespace(namespace))
+	u.SetCreationTimestamp(v1.Time{Time: time.Unix(timestamp, 0)})
+	u.Object["spec"] = map[string]any{"nodeName": testNode}
+
+	switch status {
+	case client.ComponentStateFailed:
+		u.Object["status"] = map[string]any{
+			"phase":   "Failed",
+			"message": "Pod failed",
+			"containerStatuses": []any{
+				map[string]any{
+					"name":  "container",
+					"ready": false,
+					"state": map[string]any{
+						"terminated": map[string]any{
+							"exitCode": 1,
+							"reason":   "Error",
+							"message":  "Container failed",
+						},
+					},
+				},
+			},
+		}
+	case client.ComponentStateRunning:
+		u.Object["status"] = map[string]any{
+			"phase":   "Running",
+			"message": "",
+			"containerStatuses": []any{
+				map[string]any{
+					"name":  "container",
+					"ready": true,
+					"state": map[string]any{
+						"running": map[string]any{
+							"startedAt": v1.Time{Time: time.Unix(timestamp, 0)},
+						},
+					},
+				},
+			},
+			"conditions": []any{
+				map[string]any{
+					"type":   "Ready",
+					"status": "True",
+				},
+			},
+		}
+	case client.ComponentStatePending:
+		u.Object["status"] = map[string]any{
+			"phase":   "Pending",
+			"message": "Pod is pending",
+			"containerStatuses": []any{
+				map[string]any{
+					"name":  "container",
+					"ready": false,
+					"state": map[string]any{
+						"waiting": map[string]any{
+							"reason":  "ContainerCreating",
+							"message": "Container is being created",
+						},
+					},
+				},
+			},
+		}
+	}
+
+	return u
+}
+
 type CreateComponentOption func(u *unstructured.Unstructured)
 
 func WithParent(uid string) CreateComponentOption {
@@ -752,19 +820,6 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 }
 
-func createPod(s store.Store, name, uid string, timestamp int64) error {
-	component := createComponent(uid, WithGVK("", testVersion, "Pod"), WithName(name), WithNamespace(testNamespace))
-
-	if component.Object["metadata"] == nil {
-		component.Object["metadata"] = map[string]interface{}{}
-	}
-
-	meta := component.Object["metadata"].(map[string]interface{})
-	meta["nodeName"] = testNode
-
-	return s.SaveComponent(component)
-}
-
 func TestPendingPodsCache(t *testing.T) {
 	t.Run("cache should store pods with all required attributes", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
@@ -773,8 +828,8 @@ func TestPendingPodsCache(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
-		require.NoError(t, createPod(storeInstance, "pending-pod-2", "pod-2-uid", hourAgoTimestamp))
+		require.NoError(t, storeInstance.SaveComponent(createPod("pod-1-uid", "pending-pod-1", "default", client.ComponentStatePending, hourAgoTimestamp)))
+		require.NoError(t, storeInstance.SaveComponent(createPod("pod-2-uid", "pending-pod-2", "default", client.ComponentStatePending, hourAgoTimestamp)))
 
 		stats, err := storeInstance.GetNodeStatistics()
 		require.NoError(t, err)
@@ -790,9 +845,9 @@ func TestPendingPodsCache(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		require.NoError(t, createPod(storeInstance, "fresh-pending-pod", "pod-uid", nowTimestamp))
-		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
-		require.NoError(t, createPod(storeInstance, "pending-pod-2", "pod-2-uid", hourAgoTimestamp))
+		require.NoError(t, storeInstance.SaveComponent(createPod("pod-uid", "fresh-pending-pod", "default", client.ComponentStatePending, nowTimestamp)))
+		require.NoError(t, storeInstance.SaveComponent(createPod("pod-1-uid", "pending-pod-1", "default", client.ComponentStatePending, hourAgoTimestamp)))
+		require.NoError(t, storeInstance.SaveComponent(createPod("pod-2-uid", "pending-pod-2", "default", client.ComponentStatePending, hourAgoTimestamp)))
 
 		stats, err := storeInstance.GetNodeStatistics()
 		require.NoError(t, err)
@@ -808,14 +863,15 @@ func TestPendingPodsCache(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		require.NoError(t, createPod(storeInstance, "pending-pod-1", "pod-1-uid", hourAgoTimestamp))
+		pod := createPod("pod-1-uid", "pending-pod-1", "default", client.ComponentStatePending, hourAgoTimestamp)
+		require.NoError(t, storeInstance.SaveComponent(pod))
 
 		stats, err := storeInstance.GetNodeStatistics()
 		require.NoError(t, err)
 		require.Len(t, stats, 1)
 		assert.Equal(t, int64(1), *stats[0].PendingPods)
 
-		err = storeInstance.DeleteComponent(createStoreKey(WithStoreKeyName("pending-pod-1"), WithStoreKeyKind("Pod")))
+		err = storeInstance.DeleteComponent(common.NewStoreKeyFromUnstructured(pod))
 		require.NoError(t, err)
 
 		stats, err = storeInstance.GetNodeStatistics()
