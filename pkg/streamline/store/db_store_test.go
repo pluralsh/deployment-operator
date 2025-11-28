@@ -37,41 +37,57 @@ var (
 	hourAgoTimestamp = time.Now().Add(-time.Hour).Unix()
 )
 
-type CreateComponentOption func(component *client.ComponentChildAttributes)
+func createComponent(uid string, option ...CreateComponentOption) unstructured.Unstructured {
+	u := unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{Group: testGroup, Version: testVersion, Kind: testKind})
+	u.SetNamespace(testNamespace)
+	u.SetName(testName)
+	u.SetUID(types.UID(uid))
 
-func WithGroup(group string) CreateComponentOption {
-	return func(component *client.ComponentChildAttributes) {
-		component.Group = &group
+	for _, opt := range option {
+		opt(&u)
+	}
+
+	return u
+}
+
+type CreateComponentOption func(u *unstructured.Unstructured)
+
+func WithParent(uid string) CreateComponentOption {
+	return func(u *unstructured.Unstructured) {
+		u.SetOwnerReferences([]v1.OwnerReference{{
+			APIVersion: testGroup + "/" + testVersion,
+			Kind:       testKind,
+			Name:       testName,
+			UID:        types.UID(uid),
+		}})
 	}
 }
 
-func WithVersion(version string) CreateComponentOption {
-	return func(component *client.ComponentChildAttributes) {
-		component.Version = version
+func WithService(id string) CreateComponentOption {
+	return func(u *unstructured.Unstructured) {
+		u.SetAnnotations(map[string]string{
+			common.OwningInventoryKey:    id,
+			common.TrackingIdentifierKey: common.NewKeyFromUnstructured(lo.FromPtr(u)).String(),
+		})
 	}
 }
 
-func WithKind(kind string) CreateComponentOption {
-	return func(component *client.ComponentChildAttributes) {
-		component.Kind = kind
+func WithGVK(group, version, kind string) CreateComponentOption {
+	return func(u *unstructured.Unstructured) {
+		u.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
 	}
 }
 
 func WithNamespace(namespace string) CreateComponentOption {
-	return func(component *client.ComponentChildAttributes) {
-		component.Namespace = &namespace
+	return func(u *unstructured.Unstructured) {
+		u.SetNamespace(namespace)
 	}
 }
 
 func WithName(name string) CreateComponentOption {
-	return func(component *client.ComponentChildAttributes) {
-		component.Name = name
-	}
-}
-
-func WithState(state client.ComponentState) CreateComponentOption {
-	return func(component *client.ComponentChildAttributes) {
-		component.State = &state
+	return func(u *unstructured.Unstructured) {
+		u.SetName(name)
 	}
 }
 
@@ -121,52 +137,6 @@ func createStoreKey(option ...CreateStoreKeyOption) common.StoreKey {
 	}
 
 	return result.StoreKey()
-}
-
-func createComponent(uid string, parentUID *string, option ...CreateComponentOption) client.ComponentChildAttributes {
-	result := client.ComponentChildAttributes{
-		UID:       uid,
-		ParentUID: parentUID,
-		Group:     lo.ToPtr(testGroup),
-		Version:   testVersion,
-		Kind:      testKind,
-		Namespace: lo.ToPtr(testNamespace),
-		Name:      testName,
-		State:     lo.ToPtr(client.ComponentStateRunning),
-	}
-
-	for _, opt := range option {
-		opt(&result)
-	}
-
-	return result
-}
-
-func componentAttributesToUnstructured(attrs client.ComponentChildAttributes, serviceID ...string) unstructured.Unstructured {
-	u := unstructured.Unstructured{}
-	u.SetGroupVersionKind(schema.GroupVersionKind{Group: lo.FromPtr(attrs.Group), Version: attrs.Version, Kind: attrs.Kind})
-	u.SetNamespace(lo.FromPtr(attrs.Namespace))
-	u.SetName(attrs.Name)
-	u.SetUID(types.UID(attrs.UID))
-
-	if attrs.ParentUID != nil {
-		u.SetOwnerReferences([]v1.OwnerReference{{
-			APIVersion: lo.FromPtr(attrs.Group) + "/" + attrs.Version,
-			Kind:       attrs.Kind,
-			Name:       attrs.Name,
-			UID:        types.UID(*attrs.ParentUID),
-		}})
-	}
-
-	// Set annotations with service ID if provided
-	if len(serviceID) > 0 && serviceID[0] != "" {
-		u.SetAnnotations(map[string]string{
-			common.OwningInventoryKey:    serviceID[0],
-			common.TrackingIdentifierKey: common.NewKeyFromUnstructured(u).String(),
-		})
-	}
-
-	return u
 }
 
 func TestComponentCache_Init(t *testing.T) {
@@ -1213,30 +1183,24 @@ func TestComponentCountsCache(t *testing.T) {
 		}(storeInstance)
 
 		// Create 2 nodes
-		node1 := createComponent("node-1", nil, WithKind("Node"), WithName("worker-1"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(node1))
+		err = storeInstance.SaveComponent(createComponent("node-1", WithGVK("v1", "", "Node"), WithName("worker-1")))
 		require.NoError(t, err)
 
-		node2 := createComponent("node-2", nil, WithKind("Node"), WithName("worker-2"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(node2))
+		err = storeInstance.SaveComponent(createComponent("node-2", WithGVK("v1", "", "Node"), WithName("worker-2")))
 		require.NoError(t, err)
 
 		// Create 3 namespaces
-		ns1 := createComponent("ns-1", nil, WithKind("Namespace"), WithName("default"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(ns1))
+		err = storeInstance.SaveComponent(createComponent("ns-1", WithGVK("v1", "", "Namespace"), WithName("default")))
 		require.NoError(t, err)
 
-		ns2 := createComponent("ns-2", nil, WithKind("Namespace"), WithName("kube-system"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(ns2))
+		err = storeInstance.SaveComponent(createComponent("ns-2", WithGVK("v1", "", "Namespace"), WithName("kube-system")))
 		require.NoError(t, err)
 
-		ns3 := createComponent("ns-3", nil, WithKind("Namespace"), WithName("production"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(ns3))
+		err = storeInstance.SaveComponent(createComponent("ns-3", WithGVK("v1", "", "Namespace"), WithName("production")))
 		require.NoError(t, err)
 
 		// Create some other resources that should not be counted
-		pod := createComponent("pod-1", nil, WithKind("Pod"), WithName("test-pod"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(pod))
+		err = storeInstance.SaveComponent(createComponent("pod-1", WithGVK("v1", "", "Pod"), WithName("test-pod"))
 		require.NoError(t, err)
 
 		nodeCount, namespaceCount, err := storeInstance.GetComponentCounts()
@@ -1257,17 +1221,18 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 
 		// Create parent component
 		parentUID := "parent-with-many-children"
-		parent := createComponent(parentUID, nil, WithName("parent-with-many-children"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(parent))
+		err = storeInstance.SaveComponent(createComponent(parentUID, WithName("parent-with-many-children")))
+		require.NoError(t, err)
 		require.NoError(t, err)
 
 		// Create 150 child components to test the 100 limit
 		totalChildren := 150
 		for i := 0; i < totalChildren; i++ {
-			childUID := fmt.Sprintf("child-%d", i)
-			childName := fmt.Sprintf("child-component-%d", i)
-			child := createComponent(childUID, &parentUID, WithName(childName))
-			err := storeInstance.SaveComponent(componentAttributesToUnstructured(child))
+			err := storeInstance.SaveComponent(createComponent(
+				fmt.Sprintf("child-%d", i),
+				WithName(fmt.Sprintf("child-component-%d", i)),
+				WithParent(parentUID)))
+			require.NoError(t, err)
 			require.NoError(t, err)
 		}
 
@@ -1293,17 +1258,16 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 
 		// Create parent component
 		parentUID := "parent-with-few-children"
-		parent := createComponent(parentUID, nil, WithName("parent-with-few-children"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(parent))
+		err = storeInstance.SaveComponent(createComponent(parentUID, WithName("parent-with-few-children")))
 		require.NoError(t, err)
 
 		// Create 50 child components (under the limit)
 		totalChildren := 50
 		for i := 0; i < totalChildren; i++ {
-			childUID := fmt.Sprintf("few-child-%d", i)
-			childName := fmt.Sprintf("few-child-component-%d", i)
-			child := createComponent(childUID, &parentUID, WithName(childName))
-			err := storeInstance.SaveComponent(componentAttributesToUnstructured(child))
+			err := storeInstance.SaveComponent(createComponent(
+				fmt.Sprintf("few-child-%d", i),
+				WithParent(parentUID),
+				WithName(fmt.Sprintf("few-child-component-%d", i))))
 			require.NoError(t, err)
 		}
 
@@ -1329,8 +1293,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 
 		// Create root component
 		rootUID := "root-with-deep-hierarchy"
-		root := createComponent(rootUID, nil, WithName("root-with-deep-hierarchy"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(root))
+		err = storeInstance.SaveComponent(createComponent(rootUID, WithName("root-with-deep-hierarchy")))
 		require.NoError(t, err)
 
 		// Create a multi-level hierarchy that exceeds 100 total descendants
@@ -1339,8 +1302,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 		for i := 0; i < 30; i++ {
 			uid := fmt.Sprintf("level1-%d", i)
 			level1UIDs[i] = uid
-			component := createComponent(uid, &rootUID, WithName(fmt.Sprintf("level1-component-%d", i)))
-			err := storeInstance.SaveComponent(componentAttributesToUnstructured(component))
+			err := storeInstance.SaveComponent(createComponent(uid, WithParent(rootUID), WithName(fmt.Sprintf("level1-component-%d", i))))
 			require.NoError(t, err)
 		}
 
@@ -1350,8 +1312,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			parentUID := level1UIDs[i%len(level1UIDs)]
 			for j := 0; j < 2 && level2Count < 40; j++ {
 				uid := fmt.Sprintf("level2-%d-%d", i, j)
-				component := createComponent(uid, &parentUID, WithName(fmt.Sprintf("level2-component-%d-%d", i, j)))
-				err := storeInstance.SaveComponent(componentAttributesToUnstructured(component))
+				err := storeInstance.SaveComponent(createComponent(uid, WithParent(parentUID), WithName(fmt.Sprintf("level2-component-%d-%d", i, j))))
 				require.NoError(t, err)
 				level2Count++
 			}
@@ -1364,8 +1325,7 @@ func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
 			level2UID := fmt.Sprintf("level2-%d-0", i%20)
 			for j := 0; j < 2 && level3Count < 50; j++ {
 				uid := fmt.Sprintf("level3-%d-%d", i, j)
-				component := createComponent(uid, &level2UID, WithName(fmt.Sprintf("level3-component-%d-%d", i, j)))
-				err := storeInstance.SaveComponent(componentAttributesToUnstructured(component))
+				err := storeInstance.SaveComponent(createComponent(uid, WithParent(level2UID), WithName(fmt.Sprintf("level3-component-%d-%d", i, j))))
 				require.NoError(t, err)
 				level3Count++
 			}
@@ -1535,14 +1495,9 @@ func TestGetComponentsByGVK(t *testing.T) {
 		}(storeInstance)
 
 		// Insert components with matching GVK and different names/namespaces to avoid unique conflict
-		c1 := createComponent("gvk-uid-1", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-1"), WithName("alpha"))
-		require.NoError(t, storeInstance.SaveComponent(componentAttributesToUnstructured(c1)))
-
-		c2 := createComponent("gvk-uid-2", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-2"), WithName("beta"))
-		require.NoError(t, storeInstance.SaveComponent(componentAttributesToUnstructured(c2)))
-
-		c3 := createComponent("gvk-uid-3", nil, WithGroup(gvk.Group), WithVersion(gvk.Version), WithKind(gvk.Kind), WithNamespace("ns-3"), WithName("gamma"))
-		require.NoError(t, storeInstance.SaveComponent(componentAttributesToUnstructured(c3)))
+		require.NoError(t, storeInstance.SaveComponent(createComponent("gvk-uid-1", WithGVK(gvk.Group, gvk.Version, gvk.Kind), WithNamespace("ns-1"), WithName("alpha"))))
+		require.NoError(t, storeInstance.SaveComponent(createComponent("gvk-uid-2", WithGVK(gvk.Group, gvk.Version, gvk.Kind), WithNamespace("ns-2"), WithName("beta"))))
+		require.NoError(t, storeInstance.SaveComponent(createComponent("gvk-uid-3", WithGVK(gvk.Group, gvk.Version, gvk.Kind), WithNamespace("ns-3"), WithName("gamma"))))
 
 		// Insert components with different GVK to ensure they are filtered out
 		diff1 := createComponent("other-uid-1", nil, WithGroup("apps"), WithVersion("v1"), WithKind("StatefulSet"), WithNamespace("ns-1"), WithName("alpha"))
@@ -1673,8 +1628,7 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
-		component := createComponent("existing-uid", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("existing-deployment"), WithNamespace("default"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
+		err = storeInstance.SaveComponent(createComponent("existing-uid", WithGVK("apps", "v1", "Deployment"), WithName("existing-deployment"), WithNamespace("default"))
 		require.NoError(t, err)
 
 		err = storeInstance.DeleteComponents("nonexistent", "v1", "NonExistentKind")
@@ -1697,22 +1651,18 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 		serviceID := "test-service-123"
 
 		// Create components with the target service ID
-		component1 := createComponent("service-comp-1", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("app-deployment"), WithNamespace("default"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component1, serviceID))
+		err = storeInstance.SaveComponent(createComponent("service-comp-1", WithService(serviceID), WithGVK("apps", "v1", "Deployment"), WithName("app-deployment"), WithNamespace("default")))
 		require.NoError(t, err)
 
-		component2 := createComponent("service-comp-2", nil, WithGroup(""), WithVersion("v1"), WithKind("Pod"), WithName("app-pod"), WithNamespace("default"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component2, serviceID))
+		err = storeInstance.SaveComponent(createComponent("service-comp-2", WithService(serviceID), WithGVK("", "v1", "Pod"), WithName("app-pod"), WithNamespace("default")))
 		require.NoError(t, err)
 
 		// Create component with different service ID
-		otherComponent := createComponent("other-comp", nil, WithGroup("apps"), WithVersion("v1"), WithKind("Deployment"), WithName("other-deployment"), WithNamespace("default"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(otherComponent, "other-service"))
+		err = storeInstance.SaveComponent(createComponent("other-comp", WithService("other-service"), WithGVK("apps", "v1", "Deployment"), WithName("other-deployment"), WithNamespace("default")))
 		require.NoError(t, err)
 
 		// Create component with no service ID
-		noServiceComponent := createComponent("no-service-comp", nil, WithGroup(""), WithVersion("v1"), WithKind("Service"), WithName("no-service"), WithNamespace("default"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(noServiceComponent))
+		err = storeInstance.SaveComponent(createComponent("no-service-comp", nil, WithGVK("", "v1", "Service"), WithName("no-service"), WithNamespace("default")))
 		require.NoError(t, err)
 
 		components, err := storeInstance.GetServiceComponents(serviceID, true)
@@ -1739,8 +1689,7 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 		}(storeInstance)
 
 		// Create some components with different service IDs
-		component := createComponent("test-comp", nil, WithName("test-component"))
-		err = storeInstance.SaveComponent(componentAttributesToUnstructured(component))
+		err = storeInstance.SaveComponent(createComponent("test-comp", WithName("test-component")))
 		require.NoError(t, err)
 
 		// Try to get components for non-existent service
