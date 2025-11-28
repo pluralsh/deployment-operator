@@ -95,10 +95,10 @@ const (
 			namespace,
 			name,
 			health,
+		    applied,
 		    node,
 		    created_at,
-		    service_id,
-		    applied
+		    service_id
 		) VALUES (
 			?,
 			?,
