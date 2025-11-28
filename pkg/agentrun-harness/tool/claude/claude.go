@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
+	"path/filepath"
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
@@ -35,7 +37,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		"claude",
 		append(
 			options,
-			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
+			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "--add-dir", in.configPath(), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
 			exec.WithDir(in.dir),
 			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
 		)...,
@@ -65,8 +67,39 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 	}
 }
 
-func (in *Claude) Configure(_, _, _ string) error {
-	return nil
+func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error {
+	settings := NewSettingsBuilder()
+	if in.run.Mode == console.AgentRunModeAnalyze {
+		settings.AllowTools(
+			"Read",
+			"Grep",
+			"Glob",
+			"Bash(ls:*)",
+			"Bash(cd:*)",
+			"Bash(pwd)",
+			"Bash(git status)",
+			"Bash(git diff:*)",
+			"Bash(head:*)",
+			"Bash(tail:*)",
+			"Bash(cat:*)",
+			"Bash(grep:*)",
+			"Bash(find:*)",
+			"WebFetch").
+			DenyTools("Edit", "Write", "Bash(rm:*)", "Bash(sudo:*)")
+	} else {
+		settings.AllowTools(
+			"Read",
+			"Write",
+			"Edit",
+			"MultiEdit",
+			"Bash",
+			"WebFetch")
+	}
+	return settings.WriteToFile(filepath.Join(in.configPath(), ".claude/settings.json"))
+}
+
+func (in *Claude) configPath() string {
+	return path.Join(in.dir, "claude")
 }
 
 func (in *Claude) OnMessage(f func(message *console.AgentMessageAttributes)) {
