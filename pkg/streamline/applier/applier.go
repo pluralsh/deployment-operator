@@ -196,8 +196,7 @@ func (in *Applier) Apply(ctx context.Context,
 
 	// Append unsynced resources to the component list so all of them will be visible in the UI.
 	componentList, err = in.appendUnsyncedResources(service.ID, componentList, resources)
-
-	return componentList, serviceErrorList, nil
+	return componentList, serviceErrorList, err
 }
 
 func (in *Applier) appendUnsyncedResources(serviceId string, components []client.ComponentAttributes, resources []unstructured.Unstructured) ([]client.ComponentAttributes, error) {
