@@ -1,23 +1,23 @@
 package tool
 
 import (
-	console "github.com/pluralsh/console/go/client"
-	"k8s.io/klog/v2"
+	"fmt"
 
+	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/gemini"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/opencode"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 )
 
 // New creates a specific tool implementation structure based on the provided
 // console.AgentRuntimeType
-func New(stackType console.AgentRuntimeType, config v1.Config) v1.Tool {
-	var t v1.Tool
-	switch stackType {
+func New(runtimeType console.AgentRuntimeType, config v1.Config) (v1.Tool, error) {
+	switch runtimeType {
 	case console.AgentRuntimeTypeOpencode:
-		t = opencode.New(config)
+		return opencode.New(config), nil
+	case console.AgentRuntimeTypeGemini:
+		return gemini.New(config), nil
 	default:
-		klog.Fatalf("unsupported agent run type: %s", stackType)
+		return nil, fmt.Errorf("unsupported agent run type: %s", runtimeType)
 	}
-
-	return t
 }
