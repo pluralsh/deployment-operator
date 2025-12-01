@@ -71,6 +71,10 @@ type AgentRuntimeConfig struct {
 	// Config for OpenCode CLI runtime.
 	// +kubebuilder:validation:Optional
 	OpenCode *OpenCodeConfig `json:"opencode,omitempty"`
+
+	// Config for Gemini CLI runtime.
+	// +kubebuilder:validation:Optional
+	Gemini *GeminiConfig `json:"gemini,omitempty"`
 }
 
 func (in *AgentRuntimeConfig) ToAgentRuntimeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*AgentRuntimeConfigRaw, error) {
@@ -83,8 +87,14 @@ func (in *AgentRuntimeConfig) ToAgentRuntimeConfigRaw(secretGetter func(corev1.S
 		return nil, err
 	}
 
+	gemini, err := in.Gemini.Raw(secretGetter)
+	if err != nil {
+		return nil, err
+	}
+
 	return &AgentRuntimeConfigRaw{
 		Claude:   nil,
+		Gemini:   gemini,
 		OpenCode: openCode,
 	}, nil
 }
@@ -102,6 +112,10 @@ type AgentRuntimeConfigRaw struct {
 	// OpenCode is the raw configuration for the OpenCode runtime.
 	// +kubebuilder:validation:Optional
 	OpenCode *OpenCodeConfigRaw `json:"opencode,omitempty"`
+
+	// Gemini is the raw configuration for the Gemini runtime.
+	// +kubebuilder:validation:Optional
+	Gemini *GeminiConfigRaw `json:"gemini,omitempty"`
 }
 
 // ClaudeConfig contains configuration for the Claude CLI runtime.
@@ -196,6 +210,49 @@ type OpenCodeConfigRaw struct {
 
 	// Token is the raw API token for OpenCode.
 	Token string `json:"tokenSecretRef"`
+}
+
+// GeminiConfig contains configuration for the Gemini CLI runtime.
+type GeminiConfig struct {
+	// APIKeySecretRef is a reference to a Kubernetes Secret containing the Gemini API key.
+	APIKeySecretRef corev1.SecretKeySelector `json:"apiKeySecretRef,omitempty"`
+
+	// Model is the name of the model to use.
+	Model *string `json:"model,omitempty"`
+}
+
+func (in *GeminiConfig) Raw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*GeminiConfigRaw, error) {
+	if in == nil {
+		return nil, nil
+	}
+
+	apiKeySecret, err := secretGetter(in.APIKeySecretRef)
+	if err != nil {
+		return nil, err
+	}
+
+	apiKey, exists := apiKeySecret.Data[in.APIKeySecretRef.Key]
+	if !exists {
+		return nil, fmt.Errorf("API key secret does not contain key %s", in.APIKeySecretRef.Key)
+	}
+
+	return &GeminiConfigRaw{
+		Model:  in.Model,
+		APIKey: string(apiKey),
+	}, nil
+}
+
+// GeminiConfigRaw contains configuration for the Gemini CLI runtime.
+//
+// NOTE: Do not embed this struct directly, use GeminiConfig instead.
+// This is only used to read original GeminiConfig secret data and be
+// able to inject it into the pod as env vars.
+type GeminiConfigRaw struct {
+	// APIKey is the raw Gemini API key to use.
+	APIKey string `json:"apiKey"`
+
+	// Model is the name of the model to use.
+	Model *string `json:"model,omitempty"`
 }
 
 type AgentRuntimeBindings struct {

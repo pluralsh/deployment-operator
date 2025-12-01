@@ -37,6 +37,9 @@ const (
 	EnvOpenCodeEndpoint = "PLRL_OPENCODE_ENDPOINT"
 	EnvOpenCodeModel    = "PLRL_OPENCODE_MODEL"
 	EnvOpenCodeToken    = "PLRL_OPENCODE_TOKEN"
+
+	EnvGeminiModel  = "PLRL_OPENCODE_MODEL"
+	EnvGeminiAPIKey = "PLRL_OPENCODE_API_KEY"
 )
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.
@@ -297,6 +300,15 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 		result[EnvOpenCodeEndpoint] = config.OpenCode.Endpoint
 		result[EnvOpenCodeModel] = lo.FromPtr(config.OpenCode.Model)
 		result[EnvOpenCodeToken] = config.OpenCode.Token
+	}
+
+	if runtimeType == console.AgentRuntimeTypeGemini {
+		if config.Gemini == nil {
+			return result
+		}
+
+		result[EnvGeminiModel] = lo.FromPtr(config.Gemini.Model)
+		result[EnvGeminiAPIKey] = config.Gemini.APIKey
 	}
 
 	return result
