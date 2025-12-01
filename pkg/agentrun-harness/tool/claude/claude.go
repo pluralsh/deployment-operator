@@ -42,7 +42,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		"claude",
 		append(
 			options,
-			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
+			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "--add-dir", in.configPath(), "--model", string(DefaultModel()), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
 			exec.WithDir(in.dir),
 			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
 			exec.WithTimeout(15*time.Minute),
@@ -85,7 +85,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error 
 		Env("PLRL_CONSOLE_TOKEN", consoleToken).
 		Env("PLRL_CONSOLE_URL", consoleURL).
 		Done()
-	if err := mcp.WriteToFile(filepath.Join(in.configPath(), ".mcp.json")); err != nil {
+	if err := mcp.WriteToFile(filepath.Join(in.dir, ".mcp.json")); err != nil {
 		return err
 	}
 

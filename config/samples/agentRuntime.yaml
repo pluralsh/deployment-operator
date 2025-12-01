@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: default
-        image: ghcr.io/pluralsh/agent-harness:sha-95a9930-claude-1.0.128
+        image: ghcr.io/pluralsh/agent-harness:sha-09d70d8-claude-1.0.128
         args:
           - --v=3
 
