@@ -42,7 +42,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		"claude",
 		append(
 			options,
-			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "--add-dir", in.configPath(), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
+			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
 			exec.WithDir(in.dir),
 			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
 			exec.WithTimeout(15*time.Minute),
