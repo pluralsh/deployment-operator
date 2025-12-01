@@ -11,7 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,8 +33,8 @@ const (
 )
 
 var (
-	nowTimestamp     = time.Now().Unix()
-	hourAgoTimestamp = time.Now().Add(-time.Hour).Unix()
+	nowTimestamp     = metav1.NewTime(time.Now())
+	hourAgoTimestamp = metav1.NewTime(nowTimestamp.Add(-time.Hour))
 )
 
 func createComponent(uid string, option ...CreateComponentOption) unstructured.Unstructured {
@@ -51,9 +51,16 @@ func createComponent(uid string, option ...CreateComponentOption) unstructured.U
 	return u
 }
 
-func createPod(uid, name, namespace string, status client.ComponentState, timestamp int64) unstructured.Unstructured {
-	u := createComponent(uid, WithGVK("", "v1", "Pod"), WithName(name), WithNamespace(namespace))
-	u.SetCreationTimestamp(v1.Time{Time: time.Unix(timestamp, 0)})
+func createPod(uid, name, namespace string, status client.ComponentState, timestamp metav1.Time, option ...CreateComponentOption) unstructured.Unstructured {
+	u := createComponent(
+		uid,
+		append(option,
+			WithTimestamp(timestamp),
+			WithName(name),
+			WithNamespace(namespace),
+			WithGVK("", "v1", "Pod"),
+		)...)
+	u.SetCreationTimestamp(timestamp)
 	u.Object["spec"] = map[string]any{"nodeName": testNode}
 
 	switch status {
@@ -85,7 +92,7 @@ func createPod(uid, name, namespace string, status client.ComponentState, timest
 					"ready": true,
 					"state": map[string]any{
 						"running": map[string]any{
-							"startedAt": v1.Time{Time: time.Unix(timestamp, 0)},
+							"startedAt": timestamp,
 						},
 					},
 				},
@@ -121,9 +128,15 @@ func createPod(uid, name, namespace string, status client.ComponentState, timest
 
 type CreateComponentOption func(u *unstructured.Unstructured)
 
+func WithTimestamp(timestamp metav1.Time) CreateComponentOption {
+	return func(u *unstructured.Unstructured) {
+		u.SetCreationTimestamp(timestamp)
+	}
+}
+
 func WithParent(uid string) CreateComponentOption {
 	return func(u *unstructured.Unstructured) {
-		u.SetOwnerReferences([]v1.OwnerReference{{
+		u.SetOwnerReferences([]metav1.OwnerReference{{
 			APIVersion: testGroup + "/" + testVersion,
 			Kind:       testKind,
 			Name:       testName,
@@ -890,101 +903,28 @@ func TestComponentCache_ComponentInsights(t *testing.T) {
 			}
 		}()
 
-		// Running components
-		err = storeInstance.SaveComponent(createComponent("app-frontend-1", WithGVK("", testVersion, "Deployment"), WithName("app-frontend-1")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-backend-1", WithGVK("", testVersion, "Deployment"), WithName("app-backend-1")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-database-1", WithGVK("", testVersion, "Deployment"), WithName("app-database-1")))
-		require.NoError(t, err)
+		testComponents := []unstructured.Unstructured{
+			// Running components
+			createPod("app-frontend-1", "app-frontend-1", "default", client.ComponentStateRunning, metav1.Now()),
+			createPod("app-backend-1", "app-backend-1", "default", client.ComponentStateRunning, metav1.Now()),
+			createPod("app-database-1", "app-database-1", "default", client.ComponentStateRunning, metav1.Now()),
 
-		// Running components chain
-		uid1 := "app-1"
-		err = storeInstance.SaveComponent(createComponent(uid1, WithGVK("", testVersion, "Deployment"), WithName("app-1")))
-		require.NoError(t, err)
-		uid2 := "app-child-1"
-		err = storeInstance.SaveComponent(createComponent(uid2, WithParent(uid1), WithGVK("", testVersion, "Pod"), WithName("app-child-1")))
-		require.NoError(t, err)
-		uid3 := "app-child-2"
-		err = storeInstance.SaveComponent(createComponent(uid3, WithParent(uid2), WithGVK("", testVersion, "Pod"), WithName("app-child-2")))
-		require.NoError(t, err)
-		uid4 := "app-child-3"
-		err = storeInstance.SaveComponent(createComponent(uid4, WithParent(uid3), WithGVK("", testVersion, "Pod"), WithName("app-child-3")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-child-4", WithParent(uid4), WithGVK("", testVersion, "Pod"), WithName("app-child-4")))
-		require.NoError(t, err)
+			// Running component chain (ignored because of depth level > 4)
+			createPod("app-1", "app-1", "default", client.ComponentStateRunning, metav1.Now()),
+			createPod("app-child-1", "app-frontend-1", "default", client.ComponentStateRunning, metav1.Now(), WithParent("app-1")),
+			createPod("app-child-2", "app-frontend-2", "default", client.ComponentStateRunning, metav1.Now(), WithParent("app-child-1")),
+			createPod("app-child-3", "app-frontend-3", "default", client.ComponentStateRunning, metav1.Now(), WithParent("app-child-2")),
+			createPod("app-child-4", "app-frontend-4", "default", client.ComponentStateRunning, metav1.Now(), WithParent("app-child-3")),
 
-		// Failed components
-		err = storeInstance.SaveComponent(createComponent("app-redis-1", WithGVK("", testVersion, "Deployment"), WithName("app-redis-1")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-cronjob-1", WithGVK("", testVersion, "Deployment"), WithName("app-cronjob-1")))
-		require.NoError(t, err)
+			// Failed components
+			createPod("failed-1", "failed-1", "default", client.ComponentStateFailed, metav1.Now()),
+			createPod("failed-2", "failed-2", "default", client.ComponentStateFailed, metav1.Now()),
 
-		// Pending component
-		err = storeInstance.SaveComponent(createComponent("app-migration-1", WithGVK("", testVersion, "Deployment"), WithName("app-migration-1")))
-		require.NoError(t, err)
+			// Pending component
+			createPod("pending-2", "pending-2", "default", client.ComponentStatePending, metav1.Now()),
+		}
 
-		// Ingress and Certificate chain
-		err = storeInstance.SaveComponent(createComponent("app-ingress-1", WithGVK("", testVersion, "Ingress"), WithName("app-ingress-1")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-certificate-1", WithParent("app-ingress-1"), WithGVK("", testVersion, "Certificate"), WithName("app-certificate-1")))
-		require.NoError(t, err)
-
-		// Ingress pending with failed certificate
-		err = storeInstance.SaveComponent(createComponent("app-ingress-2", WithGVK("", testVersion, "Ingress"), WithName("app-ingress-2")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-certificate-2", WithParent("app-ingress-2"), WithGVK("", testVersion, "Certificate"), WithName("app-certificate-2")))
-		require.NoError(t, err)
-
-		// StatefulSet
-		err = storeInstance.SaveComponent(createComponent("app-statefulset-1", WithGVK("", testVersion, "StatefulSet"), WithName("app-statefulset-1")))
-		require.NoError(t, err)
-
-		// DaemonSet
-		err = storeInstance.SaveComponent(createComponent("app-daemonset-1", WithGVK("", testVersion, "DaemonSet"), WithName("app-daemonset-1")))
-		require.NoError(t, err)
-
-		// Deployment with pod
-		err = storeInstance.SaveComponent(createComponent("app-deployment-1", WithGVK("", testVersion, "Deployment"), WithName("app-deployment-1")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-pod-1", WithParent("app-deployment-1"), WithGVK("", testVersion, "Pod"), WithName("app-pod-1")))
-		require.NoError(t, err)
-
-		// CRD with deployment and pod
-		err = storeInstance.SaveComponent(createComponent("app-crd-1", WithGVK("", testVersion, "CustomResourceDefinition"), WithName("app-crd-1")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-deployment-2", WithParent("app-crd-1"), WithGVK("", testVersion, "Deployment"), WithName("app-deployment-2")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-pod-2", WithParent("app-deployment-2"), WithGVK("", testVersion, "Pod"), WithName("app-pod-2")))
-		require.NoError(t, err)
-
-		// Failed CRD with failed deployment and failed pod
-		err = storeInstance.SaveComponent(createComponent("app-crd-2", WithGVK("", testVersion, "CustomResourceDefinition"), WithName("app-crd-2")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-deployment-3", WithParent("app-crd-2"), WithGVK("", testVersion, "Deployment"), WithName("app-deployment-3")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-pod-3", WithParent("app-deployment-3"), WithGVK("", testVersion, "Pod"), WithName("app-pod-3")))
-		require.NoError(t, err)
-
-		// CRD with deployment, replicaset, and pod
-		err = storeInstance.SaveComponent(createComponent("app-crd-3", WithGVK("", testVersion, "CustomResourceDefinition"), WithName("app-crd-3")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-deployment-4", WithParent("app-crd-3"), WithGVK("", testVersion, "Deployment"), WithName("app-deployment-4")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-replicaset-1", WithParent("app-deployment-4"), WithGVK("", testVersion, "ReplicaSet"), WithName("app-replicaset-1")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-pod-4", WithParent("app-replicaset-1"), WithGVK("", testVersion, "Pod"), WithName("app-pod-4")))
-		require.NoError(t, err)
-
-		// Deployment with replicaset and secret
-		err = storeInstance.SaveComponent(createComponent("app-deployment-5", WithGVK("", testVersion, "Deployment"), WithName("app-deployment-5")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-replicaset-2", WithParent("app-deployment-5"), WithGVK("", testVersion, "ReplicaSet"), WithName("app-replicaset-2")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-pod-5", WithParent("app-replicaset-2"), WithGVK("", testVersion, "Pod"), WithName("app-pod-5")))
-		require.NoError(t, err)
-		err = storeInstance.SaveComponent(createComponent("app-secret-1", WithParent("app-deployment-5"), WithGVK("", testVersion, "Secret"), WithName("app-secret-1")))
-		require.NoError(t, err)
+		require.NoError(t, storeInstance.SaveComponents(testComponents, nil))
 
 		expectedComponents := []string{
 			"app-redis-1",
