@@ -13,6 +13,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"k8s.io/klog/v2"
 )
 
@@ -57,7 +58,10 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 
 		if event.Type == "assistant" && event.Message != nil {
 			if in.onMessage != nil {
-				in.onMessage(mapClaudeContentToAgentMessage(event))
+				msg := mapClaudeContentToAgentMessage(event)
+				if msg != nil {
+					in.onMessage(msg)
+				}
 			}
 		}
 	})
@@ -139,11 +143,16 @@ func mapClaudeContentToAgentMessage(event *StreamEvent) *console.AgentMessageAtt
 
 	var builder strings.Builder
 	for _, c := range event.Message.Content {
+		klog.V(log.LogLevelExtended).InfoS("claude content", "type", c.Type, "text", c.Text)
 		if c.Type == "text" {
 			builder.WriteString(c.Text)
 		}
 	}
 	msg.Message = builder.String()
+	// Empty messages are not valid
+	if len(msg.Message) == 0 {
+		return nil
+	}
 
 	// Map usage → Cost
 	if event.Message.Usage != nil {
