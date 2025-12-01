@@ -219,31 +219,97 @@ func (in *executable) RunStream(ctx context.Context, cb func([]byte)) error {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
+	// Shared writer to mimic non-streaming output behavior (writes to os.Stdout + sinks + analyzer stdout)
+	outWriter := in.writer()
+
+	// Protect writing to outWriter in case some underlying WriteClosers are not concurrent-safe.
+	var writeMu sync.Mutex
+
+	// Collect scanner errors
+	var scErrMu sync.Mutex
+	var scannerErrs []error
+
+	// helper to record scanner errors
+	recordScannerErr := func(e error) {
+		if e == nil {
+			return
+		}
+		if errors.Is(e, io.ErrClosedPipe) || strings.Contains(e.Error(), "file already closed") {
+			return
+		}
+		scErrMu.Lock()
+		scannerErrs = append(scannerErrs, e)
+		scErrMu.Unlock()
+	}
+
 	// Stream lines from a reader, call callback, and write to sinks
 	streamReader := func(r io.Reader) {
 		defer wg.Done()
 		scanner := bufio.NewScanner(r)
+
+		// Increase the buffer to handle longer lines safely (adjust max if you expect huge single-line JSON).
+		const maxTokenSize = 1 * 1024 * 1024 // 1MB
+		scanner.Buffer(make([]byte, 64*1024), maxTokenSize)
+
 		for scanner.Scan() {
 			line := append([]byte(nil), scanner.Bytes()...)
+
+			// call callback (non-blocking best-effort)
 			if cb != nil {
-				cb(line)
+				// Protect callback with recover to avoid goroutine crash leaking
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							klog.ErrorS(fmt.Errorf("panic in callback: %v", r), "panic in RunStream callback")
+						}
+					}()
+					cb(line)
+				}()
+			}
+
+			// Write to sinks (append newline because Scanner strips it)
+			if outWriter != nil {
+				writeMu.Lock()
+				_, wErr := outWriter.Write(append(line, '\n'))
+				writeMu.Unlock()
+				if wErr != nil {
+					// log and continue
+					klog.ErrorS(wErr, "failed to write stream line to sinks")
+				}
 			}
 		}
+
 		if err := scanner.Err(); err != nil {
-			klog.ErrorS(err, "scanner error in RunStream")
+			recordScannerErr(err)
+			// Log a friendly message (don't spam for benign closed-pipe)
+			if !errors.Is(err, io.ErrClosedPipe) && !strings.Contains(err.Error(), "file already closed") {
+				klog.ErrorS(err, "scanner error in RunStream")
+			}
 		}
 	}
 
 	go streamReader(stdoutPipe)
 	go streamReader(stderrPipe)
 
-	waitErr := cmd.Wait()
+	// Wait for readers to finish draining the pipes BEFORE calling cmd.Wait()
 	wg.Wait()
 
-	// close sinks
+	// Close sinks now that readers finished writing to them
 	in.close(in.outputSinks)
 
-	// run analyzer & lifecycle hooks
+	// Now wait for the process to exit and capture its error (if any)
+	waitErr := cmd.Wait()
+
+	// Combine scanner errors into waitErr if any
+	scErrMu.Lock()
+	if len(scannerErrs) > 0 {
+		for _, e := range scannerErrs {
+			waitErr = errors.Join(waitErr, e)
+		}
+	}
+	scErrMu.Unlock()
+
+	// run analyzer & lifecycle hooks & context check
 	if aErr := in.analyze(); aErr != nil {
 		waitErr = errors.Join(waitErr, aErr)
 	}

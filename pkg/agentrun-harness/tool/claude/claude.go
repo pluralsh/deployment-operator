@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/controller"
@@ -41,6 +42,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "--add-dir", in.configPath(), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
 			exec.WithDir(in.dir),
 			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
+			exec.WithTimeout(15*time.Minute),
 		)...,
 	)
 
@@ -57,11 +59,9 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		}
 
 		if event.Type == "assistant" && event.Message != nil {
-			if in.onMessage != nil {
-				msg := mapClaudeContentToAgentMessage(event)
-				if msg != nil {
-					in.onMessage(msg)
-				}
+			msg := mapClaudeContentToAgentMessage(event)
+			if in.onMessage != nil && msg != nil {
+				in.onMessage(msg)
 			}
 		}
 	})
@@ -69,6 +69,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		klog.ErrorS(err, "claude execution failed")
 		return
 	}
+	klog.V(log.LogLevelExtended).InfoS("claude execution finished")
 }
 
 func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error {
