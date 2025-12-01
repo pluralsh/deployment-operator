@@ -29,11 +29,6 @@ const (
 	testNode      = "test-node"
 )
 
-var (
-	now     = metav1.NewTime(time.Now())
-	hourAgo = metav1.NewTime(now.Add(-time.Hour))
-)
-
 func createComponent(uid string, option ...CreateComponentOption) unstructured.Unstructured {
 	u := unstructured.Unstructured{}
 	u.SetGroupVersionKind(schema.GroupVersionKind{Group: testGroup, Version: testVersion, Kind: testKind})
