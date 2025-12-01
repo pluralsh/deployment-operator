@@ -26,6 +26,8 @@ func New(config v1.Config) v1.Tool {
 		token:         helpers.GetEnv(controller.EnvClaudeToken, ""),
 		model:         DefaultModel(),
 		finishedChan:  config.FinishedChan,
+		errorChan:     config.ErrorChan,
+		startedChan:   make(chan struct{}),
 	}
 
 	if err := result.ensure(); err != nil {
@@ -56,6 +58,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		event := &StreamEvent{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.ErrorS(err, "failed to unmarshal claude stream event", "line", string(line))
+			in.errorChan <- err
 			return
 		}
 
@@ -68,6 +71,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 	})
 	if err != nil {
 		klog.ErrorS(err, "claude execution failed")
+		in.errorChan <- err
 		return
 	}
 	klog.V(log.LogLevelExtended).InfoS("claude execution finished")

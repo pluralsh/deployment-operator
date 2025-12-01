@@ -57,8 +57,14 @@ type Claude struct {
 	// model is the model used to generate code.
 	model Model
 
+	// errorChan is a channel that returns an error if the tool failed
+	errorChan chan error
+
 	// finishedChan is a channel that gets closed when the tool is finished.
 	finishedChan chan struct{}
+
+	// startedChan is a channel that gets closed when the opencode server is started.
+	startedChan chan struct{}
 }
 
 type StreamEvent struct {
