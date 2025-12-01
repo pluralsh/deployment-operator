@@ -5,6 +5,27 @@ metadata:
 spec:
   type: "OPENCODE"
   targetNamespace: "test"
-
-
-
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gemini
+---
+apiVersion: deployments.plural.sh/v1alpha1
+kind: AgentRuntime
+metadata:
+  name: gemini
+spec:
+  type: "GEMINI"
+  targetNamespace: "gemini"
+  config:
+    claude:
+      apiKeySecretRef:
+        name: gemini
+        key: apiKey
+  template:
+    spec:
+      containers:
+        - name: default
+          args:
+            - --v=3
