@@ -25,6 +25,7 @@ func New(config v1.Config) v1.Tool {
 		run:           config.Run,
 		token:         helpers.GetEnv(controller.EnvClaudeToken, ""),
 		model:         DefaultModel(),
+		finishedChan:  config.FinishedChan,
 	}
 
 	if err := result.ensure(); err != nil {
@@ -70,6 +71,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		return
 	}
 	klog.V(log.LogLevelExtended).InfoS("claude execution finished")
+	close(in.finishedChan)
 }
 
 func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error {

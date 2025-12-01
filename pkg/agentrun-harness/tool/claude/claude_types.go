@@ -56,6 +56,9 @@ type Claude struct {
 
 	// model is the model used to generate code.
 	model Model
+
+	// finishedChan is a channel that gets closed when the tool is finished.
+	finishedChan chan struct{}
 }
 
 type StreamEvent struct {
