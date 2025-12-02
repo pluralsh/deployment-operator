@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -37,6 +39,10 @@ const (
 	EnvOpenCodeEndpoint = "PLRL_OPENCODE_ENDPOINT"
 	EnvOpenCodeModel    = "PLRL_OPENCODE_MODEL"
 	EnvOpenCodeToken    = "PLRL_OPENCODE_TOKEN"
+
+	EnvClaudeModel = "PLRL_CLAUDE_MODEL"
+	EnvClaudeToken = "PLRL_CLAUDE_TOKEN"
+	EnvClaudeArgs  = "PLRL_CLAUDE_ARGS"
 )
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.
@@ -297,6 +303,21 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 		result[EnvOpenCodeEndpoint] = config.OpenCode.Endpoint
 		result[EnvOpenCodeModel] = lo.FromPtr(config.OpenCode.Model)
 		result[EnvOpenCodeToken] = config.OpenCode.Token
+	}
+	if runtimeType == console.AgentRuntimeTypeClaude {
+		if config.Claude == nil {
+			return result
+		}
+		if len(config.Claude.ExtraArgs) > 0 {
+			var quoted []string
+			for _, a := range config.Claude.ExtraArgs {
+				quoted = append(quoted, strconv.Quote(a))
+			}
+			result[EnvClaudeArgs] = strings.Join(quoted, " ")
+		}
+
+		result[EnvClaudeModel] = lo.FromPtr(config.Claude.Model)
+		result[EnvClaudeToken] = config.Claude.ApiKey
 	}
 
 	return result
