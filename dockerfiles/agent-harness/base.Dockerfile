@@ -50,7 +50,7 @@ RUN groupadd -g 65532 nonroot && \
 WORKDIR /plural
 
 COPY dockerfiles/agent-harness/.opencode /plural/.opencode
-COPY dockerfiles/agent-harness/.claude /home/nonroot/.claude
+COPY dockerfiles/agent-harness/.claude /plural/.claude
 
 RUN printf "#!/bin/sh\necho \${GIT_ACCESS_TOKEN}" > /plural/.git-askpass && \
     chmod +x /plural/.git-askpass && \

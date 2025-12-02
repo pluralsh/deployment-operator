@@ -116,7 +116,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error 
 			"Bash",
 			"WebFetch")
 	}
-	return settings.WriteToFile(filepath.Join(in.configPath(), "settings.json"))
+	return settings.WriteToFile(filepath.Join(in.configPath(), "settings.local.json"))
 }
 
 func (in *Claude) configPath() string {
