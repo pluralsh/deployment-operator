@@ -20,6 +20,8 @@ PLRL_OPENCODE_MODEL := $(if $(PLRL_OPENCODE_MODEL),$(PLRL_OPENCODE_MODEL),"")
 PLRL_OPENCODE_TOKEN := $(if $(PLRL_OPENCODE_TOKEN),$(PLRL_OPENCODE_TOKEN),"")
 PLRL_CLAUDE_TOKEN := $(if $(PLRL_CLAUDE_TOKEN),$(PLRL_CLAUDE_TOKEN),"")
 PLRL_CLAUDE_MODEL := $(if $(PLRL_CLAUDE_MODEL),$(PLRL_CLAUDE_MODEL),"")
+PLRL_GEMINI_MODEL := $(if $(PLRL_GEMINI_MODEL),$(PLRL_GEMINI_MODEL),"")
+PLRL_GEMINI_API_KEY := $(if $(PLRL_GEMINI_API_KEY),$(PLRL_GEMINI_API_KEY),"")
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
