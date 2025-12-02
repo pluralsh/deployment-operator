@@ -158,7 +158,7 @@ func (in *DatabaseStore) GetResourceHealth(r []unstructured.Unstructured) (hasPe
 		END as has_failed_resources,
 		COUNT(*) as resource_count
 		FROM component 
-		WHERE ("group", version, kind, namespace, name) IN (
+		WHERE applied = 1 AND ("group", version, kind, namespace, name) IN (
 	`)
 
 	// Build VALUES clause with placeholders
