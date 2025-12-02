@@ -124,16 +124,9 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
-func (in *DatabaseStore) GetResourceHealth(r []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
-	// We need to filter out resources that are on a blacklist as those are not synchronized to the store.
-	// That means that there will be no entries for those resources in the database,
-	// and they would always be considered pending.
-	resources := lo.Filter(r, func(item unstructured.Unstructured, index int) bool {
-		return !smcommon.GroupBlacklist.Has(item.GroupVersionKind().Group)
-	})
-
+func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
 	if len(resources) == 0 {
-		return false, false, nil // Empty list is considered healthy
+		return false, false, nil
 	}
 
 	conn, err := in.pool.Take(context.Background())
@@ -155,8 +148,7 @@ func (in *DatabaseStore) GetResourceHealth(r []unstructured.Unstructured) (hasPe
 			WHEN COUNT(*) = 0 THEN 0
 			WHEN COUNT(CASE WHEN health = 2 THEN 1 END) > 0 THEN 1
 			ELSE 0
-		END as has_failed_resources,
-		COUNT(*) as resource_count
+		END as has_failed_resources
 		FROM component 
 		WHERE applied = 1 AND ("group", version, kind, namespace, name) IN (
 	`)
@@ -180,22 +172,18 @@ func (in *DatabaseStore) GetResourceHealth(r []unstructured.Unstructured) (hasPe
 	sb.WriteString(strings.Join(valueStrings, ","))
 	sb.WriteString(")")
 
-	var resourceCount int
 	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
 		Args: args,
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			hasPendingResources = stmt.ColumnBool(0)
 			hasFailedResources = stmt.ColumnBool(1)
-			resourceCount = stmt.ColumnInt(2)
 			return nil
 		},
 	})
-
 	if err != nil {
 		return false, false, fmt.Errorf("failed to check resource health: %w", err)
 	}
 
-	hasPendingResources = hasPendingResources || resourceCount != len(resources)
 	return hasPendingResources, hasFailedResources, nil
 }
 
@@ -312,7 +300,6 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 		  kind,
 		  namespace,
 		  name,
-		  health,
 		  node,
 		  created_at,
 		  service_id,
@@ -378,7 +365,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 				applied,
 			))
 		} else {
-			valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s','%s')",
+			valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s', '%s', %d, '%s','%s','%s')",
 				obj.GetUID(),
 				lo.FromPtr(ownerRef),
 				gvk.Group,
@@ -386,7 +373,6 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 				gvk.Kind,
 				obj.GetNamespace(),
 				obj.GetName(),
-				int(state),
 				nodeName,
 				obj.GetCreationTimestamp().Unix(),
 				serviceID,
@@ -404,14 +390,16 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 	  uid = excluded.uid,
 	  parent_uid = excluded.parent_uid,
-	  health = excluded.health,
 	  node = excluded.node,
 	  created_at = excluded.created_at,
 	  service_id = excluded.service_id,
       delete_phase = excluded.delete_phase,
-	  server_sha = excluded.server_sha,
-      applied = excluded.applied
+	  server_sha = excluded.server_sha
 	`)
+
+	if applied != nil {
+		sb.WriteString(`, health = excluded.health, applied = excluded.applied`)
+	}
 
 	in.maybeSaveHookComponents(conn, objects)
 
