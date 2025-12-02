@@ -178,6 +178,7 @@ const (
 		)
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM descendants
+		WHERE uid != ?
 		LIMIT 100
 	`
 

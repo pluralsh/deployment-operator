@@ -681,7 +681,7 @@ func (in *DatabaseStore) GetComponentChildren(uid string) (result []client.Compo
 	defer in.pool.Put(conn)
 
 	err = sqlitex.ExecuteTransient(conn, componentChildren, &sqlitex.ExecOptions{
-		Args: []interface{}{uid},
+		Args: []interface{}{uid, uid},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, client.ComponentChildAttributes{
 				UID:       stmt.ColumnText(0),

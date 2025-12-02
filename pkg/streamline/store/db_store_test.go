@@ -26,7 +26,6 @@ const (
 	testVersion   = "v1"
 	testName      = "test-component"
 	testChildUID  = "child-uid"
-	testNode      = "test-node"
 )
 
 func createComponent(uid string, option ...CreateComponentOption) unstructured.Unstructured {
