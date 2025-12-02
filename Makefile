@@ -137,7 +137,7 @@ agent-harness-gemini-run: docker-build-agent-harness-gemini ## run agent harness
 		-e PLRL_GEMINI_MODEL=$(PLRL_GEMINI_MODEL) \
 		-e PLRL_GEMINI_API_KEY=$(PLRL_GEMINI_API_KEY) \
 		--rm -it \
-		ghcr.io/pluralsh/agent-harness-gemini --v=3
+		ghcr.io/pluralsh/agent-harness-gemini --v=4
 
 .PHONY: agent-mcpserver-run
 agent-mcpserver-run: agent-mcpserver ## run mcp server locally

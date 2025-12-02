@@ -94,6 +94,8 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	}
 
 	err := in.executable.RunStream(ctx, func(line []byte) {
+		klog.V(log.LogLevelDebug).InfoS("Gemini stream event", "line", string(line))
+
 		event := &StreamEvent{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.ErrorS(err, "failed to unmarshal Gemini stream event", "line", string(line))
