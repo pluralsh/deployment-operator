@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/google-gemini/gemini-cli/refs/heads/main/schemas/settings.schema.json",
+  "base": {
+    "modelConfig": {
+      "generateContentConfig": {
+        "temperature": 0.1
+      }
+    }
+  },
+  "model": {
+    "name": "{{ .Model }}"
+  },
+  "mcpServers": {
+    "plural": {
+      "command": "mcpserver",
+      "env": {
+        "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
+        "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
+        "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}"
+      }
+    }
+  },
+  "includeDirectories": [
+    "{{ .RepositoryDir }}"
+  ],
+  "privacy": {
+    "usageStatisticsEnabled": false
+  }
+}
