@@ -169,10 +169,17 @@ func mapClaudeContentToAgentMessage(event *StreamEvent) *console.AgentMessageAtt
 
 		switch c.Type {
 		case "tool_use":
+			output := ""
+			if c.Input != nil {
+				if inputJSON, err := json.Marshal(c.Input); err == nil {
+					output = string(inputJSON)
+				}
+			}
 			msg.Metadata = &console.AgentMessageMetadataAttributes{
 				Tool: &console.AgentMessageToolAttributes{
-					Name:  lo.ToPtr(c.Name),
-					State: lo.ToPtr(console.AgentMessageToolStateRunning),
+					Name:   lo.ToPtr(c.Name),
+					State:  lo.ToPtr(console.AgentMessageToolStateRunning),
+					Output: lo.ToPtr(output),
 				},
 			}
 			builder.WriteString("Called tool")
