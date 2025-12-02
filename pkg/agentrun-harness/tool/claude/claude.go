@@ -15,6 +15,7 @@ import (
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 )
 
@@ -38,16 +39,19 @@ func New(config v1.Config) v1.Tool {
 }
 
 func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
+	promptFile := path.Join(in.dir, ".claude", "prompts", "analysis.md")
 	agent := analysisAgent
 	if in.run.Mode == console.AgentRunModeWrite {
 		agent = autonomousAgent
+		promptFile = path.Join(in.dir, ".claude", "prompts", "autonomous.md")
 	}
+	args := []string{"--add-dir", in.repositoryDir, "--agents", agent, "--system-prompt-file", promptFile, "--model", string(DefaultModel()), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}
 
 	in.executable = exec.NewExecutable(
 		"claude",
 		append(
 			options,
-			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "--agents", agent, "--model", string(DefaultModel()), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
+			exec.WithArgs(args),
 			exec.WithDir(in.dir),
 			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
 			exec.WithTimeout(15*time.Minute),
@@ -67,7 +71,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 			return
 		}
 
-		if event.Type == "assistant" && event.Message != nil {
+		if event.Message != nil {
 			msg := mapClaudeContentToAgentMessage(event)
 			if in.onMessage != nil && msg != nil {
 				in.onMessage(msg)
@@ -110,7 +114,8 @@ func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error 
 			"Bash(cat:*)",
 			"Bash(grep:*)",
 			"Bash(find:*)",
-			"WebFetch").
+			"WebFetch",
+			"mcp__plural__updateAgentRunAnalysis").
 			DenyTools("Edit", "Write", "Bash(rm:*)", "Bash(sudo:*)")
 	} else {
 		settings.AllowTools(
@@ -161,11 +166,22 @@ func mapClaudeContentToAgentMessage(event *StreamEvent) *console.AgentMessageAtt
 	var builder strings.Builder
 	for _, c := range event.Message.Content {
 		klog.V(log.LogLevelExtended).InfoS("claude content", "type", c.Type, "text", c.Text)
-		if c.Type == "text" {
+
+		switch c.Type {
+		case "tool_use":
+			msg.Metadata = &console.AgentMessageMetadataAttributes{
+				Tool: &console.AgentMessageToolAttributes{
+					Name:  lo.ToPtr(c.Name),
+					State: lo.ToPtr(console.AgentMessageToolStateRunning),
+				},
+			}
+			builder.WriteString("Called tool")
+		case "text":
 			builder.WriteString(c.Text)
 		}
 	}
 	msg.Message = builder.String()
+
 	// Empty messages are not valid
 	if len(msg.Message) == 0 {
 		return nil

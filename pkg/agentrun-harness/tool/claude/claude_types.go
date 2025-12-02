@@ -88,8 +88,18 @@ type MessageEvent struct {
 }
 
 type ContentMsg struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
+	Type string `json:"type"` // "text", "tool_use", "tool_result"
+	Text string `json:"text,omitempty"`
+
+	// Fields for tool_use
+	ID    string                 `json:"id,omitempty"`    // Unique tool invocation ID
+	Name  string                 `json:"name,omitempty"`  // Tool name (e.g., "web_search")
+	Input map[string]interface{} `json:"input,omitempty"` // Tool input parameters
+
+	// Fields for tool_result
+	ToolUseID string      `json:"tool_use_id,omitempty"` // References the tool_use ID
+	Content   interface{} `json:"content,omitempty"`     // Tool output (can be string or structured)
+	IsError   bool        `json:"is_error,omitempty"`    // Whether tool execution failed
 }
 
 type Usage struct {
