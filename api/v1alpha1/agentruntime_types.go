@@ -87,14 +87,19 @@ func (in *AgentRuntimeConfig) ToAgentRuntimeConfigRaw(secretGetter func(corev1.S
 		return nil, err
 	}
 
+	claude, err := in.Claude.ToClaudeConfigRaw(secretGetter)
+	if err != nil {
+		return nil, err
+	}
+
 	gemini, err := in.Gemini.Raw(secretGetter)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AgentRuntimeConfigRaw{
-		Claude:   nil,
 		Gemini:   gemini,
+		Claude:   claude,
 		OpenCode: openCode,
 	}, nil
 }
@@ -144,6 +149,32 @@ type ClaudeConfigRaw struct {
 
 	// ExtraArgs CLI args for advanced flags not modeled here
 	ExtraArgs []string `json:"extraArgs,omitempty"`
+}
+
+func (in *ClaudeConfig) ToClaudeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*ClaudeConfigRaw, error) {
+	if in == nil {
+		return nil, nil
+	}
+
+	if in.ApiKeySecretRef == nil {
+		return nil, nil
+	}
+
+	tokenSecret, err := secretGetter(*in.ApiKeySecretRef)
+	if err != nil {
+		return nil, err
+	}
+
+	token, exists := tokenSecret.Data[in.ApiKeySecretRef.Key]
+	if !exists {
+		return nil, fmt.Errorf("token secret does not contain key %s", in.ApiKeySecretRef.Key)
+	}
+
+	return &ClaudeConfigRaw{
+		ApiKey:    string(token),
+		Model:     in.Model,
+		ExtraArgs: in.ExtraArgs,
+	}, nil
 }
 
 // OpenCodeConfig contains configuration for the OpenCode CLI runtime.

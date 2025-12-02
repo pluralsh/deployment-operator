@@ -5,6 +5,7 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/gemini"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/claude"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/opencode"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 )
@@ -15,6 +16,8 @@ func New(runtimeType console.AgentRuntimeType, config v1.Config) (v1.Tool, error
 	switch runtimeType {
 	case console.AgentRuntimeTypeOpencode:
 		return opencode.New(config), nil
+	case console.AgentRuntimeTypeClaude:
+		return claude.New(config), nil
 	case console.AgentRuntimeTypeGemini:
 		return gemini.New(config), nil
 	default:
