@@ -38,11 +38,16 @@ func New(config v1.Config) v1.Tool {
 }
 
 func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
+	agent := analysisAgent
+	if in.run.Mode == console.AgentRunModeWrite {
+		agent = autonomousAgent
+	}
+
 	in.executable = exec.NewExecutable(
 		"claude",
 		append(
 			options,
-			exec.WithArgs([]string{"--model", string(DefaultModel()), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
+			exec.WithArgs([]string{"--add-dir", in.repositoryDir, "--agents", agent, "--model", string(DefaultModel()), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}),
 			exec.WithDir(in.dir),
 			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
 			exec.WithTimeout(15*time.Minute),
