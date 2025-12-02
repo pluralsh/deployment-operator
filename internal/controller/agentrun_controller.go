@@ -38,8 +38,8 @@ const (
 	EnvOpenCodeModel    = "PLRL_OPENCODE_MODEL"
 	EnvOpenCodeToken    = "PLRL_OPENCODE_TOKEN"
 
-	EnvGeminiModel  = "PLRL_OPENCODE_MODEL"
-	EnvGeminiAPIKey = "PLRL_OPENCODE_API_KEY"
+	EnvGeminiModel  = "PLRL_GEMINI_MODEL"
+	EnvGeminiAPIKey = "PLRL_GEMINI_API_KEY"
 )
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.

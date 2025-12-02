@@ -113,6 +113,17 @@ agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent har
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-opencode --v=3
 
+.PHONY: agent-harness-gemini-run
+agent-harness-gemini-run: docker-build-agent-harness-gemini ## run agent harness w/ gemini
+	docker run \
+		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
+		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
+		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		-e PLRL_GEMINI_MODEL=$(PLRL_GEMINI_MODEL) \
+		-e PLRL_GEMINI_API_KEY=$(PLRL_GEMINI_API_KEY) \
+		--rm -it \
+		ghcr.io/pluralsh/agent-harness-gemini --v=3
+
 .PHONY: agent-mcpserver-run
 agent-mcpserver-run: agent-mcpserver ## run mcp server locally
 	PLRL_CONSOLE_TOKEN=${PLRL_CONSOLE_TOKEN} \
