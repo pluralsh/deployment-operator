@@ -11,6 +11,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	agentrun "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/gemini/events"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -76,30 +77,18 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	}
 
 	err := in.executable.RunStream(ctx, func(line []byte) {
-		klog.V(log.LogLevelDebug).InfoS("Gemini stream event", "line", string(line))
+		klog.V(log.LogLevelTrace).InfoS("Gemini stream event", "line", string(line))
 
-		event := &BaseJsonStreamEvent{}
+		event := &events.EventBase{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.ErrorS(err, "failed to unmarshal Gemini stream event", "line", string(line))
 			in.errorChan <- err
 			return
 		}
 
-		// TODO: Handle all required types.
-		switch event.Type {
-		case EventTypeMessage:
-			message := &MessageEvent{}
-			if err := json.Unmarshal(line, message); err != nil {
-				klog.ErrorS(err, "failed to unmarshal Gemini message event", "line", string(line))
-				in.errorChan <- err
-				return
-			}
-
-			if in.onMessage != nil && message.IsValid() {
-				in.onMessage(message.Attributes())
-			}
-		default:
-			klog.V(log.LogLevelDebug).InfoS("ignoring Gemini event", "type", event.Type, "line", string(line))
+		if err := event.OnMessage(line, in.onMessage); err != nil {
+			klog.ErrorS(err, "failed to process Gemini stream event", "line", string(line))
+			in.errorChan <- err
 		}
 	})
 	if err != nil {
