@@ -1,6 +1,6 @@
 package events
 
-const IgnoreMessage = "__plrl_ignore__"
+const IgnoreMessage = "__plrl_ignore__" // TODO
 
 type Status string
 
