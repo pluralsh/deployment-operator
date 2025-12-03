@@ -12,6 +12,8 @@ const (
 	ModelGemini25Pro       Model = "gemini-2.5-pro"
 	ModelGemini25Flash     Model = "gemini-2.5-flash"
 	ModelGemini25FlashLite Model = "gemini-2.5-flash-lite"
+	ModelGemini20Flash     Model = "gemini-2.0-flash"
+	ModelGemini20FlashLite Model = "gemini-2.0-flash-lite"
 )
 
 func DefaultModel() Model {
