@@ -31,7 +31,7 @@ type Gemini struct {
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
 
-	// executable is the claude executable used to call CLI.
+	// executable is the Gemini executable used to call CLI.
 	executable exec.Executable
 
 	// apiKey used to authenticate with the API.
@@ -103,11 +103,11 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 		}
 	})
 	if err != nil {
-		klog.ErrorS(err, "claude execution failed")
+		klog.ErrorS(err, "Gemini execution failed")
 		in.errorChan <- err
 		return
 	}
-	klog.V(log.LogLevelExtended).InfoS("claude execution finished")
+	klog.V(log.LogLevelExtended).InfoS("Gemini execution finished")
 	close(in.finishedChan)
 }
 
