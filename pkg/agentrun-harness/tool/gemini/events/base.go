@@ -35,7 +35,7 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 
 	switch e.Type {
 	case EventTypeInit:
-		return nil // TODO
+		// Ignored as there is no special handling needed for init events currently.
 	case EventTypeMessage:
 		message := &MessageEvent{}
 		if err := json.Unmarshal(line, message); err != nil {
@@ -47,17 +47,17 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 		}
 
 		onMessage(message.Attributes())
-		return nil
 	case EventTypeToolUse:
-		return nil // TODO
+		// TODO
 	case EventTypeToolResult:
-		return nil // TODO
+		// TODO
 	case EventTypeError:
-		return nil // TODO
+		// TODO
 	case EventTypeResult:
-		return nil // TODO
+		// TODO
 	default:
 		klog.V(log.LogLevelDebug).InfoS("ignoring Gemini event", "type", e.Type, "line", string(line))
-		return nil
 	}
+
+	return nil
 }
