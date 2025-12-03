@@ -23,13 +23,13 @@ FROM $AGENT_HARNESS_BASE_IMAGE AS final
 
 # Copy the Gemini CLI from the Node.js image
 COPY --from=node /usr/local/share/.config/yarn/global /usr/local/share/.config/yarn/global
-COPY --from=node /usr/local/bin/gemini /usr/local/bin/gemini
 
 # Copy Node.js runtime (needed to run the CLI)
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 
 # Ensure proper ownership for nonroot user
 USER root
+RUN ln -s /usr/local/share/.config/yarn/global/node_modules/@google/gemini-cli/dist/index.js /usr/local/bin/gemini
 RUN chown -R 65532:65532 /usr/local/share/.config/yarn/global /usr/local/bin/gemini /usr/local/bin/node
 
 # Switch back to nonroot user
