@@ -1,5 +1,7 @@
 package events
 
+const IgnoreMessage = "__plrl_ignore__"
+
 type Status string
 
 const (
