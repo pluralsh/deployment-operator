@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
-	"strings"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -15,7 +14,6 @@ import (
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 )
 
@@ -52,22 +50,6 @@ type Gemini struct {
 	startedChan chan struct{}
 }
 
-func (in *Gemini) ensure() error {
-	if len(in.dir) == 0 {
-		return fmt.Errorf("work directory is not set")
-	}
-
-	if len(in.repositoryDir) == 0 {
-		return fmt.Errorf("repository directory is not set")
-	}
-
-	if in.run == nil {
-		return fmt.Errorf("agent run is not set")
-	}
-
-	return nil
-}
-
 func (in *Gemini) settingsPath() string {
 	return path.Join(in.dir, ".gemini", SettingsFileName)
 }
@@ -96,18 +78,28 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	err := in.executable.RunStream(ctx, func(line []byte) {
 		klog.V(log.LogLevelDebug).InfoS("Gemini stream event", "line", string(line))
 
-		event := &StreamEvent{}
+		event := &BaseJsonStreamEvent{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.ErrorS(err, "failed to unmarshal Gemini stream event", "line", string(line))
 			in.errorChan <- err
 			return
 		}
 
-		if event.Type == "assistant" && event.Content != nil {
-			msg := mapClaudeContentToAgentMessage(event)
-			if in.onMessage != nil && msg != nil {
-				in.onMessage(msg)
+		// TODO: Handle all required types.
+		switch event.Type {
+		case EventTypeMessage:
+			message := &MessageEvent{}
+			if err := json.Unmarshal(line, message); err != nil {
+				klog.ErrorS(err, "failed to unmarshal Gemini message event", "line", string(line))
+				in.errorChan <- err
+				return
 			}
+
+			if in.onMessage != nil && message.IsValid() {
+				in.onMessage(message.Attributes())
+			}
+		default:
+			klog.V(log.LogLevelDebug).InfoS("ignoring Gemini event", "type", event.Type, "line", string(line))
 		}
 	})
 	if err != nil {
@@ -149,7 +141,19 @@ func (in *Gemini) OnMessage(f func(message *console.AgentMessageAttributes)) {
 }
 
 func New(config v1.Config) v1.Tool {
-	result := &Gemini{
+	if len(config.WorkDir) == 0 {
+		klog.Fatalln("working directory is not set")
+	}
+
+	if len(config.RepositoryDir) == 0 {
+		klog.Fatalln("repository directory is not set")
+	}
+
+	if config.Run == nil {
+		klog.Fatalln("agent run is not set")
+	}
+
+	return &Gemini{
 		dir:           config.WorkDir,
 		repositoryDir: config.RepositoryDir,
 		run:           config.Run,
@@ -158,60 +162,5 @@ func New(config v1.Config) v1.Tool {
 		finishedChan:  config.FinishedChan,
 		errorChan:     config.ErrorChan,
 		startedChan:   make(chan struct{}),
-	}
-
-	if err := result.ensure(); err != nil {
-		klog.Fatalf("failed to initialize Gemini tool: %v", err)
-	}
-
-	return result
-}
-
-func mapClaudeContentToAgentMessage(event *StreamEvent) *console.AgentMessageAttributes {
-	klog.V(log.LogLevelExtended).InfoS("Gemini event", "type", event.Type, "content", event.Content)
-
-	msg := &console.AgentMessageAttributes{
-		Role:    mapRole(event),
-		Message: lo.FromPtr(event.Content),
-	}
-
-	// TODO
-
-	// Empty messages are not valid.
-	if len(msg.Message) > 0 {
-		return nil
-	}
-
-	if event.Stats != nil {
-		total := float64(event.Stats.TotalTokens)
-		input := float64(event.Stats.InputTokens)
-		output := float64(event.Stats.OutputTokens)
-
-		msg.Cost = &console.AgentMessageCostAttributes{
-			Total: total,
-			Tokens: &console.AgentMessageTokensAttributes{
-				Input:  &input,
-				Output: &output,
-			},
-		}
-	}
-
-	return msg
-}
-
-func mapRole(event *StreamEvent) console.AiRole {
-	if event == nil {
-		return console.AiRoleUser // TODO
-	}
-
-	switch strings.ToLower(*event.Role) {
-	case "assistant":
-		return console.AiRoleAssistant
-	case "system":
-		return console.AiRoleSystem // TODO: Verify.
-	case "user":
-		return console.AiRoleUser
-	default:
-		return console.AiRoleUser // TODO: System?
 	}
 }

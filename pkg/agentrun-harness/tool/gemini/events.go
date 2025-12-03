@@ -1,11 +1,37 @@
 package gemini
 
-import "time"
+import (
+	"time"
+
+	console "github.com/pluralsh/console/go/client"
+)
 
 // Types defined in this file reflect ones defined in:
 // https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/output/types.ts
 
+type EventType string
+
+const (
+	EventTypeInit       EventType = "init"
+	EventTypeMessage    EventType = "message"
+	EventTypeToolUse    EventType = "tool_use"
+	EventTypeToolResult EventType = "tool_result"
+	EventTypeError      EventType = "error"
+	EventTypeResult     EventType = "result"
+)
+
 type Role string
+
+func (r Role) Attributes() console.AiRole {
+	switch r {
+	case RoleAssistant:
+		return console.AiRoleAssistant
+	case RoleUser:
+		return console.AiRoleUser
+	default:
+		return console.AiRoleSystem
+	}
+}
 
 const (
 	RoleUser      Role = "user"
@@ -32,7 +58,7 @@ type Error struct {
 }
 
 type BaseJsonStreamEvent struct {
-	Type      string    `json:"type"`
+	Type      EventType `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
@@ -47,6 +73,17 @@ type MessageEvent struct {
 	Role    Role   `json:"role"`
 	Content string `json:"content"`
 	Delta   *bool  `json:"delta,omitempty"`
+}
+
+func (e *MessageEvent) IsValid() bool {
+	return e.Type == EventTypeMessage && e.Content != ""
+}
+
+func (e *MessageEvent) Attributes() *console.AgentMessageAttributes {
+	return &console.AgentMessageAttributes{
+		Message: e.Content,
+		Role:    e.Role.Attributes(),
+	}
 }
 
 type ToolUseEvent struct {
