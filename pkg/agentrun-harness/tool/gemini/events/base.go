@@ -54,7 +54,16 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 	case EventTypeError:
 		// TODO
 	case EventTypeResult:
-		// TODO
+		result := &ResultEvent{}
+		if err := json.Unmarshal(line, result); err != nil {
+			return fmt.Errorf("failed to unmarshal Gemini result event: %w", err)
+		}
+
+		if !result.IsValid() {
+			klog.V(log.LogLevelDebug).InfoS("ignoring invalid Gemini result", "result", result)
+		}
+
+		onMessage(result.Attributes())
 	default:
 		klog.V(log.LogLevelDebug).InfoS("ignoring Gemini event", "type", e.Type, "line", string(line))
 	}
