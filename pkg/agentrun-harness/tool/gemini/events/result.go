@@ -40,7 +40,8 @@ func (e *ResultEvent) IsValid() bool {
 
 func (e *ResultEvent) Attributes() *console.AgentMessageAttributes {
 	return &console.AgentMessageAttributes{
-		Role: console.AiRoleSystem,
-		Cost: e.Stats.Attributes(),
+		Message: "End of conversation.", // TODO: API does not allow blank messages.
+		Role:    console.AiRoleSystem,
+		Cost:    e.Stats.Attributes(),
 	}
 }
