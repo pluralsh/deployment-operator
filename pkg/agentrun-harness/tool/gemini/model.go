@@ -24,6 +24,10 @@ func DefaultModel() Model {
 		return ModelGemini25Flash
 	case string(ModelGemini25FlashLite):
 		return ModelGemini25FlashLite
+	case string(ModelGemini20Flash):
+		return ModelGemini20Flash
+	case string(ModelGemini20FlashLite):
+		return ModelGemini20FlashLite
 	default:
 		return ModelGemini25Pro
 	}
