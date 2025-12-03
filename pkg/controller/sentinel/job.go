@@ -327,7 +327,7 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 
 	return &corev1.SecurityContext{
 		AllowPrivilegeEscalation: lo.ToPtr(false),
-		ReadOnlyRootFilesystem:   lo.ToPtr(true),
+		ReadOnlyRootFilesystem:   lo.ToPtr(false),
 		RunAsNonRoot:             lo.ToPtr(true),
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
