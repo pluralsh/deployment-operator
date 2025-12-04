@@ -46,7 +46,7 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 			klog.V(log.LogLevelDebug).InfoS("ignoring invalid message", "message", message)
 		}
 
-		onMessage(message.Attributes())
+		message.Append()
 	case EventTypeToolUse:
 		toolUse := &ToolUseEvent{}
 		if err := json.Unmarshal(line, toolUse); err != nil {

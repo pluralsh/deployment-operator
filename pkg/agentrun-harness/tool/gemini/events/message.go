@@ -1,8 +1,12 @@
 package events
 
 import (
+	"strings"
+
 	console "github.com/pluralsh/console/go/client"
 )
+
+var messageBuilder strings.Builder
 
 type Role string
 
@@ -33,9 +37,8 @@ func (e *MessageEvent) IsValid() bool {
 	return e.Type == EventTypeMessage && e.Content != ""
 }
 
-func (e *MessageEvent) Attributes() *console.AgentMessageAttributes {
-	return &console.AgentMessageAttributes{
-		Message: e.Content,
-		Role:    e.Role.Attributes(),
+func (e *MessageEvent) Append() {
+	if e.Delta != nil && *e.Delta {
+		messageBuilder.WriteString(e.Content)
 	}
 }

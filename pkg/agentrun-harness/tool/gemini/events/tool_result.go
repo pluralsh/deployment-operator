@@ -37,8 +37,8 @@ func (e *ToolResultEvent) IsValid() bool {
 
 func (e *ToolResultEvent) Attributes() *console.AgentMessageAttributes {
 	attrs := &console.AgentMessageAttributes{
-		Message: IgnoreMessage,
-		Role:    console.AiRoleSystem,
+		Message: messageBuilder.String(),
+		Role:    console.AiRoleAssistant,
 		Metadata: &console.AgentMessageMetadataAttributes{
 			Tool: &console.AgentMessageToolAttributes{
 				Name:   lo.ToPtr(e.ToolID),
