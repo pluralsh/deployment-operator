@@ -122,11 +122,12 @@ func (in *Gemini) contextFileName() string {
 
 func (in *Gemini) Configure(consoleURL, consoleToken, _ string) error {
 	input := &ConfigTemplateInput{
+		ContextFileName: in.contextFileName(),
 		ConsoleURL:      consoleURL,
 		ConsoleToken:    consoleToken,
 		RepositoryDir:   in.repositoryDir,
 		AgentRunID:      in.run.ID,
-		ContextFileName: in.contextFileName(),
+		AgentRunMode:    in.run.Mode,
 	}
 
 	if in.run.Runtime.Type == console.AgentRuntimeTypeGemini {

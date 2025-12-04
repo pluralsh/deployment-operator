@@ -4,6 +4,8 @@ import (
 	_ "embed"
 	"strings"
 	"text/template"
+
+	console "github.com/pluralsh/console/go/client"
 )
 
 //go:embed templates/settings.json.gotmpl
@@ -18,6 +20,7 @@ type ConfigTemplateInput struct {
 	ConsoleURL      string
 	ConsoleToken    string
 	AgentRunID      string
+	AgentRunMode    console.AgentRunMode
 }
 
 func settings(input *ConfigTemplateInput) (fileName, content string, err error) {
