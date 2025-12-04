@@ -10,6 +10,44 @@
   "context": {
     "fileName": "{{ .ContextFileName }}"
   },
+  "coreTools": {{ if eq .AgentRunMode "WRITE" }}[
+    "ReadFileTool",
+    "ReadManyFilesTool",
+    "WriteFileTool",
+    "EditTool",
+    "GlobTool",
+    "LSTool",
+    "GrepTool",
+    "RunShellCommand",
+    "ShellTool",
+    "WebSearchTool",
+    "WebFetchTool",
+    "MemoryTool",
+    "TodoTool"
+  ]{{ else }}[
+    "ReadFileTool",
+    "ReadManyFilesTool",
+    "GlobTool",
+    "LSTool",
+    "GrepTool",
+    "ShellTool(ls)",
+    "ShellTool(cd)",
+    "ShellTool(pwd)",
+    "ShellTool(git status)",
+    "ShellTool(git diff)",
+    "ShellTool(head)",
+    "ShellTool(tail)",
+    "ShellTool(cat)",
+    "ShellTool(grep)",
+    "ShellTool(find)",
+    "WebSearchTool",
+    "MemoryTool",
+    "TodoTool"
+  ]{{ end }},
+  "excludeTools": [
+    "ShellTool(rm -rf)",
+    "ShellTool(npm publish)"
+  ],
   "includeDirectories": [
     "/plural/contexts",
     "{{ .RepositoryDir }}"
