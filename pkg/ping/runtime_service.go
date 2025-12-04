@@ -25,19 +25,13 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	controllerv1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 	internallog "github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/polly/containers"
 )
 
 const runtimeServicePingerName = "runtime service pinger"
 
-var uniqueComponents = containers.ToSet[string]([]string{
-	"cilium",
-	"contour",
-	"velero",
-	"calico",
-	"tigera-operator",
-	"gatekeeper",
-})
+var componentMappings = map[string]string{
+	"argocd": "argo-cd",
+}
 
 func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, duration time.Duration) {
 	klog.Info("starting ", runtimeServicePingerName)
@@ -64,10 +58,10 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 	runtimeServices := make(map[string]client.NamespaceVersion, 100)
 	hasEBPFDaemonSet := false
 
-	components := uniqueComponents.List()
+	components := p.supportedAddons.List()
 	klog.V(internallog.LogLevelDebug).Info("aggregating from deployments")
 	for _, deployment := range p.deployments(ctx) {
-		AddRuntimeServiceInfo(deployment.Namespace,
+		p.AddRuntimeServiceInfo(deployment.Namespace,
 			deployment.GetLabels(),
 			runtimeServices,
 			p.heuristicVersionSearch(deployment.Spec.Template.Spec, components),
@@ -76,7 +70,7 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 
 	klog.V(internallog.LogLevelDebug).Info("aggregating from statefulsets")
 	for _, ss := range p.statefulSets(ctx) {
-		AddRuntimeServiceInfo(ss.Namespace,
+		p.AddRuntimeServiceInfo(ss.Namespace,
 			ss.GetLabels(),
 			runtimeServices,
 			p.heuristicVersionSearch(ss.Spec.Template.Spec, components),
@@ -85,7 +79,7 @@ func (p *Pinger) PingRuntimeServices(ctx context.Context) {
 
 	klog.V(internallog.LogLevelDebug).Info("aggregating from daemonsets")
 	for _, ds := range p.daemonSets(ctx) {
-		AddRuntimeServiceInfo(ds.Namespace,
+		p.AddRuntimeServiceInfo(ds.Namespace,
 			ds.GetLabels(),
 			runtimeServices,
 			p.heuristicVersionSearch(ds.Spec.Template.Spec, components),
@@ -116,10 +110,10 @@ func (p *Pinger) daemonSets(ctx context.Context) []appsv1.DaemonSet {
 	return lo.Ternary(daemonSets == nil, []appsv1.DaemonSet{}, daemonSets.Items)
 }
 
-type HeuristicVersionSearch func() string
+type HeuristicVersionSearch func([]string) string
 
 func (p *Pinger) heuristicVersionSearch(spec v1.PodSpec, components []string) HeuristicVersionSearch {
-	return func() string {
+	return func(components []string) string {
 		// This can be extended to add more heuristics in the future
 		// For now, we only have one heuristic that goes through pod spec.
 		return p.podSpecHeuristicVersionSearch(spec, components)
@@ -163,7 +157,7 @@ func (p *Pinger) extractVersionFromImage(image, service string) string {
 	return ""
 }
 
-func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]client.NamespaceVersion, heuristicVersionSearch HeuristicVersionSearch) {
+func (p *Pinger) AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[string]client.NamespaceVersion, heuristicVersionSearch HeuristicVersionSearch) {
 	if labels == nil {
 		return
 	}
@@ -173,13 +167,17 @@ func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[s
 	partOfName := ""
 
 	// Get service name from labels
-	if name := labels["app.kubernetes.io/name"]; len(name) > 0 {
+	if name := labels["app.kubernetes.io/name"]; len(name) > 0 && p.supportedAddons.Has(name) {
 		serviceName = name
-	} else if name = labels["app.kubernetes.io/part-of"]; len(name) > 0 {
+	} else if name = labels["app.kubernetes.io/instance"]; len(name) > 0 && p.supportedAddons.Has(name) {
 		serviceName = name
-	} else if name = labels["app"]; len(name) > 0 && uniqueComponents.Has(name) {
+	} else if name = labels["app.kubernetes.io/part-of"]; len(name) > 0 && p.supportedAddons.Has(name) {
 		serviceName = name
-	} else if name = labels["component"]; len(name) > 0 && uniqueComponents.Has(name) {
+	} else if name = labels["app"]; len(name) > 0 && p.supportedAddons.Has(name) {
+		serviceName = name
+	} else if name = labels["component"]; len(name) > 0 && p.supportedAddons.Has(name) {
+		serviceName = name
+	} else if name = labels["k8s-app"]; len(name) > 0 && p.supportedAddons.Has(name) {
 		serviceName = name
 	}
 
@@ -193,8 +191,14 @@ func AddRuntimeServiceInfo(namespace string, labels map[string]string, acc map[s
 		return
 	}
 
+	components := []string{serviceName}
+	if component, ok := componentMappings[serviceName]; ok {
+		components = append(components, component)
+		serviceName = component
+	}
+
 	if len(vsn) == 0 && len(serviceName) > 0 {
-		vsn = heuristicVersionSearch()
+		vsn = heuristicVersionSearch(components)
 		if len(vsn) > 0 {
 			addServiceEntry(serviceName, vsn, namespace, partOfName, acc)
 			return
