@@ -30,16 +30,13 @@ type ErrorEvent struct {
 	Message  string   `json:"message"`
 }
 
-func (e *ErrorEvent) String() Role {
-	return RoleUser
-}
-
 func (e *ErrorEvent) IsValid() bool {
 	return e.Type == EventTypeError && e.Message != ""
 }
 
 func (e *ErrorEvent) Attributes() *console.AgentMessageAttributes {
 	return &console.AgentMessageAttributes{
+		Role:    console.AiRoleSystem,
 		Message: fmt.Sprintf("%s: %s", e.Severity.String(), e.Message),
 	}
 }
