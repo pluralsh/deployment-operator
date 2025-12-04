@@ -32,7 +32,7 @@ type ToolResultEvent struct {
 }
 
 func (e *ToolResultEvent) IsValid() bool {
-	return e.Type == EventTypeMessage && e.ToolID != ""
+	return e.Type == EventTypeToolResult && e.ToolID != ""
 }
 
 func (e *ToolResultEvent) Attributes() *console.AgentMessageAttributes {

@@ -2,11 +2,12 @@ package events
 
 import (
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 )
 
-var toolUseCache = cmap.ConcurrentMap[string, ToolUseEvent]{}
+var toolUseCache = cmap.New[ToolUseEvent]()
 
 type ToolUseEvent struct {
 	EventBase
@@ -21,5 +22,5 @@ func (e *ToolUseEvent) IsValid() bool {
 
 func (e *ToolUseEvent) Save() {
 	toolUseCache.Set(e.ToolID, lo.FromPtr(e))
-	klog.Infof("saved tool use in the cache: %s", e.ToolName)
+	klog.V(log.LogLevelDebug).Infof("saved tool use in the cache: %s", e.ToolName)
 }
