@@ -27,6 +27,13 @@ func (s *StreamStats) Attributes() *console.AgentMessageCostAttributes {
 	}
 }
 
+type Status string
+
+const (
+	StatusSuccess Status = "success"
+	StatusError   Status = "error"
+)
+
 type ResultEvent struct {
 	EventBase
 	Status Status       `json:"status"`

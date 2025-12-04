@@ -1,13 +1,6 @@
 package events
 
-const IgnoreMessage = "__plrl_ignore__" // TODO
-
-type Status string
-
-const (
-	StatusSuccess Status = "success"
-	StatusError   Status = "error"
-)
+const IgnoreMessage = " " // Message cannot be blank.
 
 type Error struct {
 	Type    string `json:"type"`
