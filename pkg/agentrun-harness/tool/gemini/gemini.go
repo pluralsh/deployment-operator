@@ -18,6 +18,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	analyzeModeContextFileName = "ANALYZE.md"
+	writeModeContextFileName   = "WRITE.md"
+)
+
 // Gemini implements v1.Tool interface.
 type Gemini struct {
 	// dir is a working directory used to run Gemini.
@@ -100,12 +105,28 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	close(in.finishedChan)
 }
 
-func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error {
+func (in *Gemini) contextFileName() string {
+	if in.run == nil {
+		return analyzeModeContextFileName
+	}
+
+	switch in.run.Mode {
+	case console.AgentRunModeWrite:
+		return writeModeContextFileName
+	case console.AgentRunModeAnalyze:
+		return analyzeModeContextFileName
+	default:
+		return analyzeModeContextFileName
+	}
+}
+
+func (in *Gemini) Configure(consoleURL, consoleToken, _ string) error {
 	input := &ConfigTemplateInput{
-		ConsoleURL:    consoleURL,
-		ConsoleToken:  consoleToken,
-		AgentRunID:    in.run.ID,
-		RepositoryDir: in.repositoryDir,
+		ConsoleURL:      consoleURL,
+		ConsoleToken:    consoleToken,
+		RepositoryDir:   in.repositoryDir,
+		AgentRunID:      in.run.ID,
+		ContextFileName: in.contextFileName(),
 	}
 
 	if in.run.Runtime.Type == console.AgentRuntimeTypeGemini {

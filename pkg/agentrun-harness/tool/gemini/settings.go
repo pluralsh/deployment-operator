@@ -12,11 +12,12 @@ var settingsTemplate string
 const SettingsFileName = "settings.json"
 
 type ConfigTemplateInput struct {
-	Model         Model
-	RepositoryDir string
-	ConsoleURL    string
-	ConsoleToken  string
-	AgentRunID    string
+	Model           Model
+	ContextFileName string
+	RepositoryDir   string
+	ConsoleURL      string
+	ConsoleToken    string
+	AgentRunID      string
 }
 
 func settings(input *ConfigTemplateInput) (fileName, content string, err error) {

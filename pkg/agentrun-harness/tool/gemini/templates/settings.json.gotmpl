@@ -7,6 +7,13 @@
       }
     }
   },
+  "context": {
+    "fileName": "{{ .ContextFileName }}"
+  }
+  "includeDirectories": [
+    "/plural/contexts",
+    "{{ .RepositoryDir }}"
+  ],
   "model": "{{ .Model }}",
   "mcpServers": {
     "plural": {
@@ -18,9 +25,6 @@
       }
     }
   },
-  "includeDirectories": [
-    "{{ .RepositoryDir }}"
-  ],
   "privacy": {
     "usageStatisticsEnabled": false
   }
