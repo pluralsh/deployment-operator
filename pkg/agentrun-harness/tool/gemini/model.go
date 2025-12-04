@@ -17,7 +17,7 @@ const (
 )
 
 func DefaultModel() Model {
-	switch helpers.GetEnv(controller.EnvOpenCodeModel, string(ModelGemini25Pro)) {
+	switch helpers.GetEnv(controller.EnvGeminiModel, string(ModelGemini25Pro)) {
 	case string(ModelGemini3ProPreview):
 		return ModelGemini3ProPreview
 	case string(ModelGemini25Flash):
