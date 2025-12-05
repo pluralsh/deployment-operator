@@ -94,4 +94,7 @@ type Store interface {
 
 	// SetServiceChildren sets the children of a service based on the provided parent UID and keys.
 	SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error)
+
+	// CheckpointWAL commits the WAL to disk.
+	CheckpointWAL() error
 }
