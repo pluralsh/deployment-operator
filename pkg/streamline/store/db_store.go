@@ -495,6 +495,43 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 	return in.SaveUnsyncedComponents(resourcesToSave)
 }
 
+//func (in *DatabaseStore) DeleteComponentsFromSlice(objects []unstructured.Unstructured) error {
+//	if len(objects) == 0 {
+//		return nil
+//	}
+//
+//	conn, err := in.pool.Take(context.Background())
+//	if err != nil {
+//		return err
+//	}
+//	defer in.pool.Put(conn)
+//
+//	var sb strings.Builder
+//	sb.WriteString(`DELETE FROM component WHERE ("group", version, kind, namespace, name) IN (`)
+//
+//	valueStrings := make([]string, 0, len(objects))
+//	args := make([]interface{}, 0, len(objects)*5)
+//
+//	for _, obj := range objects {
+//		gvk := obj.GroupVersionKind()
+//		valueStrings = append(valueStrings, "(?,?,?,?,?)")
+//		args = append(args,
+//			gvk.Group,
+//			gvk.Version,
+//			gvk.Kind,
+//			obj.GetNamespace(),
+//			obj.GetName(),
+//		)
+//	}
+//
+//	sb.WriteString(strings.Join(valueStrings, ","))
+//	sb.WriteString(")")
+//
+//	return sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
+//		Args: args,
+//	})
+//}
+
 func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error) {
 	if len(keys) == 0 {
 		return 0, nil
