@@ -61,9 +61,16 @@ func (p *ProfiledStore) SaveComponent(obj unstructured.Unstructured) error {
 }
 
 // SaveComponents wraps Store.SaveComponents with tracing.
-func (p *ProfiledStore) SaveComponents(obj []unstructured.Unstructured, applied *bool) error {
+func (p *ProfiledStore) SaveComponents(obj []unstructured.Unstructured) error {
 	return trace(context.Background(), "SaveComponents", func() error {
-		return p.inner.SaveComponents(obj, applied)
+		return p.inner.SaveComponents(obj)
+	})
+}
+
+// SaveUnsyncedComponents wraps Store.SaveUnsyncedComponents with tracing.
+func (p *ProfiledStore) SaveUnsyncedComponents(obj []unstructured.Unstructured) error {
+	return trace(context.Background(), "SaveUnsyncedComponents", func() error {
+		return p.inner.SaveUnsyncedComponents(obj)
 	})
 }
 

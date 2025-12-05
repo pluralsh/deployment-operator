@@ -1228,7 +1228,7 @@ func TestComponentCache_SaveComponents(t *testing.T) {
 		obj := newUnstructured(uid, name, "default", "apps", "v1", "Deployment")
 		objs = append(objs, obj)
 	}
-	require.NoError(t, storeInstance.SaveComponents(objs, lo.ToPtr(true)))
+	require.NoError(t, storeInstance.SaveComponents(objs))
 
 	for _, obj := range objs {
 		entry, err := storeInstance.GetComponent(obj)
@@ -1302,7 +1302,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 			createHookJob("default", "check", serviceID),
 		}
 
-		require.NoError(t, storeInstance.SaveComponents(r, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents(r))
 
 		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
@@ -1357,7 +1357,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 			createHookJob("default", "app2-migrator", serviceID2),
 		}
 
-		require.NoError(t, storeInstance.SaveComponents(hooks, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents(hooks))
 
 		// Check service 1 hooks
 		result1, err := storeInstance.GetHookComponents(serviceID1)
@@ -1412,7 +1412,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 
 		hooks := []unstructured.Unstructured{hookJob, hookPod, hookConfigMap}
 
-		require.NoError(t, storeInstance.SaveComponents(hooks, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents(hooks))
 
 		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
@@ -1440,7 +1440,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 		hook := createHookJob("default", "test-hook", serviceID)
 		expectedUID := hook.GetUID()
 
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{hook}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{hook}))
 
 		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
@@ -1467,7 +1467,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 			hooks[i] = createHookJob("default", fmt.Sprintf("hook-%d", i), serviceID)
 		}
 
-		require.NoError(t, storeInstance.SaveComponents(hooks, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents(hooks))
 
 		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
@@ -1495,7 +1495,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		obj.Object["spec"] = map[string]interface{}{"replicas": "3"}
 
 		// Save the component first
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 
 		// Get the component before sync
 		componentBefore, err := storeInstance.GetComponent(obj)
@@ -1526,7 +1526,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		obj := createUnstructuredResource("apps", "v1", "StatefulSet", "default", "test-statefulset")
 		obj.Object["spec"] = map[string]interface{}{"replicas": "2"}
 
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 
 		// Get the component before sync to check manifest_sha
 		componentBefore, err := storeInstance.GetComponent(obj)
@@ -1564,7 +1564,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 
 		// First, set a transient_manifest_sha by calling UpdateComponentSHA
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
@@ -1604,7 +1604,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 			"key": "value",
 		}
 
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
 		// Verify transient_manifest_sha is set before sync
@@ -1633,7 +1633,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 			"password": "secret",
 		}
 
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
 		// Get component before sync
@@ -1693,7 +1693,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 			"nodeName": "test-node",
 		}
 
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
 		component, err := storeInstance.GetComponent(obj)
@@ -1720,7 +1720,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
 		component, err := storeInstance.GetComponent(obj)
@@ -1762,7 +1762,7 @@ func TestComponentCache_SetServiceChildren(t *testing.T) {
 
 		// Create a test resource
 		obj := createUnstructuredResource("apps", "v1", "Deployment", "default", "existing-deployment")
-		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}, lo.ToPtr(true)))
+		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 
 		updated, err := storeInstance.SetServiceChildren("abc", "123", []common.StoreKey{
 			{

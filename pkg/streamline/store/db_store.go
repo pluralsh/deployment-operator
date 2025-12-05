@@ -253,7 +253,7 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 	})
 }
 
-func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, applied *bool) error {
+func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) error {
 	if len(objects) == 0 {
 		return nil
 	}
@@ -272,8 +272,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 	}()
 
 	var sb strings.Builder
-	if applied != nil {
-		sb.WriteString(`
+	sb.WriteString(`
 		INSERT INTO component (
 		  uid,
 		  parent_uid,
@@ -290,23 +289,6 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 		  server_sha,
 		  applied
 		) VALUES `)
-	} else {
-		sb.WriteString(`
-		INSERT INTO component (
-		  uid,
-		  parent_uid,
-		  "group",
-		  version,
-		  kind,
-		  namespace,
-		  name,
-		  node,
-		  created_at,
-		  service_id,
-		  delete_phase,
-		  server_sha
-		) VALUES `)
-	}
 
 	valueStrings := make([]string, 0, len(objects))
 
@@ -347,39 +329,114 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 			continue
 		}
 
-		if applied != nil {
-			valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s','%s', '%d')",
-				obj.GetUID(),
-				lo.FromPtr(ownerRef),
-				gvk.Group,
-				gvk.Version,
-				gvk.Kind,
-				obj.GetNamespace(),
-				obj.GetName(),
-				int(state),
-				nodeName,
-				obj.GetCreationTimestamp().Unix(),
-				serviceID,
-				smcommon.GetDeletePhase(obj),
-				serverSHA,
-				applied,
-			))
-		} else {
-			valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s', '%s', %d, '%s','%s','%s')",
-				obj.GetUID(),
-				lo.FromPtr(ownerRef),
-				gvk.Group,
-				gvk.Version,
-				gvk.Kind,
-				obj.GetNamespace(),
-				obj.GetName(),
-				nodeName,
-				obj.GetCreationTimestamp().Unix(),
-				serviceID,
-				smcommon.GetDeletePhase(obj),
-				serverSHA,
-			))
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s','%s', 1)",
+			obj.GetUID(),
+			lo.FromPtr(ownerRef),
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			obj.GetNamespace(),
+			obj.GetName(),
+			int(state),
+			nodeName,
+			obj.GetCreationTimestamp().Unix(),
+			serviceID,
+			smcommon.GetDeletePhase(obj),
+			serverSHA,
+		))
+	}
+
+	if len(valueStrings) == 0 {
+		return nil // Nothing to insert
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
+	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+	  uid = excluded.uid,
+	  parent_uid = excluded.parent_uid,
+	  health = excluded.health,
+	  node = excluded.node,
+	  created_at = excluded.created_at,
+	  service_id = excluded.service_id,
+      delete_phase = excluded.delete_phase,
+	  server_sha = excluded.server_sha,
+	  applied = excluded.applied
+	`)
+
+	in.maybeSaveHookComponents(conn, objects)
+
+	return sqlitex.Execute(conn, sb.String(), nil)
+}
+
+func (in *DatabaseStore) SaveUnsyncedComponents(objects []unstructured.Unstructured) error {
+	if len(objects) == 0 {
+		return nil
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	defer func() {
+		in.pool.Put(conn)
+		klog.V(log.LogLevelDebug).InfoS("saved unsynced components in batch",
+			"count", len(objects),
+			"duration", time.Since(now),
+		)
+	}()
+
+	var sb strings.Builder
+	sb.WriteString(`
+		INSERT INTO component (
+		  uid,
+		  parent_uid,
+		  "group",
+		  version,
+		  kind,
+		  namespace,
+		  name,
+		  node,
+		  service_id,
+		  delete_phase
+		) VALUES `)
+
+	valueStrings := make([]string, 0, len(objects))
+
+	for _, obj := range objects {
+		var nodeName string
+		gvk := obj.GroupVersionKind()
+		serviceID := smcommon.GetOwningInventory(obj)
+
+		if gvk.Group == "" && gvk.Kind == common.PodKind {
+			if nodeName, _, _ = unstructured.NestedString(obj.Object, "spec", "nodeName"); len(nodeName) == 0 {
+				continue // If the pod is not assigned to a node, we don't need to store it
+			}
 		}
+
+		var ownerRef *string
+		if ownerRefs := obj.GetOwnerReferences(); len(ownerRefs) > 0 {
+			ownerRef = lo.ToPtr(string(ownerRefs[0].UID))
+			for _, ref := range ownerRefs {
+				if ref.Controller != nil && *ref.Controller {
+					ownerRef = lo.ToPtr(string(ref.UID))
+					break
+				}
+			}
+		}
+
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s', '%s', '%s','%s')",
+			obj.GetUID(),
+			lo.FromPtr(ownerRef),
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			obj.GetNamespace(),
+			obj.GetName(),
+			nodeName,
+			serviceID,
+			smcommon.GetDeletePhase(obj),
+		))
 	}
 
 	if len(valueStrings) == 0 {
@@ -391,17 +448,9 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 	  uid = excluded.uid,
 	  parent_uid = excluded.parent_uid,
 	  node = excluded.node,
-	  created_at = excluded.created_at,
 	  service_id = excluded.service_id,
       delete_phase = excluded.delete_phase,
-	  server_sha = excluded.server_sha
 	`)
-
-	if applied != nil {
-		sb.WriteString(`, health = excluded.health, applied = excluded.applied`)
-	}
-
-	in.maybeSaveHookComponents(conn, objects)
 
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
@@ -442,13 +491,8 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 		}
 	}
 
-	// Return early if no resources to save.
-	if len(resourcesToSave) == 0 {
-		return nil
-	}
-
 	// Save resources to the store.
-	return in.SaveComponents(resourcesToSave, nil)
+	return in.SaveUnsyncedComponents(resourcesToSave)
 }
 
 func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error) {

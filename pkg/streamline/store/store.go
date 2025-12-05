@@ -14,7 +14,9 @@ import (
 type Store interface {
 	SaveComponent(obj unstructured.Unstructured) error
 
-	SaveComponents(obj []unstructured.Unstructured, applied *bool) error
+	SaveComponents(obj []unstructured.Unstructured) error
+
+	SaveUnsyncedComponents(obj []unstructured.Unstructured) error
 
 	// SyncServiceComponents stores all service components in the store before applying them.
 	// It also ensures that components that are no longer part of the service
