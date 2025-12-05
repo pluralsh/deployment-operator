@@ -414,9 +414,21 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 	}
 
 	// Create a set of keys for an easy lookup.
+	componentKeys := containers.NewSet[smcommon.Key]()
+	for _, component := range components {
+		componentKeys.Add(component.Key())
+	}
+
+	// Create a set of keys for an easy lookup and an array of resources that are not in the store yet.
 	resourceKeys := containers.NewSet[smcommon.Key]()
+	resourcesToSave := make([]unstructured.Unstructured, 0, len(resources))
 	for _, resource := range resources {
-		resourceKeys.Add(smcommon.NewKeyFromUnstructured(resource))
+		resourceKey := smcommon.NewKeyFromUnstructured(resource)
+		resourceKeys.Add(resourceKey)
+
+		if !componentKeys.Has(resourceKey) {
+			resourcesToSave = append(resourcesToSave, resource)
+		}
 	}
 
 	// Check if all components that were not applied yet are still present in the resources.
@@ -431,7 +443,7 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 	}
 
 	// Save resources to the store.
-	return in.SaveComponents(resources, nil)
+	return in.SaveComponents(resourcesToSave, nil)
 }
 
 func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error) {
