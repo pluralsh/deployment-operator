@@ -95,14 +95,13 @@ func (in *agentRunController) prepare() error {
 	}
 
 	var err error
-	in.tool, err = tool.New(in.agentRun.Runtime.Type, toolv1.Config{
+	if in.tool, err = tool.New(in.agentRun.Runtime.Type, toolv1.Config{
 		WorkDir:       in.dir,
 		RepositoryDir: filepath.Join(in.dir, "repository"),
 		FinishedChan:  in.done,
 		ErrorChan:     in.errChan,
 		Run:           in.agentRun,
-	})
-	if err != nil {
+	}); err != nil {
 		klog.Fatal(err)
 	}
 

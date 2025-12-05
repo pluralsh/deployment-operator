@@ -51,6 +51,7 @@ WORKDIR /plural
 
 COPY dockerfiles/agent-harness/.opencode /plural/.opencode
 COPY dockerfiles/agent-harness/.claude /plural/.claude
+COPY dockerfiles/agent-harness/.gemini /plural/.gemini
 
 RUN printf "#!/bin/sh\necho \${GIT_ACCESS_TOKEN}" > /plural/.git-askpass && \
     chmod +x /plural/.git-askpass && \
