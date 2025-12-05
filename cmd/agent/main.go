@@ -261,7 +261,8 @@ func initDatabaseStoreOrDie() store.Store {
 		os.Exit(1)
 	}
 
-	return dbStore
+	// TODO: remove after testing
+	return store.NewProfiledStore(dbStore)
 }
 
 func runStoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, interval, ttl time.Duration) {
