@@ -13,16 +13,52 @@ import (
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+	"github.com/pluralsh/polly/containers"
 )
 
 type Pinger struct {
-	consoleClient  client.Client
-	discoveryCache discoverycache.Cache
-	factory        util.Factory
-	k8sClient      ctrclient.Client
-	clientset      *kubernetes.Clientset
-	apiExtClient   *apiextensionsclient.Clientset
-	store          store.Store
+	consoleClient   client.Client
+	discoveryCache  discoverycache.Cache
+	factory         util.Factory
+	k8sClient       ctrclient.Client
+	clientset       *kubernetes.Clientset
+	apiExtClient    *apiextensionsclient.Clientset
+	store           store.Store
+	supportedAddons containers.Set[string]
+}
+
+var supported = []string{
+	"argo-cd",
+	"argo-rollouts",
+	"aws-ebs-csi-driver",
+	"aws-efs-csi-driver",
+	"aws-load-balancer-controller",
+	"amazon-vpc-cni-k8s",
+	"calico",
+	"cert-manager",
+	"cilium",
+	"contour",
+	"coredns",
+	"external-dns",
+	"flux",
+	"ingress-nginx",
+	"istio",
+	"jaeger",
+	"karpenter",
+	"keda",
+	"kube-prometheus-stack",
+	"kyverno",
+	"linkerd",
+	"opentelemetry-operator",
+	"rook",
+	"strimzi-kafka",
+	"traefik",
+	"velero",
+	"vitess",
+	"gatekeeper",
+	"tigera-operator",
+	"argo-cd",
+	"vector",
 }
 
 func NewOrDie(console client.Client, config *rest.Config, k8sClient ctrclient.Client, discoveryCache discoverycache.Cache, store store.Store) *Pinger {
@@ -44,13 +80,27 @@ func New(console client.Client, config *rest.Config, k8sClient ctrclient.Client,
 		return nil, err
 	}
 
+	supportedAddons := containers.NewSet[string]()
+	for _, service := range supported {
+		supportedAddons.Add(service)
+	}
+
+	if myCluster, err := console.MyCluster(); err == nil && myCluster != nil && myCluster.MyCluster != nil {
+		for _, addon := range myCluster.MyCluster.SupportedAddons {
+			if addon != nil {
+				supportedAddons.Add(*addon)
+			}
+		}
+	}
+
 	return &Pinger{
-		consoleClient:  console,
-		factory:        f,
-		k8sClient:      k8sClient,
-		clientset:      cs,
-		apiExtClient:   apiExtClient,
-		discoveryCache: discoveryCache,
-		store:          store,
+		consoleClient:   console,
+		factory:         f,
+		k8sClient:       k8sClient,
+		clientset:       cs,
+		apiExtClient:    apiExtClient,
+		discoveryCache:  discoveryCache,
+		store:           store,
+		supportedAddons: supportedAddons,
 	}, nil
 }

@@ -18,6 +18,8 @@ PLRL_OPENCODE_PROVIDER := $(if $(PLRL_OPENCODE_PROVIDER),$(PLRL_OPENCODE_PROVIDE
 PLRL_OPENCODE_ENDPOINT := $(if $(PLRL_OPENCODE_ENDPOINT),$(PLRL_OPENCODE_ENDPOINT),"")
 PLRL_OPENCODE_MODEL := $(if $(PLRL_OPENCODE_MODEL),$(PLRL_OPENCODE_MODEL),"")
 PLRL_OPENCODE_TOKEN := $(if $(PLRL_OPENCODE_TOKEN),$(PLRL_OPENCODE_TOKEN),"")
+PLRL_CLAUDE_TOKEN := $(if $(PLRL_CLAUDE_TOKEN),$(PLRL_CLAUDE_TOKEN),"")
+PLRL_CLAUDE_MODEL := $(if $(PLRL_CLAUDE_MODEL),$(PLRL_CLAUDE_MODEL),"")
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
@@ -112,6 +114,17 @@ agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent har
 		-e PLRL_OPENCODE_TOKEN=$(PLRL_OPENCODE_TOKEN) \
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-opencode --v=3
+
+.PHONY: agent-harness-claude-run
+agent-harness-claude-run: docker-build-agent-harness-claude ## run agent harness w/ claude
+	docker run \
+		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
+		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
+		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		-e PLRL_CLAUDE_MODEL=$(PLRL_CLAUDE_MODEL) \
+		-e PLRL_CLAUDE_TOKEN=$(PLRL_CLAUDE_TOKEN) \
+		--rm -it \
+		ghcr.io/pluralsh/agent-harness-claude --v=3
 
 .PHONY: agent-mcpserver-run
 agent-mcpserver-run: agent-mcpserver ## run mcp server locally
@@ -251,6 +264,14 @@ docker-build-agent-harness-opencode: docker-build-agent-harness-base ## build op
 		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
 		-t ghcr.io/pluralsh/agent-harness-opencode \
 		-f dockerfiles/agent-harness/opencode.Dockerfile \
+		.
+
+.PHONY: docker-build-agent-harness-claude
+docker-build-agent-harness-claude: docker-build-agent-harness-base ## build claude docker agent harness image
+	docker build \
+		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/agent-harness-claude \
+		-f dockerfiles/agent-harness/claude.Dockerfile \
 		.
 
 .PHONY: docker-build-terraform-mcpserver
