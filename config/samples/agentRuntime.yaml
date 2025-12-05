@@ -1,10 +1,24 @@
 apiVersion: deployments.plural.sh/v1alpha1
 kind: AgentRuntime
 metadata:
-  name: test
+  name: test-claude
+  namespace: claude
 spec:
-  type: "OPENCODE"
-  targetNamespace: "test"
+  type: "CLAUDE"
+  targetNamespace: "claude"
+  config:
+    claude:
+      apiKeySecretRef:
+        name: claude-api-key
+        key: apiKey
+  template:
+    spec:
+      containers:
+      - name: default
+        image: ghcr.io/pluralsh/agent-harness:sha-9278464-claude-1.0.128
+        args:
+          - --v=3
+
 
 
 
