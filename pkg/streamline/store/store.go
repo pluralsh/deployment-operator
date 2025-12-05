@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +33,10 @@ type Store interface {
 	// DeleteComponent removes a component from the store based on its smcommon.StoreKey.
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponent(key smcommon.StoreKey) error
+
+	// DeleteComponentsByKeys removes multiple components from the store based on their smcommon.StoreKey.
+	// It returns an error if any issue occurs during the deletion process.
+	DeleteComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error
 
 	// DeleteComponents removes components from the store based on GVK.
 	// It returns an error if any issue occurs during the deletion process.

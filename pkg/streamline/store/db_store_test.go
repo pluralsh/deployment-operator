@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -346,6 +347,239 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 		children, err = storeInstance.GetComponentChildren(uid)
 		require.NoError(t, err)
 		require.Len(t, children, 1)
+	})
+}
+
+func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
+	t.Run("should delete multiple components by keys", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create multiple components
+		component1 := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-1"))
+		err = storeInstance.SaveComponent(component1)
+		require.NoError(t, err)
+
+		component2 := createComponent("uid-2", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-2"))
+		err = storeInstance.SaveComponent(component2)
+		require.NoError(t, err)
+
+		component3 := createComponent("uid-3", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-3"))
+		err = storeInstance.SaveComponent(component3)
+		require.NoError(t, err)
+
+		// Verify components exist
+		c1, err := storeInstance.GetComponent(component1)
+		require.NoError(t, err)
+		require.NotNil(t, c1)
+
+		c2, err := storeInstance.GetComponent(component2)
+		require.NoError(t, err)
+		require.NotNil(t, c2)
+
+		// Create keys to delete
+		keysToDelete := containers.NewSet[common.StoreKey]()
+		keysToDelete.Add(common.NewStoreKeyFromUnstructured(component1))
+		keysToDelete.Add(common.NewStoreKeyFromUnstructured(component2))
+
+		// Delete components by keys
+		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		require.NoError(t, err)
+
+		// Verify deleted components no longer exist
+		c1, err = storeInstance.GetComponent(component1)
+		require.NoError(t, err)
+		require.Nil(t, c1)
+
+		c2, err = storeInstance.GetComponent(component2)
+		require.NoError(t, err)
+		require.Nil(t, c2)
+
+		// Verify non-deleted component still exists
+		c3, err := storeInstance.GetComponent(component3)
+		require.NoError(t, err)
+		require.NotNil(t, c3)
+	})
+
+	t.Run("should handle empty set without error", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Delete with empty set
+		emptySet := containers.NewSet[common.StoreKey]()
+		err = storeInstance.DeleteComponentsByKeys(emptySet)
+		require.NoError(t, err)
+	})
+
+	t.Run("should handle deletion of non-existent keys without error", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create a component
+		component := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-1"))
+		err = storeInstance.SaveComponent(component)
+		require.NoError(t, err)
+
+		// Try to delete a non-existent component
+		keysToDelete := containers.NewSet[common.StoreKey]()
+		keysToDelete.Add(common.StoreKey{
+			GVK:       schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+			Namespace: "default",
+			Name:      "non-existent-app",
+		})
+
+		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		require.NoError(t, err)
+
+		// Verify the existing component still exists
+		c, err := storeInstance.GetComponent(component)
+		require.NoError(t, err)
+		require.NotNil(t, c)
+	})
+
+	t.Run("should delete components with different GVKs", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create components with different GVKs
+		deployment := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("my-app"))
+		err = storeInstance.SaveComponent(deployment)
+		require.NoError(t, err)
+
+		statefulset := createComponent("uid-2", WithGVK("apps", "v1", "StatefulSet"), WithNamespace("default"), WithName("my-app"))
+		err = storeInstance.SaveComponent(statefulset)
+		require.NoError(t, err)
+
+		service := createComponent("uid-3", WithGVK("", "v1", "Service"), WithNamespace("default"), WithName("my-service"))
+		err = storeInstance.SaveComponent(service)
+		require.NoError(t, err)
+
+		// Delete multiple components with different GVKs
+		keysToDelete := containers.NewSet[common.StoreKey]()
+		keysToDelete.Add(common.NewStoreKeyFromUnstructured(deployment))
+		keysToDelete.Add(common.NewStoreKeyFromUnstructured(service))
+
+		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		require.NoError(t, err)
+
+		// Verify deleted components no longer exist
+		d, err := storeInstance.GetComponent(deployment)
+		require.NoError(t, err)
+		require.Nil(t, d)
+
+		s, err := storeInstance.GetComponent(service)
+		require.NoError(t, err)
+		require.Nil(t, s)
+
+		// Verify non-deleted component still exists
+		ss, err := storeInstance.GetComponent(statefulset)
+		require.NoError(t, err)
+		require.NotNil(t, ss)
+	})
+
+	t.Run("should delete components across different namespaces", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create components in different namespaces
+		component1 := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app"))
+		err = storeInstance.SaveComponent(component1)
+		require.NoError(t, err)
+
+		component2 := createComponent("uid-2", WithGVK("apps", "v1", "Deployment"), WithNamespace("production"), WithName("app"))
+		err = storeInstance.SaveComponent(component2)
+		require.NoError(t, err)
+
+		component3 := createComponent("uid-3", WithGVK("apps", "v1", "Deployment"), WithNamespace("staging"), WithName("app"))
+		err = storeInstance.SaveComponent(component3)
+		require.NoError(t, err)
+
+		// Delete from default and production namespaces
+		keysToDelete := containers.NewSet[common.StoreKey]()
+		keysToDelete.Add(common.NewStoreKeyFromUnstructured(component1))
+		keysToDelete.Add(common.NewStoreKeyFromUnstructured(component2))
+
+		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		require.NoError(t, err)
+
+		// Verify deleted components
+		c1, err := storeInstance.GetComponent(component1)
+		require.NoError(t, err)
+		require.Nil(t, c1)
+
+		c2, err := storeInstance.GetComponent(component2)
+		require.NoError(t, err)
+		require.Nil(t, c2)
+
+		// Verify staging component still exists
+		c3, err := storeInstance.GetComponent(component3)
+		require.NoError(t, err)
+		require.NotNil(t, c3)
+	})
+
+	t.Run("should handle large batch deletion", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		require.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		// Create many components
+		componentsToDelete := make([]unstructured.Unstructured, 50)
+		componentsToKeep := make([]unstructured.Unstructured, 50)
+
+		for i := 0; i < 50; i++ {
+			comp := createComponent(fmt.Sprintf("delete-uid-%d", i), WithGVK("apps", "v1", "Deployment"), WithNamespace("batch-ns"), WithName(fmt.Sprintf("delete-app-%d", i)))
+			componentsToDelete[i] = comp
+			err = storeInstance.SaveComponent(comp)
+			require.NoError(t, err)
+		}
+
+		for i := 0; i < 50; i++ {
+			comp := createComponent(fmt.Sprintf("keep-uid-%d", i), WithGVK("apps", "v1", "Deployment"), WithNamespace("batch-ns"), WithName(fmt.Sprintf("keep-app-%d", i)))
+			componentsToKeep[i] = comp
+			err = storeInstance.SaveComponent(comp)
+			require.NoError(t, err)
+		}
+
+		// Build keys set to delete
+		keysToDelete := containers.NewSet[common.StoreKey]()
+		for _, comp := range componentsToDelete {
+			keysToDelete.Add(common.NewStoreKeyFromUnstructured(comp))
+		}
+
+		// Delete in batch
+		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		require.NoError(t, err)
+
+		// Verify deleted components
+		for _, comp := range componentsToDelete {
+			c, err := storeInstance.GetComponent(comp)
+			require.NoError(t, err)
+			require.Nil(t, c, "component should have been deleted: %s", comp.GetName())
+		}
+
+		// Verify remaining components
+		for _, comp := range componentsToKeep {
+			c, err := storeInstance.GetComponent(comp)
+			require.NoError(t, err)
+			require.NotNil(t, c, "component should still exist: %s", comp.GetName())
+		}
 	})
 }
 

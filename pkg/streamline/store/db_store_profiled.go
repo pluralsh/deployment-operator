@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -131,6 +132,13 @@ func (p *ProfiledStore) DeleteComponent(key smcommon.StoreKey) error {
 func (p *ProfiledStore) DeleteComponents(group, version, kind string) error {
 	return trace(context.Background(), "DeleteComponents", func() error {
 		return p.inner.DeleteComponents(group, version, kind)
+	})
+}
+
+// DeleteComponentsByKeys wraps Store.DeleteComponentsByKeys with tracing.
+func (p *ProfiledStore) DeleteComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error {
+	return trace(context.Background(), "DeleteComponentsByKeys", func() error {
+		return p.inner.DeleteComponentsByKeys(objects)
 	})
 }
 
