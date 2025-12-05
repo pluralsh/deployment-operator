@@ -482,55 +482,48 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 
 	// Check if all components that were not applied yet are still present in the resources.
 	// Those that are not present anymore should be deleted from the store.
-	// TODO: Use single delete query to minimize number of database calls.
+	componentsToDelete := containers.NewSet[smcommon.StoreKey]()
 	for _, component := range components {
 		if !resourceKeys.Has(component.Key()) {
-			if err = in.DeleteComponent(component.StoreKey()); err != nil {
-				return err
-			}
+			componentsToDelete.Add(component.StoreKey())
 		}
+	}
+
+	if err = in.DeleteComponentsByKeys(componentsToDelete); err != nil {
+		return err
 	}
 
 	// Save resources to the store.
 	return in.SaveUnsyncedComponents(resourcesToSave)
 }
 
-//func (in *DatabaseStore) DeleteComponentsFromSlice(objects []unstructured.Unstructured) error {
-//	if len(objects) == 0 {
-//		return nil
-//	}
-//
-//	conn, err := in.pool.Take(context.Background())
-//	if err != nil {
-//		return err
-//	}
-//	defer in.pool.Put(conn)
-//
-//	var sb strings.Builder
-//	sb.WriteString(`DELETE FROM component WHERE ("group", version, kind, namespace, name) IN (`)
-//
-//	valueStrings := make([]string, 0, len(objects))
-//	args := make([]interface{}, 0, len(objects)*5)
-//
-//	for _, obj := range objects {
-//		gvk := obj.GroupVersionKind()
-//		valueStrings = append(valueStrings, "(?,?,?,?,?)")
-//		args = append(args,
-//			gvk.Group,
-//			gvk.Version,
-//			gvk.Kind,
-//			obj.GetNamespace(),
-//			obj.GetName(),
-//		)
-//	}
-//
-//	sb.WriteString(strings.Join(valueStrings, ","))
-//	sb.WriteString(")")
-//
-//	return sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
-//		Args: args,
-//	})
-//}
+func (in *DatabaseStore) DeleteComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error {
+	if len(objects) == 0 {
+		return nil
+	}
+
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	var sb strings.Builder
+	sb.WriteString(`DELETE FROM component WHERE ("group", version, kind, namespace, name) IN (`)
+
+	valueStrings := make([]string, 0, len(objects))
+	args := make([]interface{}, 0, len(objects)*5)
+
+	for obj := range objects {
+		valueStrings = append(valueStrings, "(?,?,?,?,?)")
+		args = append(args, obj.GVK.Group, obj.GVK.Version, obj.GVK.Kind, obj.Namespace, obj.Name)
+	}
+
+	sb.WriteString(strings.Join(valueStrings, ","))
+	sb.WriteString(")")
+
+	return sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{Args: args})
+}
 
 func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error) {
 	if len(keys) == 0 {
