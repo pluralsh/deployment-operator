@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,7 +20,6 @@ import (
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/api"
@@ -1099,20 +1099,6 @@ func (in *DatabaseStore) ExpireHookComponents(serviceID string) error {
 
 	return sqlitex.ExecuteTransient(conn, `DELETE FROM hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{Args: []any{serviceID}})
-}
-
-func (in *DatabaseStore) CheckpointWAL() error {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return err
-	}
-	defer in.pool.Put(conn)
-
-	if err := sqlitex.Execute(conn, "PRAGMA wal_checkpoint(TRUNCATE);", nil); err != nil {
-		return fmt.Errorf("wal checkpoint failed: %w", err)
-	}
-
-	return nil
 }
 
 func (in *DatabaseStore) Shutdown() error {

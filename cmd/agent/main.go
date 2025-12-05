@@ -7,7 +7,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -131,15 +130,6 @@ func main() {
 		}
 	}(dbStore)
 	streamline.InitGlobalStore(dbStore)
-
-	go wait.PollUntilContextCancel(context.Background(), 1*time.Minute, false, func(ctx context.Context) (done bool, err error) {
-		klog.InfoS("checkpointing WAL")
-		if err := dbStore.CheckpointWAL(); err != nil {
-			klog.ErrorS(err, "failed to checkpoint WAL")
-		}
-
-		return false, nil
-	})
 
 	runStoreCleanerInBackgroundOrDie(ctx, dbStore, args.StoreCleanerInterval(), args.StoreEntryTTL())
 
