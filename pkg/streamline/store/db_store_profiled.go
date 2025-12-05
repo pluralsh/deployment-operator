@@ -39,7 +39,7 @@ func trace(ctx context.Context, op string, fn func() error) error {
 		ctx = context.Background()
 	}
 
-	span, ctx := tracer.StartSpanFromContext(ctx, "db.store", tracer.ResourceName(op))
+	span, _ := tracer.StartSpanFromContext(ctx, "db.store", tracer.ResourceName(op))
 	defer func() {
 		span.Finish(tracer.FinishTime(time.Now()))
 	}()
