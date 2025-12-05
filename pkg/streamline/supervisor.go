@@ -360,7 +360,7 @@ func (in *Supervisor) processComponentUpdate() bool {
 		in.componentQueue.Done(serviceId)
 	}()
 
-	in.flushComponentUpdates(serviceId)
+	// TODO: Enable in.flushComponentUpdates(serviceId)
 	return true
 }
 
