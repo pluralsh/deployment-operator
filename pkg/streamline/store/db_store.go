@@ -1101,20 +1101,6 @@ func (in *DatabaseStore) ExpireHookComponents(serviceID string) error {
 		&sqlitex.ExecOptions{Args: []any{serviceID}})
 }
 
-func (in *DatabaseStore) CheckpointWAL() error {
-	conn, err := in.pool.Take(context.Background())
-	if err != nil {
-		return err
-	}
-	defer in.pool.Put(conn)
-
-	if err := sqlitex.Execute(conn, "PRAGMA wal_checkpoint(TRUNCATE);", nil); err != nil {
-		return fmt.Errorf("wal checkpoint failed: %w", err)
-	}
-
-	return nil
-}
-
 func (in *DatabaseStore) Shutdown() error {
 	in.mu.Lock()
 	defer in.mu.Unlock()
