@@ -361,7 +361,7 @@ func (in *Supervisor) processComponentUpdate() bool {
 		in.componentQueue.Done(serviceId)
 	}()
 
-	// in.flushComponentUpdates(serviceId) TODO: commented out for tests
+	in.flushComponentUpdates(serviceId)
 	return true
 }
 
