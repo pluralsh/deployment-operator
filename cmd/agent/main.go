@@ -261,8 +261,11 @@ func initDatabaseStoreOrDie() store.Store {
 		os.Exit(1)
 	}
 
-	// TODO: remove after testing
-	return store.NewProfiledStore(dbStore)
+	if args.DatadogEnabled() {
+		return store.NewProfiledStore(dbStore)
+	}
+
+	return dbStore
 }
 
 func runStoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, interval, ttl time.Duration) {
