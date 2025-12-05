@@ -21,7 +21,8 @@ const (
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
 			server_sha TEXT,
-			manifest BOOLEAN DEFAULT 0
+			manifest BOOLEAN DEFAULT 0, -- Indicates if the component was created from an original manifest set of a service
+			applied BOOLEAN DEFAULT 0 -- Indicates if the component was already applied to the cluster
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
@@ -57,7 +58,8 @@ const (
 			name TEXT,
 			status INT,
 			manifest_sha TEXT,
-			service_id TEXT
+			service_id TEXT,
+			delete_policies TEXT
 		);
 	 
 		-- Add indexes to the hook component table
@@ -77,50 +79,10 @@ const (
 		WHERE uid = ?
 	`
 
-	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest
-		FROM component
-		WHERE service_id = ? AND (manifest = 1 OR (parent_uid is NULL or parent_uid = ''))
-	`
-
 	getComponentsByGVK = `
 		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase, manifest
 		FROM component
 		WHERE "group" = ? AND version = ? AND kind = ?
-	`
-
-	setComponent = `
-		INSERT INTO component (
-			uid,
-			parent_uid,
-			"group",
-			version,
-			kind,
-			namespace,
-			name,
-			health,
-		    node,
-		    created_at,
-		    service_id
-		) VALUES (
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-		    ?,
-		    ?
-		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
-			uid = excluded.uid,
-			parent_uid = excluded.parent_uid,
-			health = excluded.health,
-			node = excluded.node,
-			created_at = excluded.created_at,
-			service_id = excluded.service_id
 	`
 
 	setComponentWithSHA = `
@@ -137,7 +99,8 @@ const (
 		    created_at,
 		    service_id,
 		    delete_phase,
-		    server_sha
+		    server_sha,
+		    applied
 		) VALUES (
 			?,
 			?,
@@ -151,6 +114,7 @@ const (
 		    ?,
 		    ?,
 		    ?,
+		    ?,
 		    ?
 		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
@@ -160,7 +124,8 @@ const (
 			created_at = excluded.created_at,
 			service_id = excluded.service_id,
 			delete_phase = excluded.delete_phase,
-			server_sha = excluded.server_sha
+			server_sha = excluded.server_sha,
+		    applied = excluded.applied
 	`
 
 	expireSHA = `
@@ -213,6 +178,7 @@ const (
 		)
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM descendants
+		WHERE uid != ?
 		LIMIT 100
 	`
 
@@ -296,12 +262,13 @@ const (
 	`
 
 	setHookComponent = `
-		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id, delete_policies)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
 			status = excluded.status,
-			service_id = excluded.service_id
+			service_id = excluded.service_id,
+			delete_policies = excluded.delete_policies
 	`
 
 	setHookComponentWithManifestSHA = `

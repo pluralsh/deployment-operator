@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,7 +17,12 @@ type Store interface {
 
 	SaveComponents(obj []unstructured.Unstructured) error
 
-	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
+	SaveUnsyncedComponents(obj []unstructured.Unstructured) error
+
+	// SyncServiceComponents stores all service components in the store before applying them.
+	// It also ensures that components that are no longer part of the service
+	// and were not applied are removed from the store.
+	SyncServiceComponents(serviceID string, resources []unstructured.Unstructured) error
 
 	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
 
@@ -28,6 +34,10 @@ type Store interface {
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponent(key smcommon.StoreKey) error
 
+	// DeleteComponentsByKeys removes multiple components from the store based on their smcommon.StoreKey.
+	// It returns an error if any issue occurs during the deletion process.
+	DeleteComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error
+
 	// DeleteComponents removes components from the store based on GVK.
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponents(group, version, kind string) error
@@ -35,7 +45,7 @@ type Store interface {
 	// GetServiceComponents retrieves all parent components associated with a given service ID.
 	// All components with parents are filtered out.
 	// It returns a slice of Component structs containing information about each component and any error encountered.
-	GetServiceComponents(serviceID string) (smcommon.Components, error)
+	GetServiceComponents(serviceID string, onlyApplied bool) (smcommon.Components, error)
 
 	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
 	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.

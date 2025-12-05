@@ -33,7 +33,8 @@ Test environment: https://console.your-env.onplural.sh/
     - [ ] Services can be recreated after detachment.
     - [ ] Service component trees are working as expected.
     - [ ] Cluster health statuses are being updated.
-    - [ ] Agent logs do not contain any errors.
+    - [ ] Agent logs do not contain any errors (after running for at least 30 minutes).
+    - [ ] There are no visible anomalies in Datadog (after running for at least 30 minutes).
 - [ ] I have added tests to cover my changes.
 - [ ] If required, I have updated the Plural documentation accordingly.
 

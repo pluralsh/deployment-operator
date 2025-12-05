@@ -61,5 +61,9 @@ func helmHookDeletePolicy(annotations map[string]string) string {
 }
 
 func ParseHookDeletePolicy(resource unstructured.Unstructured) []string {
-	return strings.Split(strings.ReplaceAll(GetPhaseHookDeletePolicy(resource), " ", ""), ",")
+	return SplitHookDeletePolicy(GetPhaseHookDeletePolicy(resource))
+}
+
+func SplitHookDeletePolicy(policy string) []string {
+	return strings.Split(strings.ReplaceAll(policy, " ", ""), ",")
 }
