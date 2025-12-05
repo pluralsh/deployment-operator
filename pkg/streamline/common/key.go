@@ -3,7 +3,6 @@ package common
 import (
 	"fmt"
 
-	"github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -54,12 +53,4 @@ func (in StoreKey) ReplaceGroup(group string) StoreKey {
 
 func NewStoreKeyFromUnstructured(u unstructured.Unstructured) StoreKey {
 	return StoreKey{GVK: u.GroupVersionKind(), Namespace: u.GetNamespace(), Name: u.GetName()}
-}
-
-func NewStoreKeyFromComponentAttributes(a client.ComponentAttributes) StoreKey {
-	return StoreKey{
-		GVK:       schema.GroupVersionKind{Group: a.Group, Version: a.Version, Kind: a.Kind},
-		Namespace: a.Namespace,
-		Name:      a.Name,
-	}
 }
