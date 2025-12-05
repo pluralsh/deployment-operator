@@ -442,6 +442,11 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 		}
 	}
 
+	// Return early if no resources to save.
+	if len(resourcesToSave) == 0 {
+		return nil
+	}
+
 	// Save resources to the store.
 	return in.SaveComponents(resourcesToSave, nil)
 }
