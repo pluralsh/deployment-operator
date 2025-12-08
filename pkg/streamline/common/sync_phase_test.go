@@ -286,6 +286,11 @@ func TestHasApplyPhase(t *testing.T) {
 			want:        false,
 		},
 		{
+			name:        "not supported helm hook - cannot be applied",
+			annotations: map[string]string{HelmHookAnnotation: "pre-delete"},
+			want:        false,
+		},
+		{
 			name:        "empty helm hook - cannot be applied",
 			annotations: map[string]string{HelmHookAnnotation: ""},
 			want:        false,
