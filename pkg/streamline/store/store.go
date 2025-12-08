@@ -19,16 +19,16 @@ type Store interface {
 
 	SaveUnsyncedComponents(obj []unstructured.Unstructured) error
 
-	// SyncServiceComponents stores all service components in the store before applying them.
-	// It also ensures that components that are no longer part of the service
-	// and were not applied are removed from the store.
+	// SyncServiceComponents is used to store all service components in the store before applying them and to
+	// ensure that components that are no longer part of the service and were not applied are removed from the store.
 	SyncServiceComponents(serviceID string, resources []unstructured.Unstructured) error
 
 	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
 
 	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
 
-	GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error)
+	// GetAppliedComponentsByGVK returns all applied components matching provided GVK.
+	GetAppliedComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error)
 
 	// DeleteComponent removes a component from the store based on its smcommon.StoreKey.
 	// It returns an error if any issue occurs during the deletion process.

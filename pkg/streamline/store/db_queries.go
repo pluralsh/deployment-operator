@@ -79,10 +79,10 @@ const (
 		WHERE uid = ?
 	`
 
-	getComponentsByGVK = `
+	getAppliedComponentsByGVK = `
 		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase, manifest
 		FROM component
-		WHERE "group" = ? AND version = ? AND kind = ?
+		WHERE "group" = ? AND version = ? AND kind = ? AND applied = 1
 	`
 
 	setComponentWithSHA = `

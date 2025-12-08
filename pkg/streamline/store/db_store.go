@@ -657,14 +657,14 @@ func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.Compon
 	return result, err
 }
 
-func (in *DatabaseStore) GetComponentsByGVK(gvk schema.GroupVersionKind) (result []smcommon.Component, err error) {
+func (in *DatabaseStore) GetAppliedComponentsByGVK(gvk schema.GroupVersionKind) (result []smcommon.Component, err error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return result, err
 	}
 	defer in.pool.Put(conn)
 
-	err = sqlitex.ExecuteTransient(conn, getComponentsByGVK, &sqlitex.ExecOptions{
+	err = sqlitex.ExecuteTransient(conn, getAppliedComponentsByGVK, &sqlitex.ExecOptions{
 		Args: []interface{}{gvk.Group, gvk.Version, gvk.Kind},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, smcommon.Component{

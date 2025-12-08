@@ -251,9 +251,9 @@ func (in *synchronizer) resynchronize() {
 		}
 	}
 
-	entries, err := in.store.GetComponentsByGVK(lo.FromPtr(gvk))
+	entries, err := in.store.GetAppliedComponentsByGVK(lo.FromPtr(gvk))
 	if err != nil {
-		klog.ErrorS(err, "failed to get components from store", "gvr", in.gvr)
+		klog.ErrorS(err, "failed to get applied components from the store", "gvr", in.gvr)
 		return
 	}
 

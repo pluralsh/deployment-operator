@@ -109,13 +109,13 @@ func (p *ProfiledStore) GetComponentByUID(uid types.UID) (*client.ComponentChild
 }
 
 // GetComponentsByGVK wraps Store.GetComponentsByGVK with tracing.
-func (p *ProfiledStore) GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error) {
+func (p *ProfiledStore) GetAppliedComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error) {
 	var (
 		res []smcommon.Component
 		err error
 	)
-	_ = trace(context.Background(), "GetComponentsByGVK", func() error {
-		res, err = p.inner.GetComponentsByGVK(gvk)
+	_ = trace(context.Background(), "GetAppliedComponentsByGVK", func() error {
+		res, err = p.inner.GetAppliedComponentsByGVK(gvk)
 		return err
 	})
 	return res, err

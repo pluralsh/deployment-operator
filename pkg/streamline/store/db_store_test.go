@@ -1170,7 +1170,7 @@ func TestGetComponentsByGVK(t *testing.T) {
 		diff2 := createComponent("other-uid-2", WithGVK("extensions", "v1", "Deployment"), WithNamespace("ns-1"), WithName("delta"))
 		require.NoError(t, storeInstance.SaveComponent(diff2))
 
-		entries, err := storeInstance.GetComponentsByGVK(gvk)
+		entries, err := storeInstance.GetAppliedComponentsByGVK(gvk)
 		require.NoError(t, err)
 
 		assert.Len(t, entries, 3, "expected exactly 3 matching entries")
@@ -1224,22 +1224,22 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		err = storeInstance.SaveComponent(component4)
 		require.NoError(t, err)
 
-		components, err := storeInstance.GetComponentsByGVK(deploymentsGVK)
+		components, err := storeInstance.GetAppliedComponentsByGVK(deploymentsGVK)
 		require.NoError(t, err, "failed to verify that deployments exist")
 		assert.Len(t, components, 3)
 
-		services, err := storeInstance.GetComponentsByGVK(servicesGVK)
+		services, err := storeInstance.GetAppliedComponentsByGVK(servicesGVK)
 		require.NoError(t, err, "failed to verify that services exist")
 		assert.Len(t, services, 1)
 
 		err = storeInstance.DeleteComponents(deploymentsGVK.Group, deploymentsGVK.Version, deploymentsGVK.Kind)
 		require.NoError(t, err, "failed to delete deployments")
 
-		components, err = storeInstance.GetComponentsByGVK(deploymentsGVK)
+		components, err = storeInstance.GetAppliedComponentsByGVK(deploymentsGVK)
 		require.NoError(t, err, "failed to verify that deployments were deleted")
 		assert.Len(t, components, 0, "expected deployments to be deleted")
 
-		services, err = storeInstance.GetComponentsByGVK(servicesGVK)
+		services, err = storeInstance.GetAppliedComponentsByGVK(servicesGVK)
 		require.NoError(t, err, "failed to verify that services exist")
 		assert.Len(t, services, 1, "expected services to be unaffected")
 	})
@@ -1263,7 +1263,7 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify jobs exist
-		jobs, err := storeInstance.GetComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Job"})
+		jobs, err := storeInstance.GetAppliedComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Job"})
 		require.NoError(t, err)
 		assert.Len(t, jobs, 2)
 
@@ -1272,12 +1272,12 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify jobs are deleted
-		jobs, err = storeInstance.GetComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Job"})
+		jobs, err = storeInstance.GetAppliedComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Job"})
 		require.NoError(t, err)
 		assert.Len(t, jobs, 0)
 
 		// Verify service still exists
-		services, err := storeInstance.GetComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"})
+		services, err := storeInstance.GetAppliedComponentsByGVK(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"})
 		require.NoError(t, err)
 		assert.Len(t, services, 1)
 	})
@@ -1295,7 +1295,7 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		err = storeInstance.DeleteComponents("nonexistent", "v1", "NonExistentKind")
 		require.NoError(t, err)
 
-		deployments, err := storeInstance.GetComponentsByGVK(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
+		deployments, err := storeInstance.GetAppliedComponentsByGVK(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
 		require.NoError(t, err)
 		assert.Len(t, deployments, 1)
 	})
