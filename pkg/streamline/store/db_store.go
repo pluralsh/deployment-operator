@@ -469,13 +469,14 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 	}
 
 	// Create a set of keys for an easy lookup and an array of resources that are not in the store yet.
+	// Skip resources that do not have an apply phase, i.e., resources with skip or invalid phase.
 	resourceKeys := containers.NewSet[smcommon.Key]()
 	resourcesToSave := make([]unstructured.Unstructured, 0, len(resources))
 	for _, resource := range resources {
 		resourceKey := smcommon.NewKeyFromUnstructured(resource)
 		resourceKeys.Add(resourceKey)
 
-		if !componentKeys.Has(resourceKey) {
+		if !componentKeys.Has(resourceKey) && smcommon.HasApplyPhase(resource) {
 			resourcesToSave = append(resourcesToSave, resource)
 		}
 	}
