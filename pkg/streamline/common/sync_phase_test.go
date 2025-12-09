@@ -291,6 +291,20 @@ func TestHasApplyPhase(t *testing.T) {
 			want:        false,
 		},
 		{
+			name: "not supported helm hook taken from live resource - cannot be applied",
+			annotations: map[string]string{
+				"helm.sh/hook":                      "pre-delete",
+				"helm.sh/hook-delete-policy":        "before-hook-creation",
+				"helm.sh/hook-weight":               "-3",
+				"meta.helm.sh/release-name":         "vm-agent",
+				"meta.helm.sh/release-namespace":    "monitoring",
+				"config.k8s.io/owning-inventory":    "da500103-e6a6-42e5-a477-c04c030024eb",
+				"config.k8s.io/tracking-identifier": "batch/v1/Job/monitoring/vm-agent-victoria-metrics-operator-cleanup-hook",
+				"config.kubernetes.io/index":        "104",
+			},
+			want: false,
+		},
+		{
 			name:        "empty helm hook - cannot be applied",
 			annotations: map[string]string{HelmHookAnnotation: ""},
 			want:        false,
