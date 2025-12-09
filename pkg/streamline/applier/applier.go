@@ -247,6 +247,8 @@ func (in *Applier) appendUnsyncedResources(serviceId string, components []client
 				Synced:    false,
 				State:     lo.ToPtr(client.ComponentStatePending),
 			})
+
+			keys.Add(key)
 		}
 	}
 
