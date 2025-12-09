@@ -231,6 +231,12 @@ func (in *Applier) appendUnsyncedResources(serviceId string, components []client
 				continue
 			}
 
+			// Do not include resources that do not have an apply phase,
+			// i.e., resources with skip or invalid phase.
+			if !smcommon.HasApplyPhase(resource) {
+				continue
+			}
+
 			gvk := resource.GroupVersionKind()
 			result = append(result, client.ComponentAttributes{
 				Group:     gvk.Group,
