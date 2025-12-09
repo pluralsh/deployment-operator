@@ -1496,7 +1496,7 @@ func createUnstructuredResource(group, version, kind, namespace, name string) un
 }
 
 func createHookJob(namespace, name, serviceID string) unstructured.Unstructured {
-	group := ""
+	group := "batch"
 	version := "v1"
 	kind := "Job"
 
@@ -1545,8 +1545,8 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 		expect := map[string]struct {
 			group, version, kind, ns string
 		}{
-			"migrator": {group: "", version: "v1", kind: "Job", ns: "default"},
-			"check":    {group: "", version: "v1", kind: "Job", ns: "default"},
+			"migrator": {group: "batch", version: "v1", kind: "Job", ns: "default"},
+			"check":    {group: "batch", version: "v1", kind: "Job", ns: "default"},
 		}
 
 		for _, m := range result {
@@ -1650,7 +1650,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 
 		result, err := storeInstance.GetHookComponents(serviceID)
 		require.NoError(t, err)
-		require.Len(t, result, 3)
+		require.Len(t, result, 2)
 
 		kinds := make(map[string]bool)
 		for _, m := range result {
@@ -1658,7 +1658,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 		}
 		assert.True(t, kinds["Job"])
 		assert.True(t, kinds["Pod"])
-		assert.True(t, kinds["ConfigMap"])
+		assert.False(t, kinds["ConfigMap"]) // Should be ignored as only pods and jobs are supported now.
 	})
 
 	t.Run("should preserve UID and status information", func(t *testing.T) {
