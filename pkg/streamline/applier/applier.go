@@ -403,8 +403,8 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				continue
 			}
 
-			// Skip applying hook resource if their manifest did not change.
-			if ok && !hook.HasManifestChanged(resource) {
+			// Skip applying hook resource if their manifest did not change, and it has reached its desired state.
+			if ok && !hook.HasManifestChanged(resource) && hook.HadDesiredState() {
 				skipApply.Add(key)
 
 				continue
