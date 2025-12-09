@@ -1083,7 +1083,7 @@ func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []
 
 		gvk := resource.GroupVersionKind()
 		valueStrings = append(valueStrings,
-			fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s','%s')", gvk.Group, gvk.Version, gvk.Kind,
+			fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%d','%s','%s')", gvk.Group, gvk.Version, gvk.Kind,
 				resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID,
 				smcommon.GetPhaseHookDeletePolicy(resource)))
 	}
