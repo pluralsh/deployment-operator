@@ -94,7 +94,7 @@ const (
 
 	defaultStoreStorage                 = "memory"
 	defaultStoreFilePath                = "/tmp/agent-store.db"
-	defaultStoreCleanerInterval         = "10s"
+	defaultStoreCleanerInterval         = "1m"
 	defaultStoreCleanerIntervalDuration = 10 * time.Second
 
 	defaultJitterFactor = 0.2
