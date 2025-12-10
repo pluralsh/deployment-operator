@@ -42,16 +42,13 @@ func (in *Applier) Apply(ctx context.Context,
 ) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
 	resources = in.ensureServiceAnnotation(resources, service.ID)
 
-	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
-	toSkip := make([]unstructured.Unstructured, 0)
-
 	if err := in.store.SyncServiceComponents(service.ID, resources); err != nil {
-		return nil, serviceErrorList, err
+		return nil, nil, err
 	}
 
 	deleteFilterFunc, err := in.getDeleteFilterFunc(service.ID)
 	if err != nil {
-		return nil, serviceErrorList, err
+		return nil, nil, err
 	}
 
 	phases := NewPhases(
@@ -68,6 +65,7 @@ func (in *Applier) Apply(ctx context.Context,
 	var syncPhase *smcommon.SyncPhase
 	var phase *Phase
 	var hasOnFailPhase bool
+	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
 	for {
 		if phase, hasOnFailPhase = phases.Next(syncPhase, failed); phase == nil {
 			break
@@ -75,7 +73,6 @@ func (in *Applier) Apply(ctx context.Context,
 
 		now := time.Now()
 		syncPhase = lo.ToPtr(phase.Name())
-		toSkip = append(toSkip, phase.Skipped()...)
 
 		if !phase.HasWaves() {
 			klog.V(log.LogLevelDefault).InfoS(
