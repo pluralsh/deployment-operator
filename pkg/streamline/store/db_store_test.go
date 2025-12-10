@@ -534,7 +534,6 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		for i := 0; i < 50; i++ {
 			comp := createComponent(fmt.Sprintf("delete-uid-%d", i), WithGVK("apps", "v1", "Deployment"), WithNamespace("batch-ns"), WithName(fmt.Sprintf("delete-app-%d", i)))
 			componentsToDelete[i] = comp
-
 		}
 
 		require.NoError(t, storeInstance.SaveUnsyncedComponents(componentsToDelete))
