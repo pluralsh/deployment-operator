@@ -200,12 +200,13 @@ func (in *Applier) Apply(ctx context.Context,
 }
 
 func (in *Applier) appendUnsyncedResources(serviceId string, components []client.ComponentAttributes, resources []unstructured.Unstructured) ([]client.ComponentAttributes, error) {
-	result := make([]client.ComponentAttributes, 0)
+	result := map[string]client.ComponentAttributes{}
 	keys := containers.NewSet[smcommon.Key]()
 
 	for _, component := range components {
-		result = append(result, component)
-		keys.Add(smcommon.NewStoreKeyFromComponentAttributes(component).Key())
+		key := smcommon.NewStoreKeyFromComponentAttributes(component).Key()
+		keys.Add(key)
+		result[key.String()] = component
 	}
 
 	hooks, err := in.store.GetHookComponents(serviceId)
@@ -238,7 +239,7 @@ func (in *Applier) appendUnsyncedResources(serviceId string, components []client
 			}
 
 			gvk := resource.GroupVersionKind()
-			result = append(result, client.ComponentAttributes{
+			result[key.String()] = client.ComponentAttributes{
 				Group:     gvk.Group,
 				Version:   gvk.Version,
 				Kind:      gvk.Kind,
@@ -246,13 +247,13 @@ func (in *Applier) appendUnsyncedResources(serviceId string, components []client
 				Namespace: resource.GetNamespace(),
 				Synced:    false,
 				State:     lo.ToPtr(client.ComponentStatePending),
-			})
+			}
 
 			keys.Add(key)
 		}
 	}
 
-	return result, nil
+	return lo.Values(result), nil
 }
 
 func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.ComponentAttributes, error) {
