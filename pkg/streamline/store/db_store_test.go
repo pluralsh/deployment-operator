@@ -386,7 +386,7 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 		keysToDelete.Add(common.NewStoreKeyFromUnstructured(component2))
 
 		// Delete components by keys
-		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		err = storeInstance.DeleteUnsyncedComponentsByKeys(keysToDelete)
 		require.NoError(t, err)
 
 		// Verify deleted components no longer exist
@@ -413,7 +413,7 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 
 		// Delete with empty set
 		emptySet := containers.NewSet[common.StoreKey]()
-		err = storeInstance.DeleteComponentsByKeys(emptySet)
+		err = storeInstance.DeleteUnsyncedComponentsByKeys(emptySet)
 		require.NoError(t, err)
 	})
 
@@ -437,7 +437,7 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 			Name:      "non-existent-app",
 		})
 
-		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		err = storeInstance.DeleteUnsyncedComponentsByKeys(keysToDelete)
 		require.NoError(t, err)
 
 		// Verify the existing component still exists
@@ -471,7 +471,7 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 		keysToDelete.Add(common.NewStoreKeyFromUnstructured(deployment))
 		keysToDelete.Add(common.NewStoreKeyFromUnstructured(service))
 
-		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		err = storeInstance.DeleteUnsyncedComponentsByKeys(keysToDelete)
 		require.NoError(t, err)
 
 		// Verify deleted components no longer exist
@@ -514,7 +514,7 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 		keysToDelete.Add(common.NewStoreKeyFromUnstructured(component1))
 		keysToDelete.Add(common.NewStoreKeyFromUnstructured(component2))
 
-		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		err = storeInstance.DeleteUnsyncedComponentsByKeys(keysToDelete)
 		require.NoError(t, err)
 
 		// Verify deleted components
@@ -564,7 +564,7 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 		}
 
 		// Delete in batch
-		err = storeInstance.DeleteComponentsByKeys(keysToDelete)
+		err = storeInstance.DeleteUnsyncedComponentsByKeys(keysToDelete)
 		require.NoError(t, err)
 
 		// Verify deleted components

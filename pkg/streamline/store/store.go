@@ -34,9 +34,11 @@ type Store interface {
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponent(key smcommon.StoreKey) error
 
-	// DeleteComponentsByKeys removes multiple components from the store based on their smcommon.StoreKey.
+	// DeleteUnsyncedComponentsByKeys removes multiple components from the store based on their smcommon.StoreKey.
+	// It will delete only not applied components.
+	// If the applied component is passed, it will be ignored.
 	// It returns an error if any issue occurs during the deletion process.
-	DeleteComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error
+	DeleteUnsyncedComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error
 
 	// DeleteComponents removes components from the store based on GVK.
 	// It returns an error if any issue occurs during the deletion process.

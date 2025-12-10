@@ -136,9 +136,9 @@ func (p *ProfiledStore) DeleteComponents(group, version, kind string) error {
 }
 
 // DeleteComponentsByKeys wraps Store.DeleteComponentsByKeys with tracing.
-func (p *ProfiledStore) DeleteComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error {
-	return trace(context.Background(), "DeleteComponentsByKeys", func() error {
-		return p.inner.DeleteComponentsByKeys(objects)
+func (p *ProfiledStore) DeleteUnsyncedComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error {
+	return trace(context.Background(), "DeleteUnsyncedComponentsByKeys", func() error {
+		return p.inner.DeleteUnsyncedComponentsByKeys(objects)
 	})
 }
 

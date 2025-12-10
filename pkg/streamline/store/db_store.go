@@ -490,7 +490,7 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 		}
 	}
 
-	if err = in.DeleteComponentsByKeys(componentsToDelete); err != nil {
+	if err = in.DeleteUnsyncedComponentsByKeys(componentsToDelete); err != nil {
 		return err
 	}
 
@@ -498,7 +498,7 @@ func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []uns
 	return in.SaveUnsyncedComponents(resourcesToSave)
 }
 
-func (in *DatabaseStore) DeleteComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error {
+func (in *DatabaseStore) DeleteUnsyncedComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error {
 	if len(objects) == 0 {
 		return nil
 	}
@@ -521,7 +521,7 @@ func (in *DatabaseStore) DeleteComponentsByKeys(objects containers.Set[smcommon.
 	}
 
 	sb.WriteString(strings.Join(valueStrings, ","))
-	sb.WriteString(")")
+	sb.WriteString(") AND applied = 0")
 
 	return sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{Args: args})
 }
