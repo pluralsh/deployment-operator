@@ -350,7 +350,7 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 	})
 }
 
-func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
+func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 	t.Run("should delete multiple components by keys", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
@@ -360,16 +360,12 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 
 		// Create multiple components
 		component1 := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-1"))
-		err = storeInstance.SaveComponent(component1)
-		require.NoError(t, err)
-
 		component2 := createComponent("uid-2", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-2"))
-		err = storeInstance.SaveComponent(component2)
-		require.NoError(t, err)
-
 		component3 := createComponent("uid-3", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-3"))
-		err = storeInstance.SaveComponent(component3)
-		require.NoError(t, err)
+
+		require.NoError(t, storeInstance.SaveUnsyncedComponents([]unstructured.Unstructured{
+			component1, component2, component3,
+		}))
 
 		// Verify components exist
 		c1, err := storeInstance.GetComponent(component1)
@@ -455,16 +451,12 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 
 		// Create components with different GVKs
 		deployment := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("my-app"))
-		err = storeInstance.SaveComponent(deployment)
-		require.NoError(t, err)
-
 		statefulset := createComponent("uid-2", WithGVK("apps", "v1", "StatefulSet"), WithNamespace("default"), WithName("my-app"))
-		err = storeInstance.SaveComponent(statefulset)
-		require.NoError(t, err)
-
 		service := createComponent("uid-3", WithGVK("", "v1", "Service"), WithNamespace("default"), WithName("my-service"))
-		err = storeInstance.SaveComponent(service)
-		require.NoError(t, err)
+
+		require.NoError(t, storeInstance.SaveUnsyncedComponents([]unstructured.Unstructured{
+			deployment, statefulset, service,
+		}))
 
 		// Delete multiple components with different GVKs
 		keysToDelete := containers.NewSet[common.StoreKey]()
@@ -498,16 +490,12 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 
 		// Create components in different namespaces
 		component1 := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app"))
-		err = storeInstance.SaveComponent(component1)
-		require.NoError(t, err)
-
 		component2 := createComponent("uid-2", WithGVK("apps", "v1", "Deployment"), WithNamespace("production"), WithName("app"))
-		err = storeInstance.SaveComponent(component2)
-		require.NoError(t, err)
-
 		component3 := createComponent("uid-3", WithGVK("apps", "v1", "Deployment"), WithNamespace("staging"), WithName("app"))
-		err = storeInstance.SaveComponent(component3)
-		require.NoError(t, err)
+
+		require.NoError(t, storeInstance.SaveUnsyncedComponents([]unstructured.Unstructured{
+			component1, component2, component3,
+		}))
 
 		// Delete from default and production namespaces
 		keysToDelete := containers.NewSet[common.StoreKey]()
@@ -546,9 +534,10 @@ func TestComponentCache_DeleteComponentsByKeys(t *testing.T) {
 		for i := 0; i < 50; i++ {
 			comp := createComponent(fmt.Sprintf("delete-uid-%d", i), WithGVK("apps", "v1", "Deployment"), WithNamespace("batch-ns"), WithName(fmt.Sprintf("delete-app-%d", i)))
 			componentsToDelete[i] = comp
-			err = storeInstance.SaveComponent(comp)
-			require.NoError(t, err)
+
 		}
+
+		require.NoError(t, storeInstance.SaveUnsyncedComponents(componentsToDelete))
 
 		for i := 0; i < 50; i++ {
 			comp := createComponent(fmt.Sprintf("keep-uid-%d", i), WithGVK("apps", "v1", "Deployment"), WithNamespace("batch-ns"), WithName(fmt.Sprintf("keep-app-%d", i)))
