@@ -101,7 +101,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 			return ctrl.Result{}, err
 		}
 
-		// external resource is gone, delete the k8s resource
+		// agent run is gone, delete the k8s resource
 		if err := r.Delete(ctx, run); err != nil && !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
