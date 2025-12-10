@@ -727,6 +727,11 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string, onlyApplied bool
 	if onlyApplied {
 		sb.WriteString(" AND applied = 1")
 	}
+
+	// Return only if created from an original manifest set
+	// of a service or if it doesn't have any parent.
+	// Introduced to filter out components that have copied annotations
+	// from parents but are not part of the original manifest set.
 	sb.WriteString(` AND (manifest = 1 OR (parent_uid IS NULL OR parent_uid = ''))`)
 
 	result := make([]smcommon.Component, 0)
