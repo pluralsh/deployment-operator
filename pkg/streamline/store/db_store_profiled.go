@@ -190,6 +190,14 @@ func (p *ProfiledStore) GetComponentCounts() (nodeCount, namespaceCount int64, e
 	return
 }
 
+func (p *ProfiledStore) GetComponentAttributes(serviceID string, onlyApplied bool) (attrs []client.ComponentAttributes, err error) {
+	_ = trace(context.Background(), "GetComponentAttributes", func() error {
+		attrs, err = p.inner.GetComponentAttributes(serviceID, onlyApplied)
+		return err
+	})
+	return
+}
+
 // GetNodeStatistics wraps Store.GetNodeStatistics with tracing.
 func (p *ProfiledStore) GetNodeStatistics() ([]*client.NodeStatisticAttributes, error) {
 	var (

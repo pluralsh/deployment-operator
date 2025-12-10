@@ -7,7 +7,6 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -366,37 +365,13 @@ func (in *Supervisor) processComponentUpdate() bool {
 }
 
 func (in *Supervisor) flushComponentUpdates(serviceId string) {
-	// Get service components.
-	components, err := in.store.GetServiceComponents(serviceId, false)
+	attrs, err := in.store.GetComponentAttributes(serviceId, false)
 	if err != nil {
 		klog.ErrorS(err, "failed to get service components", "service", serviceId)
 		return
 	}
 
-	// Get hooks.
-	hooks, err := in.store.GetHookComponents(serviceId)
-	if err != nil {
-		return
-	}
-
-	// Create a map of hooks for an easy lookup.
-	keyToHookComponent := make(map[smcommon.Key]smcommon.HookComponent)
-	for _, hook := range hooks {
-		keyToHookComponent[hook.StoreKey().Key()] = hook
-	}
-
-	// Exclude non-existing components with a deletion policy that have reached their desired state.
-	attributes := make([]client.ComponentAttributes, 0, len(components))
-	for _, component := range components {
-		if hook, ok := keyToHookComponent[component.Key()]; ok && hook.HadDesiredState() {
-			continue
-		}
-
-		attributes = append(attributes, component.ComponentAttributes())
-	}
-
-	// Update components.
-	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, lo.ToSlicePtr(attributes)); err != nil {
+	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, lo.ToSlicePtr(attrs)); err != nil {
 		klog.ErrorS(err, "failed to update service components", "service", serviceId)
 	}
 }

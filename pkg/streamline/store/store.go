@@ -19,9 +19,18 @@ type Store interface {
 
 	SaveUnsyncedComponents(obj []unstructured.Unstructured) error
 
+	// GetComponentAttributes returns service components attributes from the store.
+	GetComponentAttributes(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error)
+
 	// SyncServiceComponents is used to store all service components in the store before applying them and to
 	// ensure that components that are no longer part of the service and were not applied are removed from the store.
 	SyncServiceComponents(serviceID string, resources []unstructured.Unstructured) error
+
+	// DeleteUnsyncedComponentsByKeys removes multiple components from the store based on their smcommon.StoreKey.
+	// It will delete only not applied components.
+	// If the applied component is passed, it will be ignored.
+	// It returns an error if any issue occurs during the deletion process.
+	DeleteUnsyncedComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error
 
 	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
 
@@ -33,12 +42,6 @@ type Store interface {
 	// DeleteComponent removes a component from the store based on its smcommon.StoreKey.
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponent(key smcommon.StoreKey) error
-
-	// DeleteUnsyncedComponentsByKeys removes multiple components from the store based on their smcommon.StoreKey.
-	// It will delete only not applied components.
-	// If the applied component is passed, it will be ignored.
-	// It returns an error if any issue occurs during the deletion process.
-	DeleteUnsyncedComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error
 
 	// DeleteComponents removes components from the store based on GVK.
 	// It returns an error if any issue occurs during the deletion process.

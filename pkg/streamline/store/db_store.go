@@ -526,6 +526,44 @@ func (in *DatabaseStore) DeleteUnsyncedComponentsByKeys(objects containers.Set[s
 	return sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{Args: args})
 }
 
+func (in *DatabaseStore) GetComponentAttributes(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error) {
+	components, err := in.GetServiceComponents(serviceID, onlyApplied)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service components: %w", err)
+	}
+
+	// TODO: Can return early if only applied components are requested?
+
+	// If all components are requested,
+	// exclude non-existing hook components with a deletion policy that have reached their desired state.
+	hooks, err := in.GetHookComponents(serviceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hook components: %w", err)
+	}
+
+	keyToHookComponent := make(map[smcommon.Key]smcommon.HookComponent)
+	for _, hook := range hooks {
+		keyToHookComponent[hook.StoreKey().Key()] = hook
+	}
+
+	attributes := make([]client.ComponentAttributes, 0, len(components))
+	for _, component := range components {
+		if hook, ok := keyToHookComponent[component.Key()]; ok && hook.HadDesiredState() {
+			continue
+		}
+
+		// TODO: Optimize children queries.
+		attr := component.ComponentAttributes()
+		if children, err := in.GetComponentChildren(component.UID); err == nil {
+			attr.Children = lo.ToSlicePtr(children)
+		}
+
+		attributes = append(attributes, attr)
+	}
+
+	return attributes, nil
+}
+
 func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error) {
 	if len(keys) == 0 {
 		return 0, nil
