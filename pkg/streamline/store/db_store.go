@@ -561,6 +561,7 @@ func (in *DatabaseStore) GetComponentAttributes(serviceID string, onlyApplied bo
 		attributes = append(attributes, attr)
 	}
 
+	// TODO: Add unit tests.
 	return attributes, nil
 }
 
