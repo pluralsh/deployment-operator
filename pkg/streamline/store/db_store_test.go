@@ -2006,3 +2006,262 @@ func TestComponentCache_SetServiceChildren(t *testing.T) {
 		require.Equal(t, componentBefore.ParentUID, "123")
 	})
 }
+
+func TestComponentCache_GetComponentAttributes(t *testing.T) {
+	t.Run("should return component attributes for service", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-service-attrs"
+
+		// Create components with the target service ID
+		err = storeInstance.SaveComponent(createComponent("comp-1", WithGVK("apps", "v1", "Deployment"), WithName("deployment-1"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		err = storeInstance.SaveComponent(createComponent("comp-2", WithGVK("", "v1", "Service"), WithName("service-1"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetComponentAttributes(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 2)
+
+		// Verify attributes have correct values
+		foundUIDs := make(map[string]bool)
+		for _, attr := range attributes {
+			foundUIDs[lo.FromPtr(attr.UID)] = true
+			assert.True(t, attr.Synced)
+		}
+		assert.True(t, foundUIDs["comp-1"])
+		assert.True(t, foundUIDs["comp-2"])
+	})
+
+	t.Run("should return empty slice for non-existent service", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		attributes, err := storeInstance.GetComponentAttributes("non-existent-service", true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 0)
+	})
+
+	t.Run("should include children in component attributes", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-service-with-children"
+
+		// Create parent component
+		parentUID := "parent-comp"
+		err = storeInstance.SaveComponent(createComponent(parentUID, WithGVK("apps", "v1", "Deployment"), WithName("deployment-parent"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Create child component
+		childUID := "child-comp"
+		err = storeInstance.SaveComponent(createComponent(childUID, WithGVK("apps", "v1", "ReplicaSet"), WithName("deployment-rs"), WithNamespace("default"), WithParent(parentUID), WithService(serviceID)))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetComponentAttributes(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 1)
+
+		// Find parent and verify it has children
+		for _, attr := range attributes {
+			if lo.FromPtr(attr.UID) == parentUID {
+				assert.NotNil(t, attr.Children)
+				assert.Len(t, attr.Children, 1)
+				assert.Equal(t, childUID, attr.Children[0].UID)
+			}
+		}
+	})
+
+	t.Run("should exclude hook components with deletion policy that reached desired state", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-service-hooks"
+
+		// Create regular component
+		err = storeInstance.SaveComponent(createComponent("regular-comp", WithGVK("apps", "v1", "Deployment"), WithName("regular-deployment"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Create hook component that reached desired state (succeeded with delete policy "Succeeded")
+		hookJob := createHookJob("default", "migration-job", serviceID)
+		err = storeInstance.SaveComponent(hookJob)
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetComponentAttributes(serviceID, false)
+		require.NoError(t, err)
+
+		// Should include regular component but exclude hook that reached desired state
+		assert.Len(t, attributes, 1)
+		assert.Equal(t, "regular-comp", lo.FromPtr(attributes[0].UID))
+	})
+
+	t.Run("should include hook components that have not reached desired state", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-service-hooks-not-reached"
+
+		// Create regular component
+		err = storeInstance.SaveComponent(createComponent("regular-comp-2", WithGVK("apps", "v1", "Deployment"), WithName("regular-deployment-2"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Create hook component that has NOT reached desired state (running/pending)
+		hookJob := createHookJobPending("default", "pending-job", serviceID)
+		err = storeInstance.SaveComponent(hookJob)
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetComponentAttributes(serviceID, false)
+		require.NoError(t, err)
+
+		// Should include both components since hook has not reached desired state
+		assert.Len(t, attributes, 2)
+
+		foundUIDs := make(map[string]bool)
+		for _, attr := range attributes {
+			foundUIDs[lo.FromPtr(attr.UID)] = true
+		}
+		assert.True(t, foundUIDs["regular-comp-2"])
+		assert.True(t, foundUIDs[fmt.Sprintf("%s-%s-%s", "Job", "default", "pending-job")])
+	})
+
+	t.Run("should handle multiple services with mixed hook states", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID1 := "test-service-multi-1"
+		serviceID2 := "test-service-multi-2"
+
+		// Service 1: regular component + succeeded hook
+		err = storeInstance.SaveComponent(createComponent("svc1-regular", WithGVK("apps", "v1", "Deployment"), WithName("svc1-deployment"), WithNamespace("default"), WithService(serviceID1)))
+		require.NoError(t, err)
+		err = storeInstance.SaveComponent(createHookJob("default", "svc1-hook", serviceID1))
+		require.NoError(t, err)
+
+		// Service 2: regular component + pending hook
+		err = storeInstance.SaveComponent(createComponent("svc2-regular", WithGVK("apps", "v1", "Deployment"), WithName("svc2-deployment"), WithNamespace("default"), WithService(serviceID2)))
+		require.NoError(t, err)
+		err = storeInstance.SaveComponent(createHookJobPending("default", "svc2-hook", serviceID2))
+		require.NoError(t, err)
+
+		// Get attributes for service 1
+		attrs1, err := storeInstance.GetComponentAttributes(serviceID1, false)
+		require.NoError(t, err)
+		assert.Len(t, attrs1, 1) // Only regular component, hook excluded
+
+		// Get attributes for service 2
+		attrs2, err := storeInstance.GetComponentAttributes(serviceID2, false)
+		require.NoError(t, err)
+		assert.Len(t, attrs2, 2) // Both components, hook included
+	})
+
+	t.Run("should return correct component attributes fields", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-service-fields"
+
+		err = storeInstance.SaveComponent(createComponent("field-test-comp", WithGVK("apps", "v1", "Deployment"), WithName("test-deployment"), WithNamespace("test-ns"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetComponentAttributes(serviceID, true)
+		require.NoError(t, err)
+		require.Len(t, attributes, 1)
+
+		attr := attributes[0]
+		assert.Equal(t, "field-test-comp", lo.FromPtr(attr.UID))
+		assert.Equal(t, "apps", attr.Group)
+		assert.Equal(t, "v1", attr.Version)
+		assert.Equal(t, "Deployment", attr.Kind)
+		assert.Equal(t, "test-deployment", attr.Name)
+		assert.Equal(t, "test-ns", attr.Namespace)
+		assert.True(t, attr.Synced)
+	})
+
+	t.Run("should handle nested children hierarchy", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-service-nested"
+
+		// Create parent
+		parentUID := "nested-parent"
+		err = storeInstance.SaveComponent(createComponent(parentUID, WithGVK("apps", "v1", "Deployment"), WithName("deployment-parent"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Create child level 1
+		child1UID := "nested-child-1"
+		err = storeInstance.SaveComponent(createComponent(child1UID, WithGVK("apps", "v1", "ReplicaSet"), WithName("nested-rs"), WithNamespace("default"), WithParent(parentUID), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Create child level 2
+		child2UID := "nested-child-2"
+		err = storeInstance.SaveComponent(createComponent(child2UID, WithGVK("", "v1", "Secret"), WithName("nested-secret"), WithNamespace("default"), WithParent(child1UID), WithService(serviceID)))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetComponentAttributes(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 1)
+
+		// Find parent and verify children are populated
+		for _, attr := range attributes {
+			if lo.FromPtr(attr.UID) == parentUID {
+				assert.NotNil(t, attr.Children)
+				assert.Equal(t, len(attr.Children), 2)
+			}
+		}
+	})
+}
+
+// createHookJobPending creates a hook job that is still running/pending (has not reached desired state)
+func createHookJobPending(namespace, name, serviceID string) unstructured.Unstructured {
+	group := "batch"
+	version := "v1"
+	kind := "Job"
+
+	u := createUnstructuredResource(group, version, kind, namespace, name)
+
+	u.SetAnnotations(map[string]string{
+		common.OwningInventoryKey:        serviceID,
+		common.TrackingIdentifierKey:     common.NewKeyFromUnstructured(u).String(),
+		common.SyncPhaseHookDeletePolicy: common.HookDeletePolicySucceeded,
+	})
+
+	// Set status to indicate job is still running (not complete/failed)
+	u.Object["status"] = map[string]interface{}{
+		"active": "1",
+		"conditions": []interface{}{
+			map[string]interface{}{
+				"type":   "Running",
+				"status": "True",
+			},
+		},
+	}
+
+	return u
+}
