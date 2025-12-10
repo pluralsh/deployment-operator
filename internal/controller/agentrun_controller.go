@@ -96,6 +96,19 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return *result, nil
 	}
 
+	if _, err := r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID()); err != nil {
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+
+		// agent run is gone, delete the k8s resource
+		if err := r.Delete(ctx, run); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	agentRuntime, err := r.getRuntime(ctx, run)
 	if err != nil {
 		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
