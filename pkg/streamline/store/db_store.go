@@ -532,7 +532,7 @@ func (in *DatabaseStore) GetComponentAttributes(serviceID string, onlyApplied bo
 		return nil, fmt.Errorf("failed to get service components: %w", err)
 	}
 
-	// TODO: Can return early if only applied components are requested?
+	// TODO: Can return early if only applied components are requested? Append children.
 
 	// If all components are requested,
 	// exclude non-existing hook components with a deletion policy that have reached their desired state.
