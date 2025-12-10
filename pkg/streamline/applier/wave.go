@@ -349,10 +349,6 @@ func (in *WaveProcessor) onDelete(ctx context.Context, resource unstructured.Uns
 
 		return
 	}
-
-	if err := streamline.GetGlobalStore().DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(live))); err != nil {
-		klog.V(log.LogLevelDefault).ErrorS(err, "failed to delete component", "resource", live.GetUID())
-	}
 }
 
 func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unstructured) {
