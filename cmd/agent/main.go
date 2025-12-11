@@ -275,7 +275,7 @@ func initDatabaseStoreOrDie(ctx context.Context) store.Store {
 func runStoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, interval, ttl time.Duration) {
 	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return interval }, false, func(_ context.Context) (done bool, err error) {
 		if err := store.ExpireOlderThan(ttl); err != nil {
-			klog.Error(err, "unable to expire resource cache")
+			klog.ErrorS(err, "unable to expire resource cache")
 		}
 		return false, nil
 	})

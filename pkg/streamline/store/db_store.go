@@ -972,7 +972,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 			cc.parent_uid,
 			cc.root_component_uid
 		FROM component_children cc
-		WHERE cc.root_component_uid != '' AND cc.parent_uid IS NOT NULL AND cc.parent_uid != ''
+		WHERE cc.root_component_uid != ''
 	`)
 
 	componentMap := make(map[string]*client.ComponentAttributes)      // Map to store component attributes by UID
