@@ -924,8 +924,8 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 				}
 			} else {
 				// Child row
-				rootComponentUID := stmt.ColumnText(9)
-				parentUID := stmt.ColumnText(8)
+				rootComponentUID := stmt.ColumnText(10)
+				parentUID := stmt.ColumnText(9)
 				child := client.ComponentChildAttributes{
 					UID:       uid,
 					Group:     lo.EmptyableToPtr(group),
