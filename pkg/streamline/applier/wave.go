@@ -155,6 +155,8 @@ type WaveProcessor struct {
 	// svcCache is the discoveryCache used to get the service deployment for an agent.
 	svcCache *consoleclient.Cache[console.ServiceDeploymentForAgent]
 
+	// waveStatistics contains statistics about the wave that was processed.
+	// TODO: make it thread-safe
 	waveStatistics WaveStatistics
 }
 

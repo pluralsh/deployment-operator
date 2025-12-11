@@ -122,7 +122,7 @@ func main() {
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 	cache.InitComponentShaCache(args.ComponentShaCacheTTL())
 
-	dbStore := initDatabaseStoreOrDie()
+	dbStore := initDatabaseStoreOrDie(ctx)
 	defer func(dbStore store.Store) {
 		err := dbStore.Shutdown()
 		if err != nil {
@@ -254,8 +254,8 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 	return supervisor
 }
 
-func initDatabaseStoreOrDie() store.Store {
-	dbStore, err := store.NewDatabaseStore(store.WithStorage(args.StoreStorage()), store.WithFilePath(args.StoreFilePath()))
+func initDatabaseStoreOrDie(ctx context.Context) store.Store {
+	dbStore, err := store.NewDatabaseStore(ctx, store.WithStorage(args.StoreStorage()), store.WithFilePath(args.StoreFilePath()))
 	if err != nil {
 		setupLog.Error(err, "unable to initialize database store")
 		os.Exit(1)
