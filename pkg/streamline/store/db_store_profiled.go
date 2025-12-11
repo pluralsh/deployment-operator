@@ -40,7 +40,7 @@ func NewProfiledStore(inner Store) Store {
 func trace(ctx context.Context, op string, fn func() error) error {
 	now := time.Now()
 	defer func() {
-		klog.V(log.LogLevelVerbose).InfoS("tracing database call", "op", op, "duration", time.Since(now))
+		klog.V(log.LogLevelDebug).InfoS("tracing database call", "op", op, "duration", time.Since(now))
 	}()
 	if ctx == nil {
 		ctx = context.Background()
