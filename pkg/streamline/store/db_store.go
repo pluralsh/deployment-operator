@@ -839,7 +839,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 				child.parent_uid,
 				1 as level
 			FROM service_components sc
-			JOIN component child ON child.parent_uid = sc.uid
+			JOIN component child ON child.parent_uid = sc.uid AND child.parent_uid != ''
 			
 			UNION ALL
 			
@@ -855,7 +855,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 				c.parent_uid,
 				cc.level + 1
 			FROM component_children cc
-			JOIN component c ON c.parent_uid = cc.uid
+			JOIN component c ON c.parent_uid = cc.uid AND c.parent_uid != ''
 			WHERE cc.level < 4
 		)`)
 
