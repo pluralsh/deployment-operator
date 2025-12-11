@@ -186,7 +186,7 @@ const (
 	nodeStatistics = `
 		SELECT node, COUNT(*)
 		FROM component
-		WHERE kind = 'Pod' AND created_at <= strftime('%s', 'now', '-5 minutes') AND health != 0
+		WHERE kind = 'Pod' AND created_at <= strftime('%s', 'now', '-5 minutes') AND health != 0 AND applied = 1
 		GROUP BY node
 	`
 
