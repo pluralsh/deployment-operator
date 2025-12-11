@@ -658,7 +658,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 				Kind:                 stmt.ColumnText(3),
 				Namespace:            stmt.ColumnText(4),
 				Name:                 stmt.ColumnText(5),
-				Status:               ComponentState(stmt.ColumnInt32(6)).String(),
+				Status:               lo.Ternary(stmt.ColumnBool(14), ComponentState(stmt.ColumnInt32(6)), ComponentStatePending).String(), // Always mark as pending if resource was not applied.
 				ParentUID:            stmt.ColumnText(7),
 				ManifestSHA:          stmt.ColumnText(8),
 				TransientManifestSHA: stmt.ColumnText(9),
