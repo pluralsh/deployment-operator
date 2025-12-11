@@ -83,26 +83,26 @@ func (p *ProfiledStore) SyncServiceComponents(serviceID string, resources []unst
 }
 
 // GetComponent wraps Store.GetComponent with tracing.
-func (p *ProfiledStore) GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error) {
+func (p *ProfiledStore) GetAppliedComponent(obj unstructured.Unstructured) (*smcommon.Component, error) {
 	var (
 		res *smcommon.Component
 		err error
 	)
-	_ = trace(context.Background(), "GetComponent", func() error {
-		res, err = p.inner.GetComponent(obj)
+	_ = trace(context.Background(), "GetAppliedComponent", func() error {
+		res, err = p.inner.GetAppliedComponent(obj)
 		return err
 	})
 	return res, err
 }
 
 // GetComponentByUID wraps Store.GetComponentByUID with tracing.
-func (p *ProfiledStore) GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error) {
+func (p *ProfiledStore) GetAppliedComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error) {
 	var (
 		res *client.ComponentChildAttributes
 		err error
 	)
-	_ = trace(context.Background(), "GetComponentByUID", func() error {
-		res, err = p.inner.GetComponentByUID(uid)
+	_ = trace(context.Background(), "GetAppliedComponentByUID", func() error {
+		res, err = p.inner.GetAppliedComponentByUID(uid)
 		return err
 	})
 	return res, err

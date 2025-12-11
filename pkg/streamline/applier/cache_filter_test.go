@@ -175,7 +175,7 @@ func TestCacheFilter(t *testing.T) {
 
 		CacheFilter()(unstructuredPod)
 
-		entry, err := storeInstance.GetComponent(unstructuredPod)
+		entry, err := storeInstance.GetAppliedComponent(unstructuredPod)
 		require.NoError(t, err, "failed to get component")
 		assert.NotEmpty(t, entry.TransientManifestSHA, "expected transient manifest SHA to be set after filter call")
 	})

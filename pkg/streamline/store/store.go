@@ -32,9 +32,9 @@ type Store interface {
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteUnsyncedComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error
 
-	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
+	GetAppliedComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
 
-	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
+	GetAppliedComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
 
 	// GetAppliedComponentsByGVK returns all applied components matching provided GVK.
 	GetAppliedComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error)

@@ -698,7 +698,7 @@ func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []
 	return updatedCount, nil
 }
 
-func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
+func (in *DatabaseStore) GetAppliedComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
 	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return result, err
@@ -710,7 +710,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 
 	gvk := obj.GroupVersionKind()
 
-	err = sqlitex.ExecuteTransient(conn, getComponent, &sqlitex.ExecOptions{
+	err = sqlitex.ExecuteTransient(conn, getAppliedComponent, &sqlitex.ExecOptions{
 		Args: []interface{}{obj.GetName(), obj.GetNamespace(), gvk.Group, gvk.Version, gvk.Kind},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = &smcommon.Component{
@@ -720,7 +720,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 				Kind:                 stmt.ColumnText(3),
 				Namespace:            stmt.ColumnText(4),
 				Name:                 stmt.ColumnText(5),
-				Status:               lo.Ternary(stmt.ColumnBool(14), ComponentState(stmt.ColumnInt32(6)), ComponentStatePending).String(), // Always mark as pending if resource was not applied.
+				Status:               ComponentState(stmt.ColumnInt32(6)).String(),
 				ParentUID:            stmt.ColumnText(7),
 				ManifestSHA:          stmt.ColumnText(8),
 				TransientManifestSHA: stmt.ColumnText(9),
@@ -736,7 +736,7 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 	return result, err
 }
 
-func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.ComponentChildAttributes, err error) {
+func (in *DatabaseStore) GetAppliedComponentByUID(uid types.UID) (result *client.ComponentChildAttributes, err error) {
 	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return result, err
@@ -746,7 +746,7 @@ func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.Compon
 		cancelFunc()
 	}()
 
-	err = sqlitex.ExecuteTransient(conn, getComponentByUID, &sqlitex.ExecOptions{
+	err = sqlitex.ExecuteTransient(conn, getAppliedComponentByUID, &sqlitex.ExecOptions{
 		Args: []interface{}{uid},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = &client.ComponentChildAttributes{
