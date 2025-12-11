@@ -157,9 +157,10 @@ func TestComponentCache_SetComponent(t *testing.T) {
 			}
 		}(storeInstance)
 
+		serviceID := "test-service-set-component"
 		uid := testUID
 
-		component := createComponent(uid, WithName("parent-component"))
+		component := createComponent(uid, WithName("parent-component"), WithService(serviceID))
 		err = storeInstance.SaveComponent(component)
 		require.NoError(t, err)
 
@@ -167,11 +168,13 @@ func TestComponentCache_SetComponent(t *testing.T) {
 		err = storeInstance.SaveComponent(childComponent)
 		require.NoError(t, err)
 
-		children, err := storeInstance.GetComponentChildren(uid)
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
 		require.NoError(t, err)
-		require.Len(t, children, 1)
-		assert.Equal(t, testChildUID, children[0].UID)
-		assert.Equal(t, uid, *children[0].ParentUID)
+		require.Len(t, attributes, 1)
+		require.NotNil(t, attributes[0].Children)
+		require.Len(t, attributes[0].Children, 1)
+		assert.Equal(t, testChildUID, attributes[0].Children[0].UID)
+		assert.Equal(t, uid, *attributes[0].Children[0].ParentUID)
 	})
 }
 
@@ -183,8 +186,9 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
+		serviceID := "test-service-delete-basic"
 		uid := testUID
-		component := createComponent(uid, WithName("delete-parent-component"))
+		component := createComponent(uid, WithName("delete-parent-component"), WithService(serviceID))
 		err = storeInstance.SaveComponent(component)
 		require.NoError(t, err)
 
@@ -197,16 +201,18 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 		err = storeInstance.SaveComponent(grandchildComponent)
 		require.NoError(t, err)
 
-		children, err := storeInstance.GetComponentChildren(uid)
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
 		require.NoError(t, err)
-		require.Len(t, children, 2)
+		require.Len(t, attributes, 1)
+		require.Len(t, attributes[0].Children, 2)
 
 		err = storeInstance.DeleteComponent(createStoreKey(WithStoreKeyName("delete-child-component")))
 		require.NoError(t, err)
 
-		children, err = storeInstance.GetComponentChildren(uid)
+		attributes, err = storeInstance.GetServiceComponentsWithChildren(serviceID, true)
 		require.NoError(t, err)
-		require.Len(t, children, 0)
+		require.Len(t, attributes, 1)
+		require.Nil(t, attributes[0].Children)
 	})
 
 	t.Run("cache should support multi-level cascade deletion", func(t *testing.T) {
@@ -216,8 +222,9 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
+		serviceID := "test-service-delete-multi"
 		uid := testUID
-		component := createComponent(uid, WithName("multi-delete-parent"))
+		component := createComponent(uid, WithName("multi-delete-parent"), WithService(serviceID))
 		err = storeInstance.SaveComponent(component)
 		require.NoError(t, err)
 
@@ -235,16 +242,18 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 		err = storeInstance.SaveComponent(child2Component)
 		require.NoError(t, err)
 
-		children, err := storeInstance.GetComponentChildren(uid)
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
 		require.NoError(t, err)
-		require.Len(t, children, 3)
+		require.Len(t, attributes, 1)
+		require.Len(t, attributes[0].Children, 3)
 
 		err = storeInstance.DeleteComponent(createStoreKey(WithStoreKeyName("multi-delete-child")))
 		require.NoError(t, err)
 
-		children, err = storeInstance.GetComponentChildren(uid)
+		attributes, err = storeInstance.GetServiceComponentsWithChildren(serviceID, true)
 		require.NoError(t, err)
-		require.Len(t, children, 1)
+		require.Len(t, attributes, 1)
+		require.Len(t, attributes[0].Children, 1)
 	})
 }
 
@@ -477,10 +486,11 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
+		serviceID := "test-service-group-handling"
 		group := testGroup
 
 		uid := testUID
-		component := createComponent(uid, WithName("group-test-parent"))
+		component := createComponent(uid, WithName("group-test-parent"), WithService(serviceID))
 		err = storeInstance.SaveComponent(component)
 		require.NoError(t, err)
 
@@ -488,10 +498,12 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		err = storeInstance.SaveComponent(child)
 		require.NoError(t, err)
 
-		children, err := storeInstance.GetComponentChildren(uid)
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
 		require.NoError(t, err)
-		require.Len(t, children, 1)
-		require.Equal(t, group, *children[0].Group)
+		require.Len(t, attributes, 1)
+		require.NotNil(t, attributes[0].Children)
+		require.Len(t, attributes[0].Children, 1)
+		require.Equal(t, group, *attributes[0].Children[0].Group)
 
 		// Test empty group
 		child = createComponent("child2-uid", WithParent(uid), WithGVK("", testVersion, testKind), WithName("group-test-child"))
