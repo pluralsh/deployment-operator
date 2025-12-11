@@ -765,7 +765,7 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string, onlyApplied bool
 	defer in.pool.Put(conn)
 
 	var sb strings.Builder
-	sb.WriteString(`SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest
+	sb.WriteString(`SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest, applied
 	FROM component WHERE service_id = ?`)
 	if onlyApplied {
 		sb.WriteString(" AND applied = 1")
@@ -789,7 +789,7 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string, onlyApplied bool
 				Kind:        stmt.ColumnText(4),
 				Name:        stmt.ColumnText(5),
 				Namespace:   stmt.ColumnText(6),
-				Status:      ComponentState(stmt.ColumnInt32(7)).String(),
+				Status:      lo.Ternary(stmt.ColumnBool(10), ComponentState(stmt.ColumnInt32(7)), ComponentStatePending).String(), // Always mark as pending if resource was not applied.
 				ServiceID:   serviceID,
 				DeletePhase: stmt.ColumnText(8),
 				Manifest:    stmt.ColumnBool(9),
@@ -807,6 +807,8 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 		return nil, err
 	}
 	defer in.pool.Put(conn)
+
+	// TODO: Optimize.
 
 	var sb strings.Builder
 	// service_components CTE selects top-level components belonging to the service.
@@ -888,6 +890,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 			cc.parent_uid,
 			cc.root_component_uid
 		FROM component_children cc
+		WHERE cc.root_component_uid != ''
 	`)
 
 	componentMap := make(map[string]*client.ComponentAttributes)      // Map to store component attributes by UID
