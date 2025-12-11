@@ -190,20 +190,57 @@ const (
 		GROUP BY node
 	`
 
+	setComponent = `
+		INSERT INTO component (
+			uid,
+			parent_uid,
+			"group",
+			version,
+			kind,
+			namespace,
+			name,
+			health,
+		    applied,
+		    node,
+		    created_at,
+		    service_id
+		) VALUES (
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+		    ?,
+		    ?,
+		    ?
+		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			parent_uid = excluded.parent_uid,
+			health = excluded.health,
+			node = excluded.node,
+			created_at = excluded.created_at,
+			service_id = excluded.service_id,
+			applied = excluded.applied
+	`
+
 	failedComponents = `
 		WITH RECURSIVE component_chain AS (
 			-- Start with parent components of specified kinds
 			SELECT *, 1 as level, uid as root_uid
 			FROM component 
-			WHERE kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')
+			WHERE kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate') AND applied = 1
 			
 			UNION ALL
 			
 			-- Get children of components in the chain, carrying the root component UID
 			SELECT c.*, cc.level + 1, cc.root_uid
 			FROM component c
-			JOIN component_chain cc ON c.parent_uid = cc.uid
-			WHERE cc.level < 4
+			JOIN component_chain cc ON c.parent_uid = cc.uid AND c.parent_uid != ''
+			WHERE cc.level < 4 AND c.applied = 1
 		),
 		-- Find all failed components in the chain
 		failed_roots AS (
@@ -226,6 +263,7 @@ const (
 		   ) AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')))
            AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')
 	`
+
 	serverCounts = `
 	SELECT
   		COUNT(DISTINCT CASE WHEN kind = 'Node' THEN uid END) AS node_count,

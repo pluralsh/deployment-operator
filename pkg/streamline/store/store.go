@@ -47,6 +47,8 @@ type Store interface {
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponents(group, version, kind string) error
 
+	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
+
 	// GetServiceComponents retrieves all parent components associated with a given service ID.
 	// All components with parents are filtered out.
 	// It returns a slice of Component structs containing information about each component and any error encountered.

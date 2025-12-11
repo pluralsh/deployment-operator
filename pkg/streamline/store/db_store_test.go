@@ -1,11 +1,14 @@
 package store_test
 
 import (
+	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -135,7 +138,7 @@ func createStoreKey(option ...CreateStoreKeyOption) common.StoreKey {
 
 func TestComponentCache_Init(t *testing.T) {
 	t.Run("cache should initialize", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			err := storeInstance.Shutdown()
@@ -148,7 +151,7 @@ func TestComponentCache_Init(t *testing.T) {
 
 func TestComponentCache_SetComponent(t *testing.T) {
 	t.Run("cache should save and return simple parent and child structure", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			err := storeInstance.Shutdown()
@@ -180,7 +183,7 @@ func TestComponentCache_SetComponent(t *testing.T) {
 
 func TestComponentCache_DeleteComponent(t *testing.T) {
 	t.Run("cache should support basic cascade deletion", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -216,7 +219,7 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 	})
 
 	t.Run("cache should support multi-level cascade deletion", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -259,7 +262,7 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 
 func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 	t.Run("should delete multiple components by keys", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -308,7 +311,7 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 	})
 
 	t.Run("should handle empty set without error", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -321,7 +324,7 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 	})
 
 	t.Run("should handle deletion of non-existent keys without error", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -350,7 +353,7 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 	})
 
 	t.Run("should delete components with different GVKs", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -389,7 +392,7 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 	})
 
 	t.Run("should delete components across different namespaces", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -428,7 +431,7 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 	})
 
 	t.Run("should handle large batch deletion", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -480,7 +483,7 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 
 func TestComponentCache_GroupHandling(t *testing.T) {
 	t.Run("cache should correctly store and return group", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -528,7 +531,7 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 
 func TestComponentCache_UniqueConstraint(t *testing.T) {
 	t.Run("should allow components with different GVK-namespace-name combinations", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -583,7 +586,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should allow component updates", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -605,7 +608,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should allow components with same GVK-namespace-name but different UID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -627,7 +630,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should allow updating existing component with same UID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -653,7 +656,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 
 	t.Run("should handle UID changes for resource with the same identity", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -688,27 +691,9 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 	})
 }
 
-func TestComponentCache_ComponentInsights(t *testing.T) {
-	t.Run("should handle empty cache without errors", func(t *testing.T) {
-		// Initialize a fresh cache for this test
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func() {
-			if err := storeInstance.Shutdown(); err != nil {
-				t.Fatalf("Failed to close component cache: %v", err)
-			}
-		}()
-
-		// Get component insights from empty cache
-		insights, err := storeInstance.GetComponentInsights()
-		require.NoError(t, err, "Failed to get component insights from empty cache")
-		require.Nil(t, insights, "Expected non-nil insights object from empty cache")
-	})
-}
-
 func TestComponentCountsCache(t *testing.T) {
 	t.Run("cache should return counts of nodes, pods and namespaces", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -738,7 +723,7 @@ func TestComponentCountsCache(t *testing.T) {
 	})
 
 	t.Run("should return correct counts of nodes and namespaces", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -775,7 +760,7 @@ func TestComponentCountsCache(t *testing.T) {
 
 func TestUpdateSHA(t *testing.T) {
 	t.Run("cache should update SHA", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -801,7 +786,7 @@ func TestUpdateSHA(t *testing.T) {
 
 func TestExpireSHAOlderThan(t *testing.T) {
 	t.Run("should expire SHA", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -838,7 +823,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 	})
 
 	t.Run("should not expire SHA", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -873,7 +858,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 	})
 
 	t.Run("trigger should update updated_at column", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -922,7 +907,7 @@ func TestGetComponentsByGVK(t *testing.T) {
 	t.Run("should return only components matching provided GVK", func(t *testing.T) {
 		gvk := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -964,7 +949,7 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 		deploymentsGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 		servicesGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
 
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1015,7 +1000,7 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 	})
 
 	t.Run("should handle empty group in delete operation", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1053,7 +1038,7 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 	})
 
 	t.Run("should handle deletion of non-existent components gracefully", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1073,7 +1058,7 @@ func TestComponentCache_DeleteComponents(t *testing.T) {
 
 func TestComponentCache_GetServiceComponents(t *testing.T) {
 	t.Run("should return components filtered by service ID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1113,7 +1098,7 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 	})
 
 	t.Run("should return empty slice for non-existent service ID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1132,7 +1117,7 @@ func TestComponentCache_GetServiceComponents(t *testing.T) {
 
 func TestComponentCache_Expire(t *testing.T) {
 	t.Run("should expire SHA values for service", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1156,7 +1141,7 @@ func TestComponentCache_Expire(t *testing.T) {
 
 func TestComponentCache_ExpireSHA(t *testing.T) {
 	t.Run("should expire SHA values for specific component", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1189,7 +1174,7 @@ func TestComponentCache_ExpireSHA(t *testing.T) {
 
 func TestComponentCache_CommitTransientSHA(t *testing.T) {
 	t.Run("should commit transient SHA to manifest SHA", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1220,7 +1205,7 @@ func TestComponentCache_CommitTransientSHA(t *testing.T) {
 func TestComponentCache_SaveComponents(t *testing.T) {
 	var objs []unstructured.Unstructured
 
-	storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+	storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 	assert.NoError(t, err)
 	defer func(storeInstance store.Store) {
 		require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1292,7 +1277,7 @@ func createHookJob(namespace, name, serviceID string) unstructured.Unstructured 
 
 func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 	t.Run("should save and retrieve processed hook components by service ID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -1330,7 +1315,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 	})
 
 	t.Run("should return empty list for non-existent service ID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -1344,7 +1329,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 	})
 
 	t.Run("should isolate hooks by service ID", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -1381,7 +1366,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 	})
 
 	t.Run("should handle different hook resource types", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -1432,7 +1417,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 	})
 
 	t.Run("should preserve UID and status information", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -1455,7 +1440,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 	})
 
 	t.Run("should handle large number of hooks", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func() {
 			if err := storeInstance.Shutdown(); err != nil {
@@ -1488,7 +1473,7 @@ func TestComponentCache_ProcessedHookComponents(t *testing.T) {
 
 func TestComponentCache_SyncAppliedResource(t *testing.T) {
 	t.Run("should update apply_sha and server_sha when resource is synced", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1521,7 +1506,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 	})
 
 	t.Run("should keep manifest_sha unchanged when transient_manifest_sha is NULL", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1553,7 +1538,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 	})
 
 	t.Run("should update manifest_sha from transient_manifest_sha when present", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1597,7 +1582,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 	})
 
 	t.Run("should clear transient_manifest_sha after sync", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1626,7 +1611,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 	})
 
 	t.Run("should not affect other columns during sync", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1665,7 +1650,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 	})
 
 	t.Run("should handle non-existent component gracefully", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1679,7 +1664,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 	})
 
 	t.Run("should handle resources with empty group", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1708,7 +1693,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 	})
 
 	t.Run("should handle resources with cluster scope (empty namespace)", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1737,7 +1722,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 
 func TestComponentCache_SetServiceChildren(t *testing.T) {
 	t.Run("should return 0 if component doesn't exist", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1758,7 +1743,7 @@ func TestComponentCache_SetServiceChildren(t *testing.T) {
 	})
 
 	t.Run("should update the component", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		require.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1791,7 +1776,7 @@ func TestComponentCache_SetServiceChildren(t *testing.T) {
 
 func TestComponentCache_GetComponentAttributes(t *testing.T) {
 	t.Run("should return component attributes for service", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1821,7 +1806,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 	})
 
 	t.Run("should return empty slice for non-existent service", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1833,7 +1818,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 	})
 
 	t.Run("should include children in component attributes", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1866,7 +1851,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 	})
 
 	t.Run("should exclude hook components with deletion policy that reached desired state", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1892,7 +1877,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 	})
 
 	t.Run("should include hook components that have not reached desired state", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1924,7 +1909,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 	})
 
 	t.Run("should handle multiple services with mixed hook states", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1957,7 +1942,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 	})
 
 	t.Run("should return correct component attributes fields", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -1983,7 +1968,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 	})
 
 	t.Run("should handle nested children hierarchy", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2022,7 +2007,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 
 func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 	t.Run("should return top-level service components with children", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2053,7 +2038,7 @@ func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 	})
 
 	t.Run("should return children up to 4 levels deep", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2113,7 +2098,7 @@ func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 	})
 
 	t.Run("should return multiple top-level components with their respective children", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2164,7 +2149,7 @@ func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 	})
 
 	t.Run("should not include components from other services", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2191,7 +2176,7 @@ func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 	})
 
 	t.Run("should filter by onlyApplied when true", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2212,7 +2197,7 @@ func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 	})
 
 	t.Run("should return empty result for service with no components", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2224,7 +2209,7 @@ func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 	})
 
 	t.Run("should handle component with no children", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2245,7 +2230,7 @@ func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 	})
 
 	t.Run("should preserve parent_uid in children", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
@@ -2309,4 +2294,320 @@ func createHookJobPending(namespace, name, serviceID string) unstructured.Unstru
 	}
 
 	return u
+}
+
+func createComponentAttributes(uid string, parentUID *string, option ...CreateComponentAttributesOption) client.ComponentChildAttributes {
+	result := client.ComponentChildAttributes{
+		UID:       uid,
+		ParentUID: parentUID,
+		Group:     lo.ToPtr(testGroup),
+		Version:   testVersion,
+		Kind:      testKind,
+		Namespace: lo.ToPtr(testNamespace),
+		Name:      testName,
+		State:     lo.ToPtr(client.ComponentStateRunning),
+	}
+
+	for _, opt := range option {
+		opt(&result)
+	}
+
+	return result
+}
+
+type CreateComponentAttributesOption func(component *client.ComponentChildAttributes)
+
+func WithAttributesGroup(group string) CreateComponentAttributesOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Group = &group
+	}
+}
+
+func WithAttributesVersion(version string) CreateComponentAttributesOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Version = version
+	}
+}
+
+func WithAttributesKind(kind string) CreateComponentAttributesOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Kind = kind
+	}
+}
+
+func WithAttributesNamespace(namespace string) CreateComponentAttributesOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Namespace = &namespace
+	}
+}
+
+func WithAttributesName(name string) CreateComponentAttributesOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.Name = name
+	}
+}
+
+func WithAttributesState(state client.ComponentState) CreateComponentAttributesOption {
+	return func(component *client.ComponentChildAttributes) {
+		component.State = &state
+	}
+}
+
+func TestComponentCache_ComponentInsights(t *testing.T) {
+	t.Run("should retrieve expected component insights without errors", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		// Define test components with various states
+		testComponents := []client.ComponentChildAttributes{
+			// Running components
+			createComponentAttributes("app-frontend-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-frontend-1")),
+			createComponentAttributes("app-backend-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-backend-1")),
+			createComponentAttributes("app-database-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-database-1")),
+
+			// Running components chain (ignored because of depth level > 4)
+			createComponentAttributes("app-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-1")),
+			createComponentAttributes("app-child-1", lo.ToPtr("app-1"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-child-1")),
+			createComponentAttributes("app-child-2", lo.ToPtr("app-child-1"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-child-2")),
+			createComponentAttributes("app-child-3", lo.ToPtr("app-child-2"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-child-3")),
+			createComponentAttributes("app-child-4", lo.ToPtr("app-child-3"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-child-4")),
+
+			// 1-level Failed components
+			createComponentAttributes("app-redis-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-redis-1")),
+			createComponentAttributes("app-cronjob-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-cronjob-1")),
+
+			// Pending component
+			createComponentAttributes("app-migration-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-migration-1")),
+
+			// Ingress (failed) -> Certificate (failed)
+			createComponentAttributes("app-ingress-1", nil, WithAttributesKind("Ingress"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-ingress-1")),
+			createComponentAttributes("app-certificate-1", lo.ToPtr("app-ingress-1"), WithAttributesKind("Certificate"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-certificate-1")),
+
+			// Ingress (pending) -> Certificate (failed)
+			createComponentAttributes("app-ingress-2", nil, WithAttributesKind("Ingress"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-ingress-2")),
+			createComponentAttributes("app-certificate-2", lo.ToPtr("app-ingress-2"), WithAttributesKind("Certificate"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-certificate-2")),
+
+			// StatefulSet (failed)
+			createComponentAttributes("app-statefulset-1", nil, WithAttributesKind("StatefulSet"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-statefulset-1")),
+
+			// DaemonSet (failed)
+			createComponentAttributes("app-daemonset-1", nil, WithAttributesKind("DaemonSet"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-daemonset-1")),
+
+			// Deployment (pending) -> Pod (failed)
+			createComponentAttributes("app-deployment-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-deployment-1")),
+			createComponentAttributes("app-pod-1", lo.ToPtr("app-deployment-1"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-pod-1")),
+
+			// CRD (pending) -> Deployment (pending) -> Pod (failed)
+			createComponentAttributes("app-crd-1", nil, WithAttributesKind("CustomResourceDefinition"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-crd-1")),
+			createComponentAttributes("app-deployment-2", lo.ToPtr("app-crd-1"), WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-deployment-2")),
+			createComponentAttributes("app-pod-2", lo.ToPtr("app-deployment-2"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-pod-2")),
+
+			// CRD (failed) -> Deployment (failed) -> Pod (failed)
+			createComponentAttributes("app-crd-2", nil, WithAttributesKind("CustomResourceDefinition"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-crd-2")),
+			createComponentAttributes("app-deployment-3", lo.ToPtr("app-crd-2"), WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-deployment-3")),
+			createComponentAttributes("app-pod-3", lo.ToPtr("app-deployment-3"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-pod-3")),
+
+			// CRD (failed) -> Deployment (failed) -> ReplicaSet (failed) -> Pod (failed)
+			createComponentAttributes("app-crd-3", nil, WithAttributesKind("CustomResourceDefinition"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-crd-3")),
+			createComponentAttributes("app-deployment-4", lo.ToPtr("app-crd-3"), WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-deployment-4")),
+			createComponentAttributes("app-replicaset-1", lo.ToPtr("app-deployment-4"), WithAttributesKind("ReplicaSet"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-replicaset-1")),
+			createComponentAttributes("app-pod-4", lo.ToPtr("app-replicaset-1"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-pod-4")),
+
+			// Deployment (pending) -> (ReplicaSet (pending) -> Pod (failed)) | Secret (running)
+			createComponentAttributes("app-deployment-5", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-deployment-5")),
+			createComponentAttributes("app-replicaset-2", lo.ToPtr("app-deployment-5"), WithAttributesKind("ReplicaSet"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-replicaset-2")),
+			createComponentAttributes("app-pod-5", lo.ToPtr("app-replicaset-2"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-pod-5")),
+			createComponentAttributes("app-secret-1", lo.ToPtr("app-deployment-5"), WithAttributesKind("Secret"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-secret-1")),
+		}
+
+		expectedComponents := []string{
+			"app-redis-1",
+			"app-cronjob-1",
+			"app-ingress-1",
+			"app-certificate-1",
+			"app-ingress-2",
+			"app-certificate-2",
+			"app-statefulset-1",
+			"app-daemonset-1",
+			"app-deployment-1",
+			"app-deployment-2",
+			"app-deployment-3",
+			"app-deployment-4",
+			"app-deployment-5",
+		}
+
+		// Insert all test components into cache
+		for _, tc := range testComponents {
+			err := storeInstance.SaveComponentAttributes(tc)
+			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
+		}
+
+		// Get component insights
+		insights, err := storeInstance.GetComponentInsights()
+		require.NoError(t, err, "Failed to get component insights")
+
+		actualNames := algorithms.Map(
+			insights,
+			func(i client.ClusterInsightComponentAttributes) string { return i.Name },
+		)
+
+		// Verify expected components in insights
+		// Sort both arrays to ensure order-independent comparison
+		sort.Strings(actualNames)
+		sort.Strings(expectedComponents)
+
+		require.Equal(t,
+			expectedComponents,
+			actualNames,
+			"Expected components not found in insights",
+		)
+	})
+
+	t.Run("should properly assign priorities based on component kind", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		// Define test components with various kinds to test priority assignment
+		testComponents := []client.ComponentChildAttributes{
+			// Critical priority resources
+			createComponentAttributes("ingress-1", nil, WithAttributesKind("Ingress"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("ingress-1")),
+			createComponentAttributes("certificate-1", nil, WithAttributesKind("Certificate"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("certificate-1")),
+			createComponentAttributes("cert-manager-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("cert-manager-webhook"), WithAttributesNamespace("cert-manager")),
+			createComponentAttributes("coredns-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("coredns")),
+
+			// High priority resources
+			createComponentAttributes("statefulset-1", nil, WithAttributesKind("StatefulSet"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("statefulset-1")),
+			createComponentAttributes("node-exporter", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("node-exporter")),
+
+			// Medium priority resources
+			createComponentAttributes("daemonset-1", nil, WithAttributesKind("DaemonSet"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("daemonset-1")),
+
+			// Low priority resources (default)
+			createComponentAttributes("deployment-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("deployment-1")),
+		}
+
+		expectedComponentPriorityMap := map[string]client.InsightComponentPriority{
+			"ingress-1":            client.InsightComponentPriorityCritical,
+			"certificate-1":        client.InsightComponentPriorityCritical,
+			"cert-manager-webhook": client.InsightComponentPriorityCritical,
+			"coredns":              client.InsightComponentPriorityCritical,
+			"statefulset-1":        client.InsightComponentPriorityHigh,
+			"node-exporter":        client.InsightComponentPriorityHigh,
+			"daemonset-1":          client.InsightComponentPriorityMedium,
+			"deployment-1":         client.InsightComponentPriorityLow,
+		}
+
+		// Insert all test components into cache
+		for _, tc := range testComponents {
+			err := storeInstance.SaveComponentAttributes(tc)
+			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
+		}
+
+		// Get component insights
+		insights, err := storeInstance.GetComponentInsights()
+		require.NoError(t, err, "Failed to get component insights")
+
+		// Build a map of component name to priority for easier testing
+		priorityMap := make(map[string]client.InsightComponentPriority)
+		for _, insight := range insights {
+			priorityMap[insight.Name] = *insight.Priority
+		}
+
+		for name, expectedPriority := range expectedComponentPriorityMap {
+			assert.Equal(t, expectedPriority, priorityMap[name], "Priority for %s should be %s", name, expectedPriority)
+		}
+	})
+
+	t.Run("should assign priorities based on string similarity in resource names and namespaces", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		// Define test components with variations of similar names to test fuzzy matching
+		testComponents := []client.ComponentChildAttributes{
+			// Components with names very similar to critical priority resources
+			createComponentAttributes("cert-manager-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("cert-manager"), WithAttributesNamespace("kube-system")),
+			createComponentAttributes("coredns-similar", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("core-dns"), WithAttributesNamespace("kube-system")),
+			createComponentAttributes("istio-ingressgateway", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("istio-ingressgateway"), WithAttributesNamespace("istio-system")),
+			createComponentAttributes("linkerd-proxy", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("linkerd-proxy"), WithAttributesNamespace("linkerd")),
+			createComponentAttributes("ebs-csi-node", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("ebs-csi-node"), WithAttributesNamespace("kube-system")),
+			createComponentAttributes("gce-pd-csi-controller", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("gce-pd-csi-controller-sa"), WithAttributesNamespace("kube-system")),
+
+			// Components with namespaces containing priority keywords
+			createComponentAttributes("app-in-cert-manager", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-in-sensitive-ns-1"), WithAttributesNamespace("cert-manager")),
+			createComponentAttributes("app-in-kube-proxy", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-in-sensitive-ns-2"), WithAttributesNamespace("kube-proxy")),
+
+			// Components with partial name matches to high priority resources
+			createComponentAttributes("node-exporter-similar", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("node-metrics-exporter"), WithAttributesNamespace("monitoring")),
+
+			// Components with no special priority that could be slightly similar to other resources
+			createComponentAttributes("app-similar-to-istio", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("iso-ist-app"), WithAttributesNamespace("default")),
+			createComponentAttributes("app-similar-to-cert-manager", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("custom-cert-provisioner"), WithAttributesNamespace("default")),
+		}
+
+		expectedComponentPriorityMap := map[string]client.InsightComponentPriority{
+			"cert-manager":             client.InsightComponentPriorityCritical,
+			"core-dns":                 client.InsightComponentPriorityCritical,
+			"istio-ingressgateway":     client.InsightComponentPriorityCritical,
+			"linkerd-proxy":            client.InsightComponentPriorityCritical,
+			"ebs-csi-node":             client.InsightComponentPriorityCritical,
+			"gce-pd-csi-controller-sa": client.InsightComponentPriorityCritical,
+			"app-in-sensitive-ns-1":    client.InsightComponentPriorityCritical,
+			"app-in-sensitive-ns-2":    client.InsightComponentPriorityCritical,
+			"node-metrics-exporter":    client.InsightComponentPriorityHigh,
+			"iso-ist-app":              client.InsightComponentPriorityLow,
+			"custom-cert-provisioner":  client.InsightComponentPriorityLow,
+		}
+
+		// Insert all test components into cache
+		for _, tc := range testComponents {
+			err := storeInstance.SaveComponentAttributes(tc)
+			require.NoError(t, err, "Failed to add component %s to cache", tc.UID)
+		}
+
+		// Get component insights
+		insights, err := storeInstance.GetComponentInsights()
+		require.NoError(t, err, "Failed to get component insights")
+
+		// Build a map of component name to priority for easier testing
+		priorityMap := make(map[string]client.InsightComponentPriority)
+		for _, insight := range insights {
+			priorityMap[insight.Name] = *insight.Priority
+		}
+
+		for name, expectedPriority := range expectedComponentPriorityMap {
+			assert.Equal(t, expectedPriority, priorityMap[name], "Priority for %s should be %s", name, expectedPriority)
+		}
+	})
+
+	t.Run("should handle empty cache without errors", func(t *testing.T) {
+		// Initialize a fresh cache for this test
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		// Get component insights from empty cache
+		insights, err := storeInstance.GetComponentInsights()
+		require.NoError(t, err, "Failed to get component insights from empty cache")
+
+		require.Nil(t, insights, "Expected non-nil insights object from empty cache")
+	})
 }
