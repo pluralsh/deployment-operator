@@ -1851,7 +1851,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 		err = storeInstance.SaveComponent(createComponent(childUID, WithGVK("apps", "v1", "ReplicaSet"), WithName("deployment-rs"), WithNamespace("default"), WithParent(parentUID), WithService(serviceID)))
 		require.NoError(t, err)
 
-		attributes, err := storeInstance.GetComponentAttributes(serviceID, true)
+		attributes, err := storeInstance.GetComponentAttributes(serviceID, false)
 		require.NoError(t, err)
 		assert.Len(t, attributes, 1)
 
@@ -2006,7 +2006,7 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 		err = storeInstance.SaveComponent(createComponent(child2UID, WithGVK("", "v1", "Secret"), WithName("nested-secret"), WithNamespace("default"), WithParent(child1UID), WithService(serviceID)))
 		require.NoError(t, err)
 
-		attributes, err := storeInstance.GetComponentAttributes(serviceID, true)
+		attributes, err := storeInstance.GetComponentAttributes(serviceID, false)
 		require.NoError(t, err)
 		assert.Len(t, attributes, 1)
 

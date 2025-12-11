@@ -808,8 +808,6 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 	}
 	defer in.pool.Put(conn)
 
-	// TODO: Optimize.
-
 	var sb strings.Builder
 	// service_components CTE selects top-level components belonging to the service.
 	// Only returns components that are part of the original manifest or have no parent.
@@ -890,7 +888,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 			cc.parent_uid,
 			cc.root_component_uid
 		FROM component_children cc
-		WHERE cc.root_component_uid != ''
+		WHERE cc.root_component_uid != '' AND cc.parent_uid IS NOT NULL AND cc.parent_uid != ''
 	`)
 
 	componentMap := make(map[string]*client.ComponentAttributes)      // Map to store component attributes by UID
