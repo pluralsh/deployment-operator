@@ -268,23 +268,22 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
+		serviceID := "test-service"
+
 		// Create multiple components
-		component1 := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-1"))
-		component2 := createComponent("uid-2", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-2"))
-		component3 := createComponent("uid-3", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-3"))
+		component1 := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-1"), WithService(serviceID))
+		component2 := createComponent("uid-2", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-2"), WithService(serviceID))
+		component3 := createComponent("uid-3", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app-3"), WithService(serviceID))
 
 		require.NoError(t, storeInstance.SaveUnsyncedComponents([]unstructured.Unstructured{
 			component1, component2, component3,
 		}))
 
-		// Verify components exist
-		c1, err := storeInstance.GetAppliedComponent(component1)
+		// Verify components exist using GetServiceComponents with onlyApplied=false
+		// since SaveUnsyncedComponents saves components without applied=1
+		components, err := storeInstance.GetServiceComponents(serviceID, false)
 		require.NoError(t, err)
-		require.NotNil(t, c1)
-
-		c2, err := storeInstance.GetAppliedComponent(component2)
-		require.NoError(t, err)
-		require.NotNil(t, c2)
+		require.Len(t, components, 3)
 
 		// Create keys to delete
 		keysToDelete := containers.NewSet[common.StoreKey]()
@@ -296,18 +295,10 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify deleted components no longer exist
-		c1, err = storeInstance.GetAppliedComponent(component1)
+		components, err = storeInstance.GetServiceComponents(serviceID, false)
 		require.NoError(t, err)
-		require.Nil(t, c1)
-
-		c2, err = storeInstance.GetAppliedComponent(component2)
-		require.NoError(t, err)
-		require.Nil(t, c2)
-
-		// Verify non-deleted component still exists
-		c3, err := storeInstance.GetAppliedComponent(component3)
-		require.NoError(t, err)
-		require.NotNil(t, c3)
+		require.Len(t, components, 1)
+		require.Equal(t, "app-3", components[0].Name)
 	})
 
 	t.Run("should handle empty set without error", func(t *testing.T) {
@@ -359,10 +350,12 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
+		serviceID := "test-service-gvk"
+
 		// Create components with different GVKs
-		deployment := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("my-app"))
-		statefulset := createComponent("uid-2", WithGVK("apps", "v1", "StatefulSet"), WithNamespace("default"), WithName("my-app"))
-		service := createComponent("uid-3", WithGVK("", "v1", "Service"), WithNamespace("default"), WithName("my-service"))
+		deployment := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("my-app"), WithService(serviceID))
+		statefulset := createComponent("uid-2", WithGVK("apps", "v1", "StatefulSet"), WithNamespace("default"), WithName("my-app"), WithService(serviceID))
+		service := createComponent("uid-3", WithGVK("", "v1", "Service"), WithNamespace("default"), WithName("my-service"), WithService(serviceID))
 
 		require.NoError(t, storeInstance.SaveUnsyncedComponents([]unstructured.Unstructured{
 			deployment, statefulset, service,
@@ -376,19 +369,11 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		err = storeInstance.DeleteUnsyncedComponentsByKeys(keysToDelete)
 		require.NoError(t, err)
 
-		// Verify deleted components no longer exist
-		d, err := storeInstance.GetAppliedComponent(deployment)
+		// Verify only statefulset remains using GetServiceComponents with onlyApplied=false
+		components, err := storeInstance.GetServiceComponents(serviceID, false)
 		require.NoError(t, err)
-		require.Nil(t, d)
-
-		s, err := storeInstance.GetAppliedComponent(service)
-		require.NoError(t, err)
-		require.Nil(t, s)
-
-		// Verify non-deleted component still exists
-		ss, err := storeInstance.GetAppliedComponent(statefulset)
-		require.NoError(t, err)
-		require.NotNil(t, ss)
+		require.Len(t, components, 1)
+		require.Equal(t, "StatefulSet", components[0].Kind)
 	})
 
 	t.Run("should delete components across different namespaces", func(t *testing.T) {
@@ -398,10 +383,12 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
 		}(storeInstance)
 
+		serviceID := "test-service-namespaces"
+
 		// Create components in different namespaces
-		component1 := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app"))
-		component2 := createComponent("uid-2", WithGVK("apps", "v1", "Deployment"), WithNamespace("production"), WithName("app"))
-		component3 := createComponent("uid-3", WithGVK("apps", "v1", "Deployment"), WithNamespace("staging"), WithName("app"))
+		component1 := createComponent("uid-1", WithGVK("apps", "v1", "Deployment"), WithNamespace("default"), WithName("app"), WithService(serviceID))
+		component2 := createComponent("uid-2", WithGVK("apps", "v1", "Deployment"), WithNamespace("production"), WithName("app"), WithService(serviceID))
+		component3 := createComponent("uid-3", WithGVK("apps", "v1", "Deployment"), WithNamespace("staging"), WithName("app"), WithService(serviceID))
 
 		require.NoError(t, storeInstance.SaveUnsyncedComponents([]unstructured.Unstructured{
 			component1, component2, component3,
@@ -415,19 +402,11 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		err = storeInstance.DeleteUnsyncedComponentsByKeys(keysToDelete)
 		require.NoError(t, err)
 
-		// Verify deleted components
-		c1, err := storeInstance.GetAppliedComponent(component1)
+		// Verify only staging component remains using GetServiceComponents with onlyApplied=false
+		components, err := storeInstance.GetServiceComponents(serviceID, false)
 		require.NoError(t, err)
-		require.Nil(t, c1)
-
-		c2, err := storeInstance.GetAppliedComponent(component2)
-		require.NoError(t, err)
-		require.Nil(t, c2)
-
-		// Verify staging component still exists
-		c3, err := storeInstance.GetAppliedComponent(component3)
-		require.NoError(t, err)
-		require.NotNil(t, c3)
+		require.Len(t, components, 1)
+		require.Equal(t, "staging", components[0].Namespace)
 	})
 
 	t.Run("should handle large batch deletion", func(t *testing.T) {
