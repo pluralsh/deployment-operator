@@ -177,9 +177,9 @@ func (p *ProfiledStore) GetComponentCounts() (nodeCount, namespaceCount int64, e
 	return
 }
 
-func (p *ProfiledStore) GetComponentAttributes(serviceID string, onlyApplied bool) (attrs []client.ComponentAttributes, err error) {
+func (p *ProfiledStore) GetComponentAttributes(serviceID string, isDeleting bool) (attrs []client.ComponentAttributes, err error) {
 	_ = trace(context.Background(), "GetComponentAttributes", func() error {
-		attrs, err = p.inner.GetComponentAttributes(serviceID, onlyApplied)
+		attrs, err = p.inner.GetComponentAttributes(serviceID, isDeleting)
 		return err
 	})
 	return

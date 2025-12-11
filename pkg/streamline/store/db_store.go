@@ -526,9 +526,21 @@ func (in *DatabaseStore) DeleteUnsyncedComponentsByKeys(objects containers.Set[s
 	return sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{Args: args})
 }
 
-func (in *DatabaseStore) GetComponentAttributes(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error) {
+func (in *DatabaseStore) GetComponentAttributes(serviceID string, isDeleting bool) ([]client.ComponentAttributes, error) {
+	// If service is being deleted we can ignore children and only applied components should be returned.
+	// Logic to remove already deleted hook resources from the result is not needed in that case.
+	// Service is considered as deleted when all its resources have been removed.
+	if isDeleting {
+		components, err := in.GetServiceComponents(serviceID, true)
+		if err != nil {
+			return nil, err
+		}
+
+		return components.ComponentAttributes(), nil
+	}
+
 	// Fetch components with their children.
-	components, err := in.GetServiceComponentsWithChildren(serviceID, onlyApplied)
+	components, err := in.GetServiceComponentsWithChildren(serviceID, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service components: %w", err)
 	}

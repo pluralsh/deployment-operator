@@ -20,7 +20,7 @@ type Store interface {
 	SaveUnsyncedComponents(obj []unstructured.Unstructured) error
 
 	// GetComponentAttributes returns service components attributes from the store.
-	GetComponentAttributes(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error)
+	GetComponentAttributes(serviceID string, isDeleting bool) ([]client.ComponentAttributes, error)
 
 	// SyncServiceComponents is used to store all service components in the store before applying them and to
 	// ensure that components that are no longer part of the service and were not applied are removed from the store.
