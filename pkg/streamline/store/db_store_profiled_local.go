@@ -68,7 +68,6 @@ func (p ProfiledStoreLocal) SaveComponents(obj []unstructured.Unstructured) erro
 	return traceLocal(context.Background(), "SaveComponents", func() error {
 		return p.inner.SaveComponents(obj)
 	})
-
 }
 
 func (p ProfiledStoreLocal) SaveUnsyncedComponents(obj []unstructured.Unstructured) error {
