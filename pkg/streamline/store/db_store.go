@@ -975,7 +975,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 		WHERE cc.root_component_uid != ''
 	`)
 
-	componentMap := make(map[string]*client.ComponentAttributes)      // Map to store component attributes by UID
+	componentMap := make(map[string]*client.ComponentAttributes)      // Map to store component attributes by store key
 	childrenMap := make(map[string][]client.ComponentChildAttributes) // Map to store children by root component UID
 	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
 		Args: []interface{}{serviceID},
@@ -988,19 +988,18 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 			name := stmt.ColumnText(5)
 			namespace := stmt.ColumnText(6)
 			health := lo.Ternary(stmt.ColumnBool(8), ComponentState(stmt.ColumnInt32(7)), ComponentStatePending).Attribute() // Always mark as pending if resource was not applied.
+			key := smcommon.NewKey(group, version, kind, namespace, name)
 
 			if rowType == "component" {
-				if _, exists := componentMap[uid]; !exists {
-					componentMap[uid] = &client.ComponentAttributes{
-						UID:       lo.ToPtr(uid),
-						Synced:    true,
-						Group:     group,
-						Version:   version,
-						Kind:      kind,
-						Name:      name,
-						Namespace: namespace,
-						State:     health,
-					}
+				componentMap[key.String()] = &client.ComponentAttributes{
+					UID:       lo.ToPtr(uid),
+					Synced:    true,
+					Group:     group,
+					Version:   version,
+					Kind:      kind,
+					Name:      name,
+					Namespace: namespace,
+					State:     health,
 				}
 			} else {
 				// Child row
@@ -1027,9 +1026,11 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 
 	// Build result with children attached
 	result := make([]client.ComponentAttributes, 0, len(componentMap))
-	for uid, attr := range componentMap {
-		if children, ok := childrenMap[uid]; ok {
-			attr.Children = lo.ToSlicePtr(children)
+	for _, attr := range componentMap {
+		if attr.UID != nil && *attr.UID != "" {
+			if children, ok := childrenMap[*attr.UID]; ok {
+				attr.Children = lo.ToSlicePtr(children)
+			}
 		}
 		result = append(result, *attr)
 	}

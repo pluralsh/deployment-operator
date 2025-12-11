@@ -23,6 +23,10 @@ func NewKeyFromUnstructured(u unstructured.Unstructured) Key {
 	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, u.GetNamespace(), u.GetName()))
 }
 
+func NewKey(group, version, kind, namespace, name string) Key {
+	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", group, version, kind, namespace, name))
+}
+
 // StoreKey is a unique identifier for a resource in the store.
 // It is using a compound key consisting of GVK, namespace and name as
 // CRD object instances can share the same UID across versions.
