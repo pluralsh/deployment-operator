@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,6 +18,8 @@ import (
 	"k8s.io/klog/v2"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -32,6 +33,8 @@ const (
 
 	// defaultPoolSize defines the default maximum number of concurrent database connections.
 	defaultPoolSize = 10
+
+	defaultQueryTimeout = 10 * time.Second
 )
 
 // Option represents a function that configures the database store.
@@ -72,10 +75,14 @@ type DatabaseStore struct {
 
 	// pool of connections to the database.
 	pool *sqlitex.Pool
+
+	// ctx is an internal context for the store.
+	ctx context.Context
 }
 
-func NewDatabaseStore(options ...Option) (Store, error) {
+func NewDatabaseStore(ctx context.Context, options ...Option) (Store, error) {
 	store := &DatabaseStore{
+		ctx:      ctx,
 		storage:  defaultStorage,
 		poolSize: defaultPoolSize,
 	}
@@ -115,13 +122,27 @@ func (in *DatabaseStore) init() error {
 	}
 	in.pool = pool
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return sqlitex.ExecuteScript(conn, createTables, nil)
+}
+
+func (in *DatabaseStore) take() (*sqlite.Conn, context.CancelFunc, error) {
+	timeoutCtx, cancelFunc := context.WithTimeout(in.ctx, defaultQueryTimeout)
+	conn, err := in.pool.Take(timeoutCtx)
+	if err != nil {
+		cancelFunc()
+		return nil, nil, err
+	}
+
+	return conn, cancelFunc, nil
 }
 
 func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
@@ -129,11 +150,14 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 		return false, false, nil
 	}
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return false, false, fmt.Errorf("failed to get database connection: %w", err)
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	// Build dynamic query with placeholders for each resource
 	var sb strings.Builder
@@ -225,11 +249,14 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 		return err
 	}
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	in.maybeSaveHookComponent(conn, obj, lo.FromPtr(status), serviceID)
 
@@ -258,13 +285,14 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) err
 		return nil
 	}
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
 	now := time.Now()
 	defer func() {
 		in.pool.Put(conn)
+		cancelFunc()
 		klog.V(log.LogLevelDebug).InfoS("saved components in batch",
 			"count", len(objects),
 			"duration", time.Since(now),
@@ -373,13 +401,14 @@ func (in *DatabaseStore) SaveUnsyncedComponents(objects []unstructured.Unstructu
 		return nil
 	}
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
 	now := time.Now()
 	defer func() {
 		in.pool.Put(conn)
+		cancelFunc()
 		klog.V(log.LogLevelDebug).InfoS("saved unsynced components in batch",
 			"count", len(objects),
 			"duration", time.Since(now),
@@ -529,11 +558,14 @@ func (in *DatabaseStore) DeleteUnsyncedComponentsByKeys(objects containers.Set[s
 		return nil
 	}
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	var sb strings.Builder
 	sb.WriteString(`DELETE FROM component WHERE ("group", version, kind, namespace, name) IN (`)
@@ -600,13 +632,14 @@ func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []
 		return 0, nil
 	}
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return 0, err
 	}
 	now := time.Now()
 	defer func() {
 		in.pool.Put(conn)
+		cancelFunc()
 		klog.V(log.LogLevelDebug).InfoS("saved components in batch",
 			"count", len(keys),
 			"duration", time.Since(now),
@@ -666,11 +699,14 @@ func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []
 }
 
 func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return result, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	gvk := obj.GroupVersionKind()
 
@@ -701,11 +737,14 @@ func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *sm
 }
 
 func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.ComponentChildAttributes, err error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return result, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	err = sqlitex.ExecuteTransient(conn, getComponentByUID, &sqlitex.ExecOptions{
 		Args: []interface{}{uid},
@@ -728,11 +767,14 @@ func (in *DatabaseStore) GetComponentByUID(uid types.UID) (result *client.Compon
 }
 
 func (in *DatabaseStore) GetAppliedComponentsByGVK(gvk schema.GroupVersionKind) (result []smcommon.Component, err error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return result, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	err = sqlitex.ExecuteTransient(conn, getAppliedComponentsByGVK, &sqlitex.ExecOptions{
 		Args: []interface{}{gvk.Group, gvk.Version, gvk.Kind},
@@ -757,11 +799,14 @@ func (in *DatabaseStore) GetAppliedComponentsByGVK(gvk schema.GroupVersionKind) 
 }
 
 func (in *DatabaseStore) DeleteComponent(key smcommon.StoreKey) error {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return in.deleteComponent(conn, key)
 }
@@ -772,11 +817,14 @@ func (in *DatabaseStore) deleteComponent(conn *sqlite.Conn, key smcommon.StoreKe
 }
 
 func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return sqlitex.ExecuteTransient(
 		conn, `DELETE FROM component WHERE "group" = ? AND version = ? AND kind = ?`,
@@ -784,11 +832,14 @@ func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
 }
 
 func (in *DatabaseStore) GetServiceComponents(serviceID string, onlyApplied bool) (smcommon.Components, error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return nil, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	var sb strings.Builder
 	sb.WriteString(`SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest, applied
@@ -828,11 +879,14 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string, onlyApplied bool
 }
 
 func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return nil, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	var sb strings.Builder
 	// service_components CTE selects top-level components belonging to the service.
@@ -984,11 +1038,14 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 }
 
 func (in *DatabaseStore) GetComponentInsights() (result []client.ClusterInsightComponentAttributes, err error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return result, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	err = sqlitex.ExecuteTransient(conn, failedComponents, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
@@ -1011,11 +1068,14 @@ func (in *DatabaseStore) GetComponentInsights() (result []client.ClusterInsightC
 }
 
 func (in *DatabaseStore) GetComponentCounts() (nodeCount, namespaceCount int64, err error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	err = sqlitex.ExecuteTransient(conn, serverCounts, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
@@ -1028,11 +1088,14 @@ func (in *DatabaseStore) GetComponentCounts() (nodeCount, namespaceCount int64, 
 }
 
 func (in *DatabaseStore) GetNodeStatistics() ([]*client.NodeStatisticAttributes, error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return nil, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	result := make([]*client.NodeStatisticAttributes, 0)
 	err = sqlitex.ExecuteTransient(conn, nodeStatistics, &sqlitex.ExecOptions{
@@ -1050,11 +1113,14 @@ func (in *DatabaseStore) GetNodeStatistics() ([]*client.NodeStatisticAttributes,
 }
 
 func (in *DatabaseStore) GetHealthScore() (int64, error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return 0, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	var ratio int64
 	err = sqlitex.ExecuteTransient(conn, clusterHealthScore, &sqlitex.ExecOptions{
@@ -1095,11 +1161,14 @@ func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaTy
 		column,
 	)
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return sqlitex.ExecuteTransient(conn, query, &sqlitex.ExecOptions{
 		Args: []interface{}{
@@ -1116,11 +1185,14 @@ func (in *DatabaseStore) UpdateComponentSHA(obj unstructured.Unstructured, shaTy
 func (in *DatabaseStore) CommitTransientSHA(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return sqlitex.ExecuteTransient(conn, commitTransientSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
@@ -1137,11 +1209,14 @@ func (in *DatabaseStore) SyncAppliedResource(obj unstructured.Unstructured) erro
 		return err
 	}
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return sqlitex.ExecuteTransient(conn, `
 		UPDATE component 
@@ -1173,11 +1248,14 @@ func (in *DatabaseStore) SyncAppliedResource(obj unstructured.Unstructured) erro
 func (in *DatabaseStore) ExpireSHA(obj unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return sqlitex.ExecuteTransient(conn, expireSHA, &sqlitex.ExecOptions{
 		Args: []interface{}{
@@ -1187,11 +1265,14 @@ func (in *DatabaseStore) ExpireSHA(obj unstructured.Unstructured) error {
 }
 
 func (in *DatabaseStore) Expire(serviceID string) error {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return sqlitex.ExecuteTransient(conn, expire, &sqlitex.ExecOptions{
 		Args: []interface{}{serviceID},
@@ -1199,11 +1280,14 @@ func (in *DatabaseStore) Expire(serviceID string) error {
 }
 
 func (in *DatabaseStore) ExpireOlderThan(ttl time.Duration) error {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	cutoff := time.Now().Add(-ttl).Unix()
 
@@ -1307,11 +1391,14 @@ func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []
 }
 
 func (in *DatabaseStore) GetHookComponents(serviceID string) ([]smcommon.HookComponent, error) {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return nil, err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	result := make([]smcommon.HookComponent, 0)
 	err = sqlitex.ExecuteTransient(
@@ -1360,11 +1447,14 @@ func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResou
 		return nil
 	}
 
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	gvk := manifest.GroupVersionKind()
 
@@ -1386,11 +1476,14 @@ func (in *DatabaseStore) SaveHookComponentWithManifestSHA(manifest, appliedResou
 }
 
 func (in *DatabaseStore) ExpireHookComponents(serviceID string) error {
-	conn, err := in.pool.Take(context.Background())
+	conn, cancelFunc, err := in.take()
 	if err != nil {
 		return err
 	}
-	defer in.pool.Put(conn)
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
 
 	return sqlitex.ExecuteTransient(conn, `DELETE FROM hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{Args: []any{serviceID}})
