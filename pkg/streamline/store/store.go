@@ -52,9 +52,9 @@ type Store interface {
 	// It returns a slice of Component structs containing information about each component and any error encountered.
 	GetServiceComponents(serviceID string, onlyApplied bool) (smcommon.Components, error)
 
-	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
-	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.
-	GetComponentChildren(uid string) ([]client.ComponentChildAttributes, error)
+	// GetServiceComponentsWithChildren returns service components with their children populated.
+	// It uses a single query to fetch both components and their recursive children (up to 4 levels deep).
+	GetServiceComponentsWithChildren(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error)
 
 	GetComponentInsights() ([]client.ClusterInsightComponentAttributes, error)
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -171,109 +172,6 @@ func TestComponentCache_SetComponent(t *testing.T) {
 		require.Len(t, children, 1)
 		assert.Equal(t, testChildUID, children[0].UID)
 		assert.Equal(t, uid, *children[0].ParentUID)
-	})
-}
-
-func TestComponentCache_ComponentChildren(t *testing.T) {
-	t.Run("cache should save and return multi-level structure", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Root
-		rootUID := "root-uid"
-		component := createComponent(rootUID, WithName("root-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 1
-		uid1 := "uid-1"
-		component = createComponent(uid1, WithParent(rootUID), WithName("level-1-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 2
-		uid2 := "uid-2"
-		component = createComponent(uid2, WithParent(uid1), WithName("level-2-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 3
-		uid3 := "uid-3"
-		component = createComponent(uid3, WithParent(uid2), WithName("level-3-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 4
-		uid4 := "uid-4"
-		component = createComponent(uid4, WithParent(uid3), WithName("level-4-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 5
-		uid5 := "uid-5"
-		component = createComponent(uid5, WithParent(uid4), WithName("level-5-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		children, err := storeInstance.GetComponentChildren(rootUID)
-		require.NoError(t, err)
-		require.Len(t, children, 4)
-	})
-
-	t.Run("cache should save and return multi-level structure with multiple children", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Root
-		rootUID := testUID
-		component := createComponent(rootUID, WithName("multi-root-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 1
-		uid1 := "uid-1"
-		component = createComponent(uid1, WithParent(rootUID), WithName("multi-level-1-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 2
-		uid2 := "uid-2"
-		component = createComponent(uid2, WithParent(uid1), WithName("multi-level-2-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 3
-		uid3 := "uid-3"
-		component = createComponent(uid3, WithParent(uid2), WithName("multi-level-3-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 4
-		uid4 := "uid-4"
-		component = createComponent(uid4, WithParent(uid3), WithName("multi-level-4-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		uid44 := "uid-44"
-		component = createComponent(uid44, WithParent(uid3), WithName("multi-level-4b-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		// Level 5
-		uid5 := "uid-5"
-		component = createComponent(uid5, WithParent(uid4), WithName("multi-level-5-component"))
-		err = storeInstance.SaveComponent(component)
-		require.NoError(t, err)
-
-		children, err := storeInstance.GetComponentChildren(rootUID)
-		require.NoError(t, err)
-		require.Len(t, children, 5)
 	})
 }
 
@@ -860,134 +758,6 @@ func TestComponentCountsCache(t *testing.T) {
 
 		assert.Equal(t, int64(2), nodeCount)
 		assert.Equal(t, int64(3), namespaceCount)
-	})
-}
-
-func TestComponentCache_ComponentChildrenLimit(t *testing.T) {
-	t.Run("should limit component children to 100 items", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Create parent component
-		parentUID := "parent-with-many-children"
-		err = storeInstance.SaveComponent(createComponent(parentUID, WithName("parent-with-many-children")))
-		require.NoError(t, err)
-		require.NoError(t, err)
-
-		// Create 150 child components to test the 100 limit
-		totalChildren := 150
-		for i := 0; i < totalChildren; i++ {
-			err := storeInstance.SaveComponent(createComponent(
-				fmt.Sprintf("child-%d", i),
-				WithName(fmt.Sprintf("child-component-%d", i)),
-				WithParent(parentUID)))
-			require.NoError(t, err)
-			require.NoError(t, err)
-		}
-
-		// Retrieve children and verify limit is applied
-		children, err := storeInstance.GetComponentChildren(parentUID)
-		require.NoError(t, err)
-
-		// Should return exactly 100 children, not more
-		assert.Equal(t, 100, len(children), "Expected exactly 100 children due to LIMIT clause")
-
-		// Verify all returned children have the correct parent
-		for _, child := range children {
-			assert.Equal(t, parentUID, *child.ParentUID, "All returned children should have correct parent UID")
-		}
-	})
-
-	t.Run("should return all children when under 100 limit", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Create parent component
-		parentUID := "parent-with-few-children"
-		err = storeInstance.SaveComponent(createComponent(parentUID, WithName("parent-with-few-children")))
-		require.NoError(t, err)
-
-		// Create 50 child components (under the limit)
-		totalChildren := 50
-		for i := 0; i < totalChildren; i++ {
-			err := storeInstance.SaveComponent(createComponent(
-				fmt.Sprintf("few-child-%d", i),
-				WithParent(parentUID),
-				WithName(fmt.Sprintf("few-child-component-%d", i))))
-			require.NoError(t, err)
-		}
-
-		// Retrieve children and verify all are returned
-		children, err := storeInstance.GetComponentChildren(parentUID)
-		require.NoError(t, err)
-
-		// Should return all 50 children since we're under the limit
-		assert.Equal(t, totalChildren, len(children), "Expected all children when under 100 limit")
-
-		// Verify all returned children have the correct parent
-		for _, child := range children {
-			assert.Equal(t, parentUID, *child.ParentUID, "All returned children should have correct parent UID")
-		}
-	})
-
-	t.Run("should apply limit to multi-level hierarchies", func(t *testing.T) {
-		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
-		assert.NoError(t, err)
-		defer func(storeInstance store.Store) {
-			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
-		}(storeInstance)
-
-		// Create root component
-		rootUID := "root-with-deep-hierarchy"
-		err = storeInstance.SaveComponent(createComponent(rootUID, WithName("root-with-deep-hierarchy")))
-		require.NoError(t, err)
-
-		// Create a multi-level hierarchy that exceeds 100 total descendants
-		// Level 1: 30 components
-		level1UIDs := make([]string, 30)
-		for i := 0; i < 30; i++ {
-			uid := fmt.Sprintf("level1-%d", i)
-			level1UIDs[i] = uid
-			err := storeInstance.SaveComponent(createComponent(uid, WithParent(rootUID), WithName(fmt.Sprintf("level1-component-%d", i))))
-			require.NoError(t, err)
-		}
-
-		// Level 2: 40 components (distributed among level 1 components)
-		level2Count := 0
-		for i := 0; i < 20 && level2Count < 40; i++ {
-			parentUID := level1UIDs[i%len(level1UIDs)]
-			for j := 0; j < 2 && level2Count < 40; j++ {
-				uid := fmt.Sprintf("level2-%d-%d", i, j)
-				err := storeInstance.SaveComponent(createComponent(uid, WithParent(parentUID), WithName(fmt.Sprintf("level2-component-%d-%d", i, j))))
-				require.NoError(t, err)
-				level2Count++
-			}
-		}
-
-		// Level 3: 50 components (this will push us over 100)
-		level3Count := 0
-		for i := 0; i < 25 && level3Count < 50; i++ {
-			// Find a level 2 component to be parent
-			level2UID := fmt.Sprintf("level2-%d-0", i%20)
-			for j := 0; j < 2 && level3Count < 50; j++ {
-				uid := fmt.Sprintf("level3-%d-%d", i, j)
-				err := storeInstance.SaveComponent(createComponent(uid, WithParent(level2UID), WithName(fmt.Sprintf("level3-component-%d-%d", i, j))))
-				require.NoError(t, err)
-				level3Count++
-			}
-		}
-
-		// Total descendants should be 30 + 40 + 50 = 120, but limit should cap at 100
-		children, err := storeInstance.GetComponentChildren(rootUID)
-		require.NoError(t, err)
-
-		assert.Equal(t, 100, len(children), "Expected exactly 100 descendants due to LIMIT clause in multi-level hierarchy")
 	})
 }
 
@@ -2235,6 +2005,269 @@ func TestComponentCache_GetComponentAttributes(t *testing.T) {
 				assert.Equal(t, len(attr.Children), 2)
 			}
 		}
+	})
+}
+
+func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
+	t.Run("should return top-level service components with children", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-svc-with-children"
+
+		// Create parent component (top-level)
+		parentUID := "parent-comp"
+		err = storeInstance.SaveComponent(createComponent(parentUID, WithGVK("apps", "v1", "Deployment"), WithName("deployment-parent"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Create child component
+		childUID := "child-comp"
+		err = storeInstance.SaveComponent(createComponent(childUID, WithGVK("apps", "v1", "ReplicaSet"), WithName("deployment-rs"), WithNamespace("default"), WithParent(parentUID), WithService(serviceID)))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 1, "Should return only 1 top-level component")
+
+		// Find parent and verify it has children
+		attr := attributes[0]
+		assert.Equal(t, parentUID, lo.FromPtr(attr.UID))
+		assert.NotNil(t, attr.Children)
+		assert.Len(t, attr.Children, 1)
+		assert.Equal(t, childUID, attr.Children[0].UID)
+	})
+
+	t.Run("should return children up to 4 levels deep", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-svc-multi-level"
+
+		// Root (top-level service component)
+		rootUID := "root-uid"
+		err = storeInstance.SaveComponent(createComponent(rootUID, WithName("root-component"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Level 1
+		uid1 := "uid-1"
+		err = storeInstance.SaveComponent(createComponent(uid1, WithParent(rootUID), WithName("level-1-component")))
+		require.NoError(t, err)
+
+		// Level 2
+		uid2 := "uid-2"
+		err = storeInstance.SaveComponent(createComponent(uid2, WithParent(uid1), WithName("level-2-component")))
+		require.NoError(t, err)
+
+		// Level 3
+		uid3 := "uid-3"
+		err = storeInstance.SaveComponent(createComponent(uid3, WithParent(uid2), WithName("level-3-component")))
+		require.NoError(t, err)
+
+		// Level 4
+		uid4 := "uid-4"
+		err = storeInstance.SaveComponent(createComponent(uid4, WithParent(uid3), WithName("level-4-component")))
+		require.NoError(t, err)
+
+		// Level 5 (should NOT be included - exceeds 4 levels)
+		uid5 := "uid-5"
+		err = storeInstance.SaveComponent(createComponent(uid5, WithParent(uid4), WithName("level-5-component")))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 1, "Should return only 1 top-level component")
+
+		attr := attributes[0]
+		assert.Equal(t, rootUID, lo.FromPtr(attr.UID))
+		assert.NotNil(t, attr.Children)
+		assert.Len(t, attr.Children, 4, "Should include children up to level 4 only")
+
+		// Verify all 4 levels are present
+		childUIDs := make([]string, 0, len(attr.Children))
+		for _, child := range attr.Children {
+			childUIDs = append(childUIDs, child.UID)
+		}
+		assert.Contains(t, childUIDs, uid1)
+		assert.Contains(t, childUIDs, uid2)
+		assert.Contains(t, childUIDs, uid3)
+		assert.Contains(t, childUIDs, uid4)
+		assert.NotContains(t, childUIDs, uid5, "Level 5 should not be included")
+	})
+
+	t.Run("should return multiple top-level components with their respective children", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-svc-multiple-parents"
+
+		// First parent with children
+		parent1UID := "parent1-uid"
+		err = storeInstance.SaveComponent(createComponent(parent1UID, WithGVK("apps", "v1", "Deployment"), WithName("deployment-1"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		child1UID := "child1-uid"
+		err = storeInstance.SaveComponent(createComponent(child1UID, WithGVK("apps", "v1", "ReplicaSet"), WithName("rs-1"), WithNamespace("default"), WithParent(parent1UID)))
+		require.NoError(t, err)
+
+		// Second parent with children
+		parent2UID := "parent2-uid"
+		err = storeInstance.SaveComponent(createComponent(parent2UID, WithGVK("apps", "v1", "StatefulSet"), WithName("statefulset-1"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		child2UID := "child2-uid"
+		err = storeInstance.SaveComponent(createComponent(child2UID, WithGVK("", "v1", "Secret"), WithName("secret-1"), WithNamespace("default"), WithParent(parent2UID)))
+		require.NoError(t, err)
+
+		child3UID := "child3-uid"
+		err = storeInstance.SaveComponent(createComponent(child3UID, WithGVK("", "v1", "Secret"), WithName("secret-2"), WithNamespace("default"), WithParent(parent2UID)))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 2, "Should return 2 top-level components")
+
+		// Build map for easier verification
+		attrMap := make(map[string]client.ComponentAttributes)
+		for _, a := range attributes {
+			attrMap[lo.FromPtr(a.UID)] = a
+		}
+
+		// Verify first parent has 1 child
+		assert.Contains(t, attrMap, parent1UID)
+		assert.Len(t, attrMap[parent1UID].Children, 1)
+		assert.Equal(t, child1UID, attrMap[parent1UID].Children[0].UID)
+
+		// Verify second parent has 2 children
+		assert.Contains(t, attrMap, parent2UID)
+		assert.Len(t, attrMap[parent2UID].Children, 2)
+	})
+
+	t.Run("should not include components from other services", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID1 := "svc-1"
+		serviceID2 := "svc-2"
+
+		// Component for service 1
+		parent1UID := "service1-parent"
+		err = storeInstance.SaveComponent(createComponent(parent1UID, WithGVK("apps", "v1", "Deployment"), WithName("deployment-s1"), WithNamespace("default"), WithService(serviceID1)))
+		require.NoError(t, err)
+
+		// Component for service 2
+		parent2UID := "service2-parent"
+		err = storeInstance.SaveComponent(createComponent(parent2UID, WithGVK("apps", "v1", "Deployment"), WithName("deployment-s2"), WithNamespace("default"), WithService(serviceID2)))
+		require.NoError(t, err)
+
+		// Get components for service 1 only
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID1, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 1)
+		assert.Equal(t, parent1UID, lo.FromPtr(attributes[0].UID))
+	})
+
+	t.Run("should filter by onlyApplied when true", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-svc-applied"
+
+		// Create applied component
+		appliedUID := "applied-comp"
+		err = storeInstance.SaveComponent(createComponent(appliedUID, WithGVK("apps", "v1", "Deployment"), WithName("applied-deployment"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Get only applied components
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 1)
+		assert.Equal(t, appliedUID, lo.FromPtr(attributes[0].UID))
+	})
+
+	t.Run("should return empty result for service with no components", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		attributes, err := storeInstance.GetServiceComponentsWithChildren("non-existent-service", true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 0)
+	})
+
+	t.Run("should handle component with no children", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-svc-no-children"
+
+		// Create component without children
+		parentUID := "lonely-comp"
+		err = storeInstance.SaveComponent(createComponent(parentUID, WithGVK("apps", "v1", "Deployment"), WithName("lonely-deployment"), WithNamespace("default"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 1)
+		assert.Equal(t, parentUID, lo.FromPtr(attributes[0].UID))
+		assert.Nil(t, attributes[0].Children)
+	})
+
+	t.Run("should preserve parent_uid in children", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			require.NoError(t, storeInstance.Shutdown(), "failed to shutdown store")
+		}(storeInstance)
+
+		serviceID := "test-svc-parent-uid"
+
+		// Root
+		rootUID := "root"
+		err = storeInstance.SaveComponent(createComponent(rootUID, WithName("root"), WithService(serviceID)))
+		require.NoError(t, err)
+
+		// Level 1
+		level1UID := "level1"
+		err = storeInstance.SaveComponent(createComponent(level1UID, WithParent(rootUID), WithName("level1")))
+		require.NoError(t, err)
+
+		// Level 2
+		level2UID := "level2"
+		err = storeInstance.SaveComponent(createComponent(level2UID, WithParent(level1UID), WithName("level2")))
+		require.NoError(t, err)
+
+		attributes, err := storeInstance.GetServiceComponentsWithChildren(serviceID, true)
+		require.NoError(t, err)
+		assert.Len(t, attributes, 1)
+
+		// Verify parent_uid is preserved correctly
+		childMap := make(map[string]*client.ComponentChildAttributes)
+		for i := range attributes[0].Children {
+			childMap[attributes[0].Children[i].UID] = attributes[0].Children[i]
+		}
+
+		assert.Equal(t, rootUID, lo.FromPtr(childMap[level1UID].ParentUID))
+		assert.Equal(t, level1UID, lo.FromPtr(childMap[level2UID].ParentUID))
 	})
 }
 

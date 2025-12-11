@@ -155,19 +155,6 @@ func (p *ProfiledStore) GetServiceComponents(serviceID string, onlyApplied bool)
 	return res, err
 }
 
-// GetComponentChildren wraps Store.GetComponentChildren with tracing.
-func (p *ProfiledStore) GetComponentChildren(uid string) ([]client.ComponentChildAttributes, error) {
-	var (
-		res []client.ComponentChildAttributes
-		err error
-	)
-	_ = trace(context.Background(), "GetComponentChildren", func() error {
-		res, err = p.inner.GetComponentChildren(uid)
-		return err
-	})
-	return res, err
-}
-
 // GetComponentInsights wraps Store.GetComponentInsights with tracing.
 func (p *ProfiledStore) GetComponentInsights() ([]client.ClusterInsightComponentAttributes, error) {
 	var (
@@ -193,6 +180,14 @@ func (p *ProfiledStore) GetComponentCounts() (nodeCount, namespaceCount int64, e
 func (p *ProfiledStore) GetComponentAttributes(serviceID string, onlyApplied bool) (attrs []client.ComponentAttributes, err error) {
 	_ = trace(context.Background(), "GetComponentAttributes", func() error {
 		attrs, err = p.inner.GetComponentAttributes(serviceID, onlyApplied)
+		return err
+	})
+	return
+}
+
+func (p *ProfiledStore) GetServiceComponentsWithChildren(serviceID string, onlyApplied bool) (attrs []client.ComponentAttributes, err error) {
+	_ = trace(context.Background(), "GetServiceComponentsWithChildren", func() error {
+		attrs, err = p.inner.GetServiceComponentsWithChildren(serviceID, onlyApplied)
 		return err
 	})
 	return

@@ -527,15 +527,13 @@ func (in *DatabaseStore) DeleteUnsyncedComponentsByKeys(objects containers.Set[s
 }
 
 func (in *DatabaseStore) GetComponentAttributes(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error) {
-	components, err := in.GetServiceComponents(serviceID, onlyApplied)
+	// Fetch components with their children.
+	components, err := in.GetServiceComponentsWithChildren(serviceID, onlyApplied)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service components: %w", err)
 	}
 
-	// TODO: Can return early if only applied components are requested? Append children.
-
-	// If all components are requested,
-	// exclude non-existing hook components with a deletion policy that have reached their desired state.
+	// Exclude non-existing hook components with a deletion policy that have reached their desired state.
 	hooks, err := in.GetHookComponents(serviceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get hook components: %w", err)
@@ -548,17 +546,12 @@ func (in *DatabaseStore) GetComponentAttributes(serviceID string, onlyApplied bo
 
 	attributes := make([]client.ComponentAttributes, 0, len(components))
 	for _, component := range components {
-		if hook, ok := keyToHookComponent[component.Key()]; ok && hook.HadDesiredState() {
+		componentKey := smcommon.NewStoreKeyFromComponentAttributes(component).Key()
+		if hook, ok := keyToHookComponent[componentKey]; ok && hook.HadDesiredState() {
 			continue
 		}
 
-		// TODO: Optimize children queries.
-		attr := component.ComponentAttributes()
-		if children, err := in.GetComponentChildren(component.UID); err == nil {
-			attr.Children = lo.ToSlicePtr(children)
-		}
-
-		attributes = append(attributes, attr)
+		attributes = append(attributes, component)
 	}
 
 	return attributes, nil
@@ -796,31 +789,155 @@ func (in *DatabaseStore) GetServiceComponents(serviceID string, onlyApplied bool
 	return result, err
 }
 
-func (in *DatabaseStore) GetComponentChildren(uid string) (result []client.ComponentChildAttributes, err error) {
+func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	defer in.pool.Put(conn)
 
-	err = sqlitex.ExecuteTransient(conn, componentChildren, &sqlitex.ExecOptions{
-		Args: []interface{}{uid, uid},
+	var sb strings.Builder
+	// service_components CTE selects top-level components belonging to the service.
+	// Only returns components that are part of the original manifest or have no parent.
+	sb.WriteString(`
+		WITH service_components AS (
+			SELECT uid, "group", version, kind, name, namespace, health
+			FROM component 
+			WHERE service_id = ?`)
+	if onlyApplied {
+		sb.WriteString(" AND applied = 1")
+	}
+	sb.WriteString(` AND (manifest = 1 OR (parent_uid IS NULL OR parent_uid = ''))
+		),`)
+
+	// component_children CTE recursively finds all descendants of service components.
+	// root_component_uid tracks which service component each child belongs to.
+	// level tracks recursion depth and stops at 4.
+	sb.WriteString(`
+		component_children AS (
+			SELECT 
+				sc.uid as root_component_uid,
+				child.uid,
+				child."group",
+				child.version,
+				child.kind,
+				child.namespace,
+				child.name,
+				child.health,
+				child.parent_uid,
+				1 as level
+			FROM service_components sc
+			JOIN component child ON child.parent_uid = sc.uid
+			
+			UNION ALL
+			
+			SELECT 
+				cc.root_component_uid,
+				c.uid,
+				c."group",
+				c.version,
+				c.kind,
+				c.namespace,
+				c.name,
+				c.health,
+				c.parent_uid,
+				cc.level + 1
+			FROM component_children cc
+			JOIN component c ON c.parent_uid = cc.uid
+			WHERE cc.level < 4
+		)`)
+
+	// Final SELECT combines components and children into one result set.
+	// row_type distinguishes between service components and their children.
+	// root_component_uid is used to attach children to the correct parent component.
+	sb.WriteString(`
+		SELECT 
+			'component' as row_type,
+			sc.uid,
+			sc."group",
+			sc.version,
+			sc.kind,
+			sc.name,
+			sc.namespace,
+			sc.health,
+			'' as parent_uid,
+			'' as root_component_uid
+		FROM service_components sc
+		UNION ALL
+		SELECT 
+			'child' as row_type,
+			cc.uid,
+			cc."group",
+			cc.version,
+			cc.kind,
+			cc.name,
+			cc.namespace,
+			cc.health,
+			cc.parent_uid,
+			cc.root_component_uid
+		FROM component_children cc
+	`)
+
+	componentMap := make(map[string]*client.ComponentAttributes)      // Map to store component attributes by UID
+	childrenMap := make(map[string][]client.ComponentChildAttributes) // Map to store children by root component UID
+	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
+		Args: []interface{}{serviceID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			result = append(result, client.ComponentChildAttributes{
-				UID:       stmt.ColumnText(0),
-				Group:     lo.EmptyableToPtr(stmt.ColumnText(1)),
-				Version:   stmt.ColumnText(2),
-				Kind:      stmt.ColumnText(3),
-				Namespace: lo.EmptyableToPtr(stmt.ColumnText(4)),
-				Name:      stmt.ColumnText(5),
-				State:     ComponentState(stmt.ColumnInt32(6)).Attribute(),
-				ParentUID: lo.EmptyableToPtr(stmt.ColumnText(7)),
-			})
+			rowType := stmt.ColumnText(0)
+			uid := stmt.ColumnText(1)
+			group := stmt.ColumnText(2)
+			version := stmt.ColumnText(3)
+			kind := stmt.ColumnText(4)
+			name := stmt.ColumnText(5)
+			namespace := stmt.ColumnText(6)
+			health := ComponentState(stmt.ColumnInt32(7)).Attribute()
+
+			if rowType == "component" {
+				if _, exists := componentMap[uid]; !exists {
+					componentMap[uid] = &client.ComponentAttributes{
+						UID:       lo.ToPtr(uid),
+						Synced:    true,
+						Group:     group,
+						Version:   version,
+						Kind:      kind,
+						Name:      name,
+						Namespace: namespace,
+						State:     health,
+					}
+				}
+			} else {
+				// Child row
+				rootComponentUID := stmt.ColumnText(9)
+				parentUID := stmt.ColumnText(8)
+				child := client.ComponentChildAttributes{
+					UID:       uid,
+					Group:     lo.EmptyableToPtr(group),
+					Version:   version,
+					Kind:      kind,
+					Namespace: lo.EmptyableToPtr(namespace),
+					Name:      name,
+					State:     health,
+					ParentUID: lo.EmptyableToPtr(parentUID),
+				}
+				childrenMap[rootComponentUID] = append(childrenMap[rootComponentUID], child)
+			}
 			return nil
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service components with children: %w", err)
+	}
 
-	return result, err
+	// Build result with children attached
+	result := make([]client.ComponentAttributes, 0, len(componentMap))
+	for uid, attr := range componentMap {
+		if children, ok := childrenMap[uid]; ok {
+			attr.Children = lo.ToSlicePtr(children)
+		}
+		result = append(result, *attr)
+	}
+
+	return result, nil
 }
 
 func (in *DatabaseStore) GetComponentInsights() (result []client.ClusterInsightComponentAttributes, err error) {
