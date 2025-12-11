@@ -55,26 +55,26 @@ const (
 )
 
 type ServiceReconciler struct {
-	consoleClient                                                                                    client.Client
-	clientset                                                                                        kubernetes.Interface
-	applier                                                                                          *applier.Applier
-	svcQueue                                                                                         workqueue.TypedRateLimitingInterface[string]
-	typedRateLimiter                                                                                 workqueue.TypedRateLimiter[string]
-	svcCache                                                                                         *client.Cache[console.ServiceDeploymentForAgent]
-	manifestCache                                                                                    *manis.ManifestCache
-	restoreNamespace                                                                                 string
-	mapper                                                                                           meta.RESTMapper
-	k8sClient                                                                                        ctrclient.Client
-	pollInterval                                                                                     time.Duration
-	dynamicClient                                                                                    dynamic.Interface
-	store                                                                                            store.Store
-	refresh, manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay, waveDeQueueDelay time.Duration
-	workqueueQPS, workqueueBurst, waveMaxConcurrentApplies                                           int
-	consoleURL                                                                                       string
-	waveDelay                                                                                        time.Duration
-	supervisor                                                                                       *streamline.Supervisor
-	discoveryCache                                                                                   discoverycache.Cache
-	namespaceCache                                                                                   streamline.NamespaceCache
+	consoleClient                                                                           client.Client
+	clientset                                                                               kubernetes.Interface
+	applier                                                                                 *applier.Applier
+	svcQueue                                                                                workqueue.TypedRateLimitingInterface[string]
+	typedRateLimiter                                                                        workqueue.TypedRateLimiter[string]
+	svcCache                                                                                *client.Cache[console.ServiceDeploymentForAgent]
+	manifestCache                                                                           *manis.ManifestCache
+	restoreNamespace                                                                        string
+	mapper                                                                                  meta.RESTMapper
+	k8sClient                                                                               ctrclient.Client
+	pollInterval                                                                            time.Duration
+	dynamicClient                                                                           dynamic.Interface
+	store                                                                                   store.Store
+	manifestTTL, manifestTTLJitter, workqueueBaseDelay, workqueueMaxDelay, waveDeQueueDelay time.Duration
+	workqueueQPS, workqueueBurst, waveMaxConcurrentApplies                                  int
+	consoleURL                                                                              string
+	waveDelay                                                                               time.Duration
+	supervisor                                                                              *streamline.Supervisor
+	discoveryCache                                                                          discoverycache.Cache
+	namespaceCache                                                                          streamline.NamespaceCache
 }
 
 func NewServiceReconciler(consoleClient client.Client,
@@ -84,6 +84,7 @@ func NewServiceReconciler(consoleClient client.Client,
 	dynamicClient dynamic.Interface,
 	discoveryCache discoverycache.Cache,
 	namespaceCache streamline.NamespaceCache,
+	svcCache *client.Cache[console.ServiceDeploymentForAgent],
 	store store.Store,
 	option ...ServiceReconcilerOption,
 ) (*ServiceReconciler, error) {
@@ -96,7 +97,7 @@ func NewServiceReconciler(consoleClient client.Client,
 		mapper:             mapper,
 		dynamicClient:      dynamicClient,
 		store:              store,
-		refresh:            2 * time.Minute,
+		svcCache:           svcCache,
 		manifestTTL:        3 * time.Hour,
 		manifestTTLJitter:  30 * time.Minute,
 		workqueueBaseDelay: 5 * time.Second,
@@ -130,11 +131,6 @@ func (s *ServiceReconciler) init() (*ServiceReconciler, error) {
 		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(s.workqueueQPS), s.workqueueBurst)},
 	)
 	s.svcQueue = workqueue.NewTypedRateLimitingQueue(s.typedRateLimiter)
-	s.svcCache = client.NewCache[console.ServiceDeploymentForAgent](s.refresh, func(id string) (
-		*console.ServiceDeploymentForAgent, error,
-	) {
-		return s.consoleClient.GetService(id)
-	})
 	s.manifestCache = manis.NewCache(s.manifestTTL, s.manifestTTLJitter, deployToken, s.consoleURL)
 	s.applier = applier.NewApplier(s.dynamicClient, s.discoveryCache, s.store,
 		applier.WithWaveDelay(s.waveDelay),

@@ -4,6 +4,7 @@ import (
 	"os"
 	"time"
 
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -64,6 +65,7 @@ func registerConsoleReconcilersOrDie(
 	supervisor *streamline.Supervisor,
 	discoveryCache discoverycache.Cache,
 	namespaceCache streamline.NamespaceCache,
+	svcCache *client.Cache[console.ServiceDeploymentForAgent],
 ) {
 	mgr.AddReconcilerOrDie(service.Identifier, func() (v1.Reconciler, error) {
 		r, err := service.NewServiceReconciler(consoleClient,
@@ -73,8 +75,8 @@ func registerConsoleReconcilersOrDie(
 			dynamicClient,
 			discoveryCache,
 			namespaceCache,
+			svcCache,
 			store,
-			service.WithRefresh(args.ControllerCacheTTL()),
 			service.WithManifestTTL(args.ManifestCacheTTL()),
 			service.WithManifestTTLJitter(args.ManifestCacheJitter()),
 			service.WithWorkqueueBaseDelay(args.WorkqueueBaseDelay()),

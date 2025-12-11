@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,13 +17,27 @@ type Store interface {
 
 	SaveComponents(obj []unstructured.Unstructured) error
 
-	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
+	SaveUnsyncedComponents(obj []unstructured.Unstructured) error
 
-	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
+	// GetComponentAttributes returns service components attributes from the store.
+	GetComponentAttributes(serviceID string, isDeleting bool) ([]client.ComponentAttributes, error)
 
-	GetComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
+	// SyncServiceComponents is used to store all service components in the store before applying them and to
+	// ensure that components that are no longer part of the service and were not applied are removed from the store.
+	SyncServiceComponents(serviceID string, resources []unstructured.Unstructured) error
 
-	GetComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error)
+	// DeleteUnsyncedComponentsByKeys removes multiple components from the store based on their smcommon.StoreKey.
+	// It will delete only not applied components.
+	// If the applied component is passed, it will be ignored.
+	// It returns an error if any issue occurs during the deletion process.
+	DeleteUnsyncedComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error
+
+	GetAppliedComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
+
+	GetAppliedComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error)
+
+	// GetAppliedComponentsByGVK returns all applied components matching provided GVK.
+	GetAppliedComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error)
 
 	// DeleteComponent removes a component from the store based on its smcommon.StoreKey.
 	// It returns an error if any issue occurs during the deletion process.
@@ -32,14 +47,16 @@ type Store interface {
 	// It returns an error if any issue occurs during the deletion process.
 	DeleteComponents(group, version, kind string) error
 
+	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
+
 	// GetServiceComponents retrieves all parent components associated with a given service ID.
 	// All components with parents are filtered out.
 	// It returns a slice of Component structs containing information about each component and any error encountered.
-	GetServiceComponents(serviceID string) (smcommon.Components, error)
+	GetServiceComponents(serviceID string, onlyApplied bool) (smcommon.Components, error)
 
-	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
-	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.
-	GetComponentChildren(uid string) ([]client.ComponentChildAttributes, error)
+	// GetServiceComponentsWithChildren returns service components with their children populated.
+	// It uses a single query to fetch both components and their recursive children (up to 4 levels deep).
+	GetServiceComponentsWithChildren(serviceID string, onlyApplied bool) ([]client.ComponentAttributes, error)
 
 	GetComponentInsights() ([]client.ClusterInsightComponentAttributes, error)
 

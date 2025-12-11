@@ -101,6 +101,7 @@ func (s *socket) NotifyConnect() {
 	_ = s.Join()
 }
 
+// TODO: This should be made thread-safe as it interferes with socket join
 func (s *socket) NotifyDisconnect() {
 	s.connected = false
 	s.joined = false

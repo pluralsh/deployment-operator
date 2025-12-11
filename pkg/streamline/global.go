@@ -43,7 +43,7 @@ type GlobalStore struct {
 }
 
 func (in *GlobalStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
-	return in.store.GetComponent(obj)
+	return in.store.GetAppliedComponent(obj)
 }
 
 func (in *GlobalStore) UpdateComponentSHA(obj unstructured.Unstructured, shaType store.SHAType) error {

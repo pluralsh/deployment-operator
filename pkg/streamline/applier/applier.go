@@ -13,10 +13,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
-	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -44,13 +42,13 @@ func (in *Applier) Apply(ctx context.Context,
 ) ([]client.ComponentAttributes, []client.ServiceErrorAttributes, error) {
 	resources = in.ensureServiceAnnotation(resources, service.ID)
 
-	componentList := make([]client.ComponentAttributes, 0)
-	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
-	toSkip := make([]unstructured.Unstructured, 0)
+	if err := in.store.SyncServiceComponents(service.ID, resources); err != nil {
+		return nil, nil, err
+	}
 
 	deleteFilterFunc, err := in.getDeleteFilterFunc(service.ID)
 	if err != nil {
-		return componentList, serviceErrorList, err
+		return nil, nil, err
 	}
 
 	phases := NewPhases(
@@ -67,6 +65,7 @@ func (in *Applier) Apply(ctx context.Context,
 	var syncPhase *smcommon.SyncPhase
 	var phase *Phase
 	var hasOnFailPhase bool
+	serviceErrorList := make([]client.ServiceErrorAttributes, 0)
 	for {
 		if phase, hasOnFailPhase = phases.Next(syncPhase, failed); phase == nil {
 			break
@@ -74,7 +73,6 @@ func (in *Applier) Apply(ctx context.Context,
 
 		now := time.Now()
 		syncPhase = lo.ToPtr(phase.Name())
-		toSkip = append(toSkip, phase.Skipped()...)
 
 		if !phase.HasWaves() {
 			klog.V(log.LogLevelDefault).InfoS(
@@ -97,9 +95,8 @@ func (in *Applier) Apply(ctx context.Context,
 		waveStatistics := WaveStatistics{}
 		for i, wave := range waves {
 			processor := NewWaveProcessor(in.client, in.discoveryCache, phase.Name(), wave, opts...)
-			components, serviceErrors := processor.Run(ctx)
+			_, serviceErrors := processor.Run(ctx)
 
-			componentList = append(componentList, components...)
 			serviceErrorList = append(serviceErrorList, serviceErrors...)
 
 			waveStatistics.Add(processor.Statistics())
@@ -157,39 +154,8 @@ func (in *Applier) Apply(ctx context.Context,
 		}
 	}
 
-	for _, resource := range toSkip {
-		var compAttr *client.ComponentAttributes
-		cacheEntry, err := in.store.GetComponent(resource)
-
-		if err != nil || cacheEntry == nil {
-			live, err := in.client.Resource(helpers.GVRFromGVK(resource.GroupVersionKind())).Namespace(resource.GetNamespace()).Get(ctx, resource.GetName(), metav1.GetOptions{})
-			if err != nil {
-				klog.V(log.LogLevelExtended).ErrorS(err, "failed to get component from discoveryCache", "resource", resource)
-				continue
-			}
-			compAttr = common.ToComponentAttributes(live)
-
-			if err := in.store.SaveComponent(*live); err != nil {
-				klog.V(log.LogLevelExtended).ErrorS(err, "failed to save component", "resource", resource)
-			}
-		} else {
-			compAttr = lo.ToPtr(cacheEntry.ComponentAttributes())
-		}
-
-		componentList = append(componentList, lo.FromPtr(compAttr))
-	}
-
-	for idx, component := range componentList {
-		children, err := in.store.GetComponentChildren(lo.FromPtr(component.UID))
-		if err != nil {
-			klog.V(log.LogLevelExtended).ErrorS(err, "failed to get children for component", "component", component.Name)
-			continue
-		}
-
-		componentList[idx].Children = lo.ToSlicePtr(children)
-	}
-
-	return componentList, serviceErrorList, nil
+	attrs, err := in.store.GetComponentAttributes(service.ID, false)
+	return attrs, serviceErrorList, err
 }
 
 func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.ComponentAttributes, error) {
@@ -249,7 +215,7 @@ func (in *Applier) Destroy(ctx context.Context, serviceID string) ([]client.Comp
 	}
 
 	defer klog.V(log.LogLevelDefault).InfoS("deleted service components", "deleted", deleted, "service", serviceID)
-	return in.getServiceComponents(serviceID)
+	return in.store.GetComponentAttributes(serviceID, true)
 }
 
 func (in *Applier) ensureServiceAnnotation(resources []unstructured.Unstructured, serviceID string) []unstructured.Unstructured {
@@ -275,7 +241,7 @@ var (
 )
 
 func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstructured.Unstructured) (toDelete []unstructured.Unstructured, toApply []unstructured.Unstructured), error) {
-	components, err := in.store.GetServiceComponents(serviceID)
+	components, err := in.store.GetServiceComponents(serviceID, true)
 	if err != nil {
 		return nil, err
 	}
@@ -340,8 +306,8 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 				continue
 			}
 
-			// Skip applying hook resource if their manifest did not change.
-			if ok && !hook.HasManifestChanged(resource) {
+			// Skip applying hook resource if their manifest did not change, and it has reached its desired state.
+			if ok && !hook.HasManifestChanged(resource) && hook.HadDesiredState() {
 				skipApply.Add(key)
 
 				continue
@@ -355,15 +321,6 @@ func (in *Applier) getDeleteFilterFunc(serviceID string) (func(resources []unstr
 
 		return
 	}, nil
-}
-
-func (in *Applier) getServiceComponents(serviceID string) ([]client.ComponentAttributes, error) {
-	components, err := in.store.GetServiceComponents(serviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	return components.ComponentAttributes(), nil
 }
 
 type Option func(*Applier)

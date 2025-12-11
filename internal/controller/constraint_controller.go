@@ -102,7 +102,7 @@ func (r *ConstraintReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		time.Sleep(time.Duration(rand.Int63n(int64(500 * time.Millisecond))))
 	}
 
-	logger.Info("upserted constraints", "count", len(r.Constraints))
+	logger.V(3).Info("upserted constraints", "count", len(r.Constraints))
 	return ctrl.Result{}, nil
 }
 

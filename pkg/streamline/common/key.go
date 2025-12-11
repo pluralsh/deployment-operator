@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 
+	"github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -20,6 +21,10 @@ func (k Key) String() string {
 func NewKeyFromUnstructured(u unstructured.Unstructured) Key {
 	gvk := u.GroupVersionKind()
 	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, u.GetNamespace(), u.GetName()))
+}
+
+func NewKey(group, version, kind, namespace, name string) Key {
+	return Key(fmt.Sprintf("%s/%s/%s/%s/%s", group, version, kind, namespace, name))
 }
 
 // StoreKey is a unique identifier for a resource in the store.
@@ -53,4 +58,12 @@ func (in StoreKey) ReplaceGroup(group string) StoreKey {
 
 func NewStoreKeyFromUnstructured(u unstructured.Unstructured) StoreKey {
 	return StoreKey{GVK: u.GroupVersionKind(), Namespace: u.GetNamespace(), Name: u.GetName()}
+}
+
+func NewStoreKeyFromComponentAttributes(a client.ComponentAttributes) StoreKey {
+	return StoreKey{
+		GVK:       schema.GroupVersionKind{Group: a.Group, Version: a.Version, Kind: a.Kind},
+		Namespace: a.Namespace,
+		Name:      a.Name,
+	}
 }

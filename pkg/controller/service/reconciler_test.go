@@ -11,6 +11,7 @@ import (
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
@@ -132,7 +133,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			})).Return(nil)
 			fakeConsoleClient.On("UpdateServiceErrors", mock.Anything, mock.Anything).Return(nil)
 
-			storeInstance, err := store.NewDatabaseStore()
+			storeInstance, err := store.NewDatabaseStore(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			defer func(storeInstance store.Store) {
 				err := storeInstance.Shutdown()
@@ -142,8 +143,9 @@ var _ = Describe("Reconciler", Ordered, func() {
 			}(storeInstance)
 			streamline.InitGlobalStore(storeInstance)
 			discoverycache.InitGlobalDiscoveryCache(discoveryClient, mapper)
+			svcCache := client.NewCache[console.ServiceDeploymentForAgent](time.Minute, func(id string) (*console.ServiceDeploymentForAgent, error) { return fakeConsoleClient.GetService(id) })
 
-			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
+			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), svcCache, storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
 			Expect(err).NotTo(HaveOccurred())
 			_, err = reconciler.Reconcile(ctx, serviceId)
 			Expect(err).NotTo(HaveOccurred())
@@ -171,7 +173,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			// Create a reconciler instance to access ExtractImagesMetadata
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetCredentials").Return("", "")
-			storeInstance, err := store.NewDatabaseStore()
+			storeInstance, err := store.NewDatabaseStore(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			defer func(storeInstance store.Store) {
 				err := storeInstance.Shutdown()
@@ -179,8 +181,9 @@ var _ = Describe("Reconciler", Ordered, func() {
 					log.Printf("unable to shutdown database store: %v", err)
 				}
 			}(storeInstance)
+			svcCache := client.NewCache[console.ServiceDeploymentForAgent](time.Minute, func(id string) (*console.ServiceDeploymentForAgent, error) { return fakeConsoleClient.GetService(id) })
 
-			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
+			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), svcCache, storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Extract metadata from the processed manifests

@@ -8,12 +8,6 @@ import (
 
 type ServiceReconcilerOption func(*ServiceReconciler)
 
-func WithRefresh(refresh time.Duration) ServiceReconcilerOption {
-	return func(r *ServiceReconciler) {
-		r.refresh = refresh
-	}
-}
-
 func WithManifestTTL(manifestTTL time.Duration) ServiceReconcilerOption {
 	return func(r *ServiceReconciler) {
 		r.manifestTTL = manifestTTL

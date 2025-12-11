@@ -1,6 +1,7 @@
 package applier
 
 import (
+	"context"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -26,7 +27,7 @@ func TestCacheFilter(t *testing.T) {
 		// Ensure no leftover global from previous test
 		streamline.ResetGlobalStore()
 
-		storeInstance, err := store.NewDatabaseStore()
+		storeInstance, err := store.NewDatabaseStore(context.Background())
 		require.NoError(t, err, "failed to create store")
 
 		streamline.InitGlobalStore(storeInstance)
@@ -175,7 +176,7 @@ func TestCacheFilter(t *testing.T) {
 
 		CacheFilter()(unstructuredPod)
 
-		entry, err := storeInstance.GetComponent(unstructuredPod)
+		entry, err := storeInstance.GetAppliedComponent(unstructuredPod)
 		require.NoError(t, err, "failed to get component")
 		assert.NotEmpty(t, entry.TransientManifestSHA, "expected transient manifest SHA to be set after filter call")
 	})

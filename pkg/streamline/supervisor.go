@@ -7,7 +7,8 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
-	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
+	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -15,6 +16,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
@@ -62,6 +65,7 @@ type Supervisor struct {
 	started            bool
 	client             dynamic.Interface
 	discoveryCache     discoverycache.Cache
+	svcCache           *client.Cache[console.ServiceDeploymentForAgent]
 	statusSynchronizer StatusSynchronizer
 	store              store.Store
 
@@ -83,11 +87,13 @@ type Supervisor struct {
 	maxConcurrentComponentUpdates int
 }
 
-func NewSupervisor(client dynamic.Interface, store store.Store, statusSynchronizer StatusSynchronizer, discoveryCache discoverycache.Cache, options ...Option) *Supervisor {
+func NewSupervisor(client dynamic.Interface, store store.Store, statusSynchronizer StatusSynchronizer,
+	discoveryCache discoverycache.Cache, svcCache *client.Cache[console.ServiceDeploymentForAgent], options ...Option) *Supervisor {
 	s := &Supervisor{
 		client:                        client,
 		statusSynchronizer:            statusSynchronizer,
 		discoveryCache:                discoveryCache,
+		svcCache:                      svcCache,
 		store:                         store,
 		registerQueue:                 workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[schema.GroupVersionResource]()),
 		componentQueue:                workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
@@ -364,15 +370,19 @@ func (in *Supervisor) processComponentUpdate() bool {
 }
 
 func (in *Supervisor) flushComponentUpdates(serviceId string) {
-	// Get service components.
-	components, err := in.store.GetServiceComponents(serviceId)
+	svc, err := in.svcCache.Get(serviceId)
+	if err != nil {
+		klog.ErrorS(err, "failed to get service from cache", "service", serviceId)
+		return
+	}
+
+	attrs, err := in.store.GetComponentAttributes(serviceId, lo.FromPtr(svc.DeletedAt) != "")
 	if err != nil {
 		klog.ErrorS(err, "failed to get service components", "service", serviceId)
 		return
 	}
 
-	// Update components.
-	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, lo.ToSlicePtr(components.ComponentAttributes())); err != nil {
+	if err = in.statusSynchronizer.UpdateServiceComponents(serviceId, lo.ToSlicePtr(attrs)); err != nil {
 		klog.ErrorS(err, "failed to update service components", "service", serviceId)
 	}
 }
