@@ -319,6 +319,16 @@ func (p *ProfiledStoreLocal) SetServiceChildren(serviceID, parentUID string, key
 	return res, err
 }
 
+// SaveComponentAttributes wraps Store.SaveComponentAttributes with tracing.
+func (p *ProfiledStoreLocal) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
+	var err error
+	_ = traceLocal(context.Background(), "SaveComponentAttributes", func() error {
+		err = p.inner.SaveComponentAttributes(obj, args)
+		return err
+	})
+	return err
+}
+
 func NewLocalProfiledStore(inner Store) Store {
 	if inner == nil {
 		return nil

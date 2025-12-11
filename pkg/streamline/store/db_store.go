@@ -455,6 +455,32 @@ func (in *DatabaseStore) SaveUnsyncedComponents(objects []unstructured.Unstructu
 	return sqlitex.Execute(conn, sb.String(), nil)
 }
 
+func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	if len(args) != 3 {
+		args = []any{nil, nil, nil}
+	}
+
+	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
+		Args: append([]interface{}{
+			obj.UID,
+			lo.FromPtr(obj.ParentUID),
+			lo.FromPtr(obj.Group),
+			obj.Version,
+			obj.Kind,
+			lo.FromPtr(obj.Namespace),
+			obj.Name,
+			NewComponentState(obj.State),
+			true,
+		}, args...),
+	})
+}
+
 func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []unstructured.Unstructured) error {
 	// Get the list of all components for the service from the store.
 	components, err := in.GetServiceComponents(serviceID, false)

@@ -190,6 +190,43 @@ const (
 		GROUP BY node
 	`
 
+	setComponent = `
+		INSERT INTO component (
+			uid,
+			parent_uid,
+			"group",
+			version,
+			kind,
+			namespace,
+			name,
+			health,
+		    applied,
+		    node,
+		    created_at,
+		    service_id
+		) VALUES (
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+		    ?,
+		    ?,
+		    ?
+		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			parent_uid = excluded.parent_uid,
+			health = excluded.health,
+			node = excluded.node,
+			created_at = excluded.created_at,
+			service_id = excluded.service_id,
+			applied = excluded.applied
+	`
+
 	failedComponents = `
 		WITH RECURSIVE component_chain AS (
 			-- Start with parent components of specified kinds

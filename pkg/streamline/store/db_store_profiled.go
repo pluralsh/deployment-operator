@@ -155,19 +155,6 @@ func (p *ProfiledStore) GetServiceComponents(serviceID string, onlyApplied bool)
 	return res, err
 }
 
-// GetComponentInsights wraps Store.GetComponentInsights with tracing.
-func (p *ProfiledStore) GetComponentInsights() ([]client.ClusterInsightComponentAttributes, error) {
-	var (
-		res []client.ClusterInsightComponentAttributes
-		err error
-	)
-	_ = trace(context.Background(), "GetComponentInsights", func() error {
-		res, err = p.inner.GetComponentInsights()
-		return err
-	})
-	return res, err
-}
-
 // GetComponentCounts wraps Store.GetComponentCounts with tracing.
 func (p *ProfiledStore) GetComponentCounts() (nodeCount, namespaceCount int64, err error) {
 	_ = trace(context.Background(), "GetComponentCounts", func() error {
@@ -288,6 +275,29 @@ func (p *ProfiledStore) GetHookComponents(serviceID string) ([]smcommon.HookComp
 		return err
 	})
 	return res, err
+}
+
+// GetComponentInsights wraps Store.GetComponentInsights with tracing.
+func (p *ProfiledStore) GetComponentInsights() ([]client.ClusterInsightComponentAttributes, error) {
+	var (
+		res []client.ClusterInsightComponentAttributes
+		err error
+	)
+	_ = trace(context.Background(), "GetComponentInsights", func() error {
+		res, err = p.inner.GetComponentInsights()
+		return err
+	})
+	return res, err
+}
+
+// SaveComponentAttributes wraps Store.SaveComponentAttributes with tracing.
+func (p *ProfiledStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
+	var err error
+	_ = trace(context.Background(), "SaveComponentAttributes", func() error {
+		err = p.inner.SaveComponentAttributes(obj, args)
+		return err
+	})
+	return err
 }
 
 // SaveHookComponentWithManifestSHA wraps Store.SaveHookComponentWithManifestSHA with tracing.
