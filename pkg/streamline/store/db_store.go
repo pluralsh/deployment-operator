@@ -813,7 +813,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 	// Only returns components that are part of the original manifest or have no parent.
 	sb.WriteString(`
 		WITH service_components AS (
-			SELECT uid, "group", version, kind, name, namespace, health
+			SELECT uid, "group", version, kind, name, namespace, health, applied
 			FROM component 
 			WHERE service_id = ?`)
 	if onlyApplied {
@@ -836,6 +836,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 				child.namespace,
 				child.name,
 				child.health,
+                child.applied,
 				child.parent_uid,
 				1 as level
 			FROM service_components sc
@@ -852,6 +853,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 				c.namespace,
 				c.name,
 				c.health,
+				c.applied,
 				c.parent_uid,
 				cc.level + 1
 			FROM component_children cc
@@ -872,6 +874,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 			sc.name,
 			sc.namespace,
 			sc.health,
+			sc.applied,
 			'' as parent_uid,
 			'' as root_component_uid
 		FROM service_components sc
@@ -885,6 +888,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 			cc.name,
 			cc.namespace,
 			cc.health,
+			cc.applied,
 			cc.parent_uid,
 			cc.root_component_uid
 		FROM component_children cc
@@ -903,7 +907,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 			kind := stmt.ColumnText(4)
 			name := stmt.ColumnText(5)
 			namespace := stmt.ColumnText(6)
-			health := ComponentState(stmt.ColumnInt32(7)).Attribute()
+			health := lo.Ternary(stmt.ColumnBool(8), ComponentState(stmt.ColumnInt32(7)), ComponentStatePending).Attribute() // Always mark as pending if resource was not applied.
 
 			if rowType == "component" {
 				if _, exists := componentMap[uid]; !exists {
