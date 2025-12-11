@@ -68,7 +68,7 @@ const (
 	`
 
 	getComponent = `
-		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id, manifest
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id, manifest, applied
 		FROM component
 		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ?
 	`
