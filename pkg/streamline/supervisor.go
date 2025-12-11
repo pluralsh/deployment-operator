@@ -7,6 +7,8 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -63,6 +65,7 @@ type Supervisor struct {
 	started            bool
 	client             dynamic.Interface
 	discoveryCache     discoverycache.Cache
+	svcCache           *client.Cache[console.ServiceDeploymentForAgent]
 	statusSynchronizer StatusSynchronizer
 	store              store.Store
 
@@ -84,11 +87,13 @@ type Supervisor struct {
 	maxConcurrentComponentUpdates int
 }
 
-func NewSupervisor(client dynamic.Interface, store store.Store, statusSynchronizer StatusSynchronizer, discoveryCache discoverycache.Cache, options ...Option) *Supervisor {
+func NewSupervisor(client dynamic.Interface, store store.Store, statusSynchronizer StatusSynchronizer,
+	discoveryCache discoverycache.Cache, svcCache *client.Cache[console.ServiceDeploymentForAgent], options ...Option) *Supervisor {
 	s := &Supervisor{
 		client:                        client,
 		statusSynchronizer:            statusSynchronizer,
 		discoveryCache:                discoveryCache,
+		svcCache:                      svcCache,
 		store:                         store,
 		registerQueue:                 workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[schema.GroupVersionResource]()),
 		componentQueue:                workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
@@ -365,7 +370,13 @@ func (in *Supervisor) processComponentUpdate() bool {
 }
 
 func (in *Supervisor) flushComponentUpdates(serviceId string) {
-	attrs, err := in.store.GetComponentAttributes(serviceId, false) // TODO: Set isDeleting.
+	svc, err := in.svcCache.Get(serviceId)
+	if err != nil {
+		klog.ErrorS(err, "failed to get service from cache", "service", serviceId)
+		return
+	}
+
+	attrs, err := in.store.GetComponentAttributes(serviceId, lo.FromPtr(svc.DeletedAt) != "")
 	if err != nil {
 		klog.ErrorS(err, "failed to get service components", "service", serviceId)
 		return

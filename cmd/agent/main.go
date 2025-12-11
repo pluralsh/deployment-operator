@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -135,11 +136,16 @@ func main() {
 
 	statusSynchronizer := streamline.NewStatusSynchronizer(extConsoleClient, args.ComponentShaCacheTTL())
 
+	svcCache := client.NewCache[console.ServiceDeploymentForAgent](args.ControllerCacheTTL(),
+		func(id string) (*console.ServiceDeploymentForAgent, error) {
+			return extConsoleClient.GetService(id)
+		})
+
 	// Start synchronizer supervisor
-	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, statusSynchronizer, discoveryCache, namespaceCache)
+	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, statusSynchronizer, discoveryCache, namespaceCache, svcCache)
 	defer supervisor.Stop()
 
-	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache, namespaceCache)
+	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache, namespaceCache, svcCache)
 	registerKubeReconcilersOrDie(ctx, clientSet, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy(), args.ConsoleUrl(), args.DeployToken())
 
 	//+kubebuilder:scaffold:builder
@@ -229,12 +235,15 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 	setupLog.Info("discovery manager started with initial cache sync", "duration", time.Since(now))
 }
 
-func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, statusSynchronizer streamline.StatusSynchronizer, discoveryCache discoverycache.Cache, namespaceCache streamline.NamespaceCache) *streamline.Supervisor {
+func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store,
+	statusSynchronizer streamline.StatusSynchronizer, discoveryCache discoverycache.Cache,
+	namespaceCache streamline.NamespaceCache, svcCache *client.Cache[console.ServiceDeploymentForAgent]) *streamline.Supervisor {
 	now := time.Now()
 	supervisor := streamline.NewSupervisor(dynamicClient,
 		store,
 		statusSynchronizer,
 		discoveryCache,
+		svcCache,
 		streamline.WithCacheSyncTimeout(args.SupervisorCacheSyncTimeout()),
 		streamline.WithRestartDelay(args.SupervisorRestartDelay()),
 		streamline.WithMaxNotFoundRetries(args.SupervisorMaxNotFoundRetries()),
