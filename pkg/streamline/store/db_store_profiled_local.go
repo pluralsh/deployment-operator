@@ -83,7 +83,7 @@ func (p *ProfiledStoreLocal) SyncServiceComponents(serviceID string, resources [
 	})
 }
 
-// GetComponent wraps Store.GetComponent with tracing.
+// GetAppliedComponent wraps Store.GetAppliedComponent with tracing.
 func (p *ProfiledStoreLocal) GetAppliedComponent(obj unstructured.Unstructured) (*smcommon.Component, error) {
 	var (
 		res *smcommon.Component
@@ -96,7 +96,7 @@ func (p *ProfiledStoreLocal) GetAppliedComponent(obj unstructured.Unstructured) 
 	return res, err
 }
 
-// GetComponentByUID wraps Store.GetComponentByUID with tracing.
+// GetAppliedComponentByUID wraps Store.GetAppliedComponentByUID with tracing.
 func (p *ProfiledStoreLocal) GetAppliedComponentByUID(uid types.UID) (*client.ComponentChildAttributes, error) {
 	var (
 		res *client.ComponentChildAttributes
@@ -109,7 +109,7 @@ func (p *ProfiledStoreLocal) GetAppliedComponentByUID(uid types.UID) (*client.Co
 	return res, err
 }
 
-// GetComponentsByGVK wraps Store.GetComponentsByGVK with tracing.
+// GetAppliedComponentsByGVK wraps Store.GetAppliedComponentsByGVK with tracing.
 func (p *ProfiledStoreLocal) GetAppliedComponentsByGVK(gvk schema.GroupVersionKind) ([]smcommon.Component, error) {
 	var (
 		res []smcommon.Component
@@ -136,7 +136,7 @@ func (p *ProfiledStoreLocal) DeleteComponents(group, version, kind string) error
 	})
 }
 
-// DeleteComponentsByKeys wraps Store.DeleteComponentsByKeys with tracing.
+// DeleteUnsyncedComponentsByKeys wraps Store.DeleteUnsyncedComponentsByKeys with tracing.
 func (p *ProfiledStoreLocal) DeleteUnsyncedComponentsByKeys(objects containers.Set[smcommon.StoreKey]) error {
 	return traceLocal(context.Background(), "DeleteUnsyncedComponentsByKeys", func() error {
 		return p.inner.DeleteUnsyncedComponentsByKeys(objects)
