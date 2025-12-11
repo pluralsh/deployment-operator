@@ -163,25 +163,6 @@ const (
 		  AND name = ?
 	`
 
-	componentChildren = `
-		WITH RECURSIVE descendants AS (
-			SELECT uid, "group", version, kind, namespace, name, health, parent_uid, 1 as level
-			FROM component 
-			WHERE parent_uid = ?
-			
-			UNION ALL
-			
-			SELECT c.uid, c."group", c.version, c.kind, c.namespace, c.name, c.health, c.parent_uid, d.level + 1
-			FROM descendants d
-			JOIN component c ON c.parent_uid = d.uid
-			WHERE d.level < 4
-		)
-		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
-		FROM descendants
-		WHERE uid != ?
-		LIMIT 100
-	`
-
 	clusterHealthScore = `
 		WITH base_score AS (
 			SELECT CAST(AVG(CASE WHEN health = 0 THEN 100 ELSE 0 END) as INTEGER) as score
