@@ -261,6 +261,10 @@ func initDatabaseStoreOrDie() store.Store {
 		os.Exit(1)
 	}
 
+	if args.LocalDatabaseProfiler() {
+		return store.NewLocalProfiledStore(dbStore)
+	}
+
 	if args.DatadogEnabled() {
 		return store.NewProfiledStore(dbStore)
 	}
