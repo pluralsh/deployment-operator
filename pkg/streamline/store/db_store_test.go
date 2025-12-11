@@ -278,11 +278,11 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		}))
 
 		// Verify components exist
-		c1, err := storeInstance.GetComponent(component1)
+		c1, err := storeInstance.GetAppliedComponent(component1)
 		require.NoError(t, err)
 		require.NotNil(t, c1)
 
-		c2, err := storeInstance.GetComponent(component2)
+		c2, err := storeInstance.GetAppliedComponent(component2)
 		require.NoError(t, err)
 		require.NotNil(t, c2)
 
@@ -296,16 +296,16 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify deleted components no longer exist
-		c1, err = storeInstance.GetComponent(component1)
+		c1, err = storeInstance.GetAppliedComponent(component1)
 		require.NoError(t, err)
 		require.Nil(t, c1)
 
-		c2, err = storeInstance.GetComponent(component2)
+		c2, err = storeInstance.GetAppliedComponent(component2)
 		require.NoError(t, err)
 		require.Nil(t, c2)
 
 		// Verify non-deleted component still exists
-		c3, err := storeInstance.GetComponent(component3)
+		c3, err := storeInstance.GetAppliedComponent(component3)
 		require.NoError(t, err)
 		require.NotNil(t, c3)
 	})
@@ -347,7 +347,7 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the existing component still exists
-		c, err := storeInstance.GetComponent(component)
+		c, err := storeInstance.GetAppliedComponent(component)
 		require.NoError(t, err)
 		require.NotNil(t, c)
 	})
@@ -377,16 +377,16 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify deleted components no longer exist
-		d, err := storeInstance.GetComponent(deployment)
+		d, err := storeInstance.GetAppliedComponent(deployment)
 		require.NoError(t, err)
 		require.Nil(t, d)
 
-		s, err := storeInstance.GetComponent(service)
+		s, err := storeInstance.GetAppliedComponent(service)
 		require.NoError(t, err)
 		require.Nil(t, s)
 
 		// Verify non-deleted component still exists
-		ss, err := storeInstance.GetComponent(statefulset)
+		ss, err := storeInstance.GetAppliedComponent(statefulset)
 		require.NoError(t, err)
 		require.NotNil(t, ss)
 	})
@@ -416,16 +416,16 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify deleted components
-		c1, err := storeInstance.GetComponent(component1)
+		c1, err := storeInstance.GetAppliedComponent(component1)
 		require.NoError(t, err)
 		require.Nil(t, c1)
 
-		c2, err := storeInstance.GetComponent(component2)
+		c2, err := storeInstance.GetAppliedComponent(component2)
 		require.NoError(t, err)
 		require.Nil(t, c2)
 
 		// Verify staging component still exists
-		c3, err := storeInstance.GetComponent(component3)
+		c3, err := storeInstance.GetAppliedComponent(component3)
 		require.NoError(t, err)
 		require.NotNil(t, c3)
 	})
@@ -467,14 +467,14 @@ func TestComponentCache_DeleteUnsyncedComponentsByKeys(t *testing.T) {
 
 		// Verify deleted components
 		for _, comp := range componentsToDelete {
-			c, err := storeInstance.GetComponent(comp)
+			c, err := storeInstance.GetAppliedComponent(comp)
 			require.NoError(t, err)
 			require.Nil(t, c, "component should have been deleted: %s", comp.GetName())
 		}
 
 		// Verify remaining components
 		for _, comp := range componentsToKeep {
-			c, err := storeInstance.GetComponent(comp)
+			c, err := storeInstance.GetAppliedComponent(comp)
 			require.NoError(t, err)
 			require.NotNil(t, c, "component should still exist: %s", comp.GetName())
 		}
@@ -513,7 +513,7 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		err = storeInstance.SaveComponent(child)
 		require.NoError(t, err)
 
-		tested, err := storeInstance.GetComponentByUID("child2-uid")
+		tested, err := storeInstance.GetAppliedComponentByUID("child2-uid")
 		require.NoError(t, err)
 		require.Nil(t, tested.Group)
 
@@ -523,7 +523,7 @@ func TestComponentCache_GroupHandling(t *testing.T) {
 		err = storeInstance.SaveComponent(child)
 		require.NoError(t, err)
 
-		tested, err = storeInstance.GetComponentByUID("child3-uid")
+		tested, err = storeInstance.GetAppliedComponentByUID("child3-uid")
 		require.NoError(t, err)
 		require.Nil(t, tested.Group)
 	})
@@ -685,7 +685,7 @@ func TestComponentCache_UniqueConstraint(t *testing.T) {
 		err = storeInstance.SaveComponent(sameComponentWithDifferentUID)
 		require.NoError(t, err)
 
-		dbc, err := storeInstance.GetComponent(u)
+		dbc, err := storeInstance.GetAppliedComponent(u)
 		require.NoError(t, err)
 		assert.Equal(t, "uid-2", dbc.UID)
 	})
@@ -774,7 +774,7 @@ func TestUpdateSHA(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
-		entry, err := storeInstance.GetComponent(obj)
+		entry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ApplySHA)
@@ -800,7 +800,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
-		entry, err := storeInstance.GetComponent(obj)
+		entry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ApplySHA)
@@ -813,7 +813,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		err = storeInstance.ExpireOlderThan(500 * time.Millisecond)
 		require.NoError(t, err)
 
-		entry, err = storeInstance.GetComponent(obj)
+		entry, err = storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.Empty(t, entry.ApplySHA)
@@ -837,7 +837,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
-		entry, err := storeInstance.GetComponent(obj)
+		entry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ApplySHA)
@@ -848,7 +848,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		err = storeInstance.ExpireOlderThan(time.Second)
 		require.NoError(t, err)
 
-		entry, err = storeInstance.GetComponent(obj)
+		entry, err = storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ApplySHA)
@@ -870,7 +870,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
 		require.NoError(t, err)
 
-		entry, err := storeInstance.GetComponent(obj)
+		entry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ServerSHA)
@@ -880,14 +880,14 @@ func TestExpireSHAOlderThan(t *testing.T) {
 		err = storeInstance.ExpireOlderThan(2 * time.Second)
 		require.NoError(t, err)
 
-		entry, err = storeInstance.GetComponent(obj)
+		entry, err = storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ServerSHA)
 
 		err = storeInstance.UpdateComponentSHA(obj, store.ServerSHA)
 		require.NoError(t, err)
-		entry, err = storeInstance.GetComponent(obj)
+		entry, err = storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ServerSHA)
@@ -896,7 +896,7 @@ func TestExpireSHAOlderThan(t *testing.T) {
 
 		err = storeInstance.ExpireOlderThan(2 * time.Second)
 		require.NoError(t, err)
-		entry, err = storeInstance.GetComponent(obj)
+		entry, err = storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, entry)
 		assert.NotEmpty(t, entry.ServerSHA)
@@ -1130,7 +1130,7 @@ func TestComponentCache_Expire(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
 
-		entry, err := storeInstance.GetComponent(obj)
+		entry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		assert.NotEmpty(t, entry.ManifestSHA, "expected manifest SHA to be set")
 		assert.NotEmpty(t, entry.ApplySHA, "expected apply SHA to be set")
@@ -1155,7 +1155,7 @@ func TestComponentCache_ExpireSHA(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ApplySHA))
 
-		entry, err := storeInstance.GetComponent(obj)
+		entry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		assert.NotEmpty(t, entry.ManifestSHA, "expected manifest SHA to be set")
 		assert.NotEmpty(t, entry.TransientManifestSHA, "expected transient manifest SHA to be set")
@@ -1163,7 +1163,7 @@ func TestComponentCache_ExpireSHA(t *testing.T) {
 
 		require.NoError(t, storeInstance.ExpireSHA(obj), "failed to expire SHA values for component")
 
-		expiredEntry, err := storeInstance.GetComponent(obj)
+		expiredEntry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		assert.Empty(t, expiredEntry.ManifestSHA, "expected manifest SHA to be expired")
 		assert.Empty(t, expiredEntry.TransientManifestSHA, "expected transient manifest SHA to be expired")
@@ -1187,7 +1187,7 @@ func TestComponentCache_CommitTransientSHA(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.ManifestSHA))
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
-		entry, err := storeInstance.GetComponent(obj)
+		entry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		transientSHA := entry.TransientManifestSHA
 		assert.NotEmpty(t, entry.ManifestSHA, "initial manifest SHA should be set")
@@ -1195,7 +1195,7 @@ func TestComponentCache_CommitTransientSHA(t *testing.T) {
 
 		require.NoError(t, storeInstance.CommitTransientSHA(obj), "failed to commit transient SHA")
 
-		updatedEntry, err := storeInstance.GetComponent(obj)
+		updatedEntry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err, "failed to get updated component entry")
 		assert.Equal(t, transientSHA, updatedEntry.ManifestSHA, "expected transient SHA to be committed")
 		assert.Empty(t, updatedEntry.TransientManifestSHA, "transient SHA should be empty after commit")
@@ -1220,7 +1220,7 @@ func TestComponentCache_SaveComponents(t *testing.T) {
 	require.NoError(t, storeInstance.SaveComponents(objs))
 
 	for _, obj := range objs {
-		entry, err := storeInstance.GetComponent(obj)
+		entry, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err, "failed to get component %s", obj.GetName())
 		require.NotNil(t, entry, "expected component %s to exist", obj.GetName())
 		require.Equal(t, obj.GetName(), entry.Name, "expected component name to match")
@@ -1487,7 +1487,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 
 		// Get the component before sync
-		componentBefore, err := storeInstance.GetComponent(obj)
+		componentBefore, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentBefore)
 
@@ -1495,7 +1495,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
 		// Get the component after sync
-		componentAfter, err := storeInstance.GetComponent(obj)
+		componentAfter, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentAfter)
 
@@ -1518,7 +1518,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 
 		// Get the component before sync to check manifest_sha
-		componentBefore, err := storeInstance.GetComponent(obj)
+		componentBefore, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentBefore)
 		originalManifestSHA := componentBefore.ManifestSHA
@@ -1527,7 +1527,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
 		// Get the component after sync
-		componentAfter, err := storeInstance.GetComponent(obj)
+		componentAfter, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentAfter)
 
@@ -1559,7 +1559,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
 		// Get the component to verify transient_manifest_sha is set
-		componentBeforeSync, err := storeInstance.GetComponent(obj)
+		componentBeforeSync, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentBeforeSync)
 		require.NotEmpty(t, componentBeforeSync.TransientManifestSHA)
@@ -1570,7 +1570,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
 		// Get the component after sync
-		componentAfter, err := storeInstance.GetComponent(obj)
+		componentAfter, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentAfter)
 
@@ -1597,7 +1597,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
 		// Verify transient_manifest_sha is set before sync
-		componentBefore, err := storeInstance.GetComponent(obj)
+		componentBefore, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotEmpty(t, componentBefore.TransientManifestSHA)
 
@@ -1605,7 +1605,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
 		// Verify transient_manifest_sha is cleared after sync
-		componentAfter, err := storeInstance.GetComponent(obj)
+		componentAfter, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.Empty(t, componentAfter.TransientManifestSHA)
 	})
@@ -1626,7 +1626,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.UpdateComponentSHA(obj, store.TransientManifestSHA))
 
 		// Get component before sync
-		componentBefore, err := storeInstance.GetComponent(obj)
+		componentBefore, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentBefore)
 
@@ -1634,7 +1634,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
 		// Get component after sync
-		componentAfter, err := storeInstance.GetComponent(obj)
+		componentAfter, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentAfter)
 
@@ -1685,7 +1685,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
-		component, err := storeInstance.GetComponent(obj)
+		component, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, component)
 		require.NotEmpty(t, component.ApplySHA)
@@ -1712,7 +1712,7 @@ func TestComponentCache_SyncAppliedResource(t *testing.T) {
 		require.NoError(t, storeInstance.SaveComponents([]unstructured.Unstructured{obj}))
 		require.NoError(t, storeInstance.SyncAppliedResource(obj))
 
-		component, err := storeInstance.GetComponent(obj)
+		component, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, component)
 		require.NotEmpty(t, component.ApplySHA)
@@ -1766,7 +1766,7 @@ func TestComponentCache_SetServiceChildren(t *testing.T) {
 		require.Equal(t, 1, updated)
 
 		// Get the component before sync
-		componentBefore, err := storeInstance.GetComponent(obj)
+		componentBefore, err := storeInstance.GetAppliedComponent(obj)
 		require.NoError(t, err)
 		require.NotNil(t, componentBefore)
 		require.Equal(t, componentBefore.ServiceID, "abc")

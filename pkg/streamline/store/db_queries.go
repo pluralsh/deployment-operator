@@ -67,16 +67,16 @@ const (
 		CREATE INDEX IF NOT EXISTS hook_component_index_service_id ON hook_component(service_id);
 	`
 
-	getComponent = `
-		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id, manifest, applied
+	getAppliedComponent = `
+		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id, manifest
 		FROM component
-		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ?
+		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ? AND applied = 1
 	`
 
-	getComponentByUID = `
+	getAppliedComponentByUID = `
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM component
-		WHERE uid = ?
+		WHERE uid = ? AND applied = 1
 	`
 
 	getAppliedComponentsByGVK = `

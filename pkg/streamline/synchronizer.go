@@ -196,7 +196,7 @@ func (in *synchronizer) maybeSyncServiceComponents(resource unstructured.Unstruc
 	}
 
 	if !delete {
-		component, err := in.store.GetComponent(resource)
+		component, err := in.store.GetAppliedComponent(resource)
 		if err != nil || component == nil || !component.Manifest {
 			return
 		}
