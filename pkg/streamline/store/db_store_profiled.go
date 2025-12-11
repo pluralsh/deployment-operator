@@ -9,9 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/console/go/client"
 
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
 )
 
@@ -36,6 +38,10 @@ func NewProfiledStore(inner Store) Store {
 // trace is a small helper that creates a Datadog span around a store
 // operation and measures its duration.
 func trace(ctx context.Context, op string, fn func() error) error {
+	now := time.Now()
+	defer func() {
+		klog.V(log.LogLevelVerbose).InfoS("tracing database call", "op", op, "duration", time.Since(now))
+	}()
 	if ctx == nil {
 		ctx = context.Background()
 	}
