@@ -166,19 +166,19 @@ func (p *Pinger) AddRuntimeServiceInfo(namespace string, labels map[string]strin
 	serviceName := ""
 	partOfName := ""
 
-	// Get service name from labels
-	if name := labels["app.kubernetes.io/name"]; len(name) > 0 && p.supportedAddons.Has(name) {
-		serviceName = name
-	} else if name = labels["app.kubernetes.io/instance"]; len(name) > 0 && p.supportedAddons.Has(name) {
-		serviceName = name
-	} else if name = labels["app.kubernetes.io/part-of"]; len(name) > 0 && p.supportedAddons.Has(name) {
-		serviceName = name
-	} else if name = labels["app"]; len(name) > 0 && p.supportedAddons.Has(name) {
-		serviceName = name
-	} else if name = labels["component"]; len(name) > 0 && p.supportedAddons.Has(name) {
-		serviceName = name
-	} else if name = labels["k8s-app"]; len(name) > 0 && p.supportedAddons.Has(name) {
-		serviceName = name
+	labelsToCheck := []string{
+		"app.kubernetes.io/name",
+		"app.kubernetes.io/instance",
+		"app.kubernetes.io/part-of",
+		"app",
+		"component",
+		"k8s-app",
+	}
+	for _, label := range labelsToCheck {
+		if name, ok := p.validLabel(labels, label); ok {
+			serviceName = name
+			break
+		}
 	}
 
 	// Get part-of information
@@ -204,6 +204,23 @@ func (p *Pinger) AddRuntimeServiceInfo(namespace string, labels map[string]strin
 			return
 		}
 	}
+}
+
+func (p *Pinger) validLabel(labels map[string]string, key string) (string, bool) {
+	if name, ok := labels[key]; ok {
+		if p.supportedAddons.Has(name) {
+			return name, true
+		}
+
+		re := regexp.MustCompile(`^([^-]+)-([^-]+)$`)
+		matches := re.FindStringSubmatch(name)
+		if len(matches) == 3 && matches[1] == matches[2] {
+			if p.supportedAddons.Has(matches[1]) {
+				return matches[1], true
+			}
+		}
+	}
+	return "", false
 }
 
 func addServiceEntry(serviceName, version, namespace, partOfName string, acc map[string]client.NamespaceVersion) {
