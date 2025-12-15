@@ -215,7 +215,7 @@ func TestComponentCache_DeleteComponent(t *testing.T) {
 		attributes, err = storeInstance.GetServiceComponentsWithChildren(serviceID, true)
 		require.NoError(t, err)
 		require.Len(t, attributes, 1)
-		require.Nil(t, attributes[0].Children)
+		require.Empty(t, attributes[0].Children)
 	})
 
 	t.Run("cache should support multi-level cascade deletion", func(t *testing.T) {
@@ -2205,7 +2205,7 @@ func TestComponentCache_GetServiceComponentsWithChildren(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, attributes, 1)
 		assert.Equal(t, parentUID, lo.FromPtr(attributes[0].UID))
-		assert.Nil(t, attributes[0].Children)
+		assert.Empty(t, attributes[0].Children)
 	})
 
 	t.Run("should preserve parent_uid in children", func(t *testing.T) {
