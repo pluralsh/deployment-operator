@@ -1027,6 +1027,7 @@ func (in *DatabaseStore) GetServiceComponentsWithChildren(serviceID string, only
 	// Build result with children attached
 	result := make([]client.ComponentAttributes, 0, len(componentMap))
 	for _, attr := range componentMap {
+		attr.Children = make([]*client.ComponentChildAttributes, 0)
 		if attr.UID != nil && *attr.UID != "" {
 			if children, ok := childrenMap[*attr.UID]; ok {
 				attr.Children = lo.ToSlicePtr(children)
