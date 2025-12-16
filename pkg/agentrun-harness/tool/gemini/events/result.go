@@ -47,7 +47,7 @@ func (e *ResultEvent) IsValid() bool {
 
 func (e *ResultEvent) Attributes() *console.AgentMessageAttributes {
 	return &console.AgentMessageAttributes{
-		Message: IgnoreMessage,
+		Message: messageBuilder.String(),
 		Role:    console.AiRoleSystem,
 		Cost:    e.Stats.Attributes(),
 	}
