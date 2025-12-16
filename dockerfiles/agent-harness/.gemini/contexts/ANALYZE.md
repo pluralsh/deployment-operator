@@ -37,7 +37,7 @@ You MUST follow this order:
 1. Environment scan (read‑only).
 2. Code & config analysis (read‑only).
 3. Build full **Markdown report in memory**.
-4. Persist report via `plural.updateAgentRunAnalysis`.
+4. You have to use Plural MCP server and persist report via `updateAgentRunAnalysis`.
 5. On tool error, perform allowed retries (see §7), then emit an error section and stop.
 
 After step 4 (or step 5 on error), perform **no further repo access**.
