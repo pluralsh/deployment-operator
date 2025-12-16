@@ -66,7 +66,6 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 		append(
 			options,
 			exec.WithArgs([]string{
-				"--include-directories", in.repositoryDir,
 				"--output-format", "stream-json",
 				in.run.Prompt,
 			}),
