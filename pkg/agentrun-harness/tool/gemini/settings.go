@@ -19,6 +19,7 @@ type ConfigTemplateInput struct {
 	RepositoryDir   string
 	ConsoleURL      string
 	ConsoleToken    string
+	DeployToken     string
 	AgentRunID      string
 	AgentRunMode    console.AgentRunMode
 }

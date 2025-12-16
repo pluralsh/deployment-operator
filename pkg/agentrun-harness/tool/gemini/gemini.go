@@ -119,11 +119,12 @@ func (in *Gemini) contextFileName() string {
 	}
 }
 
-func (in *Gemini) Configure(consoleURL, consoleToken, _ string) error {
+func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error {
 	input := &ConfigTemplateInput{
 		ContextFileName: in.contextFileName(),
 		ConsoleURL:      consoleURL,
 		ConsoleToken:    consoleToken,
+		DeployToken:     deployToken,
 		RepositoryDir:   in.repositoryDir,
 		AgentRunID:      in.run.ID,
 		AgentRunMode:    in.run.Mode,
