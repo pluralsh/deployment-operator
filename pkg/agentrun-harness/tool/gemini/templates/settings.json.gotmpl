@@ -43,11 +43,14 @@
   "mcpServers": {
     "plural": {
       "command": "mcpserver",
+      "description": "Plural MCP Server",
       "env": {
         "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
         "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
         "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}"
-      }
+      },
+      "timeout": 60000,
+      "trust": true
     }
   },
   "privacy": {
