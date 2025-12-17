@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	console "github.com/pluralsh/console/go/client"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -122,7 +123,7 @@ func main() {
 	cache.InitGateCache(args.ControllerCacheTTL(), extConsoleClient)
 	cache.InitComponentShaCache(args.ComponentShaCacheTTL())
 
-	dbStore := initDatabaseStoreOrDie()
+	dbStore := initDatabaseStoreOrDie(ctx)
 	defer func(dbStore store.Store) {
 		err := dbStore.Shutdown()
 		if err != nil {
@@ -135,11 +136,16 @@ func main() {
 
 	statusSynchronizer := streamline.NewStatusSynchronizer(extConsoleClient, args.ComponentShaCacheTTL())
 
+	svcCache := client.NewCache[console.ServiceDeploymentForAgent](args.ControllerCacheTTL(),
+		func(id string) (*console.ServiceDeploymentForAgent, error) {
+			return extConsoleClient.GetService(id)
+		})
+
 	// Start synchronizer supervisor
-	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, statusSynchronizer, discoveryCache, namespaceCache)
+	supervisor := runSynchronizerSupervisorOrDie(ctx, dynamicClient, dbStore, statusSynchronizer, discoveryCache, namespaceCache, svcCache)
 	defer supervisor.Stop()
 
-	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache, namespaceCache)
+	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache, namespaceCache, svcCache)
 	registerKubeReconcilersOrDie(ctx, clientSet, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy(), args.ConsoleUrl(), args.DeployToken())
 
 	//+kubebuilder:scaffold:builder
@@ -229,12 +235,15 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 	setupLog.Info("discovery manager started with initial cache sync", "duration", time.Since(now))
 }
 
-func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store, statusSynchronizer streamline.StatusSynchronizer, discoveryCache discoverycache.Cache, namespaceCache streamline.NamespaceCache) *streamline.Supervisor {
+func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store,
+	statusSynchronizer streamline.StatusSynchronizer, discoveryCache discoverycache.Cache,
+	namespaceCache streamline.NamespaceCache, svcCache *client.Cache[console.ServiceDeploymentForAgent]) *streamline.Supervisor {
 	now := time.Now()
 	supervisor := streamline.NewSupervisor(dynamicClient,
 		store,
 		statusSynchronizer,
 		discoveryCache,
+		svcCache,
 		streamline.WithCacheSyncTimeout(args.SupervisorCacheSyncTimeout()),
 		streamline.WithRestartDelay(args.SupervisorRestartDelay()),
 		streamline.WithMaxNotFoundRetries(args.SupervisorMaxNotFoundRetries()),
@@ -254,11 +263,19 @@ func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.I
 	return supervisor
 }
 
-func initDatabaseStoreOrDie() store.Store {
-	dbStore, err := store.NewDatabaseStore(store.WithStorage(args.StoreStorage()), store.WithFilePath(args.StoreFilePath()))
+func initDatabaseStoreOrDie(ctx context.Context) store.Store {
+	dbStore, err := store.NewDatabaseStore(ctx, store.WithStorage(args.StoreStorage()), store.WithFilePath(args.StoreFilePath()))
 	if err != nil {
 		setupLog.Error(err, "unable to initialize database store")
 		os.Exit(1)
+	}
+
+	if args.LocalDatabaseProfiler() {
+		return store.NewLocalProfiledStore(dbStore)
+	}
+
+	if args.DatadogEnabled() {
+		return store.NewProfiledStore(dbStore)
 	}
 
 	return dbStore
@@ -267,7 +284,7 @@ func initDatabaseStoreOrDie() store.Store {
 func runStoreCleanerInBackgroundOrDie(ctx context.Context, store store.Store, interval, ttl time.Duration) {
 	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return interval }, false, func(_ context.Context) (done bool, err error) {
 		if err := store.ExpireOlderThan(ttl); err != nil {
-			klog.Error(err, "unable to expire resource cache")
+			klog.ErrorS(err, "unable to expire resource cache")
 		}
 		return false, nil
 	})

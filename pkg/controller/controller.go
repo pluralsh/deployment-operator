@@ -148,7 +148,6 @@ func (c *Controller) startPoller(ctx context.Context) {
 			klog.ErrorS(err, "poller failed")
 		}
 
-		c.setLastPollTime(time.Now())
 		// never stop
 		return false, nil
 	})
