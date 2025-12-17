@@ -77,13 +77,13 @@ You must **never**:
 - Change the list length.
 - Replace the list with a new one.
 - Assume todo state without fetching.
+- Revert or re‑open done todos, unless it is an initial call that unchecks all todos.
 
 Each completed step → **one** One‑Todo Protocol cycle for its todo.  
 Each failure → **one** cycle updating only the relevant todo’s `description`.
 
 **Loop Prevention:**
-If a step fails repeatedly (e.g. >3 times), do **not** retry indefinitely. Update the todo description with the error and stop.
-
+- If a step fails repeatedly (e.g. >3 times), do **not** retry indefinitely. Update the todo description with the error and stop.
 ---
 
 ## 3. Workflow (high‑level order)
