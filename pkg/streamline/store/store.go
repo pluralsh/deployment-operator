@@ -14,12 +14,9 @@ import (
 type Store interface {
 	SaveComponent(obj unstructured.Unstructured) error
 
-	SaveComponents(obj []unstructured.Unstructured, applied *bool) error
+	SaveComponents(obj []unstructured.Unstructured) error
 
-	// SyncServiceComponents stores all service components in the store before applying them.
-	// It also ensures that components that are no longer part of the service
-	// and were not applied are removed from the store.
-	SyncServiceComponents(serviceID string, resources []unstructured.Unstructured) error
+	SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error
 
 	GetComponent(obj unstructured.Unstructured) (*smcommon.Component, error)
 
@@ -38,7 +35,7 @@ type Store interface {
 	// GetServiceComponents retrieves all parent components associated with a given service ID.
 	// All components with parents are filtered out.
 	// It returns a slice of Component structs containing information about each component and any error encountered.
-	GetServiceComponents(serviceID string, onlyApplied bool) (smcommon.Components, error)
+	GetServiceComponents(serviceID string) (smcommon.Components, error)
 
 	// GetComponentChildren retrieves all child components and their descendants up to 4 levels deep for a given component UID.
 	// It returns a slice of ComponentChildAttributes containing information about each child component and any error encountered.

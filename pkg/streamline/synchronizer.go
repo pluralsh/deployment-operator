@@ -148,7 +148,7 @@ func (in *synchronizer) handleList(list unstructured.UnstructuredList) {
 		in.notifyEventSubscribers(watch.Event{Type: watch.Added, Object: resource.DeepCopyObject()})
 	}
 
-	if err := in.store.SaveComponents(list.Items, lo.ToPtr(true)); err != nil {
+	if err := in.store.SaveComponents(list.Items); err != nil {
 		klog.ErrorS(err, "failed to save resource", "gvr", in.gvr)
 	}
 }

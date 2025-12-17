@@ -85,6 +85,13 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
+	// Upsert agent runtime if it doesn't exist.
+	if _, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName()); err != nil {
+		if errors.IsNotFound(err) {
+			changed = true
+		}
+	}
+
 	if changed {
 		_, err := r.ConsoleClient.UpsertAgentRuntime(ctx, agentRuntime.Attributes())
 		if err != nil {

@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // Define test namespace and manifest paths
 const (
-	namespace      = "default"
 	helloWorldFile = "manifests/hello-world.yaml"
 	nginxFile      = "manifests/nginx.yaml"
 	jobFile        = "manifests/job.yaml"
@@ -21,6 +21,7 @@ const (
 )
 
 func TestKubernetesHealthSuite(t *testing.T) {
+	namespace := "test-" + rand.String(6)
 	options := k8s.NewKubectlOptions("", "", namespace)
 
 	// Deploy manifests
@@ -28,14 +29,16 @@ func TestKubernetesHealthSuite(t *testing.T) {
 	defer k8s.KubectlDelete(t, options, nginxFile)
 	defer k8s.KubectlDelete(t, options, jobFile)
 	defer k8s.KubectlDelete(t, options, statefulFile)
+	defer k8s.DeleteNamespace(t, options, namespace)
 
+	k8s.CreateNamespace(t, options, namespace)
 	k8s.KubectlApply(t, options, helloWorldFile)
 	k8s.KubectlApply(t, options, nginxFile)
 	k8s.KubectlApply(t, options, jobFile)
 	k8s.KubectlApply(t, options, statefulFile)
 
 	// --- Check Hello-World Pod ---
-	t.Run("HelloWorldPod", func(t *testing.T) {
+	t.Run("HelloWorldPod-"+rand.String(5), func(t *testing.T) {
 		selector := metav1.ListOptions{LabelSelector: "app=hello-world"}
 		k8s.WaitUntilNumPodsCreated(t, options, selector, 1, 60, 5*time.Second)
 		pods := k8s.ListPods(t, options, selector)
@@ -47,7 +50,7 @@ func TestKubernetesHealthSuite(t *testing.T) {
 	})
 
 	// --- Check Nginx Deployment + Service ---
-	t.Run("NginxDeploymentAndService", func(t *testing.T) {
+	t.Run("NginxDeploymentAndService-"+rand.String(5), func(t *testing.T) {
 		selector := metav1.ListOptions{LabelSelector: "app=nginx"}
 		k8s.WaitUntilNumPodsCreated(t, options, selector, 1, 60, 5*time.Second)
 		pods := k8s.ListPods(t, options, selector)
@@ -60,14 +63,14 @@ func TestKubernetesHealthSuite(t *testing.T) {
 	})
 
 	// --- Check Job Completion ---
-	t.Run("PingJob", func(t *testing.T) {
+	t.Run("PingJob-"+rand.String(5), func(t *testing.T) {
 		k8s.WaitUntilJobSucceed(t, options, "ping-nginx", 90, 5*time.Second)
 		job := k8s.GetJob(t, options, "ping-nginx")
 		assert.Equal(t, int32(1), job.Status.Succeeded)
 	})
 
 	// --- Check StatefulSet & Volume ---
-	t.Run("StatefulSet", func(t *testing.T) {
+	t.Run("StatefulSet-"+rand.String(5), func(t *testing.T) {
 		ss := GetStatefulSet(t, options, "stateful-demo")
 		assert.Equal(t, int32(1), *ss.Spec.Replicas)
 
