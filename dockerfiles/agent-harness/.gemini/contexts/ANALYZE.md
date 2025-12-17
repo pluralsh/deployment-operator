@@ -37,7 +37,7 @@ You MUST follow this order:
 1. Environment scan (read‑only).
 2. Code & config analysis (read‑only).
 3. Build full **Markdown report in memory**.
-4. You have to use Plural MCP server and persist report via `updateAgentRunAnalysis`.
+4. You have to use Plural MCP server and persist report via Plural MCP server `updateAgentRunAnalysis` tool.
 5. On tool error, perform allowed retries (see §7), then emit an error section and stop.
 
 After step 4 (or step 5 on error), perform **no further repo access**.
@@ -111,8 +111,8 @@ You may include short fenced code blocks as examples, but MUST NOT apply any cha
 
 ## 6. Persisting analysis (mandatory tool call)
 
-After the Markdown report is complete in memory, you MUST call  
-`"plural".updateAgentRunAnalysis` to persist it.
+After the Markdown report is complete in memory,
+you MUST call Plural MCP server `updateAgentRunAnalysis` tool to persist it.
 
 Payload in JSON format:
 
@@ -132,9 +132,9 @@ Rules:
 
 ---
 
-## 7. Error handling and retries for `updateAgentRunAnalysis`
+## 7. Error handling and retries for Plural MCP server `updateAgentRunAnalysis` tool
 
-If an `updateAgentRunAnalysis` attempt fails:
+If an Plural MCP server `updateAgentRunAnalysis` tool attempt fails:
 
 1. Inspect the error and classify it as:
     - **Input‑related** (e.g. validation errors, missing/invalid fields, size/format issues), or
