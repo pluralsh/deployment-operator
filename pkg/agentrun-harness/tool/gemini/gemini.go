@@ -56,19 +56,12 @@ type Gemini struct {
 	startedChan chan struct{}
 }
 
-func (in *Gemini) settingsPath() string {
-	return path.Join(in.dir, ".gemini", SettingsFileName)
-}
-
 func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	in.executable = exec.NewExecutable(
 		"gemini",
 		append(
 			options,
-			exec.WithArgs([]string{
-				"--output-format", "stream-json",
-				in.run.Prompt,
-			}),
+			exec.WithArgs(in.args()),
 			exec.WithDir(in.dir),
 			exec.WithEnv([]string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}),
 			exec.WithTimeout(15*time.Minute),
@@ -104,18 +97,18 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	close(in.finishedChan)
 }
 
-func (in *Gemini) contextFileName() string {
-	if in.run == nil {
-		return analyzeModeContextFileName
+func (in *Gemini) args() []string {
+	if in.run.Mode == console.AgentRunModeWrite {
+		return []string{
+			"--approval-mode", "auto_edit",
+			"--output-format", "stream-json",
+			in.run.Prompt,
+		}
 	}
 
-	switch in.run.Mode {
-	case console.AgentRunModeWrite:
-		return writeModeContextFileName
-	case console.AgentRunModeAnalyze:
-		return analyzeModeContextFileName
-	default:
-		return analyzeModeContextFileName
+	return []string{
+		"--output-format", "stream-json",
+		in.run.Prompt,
 	}
 }
 
@@ -145,6 +138,25 @@ func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error 
 
 	klog.V(log.LogLevelExtended).InfoS("Gemini configured", "settings", in.settingsPath())
 	return nil
+}
+
+func (in *Gemini) contextFileName() string {
+	if in.run == nil {
+		return analyzeModeContextFileName
+	}
+
+	switch in.run.Mode {
+	case console.AgentRunModeWrite:
+		return writeModeContextFileName
+	case console.AgentRunModeAnalyze:
+		return analyzeModeContextFileName
+	default:
+		return analyzeModeContextFileName
+	}
+}
+
+func (in *Gemini) settingsPath() string {
+	return path.Join(in.dir, ".gemini", SettingsFileName)
 }
 
 func (in *Gemini) OnMessage(f func(message *console.AgentMessageAttributes)) {
