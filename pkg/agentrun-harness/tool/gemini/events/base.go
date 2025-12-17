@@ -44,6 +44,7 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 
 		if !message.IsValid() {
 			klog.V(log.LogLevelDebug).InfoS("ignoring invalid message", "message", message)
+			return nil
 		}
 
 		message.Append()
@@ -55,6 +56,7 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 
 		if !toolUse.IsValid() {
 			klog.V(log.LogLevelDebug).InfoS("ignoring invalid tool use", "toolUse", toolUse)
+			return nil
 		}
 
 		toolUse.Save()
@@ -66,6 +68,7 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 
 		if !toolResult.IsValid() {
 			klog.V(log.LogLevelDebug).InfoS("ignoring invalid tool result", "toolResult", toolResult)
+			return nil
 		}
 
 		onMessage(toolResult.Attributes())
@@ -77,6 +80,7 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 
 		if !err.IsValid() {
 			klog.V(log.LogLevelDebug).InfoS("ignoring invalid error", "error", err)
+			return nil
 		}
 
 		onMessage(err.Attributes())
@@ -88,6 +92,7 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 
 		if !result.IsValid() {
 			klog.V(log.LogLevelDebug).InfoS("ignoring invalid result", "result", result)
+			return nil
 		}
 
 		onMessage(result.Attributes())

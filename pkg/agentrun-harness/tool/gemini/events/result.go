@@ -42,7 +42,8 @@ type ResultEvent struct {
 }
 
 func (e *ResultEvent) IsValid() bool {
-	return e.Type == EventTypeResult
+	return e.Type == EventTypeResult &&
+		((e.Status == StatusSuccess && messageBuilder.Len() > 0) || e.Status == StatusError)
 }
 
 func (e *ResultEvent) Attributes() *console.AgentMessageAttributes {
