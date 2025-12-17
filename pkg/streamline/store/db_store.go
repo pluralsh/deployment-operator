@@ -11,7 +11,6 @@ import (
 
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -124,9 +123,16 @@ func (in *DatabaseStore) init() error {
 	return sqlitex.ExecuteScript(conn, createTables, nil)
 }
 
-func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
+func (in *DatabaseStore) GetResourceHealth(r []unstructured.Unstructured) (hasPendingResources, hasFailedResources bool, err error) {
+	// We need to filter out resources that are on a blacklist as those are not synchronized to the store.
+	// That means that there will be no entries for those resources in the database,
+	// and they would always be considered pending.
+	resources := lo.Filter(r, func(item unstructured.Unstructured, index int) bool {
+		return !smcommon.GroupBlacklist.Has(item.GroupVersionKind().Group)
+	})
+
 	if len(resources) == 0 {
-		return false, false, nil
+		return false, false, nil // Empty list is considered healthy
 	}
 
 	conn, err := in.pool.Take(context.Background())
@@ -148,9 +154,10 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 			WHEN COUNT(*) = 0 THEN 0
 			WHEN COUNT(CASE WHEN health = 2 THEN 1 END) > 0 THEN 1
 			ELSE 0
-		END as has_failed_resources
+		END as has_failed_resources,
+		COUNT(*) as resource_count
 		FROM component 
-		WHERE applied = 1 AND ("group", version, kind, namespace, name) IN (
+		WHERE ("group", version, kind, namespace, name) IN (
 	`)
 
 	// Build VALUES clause with placeholders
@@ -172,18 +179,22 @@ func (in *DatabaseStore) GetResourceHealth(resources []unstructured.Unstructured
 	sb.WriteString(strings.Join(valueStrings, ","))
 	sb.WriteString(")")
 
+	var resourceCount int
 	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
 		Args: args,
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			hasPendingResources = stmt.ColumnBool(0)
 			hasFailedResources = stmt.ColumnBool(1)
+			resourceCount = stmt.ColumnInt(2)
 			return nil
 		},
 	})
+
 	if err != nil {
 		return false, false, fmt.Errorf("failed to check resource health: %w", err)
 	}
 
+	hasPendingResources = hasPendingResources || resourceCount != len(resources)
 	return hasPendingResources, hasFailedResources, nil
 }
 
@@ -248,12 +259,11 @@ func (in *DatabaseStore) SaveComponent(obj unstructured.Unstructured) error {
 			serviceID,
 			smcommon.GetDeletePhase(obj),
 			serverSHA,
-			true,
 		},
 	})
 }
 
-func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, applied *bool) error {
+func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured) error {
 	if len(objects) == 0 {
 		return nil
 	}
@@ -272,8 +282,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 	}()
 
 	var sb strings.Builder
-	if applied != nil {
-		sb.WriteString(`
+	sb.WriteString(`
 		INSERT INTO component (
 		  uid,
 		  parent_uid,
@@ -287,26 +296,8 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 		  created_at,
 		  service_id,
 		  delete_phase,
-		  server_sha,
-		  applied
-		) VALUES `)
-	} else {
-		sb.WriteString(`
-		INSERT INTO component (
-		  uid,
-		  parent_uid,
-		  "group",
-		  version,
-		  kind,
-		  namespace,
-		  name,
-		  node,
-		  created_at,
-		  service_id,
-		  delete_phase,
 		  server_sha
 		) VALUES `)
-	}
 
 	valueStrings := make([]string, 0, len(objects))
 
@@ -347,39 +338,21 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 			continue
 		}
 
-		if applied != nil {
-			valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s','%s', '%d')",
-				obj.GetUID(),
-				lo.FromPtr(ownerRef),
-				gvk.Group,
-				gvk.Version,
-				gvk.Kind,
-				obj.GetNamespace(),
-				obj.GetName(),
-				int(state),
-				nodeName,
-				obj.GetCreationTimestamp().Unix(),
-				serviceID,
-				smcommon.GetDeletePhase(obj),
-				serverSHA,
-				applied,
-			))
-		} else {
-			valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s', '%s', %d, '%s','%s','%s')",
-				obj.GetUID(),
-				lo.FromPtr(ownerRef),
-				gvk.Group,
-				gvk.Version,
-				gvk.Kind,
-				obj.GetNamespace(),
-				obj.GetName(),
-				nodeName,
-				obj.GetCreationTimestamp().Unix(),
-				serviceID,
-				smcommon.GetDeletePhase(obj),
-				serverSHA,
-			))
-		}
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s',%d,'%s',%d,'%s','%s','%s')",
+			obj.GetUID(),
+			lo.FromPtr(ownerRef),
+			gvk.Group,
+			gvk.Version,
+			gvk.Kind,
+			obj.GetNamespace(),
+			obj.GetName(),
+			int(state),
+			nodeName,
+			obj.GetCreationTimestamp().Unix(),
+			serviceID,
+			smcommon.GetDeletePhase(obj),
+			serverSHA,
+		))
 	}
 
 	if len(valueStrings) == 0 {
@@ -390,6 +363,7 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 	sb.WriteString(` ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 	  uid = excluded.uid,
 	  parent_uid = excluded.parent_uid,
+	  health = excluded.health,
 	  node = excluded.node,
 	  created_at = excluded.created_at,
 	  service_id = excluded.service_id,
@@ -397,41 +371,9 @@ func (in *DatabaseStore) SaveComponents(objects []unstructured.Unstructured, app
 	  server_sha = excluded.server_sha
 	`)
 
-	if applied != nil {
-		sb.WriteString(`, health = excluded.health, applied = excluded.applied`)
-	}
-
 	in.maybeSaveHookComponents(conn, objects)
 
 	return sqlitex.Execute(conn, sb.String(), nil)
-}
-
-func (in *DatabaseStore) SyncServiceComponents(serviceID string, resources []unstructured.Unstructured) error {
-	// Get the list of all components for the service from the store.
-	components, err := in.GetServiceComponents(serviceID, false)
-	if err != nil {
-		return err
-	}
-
-	// Create a set of keys for an easy lookup.
-	resourceKeys := containers.NewSet[smcommon.Key]()
-	for _, resource := range resources {
-		resourceKeys.Add(smcommon.NewKeyFromUnstructured(resource))
-	}
-
-	// Check if all components that were not applied yet are still present in the resources.
-	// Those that are not present anymore should be deleted from the store.
-	// TODO: Use single delete query to minimize number of database calls.
-	for _, component := range components {
-		if !resourceKeys.Has(component.Key()) {
-			if err = in.DeleteComponent(component.StoreKey()); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Save resources to the store.
-	return in.SaveComponents(resources, nil)
 }
 
 func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []smcommon.StoreKey) (int, error) {
@@ -502,6 +444,31 @@ func (in *DatabaseStore) SetServiceChildren(serviceID, parentUID string, keys []
 	}
 
 	return updatedCount, nil
+}
+
+func (in *DatabaseStore) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
+	conn, err := in.pool.Take(context.Background())
+	if err != nil {
+		return err
+	}
+	defer in.pool.Put(conn)
+
+	if len(args) != 3 {
+		args = []any{nil, nil, nil}
+	}
+
+	return sqlitex.ExecuteTransient(conn, setComponent, &sqlitex.ExecOptions{
+		Args: append([]interface{}{
+			obj.UID,
+			lo.FromPtr(obj.ParentUID),
+			lo.FromPtr(obj.Group),
+			obj.Version,
+			obj.Kind,
+			lo.FromPtr(obj.Namespace),
+			obj.Name,
+			NewComponentState(obj.State),
+		}, args...),
+	})
 }
 
 func (in *DatabaseStore) GetComponent(obj unstructured.Unstructured) (result *smcommon.Component, err error) {
@@ -622,23 +589,15 @@ func (in *DatabaseStore) DeleteComponents(group, version, kind string) error {
 		&sqlitex.ExecOptions{Args: []any{group, version, kind}})
 }
 
-func (in *DatabaseStore) GetServiceComponents(serviceID string, onlyApplied bool) (smcommon.Components, error) {
+func (in *DatabaseStore) GetServiceComponents(serviceID string) (smcommon.Components, error) {
 	conn, err := in.pool.Take(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	defer in.pool.Put(conn)
 
-	var sb strings.Builder
-	sb.WriteString(`SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest
-	FROM component WHERE service_id = ?`)
-	if onlyApplied {
-		sb.WriteString(" AND applied = 1")
-	}
-	sb.WriteString(` AND (manifest = 1 OR (parent_uid IS NULL OR parent_uid = ''))`)
-
 	result := make([]smcommon.Component, 0)
-	err = sqlitex.ExecuteTransient(conn, sb.String(), &sqlitex.ExecOptions{
+	err = sqlitex.ExecuteTransient(conn, getComponentsByServiceID, &sqlitex.ExecOptions{
 		Args: []interface{}{serviceID},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, smcommon.Component{
@@ -669,7 +628,7 @@ func (in *DatabaseStore) GetComponentChildren(uid string) (result []client.Compo
 	defer in.pool.Put(conn)
 
 	err = sqlitex.ExecuteTransient(conn, componentChildren, &sqlitex.ExecOptions{
-		Args: []interface{}{uid, uid},
+		Args: []interface{}{uid},
 		ResultFunc: func(stmt *sqlite.Stmt) error {
 			result = append(result, client.ComponentChildAttributes{
 				UID:       stmt.ColumnText(0),
@@ -859,8 +818,7 @@ func (in *DatabaseStore) SyncAppliedResource(obj unstructured.Unstructured) erro
 				ELSE transient_manifest_sha 
 			END,
 			transient_manifest_sha = NULL,
-			manifest = 1,
-			applied = 1
+			manifest = 1
 		WHERE "group" = ? 
 		  AND version = ? 
 		  AND kind = ? 
@@ -950,7 +908,6 @@ func (in *DatabaseStore) maybeSaveHookComponent(conn *sqlite.Conn, resource unst
 			resource.GetUID(),
 			NewComponentState(&state),
 			serviceID,
-			smcommon.GetPhaseHookDeletePolicy(resource),
 		}}); err != nil {
 		klog.V(log.LogLevelMinimal).ErrorS(err, "failed to save hook", "resource", resource)
 	}
@@ -963,7 +920,7 @@ func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []
 	}
 
 	var sb strings.Builder
-	sb.WriteString(`INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id, delete_policies) VALUES `)
+	sb.WriteString(`INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id) VALUES `)
 
 	valueStrings := make([]string, 0, len(resources))
 	for _, resource := range resources {
@@ -991,9 +948,8 @@ func (in *DatabaseStore) maybeSaveHookComponents(conn *sqlite.Conn, resources []
 
 		gvk := resource.GroupVersionKind()
 		valueStrings = append(valueStrings,
-			fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s','%s')", gvk.Group, gvk.Version, gvk.Kind,
-				resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID,
-				smcommon.GetPhaseHookDeletePolicy(resource)))
+			fmt.Sprintf("('%s','%s','%s','%s','%s','%s','%s','%s')", gvk.Group, gvk.Version, gvk.Kind,
+				resource.GetNamespace(), resource.GetName(), resource.GetUID(), NewComponentState(&state), serviceID))
 	}
 
 	if len(valueStrings) == 0 {
@@ -1021,21 +977,20 @@ func (in *DatabaseStore) GetHookComponents(serviceID string) ([]smcommon.HookCom
 	result := make([]smcommon.HookComponent, 0)
 	err = sqlitex.ExecuteTransient(
 		conn,
-		`SELECT "group", version, kind, namespace, name, uid, status, manifest_sha, delete_policies FROM hook_component WHERE service_id = ?`,
+		`SELECT "group", version, kind, namespace, name, uid, status, manifest_sha FROM hook_component WHERE service_id = ?`,
 		&sqlitex.ExecOptions{
 			Args: []interface{}{serviceID},
 			ResultFunc: func(stmt *sqlite.Stmt) error {
 				result = append(result, smcommon.HookComponent{
-					Group:          stmt.ColumnText(0),
-					Version:        stmt.ColumnText(1),
-					Kind:           stmt.ColumnText(2),
-					Namespace:      stmt.ColumnText(3),
-					Name:           stmt.ColumnText(4),
-					UID:            stmt.ColumnText(5),
-					Status:         ComponentState(stmt.ColumnInt32(6)).String(),
-					ManifestSHA:    stmt.ColumnText(7),
-					ServiceID:      serviceID,
-					DeletePolicies: smcommon.SplitHookDeletePolicy(stmt.ColumnText(8)),
+					Group:       stmt.ColumnText(0),
+					Version:     stmt.ColumnText(1),
+					Kind:        stmt.ColumnText(2),
+					Namespace:   stmt.ColumnText(3),
+					Name:        stmt.ColumnText(4),
+					UID:         stmt.ColumnText(5),
+					Status:      ComponentState(stmt.ColumnInt32(6)).String(),
+					ManifestSHA: stmt.ColumnText(7),
+					ServiceID:   serviceID,
 				})
 				return nil
 			},

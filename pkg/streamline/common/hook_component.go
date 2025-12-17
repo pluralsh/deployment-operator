@@ -10,16 +10,15 @@ import (
 
 // HookComponent represents hook resources that have deletion policy set.
 type HookComponent struct {
-	UID            string
-	Group          string
-	Version        string
-	Kind           string
-	Name           string
-	Namespace      string
-	Status         string
-	ManifestSHA    string
-	ServiceID      string
-	DeletePolicies []string
+	UID         string
+	Group       string
+	Version     string
+	Kind        string
+	Name        string
+	Namespace   string
+	Status      string
+	ManifestSHA string
+	ServiceID   string
 }
 
 func (in *HookComponent) GroupVersionKind() schema.GroupVersionKind {
@@ -34,9 +33,6 @@ func (in *HookComponent) Failed() bool {
 	return in.Status == string(client.ComponentStateFailed)
 }
 
-// HasDesiredState checks if the hook has the desired state based on its delete policies.
-// Delete policies from the live resource can be passed as an argument to make check better.
-// To use the delete policies from the store, use HadDesiredState.
 func (in *HookComponent) HasDesiredState(policies []string) bool {
 	for _, policy := range policies {
 		if policy == HookDeletePolicySucceeded && in.Succeeded() {
@@ -47,13 +43,6 @@ func (in *HookComponent) HasDesiredState(policies []string) bool {
 	}
 
 	return false
-}
-
-// HadDesiredState checks if the hook had the desired state based on its stored delete policies.
-// It uses delete policies from the store that may have changed.
-// If possible, use HasDesiredState with live resource delete policies.
-func (in *HookComponent) HadDesiredState() bool {
-	return in.HasDesiredState(in.DeletePolicies)
 }
 
 func (in *HookComponent) HasManifestChanged(u unstructured.Unstructured) bool {

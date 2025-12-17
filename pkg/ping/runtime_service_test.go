@@ -3,10 +3,13 @@ package ping_test
 import (
 	"context"
 
+	"github.com/samber/lo"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	console "github.com/pluralsh/console/go/client"
 
 	"github.com/pluralsh/deployment-operator/pkg/ping"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
@@ -58,6 +61,11 @@ var _ = Describe("Scraper", Ordered, func() {
 		It("should return deprecated resources", func() {
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
 			fakeConsoleClient.On("GetCredentials").Return("", "")
+			fakeConsoleClient.On("MyCluster").Return(&console.MyCluster{
+				MyCluster: &console.MyCluster_MyCluster_{
+					SupportedAddons: lo.ToSlicePtr([]string{"velero"}),
+				},
+			}, nil)
 
 			reconciler, err := ping.New(fakeConsoleClient, cfg, kClient, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
