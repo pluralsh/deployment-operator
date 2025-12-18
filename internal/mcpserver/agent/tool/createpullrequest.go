@@ -1,6 +1,7 @@
 package tool
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
 func (in *CreatePullRequest) Install(server *server.MCPServer) {
@@ -84,7 +86,37 @@ func (in *CreatePullRequest) fromRequest(request mcp.CallToolRequest) (result cl
 
 	result.Base = config.BaseBranch
 
+	headSHA, err := in.getCommitSHA(config.Dir, result.Head)
+	if err != nil {
+		return result, fmt.Errorf("failed to get HEAD commit SHA: %v", err)
+	}
+	result.CommitShas = append(result.CommitShas, &client.CommitShaAttributes{
+		Branch: result.Head,
+		Sha:    headSHA,
+	})
+
+	baseSHA, err := in.getCommitSHA(config.Dir, result.Base)
+	if err != nil {
+		return result, fmt.Errorf("failed to get base branch commit SHA: %v", err)
+	}
+	result.CommitShas = append(result.CommitShas, &client.CommitShaAttributes{
+		Branch: result.Base,
+		Sha:    baseSHA,
+	})
+
 	return
+}
+
+// getCommitSHA retrieves the commit SHA for a given branch
+func (in *CreatePullRequest) getCommitSHA(repoDir, branch string) (string, error) {
+	shaBytes, err := exec.NewExecutable("git",
+		exec.WithArgs([]string{"rev-parse", branch}),
+		exec.WithDir(repoDir)).RunWithOutput(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes.TrimSpace(shaBytes)), nil
 }
 
 func NewCreatePullRequest(client console.Client, agentRunID string) Tool {
