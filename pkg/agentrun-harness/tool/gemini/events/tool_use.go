@@ -2,6 +2,7 @@ package events
 
 import (
 	cmap "github.com/orcaman/concurrent-map/v2"
+	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
@@ -18,6 +19,10 @@ type ToolUseEvent struct {
 
 func (e *ToolUseEvent) Validate() bool {
 	return e.Type == EventTypeToolUse && e.ToolID != "" && e.ToolName != ""
+}
+
+func (e *ToolUseEvent) Process(_ func(message *console.AgentMessageAttributes)) {
+	e.Save()
 }
 
 func (e *ToolUseEvent) Save() {

@@ -5,6 +5,8 @@ import (
 	"github.com/samber/lo"
 )
 
+const IgnoreMessage = "__plrl_ignore__"
+
 type ToolStatus string
 
 const (
@@ -25,14 +27,18 @@ func (s ToolStatus) Attributes() *console.AgentMessageToolState {
 
 type ToolResultEvent struct {
 	EventBase
-	ToolID string     `json:"tool_id"`
-	Status ToolStatus `json:"status"`
-	Output *string    `json:"output,omitempty"`
-	Error  *Error     `json:"error,omitempty"`
+	ToolID string           `json:"tool_id"`
+	Status ToolStatus       `json:"status"`
+	Output *string          `json:"output,omitempty"`
+	Error  *ToolResultError `json:"error,omitempty"`
 }
 
 func (e *ToolResultEvent) Validate() bool {
 	return e.Type == EventTypeToolResult && e.ToolID != ""
+}
+
+func (e *ToolResultEvent) Process(onMessage func(message *console.AgentMessageAttributes)) {
+	onMessage(e.Attributes())
 }
 
 func (e *ToolResultEvent) Attributes() *console.AgentMessageAttributes {
@@ -53,4 +59,9 @@ func (e *ToolResultEvent) Attributes() *console.AgentMessageAttributes {
 	}
 
 	return attrs
+}
+
+type ToolResultError struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
 }

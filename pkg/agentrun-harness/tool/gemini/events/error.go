@@ -34,9 +34,9 @@ func (e *ErrorEvent) Validate() bool {
 	return e.Type == EventTypeError && e.Message != ""
 }
 
-func (e *ErrorEvent) Attributes() *console.AgentMessageAttributes {
-	return &console.AgentMessageAttributes{
+func (e *ErrorEvent) Process(onMessage func(message *console.AgentMessageAttributes)) {
+	onMessage(&console.AgentMessageAttributes{
 		Role:    console.AiRoleSystem,
 		Message: fmt.Sprintf("%s: %s", e.Severity.String(), e.Message),
-	}
+	})
 }

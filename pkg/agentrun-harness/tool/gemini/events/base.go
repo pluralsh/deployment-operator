@@ -21,6 +21,11 @@ const (
 	EventTypeResult     EventType = "result"
 )
 
+type Event interface {
+	Validate() bool
+	Process(onMessage func(message *console.AgentMessageAttributes))
+}
+
 type EventBase struct {
 	Type      EventType `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
@@ -35,17 +40,17 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 
 	switch e.Type {
 	case EventTypeInit:
-		// Ignored as there is no special handling needed for init events currently.
+		return handleEvent[InitEvent](line, onMessage)
 	case EventTypeMessage:
-		return handleEvent[MessageEvent](line, func(e *MessageEvent) { e.Append() })
+		return handleEvent[MessageEvent](line, onMessage)
 	case EventTypeToolUse:
-		return handleEvent[ToolUseEvent](line, func(e *ToolUseEvent) { e.Save() })
+		return handleEvent[ToolUseEvent](line, onMessage)
 	case EventTypeToolResult:
-		return handleEvent[ToolResultEvent](line, func(e *ToolResultEvent) { onMessage(e.Attributes()) })
+		return handleEvent[ToolResultEvent](line, onMessage)
 	case EventTypeError:
-		return handleEvent[ErrorEvent](line, func(e *ErrorEvent) { onMessage(e.Attributes()) })
+		return handleEvent[ErrorEvent](line, onMessage)
 	case EventTypeResult:
-		return handleEvent[ResultEvent](line, func(e *ResultEvent) { onMessage(e.Attributes()) })
+		return handleEvent[ResultEvent](line, onMessage)
 	default:
 		klog.V(log.LogLevelDebug).InfoS("ignoring unknown event", "type", e.Type, "line", string(line))
 	}
@@ -56,8 +61,8 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 // handleEvent is a generic helper to unmarshal, validate and process an event.
 func handleEvent[T any, PT interface {
 	*T
-	Validate() bool
-}](line []byte, handler func(PT)) error {
+	Event
+}](line []byte, onMessage func(message *console.AgentMessageAttributes)) error {
 	var t T
 	pt := PT(&t)
 	if err := json.Unmarshal(line, pt); err != nil {
@@ -69,7 +74,7 @@ func handleEvent[T any, PT interface {
 		return nil
 	}
 
-	handler(pt)
+	pt.Process(onMessage)
 
 	return nil
 }

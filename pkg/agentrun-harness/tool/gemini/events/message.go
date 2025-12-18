@@ -37,7 +37,7 @@ func (e *MessageEvent) Validate() bool {
 	return e.Type == EventTypeMessage && e.Content != ""
 }
 
-func (e *MessageEvent) Append() {
+func (e *MessageEvent) Process(_ func(message *console.AgentMessageAttributes)) {
 	if e.Delta != nil && *e.Delta {
 		messageBuilder.WriteString(e.Content)
 	}

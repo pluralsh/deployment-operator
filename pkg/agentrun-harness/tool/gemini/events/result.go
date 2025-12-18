@@ -37,7 +37,7 @@ const (
 type ResultEvent struct {
 	EventBase
 	Status Status       `json:"status"`
-	Error  *Error       `json:"error,omitempty"`
+	Error  *ResultError `json:"error,omitempty"`
 	Stats  *StreamStats `json:"stats,omitempty"`
 }
 
@@ -46,10 +46,15 @@ func (e *ResultEvent) Validate() bool {
 		((e.Status == StatusSuccess && messageBuilder.Len() > 0) || e.Status == StatusError)
 }
 
-func (e *ResultEvent) Attributes() *console.AgentMessageAttributes {
-	return &console.AgentMessageAttributes{
+func (e *ResultEvent) Process(onMessage func(message *console.AgentMessageAttributes)) {
+	onMessage(&console.AgentMessageAttributes{
 		Message: messageBuilder.String(),
 		Role:    console.AiRoleAssistant,
 		Cost:    e.Stats.Attributes(),
-	}
+	})
+}
+
+type ResultError struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
 }
