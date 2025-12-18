@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/gemini"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/claude"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/gemini"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/opencode"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 )
