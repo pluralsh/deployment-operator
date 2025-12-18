@@ -10,6 +10,24 @@ import (
 
 var messageBuilder strings.Builder
 
+func AppendMessage(message string) {
+	if messageBuilder.Len() > 0 {
+		if !strings.HasSuffix(messageBuilder.String(), " ") && !strings.HasPrefix(message, " ") {
+			messageBuilder.WriteString(" ")
+		}
+	}
+
+	messageBuilder.WriteString(message)
+}
+
+func HasMessage() bool {
+	return messageBuilder.Len() > 0
+}
+
+func GetMessage() string {
+	return messageBuilder.String()
+}
+
 type Role string
 
 const (
@@ -40,6 +58,6 @@ func (e *MessageEvent) Validate() bool {
 }
 
 func (e *MessageEvent) Process(_ func(message *console.AgentMessageAttributes)) {
-	messageBuilder.WriteString(e.Content)
+	AppendMessage(e.Content)
 	klog.V(log.LogLevelDebug).Infof("appended message delta: %s", e.Content)
 }

@@ -49,7 +49,7 @@ func (e *ResultEvent) Process(onMessage func(message *console.AgentMessageAttrib
 	costSent := false
 
 	// If there is a message to send, send it first.
-	if messageBuilder.Len() > 0 {
+	if HasMessage() {
 		onMessage(e.Attributes())
 		costSent = true
 	}
@@ -62,7 +62,7 @@ func (e *ResultEvent) Process(onMessage func(message *console.AgentMessageAttrib
 
 func (e *ResultEvent) Attributes() *console.AgentMessageAttributes {
 	return &console.AgentMessageAttributes{
-		Message: messageBuilder.String(),
+		Message: GetMessage(),
 		Role:    console.AiRoleAssistant,
 		Cost:    e.Stats.Attributes(),
 	}
