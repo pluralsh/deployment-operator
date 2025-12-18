@@ -62,6 +62,21 @@ var SyncPhases = []SyncPhase{
 	SyncPhaseSkip,
 }
 
+// ApplyPhases contains all phases where resources can be applied to the cluster.
+var ApplyPhases = containers.ToSet([]string{
+	SyncPhasePreSync.String(),
+	SyncPhaseSync.String(),
+	SyncPhasePostSync.String(),
+	SyncPhaseSyncFail.String(),
+})
+
+var HelmApplyPhases = containers.ToSet([]string{
+	HelmHookPreInstall,
+	HelmHookPostInstall,
+	HelmHookPreUpgrade,
+	HelmHookPostUpgrade,
+})
+
 // GetDeletePhase returns the phase in which the resource should be deleted.
 func GetDeletePhase(u unstructured.Unstructured) SyncPhase {
 	annotations := u.GetAnnotations()
@@ -135,4 +150,31 @@ func hasHelmHook(annotations map[string]string, phase SyncPhase) bool {
 	}
 
 	return false
+}
+
+// HasApplyPhase indicates if a resource has a phase where it can be applied to the cluster.
+// Invalid phases or a skip phase will return false.
+func HasApplyPhase(u unstructured.Unstructured) bool {
+	annotations := u.GetAnnotations()
+	if annotations == nil {
+		return true // If no annotations are found, the resource is in a default phase and can be applied.
+	}
+
+	annotation, ok := annotations[SyncPhaseAnnotation]
+	if !ok {
+		return hasHelmApplyPhase(annotations) // Fallback to Helm annotation check.
+	}
+
+	phases := containers.ToSet[string](strings.Split(strings.ReplaceAll(annotation, " ", ""), ","))
+	return len(phases.Intersect(ApplyPhases)) > 0
+}
+
+func hasHelmApplyPhase(annotations map[string]string) bool {
+	annotation, ok := annotations[HelmHookAnnotation]
+	if !ok {
+		return true // If annotation is not found, the resource is in a default phase and can be applied.
+	}
+
+	hooks := containers.ToSet[string](strings.Split(strings.ReplaceAll(annotation, " ", ""), ","))
+	return len(hooks.Intersect(HelmApplyPhases)) > 0
 }
