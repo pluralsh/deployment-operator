@@ -22,10 +22,6 @@ func (e *ToolUseEvent) Validate() bool {
 }
 
 func (e *ToolUseEvent) Process(_ func(message *console.AgentMessageAttributes)) {
-	e.Save()
-}
-
-func (e *ToolUseEvent) Save() {
 	toolUseCache.Set(e.ToolID, lo.FromPtr(e))
 	klog.V(log.LogLevelDebug).Infof("saved tool use in the cache: %s", e.ToolName)
 }

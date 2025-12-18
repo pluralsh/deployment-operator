@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"k8s.io/klog/v2"
 )
 
 var messageBuilder strings.Builder
@@ -34,11 +36,10 @@ type MessageEvent struct {
 }
 
 func (e *MessageEvent) Validate() bool {
-	return e.Type == EventTypeMessage && e.Content != ""
+	return e.Type == EventTypeMessage && e.Content != "" && e.Delta != nil && *e.Delta
 }
 
 func (e *MessageEvent) Process(_ func(message *console.AgentMessageAttributes)) {
-	if e.Delta != nil && *e.Delta {
-		messageBuilder.WriteString(e.Content)
-	}
+	messageBuilder.WriteString(e.Content)
+	klog.V(log.LogLevelDebug).Infof("appended message delta: %s", e.Content)
 }

@@ -2,10 +2,10 @@ package events
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
+	"k8s.io/klog/v2"
 )
-
-const IgnoreMessage = "__plrl_ignore__"
 
 type ToolStatus string
 
@@ -39,11 +39,12 @@ func (e *ToolResultEvent) Validate() bool {
 
 func (e *ToolResultEvent) Process(onMessage func(message *console.AgentMessageAttributes)) {
 	onMessage(e.Attributes())
+	klog.V(log.LogLevelDebug).Infof("processed tool result event for %s", e.ToolID)
 }
 
 func (e *ToolResultEvent) Attributes() *console.AgentMessageAttributes {
 	attrs := &console.AgentMessageAttributes{
-		Message: IgnoreMessage,
+		Message: "__plrl_ignore__",
 		Role:    console.AiRoleAssistant,
 		Metadata: &console.AgentMessageMetadataAttributes{
 			Tool: &console.AgentMessageToolAttributes{

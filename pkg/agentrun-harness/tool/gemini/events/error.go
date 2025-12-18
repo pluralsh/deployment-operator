@@ -35,8 +35,12 @@ func (e *ErrorEvent) Validate() bool {
 }
 
 func (e *ErrorEvent) Process(onMessage func(message *console.AgentMessageAttributes)) {
-	onMessage(&console.AgentMessageAttributes{
+	onMessage(e.Attributes())
+}
+
+func (e *ErrorEvent) Attributes() *console.AgentMessageAttributes {
+	return &console.AgentMessageAttributes{
 		Role:    console.AiRoleSystem,
 		Message: fmt.Sprintf("%s: %s", e.Severity.String(), e.Message),
-	})
+	}
 }

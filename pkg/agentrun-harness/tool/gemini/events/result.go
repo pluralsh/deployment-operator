@@ -42,16 +42,43 @@ type ResultEvent struct {
 }
 
 func (e *ResultEvent) Validate() bool {
-	return e.Type == EventTypeResult &&
-		((e.Status == StatusSuccess && messageBuilder.Len() > 0) || e.Status == StatusError)
+	return e.Type == EventTypeResult
 }
 
 func (e *ResultEvent) Process(onMessage func(message *console.AgentMessageAttributes)) {
-	onMessage(&console.AgentMessageAttributes{
+	costSent := false
+
+	// If there is a message to send, send it first.
+	if messageBuilder.Len() > 0 {
+		onMessage(e.Attributes())
+		costSent = true
+	}
+
+	// If there was an error, send that as well.
+	if e.Status == StatusError {
+		onMessage(e.ErrorAttributes(costSent))
+	}
+}
+
+func (e *ResultEvent) Attributes() *console.AgentMessageAttributes {
+	return &console.AgentMessageAttributes{
 		Message: messageBuilder.String(),
 		Role:    console.AiRoleAssistant,
 		Cost:    e.Stats.Attributes(),
-	})
+	}
+}
+
+func (e *ResultEvent) ErrorAttributes(costSent bool) *console.AgentMessageAttributes {
+	attrs := &console.AgentMessageAttributes{
+		Role:    console.AiRoleSystem,
+		Message: e.Error.Message,
+	}
+
+	if !costSent {
+		attrs.Cost = e.Stats.Attributes()
+	}
+
+	return attrs
 }
 
 type ResultError struct {
