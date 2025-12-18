@@ -37,68 +37,39 @@ func (e EventBase) OnMessage(line []byte, onMessage func(message *console.AgentM
 	case EventTypeInit:
 		// Ignored as there is no special handling needed for init events currently.
 	case EventTypeMessage:
-		message := &MessageEvent{}
-		if err := json.Unmarshal(line, message); err != nil {
-			return fmt.Errorf("failed to unmarshal message event: %w", err)
-		}
-
-		if !message.IsValid() {
-			klog.V(log.LogLevelDebug).InfoS("ignoring invalid message", "message", message)
-			return nil
-		}
-
-		message.Append()
+		return handleEvent[MessageEvent](line, func(e *MessageEvent) { e.Append() })
 	case EventTypeToolUse:
-		toolUse := &ToolUseEvent{}
-		if err := json.Unmarshal(line, toolUse); err != nil {
-			return fmt.Errorf("failed to unmarshal tool use event: %w", err)
-		}
-
-		if !toolUse.IsValid() {
-			klog.V(log.LogLevelDebug).InfoS("ignoring invalid tool use", "toolUse", toolUse)
-			return nil
-		}
-
-		toolUse.Save()
+		return handleEvent[ToolUseEvent](line, func(e *ToolUseEvent) { e.Save() })
 	case EventTypeToolResult:
-		toolResult := &ToolResultEvent{}
-		if err := json.Unmarshal(line, toolResult); err != nil {
-			return fmt.Errorf("failed to unmarshal tool result event: %w", err)
-		}
-
-		if !toolResult.IsValid() {
-			klog.V(log.LogLevelDebug).InfoS("ignoring invalid tool result", "toolResult", toolResult)
-			return nil
-		}
-
-		onMessage(toolResult.Attributes())
+		return handleEvent[ToolResultEvent](line, func(e *ToolResultEvent) { onMessage(e.Attributes()) })
 	case EventTypeError:
-		err := &ErrorEvent{}
-		if err := json.Unmarshal(line, err); err != nil {
-			return fmt.Errorf("failed to unmarshal error event: %w", err)
-		}
-
-		if !err.IsValid() {
-			klog.V(log.LogLevelDebug).InfoS("ignoring invalid error", "error", err)
-			return nil
-		}
-
-		onMessage(err.Attributes())
+		return handleEvent[ErrorEvent](line, func(e *ErrorEvent) { onMessage(e.Attributes()) })
 	case EventTypeResult:
-		result := &ResultEvent{}
-		if err := json.Unmarshal(line, result); err != nil {
-			return fmt.Errorf("failed to unmarshal result event: %w", err)
-		}
-
-		if !result.IsValid() {
-			klog.V(log.LogLevelDebug).InfoS("ignoring invalid result", "result", result)
-			return nil
-		}
-
-		onMessage(result.Attributes())
+		return handleEvent[ResultEvent](line, func(e *ResultEvent) { onMessage(e.Attributes()) })
 	default:
-		klog.V(log.LogLevelDebug).InfoS("ignoring event", "type", e.Type, "line", string(line))
+		klog.V(log.LogLevelDebug).InfoS("ignoring unknown event", "type", e.Type, "line", string(line))
 	}
+
+	return nil
+}
+
+// handleEvent is a generic helper to unmarshal, validate and process an event.
+func handleEvent[T any, PT interface {
+	*T
+	Validate() bool
+}](line []byte, handler func(PT)) error {
+	var t T
+	pt := PT(&t)
+	if err := json.Unmarshal(line, pt); err != nil {
+		return fmt.Errorf("failed to unmarshal %T: %w", pt, err)
+	}
+
+	if !pt.Validate() {
+		klog.V(log.LogLevelDebug).InfoS("ignoring invalid event", "event", pt)
+		return nil
+	}
+
+	handler(pt)
 
 	return nil
 }

@@ -31,7 +31,7 @@ type ToolResultEvent struct {
 	Error  *Error     `json:"error,omitempty"`
 }
 
-func (e *ToolResultEvent) IsValid() bool {
+func (e *ToolResultEvent) Validate() bool {
 	return e.Type == EventTypeToolResult && e.ToolID != ""
 }
 

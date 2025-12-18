@@ -30,7 +30,7 @@ type ErrorEvent struct {
 	Message  string   `json:"message"`
 }
 
-func (e *ErrorEvent) IsValid() bool {
+func (e *ErrorEvent) Validate() bool {
 	return e.Type == EventTypeError && e.Message != ""
 }
 

@@ -16,7 +16,7 @@ type ToolUseEvent struct {
 	Parameters map[string]any `json:"parameters,omitempty"`
 }
 
-func (e *ToolUseEvent) IsValid() bool {
+func (e *ToolUseEvent) Validate() bool {
 	return e.Type == EventTypeToolUse && e.ToolID != "" && e.ToolName != ""
 }
 

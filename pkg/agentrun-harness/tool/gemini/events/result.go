@@ -41,7 +41,7 @@ type ResultEvent struct {
 	Stats  *StreamStats `json:"stats,omitempty"`
 }
 
-func (e *ResultEvent) IsValid() bool {
+func (e *ResultEvent) Validate() bool {
 	return e.Type == EventTypeResult &&
 		((e.Status == StatusSuccess && messageBuilder.Len() > 0) || e.Status == StatusError)
 }

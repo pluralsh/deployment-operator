@@ -33,7 +33,7 @@ type MessageEvent struct {
 	Delta   *bool  `json:"delta,omitempty"`
 }
 
-func (e *MessageEvent) IsValid() bool {
+func (e *MessageEvent) Validate() bool {
 	return e.Type == EventTypeMessage && e.Content != ""
 }
 
