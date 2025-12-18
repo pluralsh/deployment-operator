@@ -90,7 +90,7 @@ func (in *CreatePullRequest) fromRequest(request mcp.CallToolRequest) (result cl
 
 	headSHA, err := in.getCommitSHA(config.Dir, result.Head)
 	if err != nil {
-		return result, fmt.Errorf("failed to get HEAD commit SHA: %v", err)
+		return result, fmt.Errorf("failed to get HEAD commit SHA: %w", err)
 	}
 	result.CommitShas = append(result.CommitShas, &client.CommitShaAttributes{
 		Branch: result.Head,
@@ -99,7 +99,7 @@ func (in *CreatePullRequest) fromRequest(request mcp.CallToolRequest) (result cl
 
 	baseSHA, err := in.getCommitSHA(config.Dir, result.Base)
 	if err != nil {
-		return result, fmt.Errorf("failed to get base branch commit SHA: %v", err)
+		return result, fmt.Errorf("failed to get base branch commit SHA: %w", err)
 	}
 	result.CommitShas = append(result.CommitShas, &client.CommitShaAttributes{
 		Branch: result.Base,
