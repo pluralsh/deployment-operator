@@ -8,10 +8,12 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/pluralsh/console/go/client"
+	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 func (in *CreatePullRequest) Install(server *server.MCPServer) {
@@ -104,6 +106,7 @@ func (in *CreatePullRequest) fromRequest(request mcp.CallToolRequest) (result cl
 		Sha:    baseSHA,
 	})
 
+	klog.V(log.LogLevelDefault).Info("created pull request attributes", "attributes", result)
 	return
 }
 
