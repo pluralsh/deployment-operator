@@ -8,12 +8,10 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/pluralsh/console/go/client"
-	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 )
 
 func (in *CreatePullRequest) Install(server *server.MCPServer) {
@@ -50,13 +48,14 @@ func (in *CreatePullRequest) handler(ctx context.Context, request mcp.CallToolRe
 	}
 
 	return mcp.NewToolResultJSON(struct {
-		Success        bool             `json:"success"`
-		Message        string           `json:"message"`
-		PullRequestId  string           `json:"pullRequestId"`
-		PullRequestUrl string           `json:"pullRequestUrl"`
-		Status         *client.PrStatus `json:"status"`
-		Title          *string          `json:"title"`
-		Creator        *string          `json:"creator"`
+		Success        bool                          `json:"success"`
+		Message        string                        `json:"message"`
+		PullRequestId  string                        `json:"pullRequestId"`
+		PullRequestUrl string                        `json:"pullRequestUrl"`
+		Status         *client.PrStatus              `json:"status"`
+		Title          *string                       `json:"title"`
+		Creator        *string                       `json:"creator"`
+		CommitSHAs     []*client.CommitShaAttributes `json:"commitShas"`
 	}{
 		Success:        true,
 		Message:        fmt.Sprintf("successfully created pull request from %s to %s", attrs.Head, attrs.Base),
@@ -65,6 +64,7 @@ func (in *CreatePullRequest) handler(ctx context.Context, request mcp.CallToolRe
 		Status:         pr.Status,
 		Title:          pr.Title,
 		Creator:        pr.Creator,
+		CommitSHAs:     attrs.CommitShas,
 	})
 }
 
@@ -106,7 +106,6 @@ func (in *CreatePullRequest) fromRequest(request mcp.CallToolRequest) (result cl
 		Sha:    baseSHA,
 	})
 
-	klog.V(log.LogLevelDefault).Info("created pull request attributes", "attributes", result)
 	return
 }
 
