@@ -21,7 +21,20 @@ func (e *ToolUseEvent) Validate() bool {
 	return e.Type == EventTypeToolUse && e.ToolID != "" && e.ToolName != ""
 }
 
-func (e *ToolUseEvent) Process(_ func(message *console.AgentMessageAttributes)) {
+func (e *ToolUseEvent) Process(onMessage func(message *console.AgentMessageAttributes)) {
+	// If any of the tools is called, send the current message and reset the builder.
+	if messageBuilder.Len() > 0 {
+		onMessage(e.Attributes())
+		messageBuilder.Reset()
+	}
+
 	toolUseCache.Set(e.ToolID, lo.FromPtr(e))
 	klog.V(log.LogLevelDebug).Infof("saved tool use in the cache: %s", e.ToolName)
+}
+
+func (e *ToolUseEvent) Attributes() *console.AgentMessageAttributes {
+	return &console.AgentMessageAttributes{
+		Message: messageBuilder.String(),
+		Role:    console.AiRoleAssistant,
+	}
 }
