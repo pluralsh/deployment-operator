@@ -94,7 +94,7 @@ const (
 
 	defaultStoreStorage                 = "memory"
 	defaultStoreFilePath                = "/tmp/agent-store.db"
-	defaultStoreCleanerInterval         = "10s"
+	defaultStoreCleanerInterval         = "1m"
 	defaultStoreCleanerIntervalDuration = 10 * time.Second
 
 	defaultJitterFactor = 0.2
@@ -119,6 +119,7 @@ var (
 	argProfiler                        = flag.Bool("profiler", helpers.GetPluralEnvBool(EnvProfilerEnabled, false), "Enable pprof handler. By default it will be exposed on localhost:7777 under '/debug/pprof'")
 	argPyroscope                       = flag.Bool("pyroscope", helpers.GetPluralEnvBool(EnvPyroscopeEnabled, false), "Enable pyroscope integration for detailed application profiling. By default it will push to http://pyroscope.monitoring.svc.cluster.local:4040")
 	argDatadog                         = flag.Bool("datadog", helpers.GetPluralEnvBool(EnvDatadogEnabled, false), "Enable datadog integration for detailed application profiling. By default it will push to http://datadog.monitoring.svc.cluster.local:8125")
+	argLocalDatabaseProfiler           = flag.Bool("local-db-profiler", false, "Enable local database profiler for profiling local database operations.")
 	argDisableResourceCache            = flag.Bool("disable-resource-cache", !helpers.GetPluralEnvBool(EnvResourceCacheEnabled, true), "Control whether resource cache should be enabled or not.")
 	argEnableKubecostProxy             = flag.Bool("enable-kubecost-proxy", false, "If set, will proxy a Kubecost API request through the K8s API server.")
 
@@ -424,6 +425,10 @@ func PyroscopeAddress() string {
 
 func DatadogEnabled() bool {
 	return *argDatadog
+}
+
+func LocalDatabaseProfiler() bool {
+	return *argLocalDatabaseProfiler
 }
 
 func DatadogHost() string {

@@ -21,6 +21,7 @@ const (
 var (
 	GroupBlacklist = containers.ToSet([]string{
 		"aquasecurity.github.io", // Related to compliance/vulnerability reports. Can cause performance issues.
+		"status.gatekeeper.sh",
 	})
 
 	ResourceVersionBlacklist = containers.ToSet([]string{

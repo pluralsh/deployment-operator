@@ -21,7 +21,8 @@ const (
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
 			server_sha TEXT,
-			manifest BOOLEAN DEFAULT 0
+			manifest BOOLEAN DEFAULT 0, -- Indicates if the component was created from an original manifest set of a service
+			applied BOOLEAN DEFAULT 0 -- Indicates if the component was already applied to the cluster
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
@@ -57,7 +58,8 @@ const (
 			name TEXT,
 			status INT,
 			manifest_sha TEXT,
-			service_id TEXT
+			service_id TEXT,
+			delete_policies TEXT
 		);
 	 
 		-- Add indexes to the hook component table
@@ -65,62 +67,22 @@ const (
 		CREATE INDEX IF NOT EXISTS hook_component_index_service_id ON hook_component(service_id);
 	`
 
-	getComponent = `
+	getAppliedComponent = `
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid, manifest_sha, transient_manifest_sha, apply_sha, server_sha, service_id, manifest
 		FROM component
-		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ?
+		WHERE name = ? AND namespace = ? AND "group" = ? AND version = ? AND kind = ? AND applied = 1
 	`
 
-	getComponentByUID = `
+	getAppliedComponentByUID = `
 		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
 		FROM component
-		WHERE uid = ?
+		WHERE uid = ? AND applied = 1
 	`
 
-	getComponentsByServiceID = `
-		SELECT uid, parent_uid, "group", version, kind, name, namespace, health, delete_phase, manifest
-		FROM component
-		WHERE service_id = ? AND (manifest = 1 OR (parent_uid is NULL or parent_uid = ''))
-	`
-
-	getComponentsByGVK = `
+	getAppliedComponentsByGVK = `
 		SELECT uid, "group", version, kind, namespace, name, server_sha, delete_phase, manifest
 		FROM component
-		WHERE "group" = ? AND version = ? AND kind = ?
-	`
-
-	setComponent = `
-		INSERT INTO component (
-			uid,
-			parent_uid,
-			"group",
-			version,
-			kind,
-			namespace,
-			name,
-			health,
-		    node,
-		    created_at,
-		    service_id
-		) VALUES (
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-			?,
-		    ?,
-		    ?
-		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
-			uid = excluded.uid,
-			parent_uid = excluded.parent_uid,
-			health = excluded.health,
-			node = excluded.node,
-			created_at = excluded.created_at,
-			service_id = excluded.service_id
+		WHERE "group" = ? AND version = ? AND kind = ? AND applied = 1
 	`
 
 	setComponentWithSHA = `
@@ -137,7 +99,8 @@ const (
 		    created_at,
 		    service_id,
 		    delete_phase,
-		    server_sha
+		    server_sha,
+		    applied
 		) VALUES (
 			?,
 			?,
@@ -151,6 +114,7 @@ const (
 		    ?,
 		    ?,
 		    ?,
+		    ?,
 		    ?
 		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
@@ -160,7 +124,8 @@ const (
 			created_at = excluded.created_at,
 			service_id = excluded.service_id,
 			delete_phase = excluded.delete_phase,
-			server_sha = excluded.server_sha
+			server_sha = excluded.server_sha,
+		    applied = excluded.applied
 	`
 
 	expireSHA = `
@@ -198,24 +163,6 @@ const (
 		  AND name = ?
 	`
 
-	componentChildren = `
-		WITH RECURSIVE descendants AS (
-			SELECT uid, "group", version, kind, namespace, name, health, parent_uid, 1 as level
-			FROM component 
-			WHERE parent_uid = ?
-			
-			UNION ALL
-			
-			SELECT c.uid, c."group", c.version, c.kind, c.namespace, c.name, c.health, c.parent_uid, d.level + 1
-			FROM descendants d
-			JOIN component c ON c.parent_uid = d.uid
-			WHERE d.level < 4
-		)
-		SELECT uid, "group", version, kind, namespace, name, health, parent_uid
-		FROM descendants
-		LIMIT 100
-	`
-
 	clusterHealthScore = `
 		WITH base_score AS (
 			SELECT CAST(AVG(CASE WHEN health = 0 THEN 100 ELSE 0 END) as INTEGER) as score
@@ -239,8 +186,45 @@ const (
 	nodeStatistics = `
 		SELECT node, COUNT(*)
 		FROM component
-		WHERE kind = 'Pod' AND created_at <= strftime('%s', 'now', '-5 minutes') AND health != 0
+		WHERE kind = 'Pod' AND created_at <= strftime('%s', 'now', '-5 minutes') AND health != 0 AND applied = 1
 		GROUP BY node
+	`
+
+	setComponent = `
+		INSERT INTO component (
+			uid,
+			parent_uid,
+			"group",
+			version,
+			kind,
+			namespace,
+			name,
+			health,
+		    applied,
+		    node,
+		    created_at,
+		    service_id
+		) VALUES (
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+			?,
+		    ?,
+		    ?,
+		    ?
+		) ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
+			uid = excluded.uid,
+			parent_uid = excluded.parent_uid,
+			health = excluded.health,
+			node = excluded.node,
+			created_at = excluded.created_at,
+			service_id = excluded.service_id,
+			applied = excluded.applied
 	`
 
 	failedComponents = `
@@ -248,15 +232,15 @@ const (
 			-- Start with parent components of specified kinds
 			SELECT *, 1 as level, uid as root_uid
 			FROM component 
-			WHERE kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')
+			WHERE kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate') AND applied = 1
 			
 			UNION ALL
 			
 			-- Get children of components in the chain, carrying the root component UID
 			SELECT c.*, cc.level + 1, cc.root_uid
 			FROM component c
-			JOIN component_chain cc ON c.parent_uid = cc.uid
-			WHERE cc.level < 4
+			JOIN component_chain cc ON c.parent_uid = cc.uid AND c.parent_uid != ''
+			WHERE cc.level < 4 AND c.applied = 1
 		),
 		-- Find all failed components in the chain
 		failed_roots AS (
@@ -279,6 +263,7 @@ const (
 		   ) AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')))
            AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')
 	`
+
 	serverCounts = `
 	SELECT
   		COUNT(DISTINCT CASE WHEN kind = 'Node' THEN uid END) AS node_count,
@@ -296,12 +281,13 @@ const (
 	`
 
 	setHookComponent = `
-		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO hook_component ("group", version, kind, namespace, name, uid, status, service_id, delete_policies)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT("group", version, kind, namespace, name) DO UPDATE SET
 			uid = excluded.uid,
 			status = excluded.status,
-			service_id = excluded.service_id
+			service_id = excluded.service_id,
+			delete_policies = excluded.delete_policies
 	`
 
 	setHookComponentWithManifestSHA = `
