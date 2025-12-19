@@ -389,6 +389,10 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		return
 	}
 
+	if appliedResource == nil {
+		return
+	}
+
 	in.waveStatistics.applied++
 
 	if in.onApplyCallback != nil {
@@ -435,18 +439,11 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 	}
 
 	// Otherwise force sync.
-	// TODO: Add timeout.
-	if err = c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
+	return nil, c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationForeground),
-	}); err != nil {
-		return appliedResource, err
-	}
-
-	// TODO: Remove and let applier to recreate?
-	return c.Create(ctx, &u, metav1.CreateOptions{
-		FieldManager: smcommon.ClientFieldManager,
 	})
+
 }
 
 func (in *WaveProcessor) isManaged(entry *smcommon.Component, resource unstructured.Unstructured) bool {
