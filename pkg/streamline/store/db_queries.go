@@ -136,8 +136,8 @@ const (
 		    created_at = NULL,
 		    server_sha = '',
 		    manifest_sha = '',
-			transient_manifest_sha = '',
-			apply_sha = ''
+		    transient_manifest_sha = '',
+		    apply_sha = ''
 		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
 	`
 
