@@ -443,6 +443,7 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 		return appliedResource, err
 	}
 
+	// TODO: Remove and let applier to recreate?
 	return c.Create(ctx, &u, metav1.CreateOptions{
 		FieldManager: smcommon.ClientFieldManager,
 	})

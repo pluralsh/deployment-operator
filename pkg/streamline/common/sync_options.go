@@ -1,6 +1,11 @@
 package common
 
-import "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+import (
+	"strings"
+
+	"github.com/pluralsh/polly/containers"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
 const (
 	// SyncOptionsAnnotation specifies sync options for a given resource.
@@ -11,11 +16,45 @@ const (
 
 	// SyncOptionForce indicates if a resource should be forcefully applied during sync.
 	// If the initial applying fails, then the resource will be deleted and recreated forcefully.
-	SyncOptionForce = "Force=true"
+	SyncOptionForce = "force=true"
 )
 
+// getSyncOptions returns the sync options of a resource.
+func getSyncOptions(u unstructured.Unstructured) containers.Set[string] {
+	annotations := u.GetAnnotations()
+	if annotations == nil {
+		return nil
+	}
+
+	annotation, ok := annotations[SyncOptionsAnnotation]
+	if !ok {
+		return getArgoSyncOptions(annotations)
+	}
+
+	return parseSyncOptions(annotation)
+}
+
+func getArgoSyncOptions(annotations map[string]string) containers.Set[string] {
+	annotation, ok := annotations[ArgoSyncOptionsAnnotation]
+	if !ok {
+		return nil
+	}
+
+	return parseSyncOptions(annotation)
+}
+
+func parseSyncOptions(annotation string) containers.Set[string] {
+	options := strings.ToLower(strings.ReplaceAll(annotation, " ", ""))
+	return containers.ToSet[string](strings.Split(options, ","))
+}
+
 func HasSyncOption(u unstructured.Unstructured, option string) bool {
-	return true // TODO
+	options := getSyncOptions(u)
+	if options == nil {
+		return false
+	}
+
+	return options.Has(option)
 }
 
 func HasForceSyncOption(u unstructured.Unstructured) bool {
