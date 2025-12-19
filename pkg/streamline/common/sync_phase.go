@@ -96,7 +96,7 @@ func GetDeletePhase(u unstructured.Unstructured) SyncPhase {
 		}
 	}
 
-	return getHelmDeleteHook(annotations)
+	return SyncPhaseSync
 }
 
 func getHelmDeleteHook(annotations map[string]string) SyncPhase {
