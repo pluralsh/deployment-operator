@@ -130,7 +130,14 @@ const (
 
 	setComponentUnsynced = `
 		UPDATE component
-		SET applied = 0
+		SET applied = 0,
+		    uid = '',
+		    health = 1,
+		    created_at = NULL,
+		    server_sha = '',
+		    manifest_sha = '',
+			transient_manifest_sha = '',
+			apply_sha = ''
 		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
 	`
 
