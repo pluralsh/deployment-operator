@@ -438,7 +438,7 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 		return appliedResource, err
 	}
 
-	// Otherwise force sync.
+	// Otherwise force sync by deleting the resource and letting it recreate in the next round.
 	return nil, c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationForeground),
