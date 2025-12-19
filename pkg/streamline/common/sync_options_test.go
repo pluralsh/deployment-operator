@@ -17,7 +17,7 @@ func TestHasSyncOption(t *testing.T) {
 		{
 			name:   "no annotations",
 			obj:    unstructured.Unstructured{},
-			option: "force=true",
+			option: SyncOptionForce,
 			want:   false,
 		},
 		{
