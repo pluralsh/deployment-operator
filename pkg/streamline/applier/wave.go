@@ -458,7 +458,6 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationForeground),
 	})
-
 }
 
 func (in *WaveProcessor) isManaged(entry *smcommon.Component, resource unstructured.Unstructured) bool {
