@@ -17,6 +17,10 @@ const (
 	// SyncOptionForce indicates if a resource should be forcefully applied during sync.
 	// If the initial applying fails, then the resource will be deleted and recreated forcefully.
 	SyncOptionForce = "force=true"
+
+	// ResyncInProgressAnnotation contains an annotation for a resource that was deleted forcefully
+	// and will be recreated in the next reconciling.
+	ResyncInProgressAnnotation = "deployment.plural.sh/resync"
 )
 
 // getSyncOptions returns the sync options of a resource.
@@ -59,4 +63,14 @@ func HasSyncOption(u unstructured.Unstructured, option string) bool {
 
 func HasForceSyncOption(u unstructured.Unstructured) bool {
 	return HasSyncOption(u, SyncOptionForce)
+}
+
+func AppendResyncInProgressAnnotation(u *unstructured.Unstructured) {
+	annotations := u.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	annotations[ResyncInProgressAnnotation] = "true"
+	u.SetAnnotations(annotations)
 }
