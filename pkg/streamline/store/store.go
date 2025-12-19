@@ -19,6 +19,8 @@ type Store interface {
 
 	SaveUnsyncedComponents(obj []unstructured.Unstructured) error
 
+	SetComponentUnsynced(obj unstructured.Unstructured) error
+
 	// GetComponentAttributes returns service components attributes from the store.
 	GetComponentAttributes(serviceID string, isDeleting bool) ([]client.ComponentAttributes, error)
 

@@ -128,6 +128,12 @@ const (
 		    applied = excluded.applied
 	`
 
+	setComponentUnsynced = `
+		UPDATE component
+		SET applied = 0
+		WHERE "group" = ? AND version = ? AND kind = ? AND namespace = ? AND name = ?
+	`
+
 	expireSHA = `
 		UPDATE component
 		SET

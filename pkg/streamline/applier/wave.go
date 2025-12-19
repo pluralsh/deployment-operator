@@ -438,6 +438,21 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 		return appliedResource, err
 	}
 
+	// Mark the resource as with resync in progress to use custom logic in status synchronizer.
+	patch := unstructured.Unstructured{
+		Object: map[string]any{
+			"metadata": map[string]any{
+				"annotations": map[string]any{
+					smcommon.ResyncInProgressAnnotation: "true",
+				},
+			},
+		},
+	}
+	patchBytes, _ := patch.MarshalJSON()
+	if _, err := c.Patch(ctx, u.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		klog.V(log.LogLevelDebug).ErrorS(err, "failed to patch resource with resync annotation", "resource", u.GetName())
+	}
+
 	// Otherwise force sync by deleting the resource and letting it recreate in the next round.
 	return nil, c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
 		GracePeriodSeconds: lo.ToPtr(int64(0)),

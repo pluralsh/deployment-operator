@@ -240,6 +240,13 @@ func (p *ProfiledStore) ExpireSHA(obj unstructured.Unstructured) error {
 	})
 }
 
+// SetComponentUnsynced wraps Store.SetComponentUnsynced with tracing.
+func (p *ProfiledStore) SetComponentUnsynced(obj unstructured.Unstructured) error {
+	return trace(context.Background(), "SetComponentUnsynced", func() error {
+		return p.inner.SetComponentUnsynced(obj)
+	})
+}
+
 // Expire wraps Store.Expire with tracing.
 func (p *ProfiledStore) Expire(serviceID string) error {
 	return trace(context.Background(), "Expire", func() error {

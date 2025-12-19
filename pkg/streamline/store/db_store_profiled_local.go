@@ -318,6 +318,13 @@ func (p *ProfiledStoreLocal) SetServiceChildren(serviceID, parentUID string, key
 	return res, err
 }
 
+// SetComponentUnsynced wraps Store.SetComponentUnsynced with tracing.
+func (p *ProfiledStoreLocal) SetComponentUnsynced(obj unstructured.Unstructured) error {
+	return traceLocal(context.Background(), "SetComponentUnsynced", func() error {
+		return p.inner.SetComponentUnsynced(obj)
+	})
+}
+
 // SaveComponentAttributes wraps Store.SaveComponentAttributes with tracing.
 func (p *ProfiledStoreLocal) SaveComponentAttributes(obj client.ComponentChildAttributes, args ...any) error {
 	var err error

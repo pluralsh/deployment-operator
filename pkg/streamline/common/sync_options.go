@@ -65,12 +65,12 @@ func HasForceSyncOption(u unstructured.Unstructured) bool {
 	return HasSyncOption(u, SyncOptionForce)
 }
 
-func AppendResyncInProgressAnnotation(u *unstructured.Unstructured) {
+func HasResyncInProgressAnnotation(u *unstructured.Unstructured) bool {
 	annotations := u.GetAnnotations()
 	if annotations == nil {
-		annotations = map[string]string{}
+		return false
 	}
 
-	annotations[ResyncInProgressAnnotation] = "true"
-	u.SetAnnotations(annotations)
+	_, ok := annotations[ResyncInProgressAnnotation]
+	return ok
 }
