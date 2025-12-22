@@ -119,6 +119,34 @@ func TestHasSyncOption(t *testing.T) {
 			option: SyncOptionForce,
 			want:   true,
 		},
+		{
+			name: "empty annotation",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							SyncOptionsAnnotation: "",
+						},
+					},
+				},
+			},
+			option: SyncOptionForce,
+			want:   false,
+		},
+		{
+			name: "argo annotation multiple options",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							ArgoSyncOptionsAnnotation: "Validate=False,Force=True",
+						},
+					},
+				},
+			},
+			option: SyncOptionForce,
+			want:   true,
+		},
 	}
 
 	for _, tt := range tests {
