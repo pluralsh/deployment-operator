@@ -13,7 +13,7 @@ FROM $NODE_IMAGE AS node
 USER root
 
 # Install Gemini CLI globally using npm
-RUN npm install -g @google/gemini-cli@$AGENT_VERSION
+RUN yarn global add @google/gemini-cli@0.19.4 # TODO: Use $AGENT_VERSION once latest version will be fixed.
 
 # Verify installation
 RUN gemini --version
@@ -22,15 +22,15 @@ RUN gemini --version
 FROM $AGENT_HARNESS_BASE_IMAGE AS final
 
 # Copy the Gemini CLI from the Node.js image
-COPY --from=node /usr/local/bin/gemini /usr/local/bin/gemini
-COPY --from=node /usr/local/lib/node_modules/@google/gemini-cli /usr/local/lib/node_modules/@google/gemini-cli
+COPY --from=node /usr/local/share/.config/yarn/global /usr/local/share/.config/yarn/global
 
 # Copy Node.js runtime (needed to run the CLI)
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 
 # Ensure proper ownership for nonroot user
 USER root
-RUN chown -R 65532:65532 /usr/local/bin/gemini /usr/local/lib/node_modules/@google/gemini-cli /usr/local/bin/node
+RUN ln -s /usr/local/share/.config/yarn/global/node_modules/@google/gemini-cli/dist/index.js /usr/local/bin/gemini
+RUN chown -R 65532:65532 /usr/local/share/.config/yarn/global /usr/local/bin/gemini /usr/local/bin/node
 
 # Switch back to nonroot user
 USER 65532:65532

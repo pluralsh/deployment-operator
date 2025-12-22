@@ -20,6 +20,8 @@ PLRL_OPENCODE_MODEL := $(if $(PLRL_OPENCODE_MODEL),$(PLRL_OPENCODE_MODEL),"")
 PLRL_OPENCODE_TOKEN := $(if $(PLRL_OPENCODE_TOKEN),$(PLRL_OPENCODE_TOKEN),"")
 PLRL_CLAUDE_TOKEN := $(if $(PLRL_CLAUDE_TOKEN),$(PLRL_CLAUDE_TOKEN),"")
 PLRL_CLAUDE_MODEL := $(if $(PLRL_CLAUDE_MODEL),$(PLRL_CLAUDE_MODEL),"")
+PLRL_GEMINI_MODEL := $(if $(PLRL_GEMINI_MODEL),$(PLRL_GEMINI_MODEL),"")
+PLRL_GEMINI_API_KEY := $(if $(PLRL_GEMINI_API_KEY),$(PLRL_GEMINI_API_KEY),"")
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
@@ -125,6 +127,17 @@ agent-harness-claude-run: docker-build-agent-harness-claude ## run agent harness
 		-e PLRL_CLAUDE_TOKEN=$(PLRL_CLAUDE_TOKEN) \
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-claude --v=3
+
+.PHONY: agent-harness-gemini-run
+agent-harness-gemini-run: docker-build-agent-harness-gemini ## run agent harness w/ gemini
+	docker run \
+		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
+		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
+		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		-e PLRL_GEMINI_MODEL=$(PLRL_GEMINI_MODEL) \
+		-e PLRL_GEMINI_API_KEY=$(PLRL_GEMINI_API_KEY) \
+		--rm -it \
+		ghcr.io/pluralsh/agent-harness-gemini --v=4
 
 .PHONY: agent-mcpserver-run
 agent-mcpserver-run: agent-mcpserver ## run mcp server locally
