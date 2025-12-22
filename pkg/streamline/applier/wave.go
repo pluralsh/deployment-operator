@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -454,10 +455,13 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 	}
 
 	// Otherwise force sync by deleting the resource and letting it recreate in the next round.
-	return nil, c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
+	if err := c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationForeground),
-	})
+	}); err != nil {
+		return nil, err
+	}
+	return CreateWithBackoff(ctx, c, u), nil
 }
 
 func (in *WaveProcessor) isManaged(entry *smcommon.Component, resource unstructured.Unstructured) bool {
@@ -583,6 +587,34 @@ func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cach
 	for _, opt := range opts {
 		opt(result)
 	}
+
+	return result
+}
+
+func CreateWithBackoff(
+	ctx context.Context,
+	c dynamic.ResourceInterface,
+	obj unstructured.Unstructured,
+) *unstructured.Unstructured {
+
+	var result *unstructured.Unstructured
+
+	backoff := wait.Backoff{
+		Steps:    2,
+		Duration: 100 * time.Millisecond,
+		Factor:   3.0,
+		Jitter:   0.1,
+	}
+
+	_ = wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
+		var err error
+		result, err = c.Create(ctx, &obj, metav1.CreateOptions{})
+		if err != nil {
+			// retry on any error
+			return false, nil
+		}
+		return true, nil
+	})
 
 	return result
 }
