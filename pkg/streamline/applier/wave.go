@@ -455,12 +455,13 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 	}
 
 	// Otherwise force sync by deleting the resource and letting it recreate in the next round.
-	if err := c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
+	if err = c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationForeground),
 	}); err != nil {
 		return nil, err
 	}
+
 	return CreateWithBackoff(ctx, c, u), nil
 }
 
@@ -591,12 +592,7 @@ func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cach
 	return result
 }
 
-func CreateWithBackoff(
-	ctx context.Context,
-	c dynamic.ResourceInterface,
-	obj unstructured.Unstructured,
-) *unstructured.Unstructured {
-
+func CreateWithBackoff(ctx context.Context, c dynamic.ResourceInterface, obj unstructured.Unstructured) *unstructured.Unstructured {
 	var result *unstructured.Unstructured
 
 	backoff := wait.Backoff{
