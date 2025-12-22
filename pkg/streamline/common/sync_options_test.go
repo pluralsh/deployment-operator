@@ -104,6 +104,21 @@ func TestHasSyncOption(t *testing.T) {
 			option: SyncOptionForce,
 			want:   true,
 		},
+		{
+			name: "both annotations present, plural takes precedence",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							SyncOptionsAnnotation:     "Force=True",
+							ArgoSyncOptionsAnnotation: "Force=False",
+						},
+					},
+				},
+			},
+			option: SyncOptionForce,
+			want:   true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -155,6 +170,52 @@ func TestHasForceSyncOption(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, HasForceSyncOption(tt.obj))
+		})
+	}
+}
+
+func TestHasResyncInProgressAnnotation(t *testing.T) {
+	tests := []struct {
+		name string
+		obj  unstructured.Unstructured
+		want bool
+	}{
+		{
+			name: "no annotations",
+			obj:  unstructured.Unstructured{},
+			want: false,
+		},
+		{
+			name: "annotation present",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							ResyncInProgressAnnotation: "true",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "annotation missing",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							"some-other-annotation": "true",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, HasResyncInProgressAnnotation(&tt.obj))
 		})
 	}
 }
