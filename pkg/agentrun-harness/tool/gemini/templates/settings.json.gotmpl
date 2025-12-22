@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/google-gemini/gemini-cli/refs/heads/main/schemas/settings.schema.json",
+  "base": {
+    "modelConfig": {
+      "generateContentConfig": {
+        "temperature": 0.1
+      }
+    }
+  },
+  "context": {
+    "fileName": "{{ .ContextFileName }}"
+  },
+  "coreTools": {{ if eq .AgentRunMode "WRITE" }}[
+    "ReadFileTool",
+    "ReadManyFilesTool",
+    "WriteFileTool",
+    "EditTool",
+    "GlobTool",
+    "LSTool",
+    "GrepTool",
+    "ShellTool",
+    "WebSearchTool",
+    "WebFetchTool",
+    "MemoryTool"
+  ]{{ else }}[
+    "ReadFileTool",
+    "ReadManyFilesTool",
+    "GlobTool",
+    "LSTool",
+    "GrepTool",
+    "ShellTool(ls, cd, pwd, git status, git diff, head, tail, cat, grep, find)",
+    "WebSearchTool",
+    "MemoryTool"
+  ]{{ end }},
+  "excludeTools": [
+    "ShellTool(rm -rf)"
+  ],
+  "includeDirectories": [
+    "/plural/contexts",
+    "{{ .RepositoryDir }}"
+  ],
+  "model": "{{ .Model }}",
+  "mcpServers": {
+    "plural": {
+      "command": "mcpserver",
+      "description": "Plural MCP Server",
+      "env": {
+        "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
+        "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
+        "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}"
+      },
+      "trust": true
+    }
+  },
+  "privacy": {
+    "usageStatisticsEnabled": false
+  },
+  "telemetry": {
+    "enabled": false
+  }
+}

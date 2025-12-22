@@ -43,6 +43,9 @@ const (
 	EnvClaudeModel = "PLRL_CLAUDE_MODEL"
 	EnvClaudeToken = "PLRL_CLAUDE_TOKEN"
 	EnvClaudeArgs  = "PLRL_CLAUDE_ARGS"
+
+	EnvGeminiModel  = "PLRL_GEMINI_MODEL"
+	EnvGeminiAPIKey = "PLRL_GEMINI_API_KEY"
 )
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.
@@ -331,6 +334,15 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 
 		result[EnvClaudeModel] = lo.FromPtr(config.Claude.Model)
 		result[EnvClaudeToken] = config.Claude.ApiKey
+	}
+
+	if runtimeType == console.AgentRuntimeTypeGemini {
+		if config.Gemini == nil {
+			return result
+		}
+
+		result[EnvGeminiModel] = lo.FromPtr(config.Gemini.Model)
+		result[EnvGeminiAPIKey] = config.Gemini.APIKey
 	}
 
 	return result
