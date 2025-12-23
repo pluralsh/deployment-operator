@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pluralsh/polly/cache"
 	"github.com/pluralsh/polly/containers"
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/dynamic"
@@ -60,7 +61,7 @@ type ServiceReconciler struct {
 	applier                                                                                 *applier.Applier
 	svcQueue                                                                                workqueue.TypedRateLimitingInterface[string]
 	typedRateLimiter                                                                        workqueue.TypedRateLimiter[string]
-	svcCache                                                                                *client.Cache[console.ServiceDeploymentForAgent]
+	svcCache                                                                                *cache.Cache[console.ServiceDeploymentForAgent]
 	manifestCache                                                                           *manis.ManifestCache
 	restoreNamespace                                                                        string
 	mapper                                                                                  meta.RESTMapper
@@ -84,7 +85,7 @@ func NewServiceReconciler(consoleClient client.Client,
 	dynamicClient dynamic.Interface,
 	discoveryCache discoverycache.Cache,
 	namespaceCache streamline.NamespaceCache,
-	svcCache *client.Cache[console.ServiceDeploymentForAgent],
+	svcCache *cache.Cache[console.ServiceDeploymentForAgent],
 	store store.Store,
 	option ...ServiceReconcilerOption,
 ) (*ServiceReconciler, error) {

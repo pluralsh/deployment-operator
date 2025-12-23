@@ -11,10 +11,10 @@ import (
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
+	pollycache "github.com/pluralsh/polly/cache"
 
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
@@ -143,7 +143,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			}(storeInstance)
 			streamline.InitGlobalStore(storeInstance)
 			discoverycache.InitGlobalDiscoveryCache(discoveryClient, mapper)
-			svcCache := client.NewCache[console.ServiceDeploymentForAgent](time.Minute, func(id string) (*console.ServiceDeploymentForAgent, error) { return fakeConsoleClient.GetService(id) })
+			svcCache := pollycache.NewCache[console.ServiceDeploymentForAgent](time.Minute, func(id string) (*console.ServiceDeploymentForAgent, error) { return fakeConsoleClient.GetService(id) })
 
 			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), svcCache, storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
 			Expect(err).NotTo(HaveOccurred())
@@ -181,7 +181,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 					log.Printf("unable to shutdown database store: %v", err)
 				}
 			}(storeInstance)
-			svcCache := client.NewCache[console.ServiceDeploymentForAgent](time.Minute, func(id string) (*console.ServiceDeploymentForAgent, error) { return fakeConsoleClient.GetService(id) })
+			svcCache := pollycache.NewCache[console.ServiceDeploymentForAgent](time.Minute, func(id string) (*console.ServiceDeploymentForAgent, error) { return fakeConsoleClient.GetService(id) })
 
 			reconciler, err := service.NewServiceReconciler(fakeConsoleClient, kClient, mapper, clientSet, dynamicClient, discoverycache.GlobalCache(), streamline.NewNamespaceCache(clientSet), svcCache, storeInstance, service.WithRestoreNamespace(namespace), service.WithConsoleURL("http://localhost:8081"))
 			Expect(err).NotTo(HaveOccurred())

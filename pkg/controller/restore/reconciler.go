@@ -6,6 +6,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/cache"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,7 +53,7 @@ type RestoreReconciler struct {
 	consoleClient client.Client
 	k8sClient     ctrlclient.Client
 	restoreQueue  workqueue.TypedRateLimitingInterface[string]
-	restoreCache  *client.Cache[console.ClusterRestoreFragment]
+	restoreCache  *cache.Cache[console.ClusterRestoreFragment]
 	namespace     string
 	pollInterval  time.Duration
 }
@@ -62,7 +63,7 @@ func NewRestoreReconciler(consoleClient client.Client, k8sClient ctrlclient.Clie
 		consoleClient: consoleClient,
 		k8sClient:     k8sClient,
 		restoreQueue:  workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		restoreCache: client.NewCache[console.ClusterRestoreFragment](refresh, func(id string) (*console.ClusterRestoreFragment, error) {
+		restoreCache: cache.NewCache[console.ClusterRestoreFragment](refresh, func(id string) (*console.ClusterRestoreFragment, error) {
 			return consoleClient.GetClusterRestore(id)
 		}),
 		namespace:    namespace,

@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/cache"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
@@ -17,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/test/common"
 	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
@@ -31,7 +31,7 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 			raw       = `{"backoffLimit":4,"template":{"metadata":{"namespace":"default","creationTimestamp":null},"spec":{"containers":[{"name":"pi","image":"perl:5.34.0","command":["perl","-Mbignum=bpi","-wle","print bpi(2000)"],"resources":{}}],"restartPolicy":"Never"}}}`
 		)
 
-		gateCache := client.NewCache[console.PipelineGateFragment](time.Second, func(id string) (*console.PipelineGateFragment, error) {
+		gateCache := cache.NewCache[console.PipelineGateFragment](time.Second, func(id string) (*console.PipelineGateFragment, error) {
 			return &console.PipelineGateFragment{
 				ID:   id,
 				Name: "test",

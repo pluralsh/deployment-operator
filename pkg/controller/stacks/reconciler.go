@@ -6,6 +6,7 @@ import (
 	"time"
 
 	configuration "github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/polly/cache"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -31,7 +32,7 @@ type StackReconciler struct {
 	k8sClient     ctrlclient.Client
 	scheme        *runtime.Scheme
 	stackQueue    workqueue.TypedRateLimitingInterface[string]
-	stackCache    *client.Cache[console.StackRunMinimalFragment]
+	stackCache    *cache.Cache[console.StackRunMinimalFragment]
 	namespace     string
 	consoleURL    string
 	deployToken   string
@@ -44,7 +45,7 @@ func NewStackReconciler(consoleClient client.Client, k8sClient ctrlclient.Client
 		k8sClient:     k8sClient,
 		scheme:        scheme,
 		stackQueue:    workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		stackCache: client.NewCache[console.StackRunMinimalFragment](refresh, func(id string) (*console.StackRunMinimalFragment, error) {
+		stackCache: cache.NewCache[console.StackRunMinimalFragment](refresh, func(id string) (*console.StackRunMinimalFragment, error) {
 			return consoleClient.GetStackRun(id)
 		}),
 		consoleURL:   consoleURL,

@@ -2,14 +2,13 @@ package sentinel
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type socketPublisher struct {
 	sentinelRunQueue workqueue.TypedRateLimitingInterface[string]
-	sentinelRunCache *client.Cache[console.SentinelRunJobFragment]
+	sentinelRunCache *cache.Cache[console.SentinelRunJobFragment]
 }
 
 func (sp *socketPublisher) Publish(id string, _ bool) {

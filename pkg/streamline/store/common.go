@@ -4,6 +4,9 @@ import (
 	"github.com/pluralsh/console/go/client"
 	"github.com/sahilm/fuzzy"
 	"github.com/samber/lo"
+	"k8s.io/klog/v2"
+	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 var (
@@ -58,4 +61,33 @@ func NodeStatisticHealth(pendingPods int64) *client.NodeStatisticHealth {
 	default:
 		return lo.ToPtr(client.NodeStatisticHealthFailed)
 	}
+}
+
+func WithTransaction(conn *sqlite.Conn, fn func() error) (err error) {
+	if err = sqlitex.Execute(conn, "BEGIN IMMEDIATE", nil); err != nil {
+		return err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			if e := sqlitex.Execute(conn, "ROLLBACK", nil); e != nil {
+				klog.ErrorS(e, "failed to rollback transaction after panic")
+			}
+			panic(p)
+		}
+
+		if err != nil {
+			if e := sqlitex.Execute(conn, "ROLLBACK", nil); e != nil {
+				klog.ErrorS(e, "failed to rollback transaction")
+			}
+			return
+		}
+
+		if e := sqlitex.Execute(conn, "COMMIT", nil); e != nil {
+			err = e
+		}
+	}()
+
+	err = fn()
+	return err
 }

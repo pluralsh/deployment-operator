@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/cache"
 
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -44,7 +45,7 @@ type PipelineGateReconciler struct {
 	runtimeclient.Client
 	ConsoleClient consoleclient.Client
 	Scheme        *runtime.Scheme
-	GateCache     *consoleclient.Cache[console.PipelineGateFragment]
+	GateCache     *cache.Cache[console.PipelineGateFragment]
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=pipelinegates,verbs=get;list;watch;create;update;patch;delete
