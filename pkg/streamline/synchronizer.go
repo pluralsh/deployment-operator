@@ -179,6 +179,17 @@ func (in *synchronizer) handleEvent(ev watch.Event) {
 			return
 		}
 
+		// If a component force resync is in progress, do not delete it from the database and only mark as unsynced.
+		if smcommon.HasResyncInProgressAnnotation(obj) {
+			if err = in.store.SetComponentUnsynced(*obj); err != nil {
+				klog.ErrorS(err, "failed to mark component as unsynced", "gvr", in.gvr, "name", obj.GetName())
+				return
+			}
+
+			in.maybeSyncServiceComponents(*obj, true)
+			return
+		}
+
 		klog.V(log.LogLevelTrace).InfoS("deleting resource from the store", "gvr", in.gvr, "name", obj.GetName())
 		if err = in.store.DeleteComponent(smcommon.NewStoreKeyFromUnstructured(lo.FromPtr(obj))); err != nil {
 			klog.ErrorS(err, "failed to delete resource", "gvr", in.gvr, "name", obj.GetName())

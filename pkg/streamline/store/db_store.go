@@ -1266,6 +1266,24 @@ func (in *DatabaseStore) ExpireSHA(obj unstructured.Unstructured) error {
 	})
 }
 
+func (in *DatabaseStore) SetComponentUnsynced(obj unstructured.Unstructured) error {
+	gvk := obj.GroupVersionKind()
+
+	conn, cancelFunc, err := in.take()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		in.pool.Put(conn)
+		cancelFunc()
+	}()
+
+	return sqlitex.ExecuteTransient(conn, setComponentUnsynced, &sqlitex.ExecOptions{
+		Args: []interface{}{gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName()},
+	})
+}
+
 func (in *DatabaseStore) Expire(serviceID string) error {
 	conn, cancelFunc, err := in.take()
 	if err != nil {

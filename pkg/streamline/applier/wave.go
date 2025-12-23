@@ -7,17 +7,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/samber/lo"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
-
 	"github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -28,6 +17,17 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
+	"github.com/samber/lo"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 )
 
 type WaveType string
@@ -375,12 +375,8 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 		}
 		return
 	}
-	appliedResource, err := c.Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{
-		FieldManager: smcommon.ClientFieldManager,
-		Force:        true,
-		DryRun:       lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
-	})
 
+	appliedResource, err := in.doApply(ctx, c, resource)
 	if err != nil {
 		if err := streamline.GetGlobalStore().ExpireSHA(resource); err != nil {
 			klog.ErrorS(err, "failed to expire sha", "resource", resource.GetName(), "kind", resource.GetKind())
@@ -391,6 +387,10 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 			Message: fmt.Sprintf("failed to apply %s/%s: %s", resource.GetNamespace(), resource.GetName(), err.Error()),
 		}
 
+		return
+	}
+
+	if appliedResource == nil {
 		return
 	}
 
@@ -423,6 +423,46 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	}
 
 	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
+}
+
+func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterface, u unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	appliedResource, err := c.Apply(ctx, u.GetName(), &u, metav1.ApplyOptions{
+		FieldManager: smcommon.ClientFieldManager,
+		Force:        true,
+		DryRun:       lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{}),
+	})
+
+	// Return early if no error occurred,
+	// if the service is in dry run mode
+	// or if the resource does not have the force sync option enabled.
+	if err == nil || in.dryRun || !smcommon.HasForceSyncOption(u) {
+		return appliedResource, err
+	}
+
+	// Mark the resource as with resync in progress to use custom logic in status synchronizer.
+	patch := unstructured.Unstructured{
+		Object: map[string]any{
+			"metadata": map[string]any{
+				"annotations": map[string]any{
+					smcommon.ResyncInProgressAnnotation: "true",
+				},
+			},
+		},
+	}
+	patchBytes, _ := patch.MarshalJSON()
+	if _, err := c.Patch(ctx, u.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+		klog.V(log.LogLevelDebug).ErrorS(err, "failed to patch resource with resync annotation", "resource", u.GetName())
+	}
+
+	// Otherwise force sync by deleting the resource and letting it recreate in the next round.
+	if err = c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
+		GracePeriodSeconds: lo.ToPtr(int64(0)),
+		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationForeground),
+	}); err != nil {
+		return nil, err
+	}
+
+	return CreateWithBackoff(ctx, c, u), nil
 }
 
 func (in *WaveProcessor) isManaged(entry *smcommon.Component, resource unstructured.Unstructured) bool {
@@ -548,6 +588,29 @@ func NewWaveProcessor(dynamicClient dynamic.Interface, cache discoverycache.Cach
 	for _, opt := range opts {
 		opt(result)
 	}
+
+	return result
+}
+
+func CreateWithBackoff(ctx context.Context, c dynamic.ResourceInterface, obj unstructured.Unstructured) *unstructured.Unstructured {
+	var result *unstructured.Unstructured
+
+	backoff := wait.Backoff{
+		Steps:    2,
+		Duration: 100 * time.Millisecond,
+		Factor:   3.0,
+		Jitter:   0.1,
+	}
+
+	_ = wait.ExponentialBackoffWithContext(ctx, backoff, func(ctx context.Context) (bool, error) {
+		var err error
+		result, err = c.Create(ctx, &obj, metav1.CreateOptions{})
+		if err != nil {
+			// retry on any error
+			return false, nil
+		}
+		return true, nil
+	})
 
 	return result
 }
