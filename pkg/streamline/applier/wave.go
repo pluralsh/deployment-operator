@@ -11,12 +11,12 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
+	"github.com/pluralsh/polly/cache"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -153,7 +153,7 @@ type WaveProcessor struct {
 	onApplyCallback func(resource unstructured.Unstructured)
 
 	// svcCache is the discoveryCache used to get the service deployment for an agent.
-	svcCache *consoleclient.Cache[console.ServiceDeploymentForAgent]
+	svcCache *cache.Cache[console.ServiceDeploymentForAgent]
 
 	// waveStatistics contains statistics about the wave that was processed.
 	// TODO: make it thread-safe
@@ -567,7 +567,7 @@ func WithWaveOnApply(onApply func(resource unstructured.Unstructured)) WaveProce
 	}
 }
 
-func WithWaveSvcCache(c *consoleclient.Cache[console.ServiceDeploymentForAgent]) WaveProcessorOption {
+func WithWaveSvcCache(c *cache.Cache[console.ServiceDeploymentForAgent]) WaveProcessorOption {
 	return func(w *WaveProcessor) {
 		w.svcCache = c
 	}

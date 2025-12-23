@@ -2,14 +2,13 @@ package stacks
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 type socketPublisher struct {
 	stackRunQueue workqueue.TypedRateLimitingInterface[string]
-	stackRunCache *client.Cache[console.StackRunMinimalFragment]
+	stackRunCache *cache.Cache[console.StackRunMinimalFragment]
 }
 
 func (sp *socketPublisher) Publish(id string, _ bool) {

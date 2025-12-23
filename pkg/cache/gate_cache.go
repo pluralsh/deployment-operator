@@ -4,12 +4,13 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/cache"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 var (
-	gateCache *client.Cache[console.PipelineGateFragment]
+	gateCache *cache.Cache[console.PipelineGateFragment]
 )
 
 func InitGateCache(expireAfter time.Duration, consoleClient client.Client) {
@@ -17,12 +18,12 @@ func InitGateCache(expireAfter time.Duration, consoleClient client.Client) {
 		return
 	}
 
-	gateCache = client.NewCache[console.PipelineGateFragment](expireAfter, func(id string) (*console.PipelineGateFragment, error) {
+	gateCache = cache.NewCache[console.PipelineGateFragment](expireAfter, func(id string) (*console.PipelineGateFragment, error) {
 		return consoleClient.GetClusterGate(id)
 	})
 }
 
-func GateCache() *client.Cache[console.PipelineGateFragment] {
+func GateCache() *cache.Cache[console.PipelineGateFragment] {
 	if gateCache == nil {
 		panic("gate cache is not initialized")
 	}

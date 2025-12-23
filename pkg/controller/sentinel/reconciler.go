@@ -8,6 +8,7 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/polly/cache"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,7 +31,7 @@ type SentinelReconciler struct {
 	k8sClient      ctrlclient.Client
 	scheme         *runtime.Scheme
 	sentinelQueue  workqueue.TypedRateLimitingInterface[string]
-	sentinelCache  *client.Cache[console.SentinelRunJobFragment]
+	sentinelCache  *cache.Cache[console.SentinelRunJobFragment]
 	namespace      string
 	consoleURL     string
 	deployToken    string
@@ -44,7 +45,7 @@ func NewSentinelReconciler(namespaceCache streamline.NamespaceCache, consoleClie
 		k8sClient:     k8sClient,
 		scheme:        scheme,
 		sentinelQueue: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		sentinelCache: client.NewCache[console.SentinelRunJobFragment](refresh, func(id string) (*console.SentinelRunJobFragment, error) {
+		sentinelCache: cache.NewCache[console.SentinelRunJobFragment](refresh, func(id string) (*console.SentinelRunJobFragment, error) {
 			return consoleClient.GetSentinelRunJob(id)
 		}),
 		consoleURL:     consoleURL,

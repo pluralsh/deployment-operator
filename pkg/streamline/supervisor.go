@@ -8,7 +8,7 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/polly/cache"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -65,7 +65,7 @@ type Supervisor struct {
 	started            bool
 	client             dynamic.Interface
 	discoveryCache     discoverycache.Cache
-	svcCache           *client.Cache[console.ServiceDeploymentForAgent]
+	svcCache           *cache.Cache[console.ServiceDeploymentForAgent]
 	statusSynchronizer StatusSynchronizer
 	store              store.Store
 
@@ -88,7 +88,7 @@ type Supervisor struct {
 }
 
 func NewSupervisor(client dynamic.Interface, store store.Store, statusSynchronizer StatusSynchronizer,
-	discoveryCache discoverycache.Cache, svcCache *client.Cache[console.ServiceDeploymentForAgent], options ...Option) *Supervisor {
+	discoveryCache discoverycache.Cache, svcCache *cache.Cache[console.ServiceDeploymentForAgent], options ...Option) *Supervisor {
 	s := &Supervisor{
 		client:                        client,
 		statusSynchronizer:            statusSynchronizer,

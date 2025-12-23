@@ -2,9 +2,9 @@ package service
 
 import (
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/polly/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 
@@ -13,7 +13,7 @@ import (
 
 type socketPublisher struct {
 	svcQueueGetter func() workqueue.TypedRateLimitingInterface[string]
-	svcCache       *client.Cache[console.ServiceDeploymentForAgent]
+	svcCache       *cache.Cache[console.ServiceDeploymentForAgent]
 	manCache       *manifests.ManifestCache
 }
 

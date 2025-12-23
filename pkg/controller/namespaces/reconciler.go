@@ -9,6 +9,7 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/polly/cache"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,7 +33,7 @@ type NamespaceReconciler struct {
 	consoleClient  client.Client
 	k8sClient      ctrlclient.Client
 	namespaceQueue workqueue.TypedRateLimitingInterface[string]
-	namespaceCache *client.Cache[console.ManagedNamespaceFragment]
+	namespaceCache *cache.Cache[console.ManagedNamespaceFragment]
 	pollInterval   time.Duration
 }
 
@@ -41,7 +42,7 @@ func NewNamespaceReconciler(consoleClient client.Client, k8sClient ctrlclient.Cl
 		consoleClient:  consoleClient,
 		k8sClient:      k8sClient,
 		namespaceQueue: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
-		namespaceCache: client.NewCache[console.ManagedNamespaceFragment](refresh, func(id string) (*console.ManagedNamespaceFragment, error) {
+		namespaceCache: cache.NewCache[console.ManagedNamespaceFragment](refresh, func(id string) (*console.ManagedNamespaceFragment, error) {
 			return consoleClient.GetNamespace(id)
 		}),
 		pollInterval: pollInterval,

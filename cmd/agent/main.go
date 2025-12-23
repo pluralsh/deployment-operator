@@ -11,8 +11,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-
 	kubernetestrace "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 	datadogtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	datadogprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
@@ -23,6 +21,8 @@ import (
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintstatusv1beta1 "github.com/open-policy-agent/gatekeeper/v3/apis/status/v1beta1"
 	openshift "github.com/openshift/api/config/v1"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
+	pollycache "github.com/pluralsh/polly/cache"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -136,7 +136,7 @@ func main() {
 
 	statusSynchronizer := streamline.NewStatusSynchronizer(extConsoleClient, args.ComponentShaCacheTTL())
 
-	svcCache := client.NewCache[console.ServiceDeploymentForAgent](args.ControllerCacheTTL(),
+	svcCache := pollycache.NewCache[console.ServiceDeploymentForAgent](args.ControllerCacheTTL(),
 		func(id string) (*console.ServiceDeploymentForAgent, error) {
 			return extConsoleClient.GetService(id)
 		})
@@ -237,7 +237,7 @@ func runDiscoveryManagerOrDie(ctx context.Context, cache discoverycache.Cache) {
 
 func runSynchronizerSupervisorOrDie(ctx context.Context, dynamicClient dynamic.Interface, store store.Store,
 	statusSynchronizer streamline.StatusSynchronizer, discoveryCache discoverycache.Cache,
-	namespaceCache streamline.NamespaceCache, svcCache *client.Cache[console.ServiceDeploymentForAgent]) *streamline.Supervisor {
+	namespaceCache streamline.NamespaceCache, svcCache *pollycache.Cache[console.ServiceDeploymentForAgent]) *streamline.Supervisor {
 	now := time.Now()
 	supervisor := streamline.NewSupervisor(dynamicClient,
 		store,
