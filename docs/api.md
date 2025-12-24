@@ -511,7 +511,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `apiKeySecretRef` _[SecretKeySelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#secretkeyselector-v1-core)_ | APIKeySecretRef is a reference to a Kubernetes Secret containing the Gemini API key. |  |  |
-| `model` _string_ | Model is the name of the model to use. |  |  |
+| `model` _string_ | Model is the name of the model to use.<br />gemini-2.5-flash-lite and gemini-2.0-flash-lite are the smallest models and are not fit for write (agent) mode.<br />They should only be used for analysis. |  | Enum: [gemini-3-pro-preview gemini-2.5-pro gemini-2.5-flash gemini-2.5-flash-lite gemini-2.0-flash gemini-2.0-flash-lite] <br />Optional: \{\} <br /> |
 
 
 #### GeminiConfigRaw
