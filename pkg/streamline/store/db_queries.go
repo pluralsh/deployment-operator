@@ -1,7 +1,8 @@
 package store
 
 const (
-	createTables = `
+	// createComponentTable creates the component table.
+	createComponentTable = `
 		CREATE TABLE IF NOT EXISTS component (
 			id INTEGER PRIMARY KEY,
 			parent_uid TEXT,
@@ -21,15 +22,22 @@ const (
 			transient_manifest_sha TEXT,
 			apply_sha TEXT,
 			server_sha TEXT,
-			manifest BOOLEAN DEFAULT 0, -- Indicates if the component was created from an original manifest set of a service
-			applied BOOLEAN DEFAULT 0 -- Indicates if the component was already applied to the cluster
+			manifest BOOLEAN DEFAULT 0, 	-- Indicates if the component was part of original manifest set of a service
+			applied BOOLEAN DEFAULT 0, 		-- Indicates if the component was already applied to the cluster
+			
+			UNIQUE("group", version, kind, namespace, name)
 		);
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_component ON component("group", version, kind, namespace, name);
+	`
+
+	// createComponentIndexes creates the indexes for the component table.
+	createComponentIndexes = `
 		CREATE INDEX IF NOT EXISTS idx_parent ON component(parent_uid);
 		CREATE INDEX IF NOT EXISTS idx_uid ON component(uid);
 		CREATE INDEX IF NOT EXISTS idx_service_id ON component(service_id);
+	`
 
-		-- Set default value on insert
+	// createTriggerInsert creates a trigger to set the updated_at timestamp on insert.
+	createTriggerInsert = `
 		CREATE TRIGGER IF NOT EXISTS set_updated_at_on_insert
 		AFTER INSERT ON component
 		BEGIN
@@ -37,8 +45,11 @@ const (
 			SET updated_at = CURRENT_TIMESTAMP
 			WHERE id = NEW.id;
 		END;
-		
-		-- Update timestamp automatically on row update§
+	`
+
+	// createTriggerUpdate creates a trigger to set the updated_at timestamp on update.
+	// It only updates the timestamp if the server_sha has changed.
+	createTriggerUpdate = `
 		CREATE TRIGGER IF NOT EXISTS set_updated_at_on_update
 		AFTER UPDATE ON component
 		BEGIN
@@ -46,8 +57,10 @@ const (
 			SET updated_at = CURRENT_TIMESTAMP
 			WHERE id = NEW.id AND server_sha != NEW.server_sha;
 		END;
+	`
 
-		-- Create the hook component table
+	// createHookComponentTable creates the hook component table.
+	createHookComponentTable = `
 		CREATE TABLE IF NOT EXISTS hook_component (
 			id INTEGER PRIMARY KEY,
 			uid TEXT,
@@ -59,11 +72,14 @@ const (
 			status INT,
 			manifest_sha TEXT,
 			service_id TEXT,
-			delete_policies TEXT
+			delete_policies TEXT,
+			
+			UNIQUE("group", version, kind, namespace, name)
 		);
-	 
-		-- Add indexes to the hook component table
-		CREATE UNIQUE INDEX IF NOT EXISTS hook_component_index_unique ON hook_component("group", version, kind, namespace, name);
+	`
+
+	// createHookComponentIndexes creates the indexes for the hook component table.
+	createHookComponentIndexes = `
 		CREATE INDEX IF NOT EXISTS hook_component_index_service_id ON hook_component(service_id);
 	`
 

@@ -5,7 +5,7 @@ type Storage string
 
 const (
 	// StorageMemory stores data in-memory.
-	StorageMemory Storage = "file::memory:?mode=memory&cache=shared"
+	StorageMemory Storage = ":memory:"
 
 	// StorageFile stores data in a file on a disk.
 	StorageFile Storage = "file"

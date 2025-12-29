@@ -111,8 +111,19 @@ func createStoreKey(option ...CreateStoreKeyOption) common.StoreKey {
 }
 
 func TestComponentCache_Init(t *testing.T) {
-	t.Run("cache should initialize", func(t *testing.T) {
+	t.Run("cache should initialize in file", func(t *testing.T) {
 		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func(storeInstance store.Store) {
+			err := storeInstance.Shutdown()
+			if err != nil {
+				t.Errorf("failed to shutdown store: %v", err)
+			}
+		}(storeInstance)
+	})
+
+	t.Run("cache should initialize in memory", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageMemory))
 		assert.NoError(t, err)
 		defer func(storeInstance store.Store) {
 			err := storeInstance.Shutdown()
