@@ -13,7 +13,7 @@ import (
 	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
-	_ "github.com/tursodatabase/go-libsql"
+	_ "github.com/tursodatabase/turso-go"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -107,7 +107,7 @@ func (in *DatabaseStore) init() error {
 		klog.V(log.LogLevelDefault).InfoS("using in-memory storage")
 	}
 
-	db, err := sql.Open("libsql", connectionString)
+	db, err := sql.Open("turso", connectionString)
 	if err != nil {
 		return err
 	}
@@ -126,13 +126,14 @@ func (in *DatabaseStore) init() error {
 		}
 	}
 
-	if _, err = in.db.Exec(createTriggerInsert); err != nil {
-		return err
-	}
-
-	if _, err = in.db.Exec(createTriggerUpdate); err != nil {
-		return err
-	}
+	// TODO: Restore that functionality.
+	//if _, err = in.db.Exec(createTriggerInsert); err != nil {
+	//	return err
+	//}
+	//
+	//if _, err = in.db.Exec(createTriggerUpdate); err != nil {
+	//	return err
+	//}
 
 	if _, err = in.db.Exec(createHookComponentTable); err != nil {
 		return err
