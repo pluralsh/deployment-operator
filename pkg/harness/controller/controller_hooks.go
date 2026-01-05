@@ -94,7 +94,7 @@ func (in *stackRunController) postStepRun(id string, err error) {
 func (in *stackRunController) postExecHook(step *gqlclient.RunStepFragment) v1.HookFunction {
 	return func() error {
 		if step.Stage == gqlclient.StepStagePlan {
-			return in.afterPlan(step.ID)
+			return in.afterPlan()
 		}
 
 		return nil
@@ -145,7 +145,7 @@ func (in *stackRunController) waitForApproval() {
 	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusRunning, 5*time.Second)
 }
 
-func (in *stackRunController) afterPlan(stepId string) error {
+func (in *stackRunController) afterPlan() error {
 	// Run tool plan
 	state, err := in.tool.Plan()
 	if err != nil {
