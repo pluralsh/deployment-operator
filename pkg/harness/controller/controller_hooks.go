@@ -53,7 +53,7 @@ func (in *stackRunController) postStart(err error) {
 		// Do not send an error if stack run was canceled
 		err = nil
 	case errors.Is(err, internalerrors.ErrNoChanges):
-		status = gqlclient.StackStatusCancelled
+		status = gqlclient.StackStatusSuccessful
 		// Do not send an error if stack run was canceled due to no changes
 		// This allows other queued runs to proceed
 		err = nil
