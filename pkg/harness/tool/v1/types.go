@@ -38,6 +38,10 @@ type Tool interface {
 	// current step stage. Modifiers can for example alter arguments of the
 	// executable step command.
 	Modifier(stage console.StepStage) Modifier
+	// HasChanges deterministically checks if the plan contains any changes.
+	// Returns true if changes are detected, false for no-op plans.
+	// This allows the harness to skip unnecessary apply steps and not wait for approvals to free up resources.
+	HasChanges() (bool, error)
 }
 
 // DefaultTool implements [Tool] interface.
