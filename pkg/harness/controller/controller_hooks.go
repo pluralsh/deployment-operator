@@ -168,6 +168,7 @@ func (in *stackRunController) afterPlan() error {
 		return fmt.Errorf("security scanner error: max severity violation exceeded")
 	}
 
+	klog.V(log.LogLevelInfo).InfoS("checking approve empty status", "approveEmpty", lo.FromPtr(in.stackRun.ApproveEmpty))
 	if !lo.FromPtr(in.stackRun.ApproveEmpty) {
 		return nil
 	}
