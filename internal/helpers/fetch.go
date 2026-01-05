@@ -71,7 +71,7 @@ func (in *fetchClient) Tarball(url string) (string, error) {
 
 	if err != nil {
 		// ExponentialBackoff returns an error if retries exhausted
-		return in.destination, fmt.Errorf("failed to fetch tarball after retries: %w; last error: %v", err, lastErr)
+		return in.destination, fmt.Errorf("failed to fetch tarball after retries: %w; last error: %w", err, lastErr)
 	}
 
 	return in.destination, nil
