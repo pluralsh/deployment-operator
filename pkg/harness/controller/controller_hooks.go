@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	gqlclient "github.com/pluralsh/console/go/client"
@@ -76,8 +75,10 @@ func (in *stackRunController) postStart(err error) {
 func (in *stackRunController) postStepRun(id string, err error) {
 	var status gqlclient.StepStatus
 
-	switch err {
-	case nil:
+	switch {
+	case errors.Is(err, internalerrors.ErrNoChanges):
+		fallthrough
+	case err == nil:
 		status = gqlclient.StepStatusSuccessful
 	default:
 		status = gqlclient.StepStatusFailed
@@ -180,17 +181,6 @@ func (in *stackRunController) afterPlan(stepId string) error {
 		klog.ErrorS(err, "could not check for plan changes")
 		// Continue on error - we don't want to fail the run if change detection fails
 	} else if !hasChanges {
-		// Plan has no changes - update console with final state and cancel the run
-		klog.V(log.LogLevelInfo).InfoS("plan has no changes, cancelling run")
-
-		// Mark remaining steps as successful
-		idx := slices.IndexFunc(in.stackRun.Steps, func(s *gqlclient.RunStepFragment) bool { return s.ID == stepId })
-		if idx >= 0 && idx < len(in.stackRun.Steps)-1 {
-			for _, s := range in.stackRun.Steps[idx:] {
-				_ = stackrun.MarkStackRunStep(in.consoleClient, s.ID, gqlclient.StepStatusSuccessful)
-			}
-		}
-
 		// Return special error to signal no changes
 		return internalerrors.ErrNoChanges
 	}
