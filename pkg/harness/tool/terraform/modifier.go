@@ -27,8 +27,8 @@ func (in *PlanArgsModifier) Args(args []string) []string {
 	return append(args, fmt.Sprintf("-out=%s", in.planFileName))
 }
 
-func (tf *Terraform) NewPlanArgsModifier(planFileName string) v1.Modifier {
-	return &PlanArgsModifier{planFileName: planFileName, parallelism: tf.parallelism, refresh: tf.refresh}
+func (in *Terraform) NewPlanArgsModifier(planFileName string) v1.Modifier {
+	return &PlanArgsModifier{planFileName: planFileName, parallelism: in.parallelism, refresh: in.refresh}
 }
 
 // Args implements [v1.ArgsModifier] type.
@@ -48,6 +48,6 @@ func (in *ApplyArgsModifier) Args(args []string) []string {
 	return append(args, in.planFileName)
 }
 
-func (tf *Terraform) NewApplyArgsModifier(dir, planFileName string) v1.Modifier {
-	return &ApplyArgsModifier{planFileName: planFileName, dir: dir, parallelism: tf.parallelism, refresh: tf.refresh}
+func (in *Terraform) NewApplyArgsModifier(dir, planFileName string) v1.Modifier {
+	return &ApplyArgsModifier{planFileName: planFileName, dir: dir, parallelism: in.parallelism, refresh: in.refresh}
 }

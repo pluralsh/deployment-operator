@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	gqlclient "github.com/pluralsh/console/go/client"
@@ -50,11 +51,11 @@ func (in *stackRunController) postStart(err error) {
 		status = gqlclient.StackStatusSuccessful
 	case errors.Is(err, internalerrors.ErrRemoteCancel):
 		status = gqlclient.StackStatusCancelled
-		// Do not send an error if stack run was cancelled
+		// Do not send an error if stack run was canceled
 		err = nil
 	case errors.Is(err, internalerrors.ErrNoChanges):
 		status = gqlclient.StackStatusCancelled
-		// Do not send an error if stack run was cancelled due to no changes
+		// Do not send an error if stack run was canceled due to no changes
 		// This allows other queued runs to proceed
 		err = nil
 	default:
@@ -92,7 +93,7 @@ func (in *stackRunController) postStepRun(id string, err error) {
 func (in *stackRunController) postExecHook(step *gqlclient.RunStepFragment) v1.HookFunction {
 	return func() error {
 		if step.Stage == gqlclient.StepStagePlan {
-			return in.afterPlan()
+			return in.afterPlan(step.ID)
 		}
 
 		return nil
@@ -143,7 +144,7 @@ func (in *stackRunController) waitForApproval() {
 	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusRunning, 5*time.Second)
 }
 
-func (in *stackRunController) afterPlan() error {
+func (in *stackRunController) afterPlan(stepId string) error {
 	// Run tool plan
 	state, err := in.tool.Plan()
 	if err != nil {
@@ -181,6 +182,14 @@ func (in *stackRunController) afterPlan() error {
 	} else if !hasChanges {
 		// Plan has no changes - update console with final state and cancel the run
 		klog.V(log.LogLevelInfo).InfoS("plan has no changes, cancelling run")
+
+		// Mark remaining steps as successful
+		idx := slices.IndexFunc(in.stackRun.Steps, func(s *gqlclient.RunStepFragment) bool { return s.ID == stepId })
+		if idx >= 0 && idx < len(in.stackRun.Steps)-1 {
+			for _, s := range in.stackRun.Steps[idx:] {
+				_ = stackrun.MarkStackRunStep(in.consoleClient, s.ID, gqlclient.StepStatusSuccessful)
+			}
+		}
 
 		// Return special error to signal no changes
 		return internalerrors.ErrNoChanges
