@@ -7,6 +7,7 @@ import (
 	"time"
 
 	gqlclient "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
@@ -49,7 +50,12 @@ func (in *stackRunController) postStart(err error) {
 		status = gqlclient.StackStatusSuccessful
 	case errors.Is(err, internalerrors.ErrRemoteCancel):
 		status = gqlclient.StackStatusCancelled
-		// Do not send an error if stack run was cancelled
+		// Do not send an error if stack run was canceled
+		err = nil
+	case errors.Is(err, internalerrors.ErrNoChanges):
+		status = gqlclient.StackStatusSuccessful
+		// Do not send an error if stack run was canceled due to no changes
+		// This allows other queued runs to proceed
 		err = nil
 	default:
 		status = gqlclient.StackStatusFailed
@@ -69,8 +75,10 @@ func (in *stackRunController) postStart(err error) {
 func (in *stackRunController) postStepRun(id string, err error) {
 	var status gqlclient.StepStatus
 
-	switch err {
-	case nil:
+	switch {
+	case errors.Is(err, internalerrors.ErrNoChanges):
+		fallthrough
+	case err == nil:
 		status = gqlclient.StepStatusSuccessful
 	default:
 		status = gqlclient.StepStatusFailed
@@ -160,6 +168,21 @@ func (in *stackRunController) afterPlan() error {
 
 	if in.stackRun.MaxSeverity() > -1 && securityv1.MaxSeverity(violations) > in.stackRun.MaxSeverity() {
 		return fmt.Errorf("security scanner error: max severity violation exceeded")
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("checking approve empty status", "approveEmpty", lo.FromPtr(in.stackRun.ApproveEmpty))
+	if !lo.FromPtr(in.stackRun.ApproveEmpty) {
+		return nil
+	}
+
+	// Check if plan has any changes
+	hasChanges, err := in.tool.HasChanges()
+	if err != nil {
+		klog.ErrorS(err, "could not check for plan changes")
+		// Continue on error - we don't want to fail the run if change detection fails
+	} else if !hasChanges {
+		// Return special error to signal no changes
+		return internalerrors.ErrNoChanges
 	}
 
 	return nil

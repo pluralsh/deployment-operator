@@ -34,6 +34,13 @@ func (in *DefaultTool) Scan() ([]*console.StackPolicyViolationAttributes, error)
 	return []*console.StackPolicyViolationAttributes{}, nil
 }
 
+// HasChanges implements [Tool] interface.
+// The default implementation returns true (assumes changes exist).
+// Tool-specific implementations should override this for deterministic detection.
+func (in *DefaultTool) HasChanges() (bool, error) {
+	return true, nil
+}
+
 func New() Tool {
 	return &DefaultTool{}
 }

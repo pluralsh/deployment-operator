@@ -160,6 +160,94 @@ func (in *Terraform) plan() (string, error) {
 	return string(output), nil
 }
 
+// planJSON parses the terraform plan file as JSON and returns a structured plan.
+// This provides deterministic access to plan details including resource changes.
+func (in *Terraform) planJSON() (*tfjson.Plan, error) {
+	plan := new(tfjson.Plan)
+	output, err := exec.NewExecutable(
+		"terraform",
+		exec.WithArgs([]string{"show", "-json", in.planFileName}),
+		exec.WithDir(in.dir),
+	).RunWithOutput(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed executing terraform show -json: %s: %w", string(output), err)
+	}
+
+	err = plan.UnmarshalJSON(output)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshaling terraform plan JSON: %w", err)
+	}
+
+	klog.V(log.LogLevelTrace).InfoS("terraform plan JSON parsed successfully", "file", in.planFileName)
+	return plan, nil
+}
+
+// HasChanges deterministically checks if the terraform plan contains any changes.
+// It analyzes the plan JSON to detect:
+// - Resource changes (create, update, delete, replace)
+// - Output changes
+// - Resource drift
+// - Deferred changes (Terraform 1.8+)
+//
+// Returns true if any changes are detected, false if the plan is a no-op.
+func (in *Terraform) HasChanges() (bool, error) {
+	plan, err := in.planJSON()
+	if err != nil {
+		return false, err
+	}
+
+	// If there are deferred changes, we should consider this as having changes
+	if len(plan.DeferredChanges) > 0 {
+		klog.V(log.LogLevelDebug).InfoS("plan has deferred changes", "count", len(plan.DeferredChanges))
+		return true, nil
+	}
+
+	// Check resource changes
+	hasResourceChanges := false
+	for _, rc := range plan.ResourceChanges {
+		if rc.Change != nil && !rc.Change.Actions.NoOp() {
+			klog.V(log.LogLevelDebug).InfoS("plan has resource changes",
+				"resource", rc.Address,
+				"actions", rc.Change.Actions)
+			hasResourceChanges = true
+			break
+		}
+	}
+
+	if hasResourceChanges {
+		return true, nil
+	}
+
+	// Check output changes
+	hasOutputChanges := false
+	for name, oc := range plan.OutputChanges {
+		if oc != nil && !oc.Actions.NoOp() {
+			klog.V(log.LogLevelDebug).InfoS("plan has output changes",
+				"output", name,
+				"actions", oc.Actions)
+			hasOutputChanges = true
+			break
+		}
+	}
+
+	if hasOutputChanges {
+		return true, nil
+	}
+
+	// Check resource drift
+	// Note: Resource drift represents changes detected in actual infrastructure vs. state.
+	// Even if there are no planned changes, drift indicates infrastructure differences.
+	// TODO: determine if we want to treat drift as changes requiring apply.
+	if len(plan.ResourceDrift) > 0 {
+		klog.V(log.LogLevelDebug).InfoS("plan detected resource drift",
+			"count", len(plan.ResourceDrift))
+		return true, nil
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("terraform plan has no changes")
+	return false, nil
+}
+
 func (in *Terraform) init() v1.Tool {
 	if len(in.dir) == 0 {
 		klog.Fatal("dir is required")
