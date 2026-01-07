@@ -222,16 +222,14 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 			return fmt.Errorf("failed to get pod: %w", err)
 		}
 		pod = buildAgentRunPod(run, runtime)
+
+		// Set the controller reference on the pod so that it can be garbage collected when the agent run is deleted.
+		// Set before creating the pod so that the pod can be owned by the agent run.
+		if err := controllerutil.SetControllerReference(run, pod, r.Scheme); err != nil {
+			return err
+		}
 		if err = r.Create(ctx, pod); err != nil {
 			return fmt.Errorf("failed to create pod: %w", err)
-		}
-
-		if err = utils.TryAddControllerRef(ctx, r.Client, run, pod, r.Scheme); err != nil {
-			return fmt.Errorf("failed to add controller ref: %w", err)
-		}
-
-		if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {
-			return fmt.Errorf("failed to add owner ref: %w", err)
 		}
 
 		run.Status.PodRef = &corev1.ObjectReference{
@@ -242,8 +240,10 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes()); err != nil {
 			return fmt.Errorf("failed to update agent run: %w", err)
 		}
-
-		return nil
+	}
+	// add owner ref to pod secret if it doesn't exist
+	if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {
+		return fmt.Errorf("failed to add owner ref: %w", err)
 	}
 
 	return nil
