@@ -37,7 +37,7 @@ var (
 	}
 
 	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
-	defaultContainerImageTag = "v0.6.13-alpha.1" // TODO: Update after release.
+	defaultContainerImageTag = "0.6.17"
 
 	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
