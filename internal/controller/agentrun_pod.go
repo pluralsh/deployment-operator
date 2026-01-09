@@ -22,13 +22,14 @@ const (
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
 
-	dindContainerName     = "dind"
-	dindImage             = "docker:27-dind"
-	dockerCertsVolumeName = "docker-certs"
-	dockerGraphVolumeName = "docker-graph"
-	dockerCertsPath       = "/certs"
-	dockerDaemonPort      = 2376
-	dockerSocketGID       = int64(2375)
+	dindContainerName            = "dind"
+	defaultContainerDinDImage    = "docker"
+	defaultContainerDinDImageTag = "27-dind"
+	dockerCertsVolumeName        = "docker-certs"
+	dockerGraphVolumeName        = "docker-graph"
+	dockerCertsPath              = "/certs"
+	dockerDaemonPort             = 2376
+	dockerSocketGID              = int64(2375)
 )
 
 var dindClientEnvs = []corev1.EnvVar{
@@ -51,7 +52,7 @@ var (
 	}
 
 	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
-	defaultContainerImageTag = "sha-cf549e2" // TODO change this for releases
+	defaultContainerImageTag = "sha-cf549e2" // TODO make sure to change this for releases
 
 	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
@@ -310,7 +311,7 @@ func enableDind(pod *corev1.Pod) {
 
 	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
 		Name:  dindContainerName,
-		Image: dindImage,
+		Image: fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerDinDImage), defaultContainerDinDImageTag),
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: lo.ToPtr(true),
 		},
