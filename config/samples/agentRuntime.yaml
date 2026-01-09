@@ -1,7 +1,7 @@
 apiVersion: deployments.plural.sh/v1alpha1
 kind: AgentRuntime
 metadata:
-  name: test-claude
+  name: test-claude-dind
   namespace: claude
 spec:
   type: "CLAUDE"
@@ -15,33 +15,10 @@ spec:
     spec:
       containers:
       - name: default
-        image: ghcr.io/pluralsh/agent-harness:0.6.17-claude-1.0.128
+        image: ghcr.io/pluralsh/agent-harness:sha-c473491-claude-1.0.128
         args:
           - --v=3
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: gemini
----
-apiVersion: deployments.plural.sh/v1alpha1
-kind: AgentRuntime
-metadata:
-  name: gemini
-spec:
-  type: "GEMINI"
-  targetNamespace: "gemini"
-  config:
-    claude:
-      apiKeySecretRef:
-        name: gemini
-        key: apiKey
-  template:
-    spec:
-      containers:
-        - name: default
-          args:
-            - --v=3
+
 
 
 
