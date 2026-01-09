@@ -51,7 +51,7 @@ var (
 	}
 
 	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
-	defaultContainerImageTag = "sha-cf549e2" //TODO change this for releases
+	defaultContainerImageTag = "sha-cf549e2" // TODO change this for releases
 
 	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
