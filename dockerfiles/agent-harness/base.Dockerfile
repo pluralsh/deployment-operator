@@ -37,7 +37,26 @@ RUN CGO_ENABLED=0 \
 
 FROM debian:13-slim
 
-RUN apt update && apt install -y git curl jq tar
+RUN apt update && apt install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    git \
+    jq \
+    tar
+
+# Install Docker CLI + Compose (no daemon)
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | \
+      gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    chmod a+r /etc/apt/keyrings/docker.gpg && \
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+      https://download.docker.com/linux/debian trixie stable" | \
+      tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt update && \
+    apt install -y docker-ce-cli docker-compose-plugin && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness

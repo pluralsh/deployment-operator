@@ -45,6 +45,11 @@ type AgentRuntimeSpec struct {
 
 	// AiProxy specifies whether the agent runtime should be proxied through the AI proxy.
 	AiProxy *bool `json:"aiProxy,omitempty"`
+
+	// Enable Docker-in-Docker for this agent runtime.
+	// When true, the runtime will be configured to run with DinD support.
+	// +kubebuilder:validation:Optional
+	Dind *bool `json:"dind,omitempty"`
 }
 
 type PodTemplateSpec struct {

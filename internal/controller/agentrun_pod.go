@@ -21,7 +21,20 @@ const (
 	defaultTmpVolumePath          = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
+
+	dindContainerName     = "dind"
+	dindImage             = "docker:27-dind"
+	dockerCertsVolumeName = "docker-certs"
+	dockerGraphVolumeName = "docker-graph"
+	dockerCertsPath       = "/certs"
+	dockerDaemonPort      = 2376
 )
+
+var dindClientEnvs = []corev1.EnvVar{
+	{Name: "DOCKER_HOST", Value: fmt.Sprintf("tcp://localhost:%d", dockerDaemonPort)},
+	{Name: "DOCKER_TLS_VERIFY", Value: "1"},
+	{Name: "DOCKER_CERT_PATH", Value: dockerCertsPath + "/client"},
+}
 
 var (
 	defaultTmpVolume = corev1.Volume{
@@ -85,6 +98,10 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
 	pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	pod.Spec.Volumes = ensureDefaultVolumes(pod.Spec.Volumes)
+
+	if runtime.Spec.Dind != nil && *runtime.Spec.Dind {
+		enableDind(pod)
+	}
 
 	return pod
 }
@@ -232,5 +249,60 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 		RunAsNonRoot:             lo.ToPtr(true),
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
+	}
+}
+
+func enableDind(pod *corev1.Pod) {
+	pod.Spec.Volumes = append(pod.Spec.Volumes,
+		corev1.Volume{
+			Name: dockerCertsVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
+			Name: dockerGraphVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	)
+
+	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
+		Name:  dindContainerName,
+		Image: dindImage,
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: lo.ToPtr(true),
+		},
+		Env: []corev1.EnvVar{
+			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
+		},
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "docker",
+				ContainerPort: dockerDaemonPort,
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: dockerCertsVolumeName, MountPath: dockerCertsPath},
+			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
+		},
+	})
+
+	// Wire agent container
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == defaultContainer {
+			c := &pod.Spec.Containers[i]
+
+			c.Env = append(c.Env, dindClientEnvs...)
+
+			c.VolumeMounts = append(c.VolumeMounts,
+				corev1.VolumeMount{
+					Name:      dockerCertsVolumeName,
+					MountPath: dockerCertsPath,
+					ReadOnly:  true,
+				},
+			)
+		}
 	}
 }
