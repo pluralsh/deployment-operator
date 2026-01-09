@@ -32,7 +32,7 @@ const (
 )
 
 var dindClientEnvs = []corev1.EnvVar{
-	{Name: "DOCKER_HOST", Value: fmt.Sprintf("tcp://localhost:%d", dockerDaemonPort)},
+	{Name: "DOCKER_HOST", Value: "unix:///var/run/docker.sock"},
 	{Name: "DOCKER_TLS_VERIFY", Value: "1"},
 	{Name: "DOCKER_CERT_PATH", Value: dockerCertsPath + "/client"},
 }
@@ -98,10 +98,12 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 	pod.Spec.Containers = ensureDefaultContainer(pod.Spec.Containers, run, runtime)
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
 	pod.Spec.Volumes = ensureDefaultVolumes(pod.Spec.Volumes)
-	pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 
 	if runtime.Spec.Dind != nil && *runtime.Spec.Dind {
+		pod.Spec.SecurityContext = ensureDefaultPodSecurityContextWithDind(pod.Spec.SecurityContext)
 		enableDind(pod)
+	} else {
+		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	}
 
 	return pod
@@ -250,6 +252,36 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 		RunAsNonRoot:             lo.ToPtr(true),
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
+	}
+}
+
+func ensureDefaultPodSecurityContextWithDind(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
+	if psc != nil {
+		// Add supplemental group if not already present
+		if psc.SupplementalGroups == nil {
+			psc.SupplementalGroups = []int64{}
+		}
+
+		// Check if docker group already exists
+		hasDockerGroup := false
+		for _, gid := range psc.SupplementalGroups {
+			if gid == dockerSocketGID {
+				hasDockerGroup = true
+				break
+			}
+		}
+
+		if !hasDockerGroup {
+			psc.SupplementalGroups = append(psc.SupplementalGroups, dockerSocketGID)
+		}
+
+		return psc
+	}
+
+	// When DinD is enabled, don't set runAsNonRoot at pod level
+	// because the DinD container needs to run as root
+	return &corev1.PodSecurityContext{
+		SupplementalGroups: []int64{dockerSocketGID},
 	}
 }
 
