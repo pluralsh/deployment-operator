@@ -52,13 +52,17 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-      https://download.docker.com/linux/debian trixie stable" | \
+      https://download.docker.com/linux/debian bookworm stable" | \
       tee /etc/apt/sources.list.d/docker.list > /dev/null && \
     apt update && \
     apt install -y docker-ce-cli docker-compose-plugin && \
+    ln -s /usr/libexec/docker/cli-plugins/docker-compose /usr/bin/docker-compose && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy binaries before switching user to ensure proper permissions
+    # Ensure system paths are explicitly set
+    ENV PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
+
+    # Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness
 COPY --from=builder /mcpserver /usr/local/bin/mcpserver
 
