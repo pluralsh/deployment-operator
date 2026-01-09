@@ -28,12 +28,11 @@ const (
 	dockerGraphVolumeName = "docker-graph"
 	dockerCertsPath       = "/certs"
 	dockerDaemonPort      = 2376
+	dockerSocketGID       = int64(2375)
 )
 
 var dindClientEnvs = []corev1.EnvVar{
-	{Name: "DOCKER_HOST", Value: fmt.Sprintf("tcp://localhost:%d", dockerDaemonPort)},
-	{Name: "DOCKER_TLS_VERIFY", Value: "1"},
-	{Name: "DOCKER_CERT_PATH", Value: dockerCertsPath + "/client"},
+	{Name: "DOCKER_HOST", Value: "unix:///var/run/docker.sock"}, // Changed from TCP
 }
 
 var (
@@ -96,11 +95,13 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 
 	pod.Spec.Containers = ensureDefaultContainer(pod.Spec.Containers, run, runtime)
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
-	pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	pod.Spec.Volumes = ensureDefaultVolumes(pod.Spec.Volumes)
 
 	if runtime.Spec.Dind != nil && *runtime.Spec.Dind {
+		pod.Spec.SecurityContext = ensureDefaultPodSecurityContextWithDind(pod.Spec.SecurityContext)
 		enableDind(pod)
+	} else {
+		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	}
 
 	return pod
@@ -266,7 +267,7 @@ func enableDind(pod *corev1.Pod) {
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
-		// Add shared volume for Docker socket
+		// Add volume for Docker socket
 		corev1.Volume{
 			Name: "docker-socket",
 			VolumeSource: corev1.VolumeSource{
@@ -279,12 +280,10 @@ func enableDind(pod *corev1.Pod) {
 		Name:  dindContainerName,
 		Image: dindImage,
 		SecurityContext: &corev1.SecurityContext{
-			Privileged:   lo.ToPtr(true),
-			RunAsUser:    lo.ToPtr(int64(0)), // Explicitly run as root
-			RunAsNonRoot: lo.ToPtr(false),
+			Privileged: lo.ToPtr(true),
 		},
 		Env: []corev1.EnvVar{
-			{Name: "DOCKER_TLS_CERTDIR", Value: ""}, // Disable TLS for socket access
+			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
 		},
 		Ports: []corev1.ContainerPort{
 			{
@@ -295,7 +294,8 @@ func enableDind(pod *corev1.Pod) {
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: dockerCertsVolumeName, MountPath: dockerCertsPath},
 			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
-			{Name: "docker-socket", MountPath: "/var/run"}, // Share the socket
+			// Mount the socket directory
+			{Name: "docker-socket", MountPath: "/var/run"},
 		},
 	})
 
@@ -304,13 +304,15 @@ func enableDind(pod *corev1.Pod) {
 		if pod.Spec.Containers[i].Name == defaultContainer {
 			c := &pod.Spec.Containers[i]
 
-			// Use Unix socket instead of TCP
-			c.Env = append(c.Env, corev1.EnvVar{
-				Name:  "DOCKER_HOST",
-				Value: "unix:///var/run/docker.sock",
-			})
+			c.Env = append(c.Env, dindClientEnvs...)
 
 			c.VolumeMounts = append(c.VolumeMounts,
+				corev1.VolumeMount{
+					Name:      dockerCertsVolumeName,
+					MountPath: dockerCertsPath,
+					ReadOnly:  true,
+				},
+				// Mount the socket directory in the default container too
 				corev1.VolumeMount{
 					Name:      "docker-socket",
 					MountPath: "/var/run",
@@ -318,5 +320,36 @@ func enableDind(pod *corev1.Pod) {
 				},
 			)
 		}
+	}
+}
+
+func ensureDefaultPodSecurityContextWithDind(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
+	if psc != nil {
+		// Add supplemental group if not already present
+		if psc.SupplementalGroups == nil {
+			psc.SupplementalGroups = []int64{}
+		}
+
+		// Check if docker group already exists
+		hasDockerGroup := false
+		for _, gid := range psc.SupplementalGroups {
+			if gid == dockerSocketGID {
+				hasDockerGroup = true
+				break
+			}
+		}
+
+		if !hasDockerGroup {
+			psc.SupplementalGroups = append(psc.SupplementalGroups, dockerSocketGID)
+		}
+
+		return psc
+	}
+
+	return &corev1.PodSecurityContext{
+		RunAsNonRoot:       lo.ToPtr(true),
+		RunAsUser:          lo.ToPtr(nonRootUID),
+		RunAsGroup:         lo.ToPtr(nonRootGID),
+		SupplementalGroups: []int64{dockerSocketGID},
 	}
 }
