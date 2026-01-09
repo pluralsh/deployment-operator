@@ -32,7 +32,9 @@ const (
 )
 
 var dindClientEnvs = []corev1.EnvVar{
-	{Name: "DOCKER_HOST", Value: "unix:///var/run/docker.sock"}, // Changed from TCP
+	{Name: "DOCKER_HOST", Value: fmt.Sprintf("tcp://localhost:%d", dockerDaemonPort)},
+	{Name: "DOCKER_TLS_VERIFY", Value: "1"},
+	{Name: "DOCKER_CERT_PATH", Value: dockerCertsPath + "/client"},
 }
 
 var (
@@ -253,6 +255,36 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 	}
 }
 
+func ensureDefaultPodSecurityContextWithDind(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
+	if psc != nil {
+		// Add supplemental group if not already present
+		if psc.SupplementalGroups == nil {
+			psc.SupplementalGroups = []int64{}
+		}
+
+		// Check if docker group already exists
+		hasDockerGroup := false
+		for _, gid := range psc.SupplementalGroups {
+			if gid == dockerSocketGID {
+				hasDockerGroup = true
+				break
+			}
+		}
+
+		if !hasDockerGroup {
+			psc.SupplementalGroups = append(psc.SupplementalGroups, dockerSocketGID)
+		}
+
+		return psc
+	}
+
+	// When DinD is enabled, don't set runAsNonRoot at pod level
+	// because the DinD container needs to run as root
+	return &corev1.PodSecurityContext{
+		SupplementalGroups: []int64{dockerSocketGID},
+	}
+}
+
 func enableDind(pod *corev1.Pod) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes,
 		corev1.Volume{
@@ -320,36 +352,5 @@ func enableDind(pod *corev1.Pod) {
 				},
 			)
 		}
-	}
-}
-
-func ensureDefaultPodSecurityContextWithDind(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
-	if psc != nil {
-		// Add supplemental group if not already present
-		if psc.SupplementalGroups == nil {
-			psc.SupplementalGroups = []int64{}
-		}
-
-		// Check if docker group already exists
-		hasDockerGroup := false
-		for _, gid := range psc.SupplementalGroups {
-			if gid == dockerSocketGID {
-				hasDockerGroup = true
-				break
-			}
-		}
-
-		if !hasDockerGroup {
-			psc.SupplementalGroups = append(psc.SupplementalGroups, dockerSocketGID)
-		}
-
-		return psc
-	}
-
-	return &corev1.PodSecurityContext{
-		RunAsNonRoot:       lo.ToPtr(true),
-		RunAsUser:          lo.ToPtr(nonRootUID),
-		RunAsGroup:         lo.ToPtr(nonRootGID),
-		SupplementalGroups: []int64{dockerSocketGID},
 	}
 }
