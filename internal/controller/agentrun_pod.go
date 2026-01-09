@@ -33,6 +33,7 @@ const (
 
 var dindClientEnvs = []corev1.EnvVar{
 	{Name: "DOCKER_HOST", Value: "unix:///var/run/docker.sock"},
+	{Name: "DOCKER_TLS_CERTDIR", Value: ""},
 }
 
 var (
