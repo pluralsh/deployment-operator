@@ -212,6 +212,11 @@ spec:
                 description: Default indicates whether this is the default agent runtime
                   for coding agents.
                 type: boolean
+              dind:
+                description: |-
+                  Enable Docker-in-Docker for this agent runtime.
+                  When true, the runtime will be configured to run with DinD support.
+                type: boolean
               name:
                 description: |-
                   Name of this AgentRuntime.

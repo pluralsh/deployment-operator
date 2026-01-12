@@ -21,7 +21,22 @@ const (
 	defaultTmpVolumePath          = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
+
+	dindContainerName            = "dind"
+	defaultContainerDinDImage    = "docker"
+	defaultContainerDinDImageTag = "27-dind"
+	dockerCertsVolumeName        = "docker-certs"
+	dockerGraphVolumeName        = "docker-graph"
+	dockerCertsPath              = "/certs"
+	dockerDaemonPort             = 2376
+	dockerSocketGID              = int64(2375)
 )
+
+var dindClientEnvs = []corev1.EnvVar{
+	{Name: "DOCKER_HOST", Value: "tcp://localhost:2376"},
+	{Name: "DOCKER_TLS_VERIFY", Value: "1"},
+	{Name: "DOCKER_CERT_PATH", Value: dockerCertsPath + "/client"},
+}
 
 var (
 	defaultTmpVolume = corev1.Volume{
@@ -37,7 +52,7 @@ var (
 	}
 
 	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
-	defaultContainerImageTag = "0.6.17"
+	defaultContainerImageTag = "sha-cf549e2" // TODO make sure to change this for releases
 
 	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
@@ -83,8 +98,14 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 
 	pod.Spec.Containers = ensureDefaultContainer(pod.Spec.Containers, run, runtime)
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
-	pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	pod.Spec.Volumes = ensureDefaultVolumes(pod.Spec.Volumes)
+
+	if runtime.Spec.Dind != nil && *runtime.Spec.Dind {
+		pod.Spec.SecurityContext = ensureDefaultPodSecurityContextWithDind(pod.Spec.SecurityContext)
+		enableDind(pod)
+	} else {
+		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
+	}
 
 	return pod
 }
@@ -232,5 +253,105 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 		RunAsNonRoot:             lo.ToPtr(true),
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
+	}
+}
+
+func ensureDefaultPodSecurityContextWithDind(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
+	if psc != nil {
+		// Add supplemental group if not already present
+		if psc.SupplementalGroups == nil {
+			psc.SupplementalGroups = []int64{}
+		}
+
+		// Check if docker group already exists
+		hasDockerGroup := false
+		for _, gid := range psc.SupplementalGroups {
+			if gid == dockerSocketGID {
+				hasDockerGroup = true
+				break
+			}
+		}
+
+		if !hasDockerGroup {
+			psc.SupplementalGroups = append(psc.SupplementalGroups, dockerSocketGID)
+		}
+
+		return psc
+	}
+
+	// When DinD is enabled, don't set runAsNonRoot at pod level
+	// because the DinD container needs to run as root
+	return &corev1.PodSecurityContext{
+		SupplementalGroups: []int64{dockerSocketGID},
+	}
+}
+
+func enableDind(pod *corev1.Pod) {
+	pod.Spec.Volumes = append(pod.Spec.Volumes,
+		corev1.Volume{
+			Name: dockerCertsVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		corev1.Volume{
+			Name: dockerGraphVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		// Add volume for Docker socket
+		corev1.Volume{
+			Name: "docker-socket",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	)
+
+	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
+		Name:  dindContainerName,
+		Image: fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerDinDImage), defaultContainerDinDImageTag),
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: lo.ToPtr(true),
+		},
+		Env: []corev1.EnvVar{
+			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
+		},
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "docker",
+				ContainerPort: dockerDaemonPort,
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: dockerCertsVolumeName, MountPath: dockerCertsPath},
+			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
+			// Mount the socket directory
+			{Name: "docker-socket", MountPath: "/var/run"},
+		},
+	})
+
+	// Wire agent container
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == defaultContainer {
+			c := &pod.Spec.Containers[i]
+
+			c.Env = append(c.Env, dindClientEnvs...)
+
+			c.VolumeMounts = append(c.VolumeMounts,
+				corev1.VolumeMount{
+					Name:      dockerCertsVolumeName,
+					MountPath: dockerCertsPath,
+					ReadOnly:  true,
+				},
+				// Mount the socket directory in the default container too
+				corev1.VolumeMount{
+					Name:      "docker-socket",
+					MountPath: "/var/run",
+					ReadOnly:  false,
+				},
+			)
+		}
 	}
 }

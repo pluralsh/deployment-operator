@@ -37,9 +37,32 @@ RUN CGO_ENABLED=0 \
 
 FROM debian:13-slim
 
-RUN apt update && apt install -y git curl jq tar
+RUN apt update && apt install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    git \
+    jq \
+    tar
 
-# Copy binaries before switching user to ensure proper permissions
+# Install Docker CLI + Compose (no daemon)
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | \
+      gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    chmod a+r /etc/apt/keyrings/docker.gpg && \
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+      https://download.docker.com/linux/debian bookworm stable" | \
+      tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt update && \
+    apt install -y docker-ce-cli docker-compose-plugin && \
+    ln -s /usr/libexec/docker/cli-plugins/docker-compose /usr/bin/docker-compose && \
+    rm -rf /var/lib/apt/lists/*
+
+    # Ensure system paths are explicitly set
+    ENV PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
+
+    # Copy binaries before switching user to ensure proper permissions
 COPY --from=builder /agent-harness /agent-harness
 COPY --from=builder /mcpserver /usr/local/bin/mcpserver
 
