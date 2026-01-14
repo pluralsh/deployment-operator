@@ -194,12 +194,13 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 							prod := "./values-prod.yaml"
 							return []*string{&qa, &prod}
 						}(),
+						IgnoreHooks: lo.ToPtr(true),
 					},
 				},
 			}
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(resp)).To(Equal(6))
+			Expect(len(resp)).To(Equal(5))
 			Expect(resp[0].GetName()).To(Equal(name))
 
 			// Find the ServiceMonitor resource to verify helm values

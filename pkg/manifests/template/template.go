@@ -46,6 +46,7 @@ func Render(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.REST
 					Values:      renderer.Helm.Values,
 					ValuesFiles: renderer.Helm.ValuesFiles,
 					Release:     renderer.Helm.Release,
+					IgnoreHooks: renderer.Helm.IgnoreHooks,
 				}
 			}
 			manifests, err = NewHelm(renderer.Path).Render(&svcCopy, mapper)
