@@ -37,7 +37,7 @@ var _ = Describe("Default template", func() {
 				ID:   "123",
 				Name: "test",
 			}
-			resp, err := Render(dir, svc, utilFactory)
+			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 			Expect(resp[0].GetName()).To(Equal(name))
@@ -46,7 +46,7 @@ var _ = Describe("Default template", func() {
 			dir := filepath.Join("..", "..", "..", "test", "rawTemplated")
 			svc.Templated = lo.ToPtr(false)
 			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
-			resp, err := Render(dir, svc, utilFactory)
+			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 			Expect(resp[0].GetName()).To(Equal(name))
@@ -76,7 +76,7 @@ var _ = Describe("Default template, AUTO", func() {
 				Name: "test",
 			}
 			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
-			resp, err := Render(dir, svc, utilFactory)
+			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 			Expect(resp[0].GetName()).To(Equal(name))
@@ -85,7 +85,7 @@ var _ = Describe("Default template, AUTO", func() {
 			dir := filepath.Join("..", "..", "..", "test", "rawTemplated")
 			svc.Templated = lo.ToPtr(false)
 			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
-			resp, err := Render(dir, svc, utilFactory)
+			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
 			Expect(resp[0].GetName()).To(Equal(name))
@@ -108,7 +108,7 @@ var _ = Describe("KUSTOMIZE template, AUTO", func() {
 				Name: "test",
 			}
 			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
-			resp, err := Render(dir, svc, utilFactory)
+			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(3))
 			sort.Slice(resp, func(i, j int) bool {
@@ -199,7 +199,7 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 					},
 				},
 			}
-			resp, err := Render(dir, svc, utilFactory)
+			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(5))
 			Expect(resp[0].GetName()).To(Equal(name))
