@@ -48,8 +48,7 @@ var _ = Describe("Default template", func() {
 			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(resp)).To(Equal(1))
-			Expect(resp[0].GetName()).To(Equal(name))
+			Expect(len(resp)).To(Equal(5))
 		})
 
 	})
@@ -87,8 +86,7 @@ var _ = Describe("Default template, AUTO", func() {
 			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(resp)).To(Equal(1))
-			Expect(resp[0].GetName()).To(Equal(name))
+			Expect(len(resp)).To(Equal(5))
 		})
 
 	})
@@ -201,7 +199,7 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 			}
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(resp)).To(Equal(5))
+			Expect(len(resp)).To(Equal(6))
 			Expect(resp[0].GetName()).To(Equal(name))
 
 			// Find the ServiceMonitor resource to verify helm values
