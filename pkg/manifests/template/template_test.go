@@ -45,7 +45,7 @@ var _ = Describe("Default template", func() {
 		It("should skip templating liquid", func() {
 			dir := filepath.Join("..", "..", "..", "test", "rawTemplated")
 			svc.Templated = lo.ToPtr(false)
-			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
+			svc.Renderers = []*console.RendererFragment{{Path: ".", Type: console.RendererTypeAuto}}
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(5))
@@ -74,7 +74,7 @@ var _ = Describe("Default template, AUTO", func() {
 				ID:   "123",
 				Name: "test",
 			}
-			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
+			svc.Renderers = []*console.RendererFragment{{Path: ".", Type: console.RendererTypeAuto}}
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(1))
@@ -83,7 +83,7 @@ var _ = Describe("Default template, AUTO", func() {
 		It("should skip templating liquid", func() {
 			dir := filepath.Join("..", "..", "..", "test", "rawTemplated")
 			svc.Templated = lo.ToPtr(false)
-			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
+			svc.Renderers = []*console.RendererFragment{{Path: ".", Type: console.RendererTypeAuto}}
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(5))
@@ -100,12 +100,12 @@ var _ = Describe("KUSTOMIZE template, AUTO", func() {
 	}
 	Context("Render kustomize template ", func() {
 		It("should successfully render the kustomize template", func() {
-			dir := filepath.Join("..", "..", "..", "test", "mixed", "kustomize", "overlays", "dev")
+			dir := filepath.Join("..", "..", "..", "test", "mixed")
 			svc.Cluster = &console.ServiceDeploymentForAgent_Cluster{
 				ID:   "123",
 				Name: "test",
 			}
-			svc.Renderers = []*console.RendererFragment{{Path: dir, Type: console.RendererTypeAuto}}
+			svc.Renderers = []*console.RendererFragment{{Path: filepath.Join("kustomize", "overlays", "dev"), Type: console.RendererTypeAuto}}
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(resp)).To(Equal(3))
@@ -168,9 +168,6 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 		const name = "nginx"
 		It("should successfully render the raw and kustomize and helm templates", func() {
 			dir := filepath.Join("..", "..", "..", "test", "mixed")
-			dirRaw := filepath.Join("..", "..", "..", "test", "mixed", "raw")
-			dirKustomize := filepath.Join("..", "..", "..", "test", "mixed", "kustomize", "overlays", "dev")
-			dirHelm := filepath.Join("..", "..", "..", "test", "mixed", "helm", "yet-another-cloudwatch-exporter")
 			svc.Configuration = []*console.ServiceDeploymentForAgent_Configuration{
 				{
 					Name:  "name",
@@ -182,10 +179,10 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 				Name: "test",
 			}
 			svc.Renderers = []*console.RendererFragment{
-				{Path: dirRaw, Type: console.RendererTypeRaw},
-				{Path: dirKustomize, Type: console.RendererTypeKustomize},
+				{Path: "raw", Type: console.RendererTypeRaw},
+				{Path: filepath.Join("kustomize", "overlays", "dev"), Type: console.RendererTypeKustomize},
 				{
-					Path: dirHelm,
+					Path: filepath.Join("helm", "yet-another-cloudwatch-exporter"),
 					Type: console.RendererTypeHelm,
 					Helm: &console.HelmMinimalFragment{
 						Release: lo.ToPtr("my-release"),

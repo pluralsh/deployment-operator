@@ -34,11 +34,12 @@ func Render(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.REST
 		var manifests []unstructured.Unstructured
 		var err error
 
+		rendererPath := filepath.Join(dir, renderer.Path)
 		switch renderer.Type {
 		case console.RendererTypeAuto:
-			manifests, err = renderDefault(renderer.Path, svc, mapper)
+			manifests, err = renderDefault(rendererPath, svc, mapper)
 		case console.RendererTypeRaw:
-			manifests, err = NewRaw(renderer.Path).Render(svc, mapper)
+			manifests, err = NewRaw(rendererPath).Render(svc, mapper)
 		case console.RendererTypeHelm:
 			svcCopy := *svc
 			if renderer.Helm != nil {
@@ -49,9 +50,9 @@ func Render(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.REST
 					IgnoreHooks: renderer.Helm.IgnoreHooks,
 				}
 			}
-			manifests, err = NewHelm(renderer.Path).Render(&svcCopy, mapper)
+			manifests, err = NewHelm(rendererPath).Render(&svcCopy, mapper)
 		case console.RendererTypeKustomize:
-			manifests, err = NewKustomize(renderer.Path).Render(svc, mapper)
+			manifests, err = NewKustomize(rendererPath).Render(svc, mapper)
 		default:
 			return nil, fmt.Errorf("unknown renderer type: %s", renderer.Type)
 		}
