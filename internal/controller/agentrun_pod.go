@@ -384,6 +384,7 @@ func addDockerComposeVolume(pod *corev1.Pod, run *v1alpha1.AgentRun) {
 				corev1.VolumeMount{
 					Name:      dockerComposeVolumeName,
 					MountPath: dockerComposeMountPath,
+					SubPath:   "docker-compose.yaml",
 					ReadOnly:  true,
 				},
 			)
