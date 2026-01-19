@@ -54,9 +54,10 @@ crd-docs: tools ##generate docs from the CRDs
 
 ##@ Development
 
+# TODO: Turn off allowDangerousTypes=true when all types are fixed.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	@$(MAKE) -s codegen-chart-crds
 
 .PHONY: generate

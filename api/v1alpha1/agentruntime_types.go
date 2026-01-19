@@ -77,7 +77,11 @@ type DockerComposeSpec struct {
 	Name *string `json:"name,omitempty"`
 
 	// Services define the Docker services to be run as part of the agent runtime.
+	// FIXME: Generate manifests with schema.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Services composev2.Services `json:"services"`
 
 	// Networks define custom networks for the agent runtime services.
@@ -89,11 +93,19 @@ type DockerComposeSpec struct {
 	Volumes composev2.Volumes `json:"volumes,omitempty"`
 
 	// Configs define configurations to be passed to services.
+	// FIXME: Generate manifests with schema.
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Configs composev2.Configs `json:"configs,omitempty"`
 
 	// Secrets define sensitive data to be passed to services.
+	// FIXME: Generate manifests with schema.
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Secrets composev2.Secrets `json:"secrets,omitempty"`
 }
 

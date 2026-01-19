@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.11
 	github.com/aws/aws-sdk-go-v2/service/eks v1.73.2
 	github.com/cert-manager/cert-manager v1.18.2
-	github.com/compose-spec/compose-go/v2 v2.10.0
+	github.com/compose-spec/compose-go/v2 v2.9.1
 	github.com/elastic/crd-ref-docs v0.1.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fluxcd/flagger v1.41.0
@@ -470,7 +470,6 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	go.yaml.in/yaml/v4 v4.0.0-rc.3 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b // indirect

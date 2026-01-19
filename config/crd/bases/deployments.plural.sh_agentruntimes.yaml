@@ -214,9 +214,156 @@ spec:
                 type: boolean
               dind:
                 description: |-
-                  Enable Docker-in-Docker for this agent runtime.
-                  When true, the runtime will be configured to run with DinD support.
+                  DinD enables Docker-in-Docker for this agent runtime.
+                  It will be automatically enabled if DockerCompose is provided.
                 type: boolean
+              dockerCompose:
+                description: |-
+                  DockerCompose specifies a Docker Compose specification for the agent runtime.
+                  If provided, DinD will be automatically enabled.
+                properties:
+                  configs:
+                    description: Configs define configurations to be passed to services.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  name:
+                    description: Name of the Docker Compose project.
+                    type: string
+                  networks:
+                    additionalProperties:
+                      description: NetworkConfig for a network
+                      properties:
+                        attachable:
+                          type: boolean
+                        driver:
+                          type: string
+                        driver_opts:
+                          additionalProperties:
+                            type: string
+                          description: Options is a mapping type for options we pass
+                            as-is to container runtime
+                          type: object
+                        enable_ipv4:
+                          type: boolean
+                        enable_ipv6:
+                          type: boolean
+                        external:
+                          description: |-
+                            External identifies a Volume or Network as a reference to a resource that is
+                            not managed, and should already exist.
+                          type: boolean
+                        internal:
+                          type: boolean
+                        ipam:
+                          description: IPAMConfig for a network
+                          properties:
+                            config:
+                              items:
+                                description: IPAMPool for a network
+                                properties:
+                                  aux_addresses:
+                                    additionalProperties:
+                                      type: string
+                                    description: |-
+                                      Mapping is a mapping type that can be converted from a list of
+                                      key[=value] strings.
+                                      For the key with an empty value (`key=`), or key without value (`key`), the
+                                      mapped value is set to an empty string `""`.
+                                    type: object
+                                  gateway:
+                                    type: string
+                                  ip_range:
+                                    type: string
+                                  subnet:
+                                    type: string
+                                type: object
+                              type: array
+                            driver:
+                              type: string
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
+                          description: Labels is a mapping type for labels
+                          type: object
+                        name:
+                          type: string
+                      type: object
+                    description: Networks define custom networks for the agent runtime
+                      services.
+                    type: object
+                  secrets:
+                    additionalProperties:
+                      description: SecretConfig for a secret
+                      properties:
+                        content:
+                          type: string
+                        driver:
+                          type: string
+                        driver_opts:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        environment:
+                          type: string
+                        external:
+                          description: |-
+                            External identifies a Volume or Network as a reference to a resource that is
+                            not managed, and should already exist.
+                          type: boolean
+                        file:
+                          type: string
+                        labels:
+                          additionalProperties:
+                            type: string
+                          description: Labels is a mapping type for labels
+                          type: object
+                        name:
+                          type: string
+                        template_driver:
+                          type: string
+                      type: object
+                    description: Secrets define sensitive data to be passed to services.
+                    type: object
+                  services:
+                    description: Services define the Docker services to be run as
+                      part of the agent runtime.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  version:
+                    description: Version of the Docker Compose specification.
+                    type: string
+                  volumes:
+                    additionalProperties:
+                      description: VolumeConfig for a volume
+                      properties:
+                        driver:
+                          type: string
+                        driver_opts:
+                          additionalProperties:
+                            type: string
+                          description: Options is a mapping type for options we pass
+                            as-is to container runtime
+                          type: object
+                        external:
+                          description: |-
+                            External identifies a Volume or Network as a reference to a resource that is
+                            not managed, and should already exist.
+                          type: boolean
+                        labels:
+                          additionalProperties:
+                            type: string
+                          description: Labels is a mapping type for labels
+                          type: object
+                        name:
+                          type: string
+                      type: object
+                    description: Volumes define named volumes that can be shared between
+                      services.
+                    type: object
+                required:
+                - services
+                type: object
               name:
                 description: |-
                   Name of this AgentRuntime.
