@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"fmt"
 
+	composev2 "github.com/compose-spec/compose-go/v2/types"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
 	corev1 "k8s.io/api/core/v1"
@@ -50,6 +51,43 @@ type AgentRuntimeSpec struct {
 	// When true, the runtime will be configured to run with DinD support.
 	// +kubebuilder:validation:Optional
 	Dind *bool `json:"dind,omitempty"`
+
+	DockerCompose *DockerComposeSpec `json:"dockerCompose,omitempty"`
+}
+
+// DockerComposeSpec defines the Docker Compose specification for the agent runtime.
+// It uses the official compose-spec types and allows defining services, volumes,
+// networks, and other Docker Compose configuration as per the Docker Compose standard schema.
+// Reference: https://github.com/compose-spec/compose-spec
+// +kubebuilder:validation:Optional
+type DockerComposeSpec struct {
+	// Version of the Docker Compose specification.
+	// +kubebuilder:validation:Optional
+	Version *string `json:"version,omitempty"`
+
+	// Name of the Docker Compose project.
+	// +kubebuilder:validation:Optional
+	Name *string `json:"name,omitempty"`
+
+	// Services define the Docker services to be run as part of the agent runtime.
+	// +kubebuilder:validation:Required
+	Services composev2.Services `json:"services"`
+
+	// Networks define custom networks for the agent runtime services.
+	// +kubebuilder:validation:Optional
+	Networks composev2.Networks `json:"networks,omitempty"`
+
+	// Volumes define named volumes that can be shared between services.
+	// +kubebuilder:validation:Optional
+	Volumes composev2.Volumes `json:"volumes,omitempty"`
+
+	// Configs define configurations to be passed to services.
+	// +kubebuilder:validation:Optional
+	Configs composev2.Configs `json:"configs,omitempty"`
+
+	// Secrets define sensitive data to be passed to services.
+	// +kubebuilder:validation:Optional
+	Secrets composev2.Secrets `json:"secrets,omitempty"`
 }
 
 type PodTemplateSpec struct {
