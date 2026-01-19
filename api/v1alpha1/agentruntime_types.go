@@ -47,12 +47,15 @@ type AgentRuntimeSpec struct {
 	// AiProxy specifies whether the agent runtime should be proxied through the AI proxy.
 	AiProxy *bool `json:"aiProxy,omitempty"`
 
-	// Enable Docker-in-Docker for this agent runtime.
-	// When true, the runtime will be configured to run with DinD support.
+	// DockerCompose specifies a Docker Compose specification for the agent runtime.
+	// If provided, DinD will be automatically enabled.
 	// +kubebuilder:validation:Optional
-	Dind *bool `json:"dind,omitempty"`
-
 	DockerCompose *DockerComposeSpec `json:"dockerCompose,omitempty"`
+
+	// DinD enables Docker-in-Docker for this agent runtime.
+	// It will be automatically enabled if DockerCompose is provided.
+	// +kubebuilder:validation:Optional
+	DinD *bool `json:"dind,omitempty"`
 }
 
 // DockerComposeSpec defines the Docker Compose specification for the agent runtime.
