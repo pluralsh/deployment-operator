@@ -100,7 +100,7 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
 	pod.Spec.Volumes = ensureDefaultVolumes(pod.Spec.Volumes)
 
-	if runtime.Spec.Dind != nil && *runtime.Spec.Dind {
+	if runtime.Spec.HasDinDEnabled() {
 		pod.Spec.SecurityContext = ensureDefaultPodSecurityContextWithDind(pod.Spec.SecurityContext)
 		enableDind(pod)
 	} else {

@@ -58,6 +58,10 @@ type AgentRuntimeSpec struct {
 	DinD *bool `json:"dind,omitempty"`
 }
 
+func (in *AgentRuntimeSpec) HasDinDEnabled() bool {
+	return (in.DinD != nil && *in.DinD) || in.DockerCompose != nil
+}
+
 // DockerComposeSpec defines the Docker Compose specification for the agent runtime.
 // It uses the official compose-spec types and allows defining services, volumes,
 // networks, and other Docker Compose configuration as per the Docker Compose standard schema.
