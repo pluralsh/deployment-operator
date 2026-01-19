@@ -9,6 +9,7 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
+	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -216,6 +217,15 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		return fmt.Errorf("failed to reconcile run secret: %w", err)
 	}
 
+	// Reconcile Docker Compose ConfigMap if DockerCompose is provided
+	var configMap *corev1.ConfigMap
+	if runtime.Spec.DockerCompose != nil {
+		configMap, err = r.reconcileDockerComposeConfigMap(ctx, run, runtime)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile docker compose config map: %w", err)
+		}
+	}
+
 	pod := &corev1.Pod{}
 	if err := r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod); err != nil {
 		if !errors.IsNotFound(err) {
@@ -246,7 +256,68 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		return fmt.Errorf("failed to add owner ref: %w", err)
 	}
 
+	// add owner ref to docker compose config map if it exists
+	if configMap != nil {
+		if err := utils.TryAddOwnerRef(ctx, r.Client, pod, configMap, r.Scheme); err != nil {
+			return fmt.Errorf("failed to add owner ref for config map: %w", err)
+		}
+	}
+
 	return nil
+}
+
+func (r *AgentRunReconciler) reconcileDockerComposeConfigMap(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) (*corev1.ConfigMap, error) {
+	if runtime.Spec.DockerCompose == nil {
+		return nil, nil
+	}
+
+	// Marshal DockerCompose spec to YAML
+	dockerComposeYAML, err := yaml.Marshal(runtime.Spec.DockerCompose)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal docker compose spec: %w", err)
+	}
+
+	logger := log.FromContext(ctx)
+
+	configMapName := run.Name + "-docker-compose"
+	configMap := &corev1.ConfigMap{}
+	if err := r.Get(ctx, types.NamespacedName{Name: configMapName, Namespace: run.Namespace}, configMap); err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get config map: %w", err)
+		}
+
+		// Create new ConfigMap
+		configMap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      configMapName,
+				Namespace: run.Namespace,
+			},
+			Data: map[string]string{
+				"docker-compose.yaml": string(dockerComposeYAML),
+			},
+		}
+
+		logger.V(2).Info("creating docker compose config map", "namespace", configMap.Namespace, "name", configMap.Name)
+		if err = r.Create(ctx, configMap); err != nil {
+			return nil, fmt.Errorf("failed to create config map: %w", err)
+		}
+
+		return configMap, nil
+	}
+
+	// Update existing ConfigMap if data has changed
+	if configMap.Data["docker-compose.yaml"] != string(dockerComposeYAML) {
+		logger.V(2).Info("updating docker compose config map", "namespace", configMap.Namespace, "name", configMap.Name)
+		configMap.Data = map[string]string{
+			"docker-compose.yaml": string(dockerComposeYAML),
+		}
+		if err := r.Update(ctx, configMap); err != nil {
+			logger.Error(err, "unable to update config map")
+			return nil, err
+		}
+	}
+
+	return configMap, nil
 }
 
 func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) (*corev1.Secret, error) {
