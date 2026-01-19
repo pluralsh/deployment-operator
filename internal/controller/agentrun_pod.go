@@ -30,6 +30,9 @@ const (
 	dockerCertsPath              = "/certs"
 	dockerDaemonPort             = 2376
 	dockerSocketGID              = int64(2375)
+
+	dockerComposeVolumeName = "docker-compose"
+	dockerComposeMountPath  = "/workspace/docker-compose.yaml"
 )
 
 var dindClientEnvs = []corev1.EnvVar{
@@ -105,6 +108,11 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 		enableDind(pod)
 	} else {
 		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
+	}
+
+	// Mount Docker Compose config if provided
+	if runtime.Spec.DockerCompose != nil {
+		addDockerComposeVolume(pod, run)
 	}
 
 	return pod
@@ -352,6 +360,34 @@ func enableDind(pod *corev1.Pod) {
 					ReadOnly:  false,
 				},
 			)
+		}
+	}
+}
+
+func addDockerComposeVolume(pod *corev1.Pod, run *v1alpha1.AgentRun) {
+	// Add volume referencing the ConfigMap containing Docker Compose config
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: dockerComposeVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: run.Name + "-docker-compose",
+				},
+			},
+		},
+	})
+
+	// Mount the Docker Compose file in the default container
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == defaultContainer {
+			pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts,
+				corev1.VolumeMount{
+					Name:      dockerComposeVolumeName,
+					MountPath: dockerComposeMountPath,
+					ReadOnly:  true,
+				},
+			)
+			break
 		}
 	}
 }
