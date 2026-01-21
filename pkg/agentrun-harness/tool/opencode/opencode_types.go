@@ -50,26 +50,17 @@ func DefaultProvider(proxyEnabled bool) Provider {
 type Model string
 
 const (
-	ModelGPT41Mini Model = "gpt-4.1-mini"
-	ModelGPT41     Model = "gpt-4.1"
-	ModelGPT5Nano  Model = "gpt-5-nano"
-	ModelGPT5Mini  Model = "gpt-5-mini"
-	ModelGPT5      Model = "gpt-5"
-	ModelGPT51     Model = "gpt-5.1"
-	ModelGPT52     Model = "gpt-5.2"
-	defaultModel         = ModelGPT5Mini
+	ModelGPT41   Model = "gpt-4.1"
+	ModelGPT5    Model = "gpt-5"
+	ModelGPT51   Model = "gpt-5.1"
+	ModelGPT52   Model = "gpt-5.2"
+	defaultModel       = ModelGPT5
 )
 
 func DefaultModel() Model {
 	switch helpers.GetEnv(controller.EnvOpenCodeModel, string(defaultModel)) {
-	case string(ModelGPT41Mini):
-		return ModelGPT41Mini
 	case string(ModelGPT41):
 		return ModelGPT41
-	case string(ModelGPT5Nano):
-		return ModelGPT5Nano
-	case string(ModelGPT5Mini):
-		return ModelGPT5Mini
 	case string(ModelGPT5):
 		return ModelGPT5
 	case string(ModelGPT51):
