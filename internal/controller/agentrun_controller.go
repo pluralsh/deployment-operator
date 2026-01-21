@@ -125,14 +125,18 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
+<<<<<<< Updated upstream
 	changed, sha, err := run.Diff(utils.HashObject)
+=======
+	_, sha, err := run.Diff(utils.HashObject)
+>>>>>>> Stashed changes
 	if err != nil {
 		logger.Error(err, "unable to calculate agent run SHA")
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	apiAgentRun, err := r.sync(ctx, changed, run, agentRuntime)
+	apiAgentRun, err := r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID())
 	if err != nil {
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
@@ -151,6 +155,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 }
 
 func (r *AgentRunReconciler) sync(ctx context.Context, changed bool, run *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) (*console.AgentRunFragment, error) {
+<<<<<<< Updated upstream
 	if changed {
 		apiAgentRun, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes())
 		if err != nil {
@@ -159,6 +164,8 @@ func (r *AgentRunReconciler) sync(ctx context.Context, changed bool, run *v1alph
 		return apiAgentRun, nil
 	}
 
+=======
+>>>>>>> Stashed changes
 	return r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID())
 }
 
