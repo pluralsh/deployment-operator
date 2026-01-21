@@ -31,8 +31,12 @@ const (
 	ProviderOpenAI Provider = "openai"
 )
 
-func DefaultProvider() Provider {
-	switch helpers.GetEnv(controller.EnvOpenCodeProvider, string(ProviderPlural)) {
+func DefaultProvider(proxyEnabled bool) Provider {
+	if proxyEnabled {
+		return ProviderPlural
+	}
+
+	switch helpers.GetEnv(controller.EnvOpenCodeProvider, string(ProviderOpenAI)) {
 	case string(ProviderPlural):
 		return ProviderPlural
 	case string(ProviderOpenAI):
@@ -62,6 +66,8 @@ func DefaultModel() Model {
 		return ModelGPT5Mini
 	case string(ModelGPT5):
 		return ModelGPT5
+	case string(ModelGPT51):
+		return ModelGPT51
 	default:
 		return ModelGPT5Mini
 	}
@@ -80,6 +86,12 @@ type Opencode struct {
 
 	// run is the agent run that is being processed.
 	run *v1.AgentRun
+
+	// model is the AI model used by opencode.
+	model Model
+
+	// provider is the AI provider used by opencode.
+	provider Provider
 
 	// server is the opencode server.
 	server *Server
