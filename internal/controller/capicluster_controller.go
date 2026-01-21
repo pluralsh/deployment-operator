@@ -6,6 +6,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	utilkubeconfig "sigs.k8s.io/cluster-api/util/kubeconfig"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -35,9 +36,20 @@ func (r *CapiClusterController) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	if !r.isClusterReady(cluster) {
-		logger.Info("CAPI Cluster is not ready yet", "cluster", cluster.Name)
+		logger.V(5).Info("CAPI Cluster is not ready yet", "cluster", cluster.Name)
 		return ctrl.Result{}, nil
 	}
+	obj := k8sClient.ObjectKey{
+		Namespace: cluster.Namespace,
+		Name:      cluster.Name,
+	}
+	dataBytes, err := utilkubeconfig.FromSecret(ctx, r.Client, obj)
+	if err != nil {
+		logger.Error(err, "Unable to fetch kubeconfig for CAPI Cluster", "cluster", cluster.Name)
+		return ctrl.Result{}, err
+	}
+
+	kubeconfig := string(dataBytes)
 
 	return ctrl.Result{}, nil
 }
