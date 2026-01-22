@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/docker/docker/daemon/logger"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/client"
@@ -52,6 +51,12 @@ func (in *CapiClusterController) Reconcile(ctx context.Context, req ctrl.Request
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
+	// If the cluster already has an ID, no need to reconcile
+	// The cluster is already created in Console and deployment-operator is installed
+	if clusterConfiguration.Status.HasID() {
+		return ctrl.Result{}, nil
+	}
+
 	if err := in.initConsoleClient(ctx, clusterConfiguration); err != nil {
 		logger.Error(err, "Unable to initialize console client")
 		return ctrl.Result{}, err
@@ -61,6 +66,8 @@ func (in *CapiClusterController) Reconcile(ctx context.Context, req ctrl.Request
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// TODO: Install deployment-operator using the deploy token
 
 	return ctrl.Result{}, nil
 }
