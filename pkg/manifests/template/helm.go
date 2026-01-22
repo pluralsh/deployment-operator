@@ -347,14 +347,16 @@ func (h *helm) valuesFile(svc *console.ServiceDeploymentForAgent, filename strin
 
 		if strings.HasSuffix(filename, ".liquid") {
 			data, err = renderLiquid(data, svc)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if strings.HasSuffix(filename, ".tpl") {
 			data, err = renderTpl(data, svc)
-		}
-
-		if err != nil {
-			return nil, err
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if err := yaml.Unmarshal(data, &currentMap); err != nil {

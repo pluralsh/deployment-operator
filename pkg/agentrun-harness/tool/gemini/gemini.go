@@ -100,7 +100,7 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 func (in *Gemini) args() []string {
 	if in.run.Mode == console.AgentRunModeWrite {
 		return []string{
-			"--approval-mode", "auto_edit",
+			"--approval-mode", "yolo",
 			"--output-format", "stream-json",
 			in.run.Prompt,
 		}
