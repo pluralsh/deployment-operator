@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
@@ -174,7 +176,43 @@ func (c *client) GetCluster(id string) (*console.TinyClusterFragment, error) {
 	}, nil
 }
 
+func (c *client) GetClusterByHandle(name string) (*console.TinyClusterFragment, error) {
+	cluster, err := c.consoleClient.GetClusterByHandle(c.ctx, &name)
+	if internalerrors.IgnoreNotFound(err) != nil {
+		return nil, err
+	}
+
+	if internalerrors.IsNotFound(err) || cluster == nil || cluster.Cluster == nil {
+		return nil, errors.NewNotFound(schema.GroupResource{}, name)
+	}
+
+	return &console.TinyClusterFragment{
+		ID:      cluster.Cluster.ID,
+		Name:    cluster.Cluster.Name,
+		Handle:  cluster.Cluster.Handle,
+		Self:    cluster.Cluster.Self,
+		Project: cluster.Cluster.Project,
+	}, nil
+}
+
 func (c *client) DetachCluster(id string) error {
 	_, err := c.consoleClient.DetachCluster(c.ctx, id)
 	return err
+}
+
+func (c *client) CreateCluster(attrs console.ClusterAttributes) (*console.CreateCluster, error) {
+	return c.consoleClient.CreateCluster(c.ctx, attrs)
+}
+
+func (c *client) GetDeployToken(clusterId, clusterName *string) (string, error) {
+	res, err := c.consoleClient.GetClusterWithToken(c.ctx, clusterId, clusterName)
+	if err != nil {
+		return "", err
+	}
+
+	if res == nil {
+		return "", fmt.Errorf("cluster not found")
+	}
+
+	return lo.FromPtr(res.Cluster.DeployToken), nil
 }
