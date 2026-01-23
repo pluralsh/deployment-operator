@@ -4,20 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.3
-  name: capiconfigurationclusters.deployments.plural.sh
+  name: pluralcapiclusters.deployments.plural.sh
 spec:
   group: deployments.plural.sh
   names:
-    kind: CapiConfigurationCluster
-    listKind: CapiConfigurationClusterList
-    plural: capiconfigurationclusters
-    singular: capiconfigurationcluster
+    kind: PluralCAPICluster
+    listKind: PluralCAPIClusterList
+    plural: pluralcapiclusters
+    singular: pluralcapicluster
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CapiConfigurationCluster is the Schema for the CAPI cluster configuration
+        description: PluralCAPICluster is the Schema for the CAPI cluster configuration
         properties:
           apiVersion:
             description: |-
@@ -39,8 +39,75 @@ spec:
           spec:
             description: Spec of the CAPI cluster configuration
             properties:
-              capiCluster:
-                description: Cluster contains the reference to the CAPI cluster
+              agent:
+                description: Agent allows configuring agent specific helm chart options.
+                properties:
+                  chartName:
+                    description: ChartName is a helm chart name.
+                    type: string
+                  repoUrl:
+                    description: RepoUrl is a url that points to this helm chart.
+                    type: string
+                  values:
+                    description: "Values allows defining arbitrary YAML values to
+                      pass to the helm as values.yaml file.\nUse only one of:\n\t-
+                      Values\n\t- ValuesSecretRef\n\t- ValuesConfigMapRef"
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  valuesConfigMapRef:
+                    description: "ValuesConfigMapRef fetches helm values from a config
+                      map in this cluster.\nUse only one of:\n\t- Values\n\t- ValuesSecretRef\n\t-
+                      ValuesConfigMapRef"
+                    properties:
+                      key:
+                        description: The key to select.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the ConfigMap or its key must
+                          be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  valuesSecretRef:
+                    description: "ValuesSecretRef fetches helm values from a secret
+                      in this cluster.\nUse only one of:\n\t- Values\n\t- ValuesSecretRef\n\t-
+                      ValuesConfigMapRef"
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be
+                          a valid secret key.
+                        type: string
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be
+                          defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              capiClusterRef:
+                description: CapiClusterRef contains the reference to the CAPI cluster
                 properties:
                   apiVersion:
                     description: API version of the referent.
@@ -167,7 +234,7 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
             required:
-            - capiCluster
+            - capiClusterRef
             - consoleTokenSecretRef
             type: object
           status:
