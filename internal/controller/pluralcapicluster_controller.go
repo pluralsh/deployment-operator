@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/helm"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
@@ -21,9 +22,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const PluralCAPIClusterFinalizer = "deployments.plural.sh/plural-capi-cluster-protection"
 
 type PluralCAPIClusterController struct {
 	k8sClient.Client
@@ -59,6 +63,12 @@ func (in *PluralCAPIClusterController) Reconcile(ctx context.Context, req ctrl.R
 			reterr = err
 		}
 	}()
+
+	// Handle resource deletion both in Kubernetes cluster and in Console API.
+	result, err := in.addOrRemoveFinalizer(ctx, pluralCapiCluster)
+	if result != nil {
+		return *result, err
+	}
 
 	// Synchronize the console token to make sure it is available
 	consoleToken, err := pluralCapiCluster.GetConsoleToken(ctx, in.Client)
@@ -252,6 +262,33 @@ func (in *PluralCAPIClusterController) SetupWithManager(mgr ctrl.Manager) error 
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		For(&v1alpha1.PluralCAPICluster{}).
 		Complete(in)
+}
+
+func (in *PluralCAPIClusterController) addOrRemoveFinalizer(ctx context.Context, cluster *v1alpha1.PluralCAPICluster) (*ctrl.Result, error) {
+	if cluster.GetDeletionTimestamp().IsZero() {
+		if !controllerutil.ContainsFinalizer(cluster, PluralCAPIClusterFinalizer) {
+			controllerutil.AddFinalizer(cluster, PluralCAPIClusterFinalizer)
+		}
+		return nil, nil
+	}
+	if !cluster.Status.HasID() {
+		controllerutil.RemoveFinalizer(cluster, PluralCAPIClusterFinalizer)
+		return nil, nil
+	}
+	if in.consoleClient == nil {
+		consoleToken, err := cluster.GetConsoleToken(ctx, in.Client)
+		if err != nil {
+			return nil, err
+		}
+		if err := in.initConsoleClient(consoleToken); err != nil {
+			return nil, err
+		}
+	}
+	err := in.consoleClient.DetachCluster(cluster.Status.GetID())
+	if err != nil && internalerrors.IsNotFound(err) {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func isCAPIClusterReady(cluster *clusterv1.Cluster) bool {
