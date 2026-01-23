@@ -66,7 +66,7 @@ var (
 		MountPath: defaultJobTmpVolumePath,
 	}
 
-	defaultImageTag = "0.4.29"
+	defaultImageTag = "0.6.18"
 )
 
 func init() {
