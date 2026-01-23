@@ -216,3 +216,8 @@ func (c *client) GetDeployToken(clusterId, clusterName *string) (string, error) 
 
 	return lo.FromPtr(res.Cluster.DeployToken), nil
 }
+
+func (c *client) UpdateCluster(id string, attrs console.ClusterUpdateAttributes) error {
+	_, err := c.consoleClient.UpdateCluster(c.ctx, id, attrs)
+	return err
+}

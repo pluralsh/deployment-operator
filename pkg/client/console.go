@@ -102,4 +102,7 @@ type Client interface {
 	GetClusterByHandle(name string) (*console.TinyClusterFragment, error)
 	CreateCluster(attrs console.ClusterAttributes) (*console.CreateCluster, error)
 	GetDeployToken(clusterId, clusterName *string) (string, error)
+	GetUserId(email string) (string, error)
+	GetGroupId(name string) (string, error)
+	UpdateCluster(id string, attrs console.ClusterUpdateAttributes) error
 }

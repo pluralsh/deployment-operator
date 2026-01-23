@@ -23,7 +23,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientgocache "k8s.io/client-go/tools/cache"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	crcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -174,12 +173,6 @@ func registerKubeReconcilersOrDie(
 		Scheme:    manager.GetScheme(),
 		ClientSet: clientSet,
 	}
-	capiClusterController := &controller.CapiClusterController{
-		Client:     manager.GetClient(),
-		Scheme:     manager.GetScheme(),
-		ConsoleUrl: args.ConsoleUrl(),
-	}
-
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
 		{
 			Group:   velerov1.SchemeGroupVersion.Group,
@@ -211,11 +204,6 @@ func registerKubeReconcilersOrDie(
 			Version: fluxcd.GroupVersion.Version,
 			Kind:    fluxcd.HelmReleaseKind,
 		}: helmReleaseController.SetupWithManager,
-		{
-			Group:   clusterv1.GroupVersion.Group,
-			Version: clusterv1.GroupVersion.Version,
-			Kind:    clusterv1.ClusterKind,
-		}: capiClusterController.SetupWithManager,
 	}
 
 	if err := (&controller.CrdRegisterControllerReconciler{
@@ -332,10 +320,11 @@ func registerKubeReconcilersOrDie(
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AgentRun")
 	}
-	if err := (&controller.CapiConfigurationClusterController{
-		Client: manager.GetClient(),
-		Scheme: manager.GetScheme(),
+	if err := (&controller.PluralCAPIClusterController{
+		Client:     manager.GetClient(),
+		Scheme:     manager.GetScheme(),
+		ConsoleUrl: consoleURL,
 	}).SetupWithManager(manager); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CapiConfigurationClusterController")
+		setupLog.Error(err, "unable to create controller", "controller", "PluralCAPIClusterController")
 	}
 }
