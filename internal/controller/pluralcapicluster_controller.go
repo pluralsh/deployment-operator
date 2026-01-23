@@ -205,7 +205,7 @@ func (in *PluralCAPIClusterController) syncConsoleCluster(pluralCapiCluster *v1a
 	}
 	id = existingConsoleCluster.ID
 	token, err = in.consoleClient.GetDeployToken(&id, nil)
-	err = in.consoleClient.UpdateCluster(id, pluralCapiCluster.AttributesWrapped().ToUpdateAttributes())
+	err = in.consoleClient.UpdateCluster(id, pluralCapiCluster.UpdateAttributes())
 
 	return
 }

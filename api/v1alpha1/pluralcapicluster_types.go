@@ -145,13 +145,8 @@ func (in *PluralCAPICluster) Attributes() console.ClusterAttributes {
 	return attrs
 }
 
-// ClusterAttributes is a local wrapper around console.ClusterAttributes
-// that adds conversion helpers.
-type ClusterAttributes console.ClusterAttributes
-
-// ToUpdateAttributes converts the wrapped console.ClusterAttributes to
-// console.ClusterUpdateAttributes.
-func (a ClusterAttributes) ToUpdateAttributes() console.ClusterUpdateAttributes {
+// ConvertClusterAttributesToUpdate converts a console.ClusterAttributes into console.ClusterUpdateAttributes
+func ConvertClusterAttributesToUpdate(a console.ClusterAttributes) console.ClusterUpdateAttributes {
 	up := console.ClusterUpdateAttributes{
 		Name: lo.ToPtr(a.Name),
 	}
@@ -159,15 +154,12 @@ func (a ClusterAttributes) ToUpdateAttributes() console.ClusterUpdateAttributes 
 	if a.Handle != nil {
 		up.Handle = a.Handle
 	}
-
 	if a.Tags != nil {
 		up.Tags = a.Tags
 	}
-
 	if a.Metadata != nil {
 		up.Metadata = a.Metadata
 	}
-
 	if a.ReadBindings != nil {
 		up.ReadBindings = a.ReadBindings
 	}
@@ -178,8 +170,8 @@ func (a ClusterAttributes) ToUpdateAttributes() console.ClusterUpdateAttributes 
 	return up
 }
 
-// AttributesWrapped returns the wrapper so you can chain the conversion:
-// in.AttributesWrapped().ToUpdateAttributes()
-func (in *PluralCAPICluster) AttributesWrapped() ClusterAttributes {
-	return ClusterAttributes(in.Attributes())
+// UpdateAttributes returns the update attributes for this CR by converting
+// the value returned from Attributes().
+func (in *PluralCAPICluster) UpdateAttributes() console.ClusterUpdateAttributes {
+	return ConvertClusterAttributesToUpdate(in.Attributes())
 }
