@@ -31,9 +31,9 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 	}
 
 	if in.run.Runtime.Type == console.AgentRuntimeTypeOpencode {
-		input.Provider = DefaultProvider()
+		input.Provider = in.provider
 		input.Endpoint = helpers.GetEnv(controller.EnvOpenCodeEndpoint, input.Provider.Endpoint())
-		input.Model = DefaultModel()
+		input.Model = in.model
 		input.Token = helpers.GetEnv(controller.EnvOpenCodeToken, "")
 	}
 
@@ -139,6 +139,8 @@ func (in *Opencode) ensure() error {
 func New(config v1.Config) v1.Tool {
 	result := &Opencode{
 		run:           config.Run,
+		model:         DefaultModel(),
+		provider:      DefaultProvider(config.Run.IsProxyEnabled()),
 		dir:           config.WorkDir,
 		repositoryDir: config.RepositoryDir,
 		finishedChan:  config.FinishedChan,
@@ -152,6 +154,6 @@ func New(config v1.Config) v1.Tool {
 		klog.Fatalf("failed to initialize opencode tool: %v", err)
 	}
 
-	result.server = NewServer(defaultOpenCodePort, result.configFilePath(), config.RepositoryDir, config.Run.Mode)
+	result.server = NewServer(defaultOpenCodePort, result.configFilePath(), config.RepositoryDir, result.model, result.provider, config.Run.Mode)
 	return result
 }

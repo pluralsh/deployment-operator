@@ -37,6 +37,7 @@ func (ar *AgentRun) FromAgentRunFragment(fragment *console.AgentRunFragment) *Ag
 		Status:      fragment.Status,
 		ScmCreds:    fragment.ScmCreds,
 		PluralCreds: fragment.PluralCreds,
+		Runtime:     &AgentRuntime{},
 	}
 
 	if fragment.Flow != nil {

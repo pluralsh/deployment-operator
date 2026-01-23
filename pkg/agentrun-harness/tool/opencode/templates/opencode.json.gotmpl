@@ -68,7 +68,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "plural",
       "options": {
-        "baseURL": "{{ .ConsoleURL }}/ext/v1/ai/openai/v1",
+        "baseURL": "{{ .ConsoleURL }}/ext/ai/openai/v1",
         "headers": {
           "Authorization": "Bearer {{ .DeployToken }}"
         }
@@ -99,20 +99,20 @@
         "apiKey": "{{ .Token }}"
       },
       "models": {
-        "gpt-4.1-mini": {
-          "name": "gpt-4.1-mini",
-          "reasoning": false
-        },
         "gpt-4.1": {
           "name": "gpt-4.1",
           "reasoning": false
         },
-        "gpt-5-mini": {
-          "name": "gpt-5-mini",
-          "reasoning": true
-        },
         "gpt-5": {
           "name": "gpt-5",
+          "reasoning": true
+        },
+        "gpt-5.1": {
+          "name": "gpt-5.1",
+          "reasoning": true
+        },
+        "gpt-5.2": {
+          "name": "gpt-5.2",
           "reasoning": true
         }
       }

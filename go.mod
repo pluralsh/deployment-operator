@@ -48,7 +48,7 @@ require (
 	github.com/samber/lo v1.51.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.10
-	github.com/sst/opencode-sdk-go v0.16.2
+	github.com/sst/opencode-sdk-go v0.19.2
 	github.com/stretchr/testify v1.11.1
 	github.com/terraform-docs/terraform-docs v0.20.0
 	github.com/vektah/gqlparser/v2 v2.5.30
