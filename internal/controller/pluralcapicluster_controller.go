@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	internalerrors "github.com/pluralsh/deployment-operator/internal/errors"
@@ -81,6 +82,7 @@ func (in *PluralCAPIClusterController) Reconcile(ctx context.Context, req ctrl.R
 		utils.MarkCondition(pluralCapiCluster.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, err.Error())
 		return ctrl.Result{}, err
 	}
+	consoleToken = strings.TrimSpace(consoleToken)
 
 	changed, sha, err := pluralCapiCluster.Diff(utils.HashObject)
 	if err != nil {
@@ -288,6 +290,8 @@ func (in *PluralCAPIClusterController) addOrRemoveFinalizer(ctx context.Context,
 	if err != nil && internalerrors.IsNotFound(err) {
 		return nil, err
 	}
+
+	controllerutil.RemoveFinalizer(cluster, PluralCAPIClusterFinalizer)
 	return nil, nil
 }
 
