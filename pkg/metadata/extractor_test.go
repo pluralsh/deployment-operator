@@ -102,7 +102,7 @@ var _ = Describe("Image Extractor with Raw Manifests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(manifests).To(HaveLen(1))
 
-			var allImages []string
+			allImages := make([]string, 0, len(manifests))
 			for _, resource := range manifests {
 				allImages = append(allImages, ExtractImagesFromResource(&resource)...)
 			}
@@ -153,7 +153,7 @@ var _ = Describe("Image Extractor with Raw Manifests", func() {
 			manifests, err := rawTemplate.Render(svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
 
-			var allFqdns []string
+			allFqdns := make([]string, 0, len(manifests))
 			for _, manifest := range manifests {
 				fqdns := ExtractFqdnsFromResource(&manifest)
 				allFqdns = append(allFqdns, fqdns...)
