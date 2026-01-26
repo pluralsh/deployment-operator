@@ -10,6 +10,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	"github.com/pluralsh/deployment-operator/pkg/common"
+	plrlerrors "github.com/pluralsh/deployment-operator/pkg/errors"
 	plrlog "github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/metadata"
 	"github.com/samber/lo"
@@ -35,6 +36,7 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	return &console.ServiceErrorAttributes{
 		Source:  source,
 		Message: err.Error(),
+		Warning: lo.ToPtr(plrlerrors.IsDigestMismatchError(err)),
 	}
 }
 
