@@ -1024,6 +1024,8 @@ github.com/ssgreg/nlreturn/v2 v2.2.1 h1:X4XDI7jstt3ySqGU86YGAURbxw3oTDPK9sPEi6YE
 github.com/ssgreg/nlreturn/v2 v2.2.1/go.mod h1:E/iiPB78hV7Szg2YfRgyIrk1AD6JVMTRkkxBiELzh2I=
 github.com/sst/opencode-sdk-go v0.16.2 h1:3oe391jImuC/MUl79UGb2+/3W/6JKunkqNq+he8Ne7w=
 github.com/sst/opencode-sdk-go v0.16.2/go.mod h1:rrpo5n0Be43y6tJ29TeMxH1/zeoDcB0D43nJh6gnL34=
+github.com/sst/opencode-sdk-go v0.19.2 h1:ffgQpE+ms4F0Wop/tT4tqTvFAbocyWYM8iy543b3Ous=
+github.com/sst/opencode-sdk-go v0.19.2/go.mod h1:rrpo5n0Be43y6tJ29TeMxH1/zeoDcB0D43nJh6gnL34=
 github.com/stbenjam/no-sprintf-host-port v0.2.0 h1:i8pxvGrt1+4G0czLr/WnmyH7zbZ8Bg8etvARQ1rpyl4=
 github.com/stbenjam/no-sprintf-host-port v0.2.0/go.mod h1:eL0bQ9PasS0hsyTyfTjjG+E80QIyPnBVQbYZyv20Jfk=
 github.com/stoewer/go-strcase v1.3.1 h1:iS0MdW+kVTxgMoE1LAZyMiYJFKlOzLooE4MxjirtkAs=

@@ -14,10 +14,11 @@ spec:
   template:
     spec:
       containers:
-      - name: default
-        image: ghcr.io/pluralsh/agent-harness:0.6.17-claude-1.0.128
-        args:
-          - --v=3
+        - name: default
+          image: ghcr.io/pluralsh/agent-harness:0.6.17-claude-1.0.128
+          args:
+            - --v=3
+  dind: true
 ---
 apiVersion: v1
 kind: Namespace
@@ -32,7 +33,7 @@ spec:
   type: "GEMINI"
   targetNamespace: "gemini"
   config:
-    claude:
+    gemini:
       apiKeySecretRef:
         name: gemini
         key: apiKey
@@ -42,7 +43,4 @@ spec:
         - name: default
           args:
             - --v=3
-
-
-
-
+  dind: true

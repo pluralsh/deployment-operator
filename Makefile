@@ -279,14 +279,6 @@ docker-build-agent-harness-opencode: docker-build-agent-harness-base ## build op
 		-f dockerfiles/agent-harness/opencode.Dockerfile \
 		.
 
-.PHONY: docker-build-agent-harness-claude
-docker-build-agent-harness-claude: docker-build-agent-harness-base ## build claude docker agent harness image
-	docker build \
-		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
-		-t ghcr.io/pluralsh/agent-harness-claude \
-		-f dockerfiles/agent-harness/claude.Dockerfile \
-		.
-
 .PHONY: docker-build-terraform-mcpserver
 docker-build-terraform-mcpserver: ## build mcp server docker image
 	docker build \

@@ -202,6 +202,7 @@ type OpenCodeConfig struct {
 	TokenSecretRef corev1.SecretKeySelector `json:"tokenSecretRef"`
 
 	// ExtraArgs args for advanced or experimental CLI flags.
+	//
 	// Deprecated: It is being ignored by the agent harness.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 }

@@ -37,7 +37,7 @@ func (in Error) ToError() error {
 type Errors []Error
 
 func (in Errors) ToErrors() []error {
-	errors := make([]error, len(in))
+	errors := make([]error, 0, len(in))
 	for _, err := range in {
 		errors = append(errors, err.ToError())
 	}

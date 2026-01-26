@@ -661,7 +661,7 @@ func recommendationsFilter(recommendations v1alpha1.RecommendationsSettings) str
 	}
 	if len(recommendations.RequireAnnotations) > 0 {
 		// Build the filter string
-		var parts []string
+		parts := make([]string, 0, len(recommendations.RequireAnnotations))
 		keys := algorithms.MapKeys(recommendations.RequireAnnotations)
 		sort.Strings(keys)
 		for _, key := range keys {
