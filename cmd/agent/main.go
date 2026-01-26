@@ -31,6 +31,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -64,6 +65,7 @@ func init() {
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
 	utilruntime.Must(openshift.AddToScheme(scheme))
 	utilruntime.Must(fluxcd.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
