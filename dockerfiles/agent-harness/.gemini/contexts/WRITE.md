@@ -18,9 +18,10 @@ Before creating todos:
 
 1. Read the user request.
 2. Perform a **light environment analysis** (no edits yet):
-    - Inspect project structure, key files, dependencies, style.
-    - Discover the relevant code and configuration for the request.
-    - Check available tools (including Plural MCP server).
+   - Inspect project structure, key files, dependencies, style.
+   - Discover the relevant code and configuration for the request.
+   - Check available tools (including Plural MCP server).
+   - Discover available test files, Docker files, and testing tooling, and verify Docker availability for testing.
 
 ### 1.2 Build an ordered plan as todos (once)
 
@@ -37,10 +38,10 @@ Rules:
 - Each todo is `{ "title": string, "description": string, "done": boolean }`.
 - **Keep titles short** (keywords only); move explanations into `description`. `description` should be **clear** and **concise**.
 - You may choose any number and names, as long as:
-    - They form a clear, linear plan for this run.
-    - The **last two** todos are always:
-        1. Commit (e.g. `"Commit changes"`)
-        2. Create PR (e.g. `"Create pull request"`).
+  - They form a clear, linear plan for this run.
+  - The **last two** todos are always:
+    1. Commit (e.g. `"Commit changes"`)
+    2. Create PR (e.g. `"Create pull request"`).
 - You must construct this full list **once** after analysis, before editing code.
 - You must **never** change the list length or order.
 
@@ -63,9 +64,9 @@ After this initial save:
 Every todo change (progress or failure) must follow this exact pattern:
 
 1. Call Plural MCP server `fetchAgentRunTodos` tool.
-    - If you cannot or do not call this, you must **not** call Plural MCP server `updateAgentRunTodos` tool.
+   - If you cannot or do not call this, you must **not** call Plural MCP server `updateAgentRunTodos` tool.
 2. In the returned array, modify **exactly one** item:
-    - Set `done: true` and/or update `description`.
+   - Set `done: true` and/or update `description`.
 3. Call Plural MCP server `updateAgentRunTodos` tool with the **full** updated array.
 
 You must **never**:
@@ -83,7 +84,9 @@ Each completed step → **one** One‑Todo Protocol cycle for its todo.
 Each failure → **one** cycle updating only the relevant todo’s `description`.
 
 **Loop Prevention:**
+
 - If a step fails repeatedly (e.g. >3 times), do **not** retry indefinitely. Update the todo description with the error and stop.
+
 ---
 
 ## 3. Workflow (high‑level order)
@@ -94,9 +97,10 @@ Your **high‑level** order is:
 2. Initial environment & request analysis
 3. Build and save the todo plan (with commit and PR as the last two items)
 4. Execute todos **in listed order**
-5. Commit via Plural MCP server `createBranch` tool (second‑to‑last todo)
-6. Create PR via Plural MCP server `agentPullRequest` tool (last todo)
-7. Final summary
+5. Before committing, verify changes by running the application, tests, Docker files, and other applicable verification methods where available
+6. Commit via Plural MCP server `createBranch` tool (second‑to‑last todo)
+7. Create PR via Plural MCP server `agentPullRequest` tool (last todo)
+8. Final summary
 
 You may add intermediate todos (e.g. multiple implementation or testing steps), but commit and PR must always be the final two.
 
@@ -108,13 +112,13 @@ When you reach the commit todo:
 
 1. You are **forbidden** from using `git` directly.
 2. Call Plural MCP server `createBranch` tool with:
-    - `branchName` (e.g. `agent/{kebab-slug}-{utc-epoch-ms}`),
-    - `commitMessage` (short, clear summary).
+   - `branchName` (e.g. `agent/{kebab-slug}-{utc-epoch-ms}`),
+   - `commitMessage` (short, clear summary).
 3. Plural MCP server `createBranch` tool will:
-    - Check current branch,
-    - Create and check out `branchName`,
-    - Add and commit all current changes,
-    - Push the branch.
+   - Check current branch,
+   - Create and check out `branchName`,
+   - Add and commit all current changes,
+   - Push the branch.
 4. There must be exactly **one** commit for the whole change set (created by Plural MCP server `createBranch` tool).
 5. Mark the commit todo done via a One‑Todo Protocol cycle.
 
@@ -125,13 +129,13 @@ When you reach the commit todo:
 When you reach the final todo:
 
 1. Call Plural MCP server `agentPullRequest` tool with:
-    - `title` (descriptive),
-    - `body` (brief summary and rationale),
-    - `base` (e.g. `main`),
-    - `head` (branch from `createBranch`).
+   - `title` (descriptive),
+   - `body` (brief summary and rationale),
+   - `base` (e.g. `main`),
+   - `head` (branch from `createBranch`).
 2. Only after Plural MCP server `agentPullRequest` tool succeeds:
-    - Use One‑Todo Protocol to set the PR todo `done: true`
-    - Optionally add PR URL/number to `description`.
+   - Use One‑Todo Protocol to set the PR todo `done: true`
+   - Optionally add PR URL/number to `description`.
 
 ---
 
