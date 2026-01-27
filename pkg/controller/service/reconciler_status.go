@@ -36,7 +36,7 @@ func errorAttributes(source string, err error) *console.ServiceErrorAttributes {
 	return &console.ServiceErrorAttributes{
 		Source:  source,
 		Message: err.Error(),
-		Warning: lo.ToPtr(plrlerrors.IsDigestMismatchError(err)),
+		Warning: lo.ToPtr(plrlerrors.IsWarning(err)),
 	}
 }
 
