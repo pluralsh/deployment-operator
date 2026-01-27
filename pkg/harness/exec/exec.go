@@ -243,8 +243,12 @@ func (in *executable) RunStream(ctx context.Context, cb func([]byte)) error {
 	}
 
 	// Stream lines from a reader, call callback, and write to sinks
-	streamReader := func(r io.Reader) {
-		defer wg.Done()
+	streamReader := func(r io.Reader, name string) {
+		defer func() {
+			klog.V(log.LogLevelDebug).InfoS("stream reader finished", "reader", name)
+			wg.Done()
+		}()
+
 		scanner := bufio.NewScanner(r)
 
 		// Increase the buffer to handle longer lines safely (adjust max if you expect huge single-line JSON).
@@ -288,8 +292,8 @@ func (in *executable) RunStream(ctx context.Context, cb func([]byte)) error {
 		}
 	}
 
-	go streamReader(stdoutPipe)
-	go streamReader(stderrPipe)
+	go streamReader(stdoutPipe, "stdout")
+	go streamReader(stderrPipe, "stderr")
 
 	// Wait for readers to finish draining the pipes BEFORE calling cmd.Wait()
 	wg.Wait()
