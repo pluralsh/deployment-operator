@@ -37,7 +37,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 				Type:          console.StackTypeTerraform,
 				Configuration: console.StackConfigurationFragment{},
 			},
-			expectedImage: "ghcr.io/pluralsh/harness:0.4.29-terraform-1.8.2",
+			expectedImage: "ghcr.io/pluralsh/harness:0.6.18-terraform-1.8.2",
 		},
 		{
 			name: "custom_tool_version_provided",
@@ -47,7 +47,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 					Version: lo.ToPtr("1.8.4"),
 				},
 			},
-			expectedImage: "ghcr.io/pluralsh/harness:0.4.29-terraform-1.8.4",
+			expectedImage: "ghcr.io/pluralsh/harness:0.6.18-terraform-1.8.4",
 		},
 		{
 			name: "custom_tag_provided",
@@ -78,7 +78,7 @@ func TestGetDefaultContainerImage(t *testing.T) {
 					Image: lo.ToPtr("ghcr.io/pluralsh/custom"),
 				},
 			},
-			expectedImage: "ghcr.io/pluralsh/custom:0.4.29",
+			expectedImage: "ghcr.io/pluralsh/custom:0.6.18",
 		},
 		{
 			name: "custom_image_and_version_provided",
@@ -244,7 +244,7 @@ func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
 				Containers: []corev1.Container{
 					{
 						Name:       defaultName,
-						Image:      "ghcr.io/pluralsh/harness:0.4.29-terraform-1.8.2",
+						Image:      "ghcr.io/pluralsh/harness:0.6.18-terraform-1.8.2",
 						WorkingDir: "",
 						EnvFrom: []corev1.EnvFromSource{
 							{

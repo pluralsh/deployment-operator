@@ -350,6 +350,64 @@ func (_c *ClientMock_CreateAgentRun_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// CreateCluster provides a mock function with given fields: attrs
+func (_m *ClientMock) CreateCluster(attrs goclient.ClusterAttributes) (*goclient.CreateCluster, error) {
+	ret := _m.Called(attrs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateCluster")
+	}
+
+	var r0 *goclient.CreateCluster
+	var r1 error
+	if rf, ok := ret.Get(0).(func(goclient.ClusterAttributes) (*goclient.CreateCluster, error)); ok {
+		return rf(attrs)
+	}
+	if rf, ok := ret.Get(0).(func(goclient.ClusterAttributes) *goclient.CreateCluster); ok {
+		r0 = rf(attrs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*goclient.CreateCluster)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(goclient.ClusterAttributes) error); ok {
+		r1 = rf(attrs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_CreateCluster_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateCluster'
+type ClientMock_CreateCluster_Call struct {
+	*mock.Call
+}
+
+// CreateCluster is a helper method to define mock.On call
+//   - attrs goclient.ClusterAttributes
+func (_e *ClientMock_Expecter) CreateCluster(attrs interface{}) *ClientMock_CreateCluster_Call {
+	return &ClientMock_CreateCluster_Call{Call: _e.mock.On("CreateCluster", attrs)}
+}
+
+func (_c *ClientMock_CreateCluster_Call) Run(run func(attrs goclient.ClusterAttributes)) *ClientMock_CreateCluster_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(goclient.ClusterAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_CreateCluster_Call) Return(_a0 *goclient.CreateCluster, _a1 error) *ClientMock_CreateCluster_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_CreateCluster_Call) RunAndReturn(run func(goclient.ClusterAttributes) (*goclient.CreateCluster, error)) *ClientMock_CreateCluster_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteAgentRuntime provides a mock function with given fields: ctx, id
 func (_m *ClientMock) DeleteAgentRuntime(ctx context.Context, id string) error {
 	ret := _m.Called(ctx, id)
@@ -843,6 +901,64 @@ func (_c *ClientMock_GetClusterBackup_Call) RunAndReturn(run func(string, string
 	return _c
 }
 
+// GetClusterByHandle provides a mock function with given fields: name
+func (_m *ClientMock) GetClusterByHandle(name string) (*goclient.TinyClusterFragment, error) {
+	ret := _m.Called(name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterByHandle")
+	}
+
+	var r0 *goclient.TinyClusterFragment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*goclient.TinyClusterFragment, error)); ok {
+		return rf(name)
+	}
+	if rf, ok := ret.Get(0).(func(string) *goclient.TinyClusterFragment); ok {
+		r0 = rf(name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*goclient.TinyClusterFragment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetClusterByHandle_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterByHandle'
+type ClientMock_GetClusterByHandle_Call struct {
+	*mock.Call
+}
+
+// GetClusterByHandle is a helper method to define mock.On call
+//   - name string
+func (_e *ClientMock_Expecter) GetClusterByHandle(name interface{}) *ClientMock_GetClusterByHandle_Call {
+	return &ClientMock_GetClusterByHandle_Call{Call: _e.mock.On("GetClusterByHandle", name)}
+}
+
+func (_c *ClientMock_GetClusterByHandle_Call) Run(run func(name string)) *ClientMock_GetClusterByHandle_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetClusterByHandle_Call) Return(_a0 *goclient.TinyClusterFragment, _a1 error) *ClientMock_GetClusterByHandle_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetClusterByHandle_Call) RunAndReturn(run func(string) (*goclient.TinyClusterFragment, error)) *ClientMock_GetClusterByHandle_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetClusterGate provides a mock function with given fields: id
 func (_m *ClientMock) GetClusterGate(id string) (*goclient.PipelineGateFragment, error) {
 	ret := _m.Called(id)
@@ -1073,6 +1189,63 @@ func (_c *ClientMock_GetCredentials_Call) RunAndReturn(run func() (string, strin
 	return _c
 }
 
+// GetDeployToken provides a mock function with given fields: clusterId, clusterName
+func (_m *ClientMock) GetDeployToken(clusterId *string, clusterName *string) (string, error) {
+	ret := _m.Called(clusterId, clusterName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDeployToken")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*string, *string) (string, error)); ok {
+		return rf(clusterId, clusterName)
+	}
+	if rf, ok := ret.Get(0).(func(*string, *string) string); ok {
+		r0 = rf(clusterId, clusterName)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(*string, *string) error); ok {
+		r1 = rf(clusterId, clusterName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetDeployToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDeployToken'
+type ClientMock_GetDeployToken_Call struct {
+	*mock.Call
+}
+
+// GetDeployToken is a helper method to define mock.On call
+//   - clusterId *string
+//   - clusterName *string
+func (_e *ClientMock_Expecter) GetDeployToken(clusterId interface{}, clusterName interface{}) *ClientMock_GetDeployToken_Call {
+	return &ClientMock_GetDeployToken_Call{Call: _e.mock.On("GetDeployToken", clusterId, clusterName)}
+}
+
+func (_c *ClientMock_GetDeployToken_Call) Run(run func(clusterId *string, clusterName *string)) *ClientMock_GetDeployToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*string), args[1].(*string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetDeployToken_Call) Return(_a0 string, _a1 error) *ClientMock_GetDeployToken_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetDeployToken_Call) RunAndReturn(run func(*string, *string) (string, error)) *ClientMock_GetDeployToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetGroup provides a mock function with given fields: name
 func (_m *ClientMock) GetGroup(name string) (*goclient.GroupFragment, error) {
 	ret := _m.Called(name)
@@ -1127,6 +1300,62 @@ func (_c *ClientMock_GetGroup_Call) Return(_a0 *goclient.GroupFragment, _a1 erro
 }
 
 func (_c *ClientMock_GetGroup_Call) RunAndReturn(run func(string) (*goclient.GroupFragment, error)) *ClientMock_GetGroup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetGroupId provides a mock function with given fields: name
+func (_m *ClientMock) GetGroupId(name string) (string, error) {
+	ret := _m.Called(name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetGroupId")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (string, error)); ok {
+		return rf(name)
+	}
+	if rf, ok := ret.Get(0).(func(string) string); ok {
+		r0 = rf(name)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetGroupId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetGroupId'
+type ClientMock_GetGroupId_Call struct {
+	*mock.Call
+}
+
+// GetGroupId is a helper method to define mock.On call
+//   - name string
+func (_e *ClientMock_Expecter) GetGroupId(name interface{}) *ClientMock_GetGroupId_Call {
+	return &ClientMock_GetGroupId_Call{Call: _e.mock.On("GetGroupId", name)}
+}
+
+func (_c *ClientMock_GetGroupId_Call) Run(run func(name string)) *ClientMock_GetGroupId_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetGroupId_Call) Return(_a0 string, _a1 error) *ClientMock_GetGroupId_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetGroupId_Call) RunAndReturn(run func(string) (string, error)) *ClientMock_GetGroupId_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1592,6 +1821,62 @@ func (_c *ClientMock_GetUser_Call) Return(_a0 *goclient.UserFragment, _a1 error)
 }
 
 func (_c *ClientMock_GetUser_Call) RunAndReturn(run func(string) (*goclient.UserFragment, error)) *ClientMock_GetUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUserId provides a mock function with given fields: email
+func (_m *ClientMock) GetUserId(email string) (string, error) {
+	ret := _m.Called(email)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserId")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (string, error)); ok {
+		return rf(email)
+	}
+	if rf, ok := ret.Get(0).(func(string) string); ok {
+		r0 = rf(email)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(email)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetUserId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserId'
+type ClientMock_GetUserId_Call struct {
+	*mock.Call
+}
+
+// GetUserId is a helper method to define mock.On call
+//   - email string
+func (_e *ClientMock_Expecter) GetUserId(email interface{}) *ClientMock_GetUserId_Call {
+	return &ClientMock_GetUserId_Call{Call: _e.mock.On("GetUserId", email)}
+}
+
+func (_c *ClientMock_GetUserId_Call) Run(run func(email string)) *ClientMock_GetUserId_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetUserId_Call) Return(_a0 string, _a1 error) *ClientMock_GetUserId_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetUserId_Call) RunAndReturn(run func(string) (string, error)) *ClientMock_GetUserId_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2731,6 +3016,53 @@ func (_c *ClientMock_UpdateAgentRunTodos_Call) Return(_a0 *goclient.AgentRunBase
 }
 
 func (_c *ClientMock_UpdateAgentRunTodos_Call) RunAndReturn(run func(context.Context, string, []*goclient.AgentTodoAttributes) (*goclient.AgentRunBaseFragment, error)) *ClientMock_UpdateAgentRunTodos_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateCluster provides a mock function with given fields: id, attrs
+func (_m *ClientMock) UpdateCluster(id string, attrs goclient.ClusterUpdateAttributes) error {
+	ret := _m.Called(id, attrs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateCluster")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, goclient.ClusterUpdateAttributes) error); ok {
+		r0 = rf(id, attrs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ClientMock_UpdateCluster_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateCluster'
+type ClientMock_UpdateCluster_Call struct {
+	*mock.Call
+}
+
+// UpdateCluster is a helper method to define mock.On call
+//   - id string
+//   - attrs goclient.ClusterUpdateAttributes
+func (_e *ClientMock_Expecter) UpdateCluster(id interface{}, attrs interface{}) *ClientMock_UpdateCluster_Call {
+	return &ClientMock_UpdateCluster_Call{Call: _e.mock.On("UpdateCluster", id, attrs)}
+}
+
+func (_c *ClientMock_UpdateCluster_Call) Run(run func(id string, attrs goclient.ClusterUpdateAttributes)) *ClientMock_UpdateCluster_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(goclient.ClusterUpdateAttributes))
+	})
+	return _c
+}
+
+func (_c *ClientMock_UpdateCluster_Call) Return(_a0 error) *ClientMock_UpdateCluster_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ClientMock_UpdateCluster_Call) RunAndReturn(run func(string, goclient.ClusterUpdateAttributes) error) *ClientMock_UpdateCluster_Call {
 	_c.Call.Return(run)
 	return _c
 }

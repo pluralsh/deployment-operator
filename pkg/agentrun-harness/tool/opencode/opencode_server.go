@@ -50,6 +50,12 @@ type Server struct {
 	// mode is a mode of the agent run.
 	mode console.AgentRunMode
 
+	// model is a model that will be used by the server.
+	model Model
+
+	// provider is a provider that will be used by the server.
+	provider Provider
+
 	// promptTimeout is a timeout for prompt requests.
 	promptTimeout time.Duration
 
@@ -201,8 +207,8 @@ func (in *Server) toParams(prompt string) opencode.SessionPromptParams {
 		}),
 		Agent: opencode.F(in.agent),
 		Model: opencode.F(opencode.SessionPromptParamsModel{
-			ModelID:    opencode.F(string(DefaultModel())),
-			ProviderID: opencode.F(string(DefaultProvider())),
+			ModelID:    opencode.F(string(in.model)),
+			ProviderID: opencode.F(string(in.provider)),
 		}),
 	}
 
@@ -211,7 +217,7 @@ func (in *Server) toParams(prompt string) opencode.SessionPromptParams {
 		params.System = opencode.F(in.systemPrompt)
 	}
 
-	klog.V(log.LogLevelDefault).InfoS("using prompt params", "model", DefaultModel(), "provider", DefaultProvider())
+	klog.V(log.LogLevelDefault).InfoS("using prompt params", "model", in.model, "provider", in.provider)
 	return params
 }
 
@@ -303,11 +309,13 @@ func (in *Server) init() *Server {
 	return in
 }
 
-func NewServer(port, configFilePath, repositoryDir string, mode console.AgentRunMode) *Server {
+func NewServer(port, configFilePath, repositoryDir string, model Model, provider Provider, mode console.AgentRunMode) *Server {
 	return (&Server{
 		port:           port,
 		configFilePath: configFilePath,
 		repositoryDir:  repositoryDir,
 		mode:           mode,
+		model:          model,
+		provider:       provider,
 	}).init()
 }
