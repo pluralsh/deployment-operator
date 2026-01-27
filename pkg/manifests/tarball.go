@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/pluralsh/deployment-operator/pkg/errors"
 )
 
 const pluralDigestHeader = "x-plrl-digest"
@@ -107,7 +109,7 @@ func fetch(url, token, sha string) (string, error) {
 	defer resp.Close()
 	tarballSha := header.Get(pluralDigestHeader)
 	if tarballSha != "" && sha != tarballSha {
-		return "", fmt.Errorf("tarball sha expected %s actual %s", sha, tarballSha)
+		return "", errors.NewDigestMismatchError(sha, tarballSha)
 	}
 
 	log.V(1).Info("finished request to", "url", url)
