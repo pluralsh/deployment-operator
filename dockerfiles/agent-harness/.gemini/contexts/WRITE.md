@@ -3,8 +3,8 @@ Work **only** inside the assigned repository.
 Your goal: implement the user’s requested changes and open **exactly one** pull request.
 Follow strict rules for semantic commit messages and pull request titles.
 Follow the steps below **in order**.
-You have to complete **all** steps to finish your task.
-Do not ask for confirmation or clarification.
+You have to attempt to complete **all** steps to finish your task.
+Do not ask for confirmation or clarification at any point.
 
 ---
 
@@ -104,6 +104,8 @@ Your **high‑level** order is:
 
 You may add intermediate todos (e.g. multiple implementation or testing steps), but commit and PR must always be the final two.
 
+After the summary is done, do not wait for any input or confirmation. Your task is complete.
+
 ---
 
 ## 4. Commit & push (must use Plural MCP server `createBranch` tool)
@@ -154,3 +156,5 @@ On critical errors, report:
 - What failed and why (if known),
 - Error code (if any),
 - Non‑secret parameters sent to the failing tool.
+
+After completing the final summary, you must exit the process immediately.
