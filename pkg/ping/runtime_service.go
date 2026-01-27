@@ -208,6 +208,7 @@ func (p *Pinger) AddRuntimeServiceInfo(namespace string, labels map[string]strin
 
 func (p *Pinger) validLabel(labels map[string]string, key string) (string, bool) {
 	if name, ok := labels[key]; ok {
+		name = strings.TrimSpace(strings.ToLower(name))
 		if p.supportedAddons.Has(name) {
 			return name, true
 		}
