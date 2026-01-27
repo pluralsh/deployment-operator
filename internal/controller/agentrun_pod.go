@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"os"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -51,7 +52,7 @@ var (
 	}
 
 	defaultContainerImage    = "ghcr.io/pluralsh/agent-harness"
-	defaultContainerImageTag = "pr-637" // TODO make sure to change this for releases
+	defaultContainerImageTag = "sha-cf549e2" // TODO make sure to change this for releases
 
 	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
@@ -75,11 +76,11 @@ var (
 	}
 )
 
-// func init() {
-// 	if os.Getenv("IMAGE_TAG") != "" {
-// 		defaultContainerImageTag = os.Getenv("IMAGE_TAG")
-// 	}
-// }
+func init() {
+	if os.Getenv("IMAGE_TAG") != "" {
+		defaultContainerImageTag = os.Getenv("IMAGE_TAG")
+	}
+}
 
 func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *corev1.Pod {
 	if runtime.Spec.Template == nil {
