@@ -173,7 +173,6 @@ func registerKubeReconcilersOrDie(
 		Scheme:    manager.GetScheme(),
 		ClientSet: clientSet,
 	}
-
 	reconcileGroups := map[schema.GroupVersionKind]controller.SetupWithManager{
 		{
 			Group:   velerov1.SchemeGroupVersion.Group,
@@ -320,5 +319,12 @@ func registerKubeReconcilersOrDie(
 		CacheSyncTimeout: args.PollInterval() * 3,
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AgentRun")
+	}
+	if err := (&controller.PluralCAPIClusterController{
+		Client:     manager.GetClient(),
+		Scheme:     manager.GetScheme(),
+		ConsoleUrl: consoleURL,
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PluralCAPIClusterController")
 	}
 }
