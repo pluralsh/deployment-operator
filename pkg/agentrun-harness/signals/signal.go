@@ -8,8 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	types "github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/log"
