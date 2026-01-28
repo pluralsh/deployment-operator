@@ -9,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -279,15 +278,6 @@ func (in *VirtualClusterController) initConsoleClient(ctx context.Context, vClus
 
 	in.consoleClient = client.New(fmt.Sprintf("%s/gql", in.ConsoleUrl), token)
 	in.userGroupCache = cache.NewUserGroupCache(in.consoleClient)
-
-	// wipe user cache periodically
-	go func() {
-		_ = wait.PollUntilContextCancel(context.Background(), defaultWipeCacheInterval, true,
-			func(ctx context.Context) (done bool, err error) {
-				in.userGroupCache.Wipe()
-				return true, nil
-			})
-	}()
 
 	return nil
 }

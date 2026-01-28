@@ -99,4 +99,10 @@ type Client interface {
 	UpdateSentinelRunJobStatus(id string, attr *console.SentinelRunJobUpdateAttributes) error
 	CreateAgentMessage(ctx context.Context, runID string, attrs console.AgentMessageAttributes) (*console.CreateAgentMessage_CreateAgentMessage, error)
 	Me() (*console.Me_Me, error)
+	GetClusterByHandle(name string) (*console.TinyClusterFragment, error)
+	CreateCluster(attrs console.ClusterAttributes) (*console.CreateCluster, error)
+	GetDeployToken(clusterId, clusterName *string) (string, error)
+	GetUserId(email string) (string, error)
+	GetGroupId(name string) (string, error)
+	UpdateCluster(id string, attrs console.ClusterUpdateAttributes) error
 }
