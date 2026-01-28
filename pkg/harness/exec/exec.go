@@ -229,6 +229,26 @@ func (in *executable) RunStream(ctx context.Context, cb func([]byte)) error {
 	var scErrMu sync.Mutex
 	var scannerErrs []error
 
+	// Callback worker to prevent callback backpressure from stalling stream readers.
+	var cbCh chan []byte
+	if cb != nil {
+		const callbackBufferSize = 256
+		cbCh = make(chan []byte, callbackBufferSize)
+		go func() {
+			for line := range cbCh {
+				// Protect callback with recover to avoid goroutine crash leaking.
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							klog.ErrorS(fmt.Errorf("panic in callback: %v", r), "panic in RunStream callback")
+						}
+					}()
+					cb(line)
+				}()
+			}
+		}()
+	}
+
 	// helper to record scanner errors
 	recordScannerErr := func(e error) {
 		if e == nil {
@@ -258,17 +278,13 @@ func (in *executable) RunStream(ctx context.Context, cb func([]byte)) error {
 		for scanner.Scan() {
 			line := append([]byte(nil), scanner.Bytes()...)
 
-			// call callback (non-blocking best-effort)
-			if cb != nil {
-				// Protect callback with recover to avoid goroutine crash leaking
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							klog.ErrorS(fmt.Errorf("panic in callback: %v", r), "panic in RunStream callback")
-						}
-					}()
-					cb(line)
-				}()
+			// Queue callback (non-blocking best-effort).
+			if cbCh != nil {
+				select {
+				case cbCh <- line:
+				default:
+					klog.V(log.LogLevelDebug).InfoS("dropping stream line because callback backlog", "reader", name)
+				}
 			}
 
 			// Write to sinks (append newline because Scanner strips it)
@@ -297,6 +313,9 @@ func (in *executable) RunStream(ctx context.Context, cb func([]byte)) error {
 
 	// Wait for readers to finish draining the pipes BEFORE calling cmd.Wait()
 	wg.Wait()
+	if cbCh != nil {
+		close(cbCh)
+	}
 
 	// Close sinks now that readers finished writing to them
 	in.close(in.outputSinks)
