@@ -13,7 +13,7 @@ FROM $NODE_IMAGE AS node
 USER root
 
 # Install Gemini CLI globally using npm
-RUN yarn global add @google/gemini-cli@0.19.4 # TODO: Use $AGENT_VERSION once latest version will be fixed.
+RUN yarn global add @google/gemini-cli@$AGENT_VERSION
 
 # Verify installation
 RUN gemini --version
