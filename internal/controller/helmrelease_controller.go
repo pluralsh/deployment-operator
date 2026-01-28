@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	fluxcd "github.com/fluxcd/helm-controller/api/v2"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
@@ -66,15 +68,14 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	interval := hr.Spec.Interval.Duration
-	releaseNamespace := hr.Status.StorageNamespace
+	releaseNamespace := hr.GetStorageNamespace()
 
-	secrets := driver.NewSecrets(r.ClientSet.CoreV1().Secrets(releaseNamespace))
-	release, err := secrets.List(func(rel *rspb.Release) bool {
-		if rel.Chart == nil {
-			return rel.Name == hr.Name
+	release, err := r.listReleases(releaseNamespace, func(rel *rspb.Release) bool {
+		if rel == nil {
+			return false
 		}
-		// filter by chart version and name
-		return rel.Name == hr.Name && hr.Spec.Chart.Spec.Version == rel.Chart.Metadata.Version
+
+		return chartVersionMatches(hr, rel)
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -119,6 +120,66 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	return jitterRequeue(interval, jitter), nil
+}
+
+func (r *HelmReleaseReconciler) listReleases(releaseNamespace string, filter func(*rspb.Release) bool) ([]*rspb.Release, error) {
+	secrets := driver.NewSecrets(r.ClientSet.CoreV1().Secrets(releaseNamespace))
+	release, err := secrets.List(filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(release) > 0 {
+		return release, nil
+	}
+
+	// Technically, that's not required since the new flux helm-controller ignores HELM_DRIVER settings,
+	// but we can keep it just in case it changes or someone uses an older version.
+	configmaps := driver.NewConfigMaps(r.ClientSet.CoreV1().ConfigMaps(releaseNamespace))
+	release, err = configmaps.List(filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(release) > 0 {
+		return release, nil
+	}
+
+	return nil, nil
+}
+
+func chartVersionMatches(target *fluxcd.HelmRelease, rel *rspb.Release) bool {
+	if target.Spec.Chart == nil {
+		return rel.Name == target.Name
+	}
+
+	var desiredVersion string
+	var actualVersion string
+
+	if target.Spec.Chart != nil {
+		desiredVersion = strings.TrimSpace(target.Spec.Chart.Spec.Version)
+	}
+
+	if rel.Chart != nil && rel.Chart.Metadata != nil {
+		actualVersion = strings.TrimSpace(rel.Chart.Metadata.Version)
+	}
+
+	if len(desiredVersion) == 0 {
+		return true
+	}
+
+	if len(desiredVersion) > 0 && len(actualVersion) == 0 {
+		return false
+	}
+
+	constraint, err := semver.NewConstraint(desiredVersion)
+	if err != nil {
+		return false
+	}
+
+	version, err := semver.NewVersion(actualVersion)
+	if err != nil {
+		return false
+	}
+	return constraint.Check(version)
 }
 
 // SetupWithManager registers the controller
