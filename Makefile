@@ -295,6 +295,14 @@ test: tools ## run tests
 		$$(go list ./... | grep -v /e2e) \
 		-race -v -tags="cache"
 
+.PHONY: test-docker
+test-docker: ## run tests in docker compose
+	@set +e; \
+	docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from tests; \
+	status=$$?; \
+	docker compose -f docker-compose.test.yml down --remove-orphans; \
+	exit $$status
+
 .PHONY: lint
 lint: $(PRE) ## run linters
 	golangci-lint run ./...
