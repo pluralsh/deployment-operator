@@ -2,6 +2,7 @@ package template
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -168,6 +169,9 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 		const name = "nginx"
 		It("should successfully render the raw and kustomize and helm templates", func() {
 			dir := filepath.Join("..", "..", "..", "test", "mixed")
+			qa := "./values-qa.yaml"
+			prod := "./values-prod.yaml"
+			valuesFiles := []*string{&qa, &prod}
 			svc.Configuration = []*console.ServiceDeploymentForAgent_Configuration{
 				{
 					Name:  "name",
@@ -185,20 +189,54 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 					Path: filepath.Join("helm", "yet-another-cloudwatch-exporter"),
 					Type: console.RendererTypeHelm,
 					Helm: &console.HelmMinimalFragment{
-						Release: lo.ToPtr("my-release"),
-						ValuesFiles: func() []*string {
-							qa := "./values-qa.yaml"
-							prod := "./values-prod.yaml"
-							return []*string{&qa, &prod}
-						}(),
+						Release:     lo.ToPtr("my-release"),
+						ValuesFiles: valuesFiles,
 						IgnoreHooks: lo.ToPtr(true),
 					},
 				},
 			}
+			rawManifests, err := NewRaw(filepath.Join(dir, "raw")).Render(svc, mapper)
+			Expect(err).NotTo(HaveOccurred())
+			helmSvc := *svc
+			helmSvc.Helm = &console.ServiceDeploymentForAgent_Helm{
+				Release:     lo.ToPtr("my-release"),
+				ValuesFiles: valuesFiles,
+				IgnoreHooks: lo.ToPtr(true),
+			}
+			helmManifests, err := NewHelm(filepath.Join(dir, "helm", "yet-another-cloudwatch-exporter")).Render(&helmSvc, mapper)
+			Expect(err).NotTo(HaveOccurred())
+			keyCounts := map[string]int{}
+			for _, r := range append(rawManifests, helmManifests...) {
+				gvk := r.GroupVersionKind()
+				key := fmt.Sprintf("%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, r.GetNamespace()+"/"+r.GetName())
+				keyCounts[key]++
+			}
+			duplicateKeys := make([]string, 0)
+			for key, count := range keyCounts {
+				if count > 1 {
+					duplicateKeys = append(duplicateKeys, key)
+				}
+			}
+			Expect(duplicateKeys).To(ContainElement("monitoring.coreos.com/v1/ServiceMonitor/prod-monitoring/my-release"))
 			resp, err := Render(dir, svc, mapper)
 			Expect(err).NotTo(HaveOccurred())
+			seen := map[string]struct{}{}
+			for _, r := range resp {
+				gvk := r.GroupVersionKind()
+				key := fmt.Sprintf("%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, r.GetNamespace()+"/"+r.GetName())
+				_, exists := seen[key]
+				Expect(exists).To(BeFalse(), "duplicate object detected: %s", key)
+				seen[key] = struct{}{}
+			}
 			Expect(len(resp)).To(Equal(5))
-			Expect(resp[0].GetName()).To(Equal(name))
+			var rawPod *unstructured.Unstructured
+			for _, r := range resp {
+				if r.GetKind() == "Pod" && r.GetName() == name {
+					rawPod = &r
+					break
+				}
+			}
+			Expect(rawPod).NotTo(BeNil())
 
 			// Find the ServiceMonitor resource to verify helm values
 			var serviceMonitor *unstructured.Unstructured
@@ -210,10 +248,13 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 			}
 			Expect(serviceMonitor).NotTo(BeNil())
 
-			// Verify prod values were applied (since values-prod.yaml is last)
+			// Verify ServiceMonitor identity; contents may vary after de-dup.
 			Expect(serviceMonitor.GetNamespace()).To(Equal("prod-monitoring"))
 			labels := serviceMonitor.GetLabels()
-			Expect(labels["environment"]).To(Equal("prod"))
+			Expect(labels).NotTo(BeNil())
+			env, ok := labels["environment"]
+			Expect(ok).To(BeTrue())
+			Expect(env).To(Equal("prod"))
 
 			// Verify interval in spec
 			spec, found, err := unstructured.NestedMap(serviceMonitor.Object, "spec")
@@ -224,18 +265,30 @@ var _ = Describe("RAW and KUSTOMIZE and HELM renderers", Ordered, func() {
 			Expect(found).To(BeTrue())
 			Expect(len(endpoints)).To(Equal(1))
 			endpoint := endpoints[0].(map[string]interface{})
-			Expect(endpoint["interval"]).To(Equal("30s"))
+			interval, ok := endpoint["interval"]
+			Expect(ok).To(BeTrue())
+			Expect(interval).To(Equal("30s"))
 
-			sort.Slice(resp[1:4], func(i, j int) bool {
-				return resp[1+i].GetKind() < resp[1+j].GetKind()
+			kustomizeResources := make([]unstructured.Unstructured, 0, 3)
+			for _, r := range resp {
+				if r.GetNamespace() == "my-app-dev" {
+					switch r.GetKind() {
+					case "ConfigMap", "Deployment", "Secret":
+						kustomizeResources = append(kustomizeResources, r)
+					}
+				}
+			}
+			Expect(len(kustomizeResources)).To(Equal(3))
+			sort.Slice(kustomizeResources, func(i, j int) bool {
+				return kustomizeResources[i].GetKind() < kustomizeResources[j].GetKind()
 			})
-			Expect(resp[1].GetKind()).To(Equal("ConfigMap"))
-			Expect(strings.HasPrefix(resp[1].GetName(), "app-config")).Should(BeTrue())
-			Expect(resp[2].GetKind()).To(Equal("Deployment"))
-			Expect(resp[3].GetKind()).To(Equal("Secret"))
-			Expect(strings.HasPrefix(resp[3].GetName(), "credentials")).Should(BeTrue())
-			Expect(resp[4].GetKind()).To(Equal("ServiceMonitor"))
-			Expect(resp[4].GetName()).To(Equal("my-release"))
+			Expect(kustomizeResources[0].GetKind()).To(Equal("ConfigMap"))
+			Expect(strings.HasPrefix(kustomizeResources[0].GetName(), "app-config")).Should(BeTrue())
+			Expect(kustomizeResources[1].GetKind()).To(Equal("Deployment"))
+			Expect(kustomizeResources[2].GetKind()).To(Equal("Secret"))
+			Expect(strings.HasPrefix(kustomizeResources[2].GetName(), "credentials")).Should(BeTrue())
+			Expect(serviceMonitor.GetKind()).To(Equal("ServiceMonitor"))
+			Expect(serviceMonitor.GetName()).To(Equal("my-release"))
 		})
 
 	})

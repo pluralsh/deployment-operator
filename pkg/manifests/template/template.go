@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -25,14 +27,15 @@ type Template interface {
 }
 
 func Render(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.RESTMapper) ([]unstructured.Unstructured, error) {
-	if len(svc.Renderers) == 0 {
-		return renderDefault(dir, svc, mapper)
-	}
-
 	var allManifests []unstructured.Unstructured
+	defaultManifests, err := renderDefault(dir, svc, mapper)
+	if err != nil {
+		return nil, err
+	}
+	allManifests = append(allManifests, defaultManifests...)
+
 	for _, renderer := range svc.Renderers {
 		var manifests []unstructured.Unstructured
-		var err error
 
 		rendererPath := filepath.Join(dir, renderer.Path)
 		switch renderer.Type {
@@ -64,7 +67,24 @@ func Render(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.REST
 		allManifests = append(allManifests, manifests...)
 	}
 
+	allManifests = dedupeByIdentityKeepLast(allManifests)
+
 	return allManifests, nil
+}
+
+func dedupeByIdentityKeepLast(items []unstructured.Unstructured) []unstructured.Unstructured {
+	seen := map[string]struct{}{}
+	uniq := make([]unstructured.Unstructured, 0, len(items))
+	for i := len(items) - 1; i >= 0; i-- {
+		id := common.NewKeyFromUnstructured(items[i]).String()
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniq = append(uniq, items[i])
+	}
+	slices.Reverse(uniq)
+	return uniq
 }
 
 func renderDefault(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.RESTMapper) ([]unstructured.Unstructured, error) {
