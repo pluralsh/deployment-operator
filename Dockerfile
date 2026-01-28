@@ -28,7 +28,7 @@ RUN curl -L https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz 
     mv linux-${TARGETARCH}/helm /usr/local/bin/helm && \
     chmod +x /usr/local/bin/helm
 
-FROM alpine:3.21
+FROM alpine:3.22
 WORKDIR /workspace
 
 RUN mkdir /.kube && \
