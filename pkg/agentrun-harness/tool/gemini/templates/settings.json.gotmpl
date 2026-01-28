@@ -39,7 +39,9 @@
     "/plural/contexts",
     "{{ .RepositoryDir }}"
   ],
-  "model": "{{ .Model }}",
+  "model": {
+    "name": "{{ .Model }}"
+  },
   "mcpServers": {
     "plural": {
       "command": "mcpserver",
