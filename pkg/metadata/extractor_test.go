@@ -143,7 +143,7 @@ var _ = Describe("Image Extractor with Raw Manifests", func() {
 
 			// Verify the extracted images
 			Expect(images).To(HaveLen(3)) // nginx, redis, and busybox
-			Expect(images).To(ContainElements("nginx:1.21", "redis:6.2-alpine", "busybox:1.35"))
+			Expect(images).To(ContainElements("nginx:1.21", "redis:6.2-alpine", "busybox:1.37"))
 		})
 		It("should extract FQDNs from ingress and gateway manifests", func() {
 			dir := filepath.Join("..", "..", "test", "rawTemplated")

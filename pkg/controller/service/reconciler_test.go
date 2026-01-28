@@ -192,7 +192,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			// Verify the extracted metadata
 			Expect(metadata).NotTo(BeNil())
 			Expect(metadata.Images).NotTo(BeNil())
-			Expect(len(metadata.Images)).To(Equal(4)) // nginx:1.14.2, nginx:1.21, redis:6.2-alpine, busybox:1.35
+			Expect(len(metadata.Images)).To(Equal(4)) // nginx:1.14.2, nginx:1.21, redis:6.2-alpine, busybox:1.37
 
 			// Verify specific images are present
 			imageStrings := make([]string, len(metadata.Images))
@@ -203,7 +203,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 			Expect(imageStrings).To(ContainElement("nginx:1.14.2"))     // From pod.yaml.liquid
 			Expect(imageStrings).To(ContainElement("nginx:1.21"))       // From deployment.yaml.liquid
 			Expect(imageStrings).To(ContainElement("redis:6.2-alpine")) // From deployment.yaml.liquid
-			Expect(imageStrings).To(ContainElement("busybox:1.35"))     // From deployment.yaml.liquid init container
+			Expect(imageStrings).To(ContainElement("busybox:1.37"))     // From deployment.yaml.liquid init container
 
 			// Verifiy specific fqdns are present
 			fqdnStrings := make([]string, len(metadata.Fqdns))
