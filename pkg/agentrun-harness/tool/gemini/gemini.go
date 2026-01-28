@@ -58,6 +58,10 @@ type Gemini struct {
 }
 
 func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
+	go in.start(ctx, options...)
+}
+
+func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 	in.executable = exec.NewExecutable(
 		"gemini",
 		append(

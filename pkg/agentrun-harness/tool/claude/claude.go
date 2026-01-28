@@ -39,6 +39,10 @@ func New(config v1.Config) v1.Tool {
 }
 
 func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
+	go in.start(ctx, options...)
+}
+
+func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 	promptFile := path.Join(in.dir, ".claude", "prompts", "analysis.md")
 	agent := analysisAgent
 	if in.run.Mode == console.AgentRunModeWrite {
