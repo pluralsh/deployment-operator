@@ -309,7 +309,8 @@ func enableDind(pod *corev1.Pod) {
 		},
 	)
 
-	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
+	// Add as an init container with restart policy set to always to keep the container running until all regular containers finish
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
 		Name:  dindContainerName,
 		Image: fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerDinDImage), defaultContainerDinDImageTag),
 		SecurityContext: &corev1.SecurityContext{
@@ -330,6 +331,7 @@ func enableDind(pod *corev1.Pod) {
 			// Mount the socket directory
 			{Name: "docker-socket", MountPath: "/var/run"},
 		},
+		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
 	})
 
 	// Wire agent container

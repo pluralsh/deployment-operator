@@ -39,7 +39,9 @@
     "/plural/contexts",
     "{{ .RepositoryDir }}"
   ],
-  "model": "{{ .Model }}",
+  "model": {
+    "name": "{{ .Model }}"
+  },
   "mcpServers": {
     "plural": {
       "command": "mcpserver",
@@ -57,5 +59,10 @@
   },
   "telemetry": {
     "enabled": false
+  },
+  "tools": {
+    "shell": {
+      "inactivityTimeout": 1800
+    }
   }
 }
