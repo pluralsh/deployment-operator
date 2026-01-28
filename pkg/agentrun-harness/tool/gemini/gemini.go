@@ -77,6 +77,8 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	err := in.executable.RunStream(ctx, func(line []byte) {
 		klog.V(log.LogLevelTrace).InfoS("Gemini stream event", "line", string(line))
 
+		// This is here to prevent unavoidable log lines being reported as errors.
+		// TODO: Remove once https://github.com/google-gemini/gemini-cli/issues/15053 is fixed.
 		trimmed := strings.TrimSpace(string(line))
 		if !strings.HasPrefix(trimmed, "{") {
 			klog.V(log.LogLevelDebug).InfoS("ignoring non-json Gemini stream line", "trimmed", trimmed)
@@ -85,7 +87,7 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 
 		event := &events.EventBase{}
 		if err := json.Unmarshal(line, event); err != nil {
-			klog.ErrorS(err, "failed to unmarshal Gemini stream event", "line", trimmed)
+			klog.ErrorS(err, "failed to unmarshal Gemini stream event", "line", line)
 			in.errorChan <- err
 			return
 		}
