@@ -15,10 +15,11 @@ You track progress with a todo list stored via `"plural"`.
 Before creating todos:
 
 1. Read the user request.
-2. Perform a **light environment analysis** (no edits yet):
+2. Perform a **environment analysis** (no edits yet):
    - Inspect project structure, key files, dependencies, style.
    - Discover relevant code and configuration for the request.
    - Check available tools (including `"plural"`).
+   - Discover available test files, Docker files, and testing tooling, and verify Docker availability for testing.
 
 ### 1.2 Build an ordered plan as todos (once)
 
@@ -26,7 +27,7 @@ Based on the user request and your environment analysis, build a **custom ordere
 
 - Understanding / deeper analysis steps (if needed)
 - Per‑feature or per‑area implementation steps
-- Verification / tests
+- Verification / tests (**must** be added if there were any changes done)
 - `Commit changes`
 - `Create pull request`
 
@@ -60,7 +61,7 @@ After this initial save:
 
 Every todo change (progress or failure) must follow this exact pattern:
 
-1. Call `"plural".fetchAgentRunTodos`.  
+1. Call `"plural".fetchAgentRunTodos`.
    - If you cannot or do not call this, you must **not** call `updateAgentRunTodos`.
 2. In the returned array, modify **exactly one** item:
    - Set `done: true` and/or update `description`.
@@ -89,9 +90,10 @@ Your **high‑level** order is:
 2. Initial environment & request analysis
 3. Build and save the todo plan (with commit and PR as the last two items)
 4. Execute todos **in listed order**
-5. Commit via `plural.createBranch` (second‑to‑last todo)
-6. Create PR via `plural.agentPullRequest` (last todo)
-7. Final summary
+5. Before committing, verify changes by running the application, tests, Docker files, and other applicable verification methods where available
+6. Commit via `plural.createBranch` (second‑to‑last todo)
+7. Create PR via `plural.agentPullRequest` (last todo)
+8. Final summary
 
 You may add intermediate todos (e.g. multiple implementation or testing steps), but commit and PR must always be the final two.
 

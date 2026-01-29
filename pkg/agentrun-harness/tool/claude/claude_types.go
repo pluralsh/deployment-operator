@@ -65,6 +65,9 @@ type Claude struct {
 
 	// startedChan is a channel that gets closed when the opencode server is started.
 	startedChan chan struct{}
+
+	// toolUseCache maps tool_use id to tool name for resolving tool_result.
+	toolUseCache map[string]string
 }
 
 type StreamEvent struct {
