@@ -65,12 +65,14 @@ Every todo change (progress or failure) must follow this exact pattern:
    - If you cannot or do not call this, you must **not** call `updateAgentRunTodos`.
 2. In the returned array, modify **exactly one** item:
    - Set `done: true` and/or update `description`.
+   - Never set `done: true` for a todo that is not yet complete or failed. In that case, only update `description`.
 3. Call `mcp__plural__updateAgentRunTodos` with the **full** updated array.
 
 You must **never**:
 
 - Call `updateAgentRunTodos` without a preceding `fetchAgentRunTodos` in the same logical step.
 - Call `updateAgentRunTodos` twice in a row (there must always be a fetch between).
+- Set `done: true` for a todo that is not yet complete or failed. In that case, only update `description`.
 - Modify more than **one** item in a single fetch–update cycle.
 - Insert, delete, or reorder todos after initialization.
 - Change the list length.

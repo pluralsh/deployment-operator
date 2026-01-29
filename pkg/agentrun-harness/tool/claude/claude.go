@@ -174,9 +174,14 @@ func mapClaudeContentToAgentMessage(event *StreamEvent) *console.AgentMessageAtt
 		switch c.Type {
 		case "tool_use":
 			output := ""
-			if c.Input != nil {
-				if inputJSON, err := json.Marshal(c.Input); err == nil {
-					output = string(inputJSON)
+			if c.Content != nil {
+				switch o := c.Content.(type) {
+				case string:
+					output = o
+				default:
+					if outputJSON, err := json.Marshal(o); err == nil {
+						output = string(outputJSON)
+					}
 				}
 			}
 			msg.Metadata = &console.AgentMessageMetadataAttributes{
