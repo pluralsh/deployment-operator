@@ -97,7 +97,7 @@ func (in *agentRunController) prepare() error {
 	var err error
 	if in.tool, err = tool.New(in.agentRun.Runtime.Type, toolv1.Config{
 		WorkDir:       in.dir,
-		RepositoryDir: filepath.Join(in.dir, "repository"),
+		RepositoryDir: filepath.Join(in.dir, "shared", "repository"),
 		FinishedChan:  in.done,
 		ErrorChan:     in.errChan,
 		Run:           in.agentRun,
