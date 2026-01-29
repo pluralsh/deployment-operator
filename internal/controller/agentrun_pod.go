@@ -330,6 +330,8 @@ func enableDind(pod *corev1.Pod) {
 			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
 			// Mount the socket directory
 			{Name: "docker-socket", MountPath: "/var/run"},
+			// Share /tmp with the default container so bind mounts work
+			{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
 		},
 		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
 	})
