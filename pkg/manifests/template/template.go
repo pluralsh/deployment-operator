@@ -8,6 +8,7 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/common"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -65,26 +66,14 @@ func Render(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.REST
 		}
 
 		allManifests = append(allManifests, manifests...)
+		slices.Reverse(allManifests)
+		allManifests = lo.UniqBy(allManifests, func(item unstructured.Unstructured) string {
+			return common.NewKeyFromUnstructured(item).String()
+		})
+		slices.Reverse(allManifests)
 	}
-
-	allManifests = dedupeByIdentityKeepLast(allManifests)
 
 	return allManifests, nil
-}
-
-func dedupeByIdentityKeepLast(items []unstructured.Unstructured) []unstructured.Unstructured {
-	seen := map[string]struct{}{}
-	uniq := make([]unstructured.Unstructured, 0, len(items))
-	for i := len(items) - 1; i >= 0; i-- {
-		id := common.NewKeyFromUnstructured(items[i]).String()
-		if _, exists := seen[id]; exists {
-			continue
-		}
-		seen[id] = struct{}{}
-		uniq = append(uniq, items[i])
-	}
-	slices.Reverse(uniq)
-	return uniq
 }
 
 func renderDefault(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.RESTMapper) ([]unstructured.Unstructured, error) {
