@@ -20,7 +20,7 @@ const (
 	defaultTmpVolumeName          = "default-tmp"
 	defaultTmpVolumePath          = "/tmp"
 	sharedContextVolumeName       = "shared-context"
-	sharedContextVolumePath       = "/plural/repository" // Keep in sync with controller.go
+	sharedContextVolumePath       = "/plural/shared" // Keep in sync with controller.go
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
 

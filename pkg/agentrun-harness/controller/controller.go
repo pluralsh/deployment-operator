@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"path"
 	"path/filepath"
 
 	gqlclient "github.com/pluralsh/console/go/client"
@@ -86,7 +87,7 @@ func (in *agentRunController) prepare() error {
 	consoleTokenClient := client.New(fmt.Sprintf("%s/gql", in.consoleUrl), *in.agentRun.PluralCreds.Token)
 	env := environment.New(
 		environment.WithAgentRun(in.agentRun),
-		environment.WithWorkingDir(in.dir),
+		environment.WithWorkingDir(path.Join(in.dir, "shared")),
 		environment.WithConsoleTokenClient(consoleTokenClient),
 	)
 
@@ -97,7 +98,7 @@ func (in *agentRunController) prepare() error {
 	var err error
 	if in.tool, err = tool.New(in.agentRun.Runtime.Type, toolv1.Config{
 		WorkDir:       in.dir,
-		RepositoryDir: filepath.Join(in.dir, "repository"),
+		RepositoryDir: filepath.Join(in.dir, "shared", "repository"),
 		FinishedChan:  in.done,
 		ErrorChan:     in.errChan,
 		Run:           in.agentRun,
