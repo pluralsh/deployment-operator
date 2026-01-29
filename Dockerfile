@@ -31,7 +31,10 @@ RUN curl -L https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz 
 FROM alpine:3.21
 WORKDIR /workspace
 
-RUN mkdir /.kube && \
+# Upgrade all packages to get the latest security fixes
+# This addresses CVE for OpenSSL PKCS#12 type confusion vulnerability (libssl3 >= 3.3.6-r0)
+RUN apk upgrade --no-cache && \
+    mkdir /.kube && \
     chown 65532:65532 /.kube && \
     chmod 700 /.kube
 
