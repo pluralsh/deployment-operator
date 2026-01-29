@@ -19,6 +19,8 @@ const (
 	defaultContainer              = "default"
 	defaultTmpVolumeName          = "default-tmp"
 	defaultTmpVolumePath          = "/tmp"
+	sharedContextVolumeName       = "shared-context"
+	sharedContextVolumePath       = "/plural/shared" // Keep in sync with controller.go
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
 
@@ -161,6 +163,10 @@ func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount
 			return v.Name != defaultTmpVolumeName
 		}),
 		defaultTmpContainerVolumeMount,
+		corev1.VolumeMount{
+			Name:      sharedContextVolumeName,
+			MountPath: sharedContextVolumePath,
+		},
 	)
 }
 
@@ -170,6 +176,12 @@ func ensureDefaultVolumes(volumes []corev1.Volume) []corev1.Volume {
 			return v.Name != defaultTmpVolumeName
 		}),
 		defaultTmpVolume,
+		corev1.Volume{
+			Name: sharedContextVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
 	)
 }
 
@@ -309,7 +321,8 @@ func enableDind(pod *corev1.Pod) {
 		},
 	)
 
-	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
+	// Add as an init container with restart policy set to always to keep the container running until all regular containers finish
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
 		Name:  dindContainerName,
 		Image: fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerDinDImage), defaultContainerDinDImageTag),
 		SecurityContext: &corev1.SecurityContext{
@@ -329,7 +342,11 @@ func enableDind(pod *corev1.Pod) {
 			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
 			// Mount the socket directory
 			{Name: "docker-socket", MountPath: "/var/run"},
+			// Share /tmp with the default container so bind mounts work
+			{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
+			{Name: sharedContextVolumeName, MountPath: sharedContextVolumePath},
 		},
+		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
 	})
 
 	// Wire agent container

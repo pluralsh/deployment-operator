@@ -29,6 +29,7 @@ func New(config v1.Config) v1.Tool {
 		finishedChan:  config.FinishedChan,
 		errorChan:     config.ErrorChan,
 		startedChan:   make(chan struct{}),
+		toolUseCache:  make(map[string]string),
 	}
 
 	if err := result.ensure(); err != nil {
@@ -39,6 +40,10 @@ func New(config v1.Config) v1.Tool {
 }
 
 func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
+	go in.start(ctx, options...)
+}
+
+func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 	promptFile := path.Join(in.dir, ".claude", "prompts", "analysis.md")
 	agent := analysisAgent
 	if in.run.Mode == console.AgentRunModeWrite {
@@ -72,7 +77,7 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 		}
 
 		if event.Message != nil {
-			msg := mapClaudeContentToAgentMessage(event)
+			msg := mapClaudeContentToAgentMessage(event, in.toolUseCache)
 			if in.onMessage != nil && msg != nil {
 				in.onMessage(msg)
 			}
@@ -158,7 +163,7 @@ func (in *Claude) ensure() error {
 	return nil
 }
 
-func mapClaudeContentToAgentMessage(event *StreamEvent) *console.AgentMessageAttributes {
+func mapClaudeContentToAgentMessage(event *StreamEvent, toolUseCache map[string]string) *console.AgentMessageAttributes {
 	msg := &console.AgentMessageAttributes{
 		Role: mapRole(event.Message.Role),
 	}
@@ -169,16 +174,36 @@ func mapClaudeContentToAgentMessage(event *StreamEvent) *console.AgentMessageAtt
 
 		switch c.Type {
 		case "tool_use":
+			// Cache tool name for later use in tool_result
+			if c.ID != "" {
+				toolUseCache[c.ID] = c.Name
+			}
+		case "tool_result":
 			output := ""
-			if c.Input != nil {
-				if inputJSON, err := json.Marshal(c.Input); err == nil {
-					output = string(inputJSON)
+			if c.Content != nil {
+				switch o := c.Content.(type) {
+				case string:
+					output = o
+				default:
+					if outputJSON, err := json.Marshal(o); err == nil {
+						output = string(outputJSON)
+					}
 				}
+			}
+			name := toolUseCache[c.ToolUseID]
+			if name == "" {
+				name = c.ToolUseID
+			}
+			klog.V(log.LogLevelDebug).InfoS("claude tool result", "tool_use_id", c.ToolUseID, "name", name, "is_error", c.IsError, "output", output)
+
+			state := console.AgentMessageToolStateCompleted
+			if c.IsError {
+				state = console.AgentMessageToolStateError
 			}
 			msg.Metadata = &console.AgentMessageMetadataAttributes{
 				Tool: &console.AgentMessageToolAttributes{
-					Name:   lo.ToPtr(c.Name),
-					State:  lo.ToPtr(console.AgentMessageToolStateRunning),
+					Name:   lo.ToPtr(name),
+					State:  lo.ToPtr(state),
 					Output: lo.ToPtr(output),
 				},
 			}

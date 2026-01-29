@@ -303,7 +303,7 @@ func (in *Server) initSession(ctx context.Context) error {
 func (in *Server) init() *Server {
 	in.systemPrompt = helpers.GetEnv(environment.EnvOverrideSystemPrompt, "")
 	in.agent = lo.Ternary(in.mode == console.AgentRunModeAnalyze, defaultAnalysisAgent, defaultWriteAgent)
-	in.promptTimeout = 10 * time.Minute
+	in.promptTimeout = 30 * time.Minute
 	in.client = opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", in.port)))
 
 	return in

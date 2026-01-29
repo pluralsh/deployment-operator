@@ -8,8 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
 	"github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	types "github.com/pluralsh/deployment-operator/pkg/harness/signals"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -33,8 +33,14 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 			return
 		}
 
+		if agentRun == nil {
+			klog.V(log.LogLevelDebug).InfoS("agent run not found", "id", in.id)
+			return
+		}
+
+		klog.V(log.LogLevelDebug).InfoS("resyncing agent run", "status", agentRun.Status, "dev", environment.IsDev())
 		// Allow rerunning cancelled runs when in dev mode.
-		if agentRun != nil && agentRun.Status == gqlclient.AgentRunStatusCancelled && !environment.IsDev() {
+		if agentRun.Status == gqlclient.AgentRunStatusCancelled && !environment.IsDev() {
 			cancelFunc(errors.ErrRemoteCancel)
 			cancel()
 		}
