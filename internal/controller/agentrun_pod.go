@@ -19,6 +19,8 @@ const (
 	defaultContainer              = "default"
 	defaultTmpVolumeName          = "default-tmp"
 	defaultTmpVolumePath          = "/tmp"
+	sharedContextVolumeName       = "shared-context"
+	sharedContextVolumePath       = "/plural/repository" // Keep in sync with controller.go
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
 
@@ -161,6 +163,10 @@ func ensureDefaultVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount
 			return v.Name != defaultTmpVolumeName
 		}),
 		defaultTmpContainerVolumeMount,
+		corev1.VolumeMount{
+			Name:      sharedContextVolumeName,
+			MountPath: sharedContextVolumePath,
+		},
 	)
 }
 
@@ -170,6 +176,12 @@ func ensureDefaultVolumes(volumes []corev1.Volume) []corev1.Volume {
 			return v.Name != defaultTmpVolumeName
 		}),
 		defaultTmpVolume,
+		corev1.Volume{
+			Name: sharedContextVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
 	)
 }
 
@@ -332,6 +344,7 @@ func enableDind(pod *corev1.Pod) {
 			{Name: "docker-socket", MountPath: "/var/run"},
 			// Share /tmp with the default container so bind mounts work
 			{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
+			{Name: sharedContextVolumeName, MountPath: sharedContextVolumePath},
 		},
 		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
 	})
