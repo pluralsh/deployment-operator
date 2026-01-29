@@ -15,7 +15,7 @@ You track progress with a todo list stored via `"plural"`.
 Before creating todos:
 
 1. Read the user request.
-2. Perform a **light environment analysis** (no edits yet):
+2. Perform a **environment analysis** (no edits yet):
    - Inspect project structure, key files, dependencies, style.
    - Discover relevant code and configuration for the request.
    - Check available tools (including `"plural"`).
@@ -27,7 +27,7 @@ Based on the user request and your environment analysis, build a **custom ordere
 
 - Understanding / deeper analysis steps (if needed)
 - Per‑feature or per‑area implementation steps
-- Verification / tests
+- Verification / tests (**must** be added if there were any changes done)
 - `Commit changes`
 - `Create pull request`
 
