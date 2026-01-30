@@ -25,7 +25,7 @@ func clusterConfiguration(cluster *console.ServiceDeploymentForAgent_Cluster) ma
 		"Version":        cluster.Version,
 		"CurrentVersion": cluster.CurrentVersion,
 		"KasUrl":         cluster.KasURL,
-		"Tags":           cluster.Tags,
+		"Tags":           tagsMap(cluster.Tags),
 		"Metadata":       cluster.Metadata,
 		"Distro":         cluster.Distro,
 		"ConsoleDNS":     args.ConsoleDNS(),
@@ -37,6 +37,14 @@ func clusterConfiguration(cluster *console.ServiceDeploymentForAgent_Cluster) ma
 	res["kasUrl"] = cluster.KasURL
 	res["currentVersion"] = cluster.CurrentVersion
 
+	return res
+}
+
+func tagsMap(tags []*console.ClusterTags) map[string]string {
+	res := map[string]string{}
+	for _, tag := range tags {
+		res[tag.Name] = tag.Value
+	}
 	return res
 }
 
