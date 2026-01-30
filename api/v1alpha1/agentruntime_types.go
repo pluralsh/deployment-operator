@@ -84,9 +84,10 @@ type BrowserConfig struct {
 	// Available options are:
 	// - chrome
 	// - chromium
-	// - edge
 	// - firefox
 	// - custom
+	//
+	// Default: chrome
 	//
 	// +kubebuilder:validation:Enum:=chrome;chromium;firefox;custom
 	// +kubebuilder:default:=chrome
@@ -120,6 +121,10 @@ type BrowserConfig struct {
 	//
 	// +kubebuilder:validation:Optional
 	Container *corev1.Container `json:"container,omitempty"`
+}
+
+func (in *BrowserConfig) IsEnabled() bool {
+	return in != nil && in.Enabled
 }
 
 type PodTemplateSpec struct {

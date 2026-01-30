@@ -115,6 +115,7 @@ type Event struct {
 	ID      string
 	Message *console.AgentMessageAttributes
 	Done    bool
+	Emit    bool
 }
 
 func (in *Event) FromEventResponse(e opencode.EventListResponse) {
@@ -131,9 +132,29 @@ func (in *Event) FromEventResponse(e opencode.EventListResponse) {
 }
 
 func (in *Event) Sanitize() {
-	if len(in.Message.Message) == 0 {
+	if len(in.Message.Message) == 0 && !in.hasMetadata() {
 		in.Message.Message = "__plrl_ignore__"
 	}
+}
+
+func (in *Event) hasMetadata() bool {
+	if in.Message.Metadata == nil {
+		return false
+	}
+
+	if in.Message.Metadata.File != nil {
+		return true
+	}
+
+	if in.Message.Metadata.Tool != nil {
+		return true
+	}
+
+	if in.Message.Metadata.Reasoning != nil && in.Message.Metadata.Reasoning.Text != nil && len(*in.Message.Metadata.Reasoning.Text) > 0 {
+		return true
+	}
+
+	return false
 }
 
 func (in *Event) fromMessageUpdated(e opencode.EventListResponseEventMessageUpdatedProperties) {
@@ -179,7 +200,7 @@ func (in *Event) toRole(role opencode.MessageRole) console.AiRole {
 
 func (in *Event) fromMessagePartUpdated(e opencode.EventListResponseEventMessagePartUpdatedProperties) {
 	in.ID = e.Part.MessageID
-	in.Message.Message = lo.Ternary(len(in.Message.Message) > len(e.Part.Text), in.Message.Message, e.Part.Text)
+	in.updateTextPart(e.Part, e.Delta)
 
 	if e.Part.Type == opencode.PartTypeStepFinish {
 		in.Done = true
@@ -190,6 +211,9 @@ func (in *Event) fromMessagePartUpdated(e opencode.EventListResponseEventMessage
 
 	tool, ok := e.Part.State.(opencode.ToolPartState)
 	in.fromToolPartState(lo.Ternary(ok, &tool, nil), e.Part.Tool)
+	if ok {
+		in.Emit = true
+	}
 
 	file, ok := e.Part.Source.(opencode.FilePartSource)
 	in.fromFilePartSource(lo.Ternary(ok, &file, nil))
@@ -288,4 +312,57 @@ func (in *Event) fromAgentPartSource(reasoning *opencode.AgentPartSource) {
 	in.Message.Metadata.Reasoning.Text = lo.ToPtr(reasoning.Value)
 	in.Message.Metadata.Reasoning.Start = lo.ToPtr(reasoning.Start)
 	in.Message.Metadata.Reasoning.End = lo.ToPtr(reasoning.End)
+	in.Emit = true
+}
+
+func (in *Event) updateTextPart(part opencode.Part, delta string) {
+	switch part.Type {
+	case opencode.PartTypeReasoning:
+		in.updateReasoningText(part, delta)
+	case opencode.PartTypeText:
+		in.updateMessageText(part, delta)
+	default:
+		return
+	}
+}
+
+func (in *Event) updateMessageText(part opencode.Part, delta string) {
+	if len(delta) > 0 {
+		in.Message.Message += delta
+		in.Emit = true
+		return
+	}
+
+	if len(part.Text) > 0 && len(in.Message.Message) < len(part.Text) {
+		in.Message.Message = part.Text
+		in.Emit = true
+	}
+}
+
+func (in *Event) updateReasoningText(part opencode.Part, delta string) {
+	if in.Message.Metadata == nil {
+		in.Message.Metadata = &console.AgentMessageMetadataAttributes{}
+	}
+
+	if in.Message.Metadata.Reasoning == nil {
+		in.Message.Metadata.Reasoning = &console.AgentMessageReasoningAttributes{}
+	}
+
+	current := ""
+	if in.Message.Metadata.Reasoning.Text != nil {
+		current = *in.Message.Metadata.Reasoning.Text
+	}
+
+	if len(delta) > 0 {
+		// Reasoning parts are separate from text parts; keep them in metadata.
+		value := current + delta
+		in.Message.Metadata.Reasoning.Text = lo.ToPtr(value)
+		in.Emit = true
+		return
+	}
+
+	if len(part.Text) > 0 && len(current) < len(part.Text) {
+		in.Message.Metadata.Reasoning.Text = lo.ToPtr(part.Text)
+		in.Emit = true
+	}
 }

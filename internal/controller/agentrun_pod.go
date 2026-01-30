@@ -122,7 +122,7 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	}
 
-	if runtime.Spec.Browser != nil && runtime.Spec.Browser.Enabled {
+	if runtime.Spec.Browser.IsEnabled() {
 		enableBrowser(runtime.Spec.Browser, pod)
 	}
 
