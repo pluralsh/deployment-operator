@@ -49,14 +49,15 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 			if component.Kind == "Job" {
 				continue
 			}
+			if len(component.Children) == 0 {
+				continue
+			}
+
 			if component.Kind == "CronJob" {
 				// For CronJobs, only check the most recent child Job
 				// CronJob always creates Jobs with an increasing number in the name
 				// That number is the scheduled time, encoded as a timestamp.
 				// So we can sort by that number to get the latest Job.
-				if len(component.Children) == 0 {
-					break
-				}
 				slices.SortFunc(component.Children, func(a, b *console.ComponentChildAttributes) int {
 					return cmp.Compare(extractJobSuffix(a.Name), extractJobSuffix(b.Name))
 				})
@@ -64,7 +65,7 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 				if latestChild.State != nil && *latestChild.State != console.ComponentStateRunning {
 					component.State = latestChild.State
 				}
-				break
+				continue
 			}
 			for _, child := range component.Children {
 				if child.State != nil && *child.State != console.ComponentStateRunning {
