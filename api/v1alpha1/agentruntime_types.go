@@ -46,10 +46,80 @@ type AgentRuntimeSpec struct {
 	// AiProxy specifies whether the agent runtime should be proxied through the AI proxy.
 	AiProxy *bool `json:"aiProxy,omitempty"`
 
-	// Enable Docker-in-Docker for this agent runtime.
+	// Dind enables Docker-in-Docker for this agent runtime.
 	// When true, the runtime will be configured to run with DinD support.
 	// +kubebuilder:validation:Optional
 	Dind *bool `json:"dind,omitempty"`
+
+	// Browser configuration augments agent runtime with a headless browser.
+	// When provided, the runtime will be configured to run with a headless browser available
+	// for the agent to use.
+	// +kubebuilder:validation:Optional
+	Browser *BrowserConfig `json:"browser,omitempty"`
+}
+
+// Browser defines the browser to use for the agent runtime.
+type Browser string
+
+const (
+	BrowserChrome   Browser = "chrome"
+	BrowserChromium Browser = "chromium"
+	BrowserFirefox  Browser = "firefox"
+	BrowserCustom   Browser = "custom"
+)
+
+// BrowserConfig is the configuration for the browser runtime.
+// It allows AgentRuntime to leverage a headless browser for executing and testing code.
+type BrowserConfig struct {
+	// Enabled controls whether the browser runtime is enabled for this agent runtime.
+	//
+	// +kubebuilder:validation:Required
+	Enabled bool `json:"enabled"`
+
+	// Browser defines the browser to use. When using one of [chrome, chromium, firefox],
+	// predefined images with validated configurations will be used. Default configuration
+	// can be overridden by specifying a custom Container. When using a "custom" browser,
+	// a custom Container configuration must be provided.
+	//
+	// Available options are:
+	// - chrome
+	// - chromium
+	// - edge
+	// - firefox
+	// - custom
+	//
+	// +kubebuilder:validation:Enum:=chrome;chromium;firefox;custom
+	// +kubebuilder:default:=chrome
+	// +kubebuilder:validation:Optional
+	Browser *Browser `json:"browser,omitempty"`
+
+	// Container defines the container to use for the browser runtime.
+	// For custom images, ensure the container starts a browser server and exposes
+	// the predetermined port 3000 for remote access.
+	//
+	// # Examples
+	//
+	// Playwright:
+	//   name: browser
+	//   image: mcr.microsoft.com/playwright:v1.58.0-jammy
+	//   command: ["npx"]
+	//   args: ["playwright", "run-server", "--host=0.0.0.0", "--port=3000"]
+	//   ports:
+	//   - name: playwright
+	//     containerPort: 3000
+	//
+	// Selenium:
+	//   name: browser
+	//   image: selenium/standalone-chrome:4.28.0
+	//   env:
+	//   - name: SE_OPTS
+	//     value: "--port 3000"
+	//   ports:
+	//   - name: webdriver
+	//     containerPort: 3000
+	//
+	// +kubebuilder:validation:Optional
+	Container *corev1.Container `json:"container,omitempty"`
 }
 
 type PodTemplateSpec struct {

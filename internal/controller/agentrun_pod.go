@@ -32,6 +32,19 @@ const (
 	dockerCertsPath              = "/certs"
 	dockerDaemonPort             = 2376
 	dockerSocketGID              = int64(2375)
+
+	browserContainerName             = "browser"
+	containerBrowserChromeImage      = "ghcr.io/browserless/chrome"
+	containerBrowserChromeImageTag   = "v2.38.4"
+	containerBrowserChromiumImage    = "ghcr.io/browserless/chromium"
+	containerBrowserChromiumImageTag = "v2.38.4"
+	containerBrowserFirefoxImage     = "ghcr.io/browserless/firefox"
+	containerBrowserFirefoxImageTag  = "v2.38.4"
+
+	defaultContainerBrowser           = v1alpha1.BrowserChrome
+	defaultContainerBrowserImage      = containerBrowserChromeImage
+	defaultContainerBrowserImageTag   = containerBrowserChromeImageTag
+	defaultContainerBrowserServerPort = 3000
 )
 
 var dindClientEnvs = []corev1.EnvVar{
@@ -107,6 +120,10 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 		enableDind(pod)
 	} else {
 		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
+	}
+
+	if runtime.Spec.Browser != nil && runtime.Spec.Browser.Enabled {
+		enableBrowser(runtime.Spec.Browser, pod)
 	}
 
 	return pod
@@ -371,4 +388,44 @@ func enableDind(pod *corev1.Pod) {
 			)
 		}
 	}
+}
+
+func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
+	browser := defaultContainerBrowser
+	if browserConfig.Browser != nil {
+		browser = *browserConfig.Browser
+	}
+
+	//defaultVolumeMounts := []corev1.VolumeMount{
+	//	{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
+	//	{Name: sharedContextVolumeName, MountPath: sharedContextVolumePath},
+	//}
+
+	container := corev1.Container{
+		Name: browserContainerName,
+		//VolumeMounts: defaultVolumeMounts,
+		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
+		Env: []corev1.EnvVar{
+			{Name: "PORT", Value: fmt.Sprintf("%d", defaultContainerBrowserServerPort)},
+		},
+	}
+
+	switch browser {
+	case v1alpha1.BrowserChrome:
+		container.Image = fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerBrowserImage), defaultContainerBrowserImageTag)
+	case v1alpha1.BrowserChromium:
+		container.Image = fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(containerBrowserChromiumImage), containerBrowserChromiumImageTag)
+	case v1alpha1.BrowserFirefox:
+		container.Image = fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(containerBrowserFirefoxImage), containerBrowserFirefoxImageTag)
+	case v1alpha1.BrowserCustom:
+		if browserConfig.Container == nil {
+			break
+		}
+
+		container = *browserConfig.Container
+		container.Name = browserContainerName
+		//container.VolumeMounts = defaultVolumeMounts
+	}
+
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, container)
 }

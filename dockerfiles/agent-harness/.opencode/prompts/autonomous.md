@@ -99,6 +99,19 @@ You may add intermediate todos (e.g. multiple implementation or testing steps), 
 
 ---
 
+## Browser runtime (if enabled)
+
+Some agent runtimes can be configured with a headless browser sidecar. If the runtime supports it, use it to validate web UIs and end-to-end flows.
+
+- Detect availability: look for a browser server listening on localhost port 3000 inside the pod. If it is not reachable, skip browser testing.
+- Default browsers: chrome, chromium, or firefox via prebuilt images. Custom browser configs must expose port 3000.
+- Use a remote driver: prefer Playwright, Puppeteer, or Selenium in remote/connector mode instead of launching a local browser binary.
+- Test strategy: start the web app, wait for readiness, then drive the UI to verify critical flows (page load, navigation, form submit, auth if applicable).
+- Capture evidence: log key steps and failures; take screenshots on failure when possible.
+- Fail gracefully: if the app has no UI or browser is unavailable, explain why browser tests were skipped.
+
+---
+
 ## 4. Commit & push (must use `plural.createBranch`)
 
 When you reach the commit todo:
