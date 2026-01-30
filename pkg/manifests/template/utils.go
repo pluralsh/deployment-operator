@@ -25,6 +25,7 @@ func clusterConfiguration(cluster *console.ServiceDeploymentForAgent_Cluster) ma
 		"Version":        cluster.Version,
 		"CurrentVersion": cluster.CurrentVersion,
 		"KasUrl":         cluster.KasURL,
+		"Tags":           cluster.Tags,
 		"Metadata":       cluster.Metadata,
 		"Distro":         cluster.Distro,
 		"ConsoleDNS":     args.ConsoleDNS(),
