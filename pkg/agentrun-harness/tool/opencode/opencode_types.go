@@ -1,8 +1,6 @@
 package opencode
 
 import (
-	"strings"
-
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/sst/opencode-sdk-go"
@@ -117,7 +115,6 @@ type Event struct {
 	ID      string
 	Message *console.AgentMessageAttributes
 	Done    bool
-	Emit    bool
 }
 
 func (in *Event) FromEventResponse(e opencode.EventListResponse) {
@@ -134,18 +131,9 @@ func (in *Event) FromEventResponse(e opencode.EventListResponse) {
 }
 
 func (in *Event) Sanitize() {
-	if len(in.Message.Message) > 0 {
-		return
+	if len(in.Message.Message) == 0 {
+		in.Message.Message = "__plrl_ignore__"
 	}
-
-	if in.Message.Metadata != nil && in.Message.Metadata.Reasoning != nil && in.Message.Metadata.Reasoning.Text != nil {
-		if reasoning := strings.TrimSpace(*in.Message.Metadata.Reasoning.Text); len(reasoning) > 0 {
-			in.Message.Message = reasoning
-			return
-		}
-	}
-
-	in.Message.Message = "__plrl_ignore__"
 }
 
 func (in *Event) fromMessageUpdated(e opencode.EventListResponseEventMessageUpdatedProperties) {
@@ -191,7 +179,7 @@ func (in *Event) toRole(role opencode.MessageRole) console.AiRole {
 
 func (in *Event) fromMessagePartUpdated(e opencode.EventListResponseEventMessagePartUpdatedProperties) {
 	in.ID = e.Part.MessageID
-	in.updateTextPart(e.Part, e.Delta)
+	in.Message.Message = lo.Ternary(len(in.Message.Message) > len(e.Part.Text), in.Message.Message, e.Part.Text)
 
 	if e.Part.Type == opencode.PartTypeStepFinish {
 		in.Done = true
@@ -202,9 +190,6 @@ func (in *Event) fromMessagePartUpdated(e opencode.EventListResponseEventMessage
 
 	tool, ok := e.Part.State.(opencode.ToolPartState)
 	in.fromToolPartState(lo.Ternary(ok, &tool, nil), e.Part.Tool)
-	if ok {
-		in.Emit = true
-	}
 
 	file, ok := e.Part.Source.(opencode.FilePartSource)
 	in.fromFilePartSource(lo.Ternary(ok, &file, nil))
@@ -303,57 +288,4 @@ func (in *Event) fromAgentPartSource(reasoning *opencode.AgentPartSource) {
 	in.Message.Metadata.Reasoning.Text = lo.ToPtr(reasoning.Value)
 	in.Message.Metadata.Reasoning.Start = lo.ToPtr(reasoning.Start)
 	in.Message.Metadata.Reasoning.End = lo.ToPtr(reasoning.End)
-	in.Emit = true
-}
-
-func (in *Event) updateTextPart(part opencode.Part, delta string) {
-	switch part.Type {
-	case opencode.PartTypeReasoning:
-		in.updateReasoningText(part, delta)
-	case opencode.PartTypeText:
-		in.updateMessageText(part, delta)
-	default:
-		return
-	}
-}
-
-func (in *Event) updateMessageText(part opencode.Part, delta string) {
-	if len(delta) > 0 {
-		in.Message.Message += delta
-		in.Emit = true
-		return
-	}
-
-	if len(part.Text) > 0 && len(in.Message.Message) < len(part.Text) {
-		in.Message.Message = part.Text
-		in.Emit = true
-	}
-}
-
-func (in *Event) updateReasoningText(part opencode.Part, delta string) {
-	if in.Message.Metadata == nil {
-		in.Message.Metadata = &console.AgentMessageMetadataAttributes{}
-	}
-
-	if in.Message.Metadata.Reasoning == nil {
-		in.Message.Metadata.Reasoning = &console.AgentMessageReasoningAttributes{}
-	}
-
-	current := ""
-	if in.Message.Metadata.Reasoning.Text != nil {
-		current = *in.Message.Metadata.Reasoning.Text
-	}
-
-	if len(delta) > 0 {
-		// Reasoning parts are separate from text parts; keep them in metadata.
-		value := current + delta
-		in.Message.Metadata.Reasoning.Text = lo.ToPtr(value)
-		in.Emit = true
-		return
-	}
-
-	if len(part.Text) > 0 && len(current) < len(part.Text) {
-		in.Message.Metadata.Reasoning.Text = lo.ToPtr(part.Text)
-		in.Emit = true
-	}
 }

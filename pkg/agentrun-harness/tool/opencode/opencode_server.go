@@ -139,15 +139,10 @@ func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 			event.FromEventResponse(data)
 			events[id] = event
 
-			if event.Done || event.Emit {
+			if event.Done {
 				event.Sanitize()
 				msgChan <- *event
-				if event.Done {
-					delete(events, id)
-				} else {
-					event.Emit = false
-					events[id] = event
-				}
+				delete(events, id)
 			}
 		}
 
