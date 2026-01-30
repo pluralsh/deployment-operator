@@ -124,7 +124,7 @@ func (in *Server) Listen(ctx context.Context) (<-chan Event, <-chan error) {
 	go func() {
 		for stream.Next() {
 			data := stream.Current()
-			klog.V(log.LogLevelTrace).InfoS("received event", "data", data.Properties)
+			klog.V(log.LogLevelTrace).InfoS("received event", "data", data.Properties, "type", data.Type)
 
 			id := in.getID(data)
 			if len(id) == 0 {
