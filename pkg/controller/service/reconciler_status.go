@@ -54,6 +54,9 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 				// CronJob always creates Jobs with an increasing number in the name
 				// That number is the scheduled time, encoded as a timestamp.
 				// So we can sort by that number to get the latest Job.
+				if len(component.Children) == 0 {
+					break
+				}
 				slices.SortFunc(component.Children, func(a, b *console.ComponentChildAttributes) int {
 					return cmp.Compare(extractJobSuffix(a.Name), extractJobSuffix(b.Name))
 				})
