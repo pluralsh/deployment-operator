@@ -7,8 +7,7 @@ import (
 	"github.com/samber/lo"
 )
 
-var _ = Describe("Kustomize template", func() {
-
+var _ = Describe("Utils", func() {
 	svc := &console.ServiceDeploymentForAgent{
 		Namespace: "default",
 		Kustomize: &console.KustomizeFragment{
@@ -55,6 +54,67 @@ var _ = Describe("Kustomize template", func() {
 			Expect(len(resp["1"])).To(Equal(2))
 			Expect(len(resp["2"])).To(Equal(1))
 		})
+	})
 
+	Context("tagsMap", func() {
+		It("returns empty map when tags is nil", func() {
+			Expect(tagsMap(nil)).To(BeEmpty())
+		})
+		It("returns empty map when tags is empty", func() {
+			Expect(tagsMap([]*console.ClusterTags{})).To(BeEmpty())
+		})
+		It("maps tag name to value for a single tag", func() {
+			tags := []*console.ClusterTags{
+				{Name: "env", Value: "prod"},
+			}
+			Expect(tagsMap(tags)).To(Equal(map[string]string{"env": "prod"}))
+		})
+		It("maps all tag names to values for multiple tags", func() {
+			tags := []*console.ClusterTags{
+				{Name: "env", Value: "prod"},
+				{Name: "team", Value: "platform"},
+				{Name: "region", Value: "us-east-1"},
+			}
+			Expect(tagsMap(tags)).To(Equal(map[string]string{
+				"env":    "prod",
+				"team":   "platform",
+				"region": "us-east-1",
+			}))
+		})
+	})
+
+	Context("Cluster configuration", func() {
+		It("includes Tags from cluster and exposes tags (lowercase) for liquid templating", func() {
+			cluster := &console.ServiceDeploymentForAgent_Cluster{
+				ID:   "cluster-1",
+				Name: "my-cluster",
+				Tags: []*console.ClusterTags{
+					{Name: "env", Value: "staging"},
+					{Name: "owner", Value: "sre"},
+				},
+			}
+			cfg := clusterConfiguration(cluster)
+			Expect(cfg).To(HaveKey("Tags"))
+			Expect(cfg["Tags"]).To(Equal(map[string]string{
+				"env":   "staging",
+				"owner": "sre",
+			}))
+			Expect(cfg).To(HaveKey("tags"))
+			Expect(cfg["tags"]).To(Equal(map[string]string{
+				"env":   "staging",
+				"owner": "sre",
+			}))
+		})
+		It("includes empty Tags when cluster has no tags", func() {
+			cluster := &console.ServiceDeploymentForAgent_Cluster{
+				ID:   "cluster-1",
+				Name: "my-cluster",
+			}
+			cfg := clusterConfiguration(cluster)
+			Expect(cfg).To(HaveKey("Tags"))
+			Expect(cfg["Tags"]).To(Equal(map[string]string{}))
+			Expect(cfg).To(HaveKey("tags"))
+			Expect(cfg["tags"]).To(Equal(map[string]string{}))
+		})
 	})
 })
