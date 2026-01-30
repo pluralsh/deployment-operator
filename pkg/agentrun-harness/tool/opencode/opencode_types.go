@@ -1,6 +1,8 @@
 package opencode
 
 import (
+	"strings"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/sst/opencode-sdk-go"
@@ -132,29 +134,18 @@ func (in *Event) FromEventResponse(e opencode.EventListResponse) {
 }
 
 func (in *Event) Sanitize() {
-	if len(in.Message.Message) == 0 && !in.hasMetadata() {
-		in.Message.Message = "__plrl_ignore__"
-	}
-}
-
-func (in *Event) hasMetadata() bool {
-	if in.Message.Metadata == nil {
-		return false
+	if len(in.Message.Message) > 0 {
+		return
 	}
 
-	if in.Message.Metadata.File != nil {
-		return true
+	if in.Message.Metadata != nil && in.Message.Metadata.Reasoning != nil && in.Message.Metadata.Reasoning.Text != nil {
+		if reasoning := strings.TrimSpace(*in.Message.Metadata.Reasoning.Text); len(reasoning) > 0 {
+			in.Message.Message = reasoning
+			return
+		}
 	}
 
-	if in.Message.Metadata.Tool != nil {
-		return true
-	}
-
-	if in.Message.Metadata.Reasoning != nil && in.Message.Metadata.Reasoning.Text != nil && len(*in.Message.Metadata.Reasoning.Text) > 0 {
-		return true
-	}
-
-	return false
+	in.Message.Message = "__plrl_ignore__"
 }
 
 func (in *Event) fromMessageUpdated(e opencode.EventListResponseEventMessageUpdatedProperties) {
