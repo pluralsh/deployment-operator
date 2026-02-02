@@ -392,6 +392,10 @@ func enableDind(pod *corev1.Pod) {
 }
 
 func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
+	if browserConfig == nil {
+		browserConfig = &v1alpha1.BrowserConfig{}
+	}
+
 	browser := defaultContainerBrowser
 	if browserConfig.Browser != nil {
 		browser = *browserConfig.Browser
