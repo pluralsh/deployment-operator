@@ -122,9 +122,10 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	}
 
-	if runtime.Spec.Browser.IsEnabled() {
-		enableBrowser(runtime.Spec.Browser, pod)
-	}
+	// TODO: enable after tests
+	//if runtime.Spec.Browser.IsEnabled() {
+	enableBrowser(runtime.Spec.Browser, pod)
+	//}
 
 	return pod
 }
@@ -396,14 +397,8 @@ func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
 		browser = *browserConfig.Browser
 	}
 
-	//defaultVolumeMounts := []corev1.VolumeMount{
-	//	{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
-	//	{Name: sharedContextVolumeName, MountPath: sharedContextVolumePath},
-	//}
-
 	container := corev1.Container{
-		Name: browserContainerName,
-		//VolumeMounts: defaultVolumeMounts,
+		Name:          browserContainerName,
 		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
 		Env: []corev1.EnvVar{
 			{Name: "PORT", Value: fmt.Sprintf("%d", defaultContainerBrowserServerPort)},
@@ -424,7 +419,6 @@ func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
 
 		container = *browserConfig.Container
 		container.Name = browserContainerName
-		//container.VolumeMounts = defaultVolumeMounts
 	}
 
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, container)

@@ -100,15 +100,6 @@ type BrowserConfig struct {
 	//
 	// # Examples
 	//
-	// Playwright:
-	//   name: browser
-	//   image: mcr.microsoft.com/playwright:v1.58.0-jammy
-	//   command: ["npx"]
-	//   args: ["playwright", "run-server", "--host=0.0.0.0", "--port=3000"]
-	//   ports:
-	//   - name: playwright
-	//     containerPort: 3000
-	//
 	// Selenium:
 	//   name: browser
 	//   image: selenium/standalone-chrome:4.28.0
