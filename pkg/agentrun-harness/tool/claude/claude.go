@@ -29,7 +29,7 @@ func New(config v1.Config) v1.Tool {
 		finishedChan:  config.FinishedChan,
 		errorChan:     config.ErrorChan,
 		startedChan:   make(chan struct{}),
-		toolUseCache:  make(map[string]string),
+		toolUseCache:  make(map[string]ContentMsg),
 	}
 
 	if err := result.ensure(); err != nil {
@@ -163,7 +163,7 @@ func (in *Claude) ensure() error {
 	return nil
 }
 
-func mapClaudeContentToAgentMessage(event *StreamEvent, toolUseCache map[string]string) *console.AgentMessageAttributes {
+func mapClaudeContentToAgentMessage(event *StreamEvent, toolUseCache map[string]ContentMsg) *console.AgentMessageAttributes {
 	msg := &console.AgentMessageAttributes{
 		Role: mapRole(event.Message.Role),
 	}
@@ -176,7 +176,7 @@ func mapClaudeContentToAgentMessage(event *StreamEvent, toolUseCache map[string]
 		case "tool_use":
 			// Cache tool name for later use in tool_result
 			if c.ID != "" {
-				toolUseCache[c.ID] = c.Name
+				toolUseCache[c.ID] = c
 			}
 		case "tool_result":
 			output := ""
@@ -190,27 +190,26 @@ func mapClaudeContentToAgentMessage(event *StreamEvent, toolUseCache map[string]
 					}
 				}
 			}
-			name := toolUseCache[c.ToolUseID]
-			if name == "" {
-				name = c.ToolUseID
+			toolUseContent, exists := toolUseCache[c.ToolUseID]
+			if !exists {
+				toolUseContent.Name = c.ToolUseID
 			}
-			klog.V(log.LogLevelDebug).InfoS("claude tool result", "tool_use_id", c.ToolUseID, "name", name, "is_error", c.IsError, "output", output)
+			klog.V(log.LogLevelDebug).InfoS("claude tool result", "tool_use_id", c.ToolUseID, "name", toolUseContent.Name, "is_error", c.IsError, "output", output)
 
 			state := console.AgentMessageToolStateCompleted
 			if c.IsError {
 				state = console.AgentMessageToolStateError
 			}
 			msg.Role = console.AiRoleAssistant // Agent run tool calls should be marked as assistant messages.
-
 			msg.Metadata = &console.AgentMessageMetadataAttributes{
 				Tool: &console.AgentMessageToolAttributes{
-					Name:   lo.ToPtr(name),
+					Name:   lo.ToPtr(toolUseContent.Name),
 					State:  lo.ToPtr(state),
 					Output: lo.ToPtr(output),
 				},
 			}
 
-			input, err := json.Marshal(c.Input)
+			input, err := json.Marshal(toolUseContent.Input)
 			if err == nil {
 				msg.Metadata.Tool.Input = lo.ToPtr(string(input))
 			}
