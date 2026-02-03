@@ -202,19 +202,19 @@ func mapClaudeContentToAgentMessage(event *StreamEvent, toolUseCache map[string]
 			}
 			msg.Role = console.AiRoleAssistant // Agent run tool calls should be marked as assistant messages.
 
-			input, err := json.Marshal(c.Input)
-			if err != nil {
-				input = nil
-			}
-
 			msg.Metadata = &console.AgentMessageMetadataAttributes{
 				Tool: &console.AgentMessageToolAttributes{
 					Name:   lo.ToPtr(name),
 					State:  lo.ToPtr(state),
 					Output: lo.ToPtr(output),
-					Input:  lo.ToPtr(string(input)),
 				},
 			}
+
+			input, err := json.Marshal(c.Input)
+			if err == nil {
+				msg.Metadata.Tool.Input = lo.ToPtr(string(input))
+			}
+
 			builder.WriteString("Called tool")
 		case "text":
 			builder.WriteString(c.Text)
