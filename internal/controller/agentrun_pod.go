@@ -33,17 +33,8 @@ const (
 	dockerDaemonPort             = 2376
 	dockerSocketGID              = int64(2375)
 
-	browserContainerName             = "browser"
-	containerBrowserChromeImage      = "ghcr.io/browserless/chrome"
-	containerBrowserChromeImageTag   = "v2.38.4"
-	containerBrowserChromiumImage    = "ghcr.io/browserless/chromium"
-	containerBrowserChromiumImageTag = "v2.38.4"
-	containerBrowserFirefoxImage     = "ghcr.io/browserless/firefox"
-	containerBrowserFirefoxImageTag  = "v2.38.4"
-
+	browserContainerName              = "browser"
 	defaultContainerBrowser           = v1alpha1.BrowserChrome
-	defaultContainerBrowserImage      = containerBrowserChromeImage
-	defaultContainerBrowserImageTag   = containerBrowserChromeImageTag
 	defaultContainerBrowserServerPort = 3000
 )
 
@@ -89,6 +80,17 @@ var (
 		console.AgentRunLanguageJavascript: "24",
 		console.AgentRunLanguagePython:     "3.14",
 	}
+
+	defaultBrowserImages = map[v1alpha1.Browser]string{
+		v1alpha1.BrowserChrome:           "ghcr.io/browserless/chrome:v2.38.4",
+		v1alpha1.BrowserChromium:         "ghcr.io/browserless/chromium:v2.38.4",
+		v1alpha1.BrowserFirefox:          "ghcr.io/browserless/firefox:v2.38.4",
+		v1alpha1.BrowserSeleniumChrome:   "selenium/standalone-chrome:144.0",
+		v1alpha1.BrowserSeleniumChromium: "selenium/standalone-chromium:144.0",
+		v1alpha1.BrowserSeleniumFirefox:  "selenium/standalone-firefox:147.0",
+		v1alpha1.BrowserSeleniumEdge:     "selenium/standalone-edge:144.0",
+		v1alpha1.BrowserPuppeteer:        "ghcr.io/browserless/chromium:v2.38.4",
+	}
 )
 
 func init() {
@@ -122,10 +124,9 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
 	}
 
-	// TODO: enable after tests
-	//if runtime.Spec.Browser.IsEnabled() {
-	enableBrowser(runtime.Spec.Browser, pod)
-	//}
+	if runtime.Spec.Browser.IsEnabled() {
+		enableBrowser(runtime.Spec.Browser, pod)
+	}
 
 	return pod
 }
@@ -409,18 +410,11 @@ func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
 		},
 	}
 
-	switch browser {
-	case v1alpha1.BrowserChrome:
-		container.Image = fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerBrowserImage), defaultContainerBrowserImageTag)
-	case v1alpha1.BrowserChromium:
-		container.Image = fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(containerBrowserChromiumImage), containerBrowserChromiumImageTag)
-	case v1alpha1.BrowserFirefox:
-		container.Image = fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(containerBrowserFirefoxImage), containerBrowserFirefoxImageTag)
-	case v1alpha1.BrowserCustom:
-		if browserConfig.Container == nil {
-			break
-		}
-
+	image, exists := defaultBrowserImages[browser]
+	switch {
+	case exists:
+		container.Image = common.GetConfigurationManager().SwapBaseRegistry(image)
+	case browser == v1alpha1.BrowserCustom && browserConfig.Container != nil:
 		container = *browserConfig.Container
 		container.Name = browserContainerName
 	}

@@ -62,10 +62,15 @@ type AgentRuntimeSpec struct {
 type Browser string
 
 const (
-	BrowserChrome   Browser = "chrome"
-	BrowserChromium Browser = "chromium"
-	BrowserFirefox  Browser = "firefox"
-	BrowserCustom   Browser = "custom"
+	BrowserChrome           Browser = "chrome"
+	BrowserChromium         Browser = "chromium"
+	BrowserFirefox          Browser = "firefox"
+	BrowserSeleniumChrome   Browser = "selenium-chrome"
+	BrowserSeleniumChromium Browser = "selenium-chromium"
+	BrowserSeleniumFirefox  Browser = "selenium-firefox"
+	BrowserSeleniumEdge     Browser = "selenium-edge"
+	BrowserPuppeteer        Browser = "puppeteer"
+	BrowserCustom           Browser = "custom"
 )
 
 // BrowserConfig is the configuration for the browser runtime.
@@ -76,15 +81,20 @@ type BrowserConfig struct {
 	// +kubebuilder:validation:Required
 	Enabled bool `json:"enabled"`
 
-	// Browser defines the browser to use. When using one of [chrome, chromium, firefox],
+	// Browser defines the browser to use. When using non-custom options,
 	// predefined images with validated configurations will be used. Default configuration
 	// can be overridden by specifying a custom Container. When using a "custom" browser,
 	// a custom Container configuration must be provided.
 	//
 	// Available options are:
-	// - chrome
-	// - chromium
-	// - firefox
+	// - chrome - uses browserless/chrome image
+	// - chromium - uses browserless/chromium image
+	// - firefox - uses browserless/firefox image
+	// - selenium-chrome - uses selenium/standalone-chrome image
+	// - selenium-chromium - uses selenium/standalone-chromium image
+	// - selenium-firefox - uses selenium/standalone-firefox image
+	// - selenium-edge - uses selenium/standalone-edge image
+	// - puppeteer - uses browserless/chromium image
 	// - custom
 	//
 	// Default: chrome
@@ -95,20 +105,17 @@ type BrowserConfig struct {
 	Browser *Browser `json:"browser,omitempty"`
 
 	// Container defines the container to use for the browser runtime.
-	// For custom images, ensure the container starts a browser server and exposes
-	// the predetermined port 3000 for remote access.
+	// For custom images, ensure the container starts a browser server and binds to
+	// the predetermined port 3000 for remote access from the main agent container.
 	//
 	// # Examples
 	//
 	// Selenium:
 	//   name: browser
-	//   image: selenium/standalone-chrome:4.28.0
+	//   image: selenium/standalone-chrome:144.0
 	//   env:
 	//   - name: SE_OPTS
 	//     value: "--port 3000"
-	//   ports:
-	//   - name: webdriver
-	//     containerPort: 3000
 	//
 	// +kubebuilder:validation:Optional
 	Container *corev1.Container `json:"container,omitempty"`
