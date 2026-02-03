@@ -80,17 +80,23 @@ spec:
                   browser:
                     default: chrome
                     description: |-
-                      Browser defines the browser to use. When using one of [chrome, chromium, firefox],
+                      Browser defines the browser to use. When using non-custom options,
                       predefined images with validated configurations will be used. Default configuration
                       can be overridden by specifying a custom Container. When using a "custom" browser,
                       a custom Container configuration must be provided.
 
                       Available options are:
-                      - chrome
-                      - chromium
-                      - edge
-                      - firefox
+                      - chrome - uses browserless/chrome image
+                      - chromium - uses browserless/chromium image
+                      - firefox - uses browserless/firefox image
+                      - selenium-chrome - uses selenium/standalone-chrome image
+                      - selenium-chromium - uses selenium/standalone-chromium image
+                      - selenium-firefox - uses selenium/standalone-firefox image
+                      - selenium-edge - uses selenium/standalone-edge image
+                      - puppeteer - uses browserless/chromium image
                       - custom
+
+                      Default: chrome
                     enum:
                     - chrome
                     - chromium
@@ -100,29 +106,17 @@ spec:
                   container:
                     description: |-
                       Container defines the container to use for the browser runtime.
-                      For custom images, ensure the container starts a browser server and exposes
-                      the predetermined port 3000 for remote access.
+                      For custom images, ensure the container starts a browser server and binds to
+                      the predetermined port 3000 for remote access from the main agent container.
 
                       # Examples
 
-                      Playwright:
-                        name: browser
-                        image: mcr.microsoft.com/playwright:v1.58.0-jammy
-                        command: ["npx"]
-                        args: ["playwright", "run-server", "--host=0.0.0.0", "--port=3000"]
-                        ports:
-                        - name: playwright
-                          containerPort: 3000
-
                       Selenium:
                         name: browser
-                        image: selenium/standalone-chrome:4.28.0
+                        image: selenium/standalone-chrome:144.0
                         env:
                         - name: SE_OPTS
                           value: "--port 3000"
-                        ports:
-                        - name: webdriver
-                          containerPort: 3000
                     properties:
                       args:
                         description: |-
