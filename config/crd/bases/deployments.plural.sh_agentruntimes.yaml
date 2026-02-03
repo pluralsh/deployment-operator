@@ -101,6 +101,11 @@ spec:
                     - chrome
                     - chromium
                     - firefox
+                    - selenium-chrome
+                    - selenium-chromium
+                    - selenium-firefox
+                    - selenium-edge
+                    - puppeteer
                     - custom
                     type: string
                   container:

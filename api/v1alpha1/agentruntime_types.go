@@ -99,7 +99,7 @@ type BrowserConfig struct {
 	//
 	// Default: chrome
 	//
-	// +kubebuilder:validation:Enum:=chrome;chromium;firefox;custom
+	// +kubebuilder:validation:Enum:=chrome;chromium;firefox;selenium-chrome;selenium-chromium;selenium-firefox;selenium-edge;puppeteer;custom
 	// +kubebuilder:default:=chrome
 	// +kubebuilder:validation:Optional
 	Browser *Browser `json:"browser,omitempty"`
