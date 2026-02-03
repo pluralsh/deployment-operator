@@ -200,6 +200,7 @@ func mapClaudeContentToAgentMessage(event *StreamEvent, toolUseCache map[string]
 			if c.IsError {
 				state = console.AgentMessageToolStateError
 			}
+			msg.Role = console.AiRoleAssistant // Agent run tool calls should be marked as assistant messages.
 
 			input, err := json.Marshal(c.Input)
 			if err != nil {
@@ -253,6 +254,6 @@ func mapRole(role string) console.AiRole {
 	case "user":
 		return console.AiRoleUser
 	default:
-		return console.AiRoleUser
+		return console.AiRoleSystem // Default to system role for unknown roles.
 	}
 }
