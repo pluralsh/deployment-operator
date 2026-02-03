@@ -421,5 +421,12 @@ func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
 		container.Name = browserContainerName
 	}
 
+	if browser != v1alpha1.BrowserCustom && browserConfig.Container != nil {
+		// partial merge of overridable entries
+		container.Env = append(container.Env, browserConfig.Container.Env...)
+		container.Resources = browserConfig.Container.Resources
+		container.ImagePullPolicy = browserConfig.Container.ImagePullPolicy
+	}
+
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, container)
 }

@@ -112,6 +112,11 @@ type BrowserConfig struct {
 	// Container defines the container to use for the browser runtime.
 	// For custom images, ensure the container starts a browser server and binds to
 	// the predetermined port 3000 for remote access from the main agent container.
+	// When using a predefined image, only partial overrides are allowed, including:
+	// - environment variables
+	// - resource limits
+	// - image pull policy
+	//
 	//
 	// # Examples
 	//
