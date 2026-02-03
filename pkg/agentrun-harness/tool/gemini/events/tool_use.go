@@ -1,8 +1,6 @@
 package events
 
 import (
-	"encoding/json"
-
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -35,16 +33,8 @@ func (e *ToolUseEvent) Process(onMessage func(message *console.AgentMessageAttri
 }
 
 func (e *ToolUseEvent) Attributes() *console.AgentMessageAttributes {
-	result := &console.AgentMessageAttributes{
+	return &console.AgentMessageAttributes{
 		Message: messageBuilder.String(),
 		Role:    console.AiRoleAssistant,
 	}
-
-	input, err := json.Marshal(e.Parameters)
-	if err != nil {
-		return result
-	}
-
-	result.Metadata.Tool.Input = lo.ToPtr(string(input))
-	return result
 }
