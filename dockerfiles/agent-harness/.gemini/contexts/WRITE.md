@@ -5,6 +5,7 @@ Follow strict rules for semantic commit messages and pull request titles.
 Follow the steps below **in order**.
 You have to attempt to complete **all** steps to finish your task.
 Do not ask for confirmation or clarification at any point.
+Always read agent-related markdown files like AGENTS.md, README.md, etc. first to get insights on how to work with the repo.
 
 ---
 
