@@ -200,11 +200,18 @@ func mapClaudeContentToAgentMessage(event *StreamEvent, toolUseCache map[string]
 			if c.IsError {
 				state = console.AgentMessageToolStateError
 			}
+
+			input, err := json.Marshal(c.Input)
+			if err != nil {
+				input = nil
+			}
+
 			msg.Metadata = &console.AgentMessageMetadataAttributes{
 				Tool: &console.AgentMessageToolAttributes{
 					Name:   lo.ToPtr(name),
 					State:  lo.ToPtr(state),
 					Output: lo.ToPtr(output),
+					Input:  lo.ToPtr(string(input)),
 				},
 			}
 			builder.WriteString("Called tool")

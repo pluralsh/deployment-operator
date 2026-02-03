@@ -1,6 +1,8 @@
 package opencode
 
 import (
+	"encoding/json"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/sst/opencode-sdk-go"
@@ -236,6 +238,15 @@ func (in *Event) fromToolPartState(tool *opencode.ToolPartState, name string) {
 	in.Message.Metadata.Tool.Name = lo.ToPtr(name)
 	in.Message.Metadata.Tool.State = lo.ToPtr(in.toAgentToolState(tool.Status))
 	in.Message.Metadata.Tool.Output = lo.ToPtr(tool.Output)
+
+	if tool.Input != nil {
+		input, err := json.Marshal(tool.Input)
+		if err != nil {
+			return
+		}
+
+		in.Message.Metadata.Tool.Input = lo.ToPtr(string(input))
+	}
 }
 
 func (in *Event) toAgentToolState(state opencode.ToolPartStateStatus) console.AgentMessageToolState {
