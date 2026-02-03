@@ -1,9 +1,11 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
@@ -45,6 +47,24 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 		if component.State != nil && *component.State == console.ComponentStateRunning {
 			// Skip checking child pods for the Job. The database cache contains only failed pods, and the Job may succeed after a retry.
 			if component.Kind == "Job" {
+				continue
+			}
+			if len(component.Children) == 0 {
+				continue
+			}
+
+			if component.Kind == "CronJob" {
+				// For CronJobs, only check the most recent child Job
+				// CronJob always creates Jobs with an increasing number in the name
+				// That number is the scheduled time, encoded as a timestamp.
+				// So we can sort by that number to get the latest Job.
+				slices.SortFunc(component.Children, func(a, b *console.ComponentChildAttributes) int {
+					return cmp.Compare(extractJobSuffix(a.Name), extractJobSuffix(b.Name))
+				})
+				latestChild := component.Children[len(component.Children)-1]
+				if latestChild.State != nil && *latestChild.State != console.ComponentStateRunning {
+					component.State = latestChild.State
+				}
 				continue
 			}
 			for _, child := range component.Children {
@@ -141,4 +161,19 @@ func (s *ServiceReconciler) ExtractMetadata(manifests []unstructured.Unstructure
 		Images: lo.ToSlicePtr(uniqueImages),
 		Fqdns:  lo.ToSlicePtr(uniqueFqdns),
 	}
+}
+
+// extractJobSuffix extracts the numeric suffix from a Job or CronJob name
+// e.g. "my-cronjob-1627890123" -> 1627890123
+func extractJobSuffix(name string) int64 {
+	parts := strings.Split(name, "-")
+	if len(parts) == 0 {
+		return 0
+	}
+
+	n, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
 }
