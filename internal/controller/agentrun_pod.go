@@ -407,6 +407,8 @@ func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
 		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
 		Env: []corev1.EnvVar{
 			{Name: "PORT", Value: fmt.Sprintf("%d", defaultContainerBrowserServerPort)},
+			// Required by selenium-based browsers
+			{Name: "SE_OPTS", Value: fmt.Sprintf("--port %d", defaultContainerBrowserServerPort)},
 		},
 	}
 
@@ -414,11 +416,6 @@ func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
 	switch {
 	case exists:
 		container.Image = common.GetConfigurationManager().SwapBaseRegistry(image)
-		// Required by selenium-based browsers
-		container.Env = []corev1.EnvVar{{
-			Name:  "SE_OPTS",
-			Value: "--port 3000",
-		}}
 	case browser == v1alpha1.BrowserCustom && browserConfig.Container != nil:
 		container = *browserConfig.Container
 		container.Name = browserContainerName
