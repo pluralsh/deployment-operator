@@ -296,10 +296,12 @@ func postProcess(mans []unstructured.Unstructured, dir string, svc *console.Serv
 		return m.GetKind() != "" && m.GetAPIVersion() != ""
 	})
 
-	var err error
-	mans, err = template.NewKustomizePostrenderer(dir).Render(svc, mans, mapper)
-	if err != nil {
-		return nil, err
+	if svc.Helm != nil && svc.Helm.KustomizePostrender != nil {
+		var err error
+		mans, err = template.NewKustomizePostrenderer(dir).Render(svc, mans, mapper)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return lo.Map(mans, func(man unstructured.Unstructured, ind int) unstructured.Unstructured {
