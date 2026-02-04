@@ -66,9 +66,7 @@ func createServerTools(client console.Client) []agent.Option {
 	}
 
 	for _, excluded := range excludedTools {
-		if _, exists := toolMap[excluded]; exists {
-			delete(toolMap, excluded)
-		}
+		delete(toolMap, excluded)
 	}
 
 	return lo.Map(lo.Values(toolMap), func(t tool.Tool, _ int) agent.Option {
