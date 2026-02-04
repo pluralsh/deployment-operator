@@ -1,10 +1,15 @@
 package template
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	console "github.com/pluralsh/console/go/client"
@@ -12,11 +17,40 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var _ = Describe("Kustomize postrenderer", func() {
+var _ = Describe("Kustomize postrenderer", Ordered, func() {
 	dir := filepath.Join("..", "..", "..", "test", "helm", "chart-with-postrender")
 	newKustomizePostrenderer := NewKustomizePostrenderer(dir)
 
-	AfterEach(func() {
+	r := gin.Default()
+	r.GET("/version", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"major": "1",
+			"minor": "21",
+		})
+	})
+
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: r,
+	}
+	BeforeAll(func() {
+		// Initializing the server in a goroutine so that
+		// it won't block the graceful shutdown handling below
+		go func() {
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				Expect(err).NotTo(HaveOccurred())
+			}
+		}()
+	})
+
+	AfterAll(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Fatal("Server forced to shutdown: ", err)
+		}
+
+		log.Println("Server exiting")
 		err := os.Remove(filepath.Join(dir, "kustomize-postrender", "kustomization.yaml"))
 		if err != nil && !os.IsNotExist(err) {
 			Expect(err).NotTo(HaveOccurred())
