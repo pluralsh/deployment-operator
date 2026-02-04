@@ -5,6 +5,7 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,6 +51,10 @@ type AgentRuntimeSpec struct {
 	// When true, the runtime will be configured to run with DinD support.
 	// +kubebuilder:validation:Optional
 	Dind *bool `json:"dind,omitempty"`
+
+	// AllowedRepositories the git repositories allowed to be used with this runtime.
+	// +kubebuilder:validation:Optional
+	AllowedRepositories []string `json:"allowedRepositories,omitempty"`
 }
 
 type PodTemplateSpec struct {
@@ -342,6 +347,9 @@ func (in *AgentRuntime) Attributes() console.AgentRuntimeAttributes {
 				GroupName: b.GroupName,
 			}
 		})
+	}
+	if len(in.Spec.AllowedRepositories) > 0 {
+		attrs.AllowedRepositories = lo.ToSlicePtr(in.Spec.AllowedRepositories)
 	}
 	return attrs
 }

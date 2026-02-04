@@ -48,6 +48,12 @@ spec:
                 description: AiProxy specifies whether the agent runtime should be
                   proxied through the AI proxy.
                 type: boolean
+              allowedRepositories:
+                description: AllowedRepositories the git repositories allowed to be
+                  used with this runtime.
+                items:
+                  type: string
+                type: array
               bindings:
                 description: Bindings define the creation permissions for this agent
                   runtime.
@@ -164,6 +170,7 @@ spec:
                       extraArgs:
                         description: |-
                           ExtraArgs args for advanced or experimental CLI flags.
+
                           Deprecated: It is being ignored by the agent harness.
                         items:
                           type: string
