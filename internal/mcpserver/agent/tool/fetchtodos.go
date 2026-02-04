@@ -13,7 +13,7 @@ import (
 func (in *FetchTodos) Install(server *server.MCPServer) {
 	server.AddTool(
 		mcp.NewTool(
-			in.name,
+			in.id.String(),
 			mcp.WithDescription(in.description),
 		),
 		in.handler,
@@ -60,7 +60,7 @@ func (in *FetchTodos) handler(ctx context.Context, _ mcp.CallToolRequest) (*mcp.
 func NewFetchTodos(client console.Client, agentRunID string) Tool {
 	return &FetchTodos{
 		ConsoleTool: ConsoleTool{
-			name:        "fetchAgentRunTodos",
+			id:          FetchTodosTool,
 			description: "Fetches the todos for the current agent run",
 			client:      client,
 			agentRunID:  agentRunID,

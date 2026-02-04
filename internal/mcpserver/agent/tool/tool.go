@@ -1,21 +1,54 @@
 package tool
 
 import (
+	"fmt"
+
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/pluralsh/console/go/client"
 
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
+type ID string
+
+func (tn ID) String() string {
+	return string(tn)
+}
+
+func ToID(id string) (ID, error) {
+	switch id {
+	case string(CreateBranchTool):
+		return CreateBranchTool, nil
+	case string(CreatePullRequestTool):
+		return CreatePullRequestTool, nil
+	case string(FetchTodosTool):
+		return FetchTodosTool, nil
+	case string(UpdateAnalysisTool):
+		return UpdateAnalysisTool, nil
+	case string(UpdateTodosTool):
+		return UpdateTodosTool, nil
+	}
+
+	return "", fmt.Errorf("invalid tool ID: %s", id)
+}
+
+const (
+	CreateBranchTool      ID = "createBranch"
+	CreatePullRequestTool ID = "agentPullRequest"
+	FetchTodosTool        ID = "fetchAgentRunTodos"
+	UpdateAnalysisTool    ID = "updateAgentRunAnalysis"
+	UpdateTodosTool       ID = "updateAgentRunTodos"
+)
+
 // Tool is an MCP tool that can be installed on the MCP server
 type Tool interface {
-	Name() string
+	ID() ID
 	Install(server *server.MCPServer)
 }
 
 type ConsoleTool struct {
-	// name is the name of the tool to register
-	name string
+	// id is the ID of the tool to register
+	id ID
 
 	// description is the description of the tool
 	description string
@@ -27,8 +60,8 @@ type ConsoleTool struct {
 	agentRunID string
 }
 
-func (t *ConsoleTool) Name() string {
-	return t.name
+func (t *ConsoleTool) ID() ID {
+	return t.id
 }
 
 // CreatePullRequest is an MCP tool that creates a pull request for a given agent run
