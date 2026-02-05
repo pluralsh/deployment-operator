@@ -7,6 +7,7 @@ import (
 	console "github.com/pluralsh/console/go/client"
 )
 
+//nolint:gocyclo
 func TestSettingsTemplate_GenerateAndVerifyContents(t *testing.T) {
 	baseInput := &ConfigTemplateInput{
 		Model:           ModelGemini25Pro,
