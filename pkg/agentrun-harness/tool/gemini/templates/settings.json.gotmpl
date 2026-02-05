@@ -51,7 +51,9 @@
         "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
         "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}"
       },
-      "trust": true
+      "trust": true{{ if eq .AgentRunMode "WRITE" }},
+      "excludeTools": ["updateAgentRunAnalysis"]
+{{ end }}
     }
   },
   "privacy": {
