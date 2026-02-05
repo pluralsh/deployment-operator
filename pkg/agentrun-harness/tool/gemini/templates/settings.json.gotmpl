@@ -53,6 +53,8 @@
       },
       "trust": true{{ if eq .AgentRunMode "WRITE" }},
       "excludeTools": ["updateAgentRunAnalysis"]
+{{ else }},
+      "includeTools": ["updateAgentRunAnalysis"]
 {{ end }}
     }
   },

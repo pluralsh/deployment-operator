@@ -69,7 +69,7 @@ func TestSettingsTemplate_GenerateAndVerifyContents(t *testing.T) {
 		}
 	})
 
-	t.Run("ANALYZE mode does not add excludeTools for plural MCP server", func(t *testing.T) {
+	t.Run("ANALYZE mode sets includeTools to only updateAgentRunAnalysis for plural MCP server", func(t *testing.T) {
 		input := *baseInput
 		input.AgentRunMode = console.AgentRunModeAnalyze
 
@@ -92,22 +92,22 @@ func TestSettingsTemplate_GenerateAndVerifyContents(t *testing.T) {
 			t.Fatal("mcpServers.plural missing or not an object")
 		}
 
-		if excludeTools, hasExclude := plural["excludeTools"]; hasExclude {
-			sl, ok := excludeTools.([]any)
-			if ok {
-				var tools []string
-				for _, v := range sl {
-					if s, ok := v.(string); ok {
-						tools = append(tools, s)
-					}
-				}
-				for _, name := range tools {
-					if name == "updateAgentRunAnalysis" {
-						t.Errorf("excludeTools must not contain updateAgentRunAnalysis in ANALYZE mode, got: %v", tools)
-						break
-					}
-				}
+		includeTools, hasInclude := plural["includeTools"]
+		if !hasInclude {
+			t.Fatal("mcpServers.plural.includeTools missing in ANALYZE mode")
+		}
+		sl, ok := includeTools.([]any)
+		if !ok {
+			t.Fatalf("includeTools is not an array: %T", includeTools)
+		}
+		var tools []string
+		for _, v := range sl {
+			if s, ok := v.(string); ok {
+				tools = append(tools, s)
 			}
+		}
+		if len(tools) != 1 || tools[0] != "updateAgentRunAnalysis" {
+			t.Errorf("includeTools must be exactly [\"updateAgentRunAnalysis\"] in ANALYZE mode, got: %v", tools)
 		}
 	})
 
