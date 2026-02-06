@@ -9,31 +9,28 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"k8s.io/klog/v2"
+
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	agentrun "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/gemini/events"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-	"k8s.io/klog/v2"
-)
-
-const (
-	analyzeModeContextFileName = "ANALYZE.md"
-	writeModeContextFileName   = "WRITE.md"
 )
 
 // Gemini implements v1.Tool interface.
 type Gemini struct {
+	v1.DefaultTool
+
 	// dir is a working directory used to run Gemini.
-	dir string
+	//dir string
 
 	// repositoryDir is a directory where the cloned repository is located.
-	repositoryDir string
+	//repositoryDir string
 
 	// run is the agent run that is being processed.
-	run *agentrun.AgentRun
+	//run *agentrun.AgentRun
 
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
@@ -48,13 +45,13 @@ type Gemini struct {
 	model Model
 
 	// errorChan is a channel that returns an error if the tool failed.
-	errorChan chan error
+	//errorChan chan error
 
 	// finishedChan is a channel that gets closed when the tool is finished.
-	finishedChan chan struct{}
+	//finishedChan chan struct{}
 
 	// startedChan is a channel that gets closed when the Gemini server is started.
-	startedChan chan struct{}
+	//startedChan chan struct{}
 }
 
 func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
@@ -67,7 +64,7 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 		append(
 			options,
 			exec.WithArgs(in.args()),
-			exec.WithDir(in.dir),
+			exec.WithDir(in.Config.WorkDir),
 			exec.WithEnv([]string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}),
 			exec.WithTimeout(15*time.Minute),
 		)...,
@@ -75,7 +72,7 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 
 	// Send the initial prompt as a message too
 	if in.onMessage != nil {
-		in.onMessage(&console.AgentMessageAttributes{Message: in.run.Prompt, Role: console.AiRoleUser})
+		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
 	}
 
 	err := in.executable.RunStream(ctx, func(line []byte) {
@@ -92,51 +89,54 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 		event := &events.EventBase{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.ErrorS(err, "failed to unmarshal Gemini stream event", "line", line)
-			in.errorChan <- err
+			in.Config.ErrorChan <- err
 			return
 		}
 
 		if err := event.OnMessage(line, in.onMessage); err != nil {
 			klog.ErrorS(err, "failed to process Gemini stream event", "line", string(line))
-			in.errorChan <- err
+			in.Config.ErrorChan <- err
 		}
 	})
 	if err != nil {
 		klog.ErrorS(err, "Gemini execution failed")
-		in.errorChan <- err
+		in.Config.ErrorChan <- err
 		return
 	}
 	klog.V(log.LogLevelExtended).InfoS("Gemini execution finished")
-	close(in.finishedChan)
+	close(in.Config.FinishedChan)
 }
 
 func (in *Gemini) args() []string {
-	if in.run.Mode == console.AgentRunModeWrite {
+	if in.Config.Run.Mode == console.AgentRunModeWrite {
 		return []string{
 			"--approval-mode", "yolo",
 			"--output-format", "stream-json",
-			in.run.Prompt,
+			in.Config.Run.Prompt,
 		}
 	}
 
 	return []string{
 		"--output-format", "stream-json",
-		in.run.Prompt,
+		in.Config.Run.Prompt,
 	}
 }
 
 func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error {
-	input := &ConfigTemplateInput{
-		ContextFileName: in.contextFileName(),
-		ConsoleURL:      consoleURL,
-		ConsoleToken:    consoleToken,
-		DeployToken:     deployToken,
-		RepositoryDir:   in.repositoryDir,
-		AgentRunID:      in.run.ID,
-		AgentRunMode:    in.run.Mode,
+	if err := in.DefaultTool.ConfigureSystemPrompt(console.AgentRuntimeTypeGemini); err != nil {
+		return err
 	}
 
-	if in.run.Runtime.Type == console.AgentRuntimeTypeGemini {
+	input := &ConfigTemplateInput{
+		ConsoleURL:    consoleURL,
+		ConsoleToken:  consoleToken,
+		DeployToken:   deployToken,
+		RepositoryDir: in.Config.RepositoryDir,
+		AgentRunID:    in.Config.Run.ID,
+		AgentRunMode:  in.Config.Run.Mode,
+	}
+
+	if in.Config.Run.Runtime.Type == console.AgentRuntimeTypeGemini {
 		input.Model = DefaultModel()
 	}
 
@@ -153,23 +153,8 @@ func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error 
 	return nil
 }
 
-func (in *Gemini) contextFileName() string {
-	if in.run == nil {
-		return analyzeModeContextFileName
-	}
-
-	switch in.run.Mode {
-	case console.AgentRunModeWrite:
-		return writeModeContextFileName
-	case console.AgentRunModeAnalyze:
-		return analyzeModeContextFileName
-	default:
-		return analyzeModeContextFileName
-	}
-}
-
 func (in *Gemini) settingsPath() string {
-	return path.Join(in.dir, ".gemini", SettingsFileName)
+	return path.Join(in.Config.WorkDir, ".gemini", SettingsFileName)
 }
 
 func (in *Gemini) OnMessage(f func(message *console.AgentMessageAttributes)) {
@@ -190,13 +175,14 @@ func New(config v1.Config) v1.Tool {
 	}
 
 	return &Gemini{
-		dir:           config.WorkDir,
-		repositoryDir: config.RepositoryDir,
-		run:           config.Run,
-		apiKey:        helpers.GetEnv(controller.EnvGeminiAPIKey, ""),
-		model:         DefaultModel(),
-		finishedChan:  config.FinishedChan,
-		errorChan:     config.ErrorChan,
-		startedChan:   make(chan struct{}),
+		DefaultTool: v1.DefaultTool{Config: config},
+		//dir:           config.WorkDir,
+		//repositoryDir: config.RepositoryDir,
+		//run:           config.Run,
+		apiKey: helpers.GetEnv(controller.EnvGeminiAPIKey, ""),
+		model:  DefaultModel(),
+		//finishedChan:  config.FinishedChan,
+		//errorChan:     config.ErrorChan,
+		//startedChan:   make(chan struct{}),
 	}
 }

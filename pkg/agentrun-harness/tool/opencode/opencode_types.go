@@ -9,7 +9,7 @@ import (
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 )
 
 const (
@@ -74,19 +74,21 @@ func DefaultModel() Model {
 	}
 }
 
-// Opencode implements v1.Tool interface.
+// Opencode implements toolv1.Tool interface.
 type Opencode struct {
+	toolv1.DefaultTool
+
 	// dir is a working directory used to run opencode.
-	dir string
+	//dir string
 
 	// repositoryDir is a directory where the cloned repository is located.
-	repositoryDir string
+	//repositoryDir string
 
 	// port is a port the opencode server will listen on.
 	port string
 
 	// run is the agent run that is being processed.
-	run *v1.AgentRun
+	//run *v1.AgentRun
 
 	// model is the AI model used by opencode.
 	model Model
@@ -104,13 +106,13 @@ type Opencode struct {
 	onMessage func(message *console.AgentMessageAttributes)
 
 	// errorChan is a channel that returns an error if the tool failed
-	errorChan chan error
+	//errorChan chan error
 
 	// finishedChan is a channel that gets closed when the tool is finished.
-	finishedChan chan struct{}
+	//finishedChan chan struct{}
 
 	// startedChan is a channel that gets closed when the opencode server is started.
-	startedChan chan struct{}
+	//startedChan chan struct{}
 }
 
 type Event struct {

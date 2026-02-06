@@ -10,26 +10,28 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
+	"k8s.io/klog/v2"
+
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/samber/lo"
-	"k8s.io/klog/v2"
 )
 
 func New(config v1.Config) v1.Tool {
 	result := &Claude{
-		dir:           config.WorkDir,
-		repositoryDir: config.RepositoryDir,
-		run:           config.Run,
-		token:         helpers.GetEnv(controller.EnvClaudeToken, ""),
-		model:         DefaultModel(),
-		finishedChan:  config.FinishedChan,
-		errorChan:     config.ErrorChan,
-		startedChan:   make(chan struct{}),
-		toolUseCache:  make(map[string]ContentMsg),
+		DefaultTool: v1.DefaultTool{Config: config},
+		//dir:           config.WorkDir,
+		//repositoryDir: config.RepositoryDir,
+		//run:           config.Run,
+		token: helpers.GetEnv(controller.EnvClaudeToken, ""),
+		model: DefaultModel(),
+		//finishedChan:  config.FinishedChan,
+		//errorChan:     config.ErrorChan,
+		//startedChan:   make(chan struct{}),
+		toolUseCache: make(map[string]ContentMsg),
 	}
 
 	if err := result.ensure(); err != nil {
@@ -44,20 +46,19 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Claude) start(ctx context.Context, options ...exec.Option) {
-	promptFile := path.Join(in.dir, ".claude", "prompts", "analysis.md")
+	promptFile := path.Join(in.Config.WorkDir, ".claude", "prompts", v1.SystemPromptFile)
 	agent := analysisAgent
-	if in.run.Mode == console.AgentRunModeWrite {
+	if in.Config.Run.Mode == console.AgentRunModeWrite {
 		agent = autonomousAgent
-		promptFile = path.Join(in.dir, ".claude", "prompts", "autonomous.md")
 	}
-	args := []string{"--add-dir", in.repositoryDir, "--agents", agent, "--system-prompt-file", promptFile, "--model", string(DefaultModel()), "-p", in.run.Prompt, "--output-format", "stream-json", "--verbose"}
+	args := []string{"--add-dir", in.Config.RepositoryDir, "--agents", agent, "--system-prompt-file", promptFile, "--model", string(DefaultModel()), "-p", in.Config.Run.Prompt, "--output-format", "stream-json", "--verbose"}
 
 	in.executable = exec.NewExecutable(
 		"claude",
 		append(
 			options,
 			exec.WithArgs(args),
-			exec.WithDir(in.dir),
+			exec.WithDir(in.Config.WorkDir),
 			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
 			exec.WithTimeout(15*time.Minute),
 		)...,
@@ -65,14 +66,14 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 
 	// Send the initial prompt as a message too
 	if in.onMessage != nil {
-		in.onMessage(&console.AgentMessageAttributes{Message: in.run.Prompt, Role: console.AiRoleUser})
+		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
 	}
 
 	err := in.executable.RunStream(ctx, func(line []byte) {
 		event := &StreamEvent{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.ErrorS(err, "failed to unmarshal claude stream event", "line", string(line))
-			in.errorChan <- err
+			in.Config.ErrorChan <- err
 			return
 		}
 
@@ -85,26 +86,30 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 	})
 	if err != nil {
 		klog.ErrorS(err, "claude execution failed")
-		in.errorChan <- err
+		in.Config.ErrorChan <- err
 		return
 	}
 	klog.V(log.LogLevelExtended).InfoS("claude execution finished")
-	close(in.finishedChan)
+	close(in.Config.FinishedChan)
 }
 
-func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error {
+func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
+	if err := in.DefaultTool.ConfigureSystemPrompt(console.AgentRuntimeTypeClaude); err != nil {
+		return err
+	}
+
 	mcp := NewMCPConfigBuilder()
 	mcp.
 		AddServer("plural", "mcpserver").
 		Env("PLRL_CONSOLE_TOKEN", consoleToken).
 		Env("PLRL_CONSOLE_URL", consoleURL).
 		Done()
-	if err := mcp.WriteToFile(filepath.Join(in.dir, ".mcp.json")); err != nil {
+	if err := mcp.WriteToFile(filepath.Join(in.Config.WorkDir, ".mcp.json")); err != nil {
 		return err
 	}
 
 	settings := NewSettingsBuilder()
-	if in.run.Mode == console.AgentRunModeAnalyze {
+	if in.Config.Run.Mode == console.AgentRunModeAnalyze {
 		settings.AllowTools(
 			"Read",
 			"Grep",
@@ -139,7 +144,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error 
 }
 
 func (in *Claude) configPath() string {
-	return path.Join(in.dir, ".claude")
+	return path.Join(in.Config.WorkDir, ".claude")
 }
 
 func (in *Claude) OnMessage(f func(message *console.AgentMessageAttributes)) {
@@ -147,15 +152,15 @@ func (in *Claude) OnMessage(f func(message *console.AgentMessageAttributes)) {
 }
 
 func (in *Claude) ensure() error {
-	if len(in.dir) == 0 {
+	if len(in.Config.WorkDir) == 0 {
 		return fmt.Errorf("work directory is not set")
 	}
 
-	if len(in.repositoryDir) == 0 {
+	if len(in.Config.RepositoryDir) == 0 {
 		return fmt.Errorf("repository directory is not set")
 	}
 
-	if in.run == nil {
+	if len(in.Config.WorkDir) == 0 {
 		return fmt.Errorf("agent run is not set")
 	}
 
