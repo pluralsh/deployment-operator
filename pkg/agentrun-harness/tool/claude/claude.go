@@ -133,8 +133,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, deployToken string) error 
 			"mcp__plural__agentPullRequest",
 			"mcp__plural__createBranch",
 			"mcp__plural__fetchAgentRunTodos",
-			"mcp__plural__updateAgentRunTodos",
-			"mcp__plural__updateAgentRunAnalysis")
+			"mcp__plural__updateAgentRunTodos")
 	}
 	return settings.WriteToFile(filepath.Join(in.configPath(), "settings.local.json"))
 }

@@ -55,7 +55,11 @@
         "PLRL_EXCLUDE_TOOLS": "createBranch,agentPullRequest,fetchAgentRunTodos,updateAgentRunTodos"
         {{ end }}
       },
-      "trust": true
+      "trust": true{{ if eq .AgentRunMode "WRITE" }},
+      "excludeTools": ["updateAgentRunAnalysis"]
+{{ else }},
+      "includeTools": ["updateAgentRunAnalysis"]
+{{ end }}
     }
   },
   "privacy": {
