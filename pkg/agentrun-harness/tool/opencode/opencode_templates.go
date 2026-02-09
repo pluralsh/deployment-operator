@@ -4,6 +4,8 @@ import (
 	_ "embed"
 	"strings"
 	"text/template"
+
+	console "github.com/pluralsh/console/go/client"
 )
 
 //go:embed templates/opencode.json.gotmpl
@@ -32,6 +34,9 @@ type ConfigTemplateInput struct {
 
 	// Token is the API token for the AI provider.
 	Token string
+
+	// Mode is the agent run mode.
+	Mode console.AgentRunMode
 }
 
 func configTemplate(input *ConfigTemplateInput) (fileName, content string, err error) {

@@ -36,6 +36,7 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 		Endpoint:     helpers.GetEnv(controller.EnvOpenCodeEndpoint, in.provider.Endpoint()),
 		Model:        in.model,
 		Token:        helpers.GetEnv(controller.EnvOpenCodeToken, ""),
+		Mode:         in.Config.Run.Mode,
 	}
 
 	_, content, err := configTemplate(input)

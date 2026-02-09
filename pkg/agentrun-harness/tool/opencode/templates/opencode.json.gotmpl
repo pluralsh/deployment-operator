@@ -8,8 +8,7 @@
       "model": "{{ .Provider }}/{{ .Model }}",
       "temperature": 0.1,
       "tools": {
-        "plural_autonomous*": false,
-        "plural_analysis*": true,
+        "plural*": true,
       },
       "permission": {
         "bash": {
@@ -36,8 +35,7 @@
       "model": "{{ .Provider }}/{{ .Model }}",
       "temperature": 0.3,
       "tools": {
-        "plural_autonomous*": true,
-        "plural_analysis*": false,
+        "plural*": true,
         "write": false,
         "todowrite": false,
         "edit": false
@@ -50,7 +48,7 @@
     }
   },
   "mcp": {
-    "plural_autonomous": {
+    "plural": {
       "type": "local",
       "command": ["mcpserver"],
       "enabled": true,
@@ -58,18 +56,11 @@
         "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
         "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
         "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}",
+        {{ if eq .Model "WRITE" }}
         "PLRL_EXCLUDE_TOOLS": "updateAgentRunAnalysis"
-      }
-    },
-    "plural_analysis": {
-      "type": "local",
-      "command": ["mcpserver"],
-      "enabled": true,
-      "environment": {
-        "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
-        "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
-        "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}",
+        {{ else }}
         "PLRL_EXCLUDE_TOOLS": "createBranch,agentPullRequest,fetchAgentRunTodos,updateAgentRunTodos"
+        {{ end }}
       }
     }
   },
