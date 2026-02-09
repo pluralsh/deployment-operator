@@ -49,7 +49,9 @@ func (in DefaultTool) ConfigureSystemPrompt(runtime console.AgentRuntimeType) er
 	}
 
 	content, err := systemPromptTemplate(templateFile, &SystemPromptTemplateInput{
-		Mode: in.Config.Run.Mode,
+		Mode:           in.Config.Run.Mode,
+		BrowserEnabled: in.Config.Run.BrowserEnabled,
+		DindEnabled:    in.Config.Run.DindEnabled,
 	})
 	if err != nil {
 		return err

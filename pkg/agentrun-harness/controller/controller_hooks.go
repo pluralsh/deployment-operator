@@ -53,12 +53,6 @@ func (in *agentRunController) postStart(err error) {
 func (in *agentRunController) postExecHook() v1.HookFunction {
 	return func() error {
 		klog.V(log.LogLevelDebug).InfoS("post exec hook")
-
-		// TODO: Parse CLI output and extract:
-		// - Analysis results for analyze mode
-		// - Generated files/PRs for write mode
-		// - Update Console API with results
-
 		return nil
 	}
 }
