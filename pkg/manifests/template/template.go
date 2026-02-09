@@ -66,6 +66,9 @@ func Render(dir string, svc *console.ServiceDeploymentForAgent, mapper meta.REST
 		}
 
 		allManifests = append(allManifests, manifests...)
+	}
+
+	if len(svc.Renderers) > 0 {
 		slices.Reverse(allManifests)
 		allManifests = lo.UniqBy(allManifests, func(item unstructured.Unstructured) string {
 			return common.NewKeyFromUnstructured(item).String()
