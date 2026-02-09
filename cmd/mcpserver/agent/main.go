@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 
+	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/cmd/mcpserver/agent/args"
@@ -32,16 +33,43 @@ func main() {
 	client := console.New(args.ConsoleURL(), args.ConsoleToken())
 	server := agent.NewServer(
 		client,
-		agent.WithTools(),
-		agent.WithVersion(Version),
-		agent.WithTool(tool.NewCreatePullRequest(client, args.AgentRunID())),
-		agent.WithTool(tool.NewUpdateTodos(client, args.AgentRunID())),
-		agent.WithTool(tool.NewUpdateAnalysis(client, args.AgentRunID())),
-		agent.WithTool(tool.NewCreateBranch(client, args.AgentRunID())),
-		agent.WithTool(tool.NewFetchTodos(client, args.AgentRunID())),
+		createServerOptions(client)...,
 	)
 
 	if err := server.Start(); err != nil {
 		klog.Fatalf("Plural Console MCP server error: %v, exiting", err)
 	}
+}
+
+func createServerOptions(client console.Client) []agent.Option {
+	return append(
+		[]agent.Option{
+			agent.WithTools(),
+			agent.WithVersion(Version),
+		},
+		createServerTools(client)...,
+	)
+}
+
+func createServerTools(client console.Client) []agent.Option {
+	excludedTools, err := args.ExcludeTools()
+	if err != nil {
+		klog.Fatalf("could not parse excluded tools: %v", err)
+	}
+
+	toolMap := map[tool.ID]tool.Tool{
+		tool.CreateBranchTool:      tool.NewCreateBranch(client, args.AgentRunID()),
+		tool.CreatePullRequestTool: tool.NewCreatePullRequest(client, args.AgentRunID()),
+		tool.FetchTodosTool:        tool.NewFetchTodos(client, args.AgentRunID()),
+		tool.UpdateAnalysisTool:    tool.NewUpdateAnalysis(client, args.AgentRunID()),
+		tool.UpdateTodosTool:       tool.NewUpdateTodos(client, args.AgentRunID()),
+	}
+
+	for _, excluded := range excludedTools {
+		delete(toolMap, excluded)
+	}
+
+	return lo.Map(lo.Values(toolMap), func(t tool.Tool, _ int) agent.Option {
+		return agent.WithTool(t)
+	})
 }

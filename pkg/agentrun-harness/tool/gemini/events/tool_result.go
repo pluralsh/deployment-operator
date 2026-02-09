@@ -1,6 +1,8 @@
 package events
 
 import (
+	"encoding/json"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
@@ -57,6 +59,13 @@ func (e *ToolResultEvent) Attributes() *console.AgentMessageAttributes {
 
 	if toolUse, ok := toolUseCache.Get(e.ToolID); ok {
 		attrs.Metadata.Tool.Name = lo.ToPtr(toolUse.ToolName)
+
+		input, err := json.Marshal(toolUse.Parameters)
+		if err != nil {
+			return attrs
+		}
+
+		attrs.Metadata.Tool.Input = lo.ToPtr(string(input))
 	}
 
 	return attrs

@@ -16,7 +16,7 @@ import (
 func (in *UpdateTodos) Install(server *server.MCPServer) {
 	server.AddTool(
 		mcp.NewTool(
-			in.name,
+			in.id.String(),
 			mcp.WithDescription(in.description),
 			mcp.WithInputSchema[UpdateTodosInputSchema](),
 		),
@@ -115,7 +115,7 @@ func (in *UpdateTodos) toBool(v any) bool {
 func NewUpdateTodos(client console.Client, agentRunID string) Tool {
 	return &UpdateTodos{
 		ConsoleTool: ConsoleTool{
-			name:        "updateAgentRunTodos",
+			id:          UpdateTodosTool,
 			description: "Updates the todo checklist progress in the system to keep track of what needs to be done for a given agent run",
 			client:      client,
 			agentRunID:  agentRunID,

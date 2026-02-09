@@ -47,7 +47,7 @@ type AgentRuntimeSpec struct {
 	// AiProxy specifies whether the agent runtime should be proxied through the AI proxy.
 	AiProxy *bool `json:"aiProxy,omitempty"`
 
-	// Enable Docker-in-Docker for this agent runtime.
+	// Dind enables Docker-in-Docker for this agent runtime.
 	// When true, the runtime will be configured to run with DinD support.
 	// +kubebuilder:validation:Optional
 	Dind *bool `json:"dind,omitempty"`
@@ -55,6 +55,84 @@ type AgentRuntimeSpec struct {
 	// AllowedRepositories the git repositories allowed to be used with this runtime.
 	// +kubebuilder:validation:Optional
 	AllowedRepositories []string `json:"allowedRepositories,omitempty"`
+
+	// Browser configuration augments agent runtime with a headless browser.
+	// When provided, the runtime will be configured to run with a headless browser available
+	// for the agent to use.
+	// +kubebuilder:validation:Optional
+	Browser *BrowserConfig `json:"browser,omitempty"`
+}
+
+// Browser defines the browser to use for the agent runtime.
+type Browser string
+
+const (
+	BrowserChrome           Browser = "chrome"
+	BrowserChromium         Browser = "chromium"
+	BrowserFirefox          Browser = "firefox"
+	BrowserSeleniumChrome   Browser = "selenium-chrome"
+	BrowserSeleniumChromium Browser = "selenium-chromium"
+	BrowserSeleniumFirefox  Browser = "selenium-firefox"
+	BrowserSeleniumEdge     Browser = "selenium-edge"
+	BrowserPuppeteer        Browser = "puppeteer"
+	BrowserCustom           Browser = "custom"
+)
+
+// BrowserConfig is the configuration for the browser runtime.
+// It allows AgentRuntime to leverage a headless browser for executing and testing code.
+type BrowserConfig struct {
+	// Enabled controls whether the browser runtime is enabled for this agent runtime.
+	//
+	// +kubebuilder:validation:Required
+	Enabled bool `json:"enabled"`
+
+	// Browser defines the browser to use. When using non-custom options,
+	// predefined images with validated configurations will be used. Default configuration
+	// can be overridden by specifying a custom Container. When using a "custom" browser,
+	// a custom Container configuration must be provided.
+	//
+	// Available options are:
+	// - chrome - uses browserless/chrome image
+	// - chromium - uses browserless/chromium image
+	// - firefox - uses browserless/firefox image
+	// - selenium-chrome - uses selenium/standalone-chrome image
+	// - selenium-chromium - uses selenium/standalone-chromium image
+	// - selenium-firefox - uses selenium/standalone-firefox image
+	// - selenium-edge - uses selenium/standalone-edge image
+	// - puppeteer - uses browserless/chromium image
+	// - custom
+	//
+	// Default: chrome
+	//
+	// +kubebuilder:validation:Enum:=chrome;chromium;firefox;selenium-chrome;selenium-chromium;selenium-firefox;selenium-edge;puppeteer;custom
+	// +kubebuilder:default:=chrome
+	// +kubebuilder:validation:Optional
+	Browser *Browser `json:"browser,omitempty"`
+
+	// Container defines the container to use for the browser runtime.
+	// For custom images, ensure the container starts a browser server and binds to
+	// the predetermined port 3000 for remote access from the main agent container.
+	// When using a predefined image, only partial overrides are allowed, including:
+	// - environment variables
+	// - resource limits
+	// - image pull policy
+	//
+	//
+	// # Examples
+	//
+	// Selenium:
+	//   name: browser
+	//   image: selenium/standalone-chrome:144.0
+	//   env:
+	//   - name: SE_OPTS
+	//     value: "--port 3000"
+	//
+	// +kubebuilder:validation:Optional
+	Container *corev1.Container `json:"container,omitempty"`
+}
+
+func (in *BrowserConfig) IsEnabled() bool {
+	return in != nil && in.Enabled
 }
 
 type PodTemplateSpec struct {

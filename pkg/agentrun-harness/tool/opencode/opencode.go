@@ -23,18 +23,20 @@ func (in *Opencode) Run(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) error {
+	if err := in.ConfigureSystemPrompt(console.AgentRuntimeTypeOpencode); err != nil {
+		return err
+	}
+
 	input := &ConfigTemplateInput{
 		ConsoleURL:   consoleURL,
 		ConsoleToken: consoleToken,
 		DeployToken:  deployToken,
-		AgentRunID:   in.run.ID,
-	}
-
-	if in.run.Runtime.Type == console.AgentRuntimeTypeOpencode {
-		input.Provider = in.provider
-		input.Endpoint = helpers.GetEnv(controller.EnvOpenCodeEndpoint, input.Provider.Endpoint())
-		input.Model = in.model
-		input.Token = helpers.GetEnv(controller.EnvOpenCodeToken, "")
+		AgentRunID:   in.Config.Run.ID,
+		Provider:     in.provider,
+		Endpoint:     helpers.GetEnv(controller.EnvOpenCodeEndpoint, in.provider.Endpoint()),
+		Model:        in.model,
+		Token:        helpers.GetEnv(controller.EnvOpenCodeToken, ""),
+		Mode:         in.Config.Run.Mode,
 	}
 
 	_, content, err := configTemplate(input)
@@ -60,38 +62,38 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 
 	for {
 		if restarts >= maxRestarts {
-			in.errorChan <- fmt.Errorf("failed to process prompt after %d attempts", maxRestarts)
+			in.Config.ErrorChan <- fmt.Errorf("failed to process prompt after %d attempts", maxRestarts)
 			return
 		}
 
 		if err := in.server.Start(ctx, options...); err != nil {
 			klog.V(log.LogLevelDefault).ErrorS(err, "failed to start opencode server")
-			in.errorChan <- err
+			in.Config.ErrorChan <- err
 			return
 		}
 
 		messageChan, listenErrChan := in.server.Listen(ctx)
 
 		// Send the initial prompt as a message too
-		in.onMessage(&console.AgentMessageAttributes{Message: in.run.Prompt, Role: console.AiRoleUser})
-		promptDone, promptErr := in.server.Prompt(ctx, in.run.Prompt)
+		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
+		promptDone, promptErr := in.server.Prompt(ctx, in.Config.Run.Prompt)
 
 	restart:
 		for {
 			select {
 			case <-ctx.Done():
 				in.server.Stop()
-				close(in.finishedChan)
+				close(in.Config.FinishedChan)
 				return
 			case <-promptDone:
 				in.server.Stop()
-				close(in.finishedChan)
+				close(in.Config.FinishedChan)
 				return
 			case msg := <-messageChan:
 				klog.V(log.LogLevelDefault).InfoS("message received", "message", msg)
 				in.onMessage(msg.Message)
 			case err := <-listenErrChan:
-				in.errorChan <- err
+				in.Config.ErrorChan <- err
 				return
 			case err := <-promptErr:
 				if errors.Is(err, context.DeadlineExceeded) {
@@ -101,7 +103,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 					break restart
 				}
 
-				in.errorChan <- err
+				in.Config.ErrorChan <- err
 				return
 			}
 		}
@@ -109,27 +111,27 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Opencode) configFilePath() string {
-	return path.Join(in.dir, ".opencode", ConfigFileName)
+	return path.Join(in.Config.WorkDir, ".opencode", ConfigFileName)
 }
 
 func (in *Opencode) ensure() error {
-	if len(in.dir) == 0 {
+	if len(in.Config.WorkDir) == 0 {
 		return fmt.Errorf("work directory is not set")
 	}
 
-	if len(in.repositoryDir) == 0 {
+	if len(in.Config.RepositoryDir) == 0 {
 		return fmt.Errorf("repository directory is not set")
 	}
 
-	if in.finishedChan == nil {
+	if in.Config.FinishedChan == nil {
 		return fmt.Errorf("finished channel is not set")
 	}
 
-	if in.errorChan == nil {
+	if in.Config.ErrorChan == nil {
 		return fmt.Errorf("error channel is not set")
 	}
 
-	if in.run == nil {
+	if in.Config.Run == nil {
 		return fmt.Errorf("agent run is not set")
 	}
 
@@ -138,16 +140,17 @@ func (in *Opencode) ensure() error {
 
 func New(config v1.Config) v1.Tool {
 	result := &Opencode{
-		run:           config.Run,
-		model:         DefaultModel(),
-		provider:      DefaultProvider(config.Run.IsProxyEnabled()),
-		dir:           config.WorkDir,
-		repositoryDir: config.RepositoryDir,
-		finishedChan:  config.FinishedChan,
-		errorChan:     config.ErrorChan,
-		startedChan:   make(chan struct{}),
-		port:          defaultOpenCodePort,
-		client:        opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", defaultOpenCodePort))),
+		DefaultTool: v1.DefaultTool{Config: config},
+		//run:           config.Run,
+		model:    DefaultModel(),
+		provider: DefaultProvider(config.Run.IsProxyEnabled()),
+		//dir:           config.WorkDir,
+		//repositoryDir: config.RepositoryDir,
+		//finishedChan:  config.FinishedChan,
+		//errorChan:     config.ErrorChan,
+		//startedChan:   make(chan struct{}),
+		port:   defaultOpenCodePort,
+		client: opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", defaultOpenCodePort))),
 	}
 
 	if err := result.ensure(); err != nil {
