@@ -94,7 +94,7 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
-	if err := in.DefaultTool.ConfigureSystemPrompt(console.AgentRuntimeTypeClaude); err != nil {
+	if err := in.ConfigureSystemPrompt(console.AgentRuntimeTypeClaude); err != nil {
 		return err
 	}
 

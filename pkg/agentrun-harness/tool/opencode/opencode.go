@@ -23,7 +23,7 @@ func (in *Opencode) Run(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) error {
-	if err := in.DefaultTool.ConfigureSystemPrompt(console.AgentRuntimeTypeOpencode); err != nil {
+	if err := in.ConfigureSystemPrompt(console.AgentRuntimeTypeOpencode); err != nil {
 		return err
 	}
 

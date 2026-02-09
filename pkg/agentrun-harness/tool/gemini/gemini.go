@@ -105,7 +105,7 @@ func (in *Gemini) args() []string {
 }
 
 func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error {
-	if err := in.DefaultTool.ConfigureSystemPrompt(console.AgentRuntimeTypeGemini); err != nil {
+	if err := in.ConfigureSystemPrompt(console.AgentRuntimeTypeGemini); err != nil {
 		return err
 	}
 
