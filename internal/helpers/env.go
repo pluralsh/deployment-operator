@@ -34,14 +34,14 @@ func GetPluralEnv(key, fallback string) string {
 // GetPluralEnvBool - Lookup the plural environment variable. It has to be prefixed with EnvPrefix. If variable
 // with the provided key is not found, fallback will be used.
 func GetPluralEnvBool(key string, fallback bool) bool {
-	switch GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), "") {
-	case "true":
-		return true
-	case "false":
-		return false
-	default:
+	// strip EnvPrefix from the key in case it's already there
+	key = strings.TrimPrefix(key, fmt.Sprintf("%s_", EnvPrefix))
+	env := GetPluralEnv(key, "")
+	if len(env) == 0 {
 		return fallback
 	}
+
+	return env == "true"
 }
 
 // GetPluralEnvSlice - Lookup the plural environment variable. It has to be prefixed with EnvPrefix. If variable

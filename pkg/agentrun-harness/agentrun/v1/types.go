@@ -3,12 +3,8 @@ package v1
 import (
 	console "github.com/pluralsh/console/go/client"
 
+	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-)
-
-const (
-	EnvDindEnabled    = "DIND_ENABLED"
-	EnvBrowserEnabled = "BROWSER_ENABLED"
 )
 
 type AgentRun struct {
@@ -63,11 +59,11 @@ func (ar *AgentRun) FromAgentRunFragment(fragment *console.AgentRunFragment) *Ag
 		}
 	}
 
-	if helpers.GetPluralEnvBool(EnvDindEnabled, false) {
+	if helpers.GetPluralEnvBool(controller.EnvDindEnabled, false) {
 		run.DindEnabled = true
 	}
 
-	if helpers.GetPluralEnvBool(EnvBrowserEnabled, false) {
+	if helpers.GetPluralEnvBool(controller.EnvBrowserEnabled, false) {
 		run.BrowserEnabled = true
 	}
 

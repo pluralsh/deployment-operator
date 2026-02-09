@@ -5,11 +5,12 @@ import (
 	"os"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
@@ -167,7 +168,7 @@ func ensureDefaultContainer(containers []corev1.Container, run *v1alpha1.AgentRu
 		containers[index].SecurityContext = ensureDefaultContainerSecurityContext(containers[index].SecurityContext)
 		containers[index].EnvFrom = getDefaultContainerEnvFrom(run.Name)
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
-		containers[index].Env = ensureDefaultEnvVars(containers[index].Env, run)
+		containers[index].Env = ensureDefaultEnvVars(containers[index].Env, run, runtime)
 
 		// Do not allow command to be overridden. Only args can be overridden.
 		containers[index].Command = nil
@@ -223,7 +224,7 @@ func getDefaultContainer(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime)
 		VolumeMounts:    []corev1.VolumeMount{defaultTmpContainerVolumeMount},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		EnvFrom:         getDefaultContainerEnvFrom(run.Name),
-		Env:             getDefaultEnvVars(run),
+		Env:             getDefaultEnvVars(run, runtime),
 	}
 }
 
@@ -249,12 +250,15 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 	}}
 }
 
-func getDefaultEnvVars(_ *v1alpha1.AgentRun) []corev1.EnvVar {
-	return []corev1.EnvVar{}
+func getDefaultEnvVars(_ *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: EnvDindEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Dind != nil && *runtime.Spec.Dind)},
+		{Name: EnvBrowserEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Browser.IsEnabled())},
+	}
 }
 
-func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun) []corev1.EnvVar {
-	defaultEnvs := getDefaultEnvVars(run)
+func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
+	defaultEnvs := getDefaultEnvVars(run, runtime)
 
 	// Add default env vars if they don't already exist
 	for _, defaultEnv := range defaultEnvs {

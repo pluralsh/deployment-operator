@@ -46,6 +46,9 @@ const (
 
 	EnvGeminiModel  = "PLRL_GEMINI_MODEL"
 	EnvGeminiAPIKey = "PLRL_GEMINI_API_KEY"
+
+	EnvDindEnabled    = "PLRL_DIND_ENABLED"
+	EnvBrowserEnabled = "PLRL_BROWSER_ENABLED"
 )
 
 // AgentRunReconciler is a controller for the AgentRun custom resource.
