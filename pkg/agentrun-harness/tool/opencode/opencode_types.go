@@ -78,17 +78,8 @@ func DefaultModel() Model {
 type Opencode struct {
 	toolv1.DefaultTool
 
-	// dir is a working directory used to run opencode.
-	//dir string
-
-	// repositoryDir is a directory where the cloned repository is located.
-	//repositoryDir string
-
 	// port is a port the opencode server will listen on.
 	port string
-
-	// run is the agent run that is being processed.
-	//run *v1.AgentRun
 
 	// model is the AI model used by opencode.
 	model Model
@@ -104,15 +95,6 @@ type Opencode struct {
 
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
-
-	// errorChan is a channel that returns an error if the tool failed
-	//errorChan chan error
-
-	// finishedChan is a channel that gets closed when the tool is finished.
-	//finishedChan chan struct{}
-
-	// startedChan is a channel that gets closed when the opencode server is started.
-	//startedChan chan struct{}
 }
 
 type Event struct {

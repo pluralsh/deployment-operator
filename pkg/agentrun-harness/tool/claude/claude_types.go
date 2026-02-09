@@ -39,15 +39,6 @@ func DefaultModel() Model {
 type Claude struct {
 	toolv1.DefaultTool
 
-	// dir is a working directory used to run opencode.
-	//dir string
-
-	// repositoryDir is a directory where the cloned repository is located.
-	//repositoryDir string
-
-	// run is the agent run that is being processed.
-	//run *v1.AgentRun
-
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
 
@@ -59,15 +50,6 @@ type Claude struct {
 
 	// model is the model used to generate code.
 	model Model
-
-	// errorChan is a channel that returns an error if the tool failed
-	//errorChan chan error
-
-	// finishedChan is a channel that gets closed when the tool is finished.
-	//finishedChan chan struct{}
-
-	// startedChan is a channel that gets closed when the opencode server is started.
-	//startedChan chan struct{}
 
 	// toolUseCache maps tool_use id to ContentMsg for resolving tool_result.
 	toolUseCache map[string]ContentMsg

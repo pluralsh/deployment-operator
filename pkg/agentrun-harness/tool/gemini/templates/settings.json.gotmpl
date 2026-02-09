@@ -49,7 +49,8 @@
       "env": {
         "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
         "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
-        "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}"{{ if eq .AgentRunMode "WRITE" }},
+        "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}",
+        {{ if eq .AgentRunMode "WRITE" }}
         "PLRL_EXCLUDE_TOOLS": "updateAgentRunAnalysis"
         {{ else }}
         "PLRL_EXCLUDE_TOOLS": "createBranch,agentPullRequest,fetchAgentRunTodos,updateAgentRunTodos"
