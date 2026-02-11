@@ -2,9 +2,10 @@ package claude
 
 import (
 	console "github.com/pluralsh/console/go/client"
+
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
@@ -36,14 +37,7 @@ func DefaultModel() Model {
 }
 
 type Claude struct {
-	// dir is a working directory used to run opencode.
-	dir string
-
-	// repositoryDir is a directory where the cloned repository is located.
-	repositoryDir string
-
-	// run is the agent run that is being processed.
-	run *v1.AgentRun
+	toolv1.DefaultTool
 
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
@@ -57,17 +51,8 @@ type Claude struct {
 	// model is the model used to generate code.
 	model Model
 
-	// errorChan is a channel that returns an error if the tool failed
-	errorChan chan error
-
-	// finishedChan is a channel that gets closed when the tool is finished.
-	finishedChan chan struct{}
-
-	// startedChan is a channel that gets closed when the opencode server is started.
-	startedChan chan struct{}
-
-	// toolUseCache maps tool_use id to tool name for resolving tool_result.
-	toolUseCache map[string]string
+	// toolUseCache maps tool_use id to ContentMsg for resolving tool_result.
+	toolUseCache map[string]ContentMsg
 }
 
 type StreamEvent struct {

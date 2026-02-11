@@ -290,11 +290,19 @@ func (s *ServiceReconciler) enforceNamespace(objs []unstructured.Unstructured, s
 	return nil
 }
 
-func postProcess(mans []unstructured.Unstructured) []unstructured.Unstructured {
+func postProcess(mans []unstructured.Unstructured, dir string, svc *console.ServiceDeploymentForAgent, mapper meta.RESTMapper) ([]unstructured.Unstructured, error) {
 	// Filter out any resources that don't have a kind or api version.
 	mans = lo.Filter(mans, func(m unstructured.Unstructured, _ int) bool {
 		return m.GetKind() != "" && m.GetAPIVersion() != ""
 	})
+
+	if svc.Helm != nil && svc.Helm.KustomizePostrender != nil {
+		var err error
+		mans, err = template.NewKustomizePostrenderer(dir).Render(svc, mans, mapper)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return lo.Map(mans, func(man unstructured.Unstructured, ind int) unstructured.Unstructured {
 		labels := man.GetLabels()
@@ -314,7 +322,7 @@ func postProcess(mans []unstructured.Unstructured) []unstructured.Unstructured {
 		annotations[smcommon.LifecycleDeleteAnnotation] = smcommon.PreventDeletion
 		man.SetAnnotations(annotations)
 		return man
-	})
+	}), nil
 }
 
 func (s *ServiceReconciler) WipeCache() {
@@ -493,7 +501,11 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, id string) (result re
 		return
 	}
 
-	manifests = postProcess(manifests)
+	manifests, err = postProcess(manifests, dir, svc, s.mapper)
+	if err != nil {
+		logger.Error(err, "failed to post-process manifests", "service", svc.Name)
+		return
+	}
 	metrics.Record().ServiceReconciliation(
 		id,
 		svc.Name,

@@ -9,6 +9,10 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
+const (
+	SystemPromptFile = "AGENTS.md"
+)
+
 // Tool handles one of the supported AI agents CLI tools.
 // The list of supported tools is based on the console.AgentRuntimeType.
 type Tool interface {
@@ -16,11 +20,17 @@ type Tool interface {
 	// and signal when the tool is finished or failed.
 	Run(ctx context.Context, options ...exec.Option)
 
-	// Configure configures the tool.
-	Configure(consoleURL, deployToken, consoleToken string) error
+	// Configure configures the provider CLI.
+	Configure(consoleURL, consoleToken, deployToken string) error
 
 	// OnMessage registers a callback called when a new message is received.
 	OnMessage(func(message *console.AgentMessageAttributes))
+}
+
+// DefaultTool is a partial base implementation of the Tool interface.
+// It contains the common configuration logic.
+type DefaultTool struct {
+	Config Config
 }
 
 type Config struct {

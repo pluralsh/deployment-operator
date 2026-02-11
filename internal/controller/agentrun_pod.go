@@ -5,11 +5,12 @@ import (
 	"os"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 )
@@ -32,6 +33,10 @@ const (
 	dockerCertsPath              = "/certs"
 	dockerDaemonPort             = 2376
 	dockerSocketGID              = int64(2375)
+
+	browserContainerName              = "browser"
+	defaultContainerBrowser           = v1alpha1.BrowserChrome
+	defaultContainerBrowserServerPort = 3000
 )
 
 var dindClientEnvs = []corev1.EnvVar{
@@ -76,6 +81,17 @@ var (
 		console.AgentRunLanguageJavascript: "24",
 		console.AgentRunLanguagePython:     "3.14",
 	}
+
+	defaultBrowserImages = map[v1alpha1.Browser]string{
+		v1alpha1.BrowserChrome:           "ghcr.io/browserless/chrome:v2.38.4",
+		v1alpha1.BrowserChromium:         "ghcr.io/browserless/chromium:v2.38.4",
+		v1alpha1.BrowserFirefox:          "ghcr.io/browserless/firefox:v2.38.4",
+		v1alpha1.BrowserSeleniumChrome:   "selenium/standalone-chrome:144.0",
+		v1alpha1.BrowserSeleniumChromium: "selenium/standalone-chromium:144.0",
+		v1alpha1.BrowserSeleniumFirefox:  "selenium/standalone-firefox:147.0",
+		v1alpha1.BrowserSeleniumEdge:     "selenium/standalone-edge:144.0",
+		v1alpha1.BrowserPuppeteer:        "ghcr.io/browserless/chromium:v2.38.4",
+	}
 )
 
 func init() {
@@ -107,6 +123,10 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 		enableDind(pod)
 	} else {
 		pod.Spec.SecurityContext = ensureDefaultPodSecurityContext(pod.Spec.SecurityContext)
+	}
+
+	if runtime.Spec.Browser.IsEnabled() {
+		enableBrowser(runtime.Spec.Browser, pod)
 	}
 
 	return pod
@@ -148,7 +168,7 @@ func ensureDefaultContainer(containers []corev1.Container, run *v1alpha1.AgentRu
 		containers[index].SecurityContext = ensureDefaultContainerSecurityContext(containers[index].SecurityContext)
 		containers[index].EnvFrom = getDefaultContainerEnvFrom(run.Name)
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
-		containers[index].Env = ensureDefaultEnvVars(containers[index].Env, run)
+		containers[index].Env = ensureDefaultEnvVars(containers[index].Env, run, runtime)
 
 		// Do not allow command to be overridden. Only args can be overridden.
 		containers[index].Command = nil
@@ -204,7 +224,7 @@ func getDefaultContainer(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime)
 		VolumeMounts:    []corev1.VolumeMount{defaultTmpContainerVolumeMount},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		EnvFrom:         getDefaultContainerEnvFrom(run.Name),
-		Env:             getDefaultEnvVars(run),
+		Env:             getDefaultEnvVars(run, runtime),
 	}
 }
 
@@ -230,12 +250,15 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 	}}
 }
 
-func getDefaultEnvVars(_ *v1alpha1.AgentRun) []corev1.EnvVar {
-	return []corev1.EnvVar{}
+func getDefaultEnvVars(_ *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: EnvDindEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Dind != nil && *runtime.Spec.Dind)},
+		{Name: EnvBrowserEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Browser.IsEnabled())},
+	}
 }
 
-func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun) []corev1.EnvVar {
-	defaultEnvs := getDefaultEnvVars(run)
+func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
+	defaultEnvs := getDefaultEnvVars(run, runtime)
 
 	// Add default env vars if they don't already exist
 	for _, defaultEnv := range defaultEnvs {
@@ -371,4 +394,43 @@ func enableDind(pod *corev1.Pod) {
 			)
 		}
 	}
+}
+
+func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
+	if browserConfig == nil {
+		browserConfig = &v1alpha1.BrowserConfig{}
+	}
+
+	browser := defaultContainerBrowser
+	if browserConfig.Browser != nil {
+		browser = *browserConfig.Browser
+	}
+
+	container := corev1.Container{
+		Name:          browserContainerName,
+		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
+		Env: []corev1.EnvVar{
+			{Name: "PORT", Value: fmt.Sprintf("%d", defaultContainerBrowserServerPort)},
+			// Required by selenium-based browsers
+			{Name: "SE_OPTS", Value: fmt.Sprintf("--port %d", defaultContainerBrowserServerPort)},
+		},
+	}
+
+	image, exists := defaultBrowserImages[browser]
+	switch {
+	case exists:
+		container.Image = common.GetConfigurationManager().SwapBaseRegistry(image)
+	case browser == v1alpha1.BrowserCustom && browserConfig.Container != nil:
+		container = *browserConfig.Container
+		container.Name = browserContainerName
+	}
+
+	if browser != v1alpha1.BrowserCustom && browserConfig.Container != nil {
+		// partial merge of overridable entries
+		container.Env = append(container.Env, browserConfig.Container.Env...)
+		container.Resources = browserConfig.Container.Resources
+		container.ImagePullPolicy = browserConfig.Container.ImagePullPolicy
+	}
+
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, container)
 }

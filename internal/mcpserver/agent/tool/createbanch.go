@@ -16,11 +16,11 @@ import (
 func (in *CreateBranch) Install(server *server.MCPServer) {
 	server.AddTool(
 		mcp.NewTool(
-			in.name,
+			in.id.String(),
 			mcp.WithDescription(in.description),
 			mcp.WithString("branchName",
 				mcp.Required(),
-				mcp.Description("The name of the branch to create"),
+				mcp.Description("The id of the branch to create"),
 			),
 			mcp.WithString("commitMessage",
 				mcp.Required(),
@@ -93,7 +93,7 @@ func (in *CreateBranch) fromRequest(request mcp.CallToolRequest) (err error) {
 func NewCreateBranch(client console.Client, agentRunID string) Tool {
 	return &CreateBranch{
 		ConsoleTool: ConsoleTool{
-			name:        "createBranch",
+			id:          CreateBranchTool,
 			description: "Creates a new branch and commits current changes to it. This should always be used before creating a pull request",
 			client:      client,
 			agentRunID:  agentRunID,

@@ -15,7 +15,7 @@ import (
 func (in *UpdateAnalysis) Install(server *server.MCPServer) {
 	server.AddTool(
 		mcp.NewTool(
-			in.name,
+			in.id.String(),
 			mcp.WithDescription(in.description),
 			mcp.WithString("summary",
 				mcp.Required(),
@@ -75,7 +75,7 @@ func (in *UpdateAnalysis) fromRequest(request mcp.CallToolRequest) (result clien
 func NewUpdateAnalysis(client console.Client, agentRunID string) Tool {
 	return &UpdateAnalysis{
 		ConsoleTool: ConsoleTool{
-			name:        "updateAgentRunAnalysis",
+			id:          UpdateAnalysisTool,
 			description: "Update the analysis in the system to provide summary, detailed analysis and bullet points for a given agent run",
 			client:      client,
 			agentRunID:  agentRunID,

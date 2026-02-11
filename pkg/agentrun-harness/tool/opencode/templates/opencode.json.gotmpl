@@ -3,12 +3,12 @@
   "agent": {
     "analysis": {
       "description": "Analyze code for potential issues, vulnerabilities and improvements",
-      "prompt": "{file:./prompts/analysis.md}",
+      "prompt": "{file:./prompts/AGENTS.md}",
       "mode": "primary",
       "model": "{{ .Provider }}/{{ .Model }}",
       "temperature": 0.1,
       "tools": {
-        "plural*": true
+        "plural*": true,
       },
       "permission": {
         "bash": {
@@ -30,13 +30,12 @@
     },
     "autonomous": {
       "description": "Autonomous agent for making code changes and creating pull requests",
-      "prompt": "{file:./prompts/autonomous.md}",
+      "prompt": "{file:./prompts/AGENTS.md}",
       "mode": "primary",
       "model": "{{ .Provider }}/{{ .Model }}",
       "temperature": 0.3,
       "tools": {
         "plural*": true,
-        "plural_updateAgentRunAnalysis": false,
         "write": false,
         "todowrite": false,
         "edit": false
@@ -51,14 +50,17 @@
   "mcp": {
     "plural": {
       "type": "local",
-      "command": [
-        "mcpserver"
-      ],
+      "command": ["mcpserver"],
       "enabled": true,
       "environment": {
         "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
         "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
-        "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}"
+        "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}",
+        {{ if eq .Mode "WRITE" }}
+        "PLRL_EXCLUDE_TOOLS": "updateAgentRunAnalysis"
+        {{ else }}
+        "PLRL_EXCLUDE_TOOLS": "createBranch,agentPullRequest,fetchAgentRunTodos,updateAgentRunTodos"
+        {{ end }}
       }
     }
   },
@@ -74,21 +76,36 @@
         }
       },
       "models": {
-        "gpt-4.1-mini": {
-          "name": "gpt-4.1-mini",
-          "reasoning": false
-        },
         "gpt-4.1": {
           "name": "gpt-4.1",
           "reasoning": false
         },
-        "gpt-5-mini": {
-          "name": "gpt-5-mini",
-          "reasoning": true
-        },
         "gpt-5": {
           "name": "gpt-5",
-          "reasoning": true
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium",
+            "reasoningSummary": "auto"
+          }
+        },
+        "gpt-5.1": {
+          "name": "gpt-5.1",
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium",
+            "reasoningSummary": "auto"
+          }
+        },
+        "gpt-5.2": {
+          "name": "gpt-5.2",
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium",
+            "reasoningSummary": "auto"
+          }
         }
       }
     }{{ if ne .Provider "plural" }},
@@ -105,15 +122,30 @@
         },
         "gpt-5": {
           "name": "gpt-5",
-          "reasoning": true
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium",
+            "reasoningSummary": "auto"
+          }
         },
         "gpt-5.1": {
           "name": "gpt-5.1",
-          "reasoning": true
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium",
+            "reasoningSummary": "auto"
+          }
         },
         "gpt-5.2": {
           "name": "gpt-5.2",
-          "reasoning": true
+          "reasoning": true,
+          "options": {
+            "reasoningEffort": "medium",
+            "textVerbosity": "medium",
+            "reasoningSummary": "auto"
+          }
         }
       }
     }

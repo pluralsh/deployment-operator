@@ -17,7 +17,7 @@ import (
 func (in *CreatePullRequest) Install(server *server.MCPServer) {
 	server.AddTool(
 		mcp.NewTool(
-			in.name,
+			in.id.String(),
 			mcp.WithDescription(in.description),
 			mcp.WithString("title",
 				mcp.Required(),
@@ -124,7 +124,7 @@ func (in *CreatePullRequest) getCommitSHA(repoDir, branch string) (string, error
 func NewCreatePullRequest(client console.Client, agentRunID string) Tool {
 	return &CreatePullRequest{
 		ConsoleTool: ConsoleTool{
-			name:        "agentPullRequest",
+			id:          CreatePullRequestTool,
 			description: "Create a pull request through the Plural console GraphQL API for agent-generated changes",
 			client:      client,
 			agentRunID:  agentRunID,

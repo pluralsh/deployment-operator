@@ -32,7 +32,7 @@ type Server struct {
 
 // Start starts the MCP server with stdio transport
 func (in *Server) Start() error {
-	klog.V(log.LogLevelDefault).Info("started plural console mcp server", "version", in.version)
+	klog.V(log.LogLevelDefault).InfoS("started plural console mcp server", "version", in.version)
 	return server.ServeStdio(in.server)
 }
 
@@ -45,7 +45,7 @@ func (in *Server) init() *Server {
 
 	for _, tool := range in.tools {
 		tool.Install(in.server)
-		klog.V(log.LogLevelDefault).InfoS("registered tool with mcp server", "tool", tool.Name())
+		klog.V(log.LogLevelDefault).InfoS("registered tool with mcp server", "tool", tool.ID())
 	}
 
 	return in

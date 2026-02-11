@@ -10,13 +10,12 @@ import (
 //nolint:gocyclo
 func TestSettingsTemplate_GenerateAndVerifyContents(t *testing.T) {
 	baseInput := &ConfigTemplateInput{
-		Model:           ModelGemini25Pro,
-		ContextFileName: "ANALYZE.md",
-		RepositoryDir:   "/repo",
-		ConsoleURL:      "https://console.test",
-		ConsoleToken:    "token",
-		DeployToken:     "deploy-token",
-		AgentRunID:      "run-123",
+		Model:         ModelGemini25Pro,
+		RepositoryDir: "/repo",
+		ConsoleURL:    "https://console.test",
+		ConsoleToken:  "token",
+		DeployToken:   "deploy-token",
+		AgentRunID:    "run-123",
 	}
 
 	t.Run("WRITE mode includes excludeTools for plural MCP server", func(t *testing.T) {

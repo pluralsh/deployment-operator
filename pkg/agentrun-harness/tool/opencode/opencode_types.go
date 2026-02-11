@@ -1,13 +1,15 @@
 package opencode
 
 import (
+	"encoding/json"
+
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"github.com/sst/opencode-sdk-go"
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
-	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
+	toolv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 )
 
 const (
@@ -72,19 +74,12 @@ func DefaultModel() Model {
 	}
 }
 
-// Opencode implements v1.Tool interface.
+// Opencode implements toolv1.Tool interface.
 type Opencode struct {
-	// dir is a working directory used to run opencode.
-	dir string
-
-	// repositoryDir is a directory where the cloned repository is located.
-	repositoryDir string
+	toolv1.DefaultTool
 
 	// port is a port the opencode server will listen on.
 	port string
-
-	// run is the agent run that is being processed.
-	run *v1.AgentRun
 
 	// model is the AI model used by opencode.
 	model Model
@@ -100,15 +95,6 @@ type Opencode struct {
 
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
-
-	// errorChan is a channel that returns an error if the tool failed
-	errorChan chan error
-
-	// finishedChan is a channel that gets closed when the tool is finished.
-	finishedChan chan struct{}
-
-	// startedChan is a channel that gets closed when the opencode server is started.
-	startedChan chan struct{}
 }
 
 type Event struct {
@@ -236,6 +222,15 @@ func (in *Event) fromToolPartState(tool *opencode.ToolPartState, name string) {
 	in.Message.Metadata.Tool.Name = lo.ToPtr(name)
 	in.Message.Metadata.Tool.State = lo.ToPtr(in.toAgentToolState(tool.Status))
 	in.Message.Metadata.Tool.Output = lo.ToPtr(tool.Output)
+
+	if tool.Input != nil {
+		input, err := json.Marshal(tool.Input)
+		if err != nil {
+			return
+		}
+
+		in.Message.Metadata.Tool.Input = lo.ToPtr(string(input))
+	}
 }
 
 func (in *Event) toAgentToolState(state opencode.ToolPartStateStatus) console.AgentMessageToolState {

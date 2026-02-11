@@ -2,6 +2,9 @@ package v1
 
 import (
 	console "github.com/pluralsh/console/go/client"
+
+	"github.com/pluralsh/deployment-operator/internal/controller"
+	"github.com/pluralsh/deployment-operator/internal/helpers"
 )
 
 type AgentRun struct {
@@ -18,6 +21,9 @@ type AgentRun struct {
 
 	// Runtime information
 	Runtime *AgentRuntime `json:"runtime,omitempty"`
+
+	DindEnabled    bool
+	BrowserEnabled bool
 }
 
 type AgentRuntime struct {
@@ -51,6 +57,14 @@ func (ar *AgentRun) FromAgentRunFragment(fragment *console.AgentRunFragment) *Ag
 			Type:    fragment.Runtime.Type,
 			AiProxy: fragment.Runtime.AiProxy != nil && *fragment.Runtime.AiProxy,
 		}
+	}
+
+	if helpers.GetPluralEnvBool(controller.EnvDindEnabled, false) {
+		run.DindEnabled = true
+	}
+
+	if helpers.GetPluralEnvBool(controller.EnvBrowserEnabled, false) {
+		run.BrowserEnabled = true
 	}
 
 	return run
