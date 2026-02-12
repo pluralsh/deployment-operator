@@ -12,6 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/yaml"
+
+	"github.com/pluralsh/deployment-operator/dockerfiles/sentinel-harness/terratest/dns"
 )
 
 const filePathEnvVar = "TEST_CASES_FILE_PATH"
@@ -72,6 +74,12 @@ func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment) 
 					require.Equal(t, v, svc.Annotations[k])
 				}
 			}
+			if tc.Loadbalancer.DNSProbe != nil {
+				prober, err := dns.NewLoadBalancerProber(tc.Loadbalancer.DNSProbe)
+				require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
+				err = prober.Probe(svc)
+				require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
+			}
 		})
 	}
 }
@@ -124,6 +132,9 @@ func loadIntegrationTestCases(t *testing.T) []client.TestCaseConfigurationFragme
 			require.NotNil(t, tc.Loadbalancer, "loadbalancer config required for %s", tc.Name)
 			require.NotEmpty(t, tc.Loadbalancer.Namespace, "namespace required for %s", tc.Name)
 			require.NotEmpty(t, tc.Loadbalancer.NamePrefix, "namePrefix required for %s", tc.Name)
+			if tc.Loadbalancer.DNSProbe != nil {
+				require.NotEmpty(t, tc.Loadbalancer.DNSProbe.Fqdn, "dnsProbe.fqdn required for %s", tc.Name)
+			}
 
 		case client.SentinelIntegrationTestCaseTypeRaw:
 			require.NotNil(t, tc.Raw, "raw config required for %s", tc.Name)
