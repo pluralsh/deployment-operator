@@ -17,7 +17,7 @@ ENV CGO_ENABLED=0 \
 RUN mkdir -p /sentinel/.cache && chown -R 65532:65532 /sentinel
 
 # Copy test files
-COPY dockerfiles/sentinel-harness/terratest /sentinel
+COPY terratest /sentinel
 
 # Switch to the nonroot user
 USER 65532:65532

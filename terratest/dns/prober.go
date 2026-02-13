@@ -102,12 +102,12 @@ func (in *defaultProber) runWithRetry(opts ProbeOptions, fn func() error) (err e
 
 	var lastErr error
 	for attempt := int64(0); attempt < opts.Retries; attempt++ {
-		<-timer.C
 		lastErr = fn()
 		if lastErr == nil {
 			return nil
 		}
 
+		<-timer.C
 		if attempt+1 < opts.Retries {
 			timer.Reset(opts.Delay)
 		}
