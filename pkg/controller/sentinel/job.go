@@ -3,6 +3,7 @@ package sentinel
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,10 +31,12 @@ const (
 	defaultJobTmpVolumePath       = "/tmp"
 	nonRootUID                    = int64(65532)
 	nonRootGID                    = nonRootUID
-	defaultContainerImage         = "ghcr.io/pluralsh/sentinel-harness:latest"
+	defaultContainerImage         = "ghcr.io/pluralsh/sentinel-harness"
 )
 
 var (
+	defaultImageTag = "latest"
+
 	defaultJobVolume = corev1.Volume{
 		Name: defaultJobVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -58,6 +61,12 @@ var (
 		MountPath: defaultJobTmpVolumePath,
 	}
 )
+
+func init() {
+	if os.Getenv("IMAGE_TAG") != "" {
+		defaultImageTag = fmt.Sprintf("%s-terratest-0.51.0", os.Getenv("IMAGE_TAG"))
+	}
+}
 
 func (r *SentinelReconciler) reconcileRunJob(ctx context.Context, run *console.SentinelRunJobFragment) (*batchv1.Job, error) {
 	logger := log.FromContext(ctx)
@@ -243,7 +252,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 		if index != -1 {
 			// Only patch minimal defaults, don’t override user intent
 			if containers[index].Image == "" {
-				containers[index].Image = getDefaultImage()
+				containers[index].Image = r.getDefaultContainerImage(run)
 			}
 		}
 
@@ -262,7 +271,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 func (r *SentinelReconciler) getDefaultContainer(run *console.SentinelRunJobFragment) corev1.Container {
 	return corev1.Container{
 		Name:  DefaultJobContainer,
-		Image: getDefaultImage(),
+		Image: r.getDefaultContainerImage(run),
 		VolumeMounts: []corev1.VolumeMount{
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
@@ -386,6 +395,11 @@ func (r *SentinelReconciler) ensureDefaultContainerResourcesRequests(containers 
 	return containers, nil
 }
 
-func getDefaultImage() string {
+func (r *SentinelReconciler) getDefaultContainerImage(run *console.SentinelRunJobFragment) string {
+	// Use default image with default tag (can be overridden by IMAGE_TAG env var)
+	return fmt.Sprintf("%s:%s", getDefaultContainerImage(), defaultImageTag)
+}
+
+func getDefaultContainerImage() string {
 	return common.GetConfigurationManager().SwapBaseRegistry(defaultContainerImage)
 }
