@@ -6,99 +6,70 @@ import (
 	"net"
 	"time"
 
-	"github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/containers"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type Prober interface {
-	Probe(svc corev1.Service) error
+	Probe(fqdn string, opts ...ProbeOption) error
+}
+
+type ProbeOption func(*ProbeOptions) (*ProbeOptions, error)
+
+func WithDelay(delay *string) ProbeOption {
+	return func(opts *ProbeOptions) (*ProbeOptions, error) {
+		opts.Delay = time.Duration(0)
+		if delay == nil {
+			return opts, nil
+		}
+
+		parsed, err := time.ParseDuration(*delay)
+		if err != nil {
+			return opts, fmt.Errorf("invalid dns probe delay %q: %w", *delay, err)
+		}
+
+		if parsed < 0 {
+			return opts, fmt.Errorf("dns probe delay must be non-negative")
+		}
+
+		opts.Delay = parsed
+		return opts, nil
+	}
+}
+
+func WithRetries(retries *int64) ProbeOption {
+	return func(opts *ProbeOptions) (*ProbeOptions, error) {
+		opts.Retries = 0
+		if retries == nil {
+			return opts, nil
+		}
+
+		if *retries < 0 {
+			return opts, fmt.Errorf("dns probe retries must be non-negative")
+		}
+
+		opts.Retries = *retries
+		return opts, nil
+	}
 }
 
 type ProbeOptions struct {
-	Delay    time.Duration
-	Attempts int64
+	Delay   time.Duration
+	Retries int64
 }
 
 type Resolver interface {
 	LookupHost(ctx context.Context, host string) ([]string, error)
 }
 
-type loadBalancerProber struct {
+type defaultProber struct {
 	resolver Resolver
-	fqdn     string
-	opts     ProbeOptions
 }
 
-func NewLoadBalancerProber(probe *client.TestCaseConfigurationFragment_Loadbalancer_DNSProbe) (Prober, error) {
-	if probe == nil {
-		return nil, fmt.Errorf("dns probe config must be set")
-	}
-
-	if probe.Fqdn == "" {
-		return nil, fmt.Errorf("dns probe fqdn must be set")
-	}
-
-	delay := time.Duration(0)
-	if probe.Delay != nil {
-		parsed, err := time.ParseDuration(*probe.Delay)
-		if err != nil {
-			return nil, fmt.Errorf("invalid dns probe delay %q: %w", *probe.Delay, err)
-		}
-		delay = parsed
-	}
-
-	if delay < 0 {
-		return nil, fmt.Errorf("dns probe delay must be non-negative")
-	}
-
-	retries := int64(0)
-	if probe.Retries != nil {
-		retries = *probe.Retries
-	}
-	if retries < 0 {
-		retries = 0
-	}
-
-	return &loadBalancerProber{
-		resolver: net.DefaultResolver,
-		fqdn:     probe.Fqdn,
-		opts: ProbeOptions{
-			Delay:    delay,
-			Attempts: retries + 1,
-		},
-	}, nil
+func (in *defaultProber) Probe(_ string, _ ...ProbeOption) error {
+	return fmt.Errorf("not implemented")
 }
 
-func (in *loadBalancerProber) Probe(svc corev1.Service) error {
-	var lastErr error
-	timer := time.NewTimer(in.opts.Delay)
-	defer timer.Stop()
-
-	addresses, err := in.getAddresses(svc)
-	if err != nil {
-		return err
-	}
-	if addresses.Len() == 0 {
-		return fmt.Errorf("no load balancer ingress addresses found for %s", svc.Name)
-	}
-
-	for attempt := int64(0); attempt < in.opts.Attempts; attempt++ {
-		<-timer.C
-		lastErr = in.lookup(addresses, in.fqdn)
-		if lastErr == nil {
-			return nil
-		}
-
-		if attempt+1 < in.opts.Attempts {
-			timer.Reset(in.opts.Delay)
-		}
-	}
-
-	return lastErr
-}
-
-func (in *loadBalancerProber) lookup(expected containers.Set[string], fqdn string) error {
+func (in *defaultProber) lookup(expected containers.Set[string], fqdn string) error {
 	resolved, err := in.resolver.LookupHost(context.Background(), fqdn)
 	if err != nil {
 		return fmt.Errorf("failed to resolve %s: %w", fqdn, err)
@@ -115,29 +86,7 @@ func (in *loadBalancerProber) lookup(expected containers.Set[string], fqdn strin
 	return nil
 }
 
-func (in *loadBalancerProber) getAddresses(svc corev1.Service) (containers.Set[string], error) {
-	result := containers.NewSet[string]()
-	for _, ingress := range svc.Status.LoadBalancer.Ingress {
-		if len(ingress.IP) > 0 {
-			result.Add(ingress.IP)
-		}
-
-		if len(ingress.Hostname) > 0 {
-			addrs, err := in.resolver.LookupHost(context.Background(), ingress.Hostname)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve load balancer hostname %s: %w", ingress.Hostname, err)
-			}
-
-			for _, addr := range addrs {
-				result.Add(addr)
-			}
-		}
-	}
-
-	return result, nil
-}
-
-func (in *loadBalancerProber) hasAddress(resolved []string, expected containers.Set[string]) bool {
+func (in *defaultProber) hasAddress(resolved []string, expected containers.Set[string]) bool {
 	for _, addr := range resolved {
 		if expected.Has(addr) {
 			return true
@@ -145,4 +94,54 @@ func (in *loadBalancerProber) hasAddress(resolved []string, expected containers.
 	}
 
 	return false
+}
+
+func (in *defaultProber) runWithRetry(opts ProbeOptions, fn func() error) (err error) {
+	timer := time.NewTimer(opts.Delay)
+	defer timer.Stop()
+
+	var lastErr error
+	for attempt := int64(0); attempt < opts.Retries; attempt++ {
+		<-timer.C
+		lastErr = fn()
+		if lastErr == nil {
+			return nil
+		}
+
+		if attempt+1 < opts.Retries {
+			timer.Reset(opts.Delay)
+		}
+	}
+
+	return lastErr
+}
+
+func (in *defaultProber) parseProbeOptions(opts ...ProbeOption) (_ ProbeOptions, err error) {
+	options := new(ProbeOptions)
+	for _, opt := range opts {
+		options, err = opt(options)
+		if err != nil {
+			return ProbeOptions{}, err
+		}
+	}
+
+	return *options, err
+}
+
+type ProberOption func(Prober)
+
+func WithResolver(resolver Resolver) ProberOption {
+	return func(p Prober) {
+		p.(*defaultProber).resolver = resolver
+	}
+}
+
+func newDefaultProber(opts ...ProberOption) defaultProber {
+	result := defaultProber{resolver: net.DefaultResolver}
+
+	for _, opt := range opts {
+		opt(&result)
+	}
+
+	return result
 }

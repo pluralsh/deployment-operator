@@ -1,19 +1,24 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/pluralsh/console/go/client"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/yaml"
 
 	"github.com/pluralsh/deployment-operator/dockerfiles/sentinel-harness/terratest/dns"
+	"github.com/pluralsh/deployment-operator/dockerfiles/sentinel-harness/terratest/helpers"
 )
 
 const filePathEnvVar = "TEST_CASES_FILE_PATH"
@@ -35,6 +40,9 @@ func TestSentinelIntegration(t *testing.T) {
 			case client.SentinelIntegrationTestCaseTypeRaw:
 				runRawTest(t, tc)
 
+			case client.SentinelIntegrationTestCaseTypePvc:
+				runPVCTest(t, tc)
+
 			default:
 				t.Fatalf("unsupported test case type: %s", tc.Type)
 			}
@@ -44,6 +52,7 @@ func TestSentinelIntegration(t *testing.T) {
 
 func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 	require.NotNil(t, tc.Loadbalancer, "loadbalancer config must be set")
+	require.NotNil(t, tc.Loadbalancer.DNSProbe, "dns probe config must be set")
 
 	opts := k8s.NewKubectlOptions("", "", tc.Loadbalancer.Namespace)
 
@@ -66,6 +75,7 @@ func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment) 
 					require.Equal(t, v, svc.Labels[k])
 				}
 			}
+
 			if tc.Loadbalancer.Annotations != nil {
 				var annotations map[string]string
 				err := json.Unmarshal([]byte(*tc.Loadbalancer.Annotations), &annotations)
@@ -74,10 +84,16 @@ func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment) 
 					require.Equal(t, v, svc.Annotations[k])
 				}
 			}
+
 			if tc.Loadbalancer.DNSProbe != nil {
-				prober, err := dns.NewLoadBalancerProber(tc.Loadbalancer.DNSProbe)
+				prober, err := dns.NewLoadBalancerProber(svc)
 				require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
-				err = prober.Probe(svc)
+
+				err = prober.Probe(
+					tc.Loadbalancer.DNSProbe.Fqdn,
+					dns.WithDelay(tc.Loadbalancer.DNSProbe.Delay),
+					dns.WithRetries(tc.Loadbalancer.DNSProbe.Retries),
+				)
 				require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
 			}
 		})
@@ -86,23 +102,83 @@ func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment) 
 
 func runCorednsTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 	require.NotNil(t, tc.Coredns, "coredns config must be set")
+	require.NotEmpty(t, tc.Coredns.DialFqdns, "coredns dialFqdns must be set")
+
+	prober, err := dns.NewCoreDNSProber()
+	require.NoError(t, err, "failed to create coredns prober")
+
+	for _, fqdn := range tc.Coredns.DialFqdns {
+		require.NotNil(t, fqdn, "coredns fqdn must be set")
+
+		t.Run(*fqdn, func(t *testing.T) {
+			err = prober.Probe(*fqdn)
+			require.NoError(t, err, "coredns probe failed for %s", *fqdn)
+		})
+	}
 }
 
 func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 	require.NotNil(t, tc.Raw, "raw config must be set")
-	require.NotNil(t, tc.Raw.Yaml, "yaml must be set")
-
-	namespace, err := NamespaceFromYAML(*tc.Raw.Yaml)
-	require.NoError(t, err, "failed to extract namespace from yaml")
-	if namespace == "" {
-		namespace = "default"
+	expected := client.SentinelRawResultSuccess
+	if tc.Raw.ExpectedResult != nil {
+		expected = *tc.Raw.ExpectedResult
 	}
-	kubectlOptions := k8s.NewKubectlOptions("", "", namespace)
-	k8s.KubectlApplyFromString(
+
+	namespace := "test-" + rand.String(6)
+	yamlNamespace, err := NamespaceFromYAML(tc.Raw.Yaml)
+	require.NoError(t, err, "failed to extract namespace from yaml")
+
+	if len(yamlNamespace) > 0 {
+		namespace = yamlNamespace
+	}
+
+	options := k8s.NewKubectlOptions("", "", namespace)
+
+	helpers.CreateNamespaceWithCleanup(t.Context(), t, options, namespace)
+	err = k8s.KubectlApplyFromStringE(
 		t,
-		kubectlOptions,
-		*tc.Raw.Yaml,
+		options,
+		tc.Raw.Yaml,
 	)
+
+	t.Logf("expected result: %s", expected)
+	switch {
+	case err != nil && expected == client.SentinelRawResultSuccess:
+		t.Fatalf("failed to apply yaml: %v", err)
+	case err == nil && expected == client.SentinelRawResultFailed:
+		t.Fatalf("expected failure but got success")
+	default:
+	}
+
+}
+
+func runPVCTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
+	require.NotNil(t, tc.Pvc)
+	require.NotEmpty(t, tc.Pvc.NamePrefix)
+	require.NotEmpty(t, tc.Pvc.Size)
+	require.NotEmpty(t, tc.Pvc.StorageClass)
+
+	quantity, err := resource.ParseQuantity(tc.Pvc.Size)
+	require.NoError(t, err, "failed to parse pvc size %q", tc.Pvc.Size)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+
+	namespace := "test-" + rand.String(6)
+	options := k8s.NewKubectlOptions("", "", namespace)
+
+	helpers.CreateNamespaceWithCleanup(ctx, t, options, namespace)
+
+	pvcName := fmt.Sprintf("%s-%s", tc.Pvc.NamePrefix, rand.String(5))
+	podName := "pvc-test-" + rand.String(5)
+
+	// PVC required at least one consumer to go into bound phase.
+	// We need to create both resources first and then wait.
+	helpers.CreatePersistentVolumeClaim(t, options, pvcName, tc.Pvc.StorageClass, quantity)
+	helpers.CreatePodForPVC(t, options, podName, pvcName)
+
+	helpers.WaitForPVCBound(ctx, t, options, namespace, pvcName)
+	helpers.WaitForPodSucceeded(ctx, t, options, podName)
 }
 
 func loadIntegrationTestCases(t *testing.T) []client.TestCaseConfigurationFragment {
@@ -138,6 +214,9 @@ func loadIntegrationTestCases(t *testing.T) []client.TestCaseConfigurationFragme
 
 		case client.SentinelIntegrationTestCaseTypeRaw:
 			require.NotNil(t, tc.Raw, "raw config required for %s", tc.Name)
+
+		case client.SentinelIntegrationTestCaseTypePvc:
+			require.NotNil(t, tc.Pvc, "pvc config required for %s", tc.Name)
 
 		default:
 			t.Fatalf("unsupported test case type %q in %s", tc.Type, tc.Name)

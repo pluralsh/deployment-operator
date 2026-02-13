@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
 	"gotest.tools/gotestsum/cmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	"github.com/pluralsh/deployment-operator/pkg/sentinel-harness/environment"
 )
 
 const (
@@ -37,12 +39,13 @@ func NewSentinelRunController(options ...Option) (Controller, error) {
 	return ctrl.init()
 }
 
-func (in *sentinelRunController) Start(ctx context.Context) error {
+func (in *sentinelRunController) Start(_ context.Context) error {
 	sentinelRunJob, err := in.consoleClient.GetSentinelRunJob(in.sentinelRunID)
 	if err != nil {
 		return err
 	}
-	if sentinelRunJob.Status != console.SentinelRunJobStatusPending {
+	if sentinelRunJob.Status != console.SentinelRunJobStatusPending && !environment.IsDev() {
+		klog.V(log.LogLevelDefault).InfoS("sentinel run job is not pending, skipping", "status", sentinelRunJob.Status)
 		return nil
 	}
 	if err := in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{
@@ -81,7 +84,7 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 		in.testDir = testDir
 	}
 
-	path, err := createintegrationTestCases(fragment)
+	path, err := createIntegrationTestCases(fragment)
 	if err != nil {
 		return "", err
 	}
@@ -225,7 +228,7 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 	return buf.String(), nil
 }
 
-func createintegrationTestCases(fragment *console.SentinelRunJobFragment) (string, error) {
+func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (string, error) {
 	if fragment.SentinelRun == nil {
 		return "", nil
 	}
@@ -233,7 +236,7 @@ func createintegrationTestCases(fragment *console.SentinelRunJobFragment) (strin
 		return "", nil
 	}
 
-	testCases := []console.TestCaseConfigurationFragment{}
+	var testCases []console.TestCaseConfigurationFragment
 	for _, check := range fragment.SentinelRun.Checks {
 		if check.Type == console.SentinelCheckTypeIntegrationTest {
 			for _, tc := range check.Configuration.IntegrationTest.Cases {
