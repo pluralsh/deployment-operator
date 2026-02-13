@@ -10,11 +10,14 @@ import (
 	"path/filepath"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/log"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/samber/lo"
 	"gotest.tools/gotestsum/cmd"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/pluralsh/deployment-operator/pkg/manifests"
+	"github.com/pluralsh/deployment-operator/pkg/sentinel-harness/environment"
 )
 
 const (
@@ -22,6 +25,8 @@ const (
 	junitfile           = "unit-tests.xml"
 	jsonFile            = "unit-tests.json"
 	sentinelTarballPath = "/ext/v1/git/sentinels/tarballs"
+
+	testCaseFilePathEnvVar = "TEST_CASES_FILE_PATH"
 )
 
 func NewSentinelRunController(options ...Option) (Controller, error) {
@@ -34,12 +39,13 @@ func NewSentinelRunController(options ...Option) (Controller, error) {
 	return ctrl.init()
 }
 
-func (in *sentinelRunController) Start(ctx context.Context) error {
+func (in *sentinelRunController) Start(_ context.Context) error {
 	sentinelRunJob, err := in.consoleClient.GetSentinelRunJob(in.sentinelRunID)
 	if err != nil {
 		return err
 	}
-	if sentinelRunJob.Status != console.SentinelRunJobStatusPending {
+	if sentinelRunJob.Status != console.SentinelRunJobStatusPending && !environment.IsDev() {
+		klog.V(log.LogLevelDefault).InfoS("sentinel run job is not pending, skipping", "status", sentinelRunJob.Status)
 		return nil
 	}
 	if err := in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{
@@ -78,7 +84,17 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 		in.testDir = testDir
 	}
 
-	err := os.Chdir(in.testDir)
+	path, err := createIntegrationTestCases(fragment)
+	if err != nil {
+		return "", err
+	}
+	if len(path) > 0 {
+		klog.V(log.LogLevelDefault).InfoS("setting test cases file path", "path", path)
+		if err := os.Setenv(testCaseFilePathEnvVar, path); err != nil {
+			return "", err
+		}
+	}
+	err = os.Chdir(in.testDir)
 	if err != nil {
 		return "", err
 	}
@@ -210,4 +226,45 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (string, error) {
+	if fragment.SentinelRun == nil {
+		return "", nil
+	}
+	if len(fragment.SentinelRun.Checks) == 0 {
+		return "", nil
+	}
+
+	var testCases []console.TestCaseConfigurationFragment
+	for _, check := range fragment.SentinelRun.Checks {
+		if check.Type == console.SentinelCheckTypeIntegrationTest {
+			for _, tc := range check.Configuration.IntegrationTest.Cases {
+				testCases = append(testCases, *tc)
+			}
+		}
+	}
+
+	if len(testCases) == 0 {
+		return "", nil
+	}
+
+	yamlBytes, err := yaml.Marshal(testCases)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling test cases to YAML: %w", err)
+	}
+
+	// Create temp directory
+	tmpDir, err := os.MkdirTemp("", "test-cases")
+	if err != nil {
+		return "", fmt.Errorf("error creating temp directory: %w", err)
+	}
+
+	// Write YAML to file in temp directory
+	filePath := filepath.Join(tmpDir, "test-cases.yaml")
+	if err := os.WriteFile(filePath, yamlBytes, 0644); err != nil {
+		return "", fmt.Errorf("error writing test cases file: %w", err)
+	}
+
+	return filePath, nil
 }

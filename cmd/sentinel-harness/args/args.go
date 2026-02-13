@@ -25,7 +25,7 @@ const (
 	defaultTestDir   = "/sentinel"
 	defaultOutputDir = "/plural"
 
-	// Defaults to 180 minute for run cancellation
+	// Defaults to 30 minutes for run cancellation
 	defaultTimeout         = "30m"
 	defaultTimeoutDuration = 30 * time.Minute
 	defaultOutputFormat    = "JUNIT"
