@@ -141,7 +141,6 @@ func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 		tc.Raw.Yaml,
 	)
 
-	t.Logf("expected result: %s", expected)
 	switch {
 	case err != nil && expected == client.SentinelRawResultSuccess:
 		t.Fatalf("failed to apply yaml: %v", err)
