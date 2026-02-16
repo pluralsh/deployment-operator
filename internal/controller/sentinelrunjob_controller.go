@@ -77,10 +77,10 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if err := utils.TryAddOwnerRef(ctx, r, job, secret, r.Scheme); err != nil {
+	if err := utils.TryAddOwnerRef(ctx, r.Client, job, secret, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := utils.TryAddControllerRef(ctx, r, srj, job, r.Scheme); err != nil {
+	if err := utils.TryAddControllerRef(ctx, r.Client, srj, job, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
 
