@@ -6,10 +6,15 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/cache"
+	"github.com/samber/lo"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -150,6 +155,44 @@ func (r *SentinelReconciler) Reconcile(ctx context.Context, id string) (reconcil
 	if run.Status != console.SentinelRunJobStatusPending {
 		return reconcile.Result{}, nil
 	}
-	_, err = r.reconcileRunJob(ctx, run)
-	return reconcile.Result{}, err
+
+	if err := r.reconcileSentinelRunJobCR(ctx, run); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *SentinelReconciler) reconcileSentinelRunJobCR(ctx context.Context, run *console.SentinelRunJobFragment) error {
+	logger := log.FromContext(ctx)
+
+	name := GetRunResourceName(run)
+	namespace := r.GetRunResourceNamespace(getRunJobSpec(name, run.JobSpec))
+
+	if err := r.namespaceCache.EnsureNamespace(ctx, namespace, &console.ServiceDeploymentForAgent_SyncConfig{
+		CreateNamespace: lo.ToPtr(true),
+	}); err != nil {
+		return err
+	}
+	cr := &v1alpha1.SentinelRunJob{}
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cr)
+
+	if err != nil && !apierrs.IsNotFound(err) {
+		return err
+	}
+	cr = &v1alpha1.SentinelRunJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				jobSelector: name,
+			},
+		},
+		Spec: v1alpha1.SentinelRunJobSpec{
+			RunID: run.ID,
+		},
+	}
+
+	logger.Info("creating SentinelRunJob CR", "name", name, "namespace", namespace, "runID", run.ID)
+	return r.k8sClient.Create(ctx, cr)
 }
