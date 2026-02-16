@@ -153,8 +153,8 @@ terraform-mcpserver-run: terraform-mcpserver ## run mcp server locally
 	./bin/terraform-mcpserver
 
 .PHONY: sentinel-run
-sentinel-run: docker-build-sentinel-harness-terratest
-	docker run --rm ghcr.io/pluralsh/sentinel-harness-terratest:local \
+sentinel-run: docker-build-sentinel-harness
+	docker run --rm ghcr.io/pluralsh/sentinel-harness:local \
 		--console-url=${PLRL_CONSOLE_URL}/ext/gql \
 		--console-token=${PLRL_DEPLOY_TOKEN} \
 		--sentinel-run-id=${SENTINEL_RUN_ID} \
@@ -189,11 +189,11 @@ docker-build-sentinel-harness-base: ## build base docker sentinel harness image
 		-f dockerfiles/sentinel-harness/base.Dockerfile \
 		.
 
-.PHONY: docker-build-sentinel-harness-terratest
-docker-build-sentinel-harness-terratest: docker-build-sentinel-harness-base ## build terratest docker sentinel harness image
+.PHONY: docker-build-sentinel-harness
+docker-build-sentinel-harness: docker-build-sentinel-harness-base ## build docker sentinel harness image
 	docker build \
 		--build-arg=SENTINEL_HARNESS_BASE_IMAGE_TAG="local" \
-		-t ghcr.io/pluralsh/sentinel-harness-terratest:local \
+		-t ghcr.io/pluralsh/sentinel-harness:local \
 		-f dockerfiles/sentinel-harness/terratest.Dockerfile \
 		.
 

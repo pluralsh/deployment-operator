@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/pluralsh/deployment-operator/pkg/common"
+
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -19,6 +18,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const (
@@ -63,8 +65,9 @@ var (
 )
 
 func init() {
-	if os.Getenv("IMAGE_TAG") != "" {
-		defaultImageTag = fmt.Sprintf("%s-terratest-0.51.0", os.Getenv("IMAGE_TAG"))
+	imageTag := os.Getenv("IMAGE_TAG")
+	if len(imageTag) > 0 {
+		defaultImageTag = imageTag
 	}
 }
 
@@ -252,7 +255,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 		if index != -1 {
 			// Only patch minimal defaults, don’t override user intent
 			if containers[index].Image == "" {
-				containers[index].Image = r.getDefaultContainerImage(run)
+				containers[index].Image = r.getDefaultContainerImage()
 			}
 		}
 
@@ -271,7 +274,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 func (r *SentinelReconciler) getDefaultContainer(run *console.SentinelRunJobFragment) corev1.Container {
 	return corev1.Container{
 		Name:  DefaultJobContainer,
-		Image: r.getDefaultContainerImage(run),
+		Image: r.getDefaultContainerImage(),
 		VolumeMounts: []corev1.VolumeMount{
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
@@ -395,7 +398,7 @@ func (r *SentinelReconciler) ensureDefaultContainerResourcesRequests(containers 
 	return containers, nil
 }
 
-func (r *SentinelReconciler) getDefaultContainerImage(run *console.SentinelRunJobFragment) string {
+func (r *SentinelReconciler) getDefaultContainerImage() string {
 	// Use default image with default tag (can be overridden by IMAGE_TAG env var)
 	return fmt.Sprintf("%s:%s", getDefaultContainerImage(), defaultImageTag)
 }
