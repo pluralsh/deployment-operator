@@ -133,7 +133,7 @@ func (r *SentinelRunJobReconciler) reconcileRunJob(ctx context.Context, srj *v1a
 			return nil, err
 		}
 
-		jobSpec := getRunJobSpec(srj.Name, run.JobSpec)
+		jobSpec := common.GetRunJobSpec(srj.Name, run.JobSpec)
 		job, err := r.GenerateRunJob(run, jobSpec, srj.Name, srj.Namespace)
 		if err != nil {
 			return nil, err

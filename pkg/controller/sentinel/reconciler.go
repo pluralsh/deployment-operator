@@ -11,6 +11,7 @@ import (
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/cache"
 	"github.com/samber/lo"
+	batchv1 "k8s.io/api/batch/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,6 +24,7 @@ import (
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	pkgcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -167,7 +169,7 @@ func (r *SentinelReconciler) reconcileSentinelRunJobCR(ctx context.Context, run 
 	logger := log.FromContext(ctx)
 
 	name := GetRunResourceName(run)
-	namespace := r.GetRunResourceNamespace(getRunJobSpec(name, run.JobSpec))
+	namespace := r.GetRunResourceNamespace(pkgcommon.GetRunJobSpec(name, run.JobSpec))
 
 	if err := r.namespaceCache.EnsureNamespace(ctx, namespace, &console.ServiceDeploymentForAgent_SyncConfig{
 		CreateNamespace: lo.ToPtr(true),
@@ -183,9 +185,6 @@ func (r *SentinelReconciler) reconcileSentinelRunJobCR(ctx context.Context, run 
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
-				Labels: map[string]string{
-					jobSelector: name,
-				},
 			},
 			Spec: v1alpha1.SentinelRunJobSpec{
 				RunID: run.ID,
@@ -196,4 +195,22 @@ func (r *SentinelReconciler) reconcileSentinelRunJobCR(ctx context.Context, run 
 		return r.k8sClient.Create(ctx, cr)
 	}
 	return nil
+}
+
+// GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
+func GetRunResourceName(run *console.SentinelRunJobFragment) string {
+	return fmt.Sprintf("sentinel-%s", run.ID)
+}
+
+// GetRunResourceNamespace returns a resource namespace used for a job and a secret connected to a given run.
+func (r *SentinelReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (namespace string) {
+	if jobSpec != nil {
+		namespace = jobSpec.Template.Namespace
+	}
+
+	if namespace == "" {
+		namespace = r.namespace
+	}
+
+	return
 }
