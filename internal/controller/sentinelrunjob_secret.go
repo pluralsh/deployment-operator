@@ -29,7 +29,7 @@ func (r *SentinelRunJobReconciler) getRunSecretData(runID, format string) map[st
 func (r *SentinelRunJobReconciler) hasRunSecretData(data map[string][]byte, runID string) bool {
 	token, hasToken := data[envConsoleToken]
 	url, hasUrl := data[envConsoleURL]
-	id, hasID := data[envConsoleURL]
+	id, hasID := data[envRunID]
 	return hasToken && hasUrl && hasID &&
 		string(token) == r.DeployToken && string(url) == r.ConsoleURL && string(id) == runID
 }

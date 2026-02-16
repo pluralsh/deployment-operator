@@ -194,8 +194,7 @@ func (r *SentinelRunJobReconciler) ensureDefaultVolumeMounts(mounts []corev1.Vol
 	return append(
 		algorithms.Filter(mounts, func(v corev1.VolumeMount) bool {
 			switch v.Name {
-			case defaultJobVolumeName:
-			case defaultJobTmpVolumeName:
+			case defaultJobVolumeName, defaultJobTmpVolumeName:
 				return false
 			}
 

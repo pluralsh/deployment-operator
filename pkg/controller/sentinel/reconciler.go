@@ -175,24 +175,25 @@ func (r *SentinelReconciler) reconcileSentinelRunJobCR(ctx context.Context, run 
 		return err
 	}
 	cr := &v1alpha1.SentinelRunJob{}
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cr)
-
-	if err != nil && !apierrs.IsNotFound(err) {
-		return err
-	}
-	cr = &v1alpha1.SentinelRunJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				jobSelector: name,
+	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cr); err != nil {
+		if !apierrs.IsNotFound(err) {
+			return err
+		}
+		cr = &v1alpha1.SentinelRunJob{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+				Labels: map[string]string{
+					jobSelector: name,
+				},
 			},
-		},
-		Spec: v1alpha1.SentinelRunJobSpec{
-			RunID: run.ID,
-		},
-	}
+			Spec: v1alpha1.SentinelRunJobSpec{
+				RunID: run.ID,
+			},
+		}
 
-	logger.Info("creating SentinelRunJob CR", "name", name, "namespace", namespace, "runID", run.ID)
-	return r.k8sClient.Create(ctx, cr)
+		logger.Info("creating SentinelRunJob CR", "name", name, "namespace", namespace, "runID", run.ID)
+		return r.k8sClient.Create(ctx, cr)
+	}
+	return nil
 }
