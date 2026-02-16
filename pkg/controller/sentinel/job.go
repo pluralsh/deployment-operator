@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/pluralsh/deployment-operator/pkg/common"
+
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/utils"
-	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -19,6 +18,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/pluralsh/deployment-operator/internal/utils"
+	consoleclient "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
 const (
@@ -63,8 +65,9 @@ var (
 )
 
 func init() {
-	if os.Getenv("IMAGE_TAG") != "" {
-		defaultImageTag = fmt.Sprintf("%s-terratest-0.51.0", os.Getenv("IMAGE_TAG"))
+	imageTag := os.Getenv("IMAGE_TAG")
+	if len(imageTag) > 0 {
+		defaultImageTag = imageTag
 	}
 }
 
@@ -395,7 +398,7 @@ func (r *SentinelReconciler) ensureDefaultContainerResourcesRequests(containers 
 	return containers, nil
 }
 
-func (r *SentinelReconciler) getDefaultContainerImage(run *console.SentinelRunJobFragment) string {
+func (r *SentinelReconciler) getDefaultContainerImage(_ *console.SentinelRunJobFragment) string {
 	// Use default image with default tag (can be overridden by IMAGE_TAG env var)
 	return fmt.Sprintf("%s:%s", getDefaultContainerImage(), defaultImageTag)
 }
