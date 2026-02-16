@@ -19,8 +19,8 @@ const (
 
 func (r *SentinelRunJobReconciler) getRunSecretData(runID, format string) map[string]string {
 	return map[string]string{
-		envConsoleURL:   r.consoleURL,
-		envConsoleToken: r.deployToken,
+		envConsoleURL:   r.ConsoleURL,
+		envConsoleToken: r.DeployToken,
 		envRunID:        runID,
 		envFormat:       format,
 	}
@@ -31,7 +31,7 @@ func (r *SentinelRunJobReconciler) hasRunSecretData(data map[string][]byte, runI
 	url, hasUrl := data[envConsoleURL]
 	id, hasID := data[envConsoleURL]
 	return hasToken && hasUrl && hasID &&
-		string(token) == r.deployToken && string(url) == r.consoleURL && string(id) == runID
+		string(token) == r.DeployToken && string(url) == r.ConsoleURL && string(id) == runID
 }
 
 func (r *SentinelRunJobReconciler) reconcileRunSecret(ctx context.Context, name, namespace, runID, format string) (*corev1.Secret, error) {

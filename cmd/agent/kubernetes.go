@@ -327,4 +327,13 @@ func registerKubeReconcilersOrDie(
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PluralCAPIClusterController")
 	}
+	if err := (&controller.SentinelRunJobReconciler{
+		Client:        manager.GetClient(),
+		Scheme:        manager.GetScheme(),
+		ConsoleClient: extConsoleClient,
+		ConsoleURL:    consoleURL,
+		DeployToken:   deployToken,
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SentinelRunJob")
+	}
 }

@@ -28,10 +28,10 @@ const SentinelRunJobFinalizerName = "sentinelrunjob.deployments.plural.sh/finali
 
 type SentinelRunJobReconciler struct {
 	client.Client
-	consoleClient consoleclient.Client
+	ConsoleClient consoleclient.Client
 	Scheme        *runtime.Scheme
-	consoleURL    string
-	deployToken   string
+	ConsoleURL    string
+	DeployToken   string
 }
 
 func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
@@ -62,7 +62,7 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return *result, nil
 	}
 
-	run, err := r.consoleClient.GetSentinelRunJob(srj.Spec.RunID)
+	run, err := r.ConsoleClient.GetSentinelRunJob(srj.Spec.RunID)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -101,7 +101,7 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if err := r.consoleClient.UpdateSentinelRunJobStatus(srj.Spec.RunID, &console.SentinelRunJobUpdateAttributes{
+	if err := r.ConsoleClient.UpdateSentinelRunJobStatus(srj.Spec.RunID, &console.SentinelRunJobUpdateAttributes{
 		Status: status,
 		Reference: &console.NamespacedName{
 			Name:      job.Name,
