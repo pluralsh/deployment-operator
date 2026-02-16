@@ -129,6 +129,8 @@ Your **high‑level** order is:
 7. Create PR via Plural MCP server `agentPullRequest` tool (last todo)
 8. Final summary
 
+** You should not attempt to clone the repo directly, it will already be cloned for you and ready for use in the current directory.**
+
 You may add intermediate todos (e.g. multiple implementation or testing steps), but commit and PR must always be the final two.
 
 After the summary is done, do not wait for any input or confirmation. Your task is complete.
@@ -139,7 +141,7 @@ After the summary is done, do not wait for any input or confirmation. Your task 
 
 When you reach the commit todo:
 
-1. You are **forbidden** from using `git` directly.
+1. You are **forbidden** from using `git` directly (do not clone the repo, as well, that is already done for you).
 2. Call Plural MCP server `createBranch` tool with:
    - `branchName` (e.g. `agent/{kebab-slug}-{utc-epoch-ms}`),
    - `commitMessage` (short, clear summary).

@@ -59,7 +59,7 @@ func (in *CreateBranch) handler(ctx context.Context, request mcp.CallToolRequest
 
 	cmd = exec.NewExecutable("git", exec.WithArgs([]string{"commit", "-m", in.CommitMessage}), exec.WithDir(repoDir))
 	if out, err := cmd.RunWithOutput(ctx); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to commit changes: %v: %s", err, out)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("failed to commit changes: %v: %s (verify you are working in the correct directory and have no uncommitted changes, the repository is cloned at %s)", err, out, repoDir)), nil
 	}
 
 	cmd = exec.NewExecutable("git", exec.WithArgs([]string{"push", "--set-upstream", "origin", in.BranchName}), exec.WithDir(repoDir))
