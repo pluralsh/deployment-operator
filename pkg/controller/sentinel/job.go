@@ -255,7 +255,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 		if index != -1 {
 			// Only patch minimal defaults, don’t override user intent
 			if containers[index].Image == "" {
-				containers[index].Image = r.getDefaultContainerImage(run)
+				containers[index].Image = r.getDefaultContainerImage()
 			}
 		}
 
@@ -274,7 +274,7 @@ func (r *SentinelReconciler) ensureDefaultContainer(
 func (r *SentinelReconciler) getDefaultContainer(run *console.SentinelRunJobFragment) corev1.Container {
 	return corev1.Container{
 		Name:  DefaultJobContainer,
-		Image: r.getDefaultContainerImage(run),
+		Image: r.getDefaultContainerImage(),
 		VolumeMounts: []corev1.VolumeMount{
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
@@ -398,7 +398,7 @@ func (r *SentinelReconciler) ensureDefaultContainerResourcesRequests(containers 
 	return containers, nil
 }
 
-func (r *SentinelReconciler) getDefaultContainerImage(_ *console.SentinelRunJobFragment) string {
+func (r *SentinelReconciler) getDefaultContainerImage() string {
 	// Use default image with default tag (can be overridden by IMAGE_TAG env var)
 	return fmt.Sprintf("%s:%s", getDefaultContainerImage(), defaultImageTag)
 }
