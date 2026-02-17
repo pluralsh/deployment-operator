@@ -19,14 +19,15 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/controller/stacks"
 	"github.com/pluralsh/polly/algorithms"
+	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -34,12 +35,14 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const jobSelector = "stackrun.deployments.plural.sh"
 const jobTimeout = time.Minute * 40
 const podTimeout = time.Minute * 2
 
@@ -48,24 +51,62 @@ type StackRunJobReconciler struct {
 	k8sClient.Client
 	Scheme        *runtime.Scheme
 	ConsoleClient client.Client
+	ConsoleURL    string
+	DeployToken   string
 }
 
 // Reconcile StackRun's Job ensure that Console stays in sync with Kubernetes cluster.
-func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
 	logger := log.FromContext(ctx)
 
-	// Read resource from Kubernetes cluster.
-	job := &batchv1.Job{}
-	if err := r.Get(ctx, req.NamespacedName, job); err != nil {
-		logger.Error(err, "unable to fetch job")
+	run := &v1alpha1.StackRunJob{}
+	if err := r.Get(ctx, req.NamespacedName, run); err != nil {
+		logger.Error(err, "unable to fetch StackRunJob")
 		return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
 	}
-	stackRunID := getStackRunID(job)
-	stackRun, err := r.ConsoleClient.GetStackRun(stackRunID)
+
+	scope, err := NewDefaultScope(ctx, r.Client, run)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Always patch object when exiting this function, so we can persist any object changes.
+	defer func() {
+		if err := scope.PatchObject(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
+
+	if !run.ObjectMeta.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+	stackRun, err := r.ConsoleClient.GetStackRun(run.Spec.RunID)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+			return jitterRequeue(requeueAfter, jitter), nil
 		}
+		return ctrl.Result{}, err
+	}
+	run.Status.ID = lo.ToPtr(stackRun.ID)
+
+	secret, err := r.reconcileSecret(ctx, run)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	job, err := r.reconcileJob(ctx, run, stackRun)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	run.Status.JobRef = &corev1.LocalObjectReference{Name: job.Name}
+
+	if err := utils.TryAddOwnerRef(ctx, r.Client, job, secret, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := utils.TryAddControllerRef(ctx, r.Client, run, job, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -76,22 +117,24 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if err := r.killJob(ctx, job); err != nil {
 				return ctrl.Result{}, err
 			}
+			run.Status.JobStatus = string(console.StackStatusFailed)
 			logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
-			err := r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
+			if err := r.ConsoleClient.UpdateStackRun(stackRun.ID, console.StackRunAttributes{
 				Status: console.StackStatusFailed,
-			})
-			return ctrl.Result{}, err
+			}); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
-		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
 	if hasSucceeded(job) {
 		logger.V(2).Info("stack run job succeeded", "name", job.Name, "namespace", job.Namespace)
-		err := r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
+		run.Status.JobStatus = string(console.StackStatusSuccessful)
+		if err := r.ConsoleClient.UpdateStackRun(stackRun.ID, console.StackRunAttributes{
 			Status: console.StackStatusSuccessful,
-		})
-
-		return ctrl.Result{}, err
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if hasFailed(job) {
@@ -100,13 +143,22 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err != nil {
 			logger.Error(err, "unable to get job pod status")
 		}
-		err = r.ConsoleClient.UpdateStackRun(stackRunID, console.StackRunAttributes{
+		run.Status.JobStatus = string(status)
+		if err = r.ConsoleClient.UpdateStackRun(stackRun.ID, console.StackRunAttributes{
 			Status: status,
-		})
-		return ctrl.Result{}, err
+		}); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
+	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 	return ctrl.Result{}, nil
+}
+
+// GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
+func (r *StackRunJobReconciler) GetRunResourceName(run *console.StackRunMinimalFragment) string {
+	return fmt.Sprintf("stack-%s", run.ID)
 }
 
 func (r *StackRunJobReconciler) getJobPodStatus(ctx context.Context, selector map[string]string) (console.StackStatus, error) {
@@ -133,10 +185,10 @@ func (r *StackRunJobReconciler) getJobPod(ctx context.Context, selector map[stri
 
 func (r *StackRunJobReconciler) getPodStatus(pod *corev1.Pod) (console.StackStatus, error) {
 	statusIndex := algorithms.Index(pod.Status.ContainerStatuses, func(status corev1.ContainerStatus) bool {
-		return status.Name == stacks.DefaultJobContainer
+		return status.Name == stackRunDefaultJobContainer
 	})
 	if statusIndex == -1 {
-		return console.StackStatusFailed, fmt.Errorf("no job container with name %s found", stacks.DefaultJobContainer)
+		return console.StackStatusFailed, fmt.Errorf("no job container with name %s found", stackRunDefaultJobContainer)
 	}
 
 	containerStatus := pod.Status.ContainerStatuses[statusIndex]
@@ -164,18 +216,13 @@ func (r *StackRunJobReconciler) killJob(ctx context.Context, job *batchv1.Job) e
 
 func getExitCodeStatus(exitCode int32) console.StackStatus {
 	switch exitCode {
-	case 64:
-	case 66:
+	case 64, 66:
 		return console.StackStatusCancelled
 	case 65:
 		return console.StackStatusFailed
 	}
 
 	return console.StackStatusFailed
-}
-
-func getStackRunID(job *batchv1.Job) string {
-	return strings.TrimPrefix(job.Name, "stack-")
 }
 
 func isActiveJob(stackStatus console.StackStatus, job *batchv1.Job) bool {
@@ -202,18 +249,9 @@ func (r *StackRunJobReconciler) isActiveJobPodFailed(ctx context.Context, stackS
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *StackRunJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	byAnnotation := predicate.NewPredicateFuncs(func(object k8sClient.Object) bool {
-		annotations := object.GetAnnotations()
-		if annotations == nil {
-			return false
-		}
-
-		_, ok := annotations[jobSelector]
-		return ok
-	})
-
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&batchv1.Job{}).
-		WithEventFilter(byAnnotation).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
+		For(&v1alpha1.StackRunJob{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&batchv1.Job{}).
 		Complete(r)
 }

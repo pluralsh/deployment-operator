@@ -11,10 +11,8 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,6 +64,7 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
+	srj.Status.ID = lo.ToPtr(run.ID)
 
 	secret, err := r.reconcileRunSecret(ctx, req.Name, req.Namespace, srj.Spec.RunID, string(run.Format))
 	if err != nil {
@@ -111,7 +110,6 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	srj.Status.ID = lo.ToPtr(run.ID)
 	utils.MarkCondition(srj.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(srj.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 	return ctrl.Result{}, nil
@@ -124,25 +122,4 @@ func (r *SentinelRunJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.SentinelRunJob{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&batchv1.Job{}).
 		Complete(r)
-}
-
-func (r *SentinelRunJobReconciler) reconcileRunJob(ctx context.Context, srj *v1alpha1.SentinelRunJob, run *console.SentinelRunJobFragment) (*batchv1.Job, error) {
-	foundJob := &batchv1.Job{}
-	if err := r.Get(ctx, types.NamespacedName{Name: srj.Name, Namespace: srj.Namespace}, foundJob); err != nil {
-		if !apierrs.IsNotFound(err) {
-			return nil, err
-		}
-
-		jobSpec := common.GetRunJobSpec(srj.Name, run.JobSpec)
-		job, err := r.GenerateRunJob(run, jobSpec, srj.Name, srj.Namespace)
-		if err != nil {
-			return nil, err
-		}
-		if err := r.Create(ctx, job); err != nil {
-			return nil, err
-		}
-		return job, nil
-	}
-
-	return foundJob, nil
 }

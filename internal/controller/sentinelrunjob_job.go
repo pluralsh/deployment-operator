@@ -1,17 +1,21 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func init() {
@@ -59,8 +63,29 @@ var (
 	}
 )
 
+func (r *SentinelRunJobReconciler) reconcileRunJob(ctx context.Context, srj *v1alpha1.SentinelRunJob, run *console.SentinelRunJobFragment) (*batchv1.Job, error) {
+	foundJob := &batchv1.Job{}
+	if err := r.Get(ctx, types.NamespacedName{Name: srj.Name, Namespace: srj.Namespace}, foundJob); err != nil {
+		if !apierrs.IsNotFound(err) {
+			return nil, err
+		}
+
+		jobSpec := common.GetRunJobSpec(srj.Name, run.JobSpec)
+		job, err := r.GenerateRunJob(run, jobSpec, srj.Name, srj.Namespace)
+		if err != nil {
+			return nil, err
+		}
+		if err := r.Create(ctx, job); err != nil {
+			return nil, err
+		}
+		return job, nil
+	}
+
+	return foundJob, nil
+}
+
 // GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
-func GetRunResourceName(run *console.SentinelRunJobFragment) string {
+func (r *SentinelRunJobReconciler) GetRunResourceName(run *console.SentinelRunJobFragment) string {
 	return fmt.Sprintf("sentinel-%s", run.ID)
 }
 
@@ -156,7 +181,7 @@ func (r *SentinelRunJobReconciler) getDefaultContainerEnvFrom(run *console.Senti
 		{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: GetRunResourceName(run),
+					Name: r.GetRunResourceName(run),
 				},
 			},
 		},

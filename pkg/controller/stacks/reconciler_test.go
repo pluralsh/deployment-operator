@@ -48,7 +48,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 						Template: corev1.PodTemplateSpec{
 							Spec: corev1.PodSpec{
 								Containers: []corev1.Container{{
-									Name:  stacks.DefaultJobContainer,
+									Name:  "default",
 									Image: "image:v1.0.0",
 									Args:  []string{},
 								}},
@@ -190,7 +190,7 @@ var _ = Describe("Reconciler", Ordered, func() {
 							},
 						},
 						Containers: []corev1.Container{{
-							Name:  stacks.DefaultJobContainer,
+							Name:  "default",
 							Image: "image:v1.0.0",
 						}},
 						ServiceAccountName: "test-sa",

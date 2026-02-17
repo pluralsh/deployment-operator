@@ -158,11 +158,7 @@ func (r *SentinelReconciler) Reconcile(ctx context.Context, id string) (reconcil
 		return reconcile.Result{}, nil
 	}
 
-	if err := r.reconcileSentinelRunJobCR(ctx, run); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, r.reconcileSentinelRunJobCR(ctx, run)
 }
 
 func (r *SentinelReconciler) reconcileSentinelRunJobCR(ctx context.Context, run *console.SentinelRunJobFragment) error {

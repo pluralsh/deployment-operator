@@ -5,8 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	configuration "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/cache"
+	batchv1 "k8s.io/api/batch/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/algorithms"
@@ -19,6 +24,7 @@ import (
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	pkgcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -153,6 +159,49 @@ func (r *StackReconciler) Reconcile(ctx context.Context, id string) (reconcile.R
 	if stackRun.Status != console.StackStatusPending {
 		return reconcile.Result{}, nil
 	}
-	_, err = r.reconcileRunJob(ctx, stackRun)
-	return reconcile.Result{}, err
+
+	return reconcile.Result{}, r.reconcileStackRunJobCR(ctx, stackRun)
+}
+
+func (r *StackReconciler) reconcileStackRunJobCR(ctx context.Context, run *console.StackRunMinimalFragment) error {
+	logger := log.FromContext(ctx)
+	name := GetRunResourceName(run)
+	namespace := r.GetRunResourceNamespace(pkgcommon.GetRunJobSpec(name, run.JobSpec))
+	cr := &v1alpha1.StackRunJob{}
+	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cr); err != nil {
+		if !apierrs.IsNotFound(err) {
+			return err
+		}
+		cr = &v1alpha1.StackRunJob{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: v1alpha1.StackRunJobSpec{
+				RunID: run.ID,
+			},
+		}
+
+		logger.Info("creating StackRunJob CR", "name", name, "namespace", namespace, "runID", run.ID)
+		return r.k8sClient.Create(ctx, cr)
+	}
+	return nil
+}
+
+// GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
+func GetRunResourceName(run *console.StackRunMinimalFragment) string {
+	return fmt.Sprintf("stack-%s", run.ID)
+}
+
+// GetRunResourceNamespace returns a resource namespace used for a job and a secret connected to a given run.
+func (r *StackReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (namespace string) {
+	if jobSpec != nil {
+		namespace = jobSpec.Template.Namespace
+	}
+
+	if namespace == "" {
+		namespace = r.namespace
+	}
+
+	return
 }
