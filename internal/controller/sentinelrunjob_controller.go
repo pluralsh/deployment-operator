@@ -53,7 +53,7 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	utils.MarkCondition(srj.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(srj.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
-	if !srj.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !srj.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 

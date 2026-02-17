@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	configuration "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/polly/cache"
 	batchv1 "k8s.io/api/batch/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -81,7 +80,7 @@ func (r *StackReconciler) Shutdown() {
 
 func (r *StackReconciler) GetPollInterval() func() time.Duration {
 	return func() time.Duration {
-		if stackPollInterval := configuration.GetConfigurationManager().GetStackPollInterval(); stackPollInterval != nil {
+		if stackPollInterval := pkgcommon.GetConfigurationManager().GetStackPollInterval(); stackPollInterval != nil {
 			return *stackPollInterval
 		}
 		return r.pollInterval

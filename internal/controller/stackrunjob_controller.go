@@ -79,7 +79,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
-	if !run.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !run.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 	stackRun, err := r.ConsoleClient.GetStackRun(run.Spec.RunID)
