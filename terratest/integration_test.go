@@ -48,9 +48,6 @@ func TestSentinelIntegration(t *testing.T) {
 
 func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 	require.NotNil(t, tc.Loadbalancer, "loadbalancer config must be set")
-	require.NotNil(t, tc.Loadbalancer.DNSProbe, "dns probe config must be set")
-
-	const defaultImage = "nginx:1.27"
 
 	namespace := fmt.Sprintf("test-%s", rand.String(6))
 	opts := k8s.NewKubectlOptions("", "", namespace)
@@ -62,10 +59,8 @@ func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment) 
 
 	selector := map[string]any{"app": deploymentName}
 
-	helpers.CreateDeployment(t, opts, deploymentName, selector, defaultImage, 80)
 	helpers.CreateLoadBalancerService(t, opts, serviceName, selector, tc.Loadbalancer.Labels, tc.Loadbalancer.Annotations, 80)
 
-	helpers.WaitForDeploymentReady(t, opts, deploymentName, 2*time.Minute)
 	svc := helpers.WaitForServiceLoadBalancerReady(t, opts, serviceName, 2*time.Minute)
 
 	t.Run(serviceName, func(t *testing.T) {

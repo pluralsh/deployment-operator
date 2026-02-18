@@ -59,7 +59,7 @@ func CreateLoadBalancerService(t *testing.T, options *k8s.KubectlOptions, name s
 	}
 
 	if err := k8s.KubectlApplyFromStringE(t, options, ToServiceJSON(service)); err != nil {
-		t.Fatalf("failed to create load balancer service %s/%s: %v", name, options.Namespace, err)
+		t.Fatalf("failed to create load balancer service %s/%s: %v", options.Namespace, name, err)
 	}
 }
 

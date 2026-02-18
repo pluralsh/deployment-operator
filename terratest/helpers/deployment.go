@@ -68,7 +68,7 @@ func CreateDeployment(t *testing.T, options *k8s.KubectlOptions, name string, la
 	}
 
 	if err := k8s.KubectlApplyFromStringE(t, options, ToDeploymentJSON(deployment)); err != nil {
-		t.Fatalf("failed to create deployment %s/%s: %v", name, options.Namespace, err)
+		t.Fatalf("failed to create deployment %s/%s: %v", options.Namespace, name, err)
 	}
 }
 
