@@ -3,6 +3,7 @@ package dns
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -97,23 +98,64 @@ func (in *defaultProber) hasAddress(resolved []string, expected containers.Set[s
 }
 
 func (in *defaultProber) runWithRetry(opts ProbeOptions, fn func() error) (err error) {
-	timer := time.NewTimer(opts.Delay)
+	minTimeToResolve := 2 * time.Minute
+	minDelay := 5 * time.Second
+	minRetries := int64(24)
+
+	retries := opts.Retries
+	delay := opts.Delay
+
+	timeToResolve := time.Duration(retries) * delay
+	if timeToResolve < minTimeToResolve {
+		log.Printf("dns probe time to resolve is less than %s, updating retries and delay", minTimeToResolve)
+		delay = minDelay
+		retries = minRetries
+	}
+
+	timer := time.NewTimer(delay)
 	defer timer.Stop()
 
 	var lastErr error
-	for attempt := int64(0); attempt < opts.Retries; attempt++ {
+	for attempt := int64(0); attempt <= retries; attempt++ {
 		lastErr = fn()
 		if lastErr == nil {
 			return nil
 		}
 
+		log.Printf("probe attempt %d failed with error: %v", attempt+1, lastErr)
+
+		// if no more attempts, exit
+		if attempt >= retries {
+			return lastErr
+		}
+
 		<-timer.C
-		if attempt+1 < opts.Retries {
-			timer.Reset(opts.Delay)
+		if attempt+1 < retries {
+			timer.Reset(delay)
 		}
 	}
 
 	return lastErr
+}
+
+func (in *defaultProber) resolveWithRetry(fqdn string, timeout time.Duration) ([]string, error) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-timer.C:
+			return nil, fmt.Errorf("failed to resolve %s within %s", fqdn, timeout)
+		case <-ticker.C:
+			addrs, err := in.resolver.LookupHost(context.Background(), fqdn)
+			if err == nil {
+				return addrs, nil
+			}
+		}
+	}
 }
 
 func (in *defaultProber) parseProbeOptions(opts ...ProbeOption) (_ ProbeOptions, err error) {

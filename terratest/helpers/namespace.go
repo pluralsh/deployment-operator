@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -9,12 +8,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func CreateNamespaceWithCleanup(ctx context.Context, t *testing.T, options *k8s.KubectlOptions, namespace string) {
+func CreateNamespaceWithCleanup(t *testing.T, options *k8s.KubectlOptions, namespace string, cleanupTimeout time.Duration) {
 	k8s.CreateNamespace(t, options, namespace)
-	t.Cleanup(func() { DeleteNamespaceWithTimeout(ctx, t, options, namespace) })
+	t.Cleanup(func() { DeleteNamespaceWithTimeout(t, options, namespace, cleanupTimeout) })
 }
 
-func DeleteNamespaceWithTimeout(ctx context.Context, t *testing.T, options *k8s.KubectlOptions, namespace string) {
+func DeleteNamespaceWithTimeout(t *testing.T, options *k8s.KubectlOptions, namespace string, timeout time.Duration) {
 	if err := k8s.DeleteNamespaceE(t, options, namespace); err != nil && !apierrors.IsNotFound(err) {
 		t.Logf("failed to delete namespace %s: %v", namespace, err)
 		return
@@ -23,9 +22,12 @@ func DeleteNamespaceWithTimeout(ctx context.Context, t *testing.T, options *k8s.
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
 	for {
 		select {
-		case <-ctx.Done():
+		case <-timer.C:
 			t.Logf("timed out waiting for namespace %s to be deleted", namespace)
 			return
 		case <-ticker.C:
