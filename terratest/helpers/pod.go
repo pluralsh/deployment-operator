@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -76,13 +75,13 @@ func CreatePodForPVC(t *testing.T, options *k8s.KubectlOptions, name, pvcName st
 	}
 }
 
-func WaitForPodSucceeded(ctx context.Context, t *testing.T, options *k8s.KubectlOptions, podName string) {
+func WaitForPodSucceeded(t *testing.T, options *k8s.KubectlOptions, podName string, timeout time.Duration) {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-time.After(timeout):
 			t.Fatalf("timeout waiting for pod %s/%s to succeed\n", podName, options.Namespace)
 		case <-ticker.C:
 			pod, err := k8s.GetPodE(t, options, podName)

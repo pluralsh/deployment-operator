@@ -1,11 +1,8 @@
 package test
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,7 +10,6 @@ import (
 	"github.com/pluralsh/console/go/client"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/yaml"
 
@@ -54,50 +50,51 @@ func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment) 
 	require.NotNil(t, tc.Loadbalancer, "loadbalancer config must be set")
 	require.NotNil(t, tc.Loadbalancer.DNSProbe, "dns probe config must be set")
 
-	opts := k8s.NewKubectlOptions("", "", tc.Loadbalancer.Namespace)
+	const defaultImage = "nginx:1.27"
 
-	services := k8s.ListServices(t, opts, metav1.ListOptions{})
-	require.NotEmpty(t, services, "no services found")
+	namespace := fmt.Sprintf("test-%s", rand.String(6))
+	opts := k8s.NewKubectlOptions("", "", namespace)
+	helpers.CreateNamespaceWithCleanup(t, opts, namespace, 5*time.Minute)
 
-	for _, svc := range services {
-		if !strings.HasPrefix(svc.Name, tc.Loadbalancer.NamePrefix) {
-			continue
+	suffix := rand.String(5)
+	deploymentName := fmt.Sprintf("%s-deploy-%s", tc.Loadbalancer.NamePrefix, suffix)
+	serviceName := fmt.Sprintf("%s-svc-%s", tc.Loadbalancer.NamePrefix, suffix)
+
+	selector := map[string]any{"app": deploymentName}
+
+	helpers.CreateDeployment(t, opts, deploymentName, selector, defaultImage, 80)
+	helpers.CreateLoadBalancerService(t, opts, serviceName, selector, tc.Loadbalancer.Labels, tc.Loadbalancer.Annotations, 80)
+
+	helpers.WaitForDeploymentReady(t, opts, deploymentName, 2*time.Minute)
+	svc := helpers.WaitForServiceLoadBalancerReady(t, opts, serviceName, 2*time.Minute)
+
+	t.Run(serviceName, func(t *testing.T) {
+		require.Equal(t, "LoadBalancer", string(svc.Spec.Type))
+
+		if tc.Loadbalancer.Labels != nil {
+			for k, v := range tc.Loadbalancer.Labels {
+				require.Equal(t, v, svc.Labels[k])
+			}
 		}
 
-		t.Run(svc.Name, func(t *testing.T) {
-			require.Equal(t, "LoadBalancer", string(svc.Spec.Type))
-
-			if tc.Loadbalancer.Labels != nil {
-				var labels map[string]string
-				err := json.Unmarshal([]byte(*tc.Loadbalancer.Labels), &labels)
-				require.NoError(t, err, "failed to unmarshal labels")
-				for k, v := range labels {
-					require.Equal(t, v, svc.Labels[k])
-				}
+		if tc.Loadbalancer.Annotations != nil {
+			for k, v := range tc.Loadbalancer.Annotations {
+				require.Equal(t, v, svc.Annotations[k])
 			}
+		}
 
-			if tc.Loadbalancer.Annotations != nil {
-				var annotations map[string]string
-				err := json.Unmarshal([]byte(*tc.Loadbalancer.Annotations), &annotations)
-				require.NoError(t, err, "failed to unmarshal annotations")
-				for k, v := range annotations {
-					require.Equal(t, v, svc.Annotations[k])
-				}
-			}
+		if tc.Loadbalancer.DNSProbe != nil {
+			prober, err := dns.NewLoadBalancerProber(*svc)
+			require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
 
-			if tc.Loadbalancer.DNSProbe != nil {
-				prober, err := dns.NewLoadBalancerProber(svc)
-				require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
-
-				err = prober.Probe(
-					tc.Loadbalancer.DNSProbe.Fqdn,
-					dns.WithDelay(tc.Loadbalancer.DNSProbe.Delay),
-					dns.WithRetries(tc.Loadbalancer.DNSProbe.Retries),
-				)
-				require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
-			}
-		})
-	}
+			err = prober.Probe(
+				tc.Loadbalancer.DNSProbe.Fqdn,
+				dns.WithDelay(tc.Loadbalancer.DNSProbe.Delay),
+				dns.WithRetries(tc.Loadbalancer.DNSProbe.Retries),
+			)
+			require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
+		}
+	})
 }
 
 func runCorednsTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
@@ -134,7 +131,7 @@ func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 
 	options := k8s.NewKubectlOptions("", "", namespace)
 
-	helpers.CreateNamespaceWithCleanup(t.Context(), t, options, namespace)
+	helpers.CreateNamespaceWithCleanup(t, options, namespace, 5*time.Minute)
 	err = k8s.KubectlApplyFromStringE(
 		t,
 		options,
@@ -160,13 +157,10 @@ func runPVCTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 	quantity, err := resource.ParseQuantity(tc.Pvc.Size)
 	require.NoError(t, err, "failed to parse pvc size %q", tc.Pvc.Size)
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
-
 	namespace := "test-" + rand.String(6)
 	options := k8s.NewKubectlOptions("", "", namespace)
 
-	helpers.CreateNamespaceWithCleanup(ctx, t, options, namespace)
+	helpers.CreateNamespaceWithCleanup(t, options, namespace, 5*time.Minute)
 
 	pvcName := fmt.Sprintf("%s-%s", tc.Pvc.NamePrefix, rand.String(5))
 	podName := "pvc-test-" + rand.String(5)
@@ -176,8 +170,8 @@ func runPVCTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 	helpers.CreatePersistentVolumeClaim(t, options, pvcName, tc.Pvc.StorageClass, quantity)
 	helpers.CreatePodForPVC(t, options, podName, pvcName)
 
-	helpers.WaitForPVCBound(ctx, t, options, namespace, pvcName)
-	helpers.WaitForPodSucceeded(ctx, t, options, podName)
+	helpers.WaitForPVCBound(t, options, namespace, pvcName, 5*time.Minute)
+	helpers.WaitForPodSucceeded(t, options, podName, 5*time.Minute)
 }
 
 func loadIntegrationTestCases(t *testing.T) []client.TestCaseConfigurationFragment {

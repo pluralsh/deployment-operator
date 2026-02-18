@@ -1,8 +1,9 @@
 package dns
 
 import (
-	"context"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/pluralsh/polly/containers"
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +28,7 @@ func (in *loadBalancerProber) Probe(fqdn string, opts ...ProbeOption) (err error
 		return err
 	}
 
-	fmt.Printf("Probing load balancer for %s with options: %+v\n", fqdn, options)
+	log.Printf("Probing load balancer for %s with options: %+v", fqdn, options)
 
 	addresses, err := in.getAddresses()
 	if err != nil {
@@ -36,6 +37,8 @@ func (in *loadBalancerProber) Probe(fqdn string, opts ...ProbeOption) (err error
 	if addresses.Len() == 0 {
 		return fmt.Errorf("no load balancer ingress addresses found for %s", in.svc.Name)
 	}
+
+	log.Printf("Resolved load balancer ingress addresses: %+v", addresses)
 
 	return in.runWithRetry(options, func() error {
 		return in.lookup(addresses, fqdn)
@@ -50,9 +53,9 @@ func (in *loadBalancerProber) getAddresses() (containers.Set[string], error) {
 		}
 
 		if len(ingress.Hostname) > 0 {
-			addrs, err := in.resolver.LookupHost(context.Background(), ingress.Hostname)
+			addrs, err := in.resolveWithRetry(ingress.Hostname, 5*time.Minute)
 			if err != nil {
-				return nil, fmt.Errorf("failed to resolve load balancer hostname %s: %w", ingress.Hostname, err)
+				return nil, err
 			}
 
 			for _, addr := range addrs {

@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -53,13 +52,13 @@ func CreatePersistentVolumeClaim(t *testing.T, options *k8s.KubectlOptions, name
 	}
 }
 
-func WaitForPVCBound(ctx context.Context, t *testing.T, options *k8s.KubectlOptions, namespace, name string) {
+func WaitForPVCBound(t *testing.T, options *k8s.KubectlOptions, namespace, name string, timeout time.Duration) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-time.After(timeout):
 			t.Fatalf("timed out waiting for pvc %s/%s to be bound", namespace, name)
 		case <-ticker.C:
 			pvc, err := k8s.GetPersistentVolumeClaimE(t, options, name)
