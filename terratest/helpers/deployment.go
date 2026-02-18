@@ -81,9 +81,12 @@ func WaitForDeploymentReady(t *testing.T, options *k8s.KubectlOptions, name stri
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
 	for {
 		select {
-		case <-time.After(timeout):
+		case <-timer.C:
 			t.Fatalf("timeout waiting for deployment %s/%s to be ready", options.Namespace, name)
 		case <-ticker.C:
 			deployment, err := clientset.AppsV1().Deployments(options.Namespace).Get(context.Background(), name, metav1.GetOptions{})

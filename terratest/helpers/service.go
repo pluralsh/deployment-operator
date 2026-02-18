@@ -72,9 +72,12 @@ func WaitForServiceLoadBalancerReady(t *testing.T, options *k8s.KubectlOptions, 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
 	for {
 		select {
-		case <-time.After(timeout):
+		case <-timer.C:
 			t.Fatalf("timeout waiting for load balancer service %s/%s to be ready", options.Namespace, name)
 		case <-ticker.C:
 			service, err := clientset.CoreV1().Services(options.Namespace).Get(context.Background(), name, metav1.GetOptions{})

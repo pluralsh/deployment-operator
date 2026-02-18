@@ -79,9 +79,12 @@ func WaitForPodSucceeded(t *testing.T, options *k8s.KubectlOptions, podName stri
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
 	for {
 		select {
-		case <-time.After(timeout):
+		case <-timer.C:
 			t.Fatalf("timeout waiting for pod %s/%s to succeed\n", podName, options.Namespace)
 		case <-ticker.C:
 			pod, err := k8s.GetPodE(t, options, podName)

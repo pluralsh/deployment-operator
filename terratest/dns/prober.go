@@ -142,9 +142,12 @@ func (in *defaultProber) resolveWithRetry(fqdn string, timeout time.Duration) ([
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
 	for {
 		select {
-		case <-time.After(timeout):
+		case <-timer.C:
 			return nil, fmt.Errorf("failed to resolve %s within %s", fqdn, timeout)
 		case <-ticker.C:
 			addrs, err := in.resolver.LookupHost(context.Background(), fqdn)
