@@ -67,10 +67,13 @@ func (s *ServiceReconciler) UpdateStatus(ctx context.Context, id, revisionID str
 				}
 				continue
 			}
-			for _, child := range component.Children {
-				if child.State != nil && *child.State != console.ComponentStateRunning {
-					component.State = child.State
-					break
+			// The Deployment status reflects the status of the most recent rollout, so if any child pod is not running, we consider the Deployment as not running. This is to provide better visibility into rollout issues.
+			if component.Kind != "Deployment" {
+				for _, child := range component.Children {
+					if child.State != nil && *child.State != console.ComponentStateRunning {
+						component.State = child.State
+						break
+					}
 				}
 			}
 			slices.SortFunc(component.Children, func(a, b *console.ComponentChildAttributes) int {
