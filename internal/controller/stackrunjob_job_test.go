@@ -231,6 +231,7 @@ func TestGenerateRunJob(t *testing.T) {
 
 func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
 	r := StackRunJobReconciler{}
+	run := &console.StackRunMinimalFragment{Type: console.StackTypeTerraform}
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
@@ -260,7 +261,7 @@ func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
 						TerminationMessagePath:   "",
 						TerminationMessagePolicy: "",
 						ImagePullPolicy:          "",
-						SecurityContext:          r.ensureDefaultContainerSecurityContext(nil),
+						SecurityContext:          r.ensureDefaultContainerSecurityContext(nil, run),
 						Stdin:                    false,
 						StdinOnce:                false,
 						TTY:                      false,

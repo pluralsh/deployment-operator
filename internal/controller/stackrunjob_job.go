@@ -221,6 +221,7 @@ func (r *StackRunJobReconciler) ensureDefaultContainer(containers []corev1.Conta
 		containers[index].EnvFrom = r.getDefaultContainerEnvFrom(run)
 
 		containers[index].VolumeMounts = r.ensureDefaultVolumeMounts(containers[index].VolumeMounts)
+		containers[index].SecurityContext = r.ensureDefaultContainerSecurityContext(containers[index].SecurityContext, run)
 	}
 	return containers
 }
@@ -261,20 +262,25 @@ func (r *StackRunJobReconciler) getDefaultContainer(run *console.StackRunMinimal
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
 		},
-		SecurityContext: r.ensureDefaultContainerSecurityContext(nil),
+		SecurityContext: r.ensureDefaultContainerSecurityContext(nil, run),
 		Env:             make([]corev1.EnvVar, 0),
 		EnvFrom:         r.getDefaultContainerEnvFrom(run),
 	}
 }
 
-func (r *StackRunJobReconciler) ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.SecurityContext {
+func (r *StackRunJobReconciler) ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext, run *console.StackRunMinimalFragment) *corev1.SecurityContext {
 	if sc != nil {
+		if run != nil && run.Type == console.StackTypeAnsible {
+			sc.ReadOnlyRootFilesystem = lo.ToPtr(false)
+		}
 		return sc
 	}
 
+	readOnlyRootFilesystem := run == nil || run.Type != console.StackTypeAnsible
+
 	return &corev1.SecurityContext{
 		AllowPrivilegeEscalation: lo.ToPtr(false),
-		ReadOnlyRootFilesystem:   lo.ToPtr(false),
+		ReadOnlyRootFilesystem:   lo.ToPtr(readOnlyRootFilesystem),
 		RunAsNonRoot:             lo.ToPtr(true),
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
