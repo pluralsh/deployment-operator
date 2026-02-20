@@ -1709,7 +1709,7 @@ spec:
                     properties:
                       apiKeySecretRef:
                         description: ApiKeySecretRef Reference to a Kubernetes Secret
-                          containing the Claude API key.
+                          containing the Codex API key.
                         properties:
                           key:
                             description: The key of the secret to select from.  Must

@@ -234,7 +234,7 @@ type CodexConfigRaw struct {
 }
 
 type CodexConfig struct {
-	// ApiKeySecretRef Reference to a Kubernetes Secret containing the Claude API key.
+	// ApiKeySecretRef Reference to a Kubernetes Secret containing the Codex API key.
 	ApiKeySecretRef *corev1.SecretKeySelector `json:"apiKeySecretRef,omitempty"`
 
 	// Model Name of the model to use.
