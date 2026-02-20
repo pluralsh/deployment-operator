@@ -261,7 +261,7 @@ func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
 						TerminationMessagePath:   "",
 						TerminationMessagePolicy: "",
 						ImagePullPolicy:          "",
-						SecurityContext:          ensureDefaultContainerSecurityContext(nil),
+						SecurityContext:          ensureDefaultContainerSecurityContext(nil, nil),
 						Stdin:                    false,
 						StdinOnce:                false,
 						TTY:                      false,

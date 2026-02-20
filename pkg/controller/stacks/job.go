@@ -244,7 +244,7 @@ func (r *StackReconciler) getDefaultContainer(run *console.StackRunMinimalFragme
 			defaultJobContainerVolumeMount,
 			defaultJobTmpContainerVolumeMount,
 		},
-		SecurityContext: ensureDefaultContainerSecurityContext(nil),
+		SecurityContext: ensureDefaultContainerSecurityContext(nil, run),
 		Env:             make([]corev1.EnvVar, 0),
 		EnvFrom:         r.getDefaultContainerEnvFrom(run),
 	}
@@ -372,14 +372,19 @@ func ensureDefaultPodSecurityContext(psc *corev1.PodSecurityContext) *corev1.Pod
 	}
 }
 
-func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.SecurityContext {
+func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext, run *console.StackRunMinimalFragment) *corev1.SecurityContext {
 	if sc != nil {
+		if run != nil && run.Type == console.StackTypeAnsible {
+			sc.ReadOnlyRootFilesystem = lo.ToPtr(false)
+		}
 		return sc
 	}
 
+	readOnlyRootFilesystem := run == nil || run.Type != console.StackTypeAnsible
+
 	return &corev1.SecurityContext{
 		AllowPrivilegeEscalation: lo.ToPtr(false),
-		ReadOnlyRootFilesystem:   lo.ToPtr(false),
+		ReadOnlyRootFilesystem:   lo.ToPtr(readOnlyRootFilesystem),
 		RunAsNonRoot:             lo.ToPtr(true),
 		RunAsUser:                lo.ToPtr(nonRootUID),
 		RunAsGroup:               lo.ToPtr(nonRootGID),
