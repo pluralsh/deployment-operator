@@ -52,7 +52,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		return err
 	}
 
-	promptFile := path.Join(in.Config.WorkDir, ".codex", "prompts", v1.SystemPromptFile)
+	//promptFile := path.Join(in.Config.WorkDir, ".codex", "prompts", v1.SystemPromptFile)
 
 	agents := []AgentInput{
 		{
@@ -64,7 +64,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			AllowedEnvVars:       []string{"PATH", "HOME"},
 			EnableWebSearch:      true,
 			EnableShellCache:     true,
-			PromptFile:           promptFile,
+			//PromptFile:           promptFile,
 			EnabledTools: []string{
 				"Read", "Grep", "Glob",
 				"Bash(ls:*)", "Bash(cd:*)", "Bash(pwd)",
@@ -83,7 +83,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			AllowedEnvVars:       []string{"PATH", "HOME"},
 			EnableWebSearch:      true,
 			EnableShellCache:     true,
-			PromptFile:           promptFile,
+			//PromptFile:           promptFile,
 			EnabledTools: []string{
 				"Read", "Write", "Edit", "MultiEdit", "Bash", "WebFetch",
 				"mcp__plural__agentPullRequest",
@@ -125,5 +125,6 @@ func (in *Codex) OnMessage(f func(message *console.AgentMessageAttributes)) {
 }
 
 func (in *Codex) start(ctx context.Context, options ...exec.Option) {
+	// CODEX_HOME must be set to the directory where the codex config is located for the agent CLI to pick it up during the run.
 
 }
