@@ -36,6 +36,8 @@ func (in DefaultTool) ConfigureSystemPrompt(runtime console.AgentRuntimeType) er
 		providerDir = ".gemini/contexts"
 	case console.AgentRuntimeTypeOpencode:
 		providerDir = ".opencode/prompts"
+	case console.AgentRuntimeTypeCodex:
+		providerDir = ".codex/prompts"
 	}
 
 	outputFile := path.Join(in.Config.WorkDir, providerDir, SystemPromptFile)
