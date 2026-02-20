@@ -22,6 +22,9 @@ PLRL_CLAUDE_TOKEN := $(if $(PLRL_CLAUDE_TOKEN),$(PLRL_CLAUDE_TOKEN),"")
 PLRL_CLAUDE_MODEL := $(if $(PLRL_CLAUDE_MODEL),$(PLRL_CLAUDE_MODEL),"")
 PLRL_GEMINI_MODEL := $(if $(PLRL_GEMINI_MODEL),$(PLRL_GEMINI_MODEL),"")
 PLRL_GEMINI_API_KEY := $(if $(PLRL_GEMINI_API_KEY),$(PLRL_GEMINI_API_KEY),"")
+PLRL_CODEX_MODEL := $(if $(PLRL_CODEX_MODEL),$(PLRL_CODEX_MODEL),"")
+PLRL_CODEX_TOKEN := $(if $(PLRL_CODEX_TOKEN),$(PLRL_CODEX_TOKEN),"")
+
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
@@ -116,6 +119,17 @@ agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent har
 		-e PLRL_OPENCODE_TOKEN=$(PLRL_OPENCODE_TOKEN) \
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-opencode --v=3
+
+.PHONY: agent-harness-codex-run
+agent-harness-codex-run: docker-build-agent-harness-codex ## run agent harness w/ codex
+	docker run \
+		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
+		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
+		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
+		-e PLRL_CODEX_MODEL=$(PLRL_CODEX_MODEL) \
+		-e PLRL_CODEX_TOKEN=$(PLRL_CODEX_TOKEN) \
+		--rm -it \
+		ghcr.io/pluralsh/agent-harness-codex --v=3
 
 .PHONY: agent-harness-claude-run
 agent-harness-claude-run: docker-build-agent-harness-claude ## run agent harness w/ claude
@@ -279,6 +293,14 @@ docker-build-agent-harness-claude: docker-build-agent-harness-base ## build clau
 		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
 		-t ghcr.io/pluralsh/agent-harness-claude \
 		-f dockerfiles/agent-harness/claude.Dockerfile \
+		.
+
+.PHONY: docker-build-agent-harness-codex
+docker-build-agent-harness-codex: docker-build-agent-harness-base ## build codex docker agent harness image
+	docker build \
+		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
+		-t ghcr.io/pluralsh/agent-harness-codex \
+		-f dockerfiles/agent-harness/codex.Dockerfile \
 		.
 
 .PHONY: docker-build-agent-harness-opencode

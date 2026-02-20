@@ -163,6 +163,10 @@ type AgentRuntimeConfig struct {
 	// Config for Gemini CLI runtime.
 	// +kubebuilder:validation:Optional
 	Gemini *GeminiConfig `json:"gemini,omitempty"`
+
+	// Codex config for Codex CLI runtime.
+	// +kubebuilder:validation:Optional
+	Codex *CodexConfig `json:"codex,omitempty"`
 }
 
 func (in *AgentRuntimeConfig) ToAgentRuntimeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*AgentRuntimeConfigRaw, error) {
@@ -185,10 +189,16 @@ func (in *AgentRuntimeConfig) ToAgentRuntimeConfigRaw(secretGetter func(corev1.S
 		return nil, err
 	}
 
+	codex, err := in.Codex.ToCodexConfigRaw(secretGetter)
+	if err != nil {
+		return nil, err
+	}
+
 	return &AgentRuntimeConfigRaw{
 		Gemini:   gemini,
 		Claude:   claude,
 		OpenCode: openCode,
+		Codex:    codex,
 	}, nil
 }
 
@@ -209,6 +219,51 @@ type AgentRuntimeConfigRaw struct {
 	// Gemini is the raw configuration for the Gemini runtime.
 	// +kubebuilder:validation:Optional
 	Gemini *GeminiConfigRaw `json:"gemini,omitempty"`
+
+	// Codex is the raw configuration for the Codex runtime.
+	// +kubebuilder:validation:Optional
+	Codex *CodexConfigRaw `json:"codex,omitempty"`
+}
+
+type CodexConfigRaw struct {
+	// ApiKey is the raw API key to use.
+	ApiKey string `json:"apiKey"`
+
+	// Model Name of the model to use.
+	Model *string `json:"model,omitempty"`
+}
+
+type CodexConfig struct {
+	// ApiKeySecretRef Reference to a Kubernetes Secret containing the Claude API key.
+	ApiKeySecretRef *corev1.SecretKeySelector `json:"apiKeySecretRef,omitempty"`
+
+	// Model Name of the model to use.
+	Model *string `json:"model,omitempty"`
+}
+
+func (in *CodexConfig) ToCodexConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*CodexConfigRaw, error) {
+	if in == nil {
+		return nil, nil
+	}
+
+	if in.ApiKeySecretRef == nil {
+		return nil, nil
+	}
+
+	tokenSecret, err := secretGetter(*in.ApiKeySecretRef)
+	if err != nil {
+		return nil, err
+	}
+
+	token, exists := tokenSecret.Data[in.ApiKeySecretRef.Key]
+	if !exists {
+		return nil, fmt.Errorf("token secret does not contain key %s", in.ApiKeySecretRef.Key)
+	}
+
+	return &CodexConfigRaw{
+		ApiKey: string(token),
+		Model:  in.Model,
+	}, nil
 }
 
 // ClaudeConfig contains configuration for the Claude CLI runtime.
