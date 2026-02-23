@@ -102,16 +102,16 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	var status *console.SentinelRunJobStatus
+	status := run.Status
 	if health != nil {
 		srj.Status.JobStatus = string(health.Status)
 		if health.Status == common.HealthStatusDegraded {
-			status = lo.ToPtr(console.SentinelRunJobStatusFailed)
+			status = console.SentinelRunJobStatusFailed
 		}
 	}
 
 	if err := r.ConsoleClient.UpdateSentinelRunJobStatus(srj.Spec.RunID, &console.SentinelRunJobUpdateAttributes{
-		Status: status,
+		Status: &status,
 		Reference: &console.NamespacedName{
 			Name:      job.Name,
 			Namespace: job.Namespace,
@@ -132,11 +132,8 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 // isTerminalSentinelRunStatus returns true when the given SentinelRunJobStatus is in a terminal state, meaning the job has completed and will not transition to any other state.
-func isTerminalSentinelRunStatus(status *console.SentinelRunJobStatus) bool {
-	if status == nil {
-		return false
-	}
-	return *status == console.SentinelRunJobStatusSuccess
+func isTerminalSentinelRunStatus(status console.SentinelRunJobStatus) bool {
+	return status == console.SentinelRunJobStatusSuccess
 }
 
 // SetupWithManager configures the controller with the manager.
