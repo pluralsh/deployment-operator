@@ -10269,6 +10269,7 @@ spec:
                 - CLAUDE
                 - OPENCODE
                 - GEMINI
+                - CODEX
                 - CUSTOM
                 type: string
             required:

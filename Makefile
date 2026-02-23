@@ -23,7 +23,7 @@ PLRL_CLAUDE_MODEL := $(if $(PLRL_CLAUDE_MODEL),$(PLRL_CLAUDE_MODEL),"")
 PLRL_GEMINI_MODEL := $(if $(PLRL_GEMINI_MODEL),$(PLRL_GEMINI_MODEL),"")
 PLRL_GEMINI_API_KEY := $(if $(PLRL_GEMINI_API_KEY),$(PLRL_GEMINI_API_KEY),"")
 PLRL_CODEX_MODEL := $(if $(PLRL_CODEX_MODEL),$(PLRL_CODEX_MODEL),"")
-PLRL_CODEX_TOKEN := $(if $(PLRL_CODEX_TOKEN),$(PLRL_CODEX_TOKEN),"")
+PLRL_CODEX_API_KEY := $(if $(PLRL_CODEX_API_KEY),$(PLRL_CODEX_API_KEY),"")
 
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
@@ -127,7 +127,7 @@ agent-harness-codex-run: docker-build-agent-harness-codex ## run agent harness w
 		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
 		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
 		-e PLRL_CODEX_MODEL=$(PLRL_CODEX_MODEL) \
-		-e PLRL_CODEX_TOKEN=$(PLRL_CODEX_TOKEN) \
+		-e PLRL_CODEX_API_KEY=$(PLRL_CODEX_API_KEY) \
 		--rm -it \
 		ghcr.io/pluralsh/agent-harness-codex --v=3
 

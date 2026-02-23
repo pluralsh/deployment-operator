@@ -47,8 +47,8 @@ const (
 	EnvGeminiModel  = "PLRL_GEMINI_MODEL"
 	EnvGeminiAPIKey = "PLRL_GEMINI_API_KEY"
 
-	EnvCodexModel = "PLRL_CODEX_MODEL"
-	EnvCodexToken = "PLRL_CODEX_TOKEN"
+	EnvCodexModel  = "PLRL_CODEX_MODEL"
+	EnvCodexAPIKey = "PLRL_CODEX_API_KEY"
 
 	EnvDindEnabled    = "PLRL_DIND_ENABLED"
 	EnvBrowserEnabled = "PLRL_BROWSER_ENABLED"
@@ -355,7 +355,7 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 			return result
 		}
 		result[EnvCodexModel] = lo.FromPtr(config.Codex.Model)
-		result[EnvCodexToken] = config.Codex.ApiKey
+		result[EnvCodexAPIKey] = config.Codex.ApiKey
 	}
 
 	return result

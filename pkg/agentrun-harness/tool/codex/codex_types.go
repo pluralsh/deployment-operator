@@ -12,11 +12,11 @@ type Codex struct {
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
 
-	// executable is the Gemini executable used to call CLI.
+	// executable is the Codex executable used to call CLI.
 	executable exec.Executable
 
 	// apiKey used to authenticate with the API.
-	token string
+	apiKey string
 
 	// model used to generate code.
 	model Model
@@ -34,6 +34,10 @@ type AgentInput struct {
 	PromptFile           string
 	EnabledTools         []string
 	DisabledTools        []string
+}
+
+type Project struct {
+	TrustLevel string `toml:"trust_level,omitempty"`
 }
 
 type MCPInput struct {
@@ -73,6 +77,7 @@ type MCPServer struct {
 }
 
 type CodexConfig struct {
+	Projects   map[string]*Project   `toml:"projects,omitempty"`
 	Profiles   map[string]*Profile   `toml:"profiles"`
 	MCPServers map[string]*MCPServer `toml:"mcp_servers"`
 }
