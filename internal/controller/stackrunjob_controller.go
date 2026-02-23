@@ -123,10 +123,10 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	status := stackRun.Status
-
+	switch {
 	// Exit if stack run is not in running state (run status already updated),
 	// or if the job is still running (harness controls run status).
-	if stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero() {
+	case stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero():
 		if isActiveJobTimout(stackRun.Status, job) || r.isActiveJobPodFailed(ctx, stackRun.Status, job) {
 			if err := r.killJob(ctx, job); err != nil {
 				return ctrl.Result{}, err
@@ -135,11 +135,11 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
 			status = console.StackStatusFailed
 		}
-	} else if hasSucceeded(job) {
+	case hasSucceeded(job):
 		logger.V(2).Info("stack run job succeeded", "name", job.Name, "namespace", job.Namespace)
 		run.Status.JobStatus = string(console.StackStatusSuccessful)
 		status = console.StackStatusSuccessful
-	} else if hasFailed(job) {
+	case hasFailed(job):
 		logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
 		status, err = r.getJobPodStatus(ctx, job.Spec.Selector.MatchLabels)
 		if err != nil {
