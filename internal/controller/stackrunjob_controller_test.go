@@ -87,6 +87,7 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 					Version: lo.ToPtr("1.8.2"),
 				},
 			}, nil)
+			fakeConsoleClient.On("UpdateStackRun", mock.Anything, mock.Anything).Return(nil)
 
 			reconciler := &StackRunJobReconciler{
 				Client:        kClient,
@@ -133,6 +134,10 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 			}, nil)
 			fakeConsoleClient.On("UpdateStackRun", stackRunName, console.StackRunAttributes{
 				Status: console.StackStatusSuccessful,
+				JobRef: &console.NamespacedName{
+					Name:      runName,
+					Namespace: namespace,
+				},
 			}).Return(nil)
 
 			reconciler := &StackRunJobReconciler{
@@ -478,8 +483,19 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 				},
 			}, nil)
 			fakeConsoleClient.On("UpdateStackRun", "stack-timeout-123", console.StackRunAttributes{
+				Status: console.StackStatusPending,
+				JobRef: &console.NamespacedName{
+					Name:      timeoutRunName,
+					Namespace: namespace,
+				},
+			}).Return(nil).Once()
+			fakeConsoleClient.On("UpdateStackRun", "stack-timeout-123", console.StackRunAttributes{
 				Status: console.StackStatusFailed,
-			}).Return(nil)
+				JobRef: &console.NamespacedName{
+					Name:      timeoutRunName,
+					Namespace: namespace,
+				},
+			}).Return(nil).Once()
 
 			reconciler := &StackRunJobReconciler{
 				Client:        kClient,
@@ -576,7 +592,7 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 			}
 		})
 
-		It("should not update status when job is still running", func() {
+		It("should update job ref when job is still running", func() {
 			By("Creating StackRunJob")
 			runningName := "stack-running"
 			runningID := "running-123"
@@ -600,8 +616,13 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 					Version: lo.ToPtr("1.8.2"),
 				},
 			}, nil)
-			// UpdateStackRun should not be called for running job
-			fakeConsoleClient.AssertNotCalled(mocks.TestingT, "UpdateStackRun")
+			fakeConsoleClient.On("UpdateStackRun", "stack-running-456", console.StackRunAttributes{
+				Status: console.StackStatusRunning,
+				JobRef: &console.NamespacedName{
+					Name:      runningName,
+					Namespace: namespace,
+				},
+			}).Return(nil)
 
 			reconciler := &StackRunJobReconciler{
 				Client:        kClient,

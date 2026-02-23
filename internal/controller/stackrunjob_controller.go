@@ -38,10 +38,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const StackRunJobFinalizer = "deployments.plural.sh/stack-run-job-protection"
 
 const jobTimeout = time.Minute * 40
 const podTimeout = time.Minute * 2
@@ -71,17 +74,26 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Always patch object when exiting this function, so we can persist any object changes.
+	// Registered second so it runs first (before the delete defer above).
 	defer func() {
 		if err := scope.PatchObject(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
+
 	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
-	if !run.DeletionTimestamp.IsZero() {
+	// Finalizer is needed to ensure that the Job and Secret are cleaned up after the StackRun reaches terminal state and will be deleted by the controller.
+	// The object can be deleted before defer patches the status update with terminal state, so we need to ensure that the finalizer is removed and the object is deleted to avoid orphaned resources.
+	if run.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(run, StackRunJobFinalizer) {
+		controllerutil.AddFinalizer(run, StackRunJobFinalizer)
+	}
+	if !run.DeletionTimestamp.IsZero() && controllerutil.ContainsFinalizer(run, StackRunJobFinalizer) {
+		controllerutil.RemoveFinalizer(run, StackRunJobFinalizer)
 		return ctrl.Result{}, nil
 	}
+
 	stackRun, err := r.ConsoleClient.GetStackRun(run.Spec.RunID)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
@@ -110,6 +122,8 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	status := stackRun.Status
+
 	// Exit if stack run is not in running state (run status already updated),
 	// or if the job is still running (harness controls run status).
 	if stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero() {
@@ -119,34 +133,35 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 			run.Status.JobStatus = string(console.StackStatusFailed)
 			logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
-			if err := r.ConsoleClient.UpdateStackRun(stackRun.ID, console.StackRunAttributes{
-				Status: console.StackStatusFailed,
-			}); err != nil {
-				return ctrl.Result{}, err
-			}
+			status = console.StackStatusFailed
 		}
-	}
-
-	if hasSucceeded(job) {
+	} else if hasSucceeded(job) {
 		logger.V(2).Info("stack run job succeeded", "name", job.Name, "namespace", job.Namespace)
 		run.Status.JobStatus = string(console.StackStatusSuccessful)
-		if err := r.ConsoleClient.UpdateStackRun(stackRun.ID, console.StackRunAttributes{
-			Status: console.StackStatusSuccessful,
-		}); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	if hasFailed(job) {
+		status = console.StackStatusSuccessful
+	} else if hasFailed(job) {
 		logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
-		status, err := r.getJobPodStatus(ctx, job.Spec.Selector.MatchLabels)
+		status, err = r.getJobPodStatus(ctx, job.Spec.Selector.MatchLabels)
 		if err != nil {
+			status = console.StackStatusFailed
 			logger.Error(err, "unable to get job pod status")
 		}
 		run.Status.JobStatus = string(status)
-		if err = r.ConsoleClient.UpdateStackRun(stackRun.ID, console.StackRunAttributes{
-			Status: status,
-		}); err != nil {
+	}
+
+	if err := r.ConsoleClient.UpdateStackRun(stackRun.ID, console.StackRunAttributes{
+		Status: status,
+		JobRef: &console.NamespacedName{
+			Name:      job.Name,
+			Namespace: job.Namespace,
+		},
+	}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if isTerminalStackRunStatus(status) {
+		logger.V(2).Info("stack run reached terminal state, cleaning up CRD", "name", run.Name, "namespace", run.Namespace)
+		if err := r.Delete(ctx, run); err != nil && !apierrs.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 	}
@@ -154,6 +169,16 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 	return ctrl.Result{}, nil
+}
+
+// isTerminalStackRunStatus returns true when the stack run has reached a final state
+// that requires no further reconciliation.
+func isTerminalStackRunStatus(status console.StackStatus) bool {
+	switch status {
+	case console.StackStatusSuccessful, console.StackStatusCancelled:
+		return true
+	}
+	return false
 }
 
 // GetRunResourceName returns a resource name used for a job and a secret connected to a given run.

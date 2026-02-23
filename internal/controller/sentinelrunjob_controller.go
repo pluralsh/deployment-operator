@@ -11,16 +11,20 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const SentinelRunJobFinalizer = "deployments.plural.sh/sentinel-run-job-protection"
 
 type SentinelRunJobReconciler struct {
 	client.Client
@@ -53,7 +57,13 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	utils.MarkCondition(srj.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(srj.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
-	if !srj.DeletionTimestamp.IsZero() {
+	// Finalizer is needed to ensure that the Job and Secret are cleaned up after the StackRun reaches terminal state and will be deleted by the controller.
+	// The object can be deleted before defer patches the status update with terminal state, so we need to ensure that the finalizer is removed and the object is deleted to avoid orphaned resources.
+	if srj.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(srj, SentinelRunJobFinalizer) {
+		controllerutil.AddFinalizer(srj, SentinelRunJobFinalizer)
+	}
+	if !srj.DeletionTimestamp.IsZero() && controllerutil.ContainsFinalizer(srj, SentinelRunJobFinalizer) {
+		controllerutil.RemoveFinalizer(srj, SentinelRunJobFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -110,9 +120,23 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	if isTerminalSentinelRunStatus(status) {
+		if err := r.Delete(ctx, srj); err != nil && !apierrs.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+	}
+
 	utils.MarkCondition(srj.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(srj.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 	return ctrl.Result{}, nil
+}
+
+// isTerminalSentinelRunStatus returns true when the given SentinelRunJobStatus is in a terminal state, meaning the job has completed and will not transition to any other state.
+func isTerminalSentinelRunStatus(status *console.SentinelRunJobStatus) bool {
+	if status == nil {
+		return false
+	}
+	return *status == console.SentinelRunJobStatusSuccess
 }
 
 // SetupWithManager configures the controller with the manager.
