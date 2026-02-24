@@ -23,9 +23,10 @@ RUN apk add --no-cache --virtual .build-deps \
     libffi-dev \
     openssl-dev \
     make \
-    build-base \
-    openssh-client && \
+    build-base && \
     apk del .build-deps
+
+RUN apk add --no-cache openssh-client
 
 RUN pip install --no-cache-dir ansible==${ANSIBLE_VERSION}
 
