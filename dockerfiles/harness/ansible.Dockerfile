@@ -16,25 +16,20 @@ COPY --from=harness /harness /usr/local/bin/harness
 # Change ownership of the harness binary to UID/GID 65532
 RUN chown -R 65532:65532 /usr/local/bin/harness
 
-# Install runtime dependencies
-RUN apk add --no-cache openssh-client
-
-# Install build dependencies, Ansible
+# Install build dependencies, Ansible, and openssh-client
 RUN apk add --no-cache --virtual .build-deps \
     gcc \
     musl-dev \
     libffi-dev \
     openssl-dev \
     make \
-    build-base && \
-    pip install --no-cache-dir ansible==${ANSIBLE_VERSION} && \
+    build-base \
+    openssh-client && \
     apk del .build-deps
 
-# Create nonroot group and user with a home directory
-RUN addgroup --gid 65532 nonroot && \
-    adduser --uid 65532 --ingroup nonroot --home /home/nonroot --shell /bin/sh --disabled-password --gecos "" nonroot && \
-    mkdir -p /home/nonroot/.ansible && \
-    chown -R 65532:65532 /home/nonroot
+RUN pip install --no-cache-dir ansible==${ANSIBLE_VERSION}
+
+RUN addgroup --gid 65532 nonroot
 
 # Switch to the non-root user
 USER 65532:65532
