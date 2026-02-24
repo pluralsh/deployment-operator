@@ -30,7 +30,8 @@ RUN apk add --no-cache openssh-client
 
 RUN pip install --no-cache-dir ansible==${ANSIBLE_VERSION}
 
-RUN addgroup --gid 65532 nonroot
+RUN addgroup --gid 65532 nonroot && \
+    adduser --uid 65532 --ingroup nonroot --disabled-password --no-create-home nonroot
 
 # Switch to the non-root user
 USER 65532:65532
