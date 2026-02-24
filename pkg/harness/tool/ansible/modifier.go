@@ -29,6 +29,7 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 
 	return append(env,
 		fmt.Sprintf("ANSIBLE_HOME=%s", ansibleHome),
+		fmt.Sprintf("ANSIBLE_REMOTE_TMP=%s", "/tmp/.ansible/tmp"),
 	)
 }
 
