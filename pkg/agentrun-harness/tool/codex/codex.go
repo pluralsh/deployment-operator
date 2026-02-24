@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/log"
+	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
@@ -53,8 +55,6 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 	if err := in.ConfigureSystemPrompt(console.AgentRuntimeTypeCodex); err != nil {
 		return err
 	}
-
-	//promptFile := path.Join(in.Config.WorkDir, ".codex", "prompts", v1.SystemPromptFile)
 
 	agents := []AgentInput{
 		{
@@ -107,7 +107,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		},
 	}
 
-	cfg, err := BuildCodexConfig(in.Config.WorkDir, agents, mcps)
+	cfg, err := BuildCodexConfig(path.Join(in.Config.WorkDir, "shared"), agents, mcps)
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		agent = "autonomous"
 	}
 
-	args = []string{"exec", "--profile", agent, "--skip-git-repo-check", "true", "--json"}
+	args = []string{"exec", "--profile", agent, "--skip-git-repo-check", "true", "--cd", path.Join(in.Config.WorkDir, "shared"), "--json"}
 
 	in.executable = exec.NewExecutable(
 		"codex",
@@ -170,7 +170,23 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 	}
 
 	err := in.executable.RunStream(ctx, func(line []byte) {
-		klog.Info(string(line))
+		event := &StreamEvent{}
+		if err := json.Unmarshal(line, event); err != nil {
+			klog.V(log.LogLevelExtended).InfoS("failed to unmarshal codex stream event", "line", string(line))
+			return
+		}
+
+		// Capture thread_id from the "thread.started" event so it can be
+		// forwarded to the API (analogous to session_id in Claude).
+		if event.Type == "thread.started" && event.ThreadID != "" {
+			in.threadID = event.ThreadID
+			klog.V(log.LogLevelDebug).InfoS("codex thread started", "thread_id", in.threadID)
+		}
+
+		msg := mapCodexStreamEventToAgentMessage(event, in.threadID)
+		if in.onMessage != nil && msg != nil {
+			in.onMessage(msg)
+		}
 	})
 	if err != nil {
 		klog.ErrorS(err, "claude execution failed")
@@ -180,4 +196,60 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 	klog.V(log.LogLevelExtended).InfoS("claude execution finished")
 
 	close(in.Config.FinishedChan)
+}
+
+// mapCodexStreamEventToAgentMessage converts a single Codex CLI JSON stream event into an
+// AgentMessageAttributes to be forwarded to the API.
+func mapCodexStreamEventToAgentMessage(event *StreamEvent, threadID string) *console.AgentMessageAttributes {
+	switch event.Type {
+	case "item.completed":
+		if event.Item == nil {
+			return nil
+		}
+		return mapStreamItem(event.Item, threadID)
+	}
+	return nil
+}
+
+// mapStreamItem maps a completed StreamItem to an AgentMessageAttributes.
+func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttributes {
+	switch item.Type {
+	case "reasoning":
+		if item.Text == "" {
+			return nil
+		}
+		klog.V(log.LogLevelDebug).InfoS("codex reasoning", "text", item.Text, "thread_id", threadID)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: item.Text,
+		}
+
+	case "command_execution":
+		if item.Status != "completed" && item.Status != "failed" {
+			return nil
+		}
+		exitCode := 0
+		if item.ExitCode != nil {
+			exitCode = *item.ExitCode
+		}
+		state := console.AgentMessageToolStateCompleted
+		if item.Status == "failed" || exitCode != 0 {
+			state = console.AgentMessageToolStateError
+		}
+		klog.V(log.LogLevelDebug).InfoS("codex command execution", "command", item.Command, "exit_code", exitCode, "thread_id", threadID)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: "Called tool",
+			Metadata: &console.AgentMessageMetadataAttributes{
+				Tool: &console.AgentMessageToolAttributes{
+					Name:   lo.ToPtr("shell"),
+					State:  lo.ToPtr(state),
+					Input:  lo.ToPtr(item.Command),
+					Output: lo.ToPtr(item.AggregatedOutput),
+				},
+			},
+		}
+	}
+
+	return nil
 }

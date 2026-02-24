@@ -20,6 +20,51 @@ type Codex struct {
 
 	// model used to generate code.
 	model Model
+
+	// threadID is captured from the "thread.started" event and forwarded to the API
+	// as the session identifier (analogous to session_id in Claude).
+	threadID string
+}
+
+// StreamEvent is the top-level envelope for every JSON line emitted by `codex exec --json`.
+type StreamEvent struct {
+	// Type identifies the event kind, e.g. "thread.started", "turn.started",
+	// "item.started", "item.completed".
+	Type string `json:"type"`
+
+	// ThreadID is set on "thread.started" events and carries the session
+	// identifier that must be forwarded to the API (analogous to session_id in Claude).
+	ThreadID string `json:"thread_id,omitempty"`
+
+	// Item is populated on "item.started" and "item.completed" events.
+	Item *StreamItem `json:"item,omitempty"`
+}
+
+// StreamItem is the payload carried inside "item.started" / "item.completed" events.
+type StreamItem struct {
+	// ID is the stable identifier for this item across started/completed pairs.
+	ID string `json:"id"`
+
+	// Type describes what kind of item this is: "reasoning", "todo_list", "command_execution", etc.
+	Type string `json:"type"`
+
+	// Text is populated for "reasoning" items.
+	Text string `json:"text,omitempty"`
+
+	// Command and output fields are populated for "command_execution" items.
+	Command          string `json:"command,omitempty"`
+	AggregatedOutput string `json:"aggregated_output,omitempty"`
+	ExitCode         *int   `json:"exit_code,omitempty"`
+	Status           string `json:"status,omitempty"`
+
+	// Items is populated for "todo_list" items.
+	Items []TodoItem `json:"items,omitempty"`
+}
+
+// TodoItem is a single entry inside a "todo_list" StreamItem.
+type TodoItem struct {
+	Text      string `json:"text"`
+	Completed bool   `json:"completed"`
 }
 
 type AgentInput struct {
