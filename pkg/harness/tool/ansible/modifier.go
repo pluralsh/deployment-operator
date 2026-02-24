@@ -31,6 +31,7 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 		fmt.Sprintf("ANSIBLE_HOME=%s", ansibleHome),
 		fmt.Sprintf("ANSIBLE_REMOTE_TMP=%s", "/tmp/.ansible/tmp"),
 		fmt.Sprintf("ANSIBLE_SSH_CONTROL_PATH_DIR=%s", "/tmp/.ansible/cp"),
+		fmt.Sprintf("ANSIBLE_PERSISTENT_CONTROL_PATH_DIR=%s", "/tmp/.ansible/pc"),
 	)
 }
 
