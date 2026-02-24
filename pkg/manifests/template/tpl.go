@@ -11,6 +11,7 @@ func renderTpl(input []byte, svc *console.ServiceDeploymentForAgent) ([]byte, er
 		"Cluster":       clusterConfiguration(svc.Cluster),
 		"Contexts":      contexts(svc),
 		"Imports":       imports(svc),
+		"Service":       serviceConfiguration(svc),
 	}
 
 	return template.RenderTpl(input, bindings)
