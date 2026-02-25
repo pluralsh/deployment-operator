@@ -56,6 +56,8 @@ RUN addgroup --gid 65532 nonroot && \
 # Ensure pip uses a writable cache dir and does not fall back to user install
 ENV PIP_CACHE_DIR=/home/nonroot/.cache/pip
 ENV PIP_USER=false
+ENV PYTHONUSERBASE=/home/nonroot/.local
+ENV PYTHONPATH=/home/nonroot/.local/lib/python3.12/site-packages
 
 # Switch to the non-root user
 USER 65532:65532
