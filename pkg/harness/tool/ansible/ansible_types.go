@@ -28,7 +28,5 @@ type Ansible struct {
 	// ansible variable file.
 	variables *string
 
-	InventoryFile *string
-	PlaybookFile  *string
-	SSHKeyFile    *string
+	SSHKeyFile *string
 }

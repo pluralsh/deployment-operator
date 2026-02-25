@@ -30,9 +30,7 @@ type VariableInjectorModifier struct {
 type VariableModifier struct {
 	v1.DefaultModifier
 
-	InventoryFile *string
-	PlaybookFile  *string
-	SSHKeyFile    *string
+	SSHKeyFile *string
 }
 
 const (
