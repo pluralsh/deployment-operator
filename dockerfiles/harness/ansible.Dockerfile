@@ -16,22 +16,46 @@ COPY --from=harness /harness /usr/local/bin/harness
 # Change ownership of the harness binary to UID/GID 65532
 RUN chown -R 65532:65532 /usr/local/bin/harness
 
-# Install build dependencies, Ansible, and openssh-client
-RUN apk add --no-cache --virtual .build-deps \
+# Install system packages and build deps, install Python packages, then remove build deps
+RUN apk add --no-cache \
+    openssh-client \
+    git \
+    sshpass \
+    rsync \
+    curl \
+    wget \
+    bash \
+    jq \
+    gnupg \
+    unzip \
+    tar \
+    ca-certificates && \
+    apk add --no-cache --virtual .build-deps \
     gcc \
     musl-dev \
     libffi-dev \
     openssl-dev \
     make \
     build-base && \
+    pip install --no-cache-dir \
+    ansible==${ANSIBLE_VERSION} \
+    jmespath \
+    netaddr \
+    boto3 \
+    botocore \
+    kubernetes \
+    passlib \
+    cryptography && \
     apk del .build-deps
 
-RUN apk add --no-cache openssh-client
-
-RUN pip install --no-cache-dir ansible==${ANSIBLE_VERSION}
-
 RUN addgroup --gid 65532 nonroot && \
-    adduser --uid 65532 --ingroup nonroot --disabled-password --no-create-home nonroot
+    adduser --uid 65532 --ingroup nonroot --disabled-password --home /home/nonroot nonroot && \
+    mkdir -p /home/nonroot/.cache/pip /home/nonroot/.local && \
+    chown -R 65532:65532 /home/nonroot
+
+# Ensure pip uses a writable cache dir and does not fall back to user install
+ENV PIP_CACHE_DIR=/home/nonroot/.cache/pip
+ENV PIP_USER=false
 
 # Switch to the non-root user
 USER 65532:65532
