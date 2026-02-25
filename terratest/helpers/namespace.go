@@ -2,39 +2,98 @@ package helpers
 
 import (
 	"testing"
-	"time"
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
+	"github.com/pluralsh/console/go/client"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateNamespaceWithCleanup(t *testing.T, options *k8s.KubectlOptions, namespace string, cleanupTimeout time.Duration) {
-	k8s.CreateNamespace(t, options, namespace)
-	t.Cleanup(func() { DeleteNamespaceWithTimeout(t, options, namespace, cleanupTimeout) })
+type NamespaceOptions struct {
+	Name        string
+	Labels      map[string]string
+	Annotations map[string]string
 }
 
-func DeleteNamespaceWithTimeout(t *testing.T, options *k8s.KubectlOptions, namespace string, timeout time.Duration) {
-	if err := k8s.DeleteNamespaceE(t, options, namespace); err != nil && !apierrors.IsNotFound(err) {
-		t.Logf("failed to delete namespace %s: %v", namespace, err)
-		return
+func (in *NamespaceOptions) ToObjectMeta() v1.ObjectMeta {
+	return v1.ObjectMeta{
+		Name:        in.Name,
+		Labels:      in.Labels,
+		Annotations: in.Annotations,
+	}
+}
+
+type NamespaceOption func(*NamespaceOptions)
+
+func WithDefaults(defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) NamespaceOption {
+	return func(opts *NamespaceOptions) {
+		if defaults == nil {
+			return
+		}
+
+		if defaults.NamespaceLabels != nil {
+			opts.Labels = ToStringMap(defaults.NamespaceLabels)
+		}
+
+		if defaults.NamespaceAnnotations != nil {
+			opts.Annotations = ToStringMap(defaults.NamespaceAnnotations)
+		}
+	}
+}
+
+type Namespace struct {
+	baseResource
+
+	options *k8s.KubectlOptions
+}
+
+func (in *Namespace) Name() string {
+	return in.GetName()
+}
+
+func (in *Namespace) Create(t *testing.T) error {
+	err := k8s.CreateNamespaceWithMetadataE(t, in.options, in.ObjectMeta)
+
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	return nil
+}
 
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
+func (in *Namespace) Delete(t *testing.T) error {
+	err := k8s.DeleteNamespaceE(t, in.options, in.Name())
 
-	for {
-		select {
-		case <-timer.C:
-			t.Logf("timed out waiting for namespace %s to be deleted", namespace)
-			return
-		case <-ticker.C:
-			_, err := k8s.GetNamespaceE(t, options, namespace)
-			if apierrors.IsNotFound(err) {
-				return
-			}
-		}
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (in *Namespace) Exists(t *testing.T) (bool, error) {
+	_, err := k8s.GetNamespaceE(t, in.options, in.Name())
+	if err != nil && !apierrors.IsNotFound(err) {
+		return false, err
+	}
+
+	return apierrors.IsNotFound(err), nil
+}
+
+func NewNamespace(name string, options ...NamespaceOption) Resource {
+	namespaceOptions := &NamespaceOptions{Name: name}
+
+	for _, opt := range options {
+		opt(namespaceOptions)
+	}
+
+	return &Namespace{
+		baseResource: baseResource{
+			ObjectMeta: namespaceOptions.ToObjectMeta(),
+			typeMeta: v1.TypeMeta{
+				Kind: "Namespace",
+			},
+		},
+		options: k8s.NewKubectlOptions("", "", name),
 	}
 }
