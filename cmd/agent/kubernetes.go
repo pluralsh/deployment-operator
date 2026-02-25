@@ -130,9 +130,15 @@ func registerKubeReconcilersOrDie(
 	extConsoleClient consoleclient.Client,
 	discoveryCache discoverycache.Cache,
 	enableKubecostProxy bool,
-	consoleURL, deployToken, clusterID string,
+	consoleURL, deployToken string,
 ) {
 	rolloutsClient, dynamicClient, kubeClient := initKubeClientsOrDie(config)
+
+	cluster, err := extConsoleClient.MyCluster()
+	if err != nil {
+		setupLog.Error(err, "unable to get cluster information from console")
+		os.Exit(1)
+	}
 
 	backupController := &controller.BackupReconciler{
 		Client:        manager.GetClient(),
@@ -306,7 +312,7 @@ func registerKubeReconcilersOrDie(
 		ConsoleClient:    extConsoleClient,
 		CacheSyncTimeout: args.PollInterval() * 3,
 		Ctx:              ctx,
-		ClusterID:        clusterID,
+		ClusterID:        cluster.MyCluster.ID,
 	}
 	if err := agentRuntimeReconciler.SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AgentRuntime")

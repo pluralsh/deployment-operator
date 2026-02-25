@@ -110,12 +110,6 @@ func main() {
 
 	extConsoleClient := client.New(args.ConsoleUrl(), args.DeployToken())
 
-	cluster, err := extConsoleClient.MyCluster()
-	if err != nil {
-		setupLog.Error(err, "unable to get cluster information from console")
-		os.Exit(1)
-	}
-
 	// Initialize the discovery cache.
 	initDiscoveryCache(discoveryClient, mapper)
 	discoveryCache := discoverycache.GlobalCache()
@@ -154,7 +148,7 @@ func main() {
 	defer supervisor.Stop()
 
 	registerConsoleReconcilersOrDie(consoleManager, mapper, clientSet, kubeManager.GetClient(), dynamicClient, dbStore, kubeManager.GetScheme(), extConsoleClient, supervisor, discoveryCache, namespaceCache, svcCache)
-	registerKubeReconcilersOrDie(ctx, clientSet, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy(), args.ConsoleUrl(), args.DeployToken(), cluster.MyCluster.ID)
+	registerKubeReconcilersOrDie(ctx, clientSet, kubeManager, consoleManager, config, extConsoleClient, discoveryCache, args.EnableKubecostProxy(), args.ConsoleUrl(), args.DeployToken())
 
 	//+kubebuilder:scaffold:builder
 
