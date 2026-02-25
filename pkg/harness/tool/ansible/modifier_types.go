@@ -27,6 +27,14 @@ type VariableInjectorModifier struct {
 	variablesFile string
 }
 
+type VariableModifier struct {
+	v1.DefaultModifier
+
+	InventoryFile *string
+	PlaybookFile  *string
+	SSHKeyFile    *string
+}
+
 const (
 	ansibleDir    = ".ansible"
 	ansibleTmpDir = "tmp"

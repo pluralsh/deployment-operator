@@ -27,4 +27,8 @@ type Ansible struct {
 	// variables is a JSON encoded string representing
 	// ansible variable file.
 	variables *string
+
+	InventoryFile *string
+	PlaybookFile  *string
+	SSHKeyFile    *string
 }

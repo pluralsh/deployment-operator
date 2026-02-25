@@ -47,3 +47,28 @@ func (in *VariableInjectorModifier) Args(args []string) []string {
 func NewVariableInjectorModifier(variablesFile string) v1.Modifier {
 	return &VariableInjectorModifier{variablesFile: variablesFile}
 }
+
+func NewVariableModifier(inventoryFile, playbookFile, sshKeyFile *string) v1.Modifier {
+	return &VariableModifier{
+		InventoryFile: inventoryFile,
+		PlaybookFile:  playbookFile,
+		SSHKeyFile:    sshKeyFile,
+	}
+}
+
+func (in *VariableModifier) Args(args []string) []string {
+	if in.InventoryFile != nil {
+		args = append(args, fmt.Sprintf("--inventory %s", *in.InventoryFile))
+	}
+
+	if in.PlaybookFile != nil {
+		args = append(args, *in.PlaybookFile)
+	} else {
+		args = append(args, "main.yaml")
+	}
+
+	if in.SSHKeyFile != nil {
+		args = append(args, fmt.Sprintf("--private-key %s", *in.SSHKeyFile))
+	}
+	return args
+}

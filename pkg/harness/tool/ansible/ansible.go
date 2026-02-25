@@ -30,6 +30,8 @@ func (in *Ansible) Plan() (*console.StackStateAttributes, error) {
 func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
 	modifiers := []v1.Modifier{NewGlobalEnvModifier(in.workDir)}
 
+	modifiers = append(modifiers, NewVariableModifier(in.InventoryFile, in.PlaybookFile, in.SSHKeyFile))
+
 	if in.variables != nil {
 		modifiers = append(modifiers, NewVariableInjectorModifier(in.variablesFileName))
 	}
@@ -60,8 +62,11 @@ func (in *Ansible) init() *Ansible {
 // New creates an Ansible structure that implements v1.Tool interface.
 func New(config v1.Config) v1.Tool {
 	return (&Ansible{
-		DefaultTool: v1.DefaultTool{Scanner: config.Scanner},
-		workDir:     config.WorkDir,
-		execDir:     config.ExecDir,
+		DefaultTool:   v1.DefaultTool{Scanner: config.Scanner},
+		workDir:       config.WorkDir,
+		execDir:       config.ExecDir,
+		SSHKeyFile:    config.Run.SSHKeyFile,
+		InventoryFile: config.Run.InventoryFile,
+		PlaybookFile:  config.Run.PlaybookFile,
 	}).init()
 }

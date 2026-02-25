@@ -10,7 +10,7 @@ var (
 )
 
 type FileClient interface {
-	Create(path, content string) error
+	Create(path, content string, perm os.FileMode) error
 }
 
 func File() FileClient {
@@ -19,10 +19,10 @@ func File() FileClient {
 
 type fileClient struct{}
 
-func (in *fileClient) Create(path, content string) error {
+func (in *fileClient) Create(path, content string, perm os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
 
-	return os.WriteFile(path, []byte(content), 0644)
+	return os.WriteFile(path, []byte(content), perm)
 }

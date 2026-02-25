@@ -130,7 +130,7 @@ func registerKubeReconcilersOrDie(
 	extConsoleClient consoleclient.Client,
 	discoveryCache discoverycache.Cache,
 	enableKubecostProxy bool,
-	consoleURL, deployToken string,
+	consoleURL, deployToken, clusterID string,
 ) {
 	rolloutsClient, dynamicClient, kubeClient := initKubeClientsOrDie(config)
 
@@ -306,6 +306,7 @@ func registerKubeReconcilersOrDie(
 		ConsoleClient:    extConsoleClient,
 		CacheSyncTimeout: args.PollInterval() * 3,
 		Ctx:              ctx,
+		ClusterID:        clusterID,
 	}
 	if err := agentRuntimeReconciler.SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AgentRuntime")
