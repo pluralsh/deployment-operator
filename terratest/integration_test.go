@@ -139,43 +139,33 @@ func runCorednsTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 	}
 }
 
-func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment, defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) {
+func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment, _ *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) {
 	require.NotNil(t, tc.Raw, "raw config must be set")
+	require.NotEmpty(t, tc.Raw.Yaml, "raw yaml must be set")
 
 	expected := client.SentinelRawResultSuccess
 	if tc.Raw.ExpectedResult != nil {
 		expected = *tc.Raw.ExpectedResult
 	}
 
-	namespaceName := "test-" + rand.String(6)
-	options := k8s.NewKubectlOptions("", "", namespaceName)
-	yamlNamespace, err := NamespaceFromYAML(tc.Raw.Yaml)
-
-	require.NoError(t, err, "failed to extract namespace from yaml")
-
-	if len(yamlNamespace) > 0 {
-		namespaceName = yamlNamespace
-	}
-
-	namespace := helpers.NewNamespace(namespaceName, helpers.WithNamespaceDefaults(defaults))
-	if err := namespace.CreateWithCleanup(t, 5*time.Minute); err != nil {
-		require.Fail(t, "failed to create namespace: %v", err)
-	}
-
-	err = k8s.KubectlApplyFromStringE(
-		t,
-		options,
-		tc.Raw.Yaml,
-	)
+	err := k8s.KubectlApplyFromStringE(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
+	t.Cleanup(func() {
+		k8s.KubectlDeleteFromString(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
+	})
 
 	switch {
 	case err != nil && expected == client.SentinelRawResultSuccess:
 		t.Fatalf("failed to apply yaml: %v", err)
 	case err == nil && expected == client.SentinelRawResultFailed:
 		t.Fatalf("expected failure but got success")
-	default:
 	}
 
+	if err == nil && expected == client.SentinelRawResultSuccess {
+		resources, err := helpers.NewRawResourceList(tc.Raw.Yaml)
+		require.NoError(t, err, "failed to parse raw resources")
+
+		resources.WaitUntilReady(t, 2*time.Minute)
+	}
 }
 
 func runPVCTest(t *testing.T, tc client.TestCaseConfigurationFragment, defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) {
@@ -289,18 +279,4 @@ func loadIntegrationTestCases(t *testing.T) []types.TestCase {
 	}
 
 	return testCases
-}
-
-type MetaOnly struct {
-	Metadata struct {
-		Namespace string `yaml:"namespace"`
-	} `yaml:"metadata"`
-}
-
-func NamespaceFromYAML(yamlStr string) (string, error) {
-	var m MetaOnly
-	if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {
-		return "", err
-	}
-	return m.Metadata.Namespace, nil
 }
