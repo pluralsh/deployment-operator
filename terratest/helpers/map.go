@@ -13,8 +13,8 @@ func ToStringMap(in map[string]any) map[string]string {
 	return out
 }
 
-// MergeLabels should only be used for labels/annotations. It doesn't support merging inner maps.
-func MergeLabels(first, second map[string]any) map[string]any {
+// MergeFlat should only be used for labels/annotations. It doesn't support merging inner maps.
+func MergeFlat(first, second map[string]any) map[string]any {
 	result := make(map[string]any, len(first)+len(second))
 
 	for k, v := range first {

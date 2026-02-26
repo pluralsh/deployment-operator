@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -10,20 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
-type Resource interface {
+type Resource[T any] interface {
 	Name() string
 	Namespace() string
-	Delete(t *testing.T) error
-	DeleteWithTimeout(t *testing.T, timeout time.Duration) error
 	Create(t *testing.T) error
 	CreateWithCleanup(t *testing.T, timeout time.Duration) error
+	Delete(t *testing.T) error
+	DeleteWithTimeout(t *testing.T, timeout time.Duration) error
+	Get(t *testing.T) (*T, error)
 	Exists(t *testing.T) (bool, error)
+	WaitForReady(t *testing.T, timeout time.Duration) error
 }
 
 type baseResource struct {
 	v1.ObjectMeta
+
 	typeMeta v1.TypeMeta
 }
 
@@ -43,7 +48,7 @@ func (in *baseResource) Namespace() string {
 	return ""
 }
 
-func (in *baseResource) Exists() (bool, error) {
+func (in *baseResource) Exists(_ *testing.T) (bool, error) {
 	return false, fmt.Errorf("not implemented")
 }
 
@@ -77,7 +82,7 @@ func (in *baseResource) DeleteWithTimeout(t *testing.T, timeout time.Duration) e
 		case <-timer.C:
 			return fmt.Errorf("timed out waiting for resource to be deleted")
 		case <-ticker.C:
-			if exists, err := in.Exists(); !exists && err != nil {
+			if exists, err := in.Exists(t); !exists && err != nil {
 				return err
 			}
 		}
@@ -88,4 +93,21 @@ func (in *baseResource) toKubectlOptions() *k8s.KubectlOptions {
 	return &k8s.KubectlOptions{
 		Namespace: lo.Ternary(in.typeMeta.Kind == "Namespace", in.Name(), in.Namespace()),
 	}
+}
+
+func (in *baseResource) clientset(t *testing.T) (*kubernetes.Clientset, error) {
+	return k8s.GetKubernetesClientFromOptionsE(t, in.toKubectlOptions())
+}
+
+func (in *baseResource) toJSON(resource any) string {
+	if resource == nil {
+		return "{}"
+	}
+
+	marshalled, err := json.Marshal(resource)
+	if err != nil {
+		return "{}"
+	}
+
+	return string(marshalled)
 }

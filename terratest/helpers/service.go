@@ -2,74 +2,133 @@ package helpers
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
+	"github.com/pluralsh/console/go/client"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	runtimerrors "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ToServiceJSON(service *corev1.Service) string {
-	if service == nil {
-		return "{}"
-	}
+type ServiceOptions struct {
+	Name        string
+	Namespace   string
+	Selector    map[string]any
+	Labels      map[string]any
+	Annotations map[string]any
+	Ports       []corev1.ServicePort
+	Type        corev1.ServiceType
+}
 
-	marshalled, err := json.Marshal(service)
+func (in *ServiceOptions) ToObjectMeta() metav1.ObjectMeta {
+	mergedLabels := MergeFlat(in.Selector, in.Labels)
+
+	return metav1.ObjectMeta{
+		Name:        in.Name,
+		Namespace:   in.Namespace,
+		Labels:      ToStringMap(mergedLabels),
+		Annotations: ToStringMap(in.Annotations),
+	}
+}
+
+type ServiceOption func(*ServiceOptions)
+
+func WithServiceDefaults(defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) ServiceOption {
+	return func(opts *ServiceOptions) {
+		if defaults == nil {
+			return
+		}
+
+		if defaults.ResourceLabels != nil {
+			opts.Labels = MergeFlat(opts.Labels, defaults.ResourceLabels)
+		}
+
+		if defaults.ResourceAnnotations != nil {
+			opts.Annotations = MergeFlat(opts.Annotations, defaults.ResourceAnnotations)
+		}
+	}
+}
+
+func WithServiceSelector(selector map[string]any) ServiceOption {
+	return func(opts *ServiceOptions) {
+		opts.Selector = selector
+	}
+}
+
+func WithServiceLabels(labels map[string]any) ServiceOption {
+	return func(opts *ServiceOptions) {
+		opts.Labels = MergeFlat(opts.Labels, labels)
+	}
+}
+
+func WithServiceAnnotations(annotations map[string]any) ServiceOption {
+	return func(opts *ServiceOptions) {
+		opts.Annotations = MergeFlat(opts.Annotations, annotations)
+	}
+}
+
+func WithServicePorts(port ...corev1.ServicePort) ServiceOption {
+	return func(opts *ServiceOptions) {
+		opts.Ports = port
+	}
+}
+
+func WithServiceType(serviceType corev1.ServiceType) ServiceOption {
+	return func(opts *ServiceOptions) {
+		opts.Type = serviceType
+	}
+}
+
+type Service struct {
+	baseResource
+
+	options *ServiceOptions
+}
+
+func (in *Service) Name() string {
+	return in.options.Name
+}
+
+func (in *Service) Namespace() string {
+	return in.options.Namespace
+}
+
+func (in *Service) Create(t *testing.T) error {
+	return k8s.KubectlApplyFromStringE(t,
+		in.toKubectlOptions(),
+		in.toJSON(in.toService()),
+	)
+}
+
+func (in *Service) Delete(t *testing.T) error {
+	clientset, err := in.clientset(t)
 	if err != nil {
-		return "{}"
+		return err
 	}
 
-	return string(marshalled)
+	return runtimerrors.IgnoreNotFound(
+		clientset.CoreV1().Services(in.Namespace()).Delete(context.Background(), in.Name(), metav1.DeleteOptions{}),
+	)
 }
 
-func CreateLoadBalancerServiceWithCleanup(ctx context.Context, t *testing.T, options *k8s.KubectlOptions, name string, selector, labels, annotations map[string]any, port int32) {
-	CreateLoadBalancerService(t, options, name, selector, labels, annotations, port)
-	t.Cleanup(func() { DeleteService(ctx, t, options, name) })
+func (in *Service) Get(t *testing.T) (*corev1.Service, error) {
+	return k8s.GetServiceE(t, in.toKubectlOptions(), in.Name())
 }
 
-func CreateLoadBalancerService(t *testing.T, options *k8s.KubectlOptions, name string, selector, labels, annotations map[string]any, port int32) {
-	mergedLabels := MergeLabels(selector, labels)
-
-	service := &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   options.Namespace,
-			Labels:      ToStringMap(mergedLabels),
-			Annotations: ToStringMap(annotations),
-		},
-		Spec: corev1.ServiceSpec{
-			Type:     corev1.ServiceTypeLoadBalancer,
-			Selector: ToStringMap(selector),
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       port,
-					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: port},
-				},
-			},
-		},
-	}
-
-	if err := k8s.KubectlApplyFromStringE(t, options, ToServiceJSON(service)); err != nil {
-		t.Fatalf("failed to create load balancer service %s/%s: %v", options.Namespace, name, err)
-	}
-}
-
-func WaitForServiceLoadBalancerReady(t *testing.T, options *k8s.KubectlOptions, name string, timeout time.Duration) *corev1.Service {
-	clientset, err := k8s.GetKubernetesClientFromOptionsE(t, options)
+func (in *Service) Exists(t *testing.T) (bool, error) {
+	_, err := k8s.GetServiceE(t, in.toKubectlOptions(), in.Name())
 	if err != nil {
-		t.Fatalf("failed to get kubernetes client: %v", err)
+		return false, runtimerrors.IgnoreNotFound(err)
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
+	return true, nil
+}
+
+func (in *Service) WaitForReady(t *testing.T, timeout time.Duration) error {
+	ticker := time.NewTicker(defaultTickerInterval)
 	defer ticker.Stop()
 
 	timer := time.NewTimer(timeout)
@@ -78,29 +137,57 @@ func WaitForServiceLoadBalancerReady(t *testing.T, options *k8s.KubectlOptions, 
 	for {
 		select {
 		case <-timer.C:
-			t.Fatalf("timeout waiting for load balancer service %s/%s to be ready", options.Namespace, name)
+			return fmt.Errorf("timeout waiting for load balancer service %s/%s to be ready", in.Namespace(), in.Name())
 		case <-ticker.C:
-			service, err := clientset.CoreV1().Services(options.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			service, err := k8s.GetServiceE(t, in.toKubectlOptions(), in.Name())
 			if err != nil {
-				t.Logf("failed to get service %s/%s: %v", options.Namespace, name, err)
+				t.Logf("failed to get service %s/%s: %v", in.Namespace(), in.Name(), err)
 				continue
 			}
 
 			if len(service.Status.LoadBalancer.Ingress) > 0 {
-				return service
+				return nil
 			}
 		}
 	}
 }
 
-func DeleteService(ctx context.Context, t *testing.T, options *k8s.KubectlOptions, name string) {
-	clientset, err := k8s.GetKubernetesClientFromOptionsE(t, options)
-	if err != nil {
-		t.Logf("failed to get kubernetes client for service delete: %v", err)
-		return
+func (in *Service) toService() *corev1.Service {
+	mergedLabels := MergeFlat(in.options.Selector, in.options.Labels)
+
+	return &corev1.Service{
+		TypeMeta: in.typeMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        in.options.Name,
+			Namespace:   in.options.Namespace,
+			Labels:      ToStringMap(mergedLabels),
+			Annotations: ToStringMap(in.options.Annotations),
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     in.options.Type,
+			Selector: ToStringMap(in.options.Selector),
+			Ports:    in.options.Ports,
+		},
+	}
+}
+
+func NewService(name, namespace string, options ...ServiceOption) Resource[corev1.Service] {
+	serviceOptions := &ServiceOptions{
+		Name:      name,
+		Namespace: namespace,
 	}
 
-	if err := clientset.CoreV1().Services(options.Namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		t.Logf("failed to delete service %s/%s: %v", options.Namespace, name, err)
+	for _, opt := range options {
+		opt(serviceOptions)
+	}
+
+	return &Service{
+		baseResource: baseResource{
+			ObjectMeta: serviceOptions.ToObjectMeta(),
+			typeMeta: metav1.TypeMeta{
+				Kind: "Service",
+			},
+		},
+		options: serviceOptions,
 	}
 }

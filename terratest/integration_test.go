@@ -8,8 +8,10 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/api/resource"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/yaml"
 
@@ -26,6 +28,11 @@ func TestSentinelIntegration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Name+"-"+rand.String(5), func(t *testing.T) {
 			t.Parallel()
+			defaults := tc.Defaults
+			// When ignore is set, just nullify it
+			if defaults != nil && lo.FromPtr(defaults.Ignore) {
+				defaults = nil
+			}
 
 			for _, c := range tc.Configurations {
 				switch c.Type {
@@ -52,23 +59,39 @@ func TestSentinelIntegration(t *testing.T) {
 func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment, defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) {
 	require.NotNil(t, tc.Loadbalancer, "loadbalancer config must be set")
 
-	namespaceName := fmt.Sprintf("test-%s", rand.String(6))
-	opts := k8s.NewKubectlOptions("", "", namespaceName)
+	suffix := rand.String(6)
+	namespaceName := fmt.Sprintf("test-%s", suffix)
+	serviceName := fmt.Sprintf("%s-svc-%s", tc.Loadbalancer.NamePrefix, suffix)
 
-	namespace := helpers.NewNamespace(namespaceName, helpers.WithDefaults(defaults))
-	if err := namespace.CreateWithCleanup(t, 5*time.Minute); err != nil {
+	namespaceResource := helpers.NewNamespace(namespaceName, helpers.WithNamespaceDefaults(defaults))
+	if err := namespaceResource.CreateWithCleanup(t, 5*time.Minute); err != nil {
 		require.Fail(t, "failed to create namespace: %v", err)
 	}
 
-	suffix := rand.String(5)
-	deploymentName := fmt.Sprintf("%s-deploy-%s", tc.Loadbalancer.NamePrefix, suffix)
-	serviceName := fmt.Sprintf("%s-svc-%s", tc.Loadbalancer.NamePrefix, suffix)
+	serviceResource := helpers.NewService(serviceName, namespaceName,
+		helpers.WithServiceLabels(tc.Loadbalancer.Labels),
+		helpers.WithServiceAnnotations(tc.Loadbalancer.Annotations),
+		helpers.WithServiceType(corev1.ServiceTypeLoadBalancer),
+		helpers.WithServicePorts(corev1.ServicePort{
+			Name:       "http",
+			Port:       80,
+			TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 80},
+		}),
+		helpers.WithServiceDefaults(defaults),
+	)
 
-	selector := map[string]any{"app": deploymentName}
+	if err := serviceResource.Create(t); err != nil {
+		require.Fail(t, "failed to create service: %v", err)
+	}
 
-	helpers.CreateLoadBalancerService(t, opts, serviceName, selector, tc.Loadbalancer.Labels, tc.Loadbalancer.Annotations, 80)
+	if err := serviceResource.WaitForReady(t, 2*time.Minute); err != nil {
+		require.Fail(t, "failed to wait for service to be ready: %v", err)
+	}
 
-	svc := helpers.WaitForServiceLoadBalancerReady(t, opts, serviceName, 2*time.Minute)
+	svc, err := serviceResource.Get(t)
+	if err != nil {
+		require.Fail(t, "failed to get service: %v", err)
+	}
 
 	t.Run(serviceName, func(t *testing.T) {
 		require.Equal(t, "LoadBalancer", string(svc.Spec.Type))
@@ -118,22 +141,23 @@ func runCorednsTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
 
 func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment, defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) {
 	require.NotNil(t, tc.Raw, "raw config must be set")
+
 	expected := client.SentinelRawResultSuccess
 	if tc.Raw.ExpectedResult != nil {
 		expected = *tc.Raw.ExpectedResult
 	}
 
 	namespaceName := "test-" + rand.String(6)
+	options := k8s.NewKubectlOptions("", "", namespaceName)
 	yamlNamespace, err := NamespaceFromYAML(tc.Raw.Yaml)
+
 	require.NoError(t, err, "failed to extract namespace from yaml")
 
 	if len(yamlNamespace) > 0 {
 		namespaceName = yamlNamespace
 	}
 
-	options := k8s.NewKubectlOptions("", "", namespaceName)
-
-	namespace := helpers.NewNamespace(namespaceName, helpers.WithDefaults(defaults))
+	namespace := helpers.NewNamespace(namespaceName, helpers.WithNamespaceDefaults(defaults))
 	if err := namespace.CreateWithCleanup(t, 5*time.Minute); err != nil {
 		require.Fail(t, "failed to create namespace: %v", err)
 	}
@@ -160,27 +184,62 @@ func runPVCTest(t *testing.T, tc client.TestCaseConfigurationFragment, defaults 
 	require.NotEmpty(t, tc.Pvc.Size)
 	require.NotEmpty(t, tc.Pvc.StorageClass)
 
-	quantity, err := resource.ParseQuantity(tc.Pvc.Size)
-	require.NoError(t, err, "failed to parse pvc size %q", tc.Pvc.Size)
+	suffix := rand.String(6)
 
-	namespaceName := "test-" + rand.String(6)
-	options := k8s.NewKubectlOptions("", "", namespaceName)
+	namespaceName := fmt.Sprintf("test-%s", suffix)
+	pvcName := fmt.Sprintf("%s-%s", tc.Pvc.NamePrefix, suffix)
+	podName := fmt.Sprintf("pvc-test-%s", suffix)
 
-	namespace := helpers.NewNamespace(namespaceName, helpers.WithDefaults(defaults))
+	namespace := helpers.NewNamespace(namespaceName, helpers.WithNamespaceDefaults(defaults))
 	if err := namespace.CreateWithCleanup(t, 5*time.Minute); err != nil {
 		require.Fail(t, "failed to create namespace: %v", err)
 	}
 
-	pvcName := fmt.Sprintf("%s-%s", tc.Pvc.NamePrefix, rand.String(5))
-	podName := "pvc-test-" + rand.String(5)
-
-	// PVC required at least one consumer to go into bound phase.
+	// PVC requires at least one consumer to go into bound phase.
 	// We need to create both resources first and then wait.
-	helpers.CreatePersistentVolumeClaim(t, options, pvcName, tc.Pvc.StorageClass, quantity)
-	helpers.CreatePodForPVC(t, options, podName, pvcName)
+	pvc := helpers.NewPersistentVolumeClaim(
+		pvcName,
+		namespaceName,
+		helpers.WithPersistentVolumeClaimStorageClass(tc.Pvc.StorageClass),
+		helpers.WithPersistentVolumeClaimSize(tc.Pvc.Size),
+		helpers.WithPersistentVolumeClaimDefaults(defaults),
+	)
+	if err := pvc.Create(t); err != nil {
+		require.Fail(t, "failed to create pvc %s/%s: %v", namespaceName, pvcName, err)
+	}
 
-	helpers.WaitForPVCBound(t, options, namespaceName, pvcName, 5*time.Minute)
-	helpers.WaitForPodSucceeded(t, options, podName, 5*time.Minute)
+	pod := helpers.NewPod(podName,
+		namespaceName,
+		helpers.WithPodImage(helpers.BusyboxImage),
+		helpers.WithPodCommand("sh",
+			"-c",
+			"echo 'pvc-test' > /data/verify.txt && grep -x 'pvc-test' /data/verify.txt",
+		),
+		helpers.WithPodVolumes(corev1.Volume{
+			Name: "pvc-data",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
+				},
+			},
+		}),
+		helpers.WithPodVolumeMounts(corev1.VolumeMount{
+			Name:      "pvc-data",
+			MountPath: "/data",
+		}),
+		helpers.WithPodDefaults(defaults),
+	)
+	if err := pod.Create(t); err != nil {
+		require.Fail(t, "failed to create pod %s/%s: %v", namespaceName, podName, err)
+	}
+
+	if err := pvc.WaitForReady(t, 5*time.Minute); err != nil {
+		require.Fail(t, "pvc %s/%s did not become ready: %v", namespaceName, pvcName, err)
+	}
+
+	if err := pod.WaitForReady(t, 5*time.Minute); err != nil {
+		require.Fail(t, "pod %s/%s did not succeed: %v", namespaceName, podName, err)
+	}
 }
 
 func loadIntegrationTestCases(t *testing.T) []types.TestCase {
