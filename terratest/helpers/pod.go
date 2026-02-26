@@ -188,7 +188,7 @@ func (in *Pod) toPod() *corev1.Pod {
 			Containers: []corev1.Container{
 				{
 					Name:         defaultPodContainerName,
-					Image:        in.options.Image, // TODO: Replace registry when in.options.Registry not empty
+					Image:        SwapBaseRegistry(in.options.Registry, in.options.Image),
 					Command:      in.options.Command,
 					VolumeMounts: in.options.VolumeMounts,
 				},

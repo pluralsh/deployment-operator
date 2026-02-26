@@ -180,7 +180,7 @@ func (in *Deployment) toDeployment() *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:  defaultDeploymentContainerName,
-							Image: in.options.Image, // TODO: Replace registry when in.options.Registry not empty
+							Image: SwapBaseRegistry(in.options.Registry, in.options.Image),
 							Ports: in.options.Ports,
 						},
 					},
