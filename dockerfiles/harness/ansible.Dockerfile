@@ -8,7 +8,7 @@ FROM ${HARNESS_BASE_IMAGE} AS harness
 
 # Build Ansible from Python Image
 FROM python:${PYTHON_VERSION}-alpine AS final
-ARG ANSIBLE_VERSION=9.0.0
+ARG ANSIBLE_VERSION=9.0.1
 
 # Copy Harness bin from the Harness Image
 COPY --from=harness /harness /usr/local/bin/harness
@@ -16,20 +16,48 @@ COPY --from=harness /harness /usr/local/bin/harness
 # Change ownership of the harness binary to UID/GID 65532
 RUN chown -R 65532:65532 /usr/local/bin/harness
 
-# Install build dependencies, Ansible, and openssh-client
-RUN apk add --no-cache --virtual .build-deps \
+# Install system packages and build deps, install Python packages, then remove build deps
+RUN apk add --no-cache \
+    openssh-client \
+    git \
+    sshpass \
+    rsync \
+    curl \
+    wget \
+    bash \
+    jq \
+    gnupg \
+    unzip \
+    tar \
+    ca-certificates && \
+    apk add --no-cache --virtual .build-deps \
     gcc \
     musl-dev \
     libffi-dev \
     openssl-dev \
     make \
-    build-base \
-    openssh-client && \
+    build-base && \
+    pip install --no-cache-dir \
+    ansible==${ANSIBLE_VERSION} \
+    jmespath \
+    netaddr \
+    boto3 \
+    botocore \
+    kubernetes \
+    passlib \
+    cryptography && \
     apk del .build-deps
 
-RUN pip install --no-cache-dir ansible==${ANSIBLE_VERSION}
+RUN addgroup --gid 65532 nonroot && \
+    adduser --uid 65532 --ingroup nonroot --disabled-password --home /home/nonroot nonroot && \
+    mkdir -p /home/nonroot/.cache/pip /home/nonroot/.local && \
+    chown -R 65532:65532 /home/nonroot
 
-RUN addgroup --gid 65532 nonroot
+# Ensure pip uses a writable cache dir and does not fall back to user install
+ENV PIP_CACHE_DIR=/home/nonroot/.cache/pip
+ENV PIP_USER=false
+ENV PYTHONUSERBASE=/home/nonroot/.local
+ENV PYTHONPATH=/home/nonroot/.local/lib/python3.12/site-packages
 
 # Switch to the non-root user
 USER 65532:65532

@@ -44,7 +44,7 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 		return err
 	}
 
-	if err = helpers.File().Create(in.configFilePath(), content); err != nil {
+	if err = helpers.File().Create(in.configFilePath(), content, 0644); err != nil {
 		return fmt.Errorf("failed configuring opencode config file %q: %w", ConfigFileName, err)
 	}
 

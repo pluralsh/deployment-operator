@@ -26,11 +26,15 @@ func NewPassthroughModifier(planFile string) v1.Modifier {
 
 func (in *GlobalEnvModifier) Env(env []string) []string {
 	ansibleHome := path.Join(in.workDir, ansibleDir)
-	ansibleTmp := path.Join(ansibleHome, ansibleTmpDir)
-
+	ansibleLocalTmpDir := path.Join(ansibleHome, ansibleTmpDir)
 	return append(env,
 		fmt.Sprintf("ANSIBLE_HOME=%s", ansibleHome),
-		fmt.Sprintf("ANSIBLE_REMOTE_TMP=%s", ansibleTmp),
+		fmt.Sprintf("ANSIBLE_LOCAL_TEMP=%s", ansibleLocalTmpDir),
+		fmt.Sprintf("ANSIBLE_REMOTE_TMP=%s", "/tmp/.ansible/tmp"),
+		fmt.Sprintf("ANSIBLE_SSH_CONTROL_PATH_DIR=%s", "/tmp/.ansible/cp"),
+		fmt.Sprintf("ANSIBLE_PERSISTENT_CONTROL_PATH_DIR=%s", "/tmp/.ansible/pc"),
+		fmt.Sprintf("ANSIBLE_HOST_KEY_CHECKING=%s", "false"),
+		fmt.Sprintf("ANSIBLE_PYTHON_INTERPRETER=%s", "auto_silent"),
 	)
 }
 
@@ -39,9 +43,25 @@ func NewGlobalEnvModifier(workDir string) v1.Modifier {
 }
 
 func (in *VariableInjectorModifier) Args(args []string) []string {
-	return append(args, fmt.Sprintf("--extra-vars @%s", in.variablesFile))
+	return append(args, "--extra-vars", fmt.Sprintf("@%s", in.variablesFile))
 }
 
 func NewVariableInjectorModifier(variablesFile string) v1.Modifier {
 	return &VariableInjectorModifier{variablesFile: variablesFile}
+}
+
+func NewVariableModifier(sshKeyFile *string) v1.Modifier {
+	return &VariableModifier{
+		SSHKeyFile: sshKeyFile,
+	}
+}
+
+func (in *VariableModifier) Args(args []string) []string {
+	klog.V(1).InfoS("applying variable modifier", "sshKeyFile", in.SSHKeyFile)
+
+	if in.SSHKeyFile != nil {
+		args = append(args, "--private-key", *in.SSHKeyFile)
+	}
+	klog.V(1).InfoS("variable modifier applied", "args", args)
+	return args
 }

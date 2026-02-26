@@ -57,7 +57,7 @@ func (in DefaultTool) ConfigureSystemPrompt(runtime console.AgentRuntimeType) er
 		return err
 	}
 
-	if err = helpers.File().Create(outputFile, content); err != nil {
+	if err = helpers.File().Create(outputFile, content, 0644); err != nil {
 		return fmt.Errorf("failed configuring %s system prompt/context file %q: %w", runtime, outputFile, err)
 	}
 
