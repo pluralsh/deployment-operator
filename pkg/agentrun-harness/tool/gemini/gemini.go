@@ -127,7 +127,7 @@ func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error 
 		return err
 	}
 
-	if err = helpers.File().Create(in.settingsPath(), content); err != nil {
+	if err = helpers.File().Create(in.settingsPath(), content, 0644); err != nil {
 		return fmt.Errorf("failed configuring Gemini settings file %q: %w", SettingsFileName, err)
 	}
 

@@ -1,6 +1,8 @@
 package environment
 
 import (
+	"os"
+
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
@@ -42,7 +44,11 @@ func (in *environment) prepareFiles() error {
 
 	for _, fragment := range in.stackRun.Files {
 		destination := fragment.Path
-		if err := helpers.File().Create(destination, fragment.Content); err != nil {
+		perm := 0644
+		if in.stackRun.SSHKeyFile != nil && *in.stackRun.SSHKeyFile == destination {
+			perm = 0600
+		}
+		if err := helpers.File().Create(destination, fragment.Content, os.FileMode(perm)); err != nil {
 			klog.ErrorS(err, "failed preparing files", "path", destination)
 			return err
 		}
