@@ -8,43 +8,33 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/template"
-	"github.com/samber/lo"
-
-	client "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
-func buildBindings(fragment *console.SentinelRunJobFragment, consoleClient client.Client) (map[string]any, error) {
+func buildBindings(fragment *console.SentinelRunJobFragment) (map[string]any, error) {
 	bindings := map[string]any{
 		"cluster": map[string]any{},
 	}
 
-	if consoleClient == nil || fragment == nil || fragment.Cluster == nil || fragment.Cluster.ID == "" {
+	if fragment == nil || fragment.Cluster == nil {
 		return bindings, nil
 	}
 
-	// TODO: add cache?
-	cluster, err := consoleClient.GetCluster(fragment.Cluster.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	bindings["cluster"] = buildClusterBindings(cluster)
+	bindings["cluster"] = buildClusterBindings(fragment.Cluster)
 
 	return bindings, nil
 }
 
-func buildClusterBindings(cluster *console.TinyClusterFragment) map[string]any {
-	return lo.Ternary(
-		cluster == nil,
-		map[string]any{},
-		map[string]any{
-			"id":      cluster.ID,
-			"self":    cluster.Self,
-			"handler": cluster.Handle,
-			"name":    cluster.Name,
-			"project": cluster.Project,
-		},
-	)
+func buildClusterBindings(cluster *console.SentinelRunJobFragment_Cluster) map[string]any {
+	if cluster == nil {
+		return map[string]any{}
+	}
+
+	return map[string]any{
+		"id":      cluster.ID,
+		"handler": cluster.Handle,
+		"name":    cluster.Name,
+		"distro":  cluster.Distro,
+	}
 }
 
 func templateIntegrationTestConfig(config *console.SentinelCheckIntegrationTestConfigurationFragment, bindings map[string]any) error {

@@ -1,10 +1,10 @@
 module github.com/pluralsh/deployment-operator/dockerfiles/sentinel-harness/terratest
 
-go 1.25.5
+go 1.25.7
 
 require (
 	github.com/gruntwork-io/terratest v0.51.0
-	github.com/pluralsh/console/go/client v1.66.0
+	github.com/pluralsh/console/go/client v1.67.0
 	github.com/pluralsh/polly v0.3.8
 	github.com/samber/lo v1.50.0
 	github.com/stretchr/testify v1.11.1

@@ -15,7 +15,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
-	client "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/sentinel-harness/environment"
@@ -85,7 +84,7 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 		in.testDir = testDir
 	}
 
-	path, err := createIntegrationTestCases(fragment, in.consoleClient)
+	path, err := createIntegrationTestCases(fragment)
 	if err != nil {
 		return "", err
 	}
@@ -229,7 +228,7 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 	return buf.String(), nil
 }
 
-func createIntegrationTestCases(fragment *console.SentinelRunJobFragment, consoleClient client.Client) (string, error) {
+func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (string, error) {
 	if fragment.SentinelRun == nil {
 		return "", nil
 	}
@@ -237,7 +236,7 @@ func createIntegrationTestCases(fragment *console.SentinelRunJobFragment, consol
 		return "", nil
 	}
 
-	bindings, err := buildBindings(fragment, consoleClient)
+	bindings, err := buildBindings(fragment)
 	if err != nil {
 		return "", err
 	}
