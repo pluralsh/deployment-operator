@@ -31,7 +31,7 @@ func TestSentinelIntegration(t *testing.T) {
 			defaults := tc.Defaults
 			// When ignore is set, just nullify it
 			if defaults != nil && lo.FromPtr(defaults.Ignore) {
-				defaults = nil
+				tc.Defaults = nil
 			}
 
 			for _, c := range tc.Configurations {
