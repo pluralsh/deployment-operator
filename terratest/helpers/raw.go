@@ -30,27 +30,33 @@ func (in RawResourceList) WaitUntilReady(t *testing.T, timeout time.Duration) {
 func (in RawResourceList) decode(yaml string) (RawResourceList, error) {
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(yaml), 4096)
 	resources := make([]unstructured.Unstructured, 0)
-	raw := make(map[string]any)
 
-	if err := decoder.Decode(&raw); err != nil {
-		if err == io.EOF {
-			return nil, fmt.Errorf("no resources found in yaml")
+	for {
+		raw := make(map[string]any)
+		if err := decoder.Decode(&raw); err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			return nil, err
 		}
 
-		return nil, err
+		if len(raw) == 0 {
+			continue
+		}
+
+		resource := unstructured.Unstructured{Object: raw}
+		if resource.IsList() {
+			list := &unstructured.UnstructuredList{}
+			list.SetUnstructuredContent(raw)
+			resources = append(resources, list.Items...)
+		} else {
+			resources = append(resources, resource)
+		}
 	}
 
-	if len(raw) == 0 {
+	if len(resources) == 0 {
 		return nil, fmt.Errorf("no resources found in yaml")
-	}
-
-	resource := unstructured.Unstructured{Object: raw}
-	if resource.IsList() {
-		list := &unstructured.UnstructuredList{}
-		list.SetUnstructuredContent(raw)
-		resources = append(resources, list.Items...)
-	} else {
-		resources = append(resources, resource)
 	}
 
 	return resources, nil

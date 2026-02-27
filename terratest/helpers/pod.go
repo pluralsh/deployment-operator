@@ -33,8 +33,10 @@ type PodOptions struct {
 
 func (in *PodOptions) ToObjectMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{
-		Name:      in.Name,
-		Namespace: in.Namespace,
+		Name:        in.Name,
+		Namespace:   in.Namespace,
+		Labels:      ToStringMap(in.Labels),
+		Annotations: ToStringMap(in.Annotations),
 	}
 }
 
