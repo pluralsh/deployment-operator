@@ -145,7 +145,11 @@ func (in *Service) WaitForReady(t *testing.T, timeout time.Duration) error {
 				continue
 			}
 
-			if len(service.Status.LoadBalancer.Ingress) > 0 {
+			if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+				return nil
+			}
+
+			if service.Spec.Type == corev1.ServiceTypeLoadBalancer && len(service.Status.LoadBalancer.Ingress) > 0 {
 				return nil
 			}
 		}

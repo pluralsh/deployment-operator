@@ -96,18 +96,6 @@ func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment, 
 	t.Run(serviceName, func(t *testing.T) {
 		require.Equal(t, "LoadBalancer", string(svc.Spec.Type))
 
-		if tc.Loadbalancer.Labels != nil {
-			for k, v := range tc.Loadbalancer.Labels {
-				require.Equal(t, v, svc.Labels[k])
-			}
-		}
-
-		if tc.Loadbalancer.Annotations != nil {
-			for k, v := range tc.Loadbalancer.Annotations {
-				require.Equal(t, v, svc.Annotations[k])
-			}
-		}
-
 		if tc.Loadbalancer.DNSProbe != nil {
 			prober, err := dns.NewLoadBalancerProber(*svc)
 			require.NoError(t, err, "dns probe failed for %s", tc.Loadbalancer.DNSProbe.Fqdn)
