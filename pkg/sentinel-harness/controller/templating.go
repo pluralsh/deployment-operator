@@ -30,10 +30,10 @@ func buildClusterBindings(cluster *console.SentinelRunJobFragment_Cluster) map[s
 	}
 
 	return map[string]any{
-		"id":      cluster.ID,
-		"handler": cluster.Handle,
-		"name":    cluster.Name,
-		"distro":  cluster.Distro,
+		"id":     cluster.ID,
+		"handle": cluster.Handle,
+		"name":   cluster.Name,
+		"distro": cluster.Distro,
 	}
 }
 

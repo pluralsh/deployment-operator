@@ -35,11 +35,11 @@ func WithNamespaceDefaults(defaults *client.SentinelCheckIntegrationTestDefaultC
 		}
 
 		if defaults.NamespaceLabels != nil {
-			opts.Labels = defaults.NamespaceLabels
+			opts.Labels = MergeFlat(opts.Labels, defaults.NamespaceLabels)
 		}
 
 		if defaults.NamespaceAnnotations != nil {
-			opts.Annotations = defaults.NamespaceAnnotations
+			opts.Annotations = MergeFlat(opts.Annotations, defaults.NamespaceAnnotations)
 		}
 	}
 }

@@ -153,16 +153,9 @@ func (in *Service) WaitForReady(t *testing.T, timeout time.Duration) error {
 }
 
 func (in *Service) toService() *corev1.Service {
-	mergedLabels := MergeFlat(in.options.Selector, in.options.Labels)
-
 	return &corev1.Service{
-		TypeMeta: in.typeMeta,
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        in.options.Name,
-			Namespace:   in.options.Namespace,
-			Labels:      ToStringMap(mergedLabels),
-			Annotations: ToStringMap(in.options.Annotations),
-		},
+		TypeMeta:   in.typeMeta,
+		ObjectMeta: in.options.ToObjectMeta(),
 		Spec: corev1.ServiceSpec{
 			Type:     in.options.Type,
 			Selector: ToStringMap(in.options.Selector),
