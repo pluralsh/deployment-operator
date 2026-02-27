@@ -15,6 +15,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
+	client "github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/pluralsh/deployment-operator/pkg/manifests"
 	"github.com/pluralsh/deployment-operator/pkg/sentinel-harness/environment"
@@ -84,7 +85,7 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 		in.testDir = testDir
 	}
 
-	path, err := createIntegrationTestCases(fragment)
+	path, err := createIntegrationTestCases(fragment, in.consoleClient)
 	if err != nil {
 		return "", err
 	}
@@ -228,7 +229,7 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 	return buf.String(), nil
 }
 
-func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (string, error) {
+func createIntegrationTestCases(fragment *console.SentinelRunJobFragment, consoleClient client.Client) (string, error) {
 	if fragment.SentinelRun == nil {
 		return "", nil
 	}
@@ -236,12 +237,22 @@ func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (strin
 		return "", nil
 	}
 
+	bindings, err := buildBindings(fragment, consoleClient)
+	if err != nil {
+		return "", err
+	}
+
 	var testCases []TestCase
 	for _, check := range fragment.SentinelRun.Checks {
 		if check.Type == console.SentinelCheckTypeIntegrationTest {
-			var testCase TestCase
+			testCase := TestCase{
+				Name: check.Name,
+			}
 
-			testCase.Name = check.Name
+			if err = templateIntegrationTestConfig(check.Configuration.IntegrationTest, bindings); err != nil {
+				return "", err
+			}
+
 			for _, tc := range check.Configuration.IntegrationTest.Cases {
 				testCase.Configurations = append(testCase.Configurations, *tc)
 			}
