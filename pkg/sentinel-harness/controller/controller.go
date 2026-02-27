@@ -259,6 +259,8 @@ func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (strin
 			if check.Configuration.IntegrationTest.Default != nil {
 				testCase.Defaults = check.Configuration.IntegrationTest.Default
 			}
+
+			testCases = append(testCases, testCase)
 		}
 	}
 
