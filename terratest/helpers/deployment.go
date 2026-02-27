@@ -71,11 +71,11 @@ func WithDeploymentDefaults(defaults *client.SentinelCheckIntegrationTestDefault
 			return
 		}
 
-		if defaults.NamespaceLabels != nil {
+		if defaults.ResourceLabels != nil {
 			opts.Labels = MergeFlat(opts.Labels, defaults.ResourceLabels)
 		}
 
-		if defaults.NamespaceAnnotations != nil {
+		if defaults.ResourceAnnotations != nil {
 			opts.Annotations = MergeFlat(opts.Annotations, defaults.ResourceAnnotations)
 		}
 

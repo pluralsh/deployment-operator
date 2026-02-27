@@ -60,7 +60,7 @@ func WithPersistentVolumeClaimAnnotations(annotations map[string]any) Persistent
 
 func WithPersistentVolumeClaimDefaults(defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) PersistentVolumeClaimOption {
 	return func(opts *PersistentVolumeClaimOptions) {
-		if defaults != nil {
+		if defaults == nil {
 			return
 		}
 

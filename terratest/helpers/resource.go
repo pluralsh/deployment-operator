@@ -12,6 +12,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	runtimerrors "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Resource[T any] interface {
@@ -67,7 +68,11 @@ func (in *baseResource) CreateWithCleanup(t *testing.T, timeout time.Duration) e
 }
 
 func (in *baseResource) DeleteWithTimeout(t *testing.T, timeout time.Duration) error {
-	if err := in.Delete(t); err != nil && !apierrors.IsNotFound(err) {
+	if err := in.Delete(t); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
 		return err
 	}
 
@@ -82,8 +87,13 @@ func (in *baseResource) DeleteWithTimeout(t *testing.T, timeout time.Duration) e
 		case <-timer.C:
 			return fmt.Errorf("timed out waiting for resource to be deleted")
 		case <-ticker.C:
-			if exists, err := in.Exists(t); !exists && err != nil {
-				return err
+			exists, err := in.Exists(t)
+			if err != nil {
+				return runtimerrors.IgnoreNotFound(err)
+			}
+
+			if !exists {
+				return nil
 			}
 		}
 	}
