@@ -201,13 +201,17 @@ func NewDeployment(name, namespace string, options ...DeploymentOption) Resource
 		opt(deploymentOptions)
 	}
 
-	return &Deployment{
+	resource := &Deployment{
 		baseResource: baseResource{
 			ObjectMeta: deploymentOptions.ToObjectMeta(),
 			typeMeta: metav1.TypeMeta{
-				Kind: "Deployment",
+				Kind:       "Deployment",
+				APIVersion: "apps/v1",
 			},
 		},
 		options: deploymentOptions,
 	}
+
+	resource.baseResource.setSelf(resource)
+	return resource
 }

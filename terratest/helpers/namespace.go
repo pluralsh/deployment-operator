@@ -52,6 +52,10 @@ func (in *Namespace) Name() string {
 	return in.GetName()
 }
 
+func (in *Namespace) Namespace() string {
+	return in.Name()
+}
+
 func (in *Namespace) Create(t *testing.T) error {
 	err := k8s.CreateNamespaceWithMetadataE(t, in.toKubectlOptions(), in.ObjectMeta)
 
@@ -96,12 +100,16 @@ func NewNamespace(name string, options ...NamespaceOption) Resource[corev1.Names
 		opt(namespaceOptions)
 	}
 
-	return &Namespace{
+	resource := &Namespace{
 		baseResource: baseResource{
 			ObjectMeta: namespaceOptions.ToObjectMeta(),
 			typeMeta: v1.TypeMeta{
-				Kind: "Namespace",
+				Kind:       "Namespace",
+				APIVersion: "v1",
 			},
 		},
 	}
+
+	resource.baseResource.setSelf(resource)
+	return resource
 }

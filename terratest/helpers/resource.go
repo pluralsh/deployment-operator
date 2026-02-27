@@ -16,51 +16,45 @@ import (
 )
 
 type Resource[T any] interface {
+	ResourceBase
+
+	CreateWithCleanup(t *testing.T, timeout time.Duration) error
+	DeleteWithTimeout(t *testing.T, timeout time.Duration) error
+	Get(t *testing.T) (*T, error)
+	WaitForReady(t *testing.T, timeout time.Duration) error
+}
+
+type ResourceBase interface {
 	Name() string
 	Namespace() string
 	Create(t *testing.T) error
-	CreateWithCleanup(t *testing.T, timeout time.Duration) error
 	Delete(t *testing.T) error
-	DeleteWithTimeout(t *testing.T, timeout time.Duration) error
-	Get(t *testing.T) (*T, error)
 	Exists(t *testing.T) (bool, error)
-	WaitForReady(t *testing.T, timeout time.Duration) error
 }
 
 type baseResource struct {
 	v1.ObjectMeta
 
 	typeMeta v1.TypeMeta
+	self     ResourceBase
 }
 
-func (in *baseResource) Delete(_ *testing.T) error {
-	return fmt.Errorf("not implemented")
-}
-
-func (in *baseResource) Create(_ *testing.T) error {
-	return fmt.Errorf("not implemented")
-}
-
-func (in *baseResource) Name() string {
-	return ""
-}
-
-func (in *baseResource) Namespace() string {
-	return ""
-}
-
-func (in *baseResource) Exists(_ *testing.T) (bool, error) {
-	return false, fmt.Errorf("not implemented")
+func (in *baseResource) setSelf(self ResourceBase) {
+	in.self = self
 }
 
 func (in *baseResource) CreateWithCleanup(t *testing.T, timeout time.Duration) error {
-	if err := in.Create(t); err != nil {
+	if in.self == nil {
+		return fmt.Errorf("baseResource is missing self reference")
+	}
+
+	if err := in.self.Create(t); err != nil {
 		return err
 	}
 
 	t.Cleanup(func() {
 		if err := in.DeleteWithTimeout(t, timeout); err != nil {
-			require.Fail(t, "could not delete resource %s/%s", in.Namespace(), in.Name())
+			require.Fail(t, "could not delete resource %s/%s", in.GetNamespace(), in.GetName())
 		}
 	})
 
@@ -68,7 +62,11 @@ func (in *baseResource) CreateWithCleanup(t *testing.T, timeout time.Duration) e
 }
 
 func (in *baseResource) DeleteWithTimeout(t *testing.T, timeout time.Duration) error {
-	if err := in.Delete(t); err != nil {
+	if in.self == nil {
+		return fmt.Errorf("baseResource is missing self reference")
+	}
+
+	if err := in.self.Delete(t); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
@@ -87,7 +85,7 @@ func (in *baseResource) DeleteWithTimeout(t *testing.T, timeout time.Duration) e
 		case <-timer.C:
 			return fmt.Errorf("timed out waiting for resource to be deleted")
 		case <-ticker.C:
-			exists, err := in.Exists(t)
+			exists, err := in.self.Exists(t)
 			if err != nil {
 				return runtimerrors.IgnoreNotFound(err)
 			}
@@ -101,7 +99,7 @@ func (in *baseResource) DeleteWithTimeout(t *testing.T, timeout time.Duration) e
 
 func (in *baseResource) toKubectlOptions() *k8s.KubectlOptions {
 	return &k8s.KubectlOptions{
-		Namespace: lo.Ternary(in.typeMeta.Kind == "Namespace", in.Name(), in.Namespace()),
+		Namespace: lo.Ternary(in.typeMeta.Kind == "Namespace", in.GetName(), in.GetNamespace()),
 	}
 }
 

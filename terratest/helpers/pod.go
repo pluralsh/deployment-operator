@@ -212,13 +212,17 @@ func NewPod(name, namespace string, options ...PodOption) Resource[corev1.Pod] {
 		opt(podOptions)
 	}
 
-	return &Pod{
+	resource := &Pod{
 		baseResource: baseResource{
 			ObjectMeta: podOptions.ToObjectMeta(),
 			typeMeta: metav1.TypeMeta{
-				Kind: "Pod",
+				Kind:       "Pod",
+				APIVersion: "v1",
 			},
 		},
 		options: podOptions,
 	}
+
+	resource.baseResource.setSelf(resource)
+	return resource
 }

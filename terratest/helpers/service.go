@@ -181,13 +181,17 @@ func NewService(name, namespace string, options ...ServiceOption) Resource[corev
 		opt(serviceOptions)
 	}
 
-	return &Service{
+	resource := &Service{
 		baseResource: baseResource{
 			ObjectMeta: serviceOptions.ToObjectMeta(),
 			typeMeta: metav1.TypeMeta{
-				Kind: "Service",
+				Kind:       "Service",
+				APIVersion: "v1",
 			},
 		},
 		options: serviceOptions,
 	}
+
+	resource.baseResource.setSelf(resource)
+	return resource
 }

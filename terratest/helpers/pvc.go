@@ -194,13 +194,17 @@ func NewPersistentVolumeClaim(name, namespace string, options ...PersistentVolum
 		opt(pvcOptions)
 	}
 
-	return &PersistentVolumeClaim{
+	resource := &PersistentVolumeClaim{
 		baseResource: baseResource{
 			ObjectMeta: pvcOptions.ToObjectMeta(),
 			typeMeta: metav1.TypeMeta{
-				Kind: "PersistentVolumeClaim",
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
 			},
 		},
 		options: pvcOptions,
 	}
+
+	resource.baseResource.setSelf(resource)
+	return resource
 }

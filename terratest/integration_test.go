@@ -150,7 +150,7 @@ func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment, _ *client
 
 	err := k8s.KubectlApplyFromStringE(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
 	t.Cleanup(func() {
-		k8s.KubectlDeleteFromString(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
+		_ = k8s.KubectlDeleteFromStringE(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
 	})
 
 	switch {
