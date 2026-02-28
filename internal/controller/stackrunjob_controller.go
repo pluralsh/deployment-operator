@@ -97,6 +97,11 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	stackRun, err := r.ConsoleClient.GetStackRun(run.Spec.RunID)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
+			if stackIsTimedOut(run) {
+				logger.V(2).Info("stack run job timed out, deleting CR", "name", run.Name, "namespace", run.Namespace)
+				err := r.Delete(ctx, run)
+				return ctrl.Result{}, k8sClient.IgnoreNotFound(err)
+			}
 			return jitterRequeue(requeueAfter, jitter), nil
 		}
 		return ctrl.Result{}, err
@@ -175,7 +180,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 // that requires no further reconciliation.
 func isTerminalStackRunStatus(status console.StackStatus) bool {
 	switch status {
-	case console.StackStatusSuccessful, console.StackStatusCancelled:
+	case console.StackStatusSuccessful, console.StackStatusCancelled, console.StackStatusFailed:
 		return true
 	}
 	return false
@@ -252,6 +257,10 @@ func getExitCodeStatus(exitCode int32) console.StackStatus {
 
 func isActiveJob(stackStatus console.StackStatus, job *batchv1.Job) bool {
 	return stackStatus == console.StackStatusPending && job.Status.CompletionTime.IsZero() && !job.Status.StartTime.IsZero()
+}
+
+func stackIsTimedOut(stackRun *v1alpha1.StackRunJob) bool {
+	return time.Now().After(stackRun.CreationTimestamp.Add(jobTimeout))
 }
 
 func isActiveJobTimout(stackStatus console.StackStatus, job *batchv1.Job) bool {

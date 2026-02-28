@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
@@ -69,8 +70,13 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	run, err := r.ConsoleClient.GetSentinelRunJob(srj.Spec.RunID)
 	if err != nil {
-		if !internalerror.IsNotFound(err) {
-			return ctrl.Result{}, err
+		if internalerror.IsNotFound(err) {
+			if sentinelIsTimedOut(srj) {
+				fromContext.V(2).Info("sentinel run job timed out, deleting CR", "name", srj.Name, "namespace", srj.Namespace)
+				err := r.Delete(ctx, srj)
+				return ctrl.Result{}, client.IgnoreNotFound(err)
+			}
+			return jitterRequeue(requeueAfter, jitter), err
 		}
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
@@ -131,9 +137,13 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
+func sentinelIsTimedOut(srj *v1alpha1.SentinelRunJob) bool {
+	return time.Now().After(srj.CreationTimestamp.Add(jobTimeout))
+}
+
 // isTerminalSentinelRunStatus returns true when the given SentinelRunJobStatus is in a terminal state, meaning the job has completed and will not transition to any other state.
 func isTerminalSentinelRunStatus(status console.SentinelRunJobStatus) bool {
-	return status == console.SentinelRunJobStatusSuccess
+	return status == console.SentinelRunJobStatusSuccess || status == console.SentinelRunJobStatusFailed
 }
 
 // SetupWithManager configures the controller with the manager.
