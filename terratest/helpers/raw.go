@@ -218,6 +218,7 @@ func restConfigFromOptions(t *testing.T, options *k8s.KubectlOptions) (*rest.Con
 
 	config, err := k8s.LoadApiClientConfigE(kubeConfigPath, options.ContextName)
 	if err != nil {
+		t.Logf("failed to load kubeconfig: %v, falling back to in-cluster config", err)
 		return rest.InClusterConfig()
 	}
 
