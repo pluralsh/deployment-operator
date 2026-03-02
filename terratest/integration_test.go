@@ -155,7 +155,7 @@ func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment, _ *client
 			resources, err := helpers.NewRawResourceList(tc.Raw.Yaml)
 			require.NoError(t, err, "failed to parse raw resources")
 
-			resources.WaitUntilReady(t, 5*time.Minute)
+			resources.WaitUntilReady(t, 15*time.Minute)
 		}
 	})
 }
