@@ -35,6 +35,7 @@ func bindings(svc *console.ServiceDeploymentForAgent) map[string]interface{} {
 		"cluster":       clusterConfiguration(svc.Cluster),
 		"contexts":      contexts(svc),
 		"imports":       imports(svc),
+		"service":       serviceConfiguration(svc),
 	}
 }
 

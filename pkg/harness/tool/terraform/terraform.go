@@ -102,7 +102,7 @@ func (in *Terraform) ConfigureStateBackend(actor, deployToken string, urls *cons
 		return err
 	}
 
-	if err = helpers.File().Create(path.Join(in.dir, fileName), content); err != nil {
+	if err = helpers.File().Create(path.Join(in.dir, fileName), content, 0644); err != nil {
 		return fmt.Errorf("failed configuring state backend file %q: %w", fileName, err)
 	}
 

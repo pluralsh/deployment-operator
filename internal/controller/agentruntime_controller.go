@@ -39,6 +39,7 @@ type AgentRuntimeReconciler struct {
 	Scheme           *runtime.Scheme
 	CacheSyncTimeout time.Duration
 	Ctx              context.Context
+	ClusterID        string
 }
 
 //+kubebuilder:rbac:groups=deployments.plural.sh,resources=agentruntimes,verbs=get;list;watch;create;update;patch;delete
@@ -86,7 +87,7 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Upsert agent runtime if it doesn't exist.
-	if _, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName()); err != nil {
+	if _, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName(), r.ClusterID); err != nil {
 		if errors.IsNotFound(err) {
 			changed = true
 		}
@@ -98,7 +99,7 @@ func (r *AgentRuntimeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return handleRequeue(nil, err, agentRuntime.SetCondition)
 		}
 	}
-	apiAgentRuntime, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName())
+	apiAgentRuntime, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName(), r.ClusterID)
 	if err != nil {
 		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
@@ -170,7 +171,7 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 
 	// If the agent runtime is being deleted, cleanup and remove the finalizer.
 	if !agentRuntime.GetDeletionTimestamp().IsZero() {
-		existingAgentRuntime, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName())
+		existingAgentRuntime, err := r.ConsoleClient.GetAgentRuntimeByName(ctx, agentRuntime.ConsoleName(), r.ClusterID)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				controllerutil.RemoveFinalizer(agentRuntime, AgentRuntimeFinalizer)

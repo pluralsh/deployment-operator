@@ -236,12 +236,31 @@ func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (strin
 		return "", nil
 	}
 
-	var testCases []console.TestCaseConfigurationFragment
+	bindings, err := buildBindings(fragment)
+	if err != nil {
+		return "", err
+	}
+
+	var testCases []TestCase
 	for _, check := range fragment.SentinelRun.Checks {
 		if check.Type == console.SentinelCheckTypeIntegrationTest {
-			for _, tc := range check.Configuration.IntegrationTest.Cases {
-				testCases = append(testCases, *tc)
+			testCase := TestCase{
+				Name: check.Name,
 			}
+
+			if err = templateIntegrationTestConfig(check.Configuration.IntegrationTest, bindings); err != nil {
+				return "", err
+			}
+
+			for _, tc := range check.Configuration.IntegrationTest.Cases {
+				testCase.Configurations = append(testCase.Configurations, *tc)
+			}
+
+			if check.Configuration.IntegrationTest.Default != nil {
+				testCase.Defaults = check.Configuration.IntegrationTest.Default
+			}
+
+			testCases = append(testCases, testCase)
 		}
 	}
 

@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 
+	"github.com/pluralsh/console/go/client"
+
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
@@ -31,3 +33,9 @@ type sentinelRunController struct {
 }
 
 type Option func(*sentinelRunController)
+
+type TestCase struct {
+	Name           string                                                           `json:"name"`
+	Configurations []client.TestCaseConfigurationFragment                           `json:"configurations,omitempty"`
+	Defaults       *client.SentinelCheckIntegrationTestDefaultConfigurationFragment `json:"defaults,omitempty"`
+}

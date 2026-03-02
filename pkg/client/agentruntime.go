@@ -11,8 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func (c *client) IsAgentRuntimeExists(ctx context.Context, name string) (bool, error) {
-	scm, err := c.GetAgentRuntimeByName(ctx, name)
+func (c *client) IsAgentRuntimeExists(ctx context.Context, name, clusterID string) (bool, error) {
+	scm, err := c.GetAgentRuntimeByName(ctx, name, clusterID)
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -43,12 +43,12 @@ func (c *client) GetAgentRuntime(ctx context.Context, id string) (*console.Agent
 	return response.AgentRuntime, err
 }
 
-func (c *client) GetAgentRuntimeByName(ctx context.Context, name string) (*console.AgentRuntimeFragment, error) {
+func (c *client) GetAgentRuntimeByName(ctx context.Context, name, clusterID string) (*console.AgentRuntimeFragment, error) {
 	if name == "" {
 		return nil, fmt.Errorf("no name specified")
 	}
 
-	response, err := c.consoleClient.GetAgentRuntimeByName(ctx, name)
+	response, err := c.consoleClient.GetAgentRuntimeByName(ctx, name, clusterID)
 	if internalerror.IsNotFound(err) {
 		return nil, errors.NewNotFound(schema.GroupResource{}, name)
 	}

@@ -36,6 +36,10 @@ type StackRun struct {
 	Parallelism  *int64
 	Refresh      *bool
 	ApproveEmpty *bool
+
+	InventoryFile *string
+	PlaybookFile  *string
+	SSHKeyFile    *string
 }
 
 func (in *StackRun) MaxSeverity() int {
@@ -70,6 +74,11 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		run.Parallelism = tf.Parallelism
 		run.Refresh = tf.Refresh
 		run.ApproveEmpty = tf.ApproveEmpty
+	}
+	if ans := fragment.Configuration.Ansible; ans != nil {
+		run.InventoryFile = ans.Inventory
+		run.PlaybookFile = ans.Playbook
+		run.SSHKeyFile = ans.PrivateKeyFile
 	}
 
 	return run

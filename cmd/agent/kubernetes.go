@@ -134,6 +134,12 @@ func registerKubeReconcilersOrDie(
 ) {
 	rolloutsClient, dynamicClient, kubeClient := initKubeClientsOrDie(config)
 
+	cluster, err := extConsoleClient.MyCluster()
+	if err != nil {
+		setupLog.Error(err, "unable to get cluster information from console")
+		os.Exit(1)
+	}
+
 	backupController := &controller.BackupReconciler{
 		Client:        manager.GetClient(),
 		Scheme:        manager.GetScheme(),
@@ -226,6 +232,8 @@ func registerKubeReconcilersOrDie(
 		Client:        manager.GetClient(),
 		Scheme:        manager.GetScheme(),
 		ConsoleClient: extConsoleClient,
+		ConsoleURL:    consoleURL,
+		DeployToken:   deployToken,
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StackRun")
 	}
@@ -304,6 +312,7 @@ func registerKubeReconcilersOrDie(
 		ConsoleClient:    extConsoleClient,
 		CacheSyncTimeout: args.PollInterval() * 3,
 		Ctx:              ctx,
+		ClusterID:        cluster.MyCluster.ID,
 	}
 	if err := agentRuntimeReconciler.SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AgentRuntime")
@@ -326,5 +335,14 @@ func registerKubeReconcilersOrDie(
 		ConsoleUrl: consoleURL,
 	}).SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PluralCAPIClusterController")
+	}
+	if err := (&controller.SentinelRunJobReconciler{
+		Client:        manager.GetClient(),
+		Scheme:        manager.GetScheme(),
+		ConsoleClient: extConsoleClient,
+		ConsoleURL:    consoleURL,
+		DeployToken:   deployToken,
+	}).SetupWithManager(manager); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SentinelRunJob")
 	}
 }

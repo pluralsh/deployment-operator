@@ -16,6 +16,17 @@ func isTemplated(svc *console.ServiceDeploymentForAgent) bool {
 	return true
 }
 
+func serviceConfiguration(svc *console.ServiceDeploymentForAgent) map[string]interface{} {
+	res := map[string]interface{}{
+		"Name":      svc.Name,
+		"Namespace": svc.Namespace,
+	}
+	for k, v := range res {
+		res[strings.ToLower(k)] = v
+	}
+	return res
+}
+
 func clusterConfiguration(cluster *console.ServiceDeploymentForAgent_Cluster) map[string]interface{} {
 	res := map[string]interface{}{
 		"ID":             cluster.ID,

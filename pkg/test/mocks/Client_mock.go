@@ -724,9 +724,9 @@ func (_c *ClientMock_GetAgentRuntime_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
-// GetAgentRuntimeByName provides a mock function with given fields: ctx, name
-func (_m *ClientMock) GetAgentRuntimeByName(ctx context.Context, name string) (*goclient.AgentRuntimeFragment, error) {
-	ret := _m.Called(ctx, name)
+// GetAgentRuntimeByName provides a mock function with given fields: ctx, name, clusterID
+func (_m *ClientMock) GetAgentRuntimeByName(ctx context.Context, name string, clusterID string) (*goclient.AgentRuntimeFragment, error) {
+	ret := _m.Called(ctx, name, clusterID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAgentRuntimeByName")
@@ -734,19 +734,19 @@ func (_m *ClientMock) GetAgentRuntimeByName(ctx context.Context, name string) (*
 
 	var r0 *goclient.AgentRuntimeFragment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*goclient.AgentRuntimeFragment, error)); ok {
-		return rf(ctx, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*goclient.AgentRuntimeFragment, error)); ok {
+		return rf(ctx, name, clusterID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *goclient.AgentRuntimeFragment); ok {
-		r0 = rf(ctx, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *goclient.AgentRuntimeFragment); ok {
+		r0 = rf(ctx, name, clusterID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*goclient.AgentRuntimeFragment)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, name)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, name, clusterID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -762,13 +762,14 @@ type ClientMock_GetAgentRuntimeByName_Call struct {
 // GetAgentRuntimeByName is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-func (_e *ClientMock_Expecter) GetAgentRuntimeByName(ctx interface{}, name interface{}) *ClientMock_GetAgentRuntimeByName_Call {
-	return &ClientMock_GetAgentRuntimeByName_Call{Call: _e.mock.On("GetAgentRuntimeByName", ctx, name)}
+//   - clusterID string
+func (_e *ClientMock_Expecter) GetAgentRuntimeByName(ctx interface{}, name interface{}, clusterID interface{}) *ClientMock_GetAgentRuntimeByName_Call {
+	return &ClientMock_GetAgentRuntimeByName_Call{Call: _e.mock.On("GetAgentRuntimeByName", ctx, name, clusterID)}
 }
 
-func (_c *ClientMock_GetAgentRuntimeByName_Call) Run(run func(ctx context.Context, name string)) *ClientMock_GetAgentRuntimeByName_Call {
+func (_c *ClientMock_GetAgentRuntimeByName_Call) Run(run func(ctx context.Context, name string, clusterID string)) *ClientMock_GetAgentRuntimeByName_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -778,7 +779,7 @@ func (_c *ClientMock_GetAgentRuntimeByName_Call) Return(_a0 *goclient.AgentRunti
 	return _c
 }
 
-func (_c *ClientMock_GetAgentRuntimeByName_Call) RunAndReturn(run func(context.Context, string) (*goclient.AgentRuntimeFragment, error)) *ClientMock_GetAgentRuntimeByName_Call {
+func (_c *ClientMock_GetAgentRuntimeByName_Call) RunAndReturn(run func(context.Context, string, string) (*goclient.AgentRuntimeFragment, error)) *ClientMock_GetAgentRuntimeByName_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1996,9 +1997,9 @@ func (_c *ClientMock_IsAgentRunExists_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
-// IsAgentRuntimeExists provides a mock function with given fields: ctx, name
-func (_m *ClientMock) IsAgentRuntimeExists(ctx context.Context, name string) (bool, error) {
-	ret := _m.Called(ctx, name)
+// IsAgentRuntimeExists provides a mock function with given fields: ctx, name, clusterID
+func (_m *ClientMock) IsAgentRuntimeExists(ctx context.Context, name string, clusterID string) (bool, error) {
+	ret := _m.Called(ctx, name, clusterID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IsAgentRuntimeExists")
@@ -2006,17 +2007,17 @@ func (_m *ClientMock) IsAgentRuntimeExists(ctx context.Context, name string) (bo
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
-		return rf(ctx, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (bool, error)); ok {
+		return rf(ctx, name, clusterID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) bool); ok {
-		r0 = rf(ctx, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) bool); ok {
+		r0 = rf(ctx, name, clusterID)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, name)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, name, clusterID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -2032,13 +2033,14 @@ type ClientMock_IsAgentRuntimeExists_Call struct {
 // IsAgentRuntimeExists is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-func (_e *ClientMock_Expecter) IsAgentRuntimeExists(ctx interface{}, name interface{}) *ClientMock_IsAgentRuntimeExists_Call {
-	return &ClientMock_IsAgentRuntimeExists_Call{Call: _e.mock.On("IsAgentRuntimeExists", ctx, name)}
+//   - clusterID string
+func (_e *ClientMock_Expecter) IsAgentRuntimeExists(ctx interface{}, name interface{}, clusterID interface{}) *ClientMock_IsAgentRuntimeExists_Call {
+	return &ClientMock_IsAgentRuntimeExists_Call{Call: _e.mock.On("IsAgentRuntimeExists", ctx, name, clusterID)}
 }
 
-func (_c *ClientMock_IsAgentRuntimeExists_Call) Run(run func(ctx context.Context, name string)) *ClientMock_IsAgentRuntimeExists_Call {
+func (_c *ClientMock_IsAgentRuntimeExists_Call) Run(run func(ctx context.Context, name string, clusterID string)) *ClientMock_IsAgentRuntimeExists_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -2048,7 +2050,7 @@ func (_c *ClientMock_IsAgentRuntimeExists_Call) Return(_a0 bool, _a1 error) *Cli
 	return _c
 }
 
-func (_c *ClientMock_IsAgentRuntimeExists_Call) RunAndReturn(run func(context.Context, string) (bool, error)) *ClientMock_IsAgentRuntimeExists_Call {
+func (_c *ClientMock_IsAgentRuntimeExists_Call) RunAndReturn(run func(context.Context, string, string) (bool, error)) *ClientMock_IsAgentRuntimeExists_Call {
 	_c.Call.Return(run)
 	return _c
 }

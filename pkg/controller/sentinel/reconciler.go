@@ -6,10 +6,16 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/polly/algorithms"
 	"github.com/pluralsh/polly/cache"
+	"github.com/samber/lo"
+	batchv1 "k8s.io/api/batch/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -18,6 +24,7 @@ import (
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	pkgcommon "github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/common"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -150,6 +157,56 @@ func (r *SentinelReconciler) Reconcile(ctx context.Context, id string) (reconcil
 	if run.Status != console.SentinelRunJobStatusPending {
 		return reconcile.Result{}, nil
 	}
-	_, err = r.reconcileRunJob(ctx, run)
-	return reconcile.Result{}, err
+
+	return reconcile.Result{}, r.reconcileSentinelRunJobCR(ctx, run)
+}
+
+func (r *SentinelReconciler) reconcileSentinelRunJobCR(ctx context.Context, run *console.SentinelRunJobFragment) error {
+	logger := log.FromContext(ctx)
+
+	name := GetRunResourceName(run)
+	namespace := r.GetRunResourceNamespace(pkgcommon.GetRunJobSpec(name, run.JobSpec))
+
+	if err := r.namespaceCache.EnsureNamespace(ctx, namespace, &console.ServiceDeploymentForAgent_SyncConfig{
+		CreateNamespace: lo.ToPtr(true),
+	}); err != nil {
+		return err
+	}
+	cr := &v1alpha1.SentinelRunJob{}
+	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cr); err != nil {
+		if !apierrs.IsNotFound(err) {
+			return err
+		}
+		cr = &v1alpha1.SentinelRunJob{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: v1alpha1.SentinelRunJobSpec{
+				RunID: run.ID,
+			},
+		}
+
+		logger.Info("creating SentinelRunJob CR", "name", name, "namespace", namespace, "runID", run.ID)
+		return r.k8sClient.Create(ctx, cr)
+	}
+	return nil
+}
+
+// GetRunResourceName returns a resource name used for a job and a secret connected to a given run.
+func GetRunResourceName(run *console.SentinelRunJobFragment) string {
+	return fmt.Sprintf("sentinel-%s", run.ID)
+}
+
+// GetRunResourceNamespace returns a resource namespace used for a job and a secret connected to a given run.
+func (r *SentinelReconciler) GetRunResourceNamespace(jobSpec *batchv1.JobSpec) (namespace string) {
+	if jobSpec != nil {
+		namespace = jobSpec.Template.Namespace
+	}
+
+	if namespace == "" {
+		namespace = r.namespace
+	}
+
+	return
 }

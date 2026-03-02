@@ -1,31 +1,31 @@
-package stacks
+package controller
 
 import (
 	"fmt"
 	"testing"
-	"time"
 
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/pluralsh/deployment-operator/pkg/test/mocks"
 )
 
 const defaultName = "default"
 
 func TestGetDefaultContainerImage(t *testing.T) {
-	var kClient client.Client
 	fakeConsoleClient := mocks.NewClientMock(t)
-	namespace := "default"
-	reconciler := NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
+	reconciler := StackRunJobReconciler{
+		ConsoleClient: fakeConsoleClient,
+		Scheme:        scheme.Scheme,
+	}
+
 	cases := []struct {
 		name          string
 		run           *console.StackRunMinimalFragment
@@ -113,11 +113,9 @@ func TestGetDefaultContainerImage(t *testing.T) {
 }
 
 func TestGenerateRunJob(t *testing.T) {
-	var kClient client.Client
-	fakeConsoleClient := mocks.NewClientMock(t)
 	namespace := defaultName
 	runID := "1"
-	reconciler := NewStackReconciler(fakeConsoleClient, kClient, scheme.Scheme, time.Minute, 0, namespace, "", "")
+	reconciler := StackRunJobReconciler{}
 	cases := []struct {
 		name            string
 		run             *console.StackRunMinimalFragment
@@ -221,8 +219,8 @@ func TestGenerateRunJob(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			name := GetRunResourceName(test.run)
-			jobSpec := getRunJobSpec(name, test.run.JobSpec)
+			name := reconciler.GetRunResourceName(test.run)
+			jobSpec := common.GetRunJobSpec(name, test.run.JobSpec)
 			job, err := reconciler.GenerateRunJob(test.run, jobSpec, test.name, namespace)
 			assert.Nil(t, err)
 			assert.NotNil(t, job)
@@ -232,13 +230,15 @@ func TestGenerateRunJob(t *testing.T) {
 }
 
 func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
+	r := StackRunJobReconciler{}
+	run := &console.StackRunMinimalFragment{Type: console.StackTypeTerraform}
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
 				Namespace:   namespace,
 				Labels:      map[string]string{},
-				Annotations: map[string]string{podDefaultContainerAnnotation: DefaultJobContainer},
+				Annotations: map[string]string{podDefaultContainerAnnotation: "default"},
 			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
@@ -257,19 +257,19 @@ func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
 						},
 						Env:                      make([]corev1.EnvVar, 0),
 						Resources:                corev1.ResourceRequirements{},
-						VolumeMounts:             ensureDefaultVolumeMounts(nil),
+						VolumeMounts:             r.ensureDefaultVolumeMounts(nil),
 						TerminationMessagePath:   "",
 						TerminationMessagePolicy: "",
 						ImagePullPolicy:          "",
-						SecurityContext:          ensureDefaultContainerSecurityContext(nil, nil),
+						SecurityContext:          r.ensureDefaultContainerSecurityContext(nil, run),
 						Stdin:                    false,
 						StdinOnce:                false,
 						TTY:                      false,
 					},
 				},
 				RestartPolicy:   corev1.RestartPolicyNever,
-				Volumes:         ensureDefaultVolumes(nil),
-				SecurityContext: ensureDefaultPodSecurityContext(nil),
+				Volumes:         r.ensureDefaultVolumes(nil),
+				SecurityContext: r.ensureDefaultPodSecurityContext(nil),
 			},
 		},
 		TTLSecondsAfterFinished: lo.ToPtr(int32(60 * 60)),
