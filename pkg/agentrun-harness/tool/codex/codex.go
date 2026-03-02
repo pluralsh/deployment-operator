@@ -66,7 +66,6 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			AllowedEnvVars:       []string{"PATH", "HOME"},
 			EnableWebSearch:      true,
 			EnableShellCache:     true,
-			//PromptFile:           promptFile,
 			EnabledTools: []string{
 				"Read", "Grep", "Glob",
 				"Bash(ls:*)", "Bash(cd:*)", "Bash(pwd)",
@@ -85,7 +84,6 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			AllowedEnvVars:       []string{"PATH", "HOME"},
 			EnableWebSearch:      true,
 			EnableShellCache:     true,
-			//PromptFile:           promptFile,
 			EnabledTools: []string{
 				"Read", "Write", "Edit", "MultiEdit", "Bash", "WebFetch",
 				"agentPullRequest",
@@ -242,9 +240,8 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 			Message: "Called tool",
 			Metadata: &console.AgentMessageMetadataAttributes{
 				Tool: &console.AgentMessageToolAttributes{
-					Name:   lo.ToPtr("shell"),
+					Name:   lo.ToPtr(item.Command),
 					State:  lo.ToPtr(state),
-					Input:  lo.ToPtr(item.Command),
 					Output: lo.ToPtr(item.AggregatedOutput),
 				},
 			},

@@ -75,7 +75,7 @@ func WriteCodexConfig(basePath string, cfg *CodexConfig) (string, error) {
 		return "", err
 	}
 
-	if err := os.WriteFile(filePath, data, 0o644); err != nil {
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
 		return "", err
 	}
 

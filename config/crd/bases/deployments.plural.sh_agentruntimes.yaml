@@ -1733,7 +1733,7 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       model:
-                        description: Model Name of the model to use.
+                        description: Model to use.
                         type: string
                     type: object
                   gemini:

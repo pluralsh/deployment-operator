@@ -229,7 +229,7 @@ type CodexConfigRaw struct {
 	// ApiKey is the raw API key to use.
 	ApiKey string `json:"apiKey"`
 
-	// Model Name of the model to use.
+	// Model to use.
 	Model *string `json:"model,omitempty"`
 }
 
@@ -237,7 +237,7 @@ type CodexConfig struct {
 	// ApiKeySecretRef Reference to a Kubernetes Secret containing the Codex API key.
 	ApiKeySecretRef *corev1.SecretKeySelector `json:"apiKeySecretRef,omitempty"`
 
-	// Model Name of the model to use.
+	// Model to use.
 	Model *string `json:"model,omitempty"`
 }
 
