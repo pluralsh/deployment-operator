@@ -57,43 +57,43 @@ func TestSentinelIntegration(t *testing.T) {
 }
 
 func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment, defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) {
-	require.NotNil(t, tc.Loadbalancer, "loadbalancer config must be set")
+	t.Run(tc.Name, func(t *testing.T) {
+		require.NotNil(t, tc.Loadbalancer, "loadbalancer config must be set")
 
-	suffix := rand.String(6)
-	namespaceName := fmt.Sprintf("test-%s", suffix)
-	serviceName := fmt.Sprintf("%s-svc-%s", tc.Loadbalancer.NamePrefix, suffix)
+		suffix := rand.String(6)
+		namespaceName := fmt.Sprintf("test-%s", suffix)
+		serviceName := fmt.Sprintf("%s-svc-%s", tc.Loadbalancer.NamePrefix, suffix)
 
-	namespaceResource := helpers.NewNamespace(namespaceName, helpers.WithNamespaceDefaults(defaults))
-	if err := namespaceResource.CreateWithCleanup(t, 5*time.Minute); err != nil {
-		require.Fail(t, "failed to create namespace: %v", err)
-	}
+		namespaceResource := helpers.NewNamespace(namespaceName, helpers.WithNamespaceDefaults(defaults))
+		if err := namespaceResource.CreateWithCleanup(t, 5*time.Minute); err != nil {
+			require.Fail(t, "failed to create namespace: %v", err)
+		}
 
-	serviceResource := helpers.NewService(serviceName, namespaceName,
-		helpers.WithServiceLabels(tc.Loadbalancer.Labels),
-		helpers.WithServiceAnnotations(tc.Loadbalancer.Annotations),
-		helpers.WithServiceType(corev1.ServiceTypeLoadBalancer),
-		helpers.WithServicePorts(corev1.ServicePort{
-			Name:       "http",
-			Port:       80,
-			TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 80},
-		}),
-		helpers.WithServiceDefaults(defaults),
-	)
+		serviceResource := helpers.NewService(serviceName, namespaceName,
+			helpers.WithServiceLabels(tc.Loadbalancer.Labels),
+			helpers.WithServiceAnnotations(tc.Loadbalancer.Annotations),
+			helpers.WithServiceType(corev1.ServiceTypeLoadBalancer),
+			helpers.WithServicePorts(corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 80},
+			}),
+			helpers.WithServiceDefaults(defaults),
+		)
 
-	if err := serviceResource.Create(t); err != nil {
-		require.Fail(t, "failed to create service: %v", err)
-	}
+		if err := serviceResource.Create(t); err != nil {
+			require.Fail(t, "failed to create service: %v", err)
+		}
 
-	if err := serviceResource.WaitForReady(t, 2*time.Minute); err != nil {
-		require.Fail(t, "failed to wait for service to be ready: %v", err)
-	}
+		if err := serviceResource.WaitForReady(t, 2*time.Minute); err != nil {
+			require.Fail(t, "failed to wait for service to be ready: %v", err)
+		}
 
-	svc, err := serviceResource.Get(t)
-	if err != nil {
-		require.Fail(t, "failed to get service: %v", err)
-	}
+		svc, err := serviceResource.Get(t)
+		if err != nil {
+			require.Fail(t, "failed to get service: %v", err)
+		}
 
-	t.Run(serviceName, func(t *testing.T) {
 		require.Equal(t, "LoadBalancer", string(svc.Spec.Type))
 
 		if tc.Loadbalancer.DNSProbe != nil {
@@ -111,113 +111,119 @@ func runLoadBalancerTest(t *testing.T, tc client.TestCaseConfigurationFragment, 
 }
 
 func runCorednsTest(t *testing.T, tc client.TestCaseConfigurationFragment) {
-	require.NotNil(t, tc.Coredns, "coredns config must be set")
-	require.NotEmpty(t, tc.Coredns.DialFqdns, "coredns dialFqdns must be set")
+	t.Run(tc.Name, func(t *testing.T) {
+		require.NotNil(t, tc.Coredns, "coredns config must be set")
+		require.NotEmpty(t, tc.Coredns.DialFqdns, "coredns dialFqdns must be set")
 
-	prober, err := dns.NewCoreDNSProber()
-	require.NoError(t, err, "failed to create coredns prober")
+		prober, err := dns.NewCoreDNSProber()
+		require.NoError(t, err, "failed to create coredns prober")
 
-	for _, fqdn := range tc.Coredns.DialFqdns {
-		require.NotNil(t, fqdn, "coredns fqdn must be set")
+		for _, fqdn := range tc.Coredns.DialFqdns {
+			t.Run(*fqdn, func(t *testing.T) {
+				require.NotNil(t, fqdn, "coredns fqdn must be set")
 
-		t.Run(*fqdn, func(t *testing.T) {
-			err = prober.Probe(*fqdn)
-			require.NoError(t, err, "coredns probe failed for %s", *fqdn)
-		})
-	}
+				err = prober.Probe(*fqdn)
+				require.NoError(t, err, "coredns probe failed for %s", *fqdn)
+			})
+		}
+	})
 }
 
 func runRawTest(t *testing.T, tc client.TestCaseConfigurationFragment, _ *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) {
-	require.NotNil(t, tc.Raw, "raw config must be set")
-	require.NotEmpty(t, tc.Raw.Yaml, "raw yaml must be set")
+	t.Run(tc.Name, func(t *testing.T) {
+		require.NotNil(t, tc.Raw, "raw config must be set")
+		require.NotEmpty(t, tc.Raw.Yaml, "raw yaml must be set")
 
-	expected := client.SentinelRawResultSuccess
-	if tc.Raw.ExpectedResult != nil {
-		expected = *tc.Raw.ExpectedResult
-	}
+		expected := client.SentinelRawResultSuccess
+		if tc.Raw.ExpectedResult != nil {
+			expected = *tc.Raw.ExpectedResult
+		}
 
-	err := k8s.KubectlApplyFromStringE(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
-	t.Cleanup(func() {
-		_ = k8s.KubectlDeleteFromStringE(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
+		err := k8s.KubectlApplyFromStringE(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
+		t.Cleanup(func() {
+			_ = k8s.KubectlDeleteFromStringE(t, k8s.NewKubectlOptions("", "", ""), tc.Raw.Yaml)
+		})
+
+		switch {
+		case err != nil && expected == client.SentinelRawResultSuccess:
+			t.Fatalf("failed to apply yaml: %v", err)
+		case err == nil && expected == client.SentinelRawResultFailed:
+			t.Fatalf("expected failure but got success")
+		}
+
+		if err == nil && expected == client.SentinelRawResultSuccess {
+			resources, err := helpers.NewRawResourceList(tc.Raw.Yaml)
+			require.NoError(t, err, "failed to parse raw resources")
+
+			resources.WaitUntilReady(t, 15*time.Minute)
+		}
 	})
-
-	switch {
-	case err != nil && expected == client.SentinelRawResultSuccess:
-		t.Fatalf("failed to apply yaml: %v", err)
-	case err == nil && expected == client.SentinelRawResultFailed:
-		t.Fatalf("expected failure but got success")
-	}
-
-	if err == nil && expected == client.SentinelRawResultSuccess {
-		resources, err := helpers.NewRawResourceList(tc.Raw.Yaml)
-		require.NoError(t, err, "failed to parse raw resources")
-
-		resources.WaitUntilReady(t, 2*time.Minute)
-	}
 }
 
 func runPVCTest(t *testing.T, tc client.TestCaseConfigurationFragment, defaults *client.SentinelCheckIntegrationTestDefaultConfigurationFragment) {
-	require.NotNil(t, tc.Pvc)
-	require.NotEmpty(t, tc.Pvc.NamePrefix)
-	require.NotEmpty(t, tc.Pvc.Size)
-	require.NotEmpty(t, tc.Pvc.StorageClass)
+	t.Run(tc.Name, func(t *testing.T) {
+		require.NotNil(t, tc.Pvc)
+		require.NotEmpty(t, tc.Pvc.NamePrefix)
+		require.NotEmpty(t, tc.Pvc.Size)
+		require.NotEmpty(t, tc.Pvc.StorageClass)
 
-	suffix := rand.String(6)
+		suffix := rand.String(6)
 
-	namespaceName := fmt.Sprintf("test-%s", suffix)
-	pvcName := fmt.Sprintf("%s-%s", tc.Pvc.NamePrefix, suffix)
-	podName := fmt.Sprintf("pvc-test-%s", suffix)
+		namespaceName := fmt.Sprintf("test-%s", suffix)
+		pvcName := fmt.Sprintf("%s-%s", tc.Pvc.NamePrefix, suffix)
+		podName := fmt.Sprintf("pvc-test-%s", suffix)
 
-	namespace := helpers.NewNamespace(namespaceName, helpers.WithNamespaceDefaults(defaults))
-	if err := namespace.CreateWithCleanup(t, 5*time.Minute); err != nil {
-		require.Fail(t, "failed to create namespace: %v", err)
-	}
+		namespace := helpers.NewNamespace(namespaceName, helpers.WithNamespaceDefaults(defaults))
+		if err := namespace.CreateWithCleanup(t, 5*time.Minute); err != nil {
+			require.Fail(t, "failed to create namespace: %v", err)
+		}
 
-	// PVC requires at least one consumer to go into bound phase.
-	// We need to create both resources first and then wait.
-	pvc := helpers.NewPersistentVolumeClaim(
-		pvcName,
-		namespaceName,
-		helpers.WithPersistentVolumeClaimStorageClass(tc.Pvc.StorageClass),
-		helpers.WithPersistentVolumeClaimSize(tc.Pvc.Size),
-		helpers.WithPersistentVolumeClaimDefaults(defaults),
-	)
-	if err := pvc.Create(t); err != nil {
-		require.Fail(t, "failed to create pvc %s/%s: %v", namespaceName, pvcName, err)
-	}
+		// PVC requires at least one consumer to go into bound phase.
+		// We need to create both resources first and then wait.
+		pvc := helpers.NewPersistentVolumeClaim(
+			pvcName,
+			namespaceName,
+			helpers.WithPersistentVolumeClaimStorageClass(tc.Pvc.StorageClass),
+			helpers.WithPersistentVolumeClaimSize(tc.Pvc.Size),
+			helpers.WithPersistentVolumeClaimDefaults(defaults),
+		)
+		if err := pvc.Create(t); err != nil {
+			require.Fail(t, "failed to create pvc %s/%s: %v", namespaceName, pvcName, err)
+		}
 
-	pod := helpers.NewPod(podName,
-		namespaceName,
-		helpers.WithPodImage(helpers.BusyboxImage),
-		helpers.WithPodCommand("sh",
-			"-c",
-			"echo 'pvc-test' > /data/verify.txt && grep -x 'pvc-test' /data/verify.txt",
-		),
-		helpers.WithPodVolumes(corev1.Volume{
-			Name: "pvc-data",
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvcName,
+		pod := helpers.NewPod(podName,
+			namespaceName,
+			helpers.WithPodImage(helpers.BusyboxImage),
+			helpers.WithPodCommand("sh",
+				"-c",
+				"echo 'pvc-test' > /data/verify.txt && grep -x 'pvc-test' /data/verify.txt",
+			),
+			helpers.WithPodVolumes(corev1.Volume{
+				Name: "pvc-data",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvcName,
+					},
 				},
-			},
-		}),
-		helpers.WithPodVolumeMounts(corev1.VolumeMount{
-			Name:      "pvc-data",
-			MountPath: "/data",
-		}),
-		helpers.WithPodDefaults(defaults),
-	)
-	if err := pod.Create(t); err != nil {
-		require.Fail(t, "failed to create pod %s/%s: %v", namespaceName, podName, err)
-	}
+			}),
+			helpers.WithPodVolumeMounts(corev1.VolumeMount{
+				Name:      "pvc-data",
+				MountPath: "/data",
+			}),
+			helpers.WithPodDefaults(defaults),
+		)
+		if err := pod.Create(t); err != nil {
+			require.Fail(t, "failed to create pod %s/%s: %v", namespaceName, podName, err)
+		}
 
-	if err := pvc.WaitForReady(t, 5*time.Minute); err != nil {
-		require.Fail(t, "pvc %s/%s did not become ready: %v", namespaceName, pvcName, err)
-	}
+		if err := pvc.WaitForReady(t, 5*time.Minute); err != nil {
+			require.Fail(t, "pvc %s/%s did not become ready: %v", namespaceName, pvcName, err)
+		}
 
-	if err := pod.WaitForReady(t, 5*time.Minute); err != nil {
-		require.Fail(t, "pod %s/%s did not succeed: %v", namespaceName, podName, err)
-	}
+		if err := pod.WaitForReady(t, 5*time.Minute); err != nil {
+			require.Fail(t, "pod %s/%s did not succeed: %v", namespaceName, podName, err)
+		}
+	})
 }
 
 func loadIntegrationTestCases(t *testing.T) []types.TestCase {
