@@ -131,7 +131,7 @@ func (in RawResource) waitUntilReadyByCondition(t *testing.T, options *k8s.Kubec
 
 	dynamicClient, mapper, err := dynamicClientAndMapper(t, options)
 	if err != nil {
-		t.Logf("failed to get dynamic client: %v", err)
+		t.Fatalf("failed to get dynamic client: %v", err)
 		return
 	}
 
