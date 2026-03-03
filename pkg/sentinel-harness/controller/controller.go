@@ -54,56 +54,52 @@ func (in *sentinelRunController) Start(_ context.Context) error {
 		return err
 	}
 
-	output, err := in.runTests(sentinelRunJob)
+	output, passed, err := in.runTests(sentinelRunJob)
 	if err != nil {
-		if err := in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{
+		updateErr := in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{
 			Status: lo.ToPtr(console.SentinelRunJobStatusFailed),
-		}); err != nil {
-			return err
-		}
-		return err
+		})
+
+		return fmt.Errorf("error running tests: %w, %s", err, updateErr)
 	}
 
-	if err := in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{
-		Status: lo.ToPtr(console.SentinelRunJobStatusSuccess),
+	return in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{
+		Status: lo.Ternary(passed, lo.ToPtr(console.SentinelRunJobStatusSuccess), lo.ToPtr(console.SentinelRunJobStatusFailed)),
 		Output: lo.ToPtr(output),
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
-func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragment) (string, error) {
+func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragment) (string, bool, error) {
 	if fragment.UsesGit != nil && *fragment.UsesGit {
 		klog.V(log.LogLevelDefault).InfoS("getting git repository")
 		testDir, err := in.fetch()
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 		in.testDir = testDir
 	}
 
 	path, err := createIntegrationTestCases(fragment)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if len(path) > 0 {
 		klog.V(log.LogLevelDefault).InfoS("setting test cases file path", "path", path)
 		if err := os.Setenv(testCaseFilePathEnvVar, path); err != nil {
-			return "", err
+			return "", false, err
 		}
 	}
 	err = os.Chdir(in.testDir)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	klog.V(log.LogLevelDefault).InfoS("running tests", "testDir", in.testDir)
 
 	junitPath := filepath.Join(in.outputDir, junitfile)
 
-	if err := cmd.Run("", []string{
+	passed := false
+	err = cmd.Run("", []string{
 		"--format", "testname",
 		"--junitfile", junitPath,
 		"--jsonfile", filepath.Join(in.outputDir, jsonFile),
@@ -112,24 +108,25 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 		"--test.timeout", in.timeoutDuration,
 		"--test.parallel", "1",
 		"--test.count", "1",
-		"--test.failfast",
-	}); err != nil {
-		return "", err
+	})
+	if err == nil {
+		passed = true
 	}
 
 	output, err := DecodeTestJSONFileToString(filepath.Join(in.outputDir, jsonFile))
 	if err != nil {
-		return "", err
+		return "", passed, err
 	}
 
 	if in.outputFormat == junitFormat {
 		out, err := os.ReadFile(junitPath)
 		if err != nil {
-			return "", err
+			return "", passed, err
 		}
 		output = string(out)
 	}
-	return output, nil
+
+	return output, passed, nil
 }
 
 func (in *sentinelRunController) init() (Controller, error) {
