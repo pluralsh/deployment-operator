@@ -60,7 +60,7 @@ func (in *sentinelRunController) Start(_ context.Context) error {
 			Status: lo.ToPtr(console.SentinelRunJobStatusFailed),
 		})
 
-		return fmt.Errorf("error running tests: %w, %s", err, updateErr)
+		return fmt.Errorf("error running tests: %w; update status err: %w", err, updateErr)
 	}
 
 	return in.consoleClient.UpdateSentinelRunJobStatus(in.sentinelRunID, &console.SentinelRunJobUpdateAttributes{

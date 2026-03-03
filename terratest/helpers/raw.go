@@ -129,12 +129,18 @@ func (in RawResource) waitUntilReadyByCondition(t *testing.T, options *k8s.Kubec
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
+	dynamicClient, mapper, err := dynamicClientAndMapper(t, options)
+	if err != nil {
+		t.Logf("failed to get dynamic client: %v", err)
+		return
+	}
+
 	for {
 		select {
 		case <-timer.C:
 			t.Fatalf("timed out waiting for %s %s/%s to be ready", in.GetKind(), in.GetNamespace(), in.GetName())
 		case <-ticker.C:
-			ready, err := in.isReadyByCondition(t, options)
+			ready, err := in.isReadyByCondition(dynamicClient, mapper)
 			if err != nil {
 				t.Logf("failed to check readiness for %s %s/%s: %v", in.GetKind(), in.GetNamespace(), in.GetName(), err)
 				continue
@@ -147,12 +153,7 @@ func (in RawResource) waitUntilReadyByCondition(t *testing.T, options *k8s.Kubec
 	}
 }
 
-func (in RawResource) isReadyByCondition(t *testing.T, options *k8s.KubectlOptions) (bool, error) {
-	dynamicClient, mapper, err := dynamicClientAndMapper(t, options)
-	if err != nil {
-		return false, err
-	}
-
+func (in RawResource) isReadyByCondition(dynamicClient dynamic.Interface, mapper meta.RESTMapper) (bool, error) {
 	gvk := schema.FromAPIVersionAndKind(in.GetAPIVersion(), in.GetKind())
 	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
