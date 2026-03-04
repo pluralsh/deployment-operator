@@ -30,14 +30,16 @@ func (in *Ansible) Plan() (*console.StackStateAttributes, error) {
 func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
 	modifiers := []v1.Modifier{NewGlobalEnvModifier(in.workDir)}
 
-	modifiers = append(modifiers, NewVariableModifier(in.SSHKeyFile))
-
 	if in.variables != nil {
 		modifiers = append(modifiers, NewVariableInjectorModifier(in.variablesFileName))
 	}
 
 	if stage == console.StepStagePlan {
+		modifiers = append(modifiers, NewVariableModifier(in.SSHKeyFile))
 		modifiers = append(modifiers, NewPassthroughModifier(in.planFilePath))
+	}
+	if stage == console.StepStageApply {
+		modifiers = append(modifiers, NewVariableModifier(in.SSHKeyFile))
 	}
 
 	return v1.NewMultiModifier(modifiers...)

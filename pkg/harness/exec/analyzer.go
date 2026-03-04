@@ -3,7 +3,6 @@ package exec
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"strings"
 )
@@ -31,10 +30,6 @@ func (in *outputAnalyzer) Detect() []error {
 		if potentialErrors := heuristic.Detect(bufio.NewScanner(strings.NewReader(output))); len(potentialErrors) > 0 {
 			errors = append(errors, potentialErrors.ToErrors()...)
 		}
-	}
-
-	if in.stderr.Len() > 0 {
-		errors = append(errors, fmt.Errorf("%s", in.stderr.String()))
 	}
 
 	return errors

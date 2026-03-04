@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"k8s.io/klog/v2"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
@@ -35,6 +36,9 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 		fmt.Sprintf("ANSIBLE_PERSISTENT_CONTROL_PATH_DIR=%s", "/tmp/.ansible/pc"),
 		fmt.Sprintf("ANSIBLE_HOST_KEY_CHECKING=%s", "false"),
 		fmt.Sprintf("ANSIBLE_PYTHON_INTERPRETER=%s", "auto_silent"),
+		fmt.Sprintf("ANSIBLE_DEPRECATION_WARNINGS=%s", "false"),
+		fmt.Sprintf("ANSIBLE_COMMAND_WARNINGS=%s", "false"),
+		fmt.Sprintf("ANSIBLE_LIBRARY=%s", "/plural/plugins/modules"),
 	)
 }
 
@@ -57,11 +61,21 @@ func NewVariableModifier(sshKeyFile *string) v1.Modifier {
 }
 
 func (in *VariableModifier) Args(args []string) []string {
-	klog.V(1).InfoS("applying variable modifier", "sshKeyFile", in.SSHKeyFile)
+	klog.V(log.LogLevelTrace).InfoS("applying variable modifier", "sshKeyFile", in.SSHKeyFile)
 
 	if in.SSHKeyFile != nil {
 		args = append(args, "--private-key", *in.SSHKeyFile)
 	}
-	klog.V(1).InfoS("variable modifier applied", "args", args)
+	args = removeFirstCheckFlag(args)
+	klog.V(log.LogLevelTrace).InfoS("variable modifier applied", "args", args)
+	return args
+}
+
+func removeFirstCheckFlag(args []string) []string {
+	for i, arg := range args {
+		if arg == "--check" {
+			return append(args[:i], args[i+1:]...)
+		}
+	}
 	return args
 }

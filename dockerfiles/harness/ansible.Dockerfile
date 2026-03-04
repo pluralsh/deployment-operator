@@ -8,7 +8,7 @@ FROM ${HARNESS_BASE_IMAGE} AS harness
 
 # Build Ansible from Python Image
 FROM python:${PYTHON_VERSION}-alpine AS final
-ARG ANSIBLE_VERSION=9.0.1
+ARG ANSIBLE_VERSION=11.0.0
 
 # Copy Harness bin from the Harness Image
 COPY --from=harness /harness /usr/local/bin/harness
@@ -29,6 +29,7 @@ RUN apk add --no-cache \
     gnupg \
     unzip \
     tar \
+    sudo \
     ca-certificates && \
     apk add --no-cache --virtual .build-deps \
     gcc \
@@ -50,8 +51,9 @@ RUN apk add --no-cache \
 
 RUN addgroup --gid 65532 nonroot && \
     adduser --uid 65532 --ingroup nonroot --disabled-password --home /home/nonroot nonroot && \
-    mkdir -p /home/nonroot/.cache/pip /home/nonroot/.local && \
-    chown -R 65532:65532 /home/nonroot
+    mkdir -p /home/nonroot/.cache/pip /home/nonroot/.local /plural && \
+    chown -R 65532:65532 /home/nonroot /plural && \
+    echo "nonroot ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 # Ensure pip uses a writable cache dir and does not fall back to user install
 ENV PIP_CACHE_DIR=/home/nonroot/.cache/pip
