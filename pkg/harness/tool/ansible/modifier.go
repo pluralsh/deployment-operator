@@ -67,16 +67,6 @@ func (in *VariableModifier) Args(args []string) []string {
 	if in.SSHKeyFile != nil {
 		args = append(args, "--private-key", *in.SSHKeyFile)
 	}
-	args = removeFirstCheckFlag(args)
 	klog.V(log.LogLevelTrace).InfoS("variable modifier applied", "args", args)
-	return args
-}
-
-func removeFirstCheckFlag(args []string) []string {
-	for i, arg := range args {
-		if arg == "--check" {
-			return append(args[:i], args[i+1:]...)
-		}
-	}
 	return args
 }
