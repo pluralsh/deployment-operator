@@ -52,6 +52,20 @@ const (
 	EnvBrowserEnabled = "PLRL_BROWSER_ENABLED"
 )
 
+var (
+	terminalRunStatuses = []console.AgentRunStatus{
+		console.AgentRunStatusSuccessful,
+		console.AgentRunStatusFailed,
+		console.AgentRunStatusCancelled,
+	}
+
+	terminalAgentRunPhases = []v1alpha1.AgentRunPhase{
+		v1alpha1.AgentRunPhaseSucceeded,
+		v1alpha1.AgentRunPhaseFailed,
+		v1alpha1.AgentRunPhaseCancelled,
+	}
+)
+
 // AgentRunReconciler is a controller for the AgentRun custom resource.
 // It manages the lifecycle of individual agent runs by:
 // 1. Creating pods to execute agent tasks
@@ -126,7 +140,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	// Pod health is the default source of the agent run phase.
 	// If Console already reports a terminal phase, we override the agent run phase for consistent cleanup.
-	if isTerminalAgentRunStatus(apiAgentRun.Status) {
+	if lo.Contains(terminalRunStatuses, apiAgentRun.Status) {
 		run.Status.Phase = getAgentRunPhase(apiAgentRun.Status)
 		if run.Status.EndTime == nil {
 			run.Status.EndTime = lo.ToPtr(metav1.Now())
@@ -134,7 +148,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	// Delete the AgentRun CR when the agent run phase is terminal (from pod health and/or terminal Console override).
-	if isTerminalAgentRunPhase(run.Status.Phase) {
+	if lo.Contains(terminalAgentRunPhases, run.Status.Phase) {
 		if _, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes()); err != nil {
 			utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 			return ctrl.Result{}, err
@@ -303,14 +317,6 @@ func getAgentRunPhase(status console.AgentRunStatus) v1alpha1.AgentRunPhase {
 	}
 }
 
-func isTerminalAgentRunStatus(status console.AgentRunStatus) bool {
-	return status == console.AgentRunStatusSuccessful || status == console.AgentRunStatusFailed || status == console.AgentRunStatusCancelled
-}
-
-func isTerminalAgentRunPhase(phase v1alpha1.AgentRunPhase) bool {
-	return phase == v1alpha1.AgentRunPhaseSucceeded || phase == v1alpha1.AgentRunPhaseFailed || phase == v1alpha1.AgentRunPhaseCancelled
-}
-
 // reconcilePod ensures the pod for the agent run exists and is in the desired state.
 func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) error {
 	secret, err := r.reconcilePodSecret(ctx, run, runtime)
@@ -339,7 +345,7 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 			Namespace: pod.Namespace,
 		}
 
-		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes()); err != nil {
+		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes()); err != nil {
 			return fmt.Errorf("failed to update agent run: %w", err)
 		}
 	}
