@@ -51,7 +51,7 @@ RUN apk add --no-cache \
 
 RUN addgroup --gid 65532 nonroot && \
     adduser --uid 65532 --ingroup nonroot --disabled-password --home /home/nonroot nonroot && \
-    mkdir -p /home/nonroot/.cache/pip /home/nonroot/.local /plural && \
+    mkdir -p /home/nonroot/.cache/pip /home/nonroot/.local /plural/plugins/modules && \
     chown -R 65532:65532 /home/nonroot /plural && \
     echo "nonroot ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
