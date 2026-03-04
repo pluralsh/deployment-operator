@@ -26,6 +26,7 @@ import (
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	pluralclient "github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 )
 
 const (
@@ -102,40 +103,74 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return *result, nil
 	}
 
-	if _, err := r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID()); err != nil {
+	apiAgentRun, err := r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID())
+	if err != nil {
 		if !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 
-		// agent run is gone, delete the k8s resource
+		// Agent run is gone, delete the Kubernetes resource.
 		if err := r.Delete(ctx, run); err != nil && !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 
 		return ctrl.Result{}, nil
 	}
+	run.Status.ID = &apiAgentRun.ID
+
+	// Derive agent run phase from pod health.
+	if err = r.syncPhaseFromPodHealth(ctx, run); err != nil {
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		return ctrl.Result{}, err
+	}
+
+	// Pod health is the default source of the agent run phase.
+	// If Console already reports a terminal phase, we override the agent run phase for consistent cleanup.
+	if isTerminalAgentRunStatus(apiAgentRun.Status) {
+		run.Status.Phase = getAgentRunPhase(apiAgentRun.Status)
+		if run.Status.EndTime == nil {
+			run.Status.EndTime = lo.ToPtr(metav1.Now())
+		}
+	}
+
+	// Delete the AgentRun CR when the agent run phase is terminal (from pod health and/or terminal Console override).
+	if isTerminalAgentRunPhase(run.Status.Phase) {
+		if _, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes()); err != nil {
+			utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+			return ctrl.Result{}, err
+		}
+
+		logger.V(2).Info("deleting agent run", "name", run.Name, "namespace", run.Namespace)
+		if err := r.Delete(ctx, run); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+
+		utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
+		return ctrl.Result{}, nil
+	}
 
 	agentRuntime, err := r.getRuntime(ctx, run)
 	if err != nil {
-		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 	if agentRuntime.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 	if !agentRuntime.Status.HasID() {
-		utils.MarkCondition(agentRuntime.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, "agent runtime is not ready")
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, "agent runtime is not ready")
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
-	changed, sha, err := run.Diff(utils.HashObject)
+	_, sha, err := run.Diff(utils.HashObject)
 	if err != nil {
 		logger.Error(err, "unable to calculate agent run SHA")
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	apiAgentRun, err := r.sync(ctx, changed, run, agentRuntime)
+	apiAgentRun, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes())
 	if err != nil {
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
@@ -152,21 +187,8 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	return jitterRequeue(requeueAfterAgentRun, jitter), nil
 }
-
-func (r *AgentRunReconciler) sync(ctx context.Context, changed bool, run *v1alpha1.AgentRun, agentRuntime *v1alpha1.AgentRuntime) (*console.AgentRunFragment, error) {
-	if changed {
-		apiAgentRun, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, run.StatusAttributes())
-		if err != nil {
-			return nil, err
-		}
-		return apiAgentRun, nil
-	}
-
-	return r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID())
-}
-
 func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, run *v1alpha1.AgentRun) *ctrl.Result {
-	if run.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(run, AgentRuntimeFinalizer) {
+	if run.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(run, AgentRunFinalizer) {
 		controllerutil.AddFinalizer(run, AgentRunFinalizer)
 	}
 
@@ -212,6 +234,83 @@ func (r *AgentRunReconciler) getRuntime(ctx context.Context, run *v1alpha1.Agent
 	return
 }
 
+func (r *AgentRunReconciler) syncPhaseFromPodHealth(ctx context.Context, run *v1alpha1.AgentRun) error {
+	if run.Status.Phase == "" {
+		run.Status.Phase = v1alpha1.AgentRunPhasePending
+	}
+
+	pod := &corev1.Pod{}
+	if err := r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get pod status: %w", err)
+	}
+
+	run.Status.PodRef = &corev1.ObjectReference{Name: pod.Name, Namespace: pod.Namespace}
+
+	if run.Status.StartTime == nil && pod.Status.StartTime != nil {
+		run.Status.StartTime = pod.Status.StartTime.DeepCopy()
+	}
+
+	unstructuredPod, err := common.ToUnstructured(pod)
+	if err != nil {
+		return fmt.Errorf("failed to convert pod to unstructured: %w", err)
+	}
+
+	health, err := common.GetResourceHealth(unstructuredPod)
+	if err != nil {
+		return fmt.Errorf("failed to get pod health: %w", err)
+	}
+	if health == nil {
+		return nil
+	}
+
+	switch health.Status {
+	case common.HealthStatusHealthy:
+		run.Status.Phase = v1alpha1.AgentRunPhaseSucceeded
+		run.Status.Error = nil
+		if run.Status.EndTime == nil {
+			run.Status.EndTime = lo.ToPtr(metav1.Now())
+		}
+	case common.HealthStatusDegraded:
+		run.Status.Phase = v1alpha1.AgentRunPhaseFailed
+		if run.Status.EndTime == nil {
+			run.Status.EndTime = lo.ToPtr(metav1.Now())
+		}
+
+		run.Status.Error = lo.ToPtr(lo.Ternary(health.Message == "", "agent run pod failed", health.Message))
+	case common.HealthStatusProgressing:
+		run.Status.Phase = lo.Ternary(run.Status.StartTime == nil, v1alpha1.AgentRunPhasePending, v1alpha1.AgentRunPhaseRunning)
+		run.Status.Error = nil
+	}
+
+	return nil
+}
+
+func getAgentRunPhase(status console.AgentRunStatus) v1alpha1.AgentRunPhase {
+	switch status {
+	case console.AgentRunStatusRunning:
+		return v1alpha1.AgentRunPhaseRunning
+	case console.AgentRunStatusSuccessful:
+		return v1alpha1.AgentRunPhaseSucceeded
+	case console.AgentRunStatusFailed:
+		return v1alpha1.AgentRunPhaseFailed
+	case console.AgentRunStatusCancelled:
+		return v1alpha1.AgentRunPhaseCancelled
+	default:
+		return v1alpha1.AgentRunPhasePending
+	}
+}
+
+func isTerminalAgentRunStatus(status console.AgentRunStatus) bool {
+	return status == console.AgentRunStatusSuccessful || status == console.AgentRunStatusFailed || status == console.AgentRunStatusCancelled
+}
+
+func isTerminalAgentRunPhase(phase v1alpha1.AgentRunPhase) bool {
+	return phase == v1alpha1.AgentRunPhaseSucceeded || phase == v1alpha1.AgentRunPhaseFailed || phase == v1alpha1.AgentRunPhaseCancelled
+}
+
 // reconcilePod ensures the pod for the agent run exists and is in the desired state.
 func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) error {
 	secret, err := r.reconcilePodSecret(ctx, run, runtime)
@@ -244,6 +343,7 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 			return fmt.Errorf("failed to update agent run: %w", err)
 		}
 	}
+
 	// add owner ref to pod secret if it doesn't exist
 	if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {
 		return fmt.Errorf("failed to add owner ref: %w", err)
