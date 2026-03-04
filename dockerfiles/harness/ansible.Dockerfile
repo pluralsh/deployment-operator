@@ -51,7 +51,7 @@ RUN apk add --no-cache \
 RUN addgroup --gid 65532 nonroot && \
     adduser --uid 65532 --ingroup nonroot --disabled-password --home /home/nonroot nonroot && \
     mkdir -p /home/nonroot/.cache/pip /home/nonroot/.local && \
-    chown -R 65532:65532 /home/nonroot /plural
+    chown -R 65532:65532 /home/nonroot
 
 # Ensure pip uses a writable cache dir and does not fall back to user install
 ENV PIP_CACHE_DIR=/home/nonroot/.cache/pip
