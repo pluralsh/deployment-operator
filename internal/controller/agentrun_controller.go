@@ -113,8 +113,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 	}()
 
-	result := r.addOrRemoveFinalizer(ctx, run)
-	if result != nil {
+	if result := r.addOrRemoveFinalizer(ctx, run); result != nil {
 		return *result, nil
 	}
 
@@ -143,8 +142,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	// Pod health is the default source of the agent run phase.
-	// If Console already reports a terminal phase, we override the agent run phase for consistent cleanup.
+	// If Console already reports a terminal phase, the agent run phase needs to be overridden for consistent cleanup.
 	if lo.Contains(terminalRunStatuses, apiAgentRun.Status) {
 		run.Status.Phase = getAgentRunPhase(apiAgentRun.Status)
 		if run.Status.EndTime == nil {
@@ -152,7 +150,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 	}
 
-	// Delete the AgentRun CR when the agent run phase is terminal (from pod health and/or terminal Console override).
+	// Delete the Kubernetes resource when the agent run phase is terminal.
 	if lo.Contains(terminalAgentRunPhases, run.Status.Phase) {
 		if _, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes()); err != nil {
 			utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
@@ -241,7 +239,7 @@ func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, run *v1al
 			}
 		}
 
-		// If finalizer is present, remove it.
+		// If the finalizer is present, remove it.
 		controllerutil.RemoveFinalizer(run, AgentRunFinalizer)
 
 		// Stop reconciliation as the item does no longer exist.
