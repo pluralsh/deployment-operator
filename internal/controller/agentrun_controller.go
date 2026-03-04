@@ -91,6 +91,7 @@ func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
 	logger := log.FromContext(ctx)
+	skipPatch := false
 
 	run := &v1alpha1.AgentRun{}
 	if err := r.Get(ctx, req.NamespacedName, run); err != nil {
@@ -104,18 +105,21 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	// Always patch object when exiting this function, so we can persist any object changes.
 	defer func() {
+		if skipPatch {
+			return
+		}
 		if err := scope.PatchObject(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
 
-	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
-	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
-
 	result := r.addOrRemoveFinalizer(ctx, run)
 	if result != nil {
 		return *result, nil
 	}
+
+	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
+	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
 	apiAgentRun, err := r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID())
 	if err != nil {
@@ -127,6 +131,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		if err := r.Delete(ctx, run); err != nil && !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
+		skipPatch = true
 
 		return ctrl.Result{}, nil
 	}
@@ -154,13 +159,21 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 			return ctrl.Result{}, err
 		}
 
+		utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
+
+		skipPatch = true
+		if err := r.Status().Update(ctx, run); err != nil {
+			if !errors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+		}
+
 		logger.V(2).Info("deleting agent run", "name", run.Name, "namespace", run.Namespace)
 		if err := r.Delete(ctx, run); err != nil && !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 
-		utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
-		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 		return ctrl.Result{}, nil
 	}
 
@@ -271,6 +284,7 @@ func (r *AgentRunReconciler) syncPhaseFromPodHealth(ctx context.Context, run *v1
 	if err != nil {
 		return fmt.Errorf("failed to convert pod to unstructured: %w", err)
 	}
+	unstructuredPod.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Pod"))
 
 	health, err := common.GetResourceHealth(unstructuredPod)
 	if err != nil {
