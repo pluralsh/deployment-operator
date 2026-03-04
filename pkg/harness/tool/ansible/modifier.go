@@ -39,6 +39,7 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 		fmt.Sprintf("ANSIBLE_DEPRECATION_WARNINGS=%s", "false"),
 		fmt.Sprintf("ANSIBLE_COMMAND_WARNINGS=%s", "false"),
 		fmt.Sprintf("ANSIBLE_LIBRARY=%s", "/plural/plugins/modules"),
+		fmt.Sprintf("ANSIBLE_CONFIG=%s", path.Join(in.workDir, "ansible.cfg")),
 	)
 }
 
