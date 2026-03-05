@@ -30,6 +30,7 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 	ansibleLocalTmpDir := path.Join(ansibleHome, ansibleTmpDir)
 
 	if in.ConfigFile != nil {
+		klog.V(log.LogLevelInfo).InfoS("using custom ansible config file", "configFile", *in.ConfigFile)
 		env = append(env, fmt.Sprintf("ANSIBLE_CONFIG=%s", *in.ConfigFile))
 	}
 
