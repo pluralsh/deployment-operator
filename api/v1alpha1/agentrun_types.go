@@ -143,53 +143,22 @@ func (in *AgentRun) Attributes() console.AgentRunAttributes {
 	}
 }
 
-// StatusAttributes converts the AgentRun status to console API format for updating runs
+// StatusAttributes converts the AgentRun status to console API format for updating runs.
 func (in *AgentRun) StatusAttributes() console.AgentRunStatusAttributes {
-	status := console.AgentRunStatusPending
-	switch in.Status.Phase {
-	case AgentRunPhasePending:
-		status = console.AgentRunStatusPending
-	case AgentRunPhaseRunning:
-		status = console.AgentRunStatusRunning
-	case AgentRunPhaseSucceeded:
-		status = console.AgentRunStatusSuccessful
-	case AgentRunPhaseFailed:
-		status = console.AgentRunStatusFailed
-	case AgentRunPhaseCancelled:
-		status = console.AgentRunStatusCancelled
-	}
+	attrs := console.AgentRunStatusAttributes{}
 
-	var podReference *console.NamespacedName
 	if in.Status.PodRef != nil {
-		podReference = &console.NamespacedName{
+		attrs.PodReference = &console.NamespacedName{
 			Name:      in.Status.PodRef.Name,
 			Namespace: in.Status.PodRef.Namespace,
 		}
 	}
 
-	return console.AgentRunStatusAttributes{
-		Status:       status,
-		Error:        in.Status.Error,
-		PodReference: podReference,
-	}
+	return attrs
 }
 
-// Diff compares the current AgentRun to the current state of the cluster.
-// This implementation is a bit different from the default implementation
-// in that it considers some status fields as well as the spec since they
-// are sent to the Console API.
 func (in *AgentRun) Diff(hasher Hasher) (changed bool, sha string, err error) {
-	currentSha, err := hasher(struct {
-		spec   AgentRunSpec
-		phase  AgentRunPhase
-		error  *string
-		PodRef *corev1.ObjectReference
-	}{
-		spec:   in.Spec,
-		phase:  in.Status.Phase,
-		error:  in.Status.Error,
-		PodRef: in.Status.PodRef,
-	})
+	currentSha, err := hasher(in.Spec)
 	if err != nil {
 		return false, "", err
 	}

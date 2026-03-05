@@ -607,14 +607,6 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			Expect(lo.Contains(terminalRunStatuses, console.AgentRunStatusFailed)).Should(BeTrue())
 			Expect(lo.Contains(terminalRunStatuses, console.AgentRunStatusCancelled)).Should(BeTrue())
 		})
-
-		It("should correctly identify terminal phase using slice", func() {
-			Expect(lo.Contains(terminalAgentRunPhases, v1alpha1.AgentRunPhasePending)).Should(BeFalse())
-			Expect(lo.Contains(terminalAgentRunPhases, v1alpha1.AgentRunPhaseRunning)).Should(BeFalse())
-			Expect(lo.Contains(terminalAgentRunPhases, v1alpha1.AgentRunPhaseSucceeded)).Should(BeTrue())
-			Expect(lo.Contains(terminalAgentRunPhases, v1alpha1.AgentRunPhaseFailed)).Should(BeTrue())
-			Expect(lo.Contains(terminalAgentRunPhases, v1alpha1.AgentRunPhaseCancelled)).Should(BeTrue())
-		})
 	})
 
 	Context("Secret reconciliation", func() {
