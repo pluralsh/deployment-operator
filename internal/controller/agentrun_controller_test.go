@@ -466,8 +466,6 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			Expect(kClient.Status().Update(ctx, resource)).To(Succeed())
 
 			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
-			fakeConsoleClient.On("IsAgentRunExists", mock.Anything, finalizerRunID).Return(true, nil)
-			fakeConsoleClient.On("CancelAgentRun", mock.Anything, finalizerRunID).Return(nil)
 
 			reconciler := &AgentRunReconciler{
 				Client:        kClient,
