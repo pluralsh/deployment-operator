@@ -144,8 +144,8 @@ func (in *AgentRun) Attributes() console.AgentRunAttributes {
 }
 
 // StatusAttributes converts the AgentRun status to console API format for updating runs.
-func (in *AgentRun) StatusAttributes() console.AgentRunStatusAttributes {
-	attrs := console.AgentRunStatusAttributes{}
+func (in *AgentRun) StatusAttributes(status console.AgentRunStatus) console.AgentRunStatusAttributes {
+	attrs := console.AgentRunStatusAttributes{Status: status}
 
 	if in.Status.PodRef != nil {
 		attrs.PodReference = &console.NamespacedName{
