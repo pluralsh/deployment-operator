@@ -135,7 +135,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 			return ctrl.Result{}, err
 		}
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: requeueAfterAgentRun}, nil
 	}
 	run.Status.ID = &apiAgentRun.ID
 
@@ -168,7 +168,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 			return ctrl.Result{}, err
 		}
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: requeueAfterAgentRun}, nil
 	}
 
 	agentRuntime, err := r.getRuntime(ctx, run)
