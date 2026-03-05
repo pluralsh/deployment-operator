@@ -233,8 +233,9 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 
 			resource := &v1alpha1.AgentRun{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      successRunName,
-					Namespace: namespace,
+					Name:       successRunName,
+					Namespace:  namespace,
+					Finalizers: []string{AgentRunFinalizer},
 				},
 				Spec: v1alpha1.AgentRunSpec{
 					RuntimeRef: v1alpha1.AgentRuntimeReference{
@@ -295,21 +296,23 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: successNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
 
-			// Verify AgentRun was marked as succeeded and should be deleted
+			// Terminal phase should trigger deletion, then finalizer removal on a follow-up reconcile.
 			agentRun := &v1alpha1.AgentRun{}
 			err = kClient.Get(ctx, successNamespacedName, agentRun)
-			// The CR should either be deleted or marked for deletion
-			if err == nil {
-				Expect(agentRun.Status.Phase).Should(Equal(v1alpha1.AgentRunPhaseSucceeded))
-				Expect(agentRun.Status.EndTime).ShouldNot(BeNil())
-			} else {
-				Expect(errors.IsNotFound(err)).Should(BeTrue())
-			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(agentRun.Status.Phase).Should(Equal(v1alpha1.AgentRunPhaseSucceeded))
+			Expect(agentRun.Status.EndTime).ShouldNot(BeNil())
+			Expect(agentRun.DeletionTimestamp).ShouldNot(BeNil())
+
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: successNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() bool {
+				err := kClient.Get(ctx, successNamespacedName, &v1alpha1.AgentRun{})
+				return errors.IsNotFound(err)
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 			// Cleanup
-			if err == nil {
-				Expect(kClient.Delete(ctx, agentRun)).To(Succeed())
-			}
 			pod = &corev1.Pod{}
 			err = kClient.Get(ctx, successNamespacedName, pod)
 			if err == nil {
@@ -330,8 +333,9 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 
 			resource := &v1alpha1.AgentRun{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      failedRunName,
-					Namespace: namespace,
+					Name:       failedRunName,
+					Namespace:  namespace,
+					Finalizers: []string{AgentRunFinalizer},
 				},
 				Spec: v1alpha1.AgentRunSpec{
 					RuntimeRef: v1alpha1.AgentRuntimeReference{
@@ -404,22 +408,24 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: failedNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
 
-			// Verify AgentRun was marked as failed and should be deleted
+			// Terminal phase should trigger deletion, then finalizer removal on a follow-up reconcile.
 			agentRun := &v1alpha1.AgentRun{}
 			err = kClient.Get(ctx, failedNamespacedName, agentRun)
-			// The CR should either be deleted or marked for deletion
-			if err == nil {
-				Expect(agentRun.Status.Phase).Should(Equal(v1alpha1.AgentRunPhaseFailed))
-				Expect(agentRun.Status.EndTime).ShouldNot(BeNil())
-				Expect(agentRun.Status.Error).ShouldNot(BeNil())
-			} else {
-				Expect(errors.IsNotFound(err)).Should(BeTrue())
-			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(agentRun.Status.Phase).Should(Equal(v1alpha1.AgentRunPhaseFailed))
+			Expect(agentRun.Status.EndTime).ShouldNot(BeNil())
+			Expect(agentRun.Status.Error).ShouldNot(BeNil())
+			Expect(agentRun.DeletionTimestamp).ShouldNot(BeNil())
+
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: failedNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() bool {
+				err := kClient.Get(ctx, failedNamespacedName, &v1alpha1.AgentRun{})
+				return errors.IsNotFound(err)
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 			// Cleanup
-			if err == nil {
-				Expect(kClient.Delete(ctx, agentRun)).To(Succeed())
-			}
 			pod = &corev1.Pod{}
 			err = kClient.Get(ctx, failedNamespacedName, pod)
 			if err == nil {
@@ -510,8 +516,9 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 
 			resource := &v1alpha1.AgentRun{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      overrideRunName,
-					Namespace: namespace,
+					Name:       overrideRunName,
+					Namespace:  namespace,
+					Finalizers: []string{AgentRunFinalizer},
 				},
 				Spec: v1alpha1.AgentRunSpec{
 					RuntimeRef: v1alpha1.AgentRuntimeReference{
@@ -559,20 +566,22 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: overrideNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
 
-			// Verify phase was overridden to Cancelled despite pod still running
+			// Verify phase was overridden to Cancelled despite pod still running.
 			agentRun := &v1alpha1.AgentRun{}
-			err = kClient.Get(ctx, overrideNamespacedName, agentRun)
-			if err == nil {
-				Expect(agentRun.Status.Phase).Should(Equal(v1alpha1.AgentRunPhaseCancelled))
-			} else {
-				// Already deleted because it's terminal
-				Expect(errors.IsNotFound(err)).Should(BeTrue())
-			}
+			Expect(kClient.Get(ctx, overrideNamespacedName, agentRun)).To(Succeed())
+			Expect(agentRun.Status.Phase).Should(Equal(v1alpha1.AgentRunPhaseCancelled))
+			Expect(agentRun.DeletionTimestamp).ShouldNot(BeNil())
+
+			// Follow-up reconcile handles finalizer removal and allows Kubernetes GC to remove the CR.
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: overrideNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() bool {
+				err := kClient.Get(ctx, overrideNamespacedName, &v1alpha1.AgentRun{})
+				return errors.IsNotFound(err)
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 			// Cleanup
-			if err == nil {
-				Expect(kClient.Delete(ctx, agentRun)).To(Succeed())
-			}
 			err = kClient.Get(ctx, overrideNamespacedName, pod)
 			if err == nil {
 				Expect(kClient.Delete(ctx, pod)).To(Succeed())

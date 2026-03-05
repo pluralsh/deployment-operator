@@ -91,7 +91,6 @@ func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
 	logger := log.FromContext(ctx)
-	skipPatch := false
 
 	run := &v1alpha1.AgentRun{}
 	if err := r.Get(ctx, req.NamespacedName, run); err != nil {
@@ -105,14 +104,15 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	// Always patch object when exiting this function, so we can persist any object changes.
 	defer func() {
-		if skipPatch {
-			return
-		}
 		if err := scope.PatchObject(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
 
+	// Finalizer is needed to ensure that the Pod and Secret are cleaned up after the AgentRun reaches
+	// a terminal state and will be deleted by the controller.
+	// The object can be deleted before defer patches the status update with terminal state,
+	// so we need to ensure that the finalizer is removed and the object is deleted to avoid orphaned resources.
 	if run.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(run, AgentRunFinalizer) {
 		controllerutil.AddFinalizer(run, AgentRunFinalizer)
 	}
@@ -134,7 +134,6 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		if err := r.Delete(ctx, run); err != nil && !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
-		skipPatch = true
 
 		return ctrl.Result{}, nil
 	}
@@ -163,13 +162,6 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 		utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
-
-		skipPatch = true
-		if err := r.Status().Update(ctx, run); err != nil {
-			if !errors.IsNotFound(err) {
-				return ctrl.Result{}, err
-			}
-		}
 
 		logger.V(2).Info("deleting agent run", "name", run.Name, "namespace", run.Namespace)
 		if err := r.Delete(ctx, run); err != nil && !errors.IsNotFound(err) {
