@@ -187,14 +187,14 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
-	changed, sha, err := run.Diff(utils.HashObject)
-	if err != nil {
-		logger.Error(err, "unable to calculate agent run SHA")
+	if err = r.reconcilePod(ctx, run, agentRuntime); err != nil {
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcilePod(ctx, run, agentRuntime); err != nil {
+	changed, sha, err := run.Diff(utils.HashObject)
+	if err != nil {
+		logger.Error(err, "unable to calculate agent run SHA")
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
 	}
