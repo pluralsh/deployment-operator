@@ -318,4 +318,214 @@ func TestComponentInsights(t *testing.T) {
 
 		require.Nil(t, insights, "Expected non-nil insights object from empty cache")
 	})
+
+	t.Run("should exclude failed components managed by plural services", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		// Define test components where some are managed by plural services
+		testComponents := []client.ComponentChildAttributes{
+			// Failed deployment NOT managed by a plural service (should be included)
+			createComponentAttributes("app-unmanaged-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-unmanaged-1")),
+
+			// Failed deployment managed by plural service with service_id (should be excluded)
+			createComponentAttributes("app-plural-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-plural-1")),
+
+			// Failed ingress NOT managed by plural service (should be included)
+			createComponentAttributes("ingress-unmanaged", nil, WithAttributesKind("Ingress"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("ingress-unmanaged")),
+
+			// Failed ingress managed by plural service (should be excluded)
+			createComponentAttributes("ingress-plural", nil, WithAttributesKind("Ingress"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("ingress-plural")),
+
+			// Running component managed by plural service (should not be in insights anyway)
+			createComponentAttributes("app-plural-running", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("app-plural-running")),
+		}
+
+		expectedComponentNames := []string{
+			"app-unmanaged-1",
+			"ingress-unmanaged",
+		}
+
+		// Insert test components without service_id (unmanaged)
+		for _, tc := range []client.ComponentChildAttributes{testComponents[0], testComponents[2]} {
+			err := storeInstance.SaveComponentAttributes(tc)
+			require.NoError(t, err, "Failed to add unmanaged component to cache")
+		}
+
+		// Insert test components with service_id (managed by plural service)
+		// The SaveComponentAttributes signature accepts args for node, created_at, and service_id
+		for _, tc := range []client.ComponentChildAttributes{testComponents[1], testComponents[3], testComponents[4]} {
+			err := storeInstance.SaveComponentAttributes(tc, nil, nil, "plural-service-1")
+			require.NoError(t, err, "Failed to add plural-managed component to cache")
+		}
+
+		// Get component insights
+		insights, err := storeInstance.GetComponentInsights()
+		require.NoError(t, err, "Failed to get component insights")
+
+		actualNames := algorithms.Map(
+			insights,
+			func(i client.ClusterInsightComponentAttributes) string { return i.Name },
+		)
+
+		sort.Strings(actualNames)
+		sort.Strings(expectedComponentNames)
+
+		require.Equal(t,
+			expectedComponentNames,
+			actualNames,
+			"Components managed by plural services should be excluded from insights",
+		)
+	})
+
+	t.Run("should include all unmanaged failed components in insights", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		// Define test components, all without service_id (unmanaged)
+		testComponents := []client.ComponentChildAttributes{
+			// Failed root components (different kinds)
+			createComponentAttributes("deployment-unmanaged", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("deployment-unmanaged")),
+			createComponentAttributes("statefulset-unmanaged", nil, WithAttributesKind("StatefulSet"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("statefulset-unmanaged")),
+			createComponentAttributes("ingress-unmanaged", nil, WithAttributesKind("Ingress"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("ingress-unmanaged")),
+			createComponentAttributes("certificate-unmanaged", nil, WithAttributesKind("Certificate"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("certificate-unmanaged")),
+			createComponentAttributes("daemonset-unmanaged", nil, WithAttributesKind("DaemonSet"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("daemonset-unmanaged")),
+
+			// Failed child component with unmanaged parent
+			createComponentAttributes("deployment-parent", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStatePending), WithAttributesName("deployment-parent")),
+			createComponentAttributes("pod-child", lo.ToPtr("deployment-parent"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("pod-child")),
+
+			// Running unmanaged components (should not appear in insights)
+			createComponentAttributes("deployment-running", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateRunning), WithAttributesName("deployment-running")),
+		}
+
+		expectedComponentNames := []string{
+			"deployment-unmanaged",
+			"statefulset-unmanaged",
+			"ingress-unmanaged",
+			"certificate-unmanaged",
+			"daemonset-unmanaged",
+			"deployment-parent",
+		}
+
+		// Insert all unmanaged test components (no service_id)
+		for _, tc := range testComponents {
+			err := storeInstance.SaveComponentAttributes(tc)
+			require.NoError(t, err, "Failed to add unmanaged component to cache")
+		}
+
+		// Get component insights
+		insights, err := storeInstance.GetComponentInsights()
+		require.NoError(t, err, "Failed to get component insights")
+
+		actualNames := algorithms.Map(
+			insights,
+			func(i client.ClusterInsightComponentAttributes) string { return i.Name },
+		)
+
+		sort.Strings(actualNames)
+		sort.Strings(expectedComponentNames)
+
+		require.Equal(t,
+			expectedComponentNames,
+			actualNames,
+			"All unmanaged failed components should be included in insights",
+		)
+	})
+
+	t.Run("should mix managed and unmanaged components correctly", func(t *testing.T) {
+		storeInstance, err := store.NewDatabaseStore(context.Background(), store.WithStorage(api.StorageFile))
+		assert.NoError(t, err)
+		defer func() {
+			if err := storeInstance.Shutdown(); err != nil {
+				t.Fatalf("Failed to close component cache: %v", err)
+			}
+		}()
+
+		// Define test components with mixed service management
+		testComponents := []struct {
+			component client.ComponentChildAttributes
+			serviceID string // empty string means unmanaged
+		}{
+			// Unmanaged failed components
+			{
+				component: createComponentAttributes("app-unmanaged-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-unmanaged-1")),
+				serviceID: "",
+			},
+			{
+				component: createComponentAttributes("app-unmanaged-2", nil, WithAttributesKind("Ingress"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-unmanaged-2")),
+				serviceID: "",
+			},
+
+			// Service1-managed failed components
+			{
+				component: createComponentAttributes("app-service1-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-service1-1")),
+				serviceID: "service-1",
+			},
+			{
+				component: createComponentAttributes("app-service1-2", nil, WithAttributesKind("Certificate"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-service1-2")),
+				serviceID: "service-1",
+			},
+
+			// Service2-managed failed components
+			{
+				component: createComponentAttributes("app-service2-1", nil, WithAttributesKind("StatefulSet"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-service2-1")),
+				serviceID: "service-2",
+			},
+
+			// Service1-managed pending component with unmanaged failed child (that will be skipped because it is a Pod)
+			{
+				component: createComponentAttributes("app-service1-parent", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-service1-parent")),
+				serviceID: "service-1",
+			},
+			{
+				component: createComponentAttributes("app-service1-child", lo.ToPtr("app-service1-parent"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-service1-child")),
+				serviceID: "",
+			},
+		}
+
+		expectedComponentNames := []string{
+			"app-unmanaged-1",
+			"app-unmanaged-2",
+		}
+
+		// Insert all test components with their respective service_id
+		for _, tc := range testComponents {
+			if tc.serviceID == "" {
+				err := storeInstance.SaveComponentAttributes(tc.component)
+				require.NoError(t, err, "Failed to add unmanaged component to cache")
+			} else {
+				err := storeInstance.SaveComponentAttributes(tc.component, nil, nil, tc.serviceID)
+				require.NoError(t, err, "Failed to add managed component to cache")
+			}
+		}
+
+		// Get component insights
+		insights, err := storeInstance.GetComponentInsights()
+		require.NoError(t, err, "Failed to get component insights")
+
+		actualNames := algorithms.Map(
+			insights,
+			func(i client.ClusterInsightComponentAttributes) string { return i.Name },
+		)
+
+		sort.Strings(actualNames)
+		sort.Strings(expectedComponentNames)
+
+		require.Equal(t,
+			expectedComponentNames,
+			actualNames,
+			"Only unmanaged components should appear in insights when mixed with managed ones",
+		)
+	})
 }
