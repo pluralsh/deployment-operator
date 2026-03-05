@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"k8s.io/klog/v2"
 )
 
 type outputAnalyzer struct {
@@ -34,6 +37,7 @@ func (in *outputAnalyzer) Detect() []error {
 		}
 	}
 
+	klog.V(log.LogLevelInfo).InfoS("output analysis complete", "checkStderr", in.cfg.checkStderr, "potentialErrors", len(errors))
 	if in.cfg.checkStderr && in.stderr.Len() > 0 {
 		errors = append(errors, fmt.Errorf("%s", in.stderr.String()))
 	}

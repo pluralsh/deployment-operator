@@ -28,6 +28,11 @@ func NewPassthroughModifier(planFile string) v1.Modifier {
 func (in *GlobalEnvModifier) Env(env []string) []string {
 	ansibleHome := path.Join(in.workDir, ansibleDir)
 	ansibleLocalTmpDir := path.Join(ansibleHome, ansibleTmpDir)
+
+	if in.ConfigFile != nil {
+		env = append(env, fmt.Sprintf("ANSIBLE_CONFIG=%s", *in.ConfigFile))
+	}
+
 	return append(env,
 		fmt.Sprintf("ANSIBLE_HOME=%s", ansibleHome),
 		fmt.Sprintf("ANSIBLE_LOCAL_TEMP=%s", ansibleLocalTmpDir),
@@ -39,8 +44,8 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 	)
 }
 
-func NewGlobalEnvModifier(workDir string) v1.Modifier {
-	return &GlobalEnvModifier{workDir: workDir}
+func NewGlobalEnvModifier(workDir string, configFile *string) v1.Modifier {
+	return &GlobalEnvModifier{workDir: workDir, ConfigFile: configFile}
 }
 
 func (in *VariableInjectorModifier) Args(args []string) []string {

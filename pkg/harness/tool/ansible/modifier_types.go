@@ -17,7 +17,8 @@ type GlobalEnvModifier struct {
 	v1.DefaultModifier
 
 	// workDir
-	workDir string
+	workDir    string
+	ConfigFile *string
 }
 
 type VariableInjectorModifier struct {
