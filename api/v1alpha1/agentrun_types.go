@@ -109,45 +109,44 @@ func init() {
 	SchemeBuilder.Register(&AgentRun{}, &AgentRunList{})
 }
 
-// Helper methods
-func (ar *AgentRun) SetCondition(condition metav1.Condition) {
-	meta.SetStatusCondition(&ar.Status.Conditions, condition)
+func (in *AgentRun) SetCondition(condition metav1.Condition) {
+	meta.SetStatusCondition(&in.Status.Conditions, condition)
 }
 
-func (ar *AgentRun) IsPending() bool {
-	return ar.Status.Phase == AgentRunPhasePending
+func (in *AgentRun) IsPending() bool {
+	return in.Status.Phase == AgentRunPhasePending
 }
 
-func (ar *AgentRun) IsRunning() bool {
-	return ar.Status.Phase == AgentRunPhaseRunning
+func (in *AgentRun) IsRunning() bool {
+	return in.Status.Phase == AgentRunPhaseRunning
 }
 
-func (ar *AgentRun) IsSucceeded() bool {
-	return ar.Status.Phase == AgentRunPhaseSucceeded
+func (in *AgentRun) IsSucceeded() bool {
+	return in.Status.Phase == AgentRunPhaseSucceeded
 }
 
-func (ar *AgentRun) IsFailed() bool {
-	return ar.Status.Phase == AgentRunPhaseFailed
+func (in *AgentRun) IsFailed() bool {
+	return in.Status.Phase == AgentRunPhaseFailed
 }
 
-func (ar *AgentRun) IsCancelled() bool {
-	return ar.Status.Phase == AgentRunPhaseCancelled
+func (in *AgentRun) IsCancelled() bool {
+	return in.Status.Phase == AgentRunPhaseCancelled
 }
 
 // Attributes converts the AgentRun CRD to console API format for creating runs
-func (ar *AgentRun) Attributes() console.AgentRunAttributes {
+func (in *AgentRun) Attributes() console.AgentRunAttributes {
 	return console.AgentRunAttributes{
-		Prompt:     ar.Spec.Prompt,
-		Repository: ar.Spec.Repository,
-		Mode:       ar.Spec.Mode,
-		FlowID:     ar.Spec.FlowID,
+		Prompt:     in.Spec.Prompt,
+		Repository: in.Spec.Repository,
+		Mode:       in.Spec.Mode,
+		FlowID:     in.Spec.FlowID,
 	}
 }
 
 // StatusAttributes converts the AgentRun status to console API format for updating runs
-func (ar *AgentRun) StatusAttributes() console.AgentRunStatusAttributes {
+func (in *AgentRun) StatusAttributes() console.AgentRunStatusAttributes {
 	status := console.AgentRunStatusPending
-	switch ar.Status.Phase {
+	switch in.Status.Phase {
 	case AgentRunPhasePending:
 		status = console.AgentRunStatusPending
 	case AgentRunPhaseRunning:
@@ -161,22 +160,36 @@ func (ar *AgentRun) StatusAttributes() console.AgentRunStatusAttributes {
 	}
 
 	var podReference *console.NamespacedName
-	if ar.Status.PodRef != nil {
+	if in.Status.PodRef != nil {
 		podReference = &console.NamespacedName{
-			Name:      ar.Status.PodRef.Name,
-			Namespace: ar.Status.PodRef.Namespace,
+			Name:      in.Status.PodRef.Name,
+			Namespace: in.Status.PodRef.Namespace,
 		}
 	}
 
 	return console.AgentRunStatusAttributes{
 		Status:       status,
-		Error:        ar.Status.Error,
+		Error:        in.Status.Error,
 		PodReference: podReference,
 	}
 }
 
+// Diff compares the current AgentRun to the current state of the cluster.
+// This implementation is a bit different from the default implementation
+// in that it considers some status fields as well as the spec since they
+// are sent to the Console API.
 func (in *AgentRun) Diff(hasher Hasher) (changed bool, sha string, err error) {
-	currentSha, err := hasher(in.Spec)
+	currentSha, err := hasher(struct {
+		spec   AgentRunSpec
+		phase  AgentRunPhase
+		error  *string
+		PodRef *corev1.ObjectReference
+	}{
+		spec:   in.Spec,
+		phase:  in.Status.Phase,
+		error:  in.Status.Error,
+		PodRef: in.Status.PodRef,
+	})
 	if err != nil {
 		return false, "", err
 	}

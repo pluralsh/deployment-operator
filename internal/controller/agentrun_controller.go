@@ -184,17 +184,19 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
-	_, sha, err := run.Diff(utils.HashObject)
+	changed, sha, err := run.Diff(utils.HashObject)
 	if err != nil {
 		logger.Error(err, "unable to calculate agent run SHA")
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
 	}
 
-	apiAgentRun, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes())
-	if err != nil {
-		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
-		return ctrl.Result{}, err
+	if changed {
+		apiAgentRun, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes())
+		if err != nil {
+			utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+			return ctrl.Result{}, err
+		}
 	}
 	run.Status.ID = &apiAgentRun.ID
 	run.Status.SHA = &sha
