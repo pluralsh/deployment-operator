@@ -83,6 +83,8 @@ func (r *AgentRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ reconcile.Result, retErr error) {
+	logger := log.FromContext(ctx)
+
 	run := &v1alpha1.AgentRun{}
 	if err := r.Get(ctx, req.NamespacedName, run); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -161,6 +163,22 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
+	changed, sha, err := run.StatusDiff(utils.HashObject)
+	if err != nil {
+		logger.Error(err, "unable to calculate agent run SHA")
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+		return ctrl.Result{}, err
+	}
+
+	if changed {
+		apiAgentRun, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes())
+		if err != nil {
+			utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+			return ctrl.Result{}, err
+		}
+	}
+	run.Status.SHA = &sha
+
 	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 
@@ -214,15 +232,9 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		if err = r.Create(ctx, pod); err != nil {
 			return fmt.Errorf("failed to create pod: %w", err)
 		}
-
-		run.Status.PodRef = &corev1.ObjectReference{Name: pod.Name, Namespace: pod.Namespace}
-
-		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.Name, console.AgentRunStatusAttributes{
-			PodReference: &console.NamespacedName{Name: pod.Name, Namespace: pod.Namespace},
-		}); err != nil {
-			return fmt.Errorf("failed to update agent run: %w", err)
-		}
 	}
+
+	run.Status.PodRef = &corev1.ObjectReference{Name: pod.Name, Namespace: pod.Namespace}
 
 	// add owner ref to pod secret if it doesn't exist
 	if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {

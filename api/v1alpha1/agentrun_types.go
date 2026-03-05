@@ -157,8 +157,8 @@ func (in *AgentRun) StatusAttributes() console.AgentRunStatusAttributes {
 	return attrs
 }
 
-func (in *AgentRun) Diff(hasher Hasher) (changed bool, sha string, err error) {
-	currentSha, err := hasher(in.Spec)
+func (in *AgentRun) StatusDiff(hasher Hasher) (changed bool, sha string, err error) {
+	currentSha, err := hasher(in.Status.PodRef)
 	if err != nil {
 		return false, "", err
 	}
