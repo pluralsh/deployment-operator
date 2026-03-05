@@ -34,7 +34,8 @@ var _ = Describe("Backup Controller", Ordered, func() {
 		BeforeAll(func() {
 			By("creating the custom resource for the Kind Backup")
 			err := kClient.Get(ctx, typeNamespacedName, backup)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting Backup: %v", err)
 				resource := &velerov1.Backup{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,

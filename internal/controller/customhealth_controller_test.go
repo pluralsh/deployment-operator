@@ -34,7 +34,8 @@ var _ = Describe("Customhealt Controller", Ordered, func() {
 		BeforeAll(func() {
 			By("creating the custom resource for the Kind CustomHealth")
 			err := kClient.Get(ctx, typeNamespacedName, customHealth)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting CustomHealth: %v", err)
 				resource := &v1alpha1.CustomHealth{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,

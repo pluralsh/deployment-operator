@@ -35,7 +35,8 @@ var _ = Describe("Restore Controller", Ordered, func() {
 		BeforeAll(func() {
 			By("creating the custom resource for the Kind Restore")
 			err := kClient.Get(ctx, typeNamespacedName, restore)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting Restore: %v", err)
 				resource := &velerov1.Restore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,

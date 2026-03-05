@@ -52,7 +52,8 @@ var _ = Describe("PipelineGate Controller", Ordered, func() {
 		BeforeAll(func() {
 			By("Creating pipeline gate")
 			err := kClient.Get(ctx, gateNamespacedName, pipelineGate)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting PipelineGate: %v", err)
 				resource := &v1alpha1.PipelineGate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      gateName,

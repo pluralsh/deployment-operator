@@ -43,7 +43,8 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			By("Creating AgentRuntime")
 			runtime := &v1alpha1.AgentRuntime{}
 			err := kClient.Get(ctx, runtimeNamespacedName, runtime)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting AgentRuntime: %v", err)
 				runtime = &v1alpha1.AgentRuntime{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: runtimeName,
@@ -67,7 +68,8 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 
 			By("Creating AgentRun")
 			err = kClient.Get(ctx, runNamespacedName, &v1alpha1.AgentRun{})
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting AgentRun: %v", err)
 				resource := &v1alpha1.AgentRun{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      runName,
