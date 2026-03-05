@@ -239,7 +239,7 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			}
 		})
 
-		It("should delete pod and secret when agent run reaches terminal state (successful)", func() {
+		It("should handle terminal state cleanup", func() {
 			By("Creating a new AgentRun for terminal state test")
 			terminalRunName := "agent-test-run-terminal-success"
 			terminalRunID := "test-run-terminal-success-123"
