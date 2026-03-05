@@ -239,6 +239,282 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			}
 		})
 
+		It("should delete pod and secret when agent run reaches terminal state (successful)", func() {
+			By("Creating a new AgentRun for terminal state test")
+			terminalRunName := "agent-test-run-terminal-success"
+			terminalRunID := "test-run-terminal-success-123"
+			terminalNamespacedName := types.NamespacedName{Name: terminalRunName, Namespace: namespace}
+
+			resource := &v1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       terminalRunName,
+					Namespace:  namespace,
+					Finalizers: []string{AgentRunFinalizer},
+				},
+				Spec: v1alpha1.AgentRunSpec{
+					RuntimeRef: v1alpha1.AgentRuntimeReference{
+						Name: runtimeName,
+					},
+					Prompt:     agentRunPrompt,
+					Repository: repository,
+					Mode:       console.AgentRunModeWrite,
+				},
+			}
+			Expect(kClient.Create(ctx, resource)).To(Succeed())
+
+			resource.Status.ID = lo.ToPtr(terminalRunID)
+			Expect(kClient.Status().Update(ctx, resource)).To(Succeed())
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			// First return Pending so resources get created
+			fakeConsoleClient.On("GetAgentRun", mock.Anything, terminalRunID).Return(&console.AgentRunFragment{
+				ID:     terminalRunID,
+				Status: console.AgentRunStatusPending,
+			}, nil)
+			fakeConsoleClient.On("UpdateAgentRun", mock.Anything, mock.Anything, mock.Anything).Return(&console.AgentRunFragment{
+				ID:     terminalRunID,
+				Status: console.AgentRunStatusPending,
+			}, nil)
+
+			reconciler := &AgentRunReconciler{
+				Client:        kClient,
+				ConsoleClient: fakeConsoleClient,
+				Scheme:        kClient.Scheme(),
+				ConsoleURL:    consoleURL,
+				DeployToken:   deployToken,
+			}
+
+			// First reconcile to create pod and secret
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify pod and secret were created
+			pod := &corev1.Pod{}
+			Expect(kClient.Get(ctx, terminalNamespacedName, pod)).NotTo(HaveOccurred())
+			secret := &corev1.Secret{}
+			Expect(kClient.Get(ctx, terminalNamespacedName, secret)).NotTo(HaveOccurred())
+
+			// Now update the mock to return terminal status
+			fakeConsoleClient.ExpectedCalls = nil
+			fakeConsoleClient.On("GetAgentRun", mock.Anything, terminalRunID).Return(&console.AgentRunFragment{
+				ID:     terminalRunID,
+				Status: console.AgentRunStatusSuccessful,
+			}, nil)
+
+			// Second reconcile should trigger deletion since status is now terminal
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify AgentRun is marked for deletion
+			agentRun := &v1alpha1.AgentRun{}
+			Expect(kClient.Get(ctx, terminalNamespacedName, agentRun)).NotTo(HaveOccurred())
+			Expect(agentRun.DeletionTimestamp).ShouldNot(BeNil())
+
+			// Follow-up reconcile removes finalizer
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify AgentRun is deleted
+			Eventually(func() bool {
+				err := kClient.Get(ctx, terminalNamespacedName, &v1alpha1.AgentRun{})
+				return errors.IsNotFound(err)
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			// Cleanup any remaining resources
+			pod = &corev1.Pod{}
+			if err := kClient.Get(ctx, terminalNamespacedName, pod); err == nil {
+				_ = kClient.Delete(ctx, pod)
+			}
+			secret = &corev1.Secret{}
+			if err := kClient.Get(ctx, terminalNamespacedName, secret); err == nil {
+				_ = kClient.Delete(ctx, secret)
+			}
+		})
+
+		It("should delete pod and secret when agent run reaches terminal state (Failed)", func() {
+			By("Creating a new AgentRun for terminal state failure test")
+			terminalFailedRunName := "agent-test-run-terminal-failed"
+			terminalFailedRunID := "test-run-terminal-failed-456"
+			terminalFailedNamespacedName := types.NamespacedName{Name: terminalFailedRunName, Namespace: namespace}
+
+			resource := &v1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       terminalFailedRunName,
+					Namespace:  namespace,
+					Finalizers: []string{AgentRunFinalizer},
+				},
+				Spec: v1alpha1.AgentRunSpec{
+					RuntimeRef: v1alpha1.AgentRuntimeReference{
+						Name: runtimeName,
+					},
+					Prompt:     agentRunPrompt,
+					Repository: repository,
+					Mode:       console.AgentRunModeWrite,
+				},
+			}
+			Expect(kClient.Create(ctx, resource)).To(Succeed())
+
+			resource.Status.ID = lo.ToPtr(terminalFailedRunID)
+			Expect(kClient.Status().Update(ctx, resource)).To(Succeed())
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			// First return Running so resources get created
+			fakeConsoleClient.On("GetAgentRun", mock.Anything, terminalFailedRunID).Return(&console.AgentRunFragment{
+				ID:     terminalFailedRunID,
+				Status: console.AgentRunStatusRunning,
+			}, nil)
+			fakeConsoleClient.On("UpdateAgentRun", mock.Anything, mock.Anything, mock.Anything).Return(&console.AgentRunFragment{
+				ID:     terminalFailedRunID,
+				Status: console.AgentRunStatusRunning,
+			}, nil)
+
+			reconciler := &AgentRunReconciler{
+				Client:        kClient,
+				ConsoleClient: fakeConsoleClient,
+				Scheme:        kClient.Scheme(),
+				ConsoleURL:    consoleURL,
+				DeployToken:   deployToken,
+			}
+
+			// First reconcile to create pod and secret
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalFailedNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify pod and secret were created
+			pod := &corev1.Pod{}
+			Expect(kClient.Get(ctx, terminalFailedNamespacedName, pod)).NotTo(HaveOccurred())
+			secret := &corev1.Secret{}
+			Expect(kClient.Get(ctx, terminalFailedNamespacedName, secret)).NotTo(HaveOccurred())
+
+			// Now update the mock to return terminal status
+			fakeConsoleClient.ExpectedCalls = nil
+			fakeConsoleClient.On("GetAgentRun", mock.Anything, terminalFailedRunID).Return(&console.AgentRunFragment{
+				ID:     terminalFailedRunID,
+				Status: console.AgentRunStatusFailed,
+			}, nil)
+
+			// Second reconcile should trigger deletion since status is now terminal
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalFailedNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify AgentRun is marked for deletion
+			agentRun := &v1alpha1.AgentRun{}
+			Expect(kClient.Get(ctx, terminalFailedNamespacedName, agentRun)).NotTo(HaveOccurred())
+			Expect(agentRun.DeletionTimestamp).ShouldNot(BeNil())
+
+			// Follow-up reconcile removes finalizer
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalFailedNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify AgentRun is deleted
+			Eventually(func() bool {
+				err := kClient.Get(ctx, terminalFailedNamespacedName, &v1alpha1.AgentRun{})
+				return errors.IsNotFound(err)
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			// Cleanup any remaining resources
+			pod = &corev1.Pod{}
+			if err := kClient.Get(ctx, terminalFailedNamespacedName, pod); err == nil {
+				_ = kClient.Delete(ctx, pod)
+			}
+			secret = &corev1.Secret{}
+			if err := kClient.Get(ctx, terminalFailedNamespacedName, secret); err == nil {
+				_ = kClient.Delete(ctx, secret)
+			}
+		})
+
+		It("should delete pod and secret when agent run reaches terminal state (Cancelled)", func() {
+			By("Creating a new AgentRun for terminal state cancelled test")
+			terminalCancelledRunName := "agent-test-run-terminal-cancelled"
+			terminalCancelledRunID := "test-run-terminal-cancelled-789"
+			terminalCancelledNamespacedName := types.NamespacedName{Name: terminalCancelledRunName, Namespace: namespace}
+
+			resource := &v1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       terminalCancelledRunName,
+					Namespace:  namespace,
+					Finalizers: []string{AgentRunFinalizer},
+				},
+				Spec: v1alpha1.AgentRunSpec{
+					RuntimeRef: v1alpha1.AgentRuntimeReference{
+						Name: runtimeName,
+					},
+					Prompt:     agentRunPrompt,
+					Repository: repository,
+					Mode:       console.AgentRunModeAnalyze,
+				},
+			}
+			Expect(kClient.Create(ctx, resource)).To(Succeed())
+
+			resource.Status.ID = lo.ToPtr(terminalCancelledRunID)
+			Expect(kClient.Status().Update(ctx, resource)).To(Succeed())
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			// First return Pending so resources get created
+			fakeConsoleClient.On("GetAgentRun", mock.Anything, terminalCancelledRunID).Return(&console.AgentRunFragment{
+				ID:     terminalCancelledRunID,
+				Status: console.AgentRunStatusPending,
+			}, nil)
+			fakeConsoleClient.On("UpdateAgentRun", mock.Anything, mock.Anything, mock.Anything).Return(&console.AgentRunFragment{
+				ID:     terminalCancelledRunID,
+				Status: console.AgentRunStatusPending,
+			}, nil)
+
+			reconciler := &AgentRunReconciler{
+				Client:        kClient,
+				ConsoleClient: fakeConsoleClient,
+				Scheme:        kClient.Scheme(),
+				ConsoleURL:    consoleURL,
+				DeployToken:   deployToken,
+			}
+
+			// First reconcile to create pod and secret
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalCancelledNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify pod and secret were created
+			pod := &corev1.Pod{}
+			Expect(kClient.Get(ctx, terminalCancelledNamespacedName, pod)).NotTo(HaveOccurred())
+			secret := &corev1.Secret{}
+			Expect(kClient.Get(ctx, terminalCancelledNamespacedName, secret)).NotTo(HaveOccurred())
+
+			// Now update the mock to return terminal status
+			fakeConsoleClient.ExpectedCalls = nil
+			fakeConsoleClient.On("GetAgentRun", mock.Anything, terminalCancelledRunID).Return(&console.AgentRunFragment{
+				ID:     terminalCancelledRunID,
+				Status: console.AgentRunStatusCancelled,
+			}, nil)
+
+			// Second reconcile should trigger deletion since status is now terminal
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalCancelledNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify AgentRun is marked for deletion
+			agentRun := &v1alpha1.AgentRun{}
+			Expect(kClient.Get(ctx, terminalCancelledNamespacedName, agentRun)).NotTo(HaveOccurred())
+			Expect(agentRun.DeletionTimestamp).ShouldNot(BeNil())
+
+			// Follow-up reconcile removes finalizer
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: terminalCancelledNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify AgentRun is deleted
+			Eventually(func() bool {
+				err := kClient.Get(ctx, terminalCancelledNamespacedName, &v1alpha1.AgentRun{})
+				return errors.IsNotFound(err)
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			// Cleanup any remaining resources
+			pod = &corev1.Pod{}
+			if err := kClient.Get(ctx, terminalCancelledNamespacedName, pod); err == nil {
+				_ = kClient.Delete(ctx, pod)
+			}
+			secret = &corev1.Secret{}
+			if err := kClient.Get(ctx, terminalCancelledNamespacedName, secret); err == nil {
+				_ = kClient.Delete(ctx, secret)
+			}
+		})
+
 	})
 
 	Context("Secret reconciliation", func() {
