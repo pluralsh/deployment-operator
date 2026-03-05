@@ -34,7 +34,8 @@ var _ = Describe("Reconciler", Ordered, func() {
 			By("creating stack run job")
 			job := &batchv1.Job{}
 			err := kClient.Get(ctx, types.NamespacedName{Name: stackRunJobName, Namespace: namespace}, job)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting Job: %v", err)
 				resource := &batchv1.Job{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      stackRunJobName,

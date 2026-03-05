@@ -40,7 +40,8 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 		BeforeAll(func() {
 			By("Creating StackRunJob")
 			err := kClient.Get(ctx, runNamespacedName, &v1alpha1.StackRunJob{})
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting StackRunJob: %v", err)
 				resource := &v1alpha1.StackRunJob{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      runName,

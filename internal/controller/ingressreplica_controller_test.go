@@ -37,7 +37,8 @@ var _ = Describe("IngressReplica Controller", Ordered, func() {
 		BeforeAll(func() {
 			By("Creating IngressReplica")
 			err := kClient.Get(ctx, namespacedName, ingressReplica)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting IngressReplica: %v", err)
 				resource := &v1alpha1.IngressReplica{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      ingressReplicaName,
@@ -57,7 +58,8 @@ var _ = Describe("IngressReplica Controller", Ordered, func() {
 			}
 			By("Creating Ingress")
 			err = kClient.Get(ctx, ingressNamespacedName, oldIngress)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting Ingress: %v", err)
 				resource := &networkv1.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      ingressName,

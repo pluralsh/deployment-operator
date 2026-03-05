@@ -94,7 +94,8 @@ var _ = Describe("CRD Controller", Ordered, func() {
 		BeforeAll(func() {
 			By("creating the custom resource")
 			err := kClient.Get(ctx, typeNamespacedName, &apiextensionsv1.CustomResourceDefinition{})
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting CustomResourceDefinition: %v", err)
 				Expect(kClient.Create(ctx, crd)).To(Succeed())
 			}
 		})
