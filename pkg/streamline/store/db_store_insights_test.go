@@ -331,7 +331,7 @@ func TestComponentInsights(t *testing.T) {
 		// Define test components where some are managed by plural services
 		testComponents := []client.ComponentChildAttributes{
 			// Failed deployment NOT managed by a plural service (should be included)
-			createComponentAttributes("app-managed-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-managed-1")),
+			createComponentAttributes("app-unmanaged-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-unmanaged-1")),
 
 			// Failed deployment managed by plural service with service_id (should be excluded)
 			createComponentAttributes("app-plural-1", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-plural-1")),
