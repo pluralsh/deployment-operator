@@ -347,7 +347,7 @@ func TestComponentInsights(t *testing.T) {
 		}
 
 		expectedComponentNames := []string{
-			"app-managed-1",
+			"app-unmanaged-1",
 			"ingress-unmanaged",
 		}
 
