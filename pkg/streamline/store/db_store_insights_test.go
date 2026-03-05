@@ -483,10 +483,14 @@ func TestComponentInsights(t *testing.T) {
 				serviceID: "service-2",
 			},
 
-			// Service1-managed pending component with unmanaged failed child
+			// Service1-managed pending component with unmanaged failed child (that will be skipped because it is a Pod)
 			{
 				component: createComponentAttributes("app-service1-parent", nil, WithAttributesKind("Deployment"), WithAttributesState(client.ComponentStatePending), WithAttributesName("app-service1-parent")),
 				serviceID: "service-1",
+			},
+			{
+				component: createComponentAttributes("app-service1-child", lo.ToPtr("app-service1-parent"), WithAttributesKind("Pod"), WithAttributesState(client.ComponentStateFailed), WithAttributesName("app-service1-child")),
+				serviceID: "",
 			},
 		}
 
