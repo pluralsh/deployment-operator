@@ -146,7 +146,8 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	// If Console already reports a terminal phase, the agent run phase needs to be overridden for consistent cleanup.
-	if lo.Contains(terminalRunStatuses, apiAgentRun.Status) {
+	isConsoleStateTerminal := lo.Contains(terminalRunStatuses, apiAgentRun.Status)
+	if isConsoleStateTerminal {
 		run.Status.Phase = getAgentRunPhase(apiAgentRun.Status)
 		if run.Status.EndTime == nil {
 			run.Status.EndTime = lo.ToPtr(metav1.Now())
@@ -155,9 +156,11 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	// Delete the Kubernetes resource when the agent run phase is terminal.
 	if lo.Contains(terminalAgentRunPhases, run.Status.Phase) {
-		if _, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes()); err != nil {
-			utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
-			return ctrl.Result{}, err
+		if !isConsoleStateTerminal {
+			if _, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes()); err != nil {
+				utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
+				return ctrl.Result{}, err
+			}
 		}
 
 		utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
@@ -191,6 +194,10 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
+	if err = r.reconcilePod(ctx, run, agentRuntime); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if changed {
 		apiAgentRun, err = r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes())
 		if err != nil {
@@ -200,10 +207,6 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 	run.Status.ID = &apiAgentRun.ID
 	run.Status.SHA = &sha
-
-	if err = r.reconcilePod(ctx, run, agentRuntime); err != nil {
-		return ctrl.Result{}, err
-	}
 
 	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
@@ -317,10 +320,6 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		run.Status.PodRef = &corev1.ObjectReference{
 			Name:      pod.Name,
 			Namespace: pod.Namespace,
-		}
-
-		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes()); err != nil {
-			return fmt.Errorf("failed to update agent run: %w", err)
 		}
 	}
 
