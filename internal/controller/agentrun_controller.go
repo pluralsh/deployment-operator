@@ -113,8 +113,12 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 	}()
 
-	if result := r.addOrRemoveFinalizer(ctx, run); result != nil {
-		return *result, nil
+	if run.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(run, AgentRunFinalizer) {
+		controllerutil.AddFinalizer(run, AgentRunFinalizer)
+	}
+	if !run.GetDeletionTimestamp().IsZero() {
+		controllerutil.RemoveFinalizer(run, AgentRunFinalizer)
+		return ctrl.Result{}, nil
 	}
 
 	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
@@ -211,42 +215,6 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 
 	return jitterRequeue(requeueAfterAgentRun, jitter), nil
-}
-func (r *AgentRunReconciler) addOrRemoveFinalizer(ctx context.Context, run *v1alpha1.AgentRun) *ctrl.Result {
-	if run.DeletionTimestamp.IsZero() && !controllerutil.ContainsFinalizer(run, AgentRunFinalizer) {
-		controllerutil.AddFinalizer(run, AgentRunFinalizer)
-	}
-
-	// If the agent run is being deleted, cleanup and remove the finalizer.
-	if !run.GetDeletionTimestamp().IsZero() {
-		// If the agent run does not have an ID, the finalizer can be removed.
-		if run.GetAgentRunID() == "" {
-			controllerutil.RemoveFinalizer(run, AgentRunFinalizer)
-			return &ctrl.Result{}
-		}
-
-		exists, err := r.ConsoleClient.IsAgentRunExists(ctx, run.Status.GetID())
-		if err != nil {
-			return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
-		}
-
-		// Cancel agent run from Console API if it exists.
-		if exists {
-			if err = r.ConsoleClient.CancelAgentRun(ctx, run.Status.GetID()); err != nil {
-				// If it fails to delete the external dependency here, return with the error so that it can be retried.
-				utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
-				return lo.ToPtr(jitterRequeue(requeueAfter, jitter))
-			}
-		}
-
-		// If the finalizer is present, remove it.
-		controllerutil.RemoveFinalizer(run, AgentRunFinalizer)
-
-		// Stop reconciliation as the item does no longer exist.
-		return &ctrl.Result{}
-	}
-
-	return nil
 }
 
 func (r *AgentRunReconciler) getRuntime(ctx context.Context, run *v1alpha1.AgentRun) (runtime *v1alpha1.AgentRuntime, err error) {
