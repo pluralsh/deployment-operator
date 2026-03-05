@@ -275,6 +275,7 @@ const (
 			  SELECT root_uid FROM failed_roots
 		   ) AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')))
            AND cc.kind IN ('Deployment', 'StatefulSet', 'Ingress', 'DaemonSet', 'Certificate')
+           AND (cc.service_id IS NULL OR cc.service_id = '')
 	`
 
 	serverCounts = `
