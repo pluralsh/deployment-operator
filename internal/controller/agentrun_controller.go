@@ -195,6 +195,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}
 
 	if err = r.reconcilePod(ctx, run, agentRuntime); err != nil {
+		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -257,6 +258,8 @@ func (r *AgentRunReconciler) syncPhaseFromPodHealth(ctx context.Context, run *v1
 		return nil
 	}
 
+	logger := log.FromContext(ctx)
+
 	switch health.Status {
 	case common.HealthStatusHealthy:
 		run.Status.Phase = v1alpha1.AgentRunPhaseSucceeded
@@ -274,6 +277,9 @@ func (r *AgentRunReconciler) syncPhaseFromPodHealth(ctx context.Context, run *v1
 	case common.HealthStatusProgressing:
 		run.Status.Phase = lo.Ternary(run.Status.StartTime == nil, v1alpha1.AgentRunPhasePending, v1alpha1.AgentRunPhaseRunning)
 		run.Status.Error = nil
+	default:
+		logger.V(2).Info("pod health status is unknown, preserving current phase",
+			"status", health.Status, "message", health.Message)
 	}
 
 	return nil
