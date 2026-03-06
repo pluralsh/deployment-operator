@@ -35,9 +35,10 @@ services:
       KUBE_INSECURE_SKIP_TLS_VERIFY: "true"
       OPERATOR_NAMESPACE: ${OPERATOR_NAMESPACE:-plrl-deploy-operator}
     command:
-      - "--console-url=${CONSOLE_URL:-https://console.plrl-dev-aws.onplural.sh/gql}"
+      - "--console-url=${CONSOLE_URL:-https://console.plrl-dev-aws.onplural.sh/ext/gql}"
       - "--cluster-id=${CLUSTER_ID:?CLUSTER_ID is required}"
       - "--deploy-token=${DEPLOY_TOKEN:?DEPLOY_TOKEN is required}"
+      - "--poll-interval=${POLL_INTERVAL:-30s}"
       - "--v=${VERBOSITY:-4}"
       - "--local=true"
     volumes:
