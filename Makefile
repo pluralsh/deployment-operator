@@ -339,7 +339,7 @@ delete-tag:  ## deletes a tag from git locally and upstream
 
 .PHONY: up
 up: ## spin up deployment-operator with kind cluster
-	docker-compose up --build
+	docker compose up --build
 
 .PHONY: down
 down: ## stop deployment-operator and kind cluster
