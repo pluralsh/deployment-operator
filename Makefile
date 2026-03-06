@@ -347,7 +347,7 @@ down: ## stop deployment-operator and kind cluster
 
 .PHONY: logs
 logs: ## show logs from deployment-operator
-	docker-compose logs -f agent
+	docker compose logs -f agent
 
 ##@ Dependencies
 
