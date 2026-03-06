@@ -20,12 +20,11 @@ import (
 )
 
 const (
-	EnvDeployToken          = "DEPLOY_TOKEN"
-	EnvDatadogEnabled       = "DATADOG_ENABLED"
-	EnvPyroscopeEnabled     = "PYROSCOPE_ENABLED"
-	EnvProfilerEnabled      = "PROFILER_ENABLED"
-	EnvResourceCacheEnabled = "RESOURCE_CACHE_ENABLED"
-	EnvLocal                = "LOCAL"
+	EnvDeployToken      = "DEPLOY_TOKEN"
+	EnvDatadogEnabled   = "DATADOG_ENABLED"
+	EnvPyroscopeEnabled = "PYROSCOPE_ENABLED"
+	EnvProfilerEnabled  = "PROFILER_ENABLED"
+	EnvLocal            = "LOCAL"
 
 	defaultProbeAddress   = ":9001"
 	defaultMetricsAddress = ":8000"
@@ -120,7 +119,6 @@ var (
 	argPyroscope                       = flag.Bool("pyroscope", helpers.GetPluralEnvBool(EnvPyroscopeEnabled, false), "Enable pyroscope integration for detailed application profiling. By default it will push to http://pyroscope.monitoring.svc.cluster.local:4040")
 	argDatadog                         = flag.Bool("datadog", helpers.GetPluralEnvBool(EnvDatadogEnabled, false), "Enable datadog integration for detailed application profiling. By default it will push to http://datadog.monitoring.svc.cluster.local:8125")
 	argLocalDatabaseProfiler           = flag.Bool("local-db-profiler", false, "Enable local database profiler for profiling local database operations.")
-	argDisableResourceCache            = flag.Bool("disable-resource-cache", !helpers.GetPluralEnvBool(EnvResourceCacheEnabled, true), "Control whether resource cache should be enabled or not.")
 	argEnableKubecostProxy             = flag.Bool("enable-kubecost-proxy", false, "If set, will proxy a Kubecost API request through the K8s API server.")
 
 	argMaxConcurrentReconciles = flag.Int("max-concurrent-reconciles", 100, "Maximum number of concurrent reconciles which can be run.")
@@ -409,10 +407,6 @@ func LogLevel() klog.Level {
 	}
 
 	return klog.Level(level)
-}
-
-func ResourceCacheEnabled() bool {
-	return !(*argDisableResourceCache)
 }
 
 func PyroscopeEnabled() bool {
