@@ -344,6 +344,7 @@ up: ## spin up deployment-operator with kind cluster
 .PHONY: down
 down: ## stop deployment-operator and kind cluster
 	docker compose down --remove-orphans
+	kind delete cluster --name deployment-operator
 
 .PHONY: logs
 logs: ## show logs from deployment-operator
