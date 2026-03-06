@@ -335,6 +335,20 @@ delete-tag:  ## deletes a tag from git locally and upstream
 	git tag -d $$tag; \
 	git push origin :$$tag
 
+##@ Docker Compose
+
+.PHONY: up
+up: ## spin up deployment-operator with kind cluster
+	docker-compose up --build
+
+.PHONY: down
+down: ## stop deployment-operator and kind cluster
+	docker-compose down --remove-orphans
+
+.PHONY: logs
+logs: ## show logs from deployment-operator
+	docker-compose logs -f agent
+
 ##@ Dependencies
 
 .PHONY: tools
