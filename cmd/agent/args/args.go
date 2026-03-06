@@ -397,7 +397,7 @@ func SkipService(id string) bool {
 }
 
 func LogLevel() klog.Level {
-	v := pflag.Lookup("v")
+	v := flag.Lookup("v")
 	if v == nil {
 		return log.LogLevelDefault
 	}
