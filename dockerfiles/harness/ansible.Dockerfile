@@ -8,7 +8,7 @@ FROM ${HARNESS_BASE_IMAGE} AS harness
 
 # Build Ansible from Python Image
 FROM python:${PYTHON_VERSION}-alpine AS final
-ARG ANSIBLE_VERSION=9.0.1
+ARG ANSIBLE_VERSION=11.0.0
 
 # Copy Harness bin from the Harness Image
 COPY --from=harness /harness /usr/local/bin/harness

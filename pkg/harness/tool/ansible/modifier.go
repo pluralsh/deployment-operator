@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/pluralsh/deployment-operator/pkg/log"
 	"k8s.io/klog/v2"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/tool/v1"
@@ -27,6 +28,12 @@ func NewPassthroughModifier(planFile string) v1.Modifier {
 func (in *GlobalEnvModifier) Env(env []string) []string {
 	ansibleHome := path.Join(in.workDir, ansibleDir)
 	ansibleLocalTmpDir := path.Join(ansibleHome, ansibleTmpDir)
+
+	if in.ConfigFile != nil {
+		klog.V(log.LogLevelInfo).InfoS("using custom ansible config file", "configFile", *in.ConfigFile)
+		env = append(env, fmt.Sprintf("ANSIBLE_CONFIG=%s", *in.ConfigFile))
+	}
+
 	return append(env,
 		fmt.Sprintf("ANSIBLE_HOME=%s", ansibleHome),
 		fmt.Sprintf("ANSIBLE_LOCAL_TEMP=%s", ansibleLocalTmpDir),
@@ -38,8 +45,8 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 	)
 }
 
-func NewGlobalEnvModifier(workDir string) v1.Modifier {
-	return &GlobalEnvModifier{workDir: workDir}
+func NewGlobalEnvModifier(workDir string, configFile *string) v1.Modifier {
+	return &GlobalEnvModifier{workDir: workDir, ConfigFile: configFile}
 }
 
 func (in *VariableInjectorModifier) Args(args []string) []string {
@@ -57,11 +64,11 @@ func NewVariableModifier(sshKeyFile *string) v1.Modifier {
 }
 
 func (in *VariableModifier) Args(args []string) []string {
-	klog.V(1).InfoS("applying variable modifier", "sshKeyFile", in.SSHKeyFile)
+	klog.V(log.LogLevelTrace).InfoS("applying variable modifier", "sshKeyFile", in.SSHKeyFile)
 
 	if in.SSHKeyFile != nil {
 		args = append(args, "--private-key", *in.SSHKeyFile)
 	}
-	klog.V(1).InfoS("variable modifier applied", "args", args)
+	klog.V(log.LogLevelTrace).InfoS("variable modifier applied", "args", args)
 	return args
 }

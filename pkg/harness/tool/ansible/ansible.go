@@ -28,16 +28,18 @@ func (in *Ansible) Plan() (*console.StackStateAttributes, error) {
 
 // Modifier implements [v1.Tool] interface.
 func (in *Ansible) Modifier(stage console.StepStage) v1.Modifier {
-	modifiers := []v1.Modifier{NewGlobalEnvModifier(in.workDir)}
-
-	modifiers = append(modifiers, NewVariableModifier(in.SSHKeyFile))
+	modifiers := []v1.Modifier{NewGlobalEnvModifier(in.workDir, in.ConfigFile)}
 
 	if in.variables != nil {
 		modifiers = append(modifiers, NewVariableInjectorModifier(in.variablesFileName))
 	}
 
 	if stage == console.StepStagePlan {
+		modifiers = append(modifiers, NewVariableModifier(in.SSHKeyFile))
 		modifiers = append(modifiers, NewPassthroughModifier(in.planFilePath))
+	}
+	if stage == console.StepStageApply {
+		modifiers = append(modifiers, NewVariableModifier(in.SSHKeyFile))
 	}
 
 	return v1.NewMultiModifier(modifiers...)
@@ -66,5 +68,6 @@ func New(config v1.Config) v1.Tool {
 		workDir:     config.WorkDir,
 		execDir:     config.ExecDir,
 		SSHKeyFile:  config.Run.SSHKeyFile,
+		ConfigFile:  config.Run.ConfigFile,
 	}).init()
 }
