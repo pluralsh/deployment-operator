@@ -36,7 +36,8 @@ var _ = Describe("ConstraintPodStatus Controller", Ordered, func() {
 		BeforeAll(func() {
 			By("creating the custom resource for the Kind ConstraintPodStatus")
 			err := kClient.Get(ctx, typeNamespacedName, cps)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting ConstraintPodStatus: %v", err)
 				resource := &constraintstatusv1beta1.ConstraintPodStatus{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,

@@ -40,6 +40,7 @@ type StackRun struct {
 	InventoryFile *string
 	PlaybookFile  *string
 	SSHKeyFile    *string
+	ConfigFile    *string
 }
 
 func (in *StackRun) MaxSeverity() int {
@@ -79,6 +80,7 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		run.InventoryFile = ans.Inventory
 		run.PlaybookFile = ans.Playbook
 		run.SSHKeyFile = ans.PrivateKeyFile
+		run.ConfigFile = ans.ConfigFile
 	}
 
 	return run

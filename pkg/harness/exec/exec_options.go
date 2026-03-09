@@ -51,8 +51,8 @@ func WithTimeout(timeout time.Duration) Option {
 	}
 }
 
-func WithOutputAnalyzer(heuristics ...OutputAnalyzerHeuristic) Option {
+func WithOutputAnalyzer(heuristics []OutputAnalyzerHeuristic, opts ...AnalyzerOption) Option {
 	return func(e *executable) {
-		e.outputAnalyzer = NewOutputAnalyzer(heuristics...)
+		e.outputAnalyzer = NewOutputAnalyzer(heuristics, opts...)
 	}
 }

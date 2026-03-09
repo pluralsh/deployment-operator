@@ -51,7 +51,8 @@ spec:
 		BeforeAll(func() {
 			By("creating the custom resource for the Kind Pod")
 			err := kClient.Get(ctx, typeNamespacedName, livePod)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil {
+				Expect(errors.IsNotFound(err)).To(BeTrue(), "Unexpected error getting Pod: %v", err)
 				resource := &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,

@@ -140,7 +140,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithOutputSinks(append(toolWriters, consoleWriter)...),
 		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step)),
 		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step)),
-		exec.WithOutputAnalyzer(exec.NewKeywordDetector()),
+		exec.WithOutputAnalyzer([]exec.OutputAnalyzerHeuristic{exec.NewKeywordDetector()}, exec.StderrCheckForProvider(in.stackRun.Type)),
 	)
 
 	return exec.NewExecutable(step.Cmd, options...)
