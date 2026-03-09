@@ -56,56 +56,70 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		return err
 	}
 
-	agents := []AgentInput{
-		{
-			Name:                 "analysis",
-			Model:                string(in.model),
-			SandboxMode:          "read-only",
-			ApprovalPolicy:       "never",
-			ModelReasoningEffort: "medium",
-			AllowedEnvVars:       []string{"PATH", "HOME"},
-			EnableWebSearch:      true,
-			EnableShellCache:     true,
-			EnabledTools: []string{
-				"Read", "Grep", "Glob",
-				"Bash(ls:*)", "Bash(cd:*)", "Bash(pwd)",
-				"WebFetch", "updateAgentRunAnalysis",
-			},
-			DisabledTools: []string{
-				"Edit", "Write", "Bash(rm:*)", "Bash(sudo:*)",
-			},
-		},
-		{
-			Name:                 "autonomous",
-			Model:                string(in.model),
-			SandboxMode:          "workspace-write",
-			ApprovalPolicy:       "never",
-			ModelReasoningEffort: "medium",
-			AllowedEnvVars:       []string{"PATH", "HOME"},
-			EnableWebSearch:      true,
-			EnableShellCache:     true,
-			EnabledTools: []string{
-				"Read", "Write", "Edit", "MultiEdit", "Bash", "WebFetch",
-				"agentPullRequest",
-				"createBranch",
-				"fetchAgentRunTodos",
-				"updateAgentRunTodos",
-			},
-		},
+	baseAgent := AgentInput{
+		Model:                string(in.model),
+		ApprovalPolicy:       "never",
+		ModelReasoningEffort: "medium",
+		AllowedEnvVars:       []string{"PATH", "HOME"},
+		EnableWebSearch:      true,
+		EnableShellCache:     true,
 	}
 
-	mcps := []MCPInput{
-		{
-			Name:    "plural",
-			Command: "mcpserver",
+	var (
+		agents []AgentInput
+		mcps   []MCPInput
+	)
+
+	switch in.Config.Run.Mode {
+	case console.AgentRunModeAnalyze:
+		agents = []AgentInput{{
+			Name:                 "analysis",
+			SandboxMode:          "read-only",
+			Model:                baseAgent.Model,
+			ApprovalPolicy:       baseAgent.ApprovalPolicy,
+			ModelReasoningEffort: baseAgent.ModelReasoningEffort,
+			AllowedEnvVars:       baseAgent.AllowedEnvVars,
+			EnableWebSearch:      baseAgent.EnableWebSearch,
+			EnableShellCache:     baseAgent.EnableShellCache,
+		}}
+		mcps = []MCPInput{{
+			Name:         "plural",
+			Type:         "stdio",
+			Command:      "/usr/local/bin/mcpserver",
+			EnabledTools: []string{"updateAgentRunAnalysis"},
 			Env: map[string]string{
 				"PLRL_CONSOLE_TOKEN": consoleToken,
 				"PLRL_CONSOLE_URL":   consoleURL,
+				"PLRL_AGENT_RUN_ID":  in.Config.Run.ID,
 			},
-		},
+		}}
+	case console.AgentRunModeWrite:
+		agents = []AgentInput{{
+			Name:                 "autonomous",
+			SandboxMode:          "workspace-write",
+			Model:                baseAgent.Model,
+			ApprovalPolicy:       baseAgent.ApprovalPolicy,
+			ModelReasoningEffort: baseAgent.ModelReasoningEffort,
+			AllowedEnvVars:       baseAgent.AllowedEnvVars,
+			EnableWebSearch:      baseAgent.EnableWebSearch,
+			EnableShellCache:     baseAgent.EnableShellCache,
+		}}
+		mcps = []MCPInput{{
+			Name:         "plural",
+			Type:         "stdio",
+			Command:      "/usr/local/bin/mcpserver",
+			EnabledTools: []string{"agentPullRequest, createBranch, fetchAgentRunTodos, updateAgentRunTodos"},
+			Env: map[string]string{
+				"PLRL_CONSOLE_TOKEN": consoleToken,
+				"PLRL_CONSOLE_URL":   consoleURL,
+				"PLRL_AGENT_RUN_ID":  in.Config.Run.ID,
+			},
+		}}
+	default:
+		return fmt.Errorf("unsupported agent run mode %q for codex", in.Config.Run.Mode)
 	}
 
-	cfg, err := BuildCodexConfig(path.Join(in.Config.WorkDir, "shared"), agents, mcps)
+	cfg, err := BuildCodexConfig(in.Config.WorkDir, agents, mcps)
 	if err != nil {
 		return err
 	}
@@ -149,7 +163,7 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		agent = "autonomous"
 	}
 
-	args = []string{"exec", "--profile", agent, "--skip-git-repo-check", "true", "--cd", path.Join(in.Config.WorkDir, "shared"), "--json"}
+	args = []string{"exec", "--profile", agent, "--skip-git-repo-check", "true", "--json"}
 
 	in.executable = exec.NewExecutable(
 		"codex",
@@ -205,6 +219,22 @@ func mapCodexStreamEventToAgentMessage(event *StreamEvent, threadID string) *con
 			return nil
 		}
 		return mapStreamItem(event.Item, threadID)
+	case "turn.completed":
+		if event.Usage == nil {
+			return nil
+		}
+		totalTokens := float64(event.Usage.InputTokens + event.Usage.OutputTokens)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: "turn.completed",
+			Cost: &console.AgentMessageCostAttributes{
+				Total: totalTokens,
+				Tokens: &console.AgentMessageTokensAttributes{
+					Input:  lo.ToPtr(float64(event.Usage.InputTokens)),
+					Output: lo.ToPtr(float64(event.Usage.OutputTokens)),
+				},
+			},
+		}
 	}
 	return nil
 }

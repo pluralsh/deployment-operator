@@ -48,19 +48,20 @@ func BuildCodexConfig(dir string, agents []AgentInput, mcps []MCPInput) (*CodexC
 				WebSearchRequest: a.EnableWebSearch,
 				ShellSnapshot:    a.EnableShellCache,
 			},
-			Prompt:        prompt,
-			DisabledTools: a.DisabledTools,
-			EnabledTools:  a.EnabledTools,
+			Prompt: prompt,
 		}
 	}
 
 	// Add MCP servers
 	for _, m := range mcps {
 		cfg.MCPServers[m.Name] = &MCPServer{
-			URL:     m.URL,
-			Command: m.Command,
-			Args:    m.Args,
-			Env:     m.Env,
+			Type:          m.Type,
+			URL:           m.URL,
+			Command:       m.Command,
+			Args:          m.Args,
+			Env:           m.Env,
+			EnabledTools:  m.EnabledTools,
+			DisabledTools: m.DisabledTools,
 		}
 	}
 
@@ -68,6 +69,10 @@ func BuildCodexConfig(dir string, agents []AgentInput, mcps []MCPInput) (*CodexC
 }
 
 func WriteCodexConfig(basePath string, cfg *CodexConfig) (string, error) {
+
+	if err := os.MkdirAll(basePath, 0755); err != nil {
+		return "", err
+	}
 
 	filePath := filepath.Join(basePath, "config.toml")
 	data, err := toml.Marshal(cfg)

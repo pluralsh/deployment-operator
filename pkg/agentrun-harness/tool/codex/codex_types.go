@@ -29,7 +29,7 @@ type Codex struct {
 // StreamEvent is the top-level envelope for every JSON line emitted by `codex exec --json`.
 type StreamEvent struct {
 	// Type identifies the event kind, e.g. "thread.started", "turn.started",
-	// "item.started", "item.completed".
+	// "item.started", "item.completed", "turn.completed".
 	Type string `json:"type"`
 
 	// ThreadID is set on "thread.started" events and carries the session
@@ -38,6 +38,16 @@ type StreamEvent struct {
 
 	// Item is populated on "item.started" and "item.completed" events.
 	Item *StreamItem `json:"item,omitempty"`
+
+	// Usage is populated on "turn.completed" events and contains token usage statistics.
+	Usage *TurnUsage `json:"usage,omitempty"`
+}
+
+// TurnUsage holds token usage statistics emitted in the "turn.completed" event.
+type TurnUsage struct {
+	InputTokens       int `json:"input_tokens"`
+	CachedInputTokens int `json:"cached_input_tokens"`
+	OutputTokens      int `json:"output_tokens"`
 }
 
 // StreamItem is the payload carried inside "item.started" / "item.completed" events.
@@ -77,8 +87,6 @@ type AgentInput struct {
 	EnableWebSearch      bool
 	EnableShellCache     bool
 	PromptFile           string
-	EnabledTools         []string
-	DisabledTools        []string
 }
 
 type Project struct {
@@ -86,11 +94,14 @@ type Project struct {
 }
 
 type MCPInput struct {
-	Name    string
-	URL     string
-	Command string
-	Args    []string
-	Env     map[string]string
+	Name          string
+	Type          string // Transport type: "stdio" or "sse"
+	URL           string
+	Command       string
+	Args          []string
+	Env           map[string]string
+	EnabledTools  []string
+	DisabledTools []string
 }
 
 type ShellEnvPolicy struct {
@@ -110,15 +121,16 @@ type Profile struct {
 	ShellEnvironmentPolicy *ShellEnvPolicy `toml:"shell_environment_policy,omitempty"`
 	Features               *Features       `toml:"features,omitempty"`
 	Prompt                 string          `toml:"prompt,omitempty"`
-	EnabledTools           []string        `toml:"enabled_tools,omitempty"`  // allow-list
-	DisabledTools          []string        `toml:"disabled_tools,omitempty"` // deny-list
 }
 
 type MCPServer struct {
-	URL     string            `toml:"url,omitempty"`     // For remote MCP
-	Command string            `toml:"command,omitempty"` // For local MCP
-	Args    []string          `toml:"args,omitempty"`
-	Env     map[string]string `toml:"env,omitempty"`
+	Type          string            `toml:"type,omitempty"`    // Transport type: "stdio" or "sse"
+	URL           string            `toml:"url,omitempty"`     // For remote MCP (sse)
+	Command       string            `toml:"command,omitempty"` // For local MCP (stdio)
+	Args          []string          `toml:"args,omitempty"`
+	Env           map[string]string `toml:"env,omitempty"`
+	EnabledTools  []string          `toml:"enabled_tools,omitempty"`
+	DisabledTools []string          `toml:"disabled_tools,omitempty"`
 }
 
 type CodexConfig struct {
