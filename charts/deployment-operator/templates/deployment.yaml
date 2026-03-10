@@ -50,7 +50,6 @@ spec:
           - -processing-timeout={{ .Values.args.processingTimeout }}
           - -enable-helm-dependency-update={{ .Values.args.enableHelmDependencyUpdate }}
           - -disable-helm-dry-run-server={{ .Values.args.disableHelmTemplateDryRunServer }}
-          - -disable-resource-cache={{ .Values.args.disableResourceCache }}
           {{ if .Values.extraArgs }}
           {{ toYaml .Values.extraArgs | nindent 10 }}
           {{ end }}
