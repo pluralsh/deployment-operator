@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -22,15 +23,9 @@ import (
 
 func New(config v1.Config) v1.Tool {
 	result := &Claude{
-		DefaultTool: v1.DefaultTool{Config: config},
-		//dir:           config.WorkDir,
-		//repositoryDir: config.RepositoryDir,
-		//run:           config.Run,
-		token: helpers.GetEnv(controller.EnvClaudeToken, ""),
-		model: DefaultModel(),
-		//finishedChan:  config.FinishedChan,
-		//errorChan:     config.ErrorChan,
-		//startedChan:   make(chan struct{}),
+		DefaultTool:  v1.DefaultTool{Config: config},
+		token:        helpers.GetEnv(controller.EnvClaudeToken, ""),
+		model:        DefaultModel(),
 		toolUseCache: make(map[string]ContentMsg),
 	}
 
@@ -106,6 +101,18 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 		Done()
 	if err := mcp.WriteToFile(filepath.Join(in.Config.WorkDir, ".mcp.json")); err != nil {
 		return err
+	}
+
+	if in.Config.Run.IsProxyEnabled() {
+		err := os.Setenv("ANTHROPIC_AUTH_TOKEN", consoleToken)
+		if err != nil {
+			return err
+		}
+
+		err = os.Setenv("ANTHROPIC_BASE_URL", fmt.Sprintf("%s/ext/ai/anthropic", consoleURL))
+		if err != nil {
+			return err
+		}
 	}
 
 	settings := NewSettingsBuilder()

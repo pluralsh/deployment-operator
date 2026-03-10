@@ -141,16 +141,10 @@ func (in *Opencode) ensure() error {
 func New(config v1.Config) v1.Tool {
 	result := &Opencode{
 		DefaultTool: v1.DefaultTool{Config: config},
-		//run:           config.Run,
-		model:    DefaultModel(),
-		provider: DefaultProvider(config.Run.IsProxyEnabled()),
-		//dir:           config.WorkDir,
-		//repositoryDir: config.RepositoryDir,
-		//finishedChan:  config.FinishedChan,
-		//errorChan:     config.ErrorChan,
-		//startedChan:   make(chan struct{}),
-		port:   defaultOpenCodePort,
-		client: opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", defaultOpenCodePort))),
+		model:       DefaultModel(),
+		provider:    DefaultProvider(config.Run.IsProxyEnabled()),
+		port:        defaultOpenCodePort,
+		client:      opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", defaultOpenCodePort))),
 	}
 
 	if err := result.ensure(); err != nil {
