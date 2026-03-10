@@ -33,6 +33,12 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 		klog.V(log.LogLevelInfo).InfoS("using custom ansible config file", "configFile", *in.ConfigFile)
 		env = append(env, fmt.Sprintf("ANSIBLE_CONFIG=%s", *in.ConfigFile))
 	}
+	if len(in.consoleURL) > 0 {
+		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_URL=%s", in.consoleURL))
+	}
+	if len(in.consoleToken) > 0 {
+		env = append(env, fmt.Sprintf("PLURAL_CONSOLE_TOKEN=%s", in.consoleToken))
+	}
 
 	return append(env,
 		fmt.Sprintf("ANSIBLE_HOME=%s", ansibleHome),
@@ -42,8 +48,6 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 		fmt.Sprintf("ANSIBLE_PERSISTENT_CONTROL_PATH_DIR=%s", "/tmp/.ansible/pc"),
 		fmt.Sprintf("ANSIBLE_HOST_KEY_CHECKING=%s", "false"),
 		fmt.Sprintf("ANSIBLE_PYTHON_INTERPRETER=%s", "auto_silent"),
-		fmt.Sprintf("PLURAL_CONSOLE_URL=%s", in.consoleURL),
-		fmt.Sprintf("PLURAL_CONSOLE_TOKEN=%s", in.consoleToken),
 		fmt.Sprintf("PLURAL_INSTALL_AGENT_CONFIRM_IF_EXISTS=%s", "true"),
 	)
 }
