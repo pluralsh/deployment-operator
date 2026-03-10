@@ -116,7 +116,7 @@ func main() {
 	namespaceCache := streamline.NewNamespaceCache(clientSet)
 
 	kubeManager := initKubeManagerOrDie(config)
-	consoleManager := initConsoleManagerOrDie()
+	consoleManager := initConsoleManagerOrDie(config, scheme)
 
 	// Start the discovery cache manager in background.
 	runDiscoveryManagerOrDie(ctx, discoveryCache)

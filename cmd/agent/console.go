@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"os"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/polly/cache"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
+	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
@@ -30,22 +35,46 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
-func initConsoleManagerOrDie() *consolectrl.Manager {
-	mgr, err := consolectrl.NewControllerManager(
+func initConsoleManagerOrDie(restConfig *rest.Config, scheme *runtime.Scheme) *consolectrl.Manager {
+	options := []consolectrl.ControllerManagerOption{
 		consolectrl.WithMaxConcurrentReconciles(args.MaxConcurrentReconciles()),
 		consolectrl.WithCacheSyncTimeout(args.ProcessingTimeout()),
 		consolectrl.WithPollInterval(args.PollInterval()),
 		consolectrl.WithJitter(args.PollJitter()),
 		consolectrl.WithRecoverPanic(true),
 		consolectrl.WithConsoleClientArgs(args.ConsoleUrl(), args.DeployToken()),
-		consolectrl.WithSocketArgs(args.ClusterId(), args.ConsoleUrl(), args.DeployToken()),
-	)
+	}
+
+	if !isWebsocketDisabledOrDie(restConfig, scheme) {
+		options = append(options, consolectrl.WithSocketArgs(args.ClusterId(), args.ConsoleUrl(), args.DeployToken()))
+	}
+
+	mgr, err := consolectrl.NewControllerManager(options...)
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
 
 	return mgr
+}
+
+// isWebsocketDisabledOrDie reads the agent configuration resource directly from the cluster
+// to check whether the websocket should be disabled. This must be done via a direct call
+// rather than through the cache because neither manager has started yet at this point.
+// The cache is not populated until the manager is started.
+func isWebsocketDisabledOrDie(restConfig *rest.Config, scheme *runtime.Scheme) bool {
+	c, err := ctrclient.New(restConfig, ctrclient.Options{Scheme: scheme})
+	if err != nil {
+		setupLog.Error(err, "unable to create kubernetes client to read agent configuration")
+		os.Exit(1)
+	}
+
+	agentConfig := &v1alpha1.AgentConfiguration{}
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "default"}, agentConfig); err != nil {
+		return false // If the resource is not found or unreadable, the websocket will be enabled (default behavior).
+	}
+
+	return lo.FromPtr(agentConfig.Spec.DisableWebsocket)
 }
 
 const (
