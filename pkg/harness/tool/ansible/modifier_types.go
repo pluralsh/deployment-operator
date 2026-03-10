@@ -19,6 +19,9 @@ type GlobalEnvModifier struct {
 	// workDir
 	workDir    string
 	ConfigFile *string
+
+	consoleToken string
+	consoleURL   string
 }
 
 type VariableInjectorModifier struct {

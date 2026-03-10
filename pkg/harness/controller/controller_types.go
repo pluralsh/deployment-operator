@@ -49,6 +49,9 @@ type stackRunController struct {
 	// consoleToken
 	consoleToken string
 
+	// consoleURL
+	consoleURL string
+
 	// dir
 	dir string
 

@@ -48,6 +48,14 @@ RUN apk add --no-cache \
     cryptography && \
     apk del .build-deps
 
+# install plural cli
+ARG TARGETARCH
+RUN VERSION=$(curl -sL https://api.github.com/repos/pluralsh/plural-cli/releases/latest | jq -r '.tag_name' | tr -d v) && \
+    curl -L https://github.com/pluralsh/plural-cli/releases/latest/download/plural-cli_${VERSION}_Linux_${TARGETARCH}.tar.gz \
+    | tar zx && \
+    mv plural /usr/local/bin/plural && \
+    chmod +x /usr/local/bin/plural
+
 RUN addgroup --gid 65532 nonroot && \
     adduser --uid 65532 --ingroup nonroot --disabled-password --home /home/nonroot nonroot && \
     mkdir -p /home/nonroot/.cache/pip /home/nonroot/.local && \

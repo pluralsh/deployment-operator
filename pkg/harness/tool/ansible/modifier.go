@@ -42,11 +42,14 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 		fmt.Sprintf("ANSIBLE_PERSISTENT_CONTROL_PATH_DIR=%s", "/tmp/.ansible/pc"),
 		fmt.Sprintf("ANSIBLE_HOST_KEY_CHECKING=%s", "false"),
 		fmt.Sprintf("ANSIBLE_PYTHON_INTERPRETER=%s", "auto_silent"),
+		fmt.Sprintf("PLURAL_CONSOLE_URL=%s", in.consoleURL),
+		fmt.Sprintf("PLURAL_CONSOLE_TOKEN=%s", in.consoleToken),
+		fmt.Sprintf("PLURAL_INSTALL_AGENT_CONFIRM_IF_EXISTS=%s", "true"),
 	)
 }
 
-func NewGlobalEnvModifier(workDir string, configFile *string) v1.Modifier {
-	return &GlobalEnvModifier{workDir: workDir, ConfigFile: configFile}
+func NewGlobalEnvModifier(workDir, consoleURL, consoleToken string, configFile *string) v1.Modifier {
+	return &GlobalEnvModifier{workDir: workDir, ConfigFile: configFile, consoleURL: consoleURL, consoleToken: consoleToken}
 }
 
 func (in *VariableInjectorModifier) Args(args []string) []string {

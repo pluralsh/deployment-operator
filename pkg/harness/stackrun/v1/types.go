@@ -5,9 +5,8 @@ import (
 	"fmt"
 
 	gqlclient "github.com/pluralsh/console/go/client"
-	"github.com/samber/lo"
-
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
+	"github.com/samber/lo"
 )
 
 type StackRun struct {
@@ -41,6 +40,9 @@ type StackRun struct {
 	PlaybookFile  *string
 	SSHKeyFile    *string
 	ConfigFile    *string
+
+	ConsoleURL   string
+	ConsoleToken string
 }
 
 func (in *StackRun) MaxSeverity() int {
@@ -69,6 +71,11 @@ func (in *StackRun) FromStackRunBaseFragment(fragment *gqlclient.StackRunBaseFra
 		Variables:    fragment.Variables,
 		PolicyEngine: fragment.PolicyEngine,
 		DryRun:       fragment.DryRun,
+	}
+
+	if fragment.PluralCreds != nil {
+		run.ConsoleURL = lo.FromPtr(fragment.PluralCreds.URL)
+		run.ConsoleToken = lo.FromPtr(fragment.PluralCreds.Token)
 	}
 
 	if tf := fragment.Configuration.Terraform; tf != nil {
