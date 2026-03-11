@@ -81,7 +81,7 @@ type Opencode struct {
 	// model is the AI model used by opencode.
 	model Model
 
-	// provider is the AI provider used by opencode.
+	// provider is the named Opencode provider.
 	provider Provider
 
 	// executable is the opencode executable used to call CLI.

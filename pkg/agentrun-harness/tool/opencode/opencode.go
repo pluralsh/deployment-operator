@@ -88,7 +88,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	}
 
 	err = in.executable.RunStream(runCtx, in.streamLineHandler(state, cancel))
-	if ctxErr := runCtx.Err(); ctxErr != nil {
+	if ctxErr := context.Cause(runCtx); ctxErr != nil {
 		klog.V(log.LogLevelDefault).ErrorS(ctxErr, "opencode execution failed")
 		in.Config.ErrorChan <- ctxErr
 		return
@@ -184,6 +184,10 @@ func (in *Opencode) getID(e EventListResponse) string {
 
 func (in *Opencode) args() []string {
 	model := lo.Ternary(in.Config.Run.IsProxyEnabled(),
+		// AI Proxy requires the model in the request to be in format <provider/model>
+		// First part is the named opencode provider, the second is the actual AI provider,
+		// and the last is the model to use. Currently, agent run schema does not provide a way
+		// to set a custom AI provider.
 		fmt.Sprintf("%s/openai/%s", in.provider, in.model),
 		fmt.Sprintf("%s/%s", in.provider, in.model),
 	)
