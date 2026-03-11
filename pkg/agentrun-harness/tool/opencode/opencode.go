@@ -1,7 +1,6 @@
 package opencode
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -113,51 +112,17 @@ func (in *Opencode) streamLineHandler(state *streamState, cancel context.CancelF
 }
 
 func (in *Opencode) handleStreamLine(line []byte, state *streamState) (isTerminalErr bool, err error) {
-	trimmed, ok := in.trimJSONLine(line)
-	if !ok {
+	event := &EventListResponse{}
+	if err = json.Unmarshal(line, event); err != nil {
+		klog.V(log.LogLevelDebug).InfoS("ignoring non-event opencode stream line", "line", string(line), "error", err.Error())
 		return false, nil
-	}
-
-	terminalErr, ok, err := in.parseTerminalStreamError(trimmed)
-	if err != nil {
-		return false, err
-	}
-	if ok {
-		return true, terminalErr
-	}
-
-	event := &opencode.EventListResponse{}
-	if err = json.Unmarshal(trimmed, event); err != nil {
-		return false, err
 	}
 
 	in.processEvent(state, *event)
 	return false, nil
 }
 
-func (in *Opencode) trimJSONLine(line []byte) ([]byte, bool) {
-	trimmed := bytes.TrimSpace(line)
-	if len(trimmed) == 0 || !bytes.HasPrefix(trimmed, []byte("{")) {
-		return nil, false
-	}
-
-	return trimmed, true
-}
-
-func (in *Opencode) parseTerminalStreamError(line []byte) (error, bool, error) {
-	envelope := &StreamEnvelope{}
-	if err := json.Unmarshal(line, envelope); err != nil {
-		return nil, false, nil
-	}
-
-	if envelope.Type != "error" {
-		return nil, false, nil
-	}
-
-	return envelope.ToError(), true, nil
-}
-
-func (in *Opencode) processEvent(state *streamState, event opencode.EventListResponse) {
+func (in *Opencode) processEvent(state *streamState, event EventListResponse) {
 	id := in.getID(event)
 	if len(id) == 0 {
 		return
@@ -194,11 +159,11 @@ func (in *Opencode) handleStreamCallback(line []byte, state *streamState, cancel
 		return
 	}
 
-	klog.V(log.LogLevelDebug).ErrorS(err, "failed to process opencode stream line", "line", string(bytes.TrimSpace(line)))
+	klog.V(log.LogLevelDebug).ErrorS(err, "failed to process opencode stream line", "line", string(line))
 	in.Config.ErrorChan <- err
 }
 
-func (in *Opencode) getID(e opencode.EventListResponse) string {
+func (in *Opencode) getID(e EventListResponse) string {
 	switch e.Type {
 	case opencode.EventListResponseTypeMessageUpdated:
 		return e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties).Info.ID
