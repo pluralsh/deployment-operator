@@ -6,7 +6,6 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
-	"github.com/sst/opencode-sdk-go"
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
@@ -95,14 +94,66 @@ type Opencode struct {
 	onMessage func(message *console.AgentMessageAttributes)
 }
 
-type Event struct {
-	ID      string
-	Message *console.AgentMessageAttributes
-	Done    bool
+type StreamEventType string
+
+const (
+	StreamEventTypeStepStart  StreamEventType = "step_start"
+	StreamEventTypeToolUse    StreamEventType = "tool_use"
+	StreamEventTypeStepFinish StreamEventType = "step_finish"
+	StreamEventTypeText       StreamEventType = "text"
+	StreamEventTypeError      StreamEventType = "error"
+)
+
+type StreamPartType string
+
+const (
+	StreamPartTypeText       StreamPartType = "text"
+	StreamPartTypeTool       StreamPartType = "tool"
+	StreamPartTypeStepStart  StreamPartType = "step-start"
+	StreamPartTypeStepFinish StreamPartType = "step-finish"
+)
+
+type StreamToolStatus string
+
+const (
+	StreamToolStatusRunning   StreamToolStatus = "running"
+	StreamToolStatusCompleted StreamToolStatus = "completed"
+	StreamToolStatusPending   StreamToolStatus = "pending"
+	StreamToolStatusError     StreamToolStatus = "error"
+)
+
+type EventListResponse struct {
+	Type      StreamEventType `json:"type"`
+	Timestamp int64           `json:"timestamp"`
+	SessionID string          `json:"sessionID"`
+	Part      *StreamPart     `json:"part,omitempty"`
+	Error     *StreamError    `json:"error,omitempty"`
 }
 
-type streamState struct {
-	events map[string]*Event
+type StreamPart struct {
+	ID        string           `json:"id"`
+	SessionID string           `json:"sessionID"`
+	MessageID string           `json:"messageID"`
+	CallID    string           `json:"callID,omitempty"`
+	Type      StreamPartType   `json:"type"`
+	Text      string           `json:"text,omitempty"`
+	Tool      string           `json:"tool,omitempty"`
+	Cost      float64          `json:"cost,omitempty"`
+	Tokens    *StreamTokens    `json:"tokens,omitempty"`
+	State     *StreamToolState `json:"state,omitempty"`
+}
+
+type StreamTokens struct {
+	Total     float64 `json:"total"`
+	Input     float64 `json:"input"`
+	Output    float64 `json:"output"`
+	Reasoning float64 `json:"reasoning"`
+}
+
+type StreamToolState struct {
+	Status StreamToolStatus `json:"status"`
+	Input  json.RawMessage  `json:"input,omitempty"`
+	Output string           `json:"output,omitempty"`
 }
 
 type StreamErrorData struct {
@@ -114,38 +165,16 @@ type StreamError struct {
 	Data *StreamErrorData `json:"data,omitempty"`
 }
 
-type EventListResponse struct {
-	opencode.EventListResponse `json:",inline"`
-	SessionID                  string `json:"sessionID"`
-	Error                      *StreamError
+type Event struct {
+	ID      string
+	Message *console.AgentMessageAttributes
+	Done    bool
+
+	seenToolCalls map[string]struct{}
 }
 
-func (in *EventListResponse) UnmarshalJSON(data []byte) error {
-	*in = EventListResponse{}
-
-	var envelope struct {
-		Type      string       `json:"type"`
-		SessionID string       `json:"sessionID"`
-		Error     *StreamError `json:"error,omitempty"`
-	}
-
-	if err := json.Unmarshal(data, &envelope); err != nil {
-		return err
-	}
-
-	in.Error = envelope.Error
-	if envelope.Type == "error" {
-		in.Type = opencode.EventListResponseType(envelope.Type)
-		return nil
-	}
-
-	var sdkResponse opencode.EventListResponse
-	if err := json.Unmarshal(data, &sdkResponse); err != nil {
-		return err
-	}
-
-	in.EventListResponse = sdkResponse
-	return nil
+type streamState struct {
+	events map[string]*Event
 }
 
 func (in *Event) FromEventResponse(e EventListResponse) {
@@ -153,106 +182,31 @@ func (in *Event) FromEventResponse(e EventListResponse) {
 		in.Message = &console.AgentMessageAttributes{}
 	}
 
-	switch e.Type {
-	case opencode.EventListResponseTypeMessageUpdated:
-		in.fromMessageUpdated(e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties))
-	case opencode.EventListResponseTypeMessagePartUpdated:
-		in.fromMessagePartUpdated(e.Properties.(opencode.EventListResponseEventMessagePartUpdatedProperties))
-	}
-}
-
-func (in *Event) Sanitize() {
-	if len(in.Message.Message) == 0 {
-		in.Message.Message = "__plrl_ignore__"
-	}
-}
-
-func (in *Event) fromMessageUpdated(e opencode.EventListResponseEventMessageUpdatedProperties) {
-	in.ID = e.Info.ID
-	in.Message.Role = in.toRole(e.Info.Role)
-
-	tokens, ok := e.Info.Tokens.(opencode.AssistantMessageTokens)
-	in.fromAssistantMessageTokens(lo.Ternary(ok, &tokens, nil), e.Info.Cost)
-}
-
-func (in *Event) fromAssistantMessageTokens(tokens *opencode.AssistantMessageTokens, cost float64) {
-	if in.Message.Cost == nil {
-		in.Message.Cost = &console.AgentMessageCostAttributes{}
-	}
-
-	if in.Message.Cost.Total < cost {
-		in.Message.Cost.Total = cost
-	}
-
-	if tokens == nil {
+	if e.Part == nil {
 		return
 	}
 
-	if in.Message.Cost.Tokens == nil {
-		in.Message.Cost.Tokens = &console.AgentMessageTokensAttributes{}
-	}
-
-	in.Message.Cost.Tokens.Input = lo.ToPtr(tokens.Input)
-	in.Message.Cost.Tokens.Output = lo.ToPtr(tokens.Output)
-	in.Message.Cost.Tokens.Reasoning = lo.ToPtr(tokens.Reasoning)
-}
-
-func (in *Event) toRole(role opencode.MessageRole) console.AiRole {
-	switch role {
-	case opencode.MessageRoleUser:
-		return console.AiRoleUser
-	case opencode.MessageRoleAssistant:
-		return console.AiRoleAssistant
-	}
-
-	return console.AiRoleAssistant
-}
-
-func (in *Event) fromMessagePartUpdated(e opencode.EventListResponseEventMessagePartUpdatedProperties) {
 	in.ID = e.Part.MessageID
-	in.Message.Message = lo.Ternary(len(in.Message.Message) > len(e.Part.Text), in.Message.Message, e.Part.Text)
+	in.Message.Role = console.AiRoleAssistant
 
-	if e.Part.Type == opencode.PartTypeStepFinish {
+	switch e.Part.Type {
+	case StreamPartTypeText:
+		if len(e.Part.Text) > len(in.Message.Message) {
+			in.Message.Message = e.Part.Text
+		}
+	case StreamPartTypeTool:
+		in.fromToolState(e.Part)
+		if len(in.Message.Message) == 0 {
+			in.Message.Message = "Called tool"
+		}
+	case StreamPartTypeStepFinish:
+		in.fromTokens(e.Part.Tokens, e.Part.Cost)
 		in.Done = true
 	}
-
-	tokens, ok := e.Part.Tokens.(opencode.StepFinishPartTokens)
-	in.fromStepFinishPartTokens(lo.Ternary(ok, &tokens, nil), e.Part.Cost)
-
-	tool, ok := e.Part.State.(opencode.ToolPartState)
-	in.fromToolPartState(lo.Ternary(ok, &tool, nil), e.Part.Tool)
-
-	file, ok := e.Part.Source.(opencode.FilePartSource)
-	in.fromFilePartSource(lo.Ternary(ok, &file, nil))
-
-	reasoning, ok := e.Part.Source.(opencode.AgentPartSource)
-	in.fromAgentPartSource(lo.Ternary(ok, &reasoning, nil))
 }
 
-func (in *Event) fromStepFinishPartTokens(tokens *opencode.StepFinishPartTokens, cost float64) {
-	if in.Message.Cost == nil {
-		in.Message.Cost = &console.AgentMessageCostAttributes{}
-	}
-
-	if in.Message.Cost.Total < cost {
-		in.Message.Cost.Total = cost
-	}
-
-	if tokens == nil {
-		return
-	}
-
-	if in.Message.Cost.Tokens == nil {
-		in.Message.Cost.Tokens = &console.AgentMessageTokensAttributes{}
-	}
-
-	in.Message.Cost.Tokens.Input = lo.ToPtr(tokens.Input)
-	in.Message.Cost.Tokens.Output = lo.ToPtr(tokens.Output)
-	in.Message.Cost.Tokens.Reasoning = lo.ToPtr(tokens.Reasoning)
-}
-
-func (in *Event) fromToolPartState(tool *opencode.ToolPartState, name string) {
-	if tool == nil || len(name) == 0 {
+func (in *Event) fromToolState(part *StreamPart) {
+	if part == nil || part.State == nil || len(part.Tool) == 0 {
 		return
 	}
 
@@ -264,68 +218,73 @@ func (in *Event) fromToolPartState(tool *opencode.ToolPartState, name string) {
 		in.Message.Metadata.Tool = &console.AgentMessageToolAttributes{}
 	}
 
-	in.Message.Metadata.Tool.Name = lo.ToPtr(name)
-	in.Message.Metadata.Tool.State = lo.ToPtr(in.toAgentToolState(tool.Status))
-	in.Message.Metadata.Tool.Output = lo.ToPtr(tool.Output)
+	in.Message.Metadata.Tool.Name = lo.ToPtr(part.Tool)
+	in.Message.Metadata.Tool.State = lo.ToPtr(toAgentToolState(part.State.Status))
+	in.Message.Metadata.Tool.Output = lo.ToPtr(part.State.Output)
 
-	if tool.Input != nil {
-		input, err := json.Marshal(tool.Input)
-		if err != nil {
-			return
-		}
+	if len(part.State.Input) > 0 && string(part.State.Input) != "null" {
+		in.Message.Metadata.Tool.Input = lo.ToPtr(string(part.State.Input))
+	}
 
-		in.Message.Metadata.Tool.Input = lo.ToPtr(string(input))
+	if in.seenToolCalls == nil {
+		in.seenToolCalls = make(map[string]struct{})
+	}
+
+	callID := part.CallID
+	if callID == "" {
+		callID = part.ID
+	}
+
+	if _, exists := in.seenToolCalls[callID]; exists {
+		return
+	}
+
+	if len(in.Message.Message) > 0 {
+		in.Message.Message += "\n"
+	}
+	in.Message.Message += "Called tool " + part.Tool
+	in.seenToolCalls[callID] = struct{}{}
+}
+
+func (in *Event) fromTokens(tokens *StreamTokens, cost float64) {
+	if in.Message.Cost == nil {
+		in.Message.Cost = &console.AgentMessageCostAttributes{}
+	}
+
+	if in.Message.Cost.Total < cost {
+		in.Message.Cost.Total = cost
+	}
+
+	if tokens == nil {
+		return
+	}
+
+	if in.Message.Cost.Tokens == nil {
+		in.Message.Cost.Tokens = &console.AgentMessageTokensAttributes{}
+	}
+
+	in.Message.Cost.Tokens.Input = lo.ToPtr(tokens.Input)
+	in.Message.Cost.Tokens.Output = lo.ToPtr(tokens.Output)
+	in.Message.Cost.Tokens.Reasoning = lo.ToPtr(tokens.Reasoning)
+}
+
+func (in *Event) Sanitize() {
+	if len(in.Message.Message) == 0 {
+		in.Message.Message = "__plrl_ignore__"
 	}
 }
 
-func (in *Event) toAgentToolState(state opencode.ToolPartStateStatus) console.AgentMessageToolState {
+func toAgentToolState(state StreamToolStatus) console.AgentMessageToolState {
 	switch state {
-	case opencode.ToolPartStateStatusRunning:
+	case StreamToolStatusRunning:
 		return console.AgentMessageToolStateRunning
-	case opencode.ToolPartStateStatusCompleted:
+	case StreamToolStatusCompleted:
 		return console.AgentMessageToolStateCompleted
-	case opencode.ToolPartStateStatusPending:
+	case StreamToolStatusPending:
 		return console.AgentMessageToolStatePending
-	case opencode.ToolPartStateStatusError:
+	case StreamToolStatusError:
 		return console.AgentMessageToolStateError
+	default:
+		return console.AgentMessageToolStateCompleted
 	}
-
-	return console.AgentMessageToolStateCompleted
-}
-
-func (in *Event) fromFilePartSource(file *opencode.FilePartSource) {
-	if file == nil {
-		return
-	}
-
-	if in.Message.Metadata == nil {
-		in.Message.Metadata = &console.AgentMessageMetadataAttributes{}
-	}
-
-	if in.Message.Metadata.File == nil {
-		in.Message.Metadata.File = &console.AgentMessageFileAttributes{}
-	}
-
-	in.Message.Metadata.File.Name = lo.ToPtr(file.Name)
-	in.Message.Metadata.File.Text = lo.ToPtr(file.Text.Value)
-	in.Message.Metadata.File.Start = lo.ToPtr(file.Text.Start)
-	in.Message.Metadata.File.End = lo.ToPtr(file.Text.End)
-}
-
-func (in *Event) fromAgentPartSource(reasoning *opencode.AgentPartSource) {
-	if reasoning == nil {
-		return
-	}
-
-	if in.Message.Metadata == nil {
-		in.Message.Metadata = &console.AgentMessageMetadataAttributes{}
-	}
-
-	if in.Message.Metadata.Reasoning == nil {
-		in.Message.Metadata.Reasoning = &console.AgentMessageReasoningAttributes{}
-	}
-
-	in.Message.Metadata.Reasoning.Text = lo.ToPtr(reasoning.Value)
-	in.Message.Metadata.Reasoning.Start = lo.ToPtr(reasoning.Start)
-	in.Message.Metadata.Reasoning.End = lo.ToPtr(reasoning.End)
 }

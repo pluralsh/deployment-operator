@@ -10,7 +10,6 @@ import (
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
-	"github.com/sst/opencode-sdk-go"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
@@ -137,6 +136,11 @@ func (in *Opencode) processEvent(state *streamState, event EventListResponse) {
 
 	aggregated, exists := state.events[id]
 	if !exists {
+		// Ignore step finish without any accumulated message payload.
+		if event.Part != nil && event.Part.Type == StreamPartTypeStepFinish {
+			return
+		}
+
 		aggregated = &Event{}
 	}
 
@@ -156,12 +160,6 @@ func (in *Opencode) processEvent(state *streamState, event EventListResponse) {
 }
 
 func (in *Opencode) handleStreamCallback(line []byte, state *streamState, cancel context.CancelFunc) {
-	klog.V(log.LogLevelDebug).InfoS(
-		"opencode stream line",
-		"line", string(line),
-		"events", len(state.events),
-	)
-
 	err := in.handleStreamLine(line, state)
 	if err != nil {
 		klog.V(log.LogLevelDebug).ErrorS(err, "failed to process opencode stream line", "line", string(line))
@@ -172,18 +170,18 @@ func (in *Opencode) handleStreamCallback(line []byte, state *streamState, cancel
 }
 
 func (in *Opencode) getID(e EventListResponse) string {
-	switch e.Type {
-	case opencode.EventListResponseTypeMessageUpdated:
-		return e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties).Info.ID
-	case opencode.EventListResponseTypeMessagePartUpdated:
-		return e.Properties.(opencode.EventListResponseEventMessagePartUpdatedProperties).Part.MessageID
-	default:
+	if e.Part == nil {
 		return ""
 	}
+
+	return e.Part.MessageID
 }
 
 func (in *Opencode) args() []string {
-	model := lo.Ternary(in.Config.Run.IsProxyEnabled(), fmt.Sprintf("%s/%s", in.provider, in.model), string(in.model))
+	model := lo.Ternary(in.Config.Run.IsProxyEnabled(),
+		fmt.Sprintf("%s/openai/%s", in.provider, in.model),
+		fmt.Sprintf("%s/%s", in.provider, in.model),
+	)
 
 	return []string{
 		"run",
