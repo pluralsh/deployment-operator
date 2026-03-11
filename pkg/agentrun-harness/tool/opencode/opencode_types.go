@@ -2,6 +2,7 @@ package opencode
 
 import (
 	"encoding/json"
+	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -10,10 +11,10 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	toolv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
 const (
-	defaultOpenCodePort  = "4096"
 	defaultAnalysisAgent = "analysis"
 	defaultWriteAgent    = "autonomous"
 )
@@ -78,20 +79,17 @@ func DefaultModel() Model {
 type Opencode struct {
 	toolv1.DefaultTool
 
-	// port is a port the opencode server will listen on.
-	port string
-
 	// model is the AI model used by opencode.
 	model Model
 
 	// provider is the AI provider used by opencode.
 	provider Provider
 
-	// server is the opencode server.
-	server *Server
+	// executable is the opencode executable used to call CLI.
+	executable exec.Executable
 
-	// client is the opencode client.
-	client *opencode.Client
+	// timeout bounds a single opencode run invocation.
+	timeout time.Duration
 
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)

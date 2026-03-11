@@ -1,14 +1,17 @@
 package opencode
 
 import (
+	"bytes"
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"path"
+	"path/filepath"
+	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"github.com/sst/opencode-sdk-go"
-	"github.com/sst/opencode-sdk-go/option"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
@@ -57,57 +60,101 @@ func (in *Opencode) OnMessage(f func(message *console.AgentMessageAttributes)) {
 }
 
 func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
-	maxRestarts := 2
-	restarts := 0
-
-	for {
-		if restarts >= maxRestarts {
-			in.Config.ErrorChan <- fmt.Errorf("failed to process prompt after %d attempts", maxRestarts)
-			return
-		}
-
-		if err := in.server.Start(ctx, options...); err != nil {
-			klog.V(log.LogLevelDefault).ErrorS(err, "failed to start opencode server")
-			in.Config.ErrorChan <- err
-			return
-		}
-
-		messageChan, listenErrChan := in.server.Listen(ctx)
-
-		// Send the initial prompt as a message too
-		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
-		promptDone, promptErr := in.server.Prompt(ctx, in.Config.Run.Prompt)
-
-	restart:
-		for {
-			select {
-			case <-ctx.Done():
-				in.server.Stop()
-				close(in.Config.FinishedChan)
-				return
-			case <-promptDone:
-				in.server.Stop()
-				close(in.Config.FinishedChan)
-				return
-			case msg := <-messageChan:
-				klog.V(log.LogLevelDefault).InfoS("message received", "message", msg)
-				in.onMessage(msg.Message)
-			case err := <-listenErrChan:
-				in.Config.ErrorChan <- err
-				return
-			case err := <-promptErr:
-				if errors.Is(err, context.DeadlineExceeded) {
-					in.server.Stop()
-					restarts++
-					klog.V(log.LogLevelDefault).InfoS("prompt timed out, restarting server", "restart", restarts, "maxAttempts", maxRestarts)
-					break restart
-				}
-
-				in.Config.ErrorChan <- err
-				return
-			}
-		}
+	configFilePath, err := filepath.Abs(in.configFilePath())
+	if err != nil {
+		in.Config.ErrorChan <- err
+		return
 	}
+
+	in.executable = exec.NewExecutable(
+		"opencode",
+		append(
+			options,
+			exec.WithEnv([]string{fmt.Sprintf("OPENCODE_CONFIG=%s", configFilePath)}),
+			exec.WithArgs(in.args()),
+			exec.WithDir(in.Config.RepositoryDir),
+			exec.WithTimeout(in.timeout),
+		)...,
+	)
+
+	// Send the initial prompt as a message too
+	if in.onMessage != nil {
+		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
+	}
+
+	events := make(map[string]*Event)
+	err = in.executable.RunStream(ctx, func(line []byte) {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) == 0 || !bytes.HasPrefix(trimmed, []byte("{")) {
+			return
+		}
+
+		event := &opencode.EventListResponse{}
+		if err := json.Unmarshal(trimmed, event); err != nil {
+			klog.V(log.LogLevelDebug).ErrorS(err, "failed to unmarshal opencode stream event", "line", string(trimmed))
+			return
+		}
+
+		id := in.getID(*event)
+		if len(id) == 0 {
+			return
+		}
+
+		aggregated, exists := events[id]
+		if !exists {
+			aggregated = &Event{}
+		}
+
+		aggregated.FromEventResponse(*event)
+		events[id] = aggregated
+
+		if aggregated.Done {
+			aggregated.Sanitize()
+			if in.onMessage != nil {
+				in.onMessage(aggregated.Message)
+			}
+			delete(events, id)
+		}
+	})
+	if err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "opencode execution failed")
+		in.Config.ErrorChan <- err
+		return
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("opencode execution finished")
+	close(in.Config.FinishedChan)
+}
+
+func (in *Opencode) getID(e opencode.EventListResponse) string {
+	switch e.Type {
+	case opencode.EventListResponseTypeMessageUpdated:
+		return e.Properties.(opencode.EventListResponseEventMessageUpdatedProperties).Info.ID
+	case opencode.EventListResponseTypeMessagePartUpdated:
+		return e.Properties.(opencode.EventListResponseEventMessagePartUpdatedProperties).Part.MessageID
+	default:
+		return ""
+	}
+}
+
+func (in *Opencode) args() []string {
+	model := lo.Ternary(in.Config.Run.IsProxyEnabled(), fmt.Sprintf("%s/%s", in.provider, in.model), string(in.model))
+
+	return []string{
+		"run",
+		"--format", "json",
+		"--agent", in.agent(),
+		"--model", model,
+		in.Config.Run.Prompt,
+	}
+}
+
+func (in *Opencode) agent() string {
+	if in.Config.Run.Mode == console.AgentRunModeAnalyze {
+		return defaultAnalysisAgent
+	}
+
+	return defaultWriteAgent
 }
 
 func (in *Opencode) configFilePath() string {
@@ -143,14 +190,12 @@ func New(config v1.Config) v1.Tool {
 		DefaultTool: v1.DefaultTool{Config: config},
 		model:       DefaultModel(),
 		provider:    DefaultProvider(config.Run.IsProxyEnabled()),
-		port:        defaultOpenCodePort,
-		client:      opencode.NewClient(option.WithBaseURL(fmt.Sprintf("http://localhost:%s", defaultOpenCodePort))),
+		timeout:     30 * time.Minute,
 	}
 
 	if err := result.ensure(); err != nil {
 		klog.Fatalf("failed to initialize opencode tool: %v", err)
 	}
 
-	result.server = NewServer(defaultOpenCodePort, result.configFilePath(), config.RepositoryDir, result.model, result.provider, config.Run.Mode)
 	return result
 }
