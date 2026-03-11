@@ -112,6 +112,7 @@ func (in *Opencode) handleStreamLine(line []byte, state *streamState) error {
 		return nil
 	}
 
+	klog.V(log.LogLevelDebug).InfoS("opencode event received", "event", event)
 	if event.Error != nil {
 		message := lo.Ternary(event.Error.Data != nil, event.Error.Data.Message, "")
 
