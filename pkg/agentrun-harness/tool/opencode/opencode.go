@@ -149,6 +149,16 @@ func (in *Opencode) processEvent(state *streamState, event EventListResponse) {
 		return
 	}
 
+	if in.emitCompletedToolEvent(event) {
+		return
+	}
+
+	// Step boundaries should not create synthetic aggregated messages.
+	// We only aggregate content-bearing events (for example text) and finalize on step_finish.
+	if event.Part != nil && event.Part.Type == StreamPartTypeStepStart {
+		return
+	}
+
 	aggregated, exists := state.events[id]
 	if !exists {
 		// Ignore step finish without any accumulated message payload.
@@ -172,6 +182,26 @@ func (in *Opencode) processEvent(state *streamState, event EventListResponse) {
 	}
 
 	delete(state.events, id)
+}
+
+func (in *Opencode) emitCompletedToolEvent(event EventListResponse) bool {
+	if event.Part == nil || event.Part.Type != StreamPartTypeTool {
+		return false
+	}
+
+	if event.Part.State == nil || event.Part.State.Status != StreamToolStatusCompleted {
+		return true
+	}
+
+	toolEvent := &Event{}
+	toolEvent.FromEventResponse(event)
+	toolEvent.Sanitize()
+
+	if in.onMessage != nil {
+		in.onMessage(toolEvent.Message)
+	}
+
+	return true
 }
 
 func (in *Opencode) getID(e EventListResponse) string {
