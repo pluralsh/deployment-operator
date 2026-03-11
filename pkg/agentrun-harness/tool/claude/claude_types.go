@@ -53,6 +53,12 @@ type Claude struct {
 
 	// toolUseCache maps tool_use id to ContentMsg for resolving tool_result.
 	toolUseCache map[string]ContentMsg
+
+	// consoleToken is the token used to authenticate with the console API.
+	consoleToken string
+
+	// consoleURL is the URL of the console API.
+	consoleURL string
 }
 
 type StreamEvent struct {

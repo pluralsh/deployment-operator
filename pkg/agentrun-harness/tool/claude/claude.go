@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -48,13 +47,21 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 	}
 	args := []string{"--add-dir", in.Config.RepositoryDir, "--agents", agent, "--system-prompt-file", promptFile, "--model", string(DefaultModel()), "-p", in.Config.Run.Prompt, "--output-format", "stream-json", "--verbose"}
 
+	if in.Config.Run.IsProxyEnabled() {
+		options = append(options,
+			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken)}),
+			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL))}),
+		)
+	} else {
+		options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}))
+	}
+
 	in.executable = exec.NewExecutable(
 		"claude",
 		append(
 			options,
 			exec.WithArgs(args),
 			exec.WithDir(in.Config.WorkDir),
-			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
 			exec.WithTimeout(15*time.Minute),
 		)...,
 	)
@@ -104,15 +111,8 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 	}
 
 	if in.Config.Run.IsProxyEnabled() {
-		err := os.Setenv("ANTHROPIC_AUTH_TOKEN", consoleToken)
-		if err != nil {
-			return err
-		}
-
-		err = os.Setenv("ANTHROPIC_BASE_URL", fmt.Sprintf("%s/ext/ai/anthropic", consoleURL))
-		if err != nil {
-			return err
-		}
+		in.consoleToken = consoleToken
+		in.consoleURL = consoleURL
 	}
 
 	settings := NewSettingsBuilder()
