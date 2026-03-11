@@ -66,6 +66,9 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 		return
 	}
 
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	in.executable = exec.NewExecutable(
 		"opencode",
 		append(
@@ -82,40 +85,17 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
 	}
 
-	events := make(map[string]*Event)
-	err = in.executable.RunStream(ctx, func(line []byte) {
-		trimmed := bytes.TrimSpace(line)
-		if len(trimmed) == 0 || !bytes.HasPrefix(trimmed, []byte("{")) {
-			return
-		}
+	state := &streamState{
+		events: make(map[string]*Event),
+	}
+	var streamErr error
 
-		event := &opencode.EventListResponse{}
-		if err := json.Unmarshal(trimmed, event); err != nil {
-			klog.V(log.LogLevelDebug).ErrorS(err, "failed to unmarshal opencode stream event", "line", string(trimmed))
-			return
-		}
+	err = in.executable.RunStream(runCtx, in.streamLineHandler(state, cancel, &streamErr))
+	if streamErr != nil {
+		in.Config.ErrorChan <- streamErr
+		return
+	}
 
-		id := in.getID(*event)
-		if len(id) == 0 {
-			return
-		}
-
-		aggregated, exists := events[id]
-		if !exists {
-			aggregated = &Event{}
-		}
-
-		aggregated.FromEventResponse(*event)
-		events[id] = aggregated
-
-		if aggregated.Done {
-			aggregated.Sanitize()
-			if in.onMessage != nil {
-				in.onMessage(aggregated.Message)
-			}
-			delete(events, id)
-		}
-	})
 	if err != nil {
 		klog.V(log.LogLevelDefault).ErrorS(err, "opencode execution failed")
 		in.Config.ErrorChan <- err
@@ -124,6 +104,98 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 
 	klog.V(log.LogLevelExtended).InfoS("opencode execution finished")
 	close(in.Config.FinishedChan)
+}
+
+func (in *Opencode) streamLineHandler(state *streamState, cancel context.CancelFunc, streamErr *error) func([]byte) {
+	return func(line []byte) {
+		in.handleStreamCallback(line, state, cancel, streamErr)
+	}
+}
+
+func (in *Opencode) handleStreamLine(line []byte, state *streamState) (isTerminalErr bool, err error) {
+	trimmed, ok := in.trimJSONLine(line)
+	if !ok {
+		return false, nil
+	}
+
+	terminalErr, ok, err := in.parseTerminalStreamError(trimmed)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, terminalErr
+	}
+
+	event := &opencode.EventListResponse{}
+	if err = json.Unmarshal(trimmed, event); err != nil {
+		return false, err
+	}
+
+	in.processEvent(state, *event)
+	return false, nil
+}
+
+func (in *Opencode) trimJSONLine(line []byte) ([]byte, bool) {
+	trimmed := bytes.TrimSpace(line)
+	if len(trimmed) == 0 || !bytes.HasPrefix(trimmed, []byte("{")) {
+		return nil, false
+	}
+
+	return trimmed, true
+}
+
+func (in *Opencode) parseTerminalStreamError(line []byte) (error, bool, error) {
+	envelope := &StreamEnvelope{}
+	if err := json.Unmarshal(line, envelope); err != nil {
+		return nil, false, nil
+	}
+
+	if envelope.Type != "error" {
+		return nil, false, nil
+	}
+
+	return envelope.ToError(), true, nil
+}
+
+func (in *Opencode) processEvent(state *streamState, event opencode.EventListResponse) {
+	id := in.getID(event)
+	if len(id) == 0 {
+		return
+	}
+
+	aggregated, exists := state.events[id]
+	if !exists {
+		aggregated = &Event{}
+	}
+
+	aggregated.FromEventResponse(event)
+	state.events[id] = aggregated
+
+	if !aggregated.Done {
+		return
+	}
+
+	aggregated.Sanitize()
+	if in.onMessage != nil {
+		in.onMessage(aggregated.Message)
+	}
+	delete(state.events, id)
+}
+
+func (in *Opencode) handleStreamCallback(line []byte, state *streamState, cancel context.CancelFunc, streamErr *error) {
+	isTerminalError, err := in.handleStreamLine(line, state)
+	if err == nil {
+		return
+	}
+
+	if isTerminalError {
+		*streamErr = err
+		cancel()
+		return
+	}
+
+	klog.V(log.LogLevelDebug).ErrorS(err, "failed to process opencode stream line", "line", string(bytes.TrimSpace(line)))
+	in.Config.ErrorChan <- err
 }
 
 func (in *Opencode) getID(e opencode.EventListResponse) string {

@@ -2,6 +2,9 @@ package opencode
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -99,6 +102,42 @@ type Event struct {
 	ID      string
 	Message *console.AgentMessageAttributes
 	Done    bool
+}
+
+type streamState struct {
+	events map[string]*Event
+}
+
+type StreamEnvelope struct {
+	Type  string            `json:"type"`
+	Error *StreamEventError `json:"error,omitempty"`
+}
+
+type StreamEventError struct {
+	Name string               `json:"name"`
+	Data StreamEventErrorData `json:"data"`
+}
+
+type StreamEventErrorData struct {
+	Message string `json:"message"`
+}
+
+func (in *StreamEnvelope) ToError() error {
+	if in == nil || in.Error == nil {
+		return fmt.Errorf("opencode stream returned an unknown error")
+	}
+
+	msg := strings.TrimSpace(in.Error.Data.Message)
+	if msg == "" {
+		msg = "opencode stream returned an unknown error"
+	}
+
+	name := strings.TrimSpace(in.Error.Name)
+	if name == "" {
+		return errors.New(msg)
+	}
+
+	return fmt.Errorf("%s: %s", name, msg)
 }
 
 func (in *Event) FromEventResponse(e opencode.EventListResponse) {
