@@ -109,12 +109,12 @@ type EventListResponse struct {
 	opencode.EventListResponse `json:",inline"`
 	Timestamp                  time.Time `json:"timestamp"`
 	SessionID                  string    `json:"session_id"`
-	Error                      struct {
+	Error                      *struct {
 		Name string `json:"name"`
-		Data struct {
+		Data *struct {
 			Message string `json:"message"`
-		} `json:"data"`
-	}
+		} `json:"data,omitempty"`
+	} `json:"error,omitempty"`
 }
 
 func (in *Event) FromEventResponse(e EventListResponse) {

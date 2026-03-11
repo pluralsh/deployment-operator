@@ -87,14 +87,8 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	state := &streamState{
 		events: make(map[string]*Event),
 	}
-	var streamErr error
 
-	err = in.executable.RunStream(runCtx, in.streamLineHandler(state, cancel, &streamErr))
-	if streamErr != nil {
-		in.Config.ErrorChan <- streamErr
-		return
-	}
-
+	err = in.executable.RunStream(runCtx, in.streamLineHandler(state, cancel))
 	if err != nil {
 		klog.V(log.LogLevelDefault).ErrorS(err, "opencode execution failed")
 		in.Config.ErrorChan <- err
@@ -105,21 +99,33 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	close(in.Config.FinishedChan)
 }
 
-func (in *Opencode) streamLineHandler(state *streamState, cancel context.CancelFunc, streamErr *error) func([]byte) {
+func (in *Opencode) streamLineHandler(state *streamState, cancel context.CancelFunc) func([]byte) {
 	return func(line []byte) {
-		in.handleStreamCallback(line, state, cancel, streamErr)
+		in.handleStreamCallback(line, state, cancel)
 	}
 }
 
-func (in *Opencode) handleStreamLine(line []byte, state *streamState) (isTerminalErr bool, err error) {
+func (in *Opencode) handleStreamLine(line []byte, state *streamState) error {
 	event := &EventListResponse{}
-	if err = json.Unmarshal(line, event); err != nil {
+	if err := json.Unmarshal(line, event); err != nil {
 		klog.V(log.LogLevelDebug).InfoS("ignoring non-event opencode stream line", "line", string(line), "error", err.Error())
-		return false, nil
+		return nil
+	}
+
+	if event.Error != nil {
+		message := lo.Ternary(event.Error.Data != nil, event.Error.Data.Message, "")
+
+		klog.V(log.LogLevelDebug).InfoS(
+			"opencode error",
+			"name", event.Error.Name,
+			"message", message,
+			"events", len(state.events),
+		)
+		return fmt.Errorf("opencode error: %s: %s", event.Error.Name, message)
 	}
 
 	in.processEvent(state, *event)
-	return false, nil
+	return nil
 }
 
 func (in *Opencode) processEvent(state *streamState, event EventListResponse) {
@@ -144,23 +150,24 @@ func (in *Opencode) processEvent(state *streamState, event EventListResponse) {
 	if in.onMessage != nil {
 		in.onMessage(aggregated.Message)
 	}
+
 	delete(state.events, id)
 }
 
-func (in *Opencode) handleStreamCallback(line []byte, state *streamState, cancel context.CancelFunc, streamErr *error) {
-	isTerminalError, err := in.handleStreamLine(line, state)
-	if err == nil {
-		return
-	}
+func (in *Opencode) handleStreamCallback(line []byte, state *streamState, cancel context.CancelFunc) {
+	klog.V(log.LogLevelDebug).InfoS(
+		"opencode stream line",
+		"line", string(line),
+		"events", len(state.events),
+	)
 
-	if isTerminalError {
-		*streamErr = err
+	err := in.handleStreamLine(line, state)
+	if err != nil {
+		klog.V(log.LogLevelDebug).ErrorS(err, "failed to process opencode stream line", "line", string(line))
+		in.Config.ErrorChan <- err
 		cancel()
 		return
 	}
-
-	klog.V(log.LogLevelDebug).ErrorS(err, "failed to process opencode stream line", "line", string(line))
-	in.Config.ErrorChan <- err
 }
 
 func (in *Opencode) getID(e EventListResponse) string {
