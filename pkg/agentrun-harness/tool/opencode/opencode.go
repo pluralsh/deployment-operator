@@ -64,8 +64,8 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 		return
 	}
 
-	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	runCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
 	in.executable = exec.NewExecutable(
 		"opencode",
@@ -88,6 +88,12 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	}
 
 	err = in.executable.RunStream(runCtx, in.streamLineHandler(state, cancel))
+	if ctxErr := runCtx.Err(); ctxErr != nil {
+		klog.V(log.LogLevelDefault).ErrorS(ctxErr, "opencode execution failed")
+		in.Config.ErrorChan <- ctxErr
+		return
+	}
+
 	if err != nil {
 		klog.V(log.LogLevelDefault).ErrorS(err, "opencode execution failed")
 		in.Config.ErrorChan <- err
@@ -98,9 +104,18 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	close(in.Config.FinishedChan)
 }
 
-func (in *Opencode) streamLineHandler(state *streamState, cancel context.CancelFunc) func([]byte) {
+func (in *Opencode) streamLineHandler(state *streamState, cancel context.CancelCauseFunc) func([]byte) {
 	return func(line []byte) {
 		in.handleStreamCallback(line, state, cancel)
+	}
+}
+
+func (in *Opencode) handleStreamCallback(line []byte, state *streamState, cancel context.CancelCauseFunc) {
+	err := in.handleStreamLine(line, state)
+	if err != nil {
+		klog.V(log.LogLevelDebug).ErrorS(err, "failed to process opencode stream line", "line", string(line))
+		cancel(err)
+		return
 	}
 }
 
@@ -157,16 +172,6 @@ func (in *Opencode) processEvent(state *streamState, event EventListResponse) {
 	}
 
 	delete(state.events, id)
-}
-
-func (in *Opencode) handleStreamCallback(line []byte, state *streamState, cancel context.CancelFunc) {
-	err := in.handleStreamLine(line, state)
-	if err != nil {
-		klog.V(log.LogLevelDebug).ErrorS(err, "failed to process opencode stream line", "line", string(line))
-		in.Config.ErrorChan <- err
-		cancel()
-		return
-	}
 }
 
 func (in *Opencode) getID(e EventListResponse) string {
