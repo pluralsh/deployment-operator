@@ -49,6 +49,9 @@ func (in *GlobalEnvModifier) Env(env []string) []string {
 		fmt.Sprintf("ANSIBLE_HOST_KEY_CHECKING=%s", "false"),
 		fmt.Sprintf("ANSIBLE_PYTHON_INTERPRETER=%s", "auto_silent"),
 		fmt.Sprintf("PLURAL_INSTALL_AGENT_CONFIRM_IF_EXISTS=%s", "true"),
+		fmt.Sprintf("ANSIBLE_LIBRARY=%s:%s", path.Join(in.workDir, "plugins", "modules"), "/usr/share/plural/plugins/modules"),
+		fmt.Sprintf("ANSIBLE_ACTION_PLUGINS=%s:%s", path.Join(in.workDir, "plugins", "action"), "/usr/share/plural/plugins/action"),
+		fmt.Sprintf("ANSIBLE_COLLECTIONS_PATH=%s:%s", path.Join(in.workDir, "collections"), "/usr/share/ansible/collections"),
 	)
 }
 
