@@ -105,16 +105,47 @@ type streamState struct {
 	events map[string]*Event
 }
 
+type StreamErrorData struct {
+	Message string `json:"message"`
+}
+
+type StreamError struct {
+	Name string           `json:"name"`
+	Data *StreamErrorData `json:"data,omitempty"`
+}
+
 type EventListResponse struct {
 	opencode.EventListResponse `json:",inline"`
-	Timestamp                  time.Time `json:"timestamp"`
-	SessionID                  string    `json:"session_id"`
-	Error                      *struct {
-		Name string `json:"name"`
-		Data *struct {
-			Message string `json:"message"`
-		} `json:"data,omitempty"`
-	} `json:"error,omitempty"`
+	SessionID                  string `json:"sessionID"`
+	Error                      *StreamError
+}
+
+func (in *EventListResponse) UnmarshalJSON(data []byte) error {
+	*in = EventListResponse{}
+
+	var envelope struct {
+		Type      string       `json:"type"`
+		SessionID string       `json:"sessionID"`
+		Error     *StreamError `json:"error,omitempty"`
+	}
+
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return err
+	}
+
+	in.Error = envelope.Error
+	if envelope.Type == "error" {
+		in.Type = opencode.EventListResponseType(envelope.Type)
+		return nil
+	}
+
+	var sdkResponse opencode.EventListResponse
+	if err := json.Unmarshal(data, &sdkResponse); err != nil {
+		return err
+	}
+
+	in.EventListResponse = sdkResponse
+	return nil
 }
 
 func (in *Event) FromEventResponse(e EventListResponse) {
