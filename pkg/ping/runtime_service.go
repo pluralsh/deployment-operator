@@ -30,8 +30,14 @@ import (
 const runtimeServicePingerName = "runtime service pinger"
 
 var componentMappings = map[string]string{
-	"argocd": "argo-cd",
+	"argocd":        "argo-cd",
+	"keda-operator": "keda",
+	"rook-operator": "rook",
 }
+
+var (
+	componentParseRegex = regexp.MustCompile(`^([^-]+)-([^-]+)$`)
+)
 
 func RunRuntimeServicePingerInBackgroundOrDie(ctx context.Context, pinger *Pinger, duration time.Duration) {
 	klog.Info("starting ", runtimeServicePingerName)
@@ -207,21 +213,30 @@ func (p *Pinger) AddRuntimeServiceInfo(namespace string, labels map[string]strin
 }
 
 func (p *Pinger) validLabel(labels map[string]string, key string) (string, bool) {
-	if name, ok := labels[key]; ok {
+	if name, ok := labels[key]; ok && len(name) > 0 {
 		name = strings.TrimSpace(strings.ToLower(name))
-		if p.supportedAddons.Has(name) {
-			return name, true
-		}
+		for _, name := range nameMappings(name) {
+			if p.supportedAddons.Has(name) {
+				return name, true
+			}
 
-		re := regexp.MustCompile(`^([^-]+)-([^-]+)$`)
-		matches := re.FindStringSubmatch(name)
-		if len(matches) == 3 && matches[1] == matches[2] {
-			if p.supportedAddons.Has(matches[1]) {
-				return matches[1], true
+			matches := componentParseRegex.FindStringSubmatch(name)
+			if len(matches) == 3 && matches[1] == matches[2] {
+				if p.supportedAddons.Has(matches[1]) {
+					return matches[1], true
+				}
 			}
 		}
 	}
 	return "", false
+}
+
+func nameMappings(name string) []string {
+	results := []string{name}
+	if mapped, ok := componentMappings[name]; ok {
+		results = append(results, mapped)
+	}
+	return results
 }
 
 func addServiceEntry(serviceName, version, namespace, partOfName string, acc map[string]client.NamespaceVersion) {
