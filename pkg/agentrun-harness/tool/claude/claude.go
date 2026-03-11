@@ -49,8 +49,10 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 
 	if in.Config.Run.IsProxyEnabled() {
 		options = append(options,
-			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken)}),
-			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL))}),
+			exec.WithEnv([]string{
+				fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
+				fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
+			}),
 		)
 	} else {
 		options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}))
