@@ -63,9 +63,9 @@ var (
 
 	// Check .github/workflows/publish-agent-harness.yaml to see images being published.
 	defaultContainerVersions = map[console.AgentRuntimeType]string{
-		console.AgentRuntimeTypeClaude:   "%s-claude-1.0.128",
+		console.AgentRuntimeTypeClaude:   "%s-claude-2.1.72",
 		console.AgentRuntimeTypeGemini:   "%s-gemini-0.6.1",
-		console.AgentRuntimeTypeOpencode: "%s-opencode-0.15.4",
+		console.AgentRuntimeTypeOpencode: "%s-opencode-1.2.24",
 	}
 
 	languages = map[console.AgentRunLanguage]string{

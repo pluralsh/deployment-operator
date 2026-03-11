@@ -103,6 +103,7 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 		"--format", "testname",
 		"--junitfile", junitPath,
 		"--jsonfile", filepath.Join(in.outputDir, jsonFile),
+		"--rerun-fails",
 		"--",
 		"--test.v",
 		"--test.timeout", in.timeoutDuration,
