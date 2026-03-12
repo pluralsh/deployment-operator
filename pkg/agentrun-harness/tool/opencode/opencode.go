@@ -128,7 +128,10 @@ func (in *Opencode) handleStreamLine(line []byte, state *streamState) error {
 
 	klog.V(log.LogLevelDebug).InfoS("opencode event received", "event", event)
 	if event.Error != nil {
-		message := lo.Ternary(event.Error.Data != nil, event.Error.Data.Message, "")
+		var message string
+		if event.Error.Data != nil {
+			message = event.Error.Data.Message
+		}
 
 		klog.V(log.LogLevelDebug).InfoS(
 			"opencode error",
@@ -189,7 +192,7 @@ func (in *Opencode) emitCompletedToolEvent(event EventListResponse) bool {
 		return false
 	}
 
-	if event.Part.State == nil || event.Part.State.Status != StreamToolStatusCompleted {
+	if event.Part.State == nil || (event.Part.State.Status != StreamToolStatusCompleted && event.Part.State.Status != StreamToolStatusError) {
 		return true
 	}
 
