@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
@@ -215,12 +217,17 @@ func (in *Opencode) getID(e EventListResponse) string {
 }
 
 func (in *Opencode) args() []string {
+	prompt := in.Config.Run.Prompt
+	if overridePrompt := os.Getenv(environment.EnvOverrideSystemPrompt); len(overridePrompt) > 0 {
+		prompt = overridePrompt
+	}
+
 	return []string{
 		"run",
 		"--format", "json",
 		"--agent", in.agent(),
 		"--model", fmt.Sprintf("%s/%s", in.provider, in.model),
-		in.Config.Run.Prompt,
+		prompt,
 	}
 }
 
