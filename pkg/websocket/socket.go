@@ -158,19 +158,23 @@ func (s *socket) Close() error {
 }
 
 func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
-	uri, err := url.Parse(consoleUrl)
-	if err != nil {
-		return nil, err
-	}
-	wssUrl := fmt.Sprintf("wss://%s/ext/socket/websocket", uri.Host)
-	values, err := url.ParseQuery("vsn=2.0.0")
+	baseURL, err := url.Parse(consoleUrl)
 	if err != nil {
 		return nil, err
 	}
 
-	values.Add("token", deployToken)
-	finalUrl := fmt.Sprintf("%s?%s", wssUrl, values.Encode())
-	return uri.Parse(finalUrl)
+	wsURL := &url.URL{
+		Scheme: "wss",
+		Host:   baseURL.Host,
+		Path:   "/ext/socket/websocket",
+	}
+
+	query := url.Values{}
+	query.Set("vsn", "2.0.0")
+	query.Set("token", deployToken)
+	wsURL.RawQuery = query.Encode()
+
+	return wsURL, nil
 }
 
 func (s *socket) NotifyConnect() {
