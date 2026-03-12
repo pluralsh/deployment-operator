@@ -79,7 +79,7 @@ type Opencode struct {
 	toolv1.DefaultTool
 
 	// model is the AI model used by opencode.
-	model Model
+	model string
 
 	// provider is the named Opencode provider.
 	provider Provider

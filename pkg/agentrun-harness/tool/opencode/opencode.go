@@ -9,7 +9,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/controller"
@@ -216,20 +215,11 @@ func (in *Opencode) getID(e EventListResponse) string {
 }
 
 func (in *Opencode) args() []string {
-	model := lo.Ternary(in.Config.Run.IsProxyEnabled(),
-		// AI Proxy requires the model in the request to be in format <provider/model>
-		// First part is the named opencode provider, the second is the actual AI provider,
-		// and the last is the model to use. Currently, agent run schema does not provide a way
-		// to set a custom AI provider.
-		fmt.Sprintf("%s/openai/%s", in.provider, in.model),
-		fmt.Sprintf("%s/%s", in.provider, in.model),
-	)
-
 	return []string{
 		"run",
 		"--format", "json",
 		"--agent", in.agent(),
-		"--model", model,
+		"--model", fmt.Sprintf("%s/%s", in.provider, in.model),
 		in.Config.Run.Prompt,
 	}
 }
@@ -271,10 +261,20 @@ func (in *Opencode) ensure() error {
 }
 
 func New(config v1.Config) v1.Tool {
+	provider := DefaultProvider(config.Run.IsProxyEnabled())
+	model := string(DefaultModel())
+
+	if provider == ProviderPlural {
+		// AI Proxy requires the model in the request to be in format <provider/model>
+		// Currently, agent run schema does not provide a way to set a custom AI provider,
+		// so we default to OpenAI.
+		model = fmt.Sprintf("openai/%s", model)
+	}
+
 	result := &Opencode{
 		DefaultTool: v1.DefaultTool{Config: config},
-		model:       DefaultModel(),
-		provider:    DefaultProvider(config.Run.IsProxyEnabled()),
+		model:       model,
+		provider:    provider,
 		timeout:     30 * time.Minute,
 	}
 
