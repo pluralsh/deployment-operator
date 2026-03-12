@@ -105,16 +105,14 @@ func (cm *Manager) Start(ctx context.Context) error {
 
 	go cm.startSupervised(ctx)
 
-	if cm.Socket != nil {
-		_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return cm.PollInterval }, false, func(_ context.Context) (bool, error) {
-			if err := cm.Socket.Join(); err != nil {
-				klog.ErrorS(err, "unable to connect")
-			}
+	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return cm.PollInterval }, false, func(_ context.Context) (bool, error) {
+		if err := cm.Socket.Join(); err != nil {
+			klog.ErrorS(err, "unable to connect")
+		}
 
-			// never stop
-			return false, nil
-		})
-	}
+		// never stop
+		return false, nil
+	})
 
 	cm.started = true
 	return nil
@@ -241,10 +239,8 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 func (cm *Manager) startController(ctx context.Context, ctrl *Controller) {
 	klog.V(log.LogLevelDefault).InfoS("Starting controller", "name", ctrl.Name)
 
-	if cm.Socket != nil {
-		// If publisher exists, this is a no-op
-		cm.Socket.AddPublisher(ctrl.Do.GetPublisher())
-	}
+	// If publisher exists, this is a no-op
+	cm.Socket.AddPublisher(ctrl.Do.GetPublisher())
 	ctrl.Start(ctx)
 }
 
