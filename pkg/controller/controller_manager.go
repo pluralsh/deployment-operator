@@ -13,6 +13,7 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/internal/metrics"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 	v1 "github.com/pluralsh/deployment-operator/pkg/controller/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -106,6 +107,13 @@ func (cm *Manager) Start(ctx context.Context) error {
 	go cm.startSupervised(ctx)
 
 	_ = helpers.DynamicBackgroundPollUntilContextCancel(ctx, func() time.Duration { return cm.PollInterval }, false, func(_ context.Context) (bool, error) {
+		if common.GetConfigurationManager().IsWebsocketDisabled() {
+			if err := cm.Socket.Close(); err != nil {
+				klog.ErrorS(err, "unable to close websocket")
+			}
+			return false, nil
+		}
+
 		if err := cm.Socket.Join(); err != nil {
 			klog.ErrorS(err, "unable to connect")
 		}
