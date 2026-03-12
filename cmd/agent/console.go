@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -31,8 +30,8 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/controller/service"
 )
 
-func initConsoleManagerOrDie(restConfig *rest.Config, scheme *runtime.Scheme) *consolectrl.Manager {
-	options := []consolectrl.ControllerManagerOption{
+func initConsoleManagerOrDie() *consolectrl.Manager {
+	mgr, err := consolectrl.NewControllerManager(
 		consolectrl.WithMaxConcurrentReconciles(args.MaxConcurrentReconciles()),
 		consolectrl.WithCacheSyncTimeout(args.ProcessingTimeout()),
 		consolectrl.WithPollInterval(args.PollInterval()),
@@ -40,9 +39,7 @@ func initConsoleManagerOrDie(restConfig *rest.Config, scheme *runtime.Scheme) *c
 		consolectrl.WithRecoverPanic(true),
 		consolectrl.WithConsoleClientArgs(args.ConsoleUrl(), args.DeployToken()),
 		consolectrl.WithSocketArgs(args.ClusterId(), args.ConsoleUrl(), args.DeployToken()),
-	}
-
-	mgr, err := consolectrl.NewControllerManager(options...)
+	)
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
