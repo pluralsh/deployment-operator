@@ -149,6 +149,12 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 			"mcp__plural__fetchAgentRunTodos",
 			"mcp__plural__updateAgentRunTodos")
 	}
+
+	defaultTimeout := "600000" // 10 minutes
+	maxTimeout := "1200000"    // 20 minutes
+	settings.WithEnv("BASH_DEFAULT_TIMEOUT_MS", defaultTimeout)
+	settings.WithEnv("BASH_MAX_TIMEOUT_MS", maxTimeout)
+
 	return settings.WriteToFile(filepath.Join(in.configPath(), "settings.local.json"))
 }
 
