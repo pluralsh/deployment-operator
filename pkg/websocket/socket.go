@@ -42,18 +42,23 @@ type Socket interface {
 }
 
 func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
-	s := &socket{clusterId: clusterId, publishers: cmap.New[Publisher]()}
-	client := phx.NewClient(s)
-
 	uri, err := wssUri(consoleUrl, deployToken)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build websocket URI: %w", err)
 	}
-	s.uri = uri
-	s.client = client
-	err = client.Connect(*uri, http.Header{})
 
-	return s, err
+	s := &socket{
+		clusterId:  clusterId,
+		uri:        uri,
+		publishers: cmap.New[Publisher](),
+	}
+
+	s.client = phx.NewClient(s)
+	if err := s.client.Connect(*uri, http.Header{}); err != nil {
+		return nil, fmt.Errorf("failed to connect to websocket: %w", err)
+	}
+
+	return s, nil
 }
 
 func (s *socket) AddPublisher(event string, publisher Publisher) {
@@ -119,7 +124,11 @@ func (s *socket) reconnect() error {
 	s.connected = false
 	s.joined = false
 
-	return client.Connect(*s.uri, http.Header{})
+	if err := client.Connect(*s.uri, http.Header{}); err != nil {
+		return fmt.Errorf("failed to reconnect to websocket: %w", err)
+	}
+
+	return nil
 }
 
 // closeClientAsync closes the current client asynchronously to avoid blocking.
