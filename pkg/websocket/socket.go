@@ -67,11 +67,12 @@ func (s *socket) AddPublisher(event string, publisher Publisher) {
 		return
 	}
 
-	if !s.publishers.Has(event) {
-		s.publishers.Set(event, publisher)
-	} else {
+	if s.publishers.Has(event) {
 		klog.V(log.LogLevelDefault).InfoS("publisher for this event type is already registered", "event", event)
+		return
 	}
+
+	s.publishers.Set(event, publisher)
 }
 
 func (s *socket) Join() error {
@@ -249,15 +250,25 @@ func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
 		return
 	}
 
-	if publisher, ok := s.publishers.Get(event); ok {
-		if parsed, ok := payload.(map[string]interface{}); ok {
-			if id, ok := parsed["id"].(string); ok {
-				klog.V(log.LogLevelDefault).InfoS("got new update from websocket", "id", id, "event", event, "payload", payload)
-				kick, _ := parsed["kick"].(bool)
-				publisher.Publish(id, kick)
-			}
-		}
-	} else {
+	publisher, ok := s.publishers.Get(event)
+	if !ok {
 		klog.V(log.LogLevelDefault).InfoS("could not find publisher for event", "event", event)
+		return
 	}
+
+	parsed, ok := payload.(map[string]interface{})
+	if !ok {
+		klog.V(log.LogLevelDefault).InfoS("invalid payload format", "event", event)
+		return
+	}
+
+	id, ok := parsed["id"].(string)
+	if !ok {
+		klog.V(log.LogLevelDefault).InfoS("payload missing id field", "event", event)
+		return
+	}
+
+	kick, _ := parsed["kick"].(bool)
+	klog.V(log.LogLevelDefault).InfoS("got new update from websocket", "id", id, "event", event, "payload", payload)
+	publisher.Publish(id, kick)
 }
