@@ -87,9 +87,10 @@ func (s *socket) Join() error {
 	}
 
 	if s.connected && !s.joined {
-		channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
+		topic := s.getChannelTopic()
+		channel, err := s.client.Join(s, topic, map[string]string{})
 		if err == nil {
-			klog.V(log.LogLevelDefault).InfoS("connecting to channel", "channel", fmt.Sprintf("cluster:%s", s.clusterId))
+			klog.V(log.LogLevelDefault).InfoS("connecting to channel", "topic", topic)
 			s.channel = channel
 			s.joined = true
 		}
@@ -102,28 +103,40 @@ func (s *socket) Join() error {
 	return nil
 }
 
+// getChannelTopic returns the Phoenix channel topic for this cluster.
+func (s *socket) getChannelTopic() string {
+	return fmt.Sprintf("cluster:%s", s.clusterId)
+}
+
 func (s *socket) reconnect() error {
 	klog.V(log.LogLevelDefault).Info("reconnecting websocket")
 
-	// Prevent further operations on the old client
-	oldClient := s.client
-	s.client = nil
+	// Close old client asynchronously
+	s.closeClientAsync()
 
-	// Close the old client asynchronously to avoid blocking
-	if oldClient != nil {
-		go func() {
-			_ = oldClient.Close()
-		}()
-	}
-
+	// Create new client and connect
 	client := phx.NewClient(s)
-
 	s.client = client
 	s.closed = false
 	s.connected = false
 	s.joined = false
 
 	return client.Connect(*s.uri, http.Header{})
+}
+
+// closeClientAsync closes the current client asynchronously to avoid blocking.
+// Must be called with lock held.
+func (s *socket) closeClientAsync() {
+	if s.client == nil {
+		return
+	}
+
+	oldClient := s.client
+	s.client = nil
+
+	go func() {
+		_ = oldClient.Close()
+	}()
 }
 
 func (s *socket) Close() error {
@@ -134,24 +147,12 @@ func (s *socket) Close() error {
 		return nil
 	}
 
-	if s.client != nil {
-		klog.V(log.LogLevelDefault).Info("closing websocket connection")
+	klog.V(log.LogLevelDefault).Info("closing websocket connection")
 
-		s.connected = false
-		s.joined = false
-		s.closed = true
-
-		// Prevent further operations on this client
-		client := s.client
-		s.client = nil
-
-		// Close asynchronously to avoid blocking
-		go func() {
-			_ = client.Close()
-		}()
-
-		return nil
-	}
+	s.connected = false
+	s.joined = false
+	s.closed = true
+	s.closeClientAsync()
 
 	return nil
 }
