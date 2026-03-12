@@ -73,7 +73,7 @@ func (s *socket) Join() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// If socket was closed, reconnect
+	// If the socket was closed, reconnect
 	if s.closed {
 		if err := s.reconnect(); err != nil {
 			klog.V(log.LogLevelDefault).InfoS("failed to reconnect socket, will retry", "error", err)
@@ -92,8 +92,6 @@ func (s *socket) Join() error {
 			klog.V(log.LogLevelDefault).InfoS("connecting to channel", "channel", fmt.Sprintf("cluster:%s", s.clusterId))
 			s.channel = channel
 			s.joined = true
-		} else {
-			klog.V(log.LogLevelDefault).InfoS("failed to join channel, will retry", "error", err)
 		}
 		return err
 	} else if s.joined {
@@ -107,11 +105,11 @@ func (s *socket) Join() error {
 func (s *socket) reconnect() error {
 	klog.V(log.LogLevelDefault).Info("reconnecting websocket")
 
-	// Close the old client first to clean up resources
+	// Prevent further operations on the old client
 	oldClient := s.client
 	s.client = nil
 
-	// Close old client asynchronously to avoid blocking
+	// Close the old client asynchronously to avoid blocking
 	if oldClient != nil {
 		go func() {
 			_ = oldClient.Close()
@@ -138,17 +136,20 @@ func (s *socket) Close() error {
 
 	if s.client != nil {
 		klog.V(log.LogLevelDefault).Info("closing websocket connection")
+
 		s.connected = false
 		s.joined = false
 		s.closed = true
 
+		// Prevent further operations on this client
 		client := s.client
-		s.client = nil // Prevent further operations on this client
+		s.client = nil
 
 		// Close asynchronously to avoid blocking
 		go func() {
 			_ = client.Close()
 		}()
+
 		return nil
 	}
 
