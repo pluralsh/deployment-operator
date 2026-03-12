@@ -24,6 +24,22 @@ func serviceConfiguration(svc *console.ServiceDeploymentForAgent) map[string]int
 	for k, v := range res {
 		res[strings.ToLower(k)] = v
 	}
+	if svc.Helm != nil {
+		helm := map[string]interface{}{
+			"Values":              svc.Helm.Values,
+			"ValuesFiles":         svc.Helm.ValuesFiles,
+			"LuaScript":           svc.Helm.LuaScript,
+			"LuaFile":             svc.Helm.LuaFile,
+			"LuaFolder":           svc.Helm.LuaFolder,
+			"KustomizePostrender": svc.Helm.KustomizePostrender,
+		}
+
+		for k, f := range helm {
+			helm[strings.ToLower(k)] = f
+		}
+		res["helm"] = helm
+		res["Helm"] = helm
+	}
 	return res
 }
 
