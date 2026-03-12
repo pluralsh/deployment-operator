@@ -80,17 +80,21 @@ func (s *socket) Join() error {
 	s.mu.Lock()
 
 	// If the socket was closed, reconnect.
-	// reconnect prepares a new client under the lock, but Connect() is called
-	// after releasing it because gophoenix spawns goroutines that call back
-	// into NotifyConnect/NotifyDisconnect (which acquire s.mu).
+	// Prepare a new client under the lock, but call Connect() after releasing it
+	// because gophoenix spawns goroutines that call back into NotifyConnect/NotifyDisconnect (which acquire s.mu).
 	if s.closed {
-		client, err := s.reconnect()
+		klog.V(log.LogLevelDefault).Info("reconnecting websocket")
+
+		s.closeClientAsync()
+
+		s.client = phx.NewClient(s)
+		s.closed = false
+		s.connected = false
+		s.joined = false
+		s.joining = false
+
 		s.mu.Unlock()
-		if err != nil {
-			klog.V(log.LogLevelDefault).InfoS("failed to reconnect socket, will retry", "error", err)
-			return err
-		}
-		if err := client.Connect(*s.uri, http.Header{}); err != nil {
+		if err := s.client.Connect(*s.uri, http.Header{}); err != nil {
 			klog.V(log.LogLevelDefault).InfoS("failed to connect socket, will retry", "error", err)
 			return fmt.Errorf("failed to reconnect to websocket: %w", err)
 		}
@@ -136,25 +140,6 @@ func (s *socket) Join() error {
 // getChannelTopic returns the Phoenix channel topic for this cluster.
 func (s *socket) getChannelTopic() string {
 	return fmt.Sprintf("cluster:%s", s.clusterId)
-}
-
-// reconnect prepares a new client under the lock but does not call Connect().
-// The caller must call Connect() after releasing s.mu, because Connect() spawns
-// goroutines that call back into NotifyConnect/NotifyDisconnect.
-// Must be called with s.mu held.
-func (s *socket) reconnect() (*phx.Client, error) {
-	klog.V(log.LogLevelDefault).Info("reconnecting websocket")
-
-	s.closeClientAsync()
-
-	client := phx.NewClient(s)
-	s.client = client
-	s.closed = false
-	s.connected = false
-	s.joined = false
-	s.joining = false
-
-	return client, nil
 }
 
 // closeClientAsync closes the current client asynchronously to avoid blocking.
