@@ -87,14 +87,15 @@ func (s *socket) Join() error {
 
 		s.closeClientAsync()
 
-		s.client = phx.NewClient(s)
+		client := phx.NewClient(s)
+		s.client = client
 		s.closed = false
 		s.connected = false
 		s.joined = false
 		s.joining = false
 
 		s.mu.Unlock()
-		if err := s.client.Connect(*s.uri, http.Header{}); err != nil {
+		if err := client.Connect(*s.uri, http.Header{}); err != nil {
 			klog.V(log.LogLevelDefault).InfoS("failed to connect socket, will retry", "error", err)
 			return fmt.Errorf("failed to reconnect to websocket: %w", err)
 		}
