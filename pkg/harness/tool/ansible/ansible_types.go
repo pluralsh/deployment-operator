@@ -29,4 +29,6 @@ type Ansible struct {
 	variables *string
 
 	SSHKeyFile *string
+
+	ConfigFile *string
 }

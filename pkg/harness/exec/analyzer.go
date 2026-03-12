@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/pluralsh/deployment-operator/pkg/log"
+	"k8s.io/klog/v2"
 )
 
 type outputAnalyzer struct {
@@ -13,6 +16,7 @@ type outputAnalyzer struct {
 	stderr *bytes.Buffer
 
 	heuristics []OutputAnalyzerHeuristic
+	cfg        analyzerConfig
 }
 
 func (in *outputAnalyzer) Stdout() io.Writer {
@@ -33,17 +37,24 @@ func (in *outputAnalyzer) Detect() []error {
 		}
 	}
 
-	if in.stderr.Len() > 0 {
+	klog.V(log.LogLevelInfo).InfoS("output analysis complete", "checkStderr", in.cfg.checkStderr, "potentialErrors", len(errors))
+	if in.cfg.checkStderr && in.stderr.Len() > 0 {
 		errors = append(errors, fmt.Errorf("%s", in.stderr.String()))
 	}
 
 	return errors
 }
 
-func NewOutputAnalyzer(heuristics ...OutputAnalyzerHeuristic) OutputAnalyzer {
+func NewOutputAnalyzer(heuristics []OutputAnalyzerHeuristic, opts ...AnalyzerOption) OutputAnalyzer {
+	cfg := analyzerConfig{checkStderr: true}
+	for _, o := range opts {
+		o(&cfg)
+	}
+
 	return &outputAnalyzer{
 		stdout:     bytes.NewBuffer([]byte{}),
 		stderr:     bytes.NewBuffer([]byte{}),
 		heuristics: heuristics,
+		cfg:        cfg,
 	}
 }

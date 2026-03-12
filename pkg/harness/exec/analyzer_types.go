@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+
+	console "github.com/pluralsh/console/go/client"
 )
 
 // OutputAnalyzer captures the command output
@@ -43,4 +45,30 @@ func (in Errors) ToErrors() []error {
 	}
 
 	return errors
+}
+
+// AnalyzerOption is a functional option for configuring an OutputAnalyzer.
+type AnalyzerOption func(*analyzerConfig)
+
+type analyzerConfig struct {
+	checkStderr bool
+}
+
+// WithStderrCheck enables or disables treating stderr output as an error.
+func WithStderrCheck(check bool) AnalyzerOption {
+	return func(c *analyzerConfig) {
+		c.checkStderr = check
+	}
+}
+
+// stderrCheckProviders is the set of providers for which stderr is treated as an error.
+var stderrCheckProviders = map[console.StackType]bool{
+	console.StackTypeTerraform: true,
+}
+
+// StderrCheckForProvider returns an AnalyzerOption that enables stderr checking
+// only for providers where stderr reliably indicates errors (e.g. Terraform),
+// and disables it for providers that write non-error output to stderr (e.g. Ansible).
+func StderrCheckForProvider(provider console.StackType) AnalyzerOption {
+	return WithStderrCheck(stderrCheckProviders[provider])
 }

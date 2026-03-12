@@ -44,11 +44,6 @@ args:
   disableHelmTemplateDryRunServer: {{ configuration.disableHelmTemplateDryRunServer }}
 {% endif %}
 
-{% if configuration.disableResourceCache %}
-args:
-  disableResourceCache: {{ configuration.disableResourceCache }}
-{% endif %}
-
 {% if configuration.memory or configuration.cpu %}
 resources:
   requests:
