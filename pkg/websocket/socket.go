@@ -28,6 +28,7 @@ type socket struct {
 type Socket interface {
 	AddPublisher(event string, publisher Publisher)
 	Join() error
+	Close() error
 	NotifyConnect()
 	NotifyDisconnect()
 	OnJoin(payload interface{})
@@ -77,6 +78,17 @@ func (s *socket) Join() error {
 	}
 
 	klog.V(log.LogLevelDefault).Info("socket not yet connected, waiting...")
+	return nil
+}
+
+func (s *socket) Close() error {
+	if s.client != nil {
+		klog.V(log.LogLevelDefault).Info("closing websocket connection")
+		s.connected = false
+		s.joined = false
+		return s.client.Close()
+	}
+
 	return nil
 }
 
