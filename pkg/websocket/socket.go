@@ -111,10 +111,8 @@ func (s *socket) getChannelTopic() string {
 func (s *socket) reconnect() error {
 	klog.V(log.LogLevelDefault).Info("reconnecting websocket")
 
-	// Close old client asynchronously
 	s.closeClientAsync()
 
-	// Create new client and connect
 	client := phx.NewClient(s)
 	s.client = client
 	s.closed = false
