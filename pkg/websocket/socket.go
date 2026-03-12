@@ -25,6 +25,7 @@ type socket struct {
 	channel    *phx.Channel
 	connected  bool
 	joined     bool
+	joining    bool
 	closed     bool
 	mu         sync.RWMutex
 }
@@ -77,34 +78,57 @@ func (s *socket) AddPublisher(event string, publisher Publisher) {
 
 func (s *socket) Join() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
-	// If the socket was closed, reconnect
+	// If the socket was closed, reconnect.
+	// reconnect prepares a new client under the lock, but Connect() is called
+	// after releasing it because gophoenix spawns goroutines that call back
+	// into NotifyConnect/NotifyDisconnect (which acquire s.mu).
 	if s.closed {
-		if err := s.reconnect(); err != nil {
+		client, err := s.reconnect()
+		s.mu.Unlock()
+		if err != nil {
 			klog.V(log.LogLevelDefault).InfoS("failed to reconnect socket, will retry", "error", err)
 			return err
 		}
+		if err := client.Connect(*s.uri, http.Header{}); err != nil {
+			klog.V(log.LogLevelDefault).InfoS("failed to connect socket, will retry", "error", err)
+			return fmt.Errorf("failed to reconnect to websocket: %w", err)
+		}
+		return nil
 	}
 
 	if s.client == nil {
+		s.mu.Unlock()
 		klog.V(log.LogLevelDefault).Info("socket client is nil, waiting...")
 		return nil
 	}
 
-	if s.connected && !s.joined {
+	if s.connected && !s.joined && !s.joining {
 		topic := s.getChannelTopic()
-		channel, err := s.client.Join(s, topic, map[string]string{})
+		client := s.client
+		s.joining = true
+		s.mu.Unlock()
+
+		// Release lock before calling client.Join: the gophoenix library's listen()
+		// goroutine calls back into OnJoin/OnJoinError (which acquire s.mu) upon
+		// receiving the server ack, so holding the lock here would deadlock.
+		channel, err := client.Join(s, topic, map[string]string{})
+
+		s.mu.Lock()
+		s.joining = false
 		if err == nil {
 			klog.V(log.LogLevelDefault).InfoS("connecting to channel", "topic", topic)
 			s.channel = channel
 			s.joined = true
 		}
+		s.mu.Unlock()
 		return err
-	} else if s.joined {
+	} else if s.joined || s.joining {
+		s.mu.Unlock()
 		return nil
 	}
 
+	s.mu.Unlock()
 	klog.V(log.LogLevelDefault).Info("socket not yet connected, waiting...")
 	return nil
 }
@@ -114,7 +138,11 @@ func (s *socket) getChannelTopic() string {
 	return fmt.Sprintf("cluster:%s", s.clusterId)
 }
 
-func (s *socket) reconnect() error {
+// reconnect prepares a new client under the lock but does not call Connect().
+// The caller must call Connect() after releasing s.mu, because Connect() spawns
+// goroutines that call back into NotifyConnect/NotifyDisconnect.
+// Must be called with s.mu held.
+func (s *socket) reconnect() (*phx.Client, error) {
 	klog.V(log.LogLevelDefault).Info("reconnecting websocket")
 
 	s.closeClientAsync()
@@ -124,12 +152,9 @@ func (s *socket) reconnect() error {
 	s.closed = false
 	s.connected = false
 	s.joined = false
+	s.joining = false
 
-	if err := client.Connect(*s.uri, http.Header{}); err != nil {
-		return fmt.Errorf("failed to reconnect to websocket: %w", err)
-	}
-
-	return nil
+	return client, nil
 }
 
 // closeClientAsync closes the current client asynchronously to avoid blocking.
@@ -159,6 +184,7 @@ func (s *socket) Close() error {
 
 	s.connected = false
 	s.joined = false
+	s.joining = false
 	s.closed = true
 	s.closeClientAsync()
 
@@ -209,6 +235,7 @@ func (s *socket) NotifyDisconnect() {
 	klog.V(log.LogLevelDefault).Info("websocket disconnected, will attempt to reconnect on next poll")
 	s.connected = false
 	s.joined = false
+	s.joining = false
 	s.closed = true // Mark as closed to trigger reconnection on next Join() call
 }
 
