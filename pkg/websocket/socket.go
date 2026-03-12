@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	phx "github.com/pluralsh/gophoenix"
@@ -23,6 +24,7 @@ type socket struct {
 	channel    *phx.Channel
 	connected  bool
 	joined     bool
+	mu         sync.RWMutex
 }
 
 type Socket interface {
@@ -65,6 +67,9 @@ func (s *socket) AddPublisher(event string, publisher Publisher) {
 }
 
 func (s *socket) Join() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.connected && !s.joined {
 		channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
 		if err == nil {
@@ -82,6 +87,9 @@ func (s *socket) Join() error {
 }
 
 func (s *socket) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.client != nil {
 		klog.V(log.LogLevelDefault).Info("closing websocket connection")
 		s.connected = false
@@ -109,12 +117,16 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 }
 
 func (s *socket) NotifyConnect() {
+	s.mu.Lock()
 	s.connected = true
+	s.mu.Unlock()
 	_ = s.Join()
 }
 
-// TODO: This should be made thread-safe as it interferes with socket join
 func (s *socket) NotifyDisconnect() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.connected = false
 	s.joined = false
 }
@@ -126,12 +138,16 @@ func (s *socket) OnJoin(payload interface{}) {
 
 func (s *socket) OnJoinError(payload interface{}) {
 	klog.V(log.LogLevelDefault).Info("failed to join channel, retrying")
+	s.mu.Lock()
 	s.joined = false
+	s.mu.Unlock()
 }
 
 func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
 	klog.V(log.LogLevelDefault).Info("left websocket channel")
+	s.mu.Lock()
 	s.joined = false
+	s.mu.Unlock()
 }
 
 func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
