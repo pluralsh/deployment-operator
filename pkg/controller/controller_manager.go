@@ -246,9 +246,7 @@ func (cm *Manager) startControllerSupervised(ctx context.Context, ctrl *Controll
 // startController starts the controller and blocks until it does not stop.
 func (cm *Manager) startController(ctx context.Context, ctrl *Controller) {
 	klog.V(log.LogLevelDefault).InfoS("Starting controller", "name", ctrl.Name)
-
-	// If publisher exists, this is a no-op
-	cm.Socket.AddPublisher(ctrl.Do.GetPublisher())
+	cm.Socket.AddPublisher(ctrl.Do.GetPublisher()) // If publisher exists, this is a no-op
 	ctrl.Start(ctx)
 }
 
