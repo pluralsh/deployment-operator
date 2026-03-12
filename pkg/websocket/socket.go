@@ -19,11 +19,13 @@ type Publisher interface {
 
 type socket struct {
 	clusterId  string
+	uri        *url.URL
 	client     *phx.Client
 	publishers cmap.ConcurrentMap[string, Publisher]
 	channel    *phx.Channel
 	connected  bool
 	joined     bool
+	closed     bool
 	mu         sync.RWMutex
 }
 
@@ -47,6 +49,7 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.uri = uri
 	s.client = client
 	err = client.Connect(*uri, http.Header{})
 
@@ -70,12 +73,27 @@ func (s *socket) Join() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// If socket was closed, reconnect
+	if s.closed {
+		if err := s.reconnect(); err != nil {
+			klog.V(log.LogLevelDefault).InfoS("failed to reconnect socket, will retry", "error", err)
+			return err
+		}
+	}
+
+	if s.client == nil {
+		klog.V(log.LogLevelDefault).Info("socket client is nil, waiting...")
+		return nil
+	}
+
 	if s.connected && !s.joined {
 		channel, err := s.client.Join(s, fmt.Sprintf("cluster:%s", s.clusterId), map[string]string{})
 		if err == nil {
 			klog.V(log.LogLevelDefault).InfoS("connecting to channel", "channel", fmt.Sprintf("cluster:%s", s.clusterId))
 			s.channel = channel
 			s.joined = true
+		} else {
+			klog.V(log.LogLevelDefault).InfoS("failed to join channel, will retry", "error", err)
 		}
 		return err
 	} else if s.joined {
@@ -86,15 +104,52 @@ func (s *socket) Join() error {
 	return nil
 }
 
+func (s *socket) reconnect() error {
+	klog.V(log.LogLevelDefault).Info("reconnecting websocket")
+
+	// Close the old client first to clean up resources
+	oldClient := s.client
+	s.client = nil
+
+	// Close old client asynchronously to avoid blocking
+	if oldClient != nil {
+		go func() {
+			_ = oldClient.Close()
+		}()
+	}
+
+	client := phx.NewClient(s)
+
+	s.client = client
+	s.closed = false
+	s.connected = false
+	s.joined = false
+
+	return client.Connect(*s.uri, http.Header{})
+}
+
 func (s *socket) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.closed {
+		return nil
+	}
 
 	if s.client != nil {
 		klog.V(log.LogLevelDefault).Info("closing websocket connection")
 		s.connected = false
 		s.joined = false
-		return s.client.Close()
+		s.closed = true
+
+		client := s.client
+		s.client = nil // Prevent further operations on this client
+
+		// Close asynchronously to avoid blocking
+		go func() {
+			_ = client.Close()
+		}()
+		return nil
 	}
 
 	return nil
@@ -118,6 +173,12 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 
 func (s *socket) NotifyConnect() {
 	s.mu.Lock()
+
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+
 	s.connected = true
 	s.mu.Unlock()
 	_ = s.Join()
@@ -127,30 +188,54 @@ func (s *socket) NotifyDisconnect() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.closed {
+		return
+	}
+
+	klog.V(log.LogLevelDefault).Info("websocket disconnected, will attempt to reconnect on next poll")
 	s.connected = false
 	s.joined = false
+	s.closed = true // Mark as closed to trigger reconnection on next Join() call
 }
 
-// implement ChannelReceiver
+// ChannelReceiver implementation.
+
 func (s *socket) OnJoin(payload interface{}) {
 	klog.V(log.LogLevelDefault).Info("Joined websocket channel, listening for service updates")
 }
 
 func (s *socket) OnJoinError(payload interface{}) {
-	klog.V(log.LogLevelDefault).Info("failed to join channel, retrying")
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		return
+	}
+
+	klog.V(log.LogLevelDefault).Info("failed to join channel")
 	s.joined = false
-	s.mu.Unlock()
 }
 
 func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
-	klog.V(log.LogLevelDefault).Info("left websocket channel")
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		return
+	}
+
+	klog.V(log.LogLevelDefault).Info("left websocket channel")
 	s.joined = false
-	s.mu.Unlock()
 }
 
 func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.closed {
+		return
+	}
+
 	if publisher, ok := s.publishers.Get(event); ok {
 		if parsed, ok := payload.(map[string]interface{}); ok {
 			if id, ok := parsed["id"].(string); ok {
