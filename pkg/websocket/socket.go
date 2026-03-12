@@ -256,11 +256,11 @@ func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
 
 func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	if s.closed {
+		s.mu.RUnlock()
 		return
 	}
+	s.mu.RUnlock()
 
 	publisher, ok := s.publishers.Get(event)
 	if !ok {
