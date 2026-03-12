@@ -1,10 +1,11 @@
 package controller
 
 import (
-	"context"
+	"errors"
 	"fmt"
 
 	gqlclient "github.com/pluralsh/console/go/client"
+	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun"
@@ -31,7 +32,7 @@ func (in *agentRunController) postStart(err error) {
 	switch {
 	case err == nil:
 		status = gqlclient.AgentRunStatusSuccessful
-	case context.Cause(context.Background()) != nil:
+	case errors.Is(err, internalerrors.ErrRemoteCancel):
 		status = gqlclient.AgentRunStatusCancelled
 		// Do not send an error if agent run was cancelled
 		err = nil
