@@ -23,7 +23,7 @@ A custom Ansible module for managing Plural CD clusters. This module allows you 
 | `chart_loc` | `str` | no | — | URL or filepath of the helm chart tar file |
 | `project` | `str` | no | — | Project the cluster will belong to |
 | `tags` | `list[str]` | no | — | List of `key=value` tags |
-| `metadata` | `path` | no | — | Path to metadata YAML file on the remote node |
+| `metadata` | `str` | no | — | Raw YAML block of metadata to pass to the cluster |
 
 ### Delete (`command: delete`)
 
@@ -57,7 +57,11 @@ A custom Ansible module for managing Plural CD clusters. This module allows you 
     tags:
       - env=production
       - team=platform
-    metadata: /plural/metadata.yaml
+    metadata: |
+      annotations:
+        foo: bar
+      labels:
+        env: production
 ```
 
 ### Bootstrap using a variable from inventory
@@ -80,6 +84,8 @@ plural_cluster_name=my-cluster
 
 ```yaml
 - name: Delete cluster
+  hosts: all
+  gather_facts: false
   plural:
     command: delete
     cluster_handle: "@my-cluster"
@@ -89,6 +95,8 @@ plural_cluster_name=my-cluster
 
 ```yaml
 - name: Detach cluster
+  hosts: all
+  gather_facts: false
   plural:
     command: delete
     cluster_handle: "@my-cluster"
@@ -107,7 +115,7 @@ plural_cluster_name=my-cluster
       PLURAL_CONSOLE_URL: "https://console.example.com"
 ```
 
-### Full playbook example
+### Full playbook example — bootstrap
 
 ```yaml
 - import_playbook: cluster.yml
@@ -121,6 +129,21 @@ plural_cluster_name=my-cluster
         command: bootstrap
         cluster_name: "{{ plural_cluster_name }}"
 ```
+
+### Full playbook example — delete
+
+```yaml
+- name: Delete Plural CD cluster
+  hosts: kube_control_plane[0]
+  gather_facts: false
+  tasks:
+    - name: Delete cluster
+      plural:
+        command: delete
+        cluster_handle: "{{ plural_cluster_name }}"
+```
+
+> **Note:** every Ansible play must include a `hosts:` key. Omitting it causes a parser error (exit status 4).
 
 ## InfrastructureStack setup
 

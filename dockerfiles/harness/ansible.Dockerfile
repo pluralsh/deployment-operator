@@ -16,9 +16,10 @@ COPY --from=harness /harness /usr/local/bin/harness
 # Change ownership of the harness binary to UID/GID 65532
 RUN chown -R 65532:65532 /usr/local/bin/harness
 
-COPY dockerfiles/harness/modules/ /usr/share/plural/plugins/modules/
-COPY dockerfiles/harness/action_plugins/ /usr/share/plural/plugins/action/
+COPY ansible/modules/ /usr/share/plural/plugins/modules/
+COPY ansible/action_plugins/ /usr/share/plural/plugins/action/
 RUN chown -R 65532:65532 /usr/share/plural/plugins/modules/
+RUN chown -R 65532:65532 /usr/share/plural/plugins/action/
 
 # Install system packages and build deps, install Python packages, then remove build deps
 RUN apk add --no-cache \

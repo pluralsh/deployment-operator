@@ -23,7 +23,7 @@ def run_module():
         chart_loc=dict(type="str", required=False, default=None),
         project=dict(type="str", required=False, default=None),
         tags=dict(type="list", elements="str", required=False, default=None),
-        metadata=dict(type="path", required=False, default=None),
+        metadata=dict(type="str", required=False, default=None),
 
         # delete args
         cluster_handle=dict(type="str", required=False, default=None),
@@ -52,11 +52,18 @@ def run_module():
 
     # write binary to a temp file on the remote
     tmp_binary = None
+    tmp_metadata = None
     try:
         fd, tmp_binary = tempfile.mkstemp(prefix="plural_")
         with os.fdopen(fd, "wb") as f:
             f.write(base64.b64decode(binary_content))
         os.chmod(tmp_binary, stat.S_IRWXU)
+
+        metadata_content = module.params["metadata"]
+        if metadata_content:
+            fd2, tmp_metadata = tempfile.mkstemp(prefix="plural_metadata_", suffix=".yaml")
+            with os.fdopen(fd2, "w") as f:
+                f.write(metadata_content)
 
         env = os.environ.copy()
         env["KUBECONFIG"] = kubeconfig
@@ -69,7 +76,7 @@ def run_module():
                 env[key] = os.environ[key]
 
         if command == BOOTSTRAP:
-            cmd = _build_bootstrap_cmd(module, tmp_binary)
+            cmd = _build_bootstrap_cmd(module, tmp_binary, tmp_metadata)
         else:
             cmd = _build_delete_cmd(module, tmp_binary)
 
@@ -84,11 +91,13 @@ def run_module():
     finally:
         if tmp_binary and os.path.exists(tmp_binary):
             os.remove(tmp_binary)
+        if tmp_metadata and os.path.exists(tmp_metadata):
+            os.remove(tmp_metadata)
 
     module.exit_json(**result)
 
 
-def _build_bootstrap_cmd(module, binary):
+def _build_bootstrap_cmd(module, binary, metadata_path=None):
     cmd = [
         binary,
         "cd", "clusters", "bootstrap",
@@ -110,8 +119,8 @@ def _build_bootstrap_cmd(module, binary):
     for tag in (module.params["tags"] or []):
         cmd += ["--tag", tag]
 
-    if module.params["metadata"]:
-        cmd += ["--metadata", module.params["metadata"]]
+    if metadata_path:
+        cmd += ["--metadata", metadata_path]
 
     return cmd
 
