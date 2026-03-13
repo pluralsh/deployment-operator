@@ -36,6 +36,7 @@ type ConfigurationManager struct {
 	maxStackRunJobs             *int
 	maxAgentRunPods             *int
 	baseRegistryURL             *string
+	disableWebsocket            *bool
 }
 
 func GetConfigurationManager() *ConfigurationManager {
@@ -86,6 +87,7 @@ func (s *ConfigurationManager) SetValue(config v1alpha1.AgentConfigurationSpec) 
 	s.maxConcurrentReconciles = config.MaxConcurrentReconciles
 	s.baseRegistryURL = config.BaseRegistryURL
 	s.maxSentinelRunJobs = config.MaxSentinelRunJobs
+	s.disableWebsocket = config.DisableWebsocket
 
 	return nil
 }
@@ -174,6 +176,12 @@ func (s *ConfigurationManager) GetBaseRegistryURL() *string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.baseRegistryURL
+}
+
+func (s *ConfigurationManager) IsWebsocketDisabled() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.disableWebsocket != nil && *s.disableWebsocket
 }
 
 func (s *ConfigurationManager) SwapBaseRegistry(image string) string {
