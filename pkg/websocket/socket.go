@@ -211,8 +211,19 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 
 func (s *socket) NotifyConnect() {
 	s.mu.Lock()
+	s.notifyConnectLocked(s.clientGen)
+}
 
-	if s.closed {
+func (s *socket) NotifyDisconnect() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.notifyDisconnectLocked(s.clientGen)
+}
+
+// notifyConnectLocked handles a connect callback. Must be called with s.mu held;
+// it always releases the lock (either early-returning or before calling Join).
+func (s *socket) notifyConnectLocked(gen uint64) {
+	if gen != s.clientGen || s.closed {
 		s.mu.Unlock()
 		return
 	}
@@ -222,11 +233,9 @@ func (s *socket) NotifyConnect() {
 	_ = s.Join()
 }
 
-func (s *socket) NotifyDisconnect() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.closed {
+// notifyDisconnectLocked handles a disconnect callback. Must be called with s.mu held.
+func (s *socket) notifyDisconnectLocked(gen uint64) {
+	if gen != s.clientGen || s.closed {
 		return
 	}
 
@@ -303,34 +312,4 @@ func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
 	klog.V(log.LogLevelDefault).InfoS("got new update from websocket", "id", id, "event", event, "payload", payload)
 	kick, _ := parsed["kick"].(bool)
 	publisher.Publish(id, kick)
-}
-
-// clientReceiver is a thin wrapper that captures a generation counter so that
-// callbacks from a stale (old) client are silently ignored. gophoenix fires
-// NotifyDisconnect even on explicit Close(), which means the old client's
-// closing goroutine can race with the new client that has already been
-// installed on the same socket.
-type clientReceiver struct {
-	s   *socket
-	gen uint64
-}
-
-func (cr *clientReceiver) NotifyConnect() {
-	cr.s.mu.Lock()
-	if cr.gen != cr.s.clientGen {
-		cr.s.mu.Unlock()
-		return
-	}
-	cr.s.mu.Unlock()
-	cr.s.NotifyConnect()
-}
-
-func (cr *clientReceiver) NotifyDisconnect() {
-	cr.s.mu.Lock()
-	if cr.gen != cr.s.clientGen {
-		cr.s.mu.Unlock()
-		return
-	}
-	cr.s.mu.Unlock()
-	cr.s.NotifyDisconnect()
 }
