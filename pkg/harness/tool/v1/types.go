@@ -103,4 +103,8 @@ type Config struct {
 
 	// Run is a stack run that is being processed.
 	Run *stackrunv1.StackRun
+
+	ConsoleURL string
+
+	ConsoleToken string
 }

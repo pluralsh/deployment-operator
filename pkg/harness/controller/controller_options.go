@@ -48,3 +48,9 @@ func WithConsoleToken(token string) Option {
 		s.consoleToken = token
 	}
 }
+
+func WithConsoleURL(url string) Option {
+	return func(s *stackRunController) {
+		s.consoleURL = url
+	}
+}

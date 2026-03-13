@@ -35,6 +35,7 @@ func main() {
 		controller.WithStackRun(args.StackRunID()),
 		controller.WithConsoleClient(consoleClient),
 		controller.WithConsoleToken(args.ConsoleToken()),
+		controller.WithConsoleURL(args.ConsoleUrl()),
 		controller.WithFetchClient(fetchClient),
 		controller.WithWorkingDir(args.WorkingDir()),
 		controller.WithSinkOptions(

@@ -214,11 +214,13 @@ func (in *stackRunController) prepare() error {
 	}
 
 	in.tool = tool.New(in.stackRun.Type, toolv1.Config{
-		WorkDir:   in.dir,
-		ExecDir:   in.execWorkDir(),
-		Variables: variables,
-		Scanner:   security.NewScanner(in.stackRun.PolicyEngine),
-		Run:       in.stackRun,
+		WorkDir:      in.dir,
+		ExecDir:      in.execWorkDir(),
+		Variables:    variables,
+		Scanner:      security.NewScanner(in.stackRun.PolicyEngine),
+		Run:          in.stackRun,
+		ConsoleURL:   in.stackRun.ConsoleURL,
+		ConsoleToken: in.stackRun.ConsoleToken,
 	})
 
 	return nil

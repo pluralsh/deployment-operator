@@ -158,13 +158,7 @@ func New(config v1.Config) v1.Tool {
 
 	return &Gemini{
 		DefaultTool: v1.DefaultTool{Config: config},
-		//dir:           config.WorkDir,
-		//repositoryDir: config.RepositoryDir,
-		//run:           config.Run,
-		apiKey: helpers.GetEnv(controller.EnvGeminiAPIKey, ""),
-		model:  DefaultModel(),
-		//finishedChan:  config.FinishedChan,
-		//errorChan:     config.ErrorChan,
-		//startedChan:   make(chan struct{}),
+		apiKey:      helpers.GetEnv(controller.EnvGeminiAPIKey, ""),
+		model:       DefaultModel(),
 	}
 }

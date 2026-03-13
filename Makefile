@@ -118,7 +118,7 @@ agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent har
 		-e PLRL_OPENCODE_MODEL=$(PLRL_OPENCODE_MODEL) \
 		-e PLRL_OPENCODE_TOKEN=$(PLRL_OPENCODE_TOKEN) \
 		--rm -it \
-		ghcr.io/pluralsh/agent-harness-opencode --v=3
+		ghcr.io/pluralsh/agent-harness-opencode --v=4
 
 .PHONY: agent-harness-codex-run
 agent-harness-codex-run: docker-build-agent-harness-codex ## run agent harness w/ codex
