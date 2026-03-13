@@ -28,3 +28,7 @@ func (s *FakeSocket) OnMessage(ref int64, event string, payload interface{}) {}
 func (s *FakeSocket) Join() error {
 	return nil
 }
+
+func (s *FakeSocket) Close() error {
+	return nil
+}
