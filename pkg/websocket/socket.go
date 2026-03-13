@@ -96,6 +96,9 @@ func (s *socket) Join() error {
 
 		s.mu.Unlock()
 		if err := client.Connect(*s.uri, http.Header{}); err != nil {
+			s.mu.Lock()
+			s.closed = true // Allow the next poll to retry the full reconnect cycle
+			s.mu.Unlock()
 			klog.V(log.LogLevelDefault).InfoS("failed to connect socket, will retry", "error", err)
 			return fmt.Errorf("failed to reconnect to websocket: %w", err)
 		}
