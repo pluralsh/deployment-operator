@@ -69,7 +69,6 @@ func BuildCodexConfig(dir string, agents []AgentInput, mcps []MCPInput) (*CodexC
 }
 
 func WriteCodexConfig(basePath string, cfg *CodexConfig) (string, error) {
-
 	if err := os.MkdirAll(basePath, 0755); err != nil {
 		return "", err
 	}

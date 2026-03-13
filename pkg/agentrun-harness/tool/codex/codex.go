@@ -79,8 +79,6 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			ApprovalPolicy:       baseAgent.ApprovalPolicy,
 			ModelReasoningEffort: baseAgent.ModelReasoningEffort,
 			AllowedEnvVars:       baseAgent.AllowedEnvVars,
-			EnableWebSearch:      baseAgent.EnableWebSearch,
-			EnableShellCache:     baseAgent.EnableShellCache,
 		}}
 		mcps = []MCPInput{{
 			Name:         "plural",
@@ -101,14 +99,12 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			ApprovalPolicy:       baseAgent.ApprovalPolicy,
 			ModelReasoningEffort: baseAgent.ModelReasoningEffort,
 			AllowedEnvVars:       baseAgent.AllowedEnvVars,
-			EnableWebSearch:      baseAgent.EnableWebSearch,
-			EnableShellCache:     baseAgent.EnableShellCache,
 		}}
 		mcps = []MCPInput{{
 			Name:         "plural",
 			Type:         "stdio",
 			Command:      "/usr/local/bin/mcpserver",
-			EnabledTools: []string{"agentPullRequest, createBranch, fetchAgentRunTodos, updateAgentRunTodos"},
+			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos"},
 			Env: map[string]string{
 				"PLRL_CONSOLE_TOKEN": consoleToken,
 				"PLRL_CONSOLE_URL":   consoleURL,
@@ -163,7 +159,7 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		agent = "autonomous"
 	}
 
-	args = []string{"exec", "--profile", agent, "--skip-git-repo-check", "true", "--json"}
+	args = []string{"exec", "--profile", agent, "--skip-git-repo-check", "--json", in.Config.Run.Prompt}
 
 	in.executable = exec.NewExecutable(
 		"codex",
