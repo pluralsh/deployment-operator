@@ -238,9 +238,13 @@ func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (strin
 		return "", err
 	}
 
+	klog.V(log.LogLevelDefault).InfoS("building checks", "checks", len(fragment.SentinelRun.Checks))
+
 	var testCases []TestCase
 	for _, check := range fragment.SentinelRun.Checks {
 		if check.Type == console.SentinelCheckTypeIntegrationTest {
+			klog.V(log.LogLevelDefault).InfoS("processing integration test", "name", check.Name)
+
 			testCase := TestCase{
 				Name: check.Name,
 			}
