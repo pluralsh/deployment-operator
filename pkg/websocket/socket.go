@@ -56,7 +56,8 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 
 	s.client = phx.NewClient(s)
 	if err := s.client.Connect(*uri, http.Header{}); err != nil {
-		return nil, fmt.Errorf("failed to connect to websocket: %w", err)
+		s.closed = true // Mark the socket as closed so that a subsequent Join() call will enter the reconnect path
+		return s, fmt.Errorf("failed to connect to websocket: %w", err)
 	}
 
 	return s, nil
