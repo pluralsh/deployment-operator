@@ -14,6 +14,7 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"gotest.tools/gotestsum/cmd"
+	"k8s.io/klog"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
@@ -282,14 +283,14 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 
 		switch ev.Action {
 		case "run":
-			buf.WriteString(fmt.Sprintf("=== RUN   %s\n", ev.Test))
+			_, _ = fmt.Fprintf(&buf, "=== RUN   %s\n", ev.Test)
 		case "pass":
 			if ev.Test != "" {
-				buf.WriteString(fmt.Sprintf("--- PASS: %s (%.2fs)\n", ev.Test, ev.Elapsed))
+				_, _ = fmt.Fprintf(&buf, "--- PASS: %s (%.2fs)\n", ev.Test, ev.Elapsed)
 			}
 		case "fail":
 			if ev.Test != "" {
-				buf.WriteString(fmt.Sprintf("--- FAIL: %s (%.2fs)\n", ev.Test, ev.Elapsed))
+				_, _ = fmt.Fprintf(&buf, "--- FAIL: %s (%.2fs)\n", ev.Test, ev.Elapsed)
 			}
 		case "output":
 			buf.WriteString(ev.Output)
