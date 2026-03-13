@@ -107,6 +107,9 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 
 	junitPath := filepath.Join(in.outputDir, junitfile)
 
+	args := buildGotestsumRunArgs(in.outputDir, junitPath, in.timeoutDuration, integrationTestConfig)
+	klog.V(log.LogLevelDefault).InfoS("running gotestsum", "args", args)
+
 	passed := false
 	err = cmd.Run("", buildGotestsumRunArgs(in.outputDir, junitPath, in.timeoutDuration, integrationTestConfig))
 	if err == nil {
@@ -136,7 +139,10 @@ func buildGotestsumRunArgs(outputDir, junitPath, timeout string, integrationTest
 		"--jsonfile", filepath.Join(outputDir, jsonFile),
 	}
 
-	if integrationTestConfig != nil && integrationTestConfig.RerunFailures != nil {
+	shouldRerunFailures := integrationTestConfig != nil && integrationTestConfig.RerunFailures != nil && *integrationTestConfig.RerunFailures
+	if shouldRerunFailures {
+		// gotestsum requires an explicit package list when rerun-fails is used with go test args.
+		args = append(args, "--packages=./...")
 		args = append(args, "--rerun-fails")
 		if integrationTestConfig.RerunFailuresCount != nil && *integrationTestConfig.RerunFailuresCount > 0 {
 			args = append(args, strconv.FormatInt(*integrationTestConfig.RerunFailuresCount, 10))
@@ -182,7 +188,7 @@ func (in *sentinelRunController) getIntegrationTestConfiguration(fragment *conso
 			continue
 		}
 
-		if strings.EqualFold(check.Name, *fragment.Check) {
+		if !strings.EqualFold(check.Name, *fragment.Check) {
 			continue
 		}
 

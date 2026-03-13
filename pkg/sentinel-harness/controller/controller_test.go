@@ -12,6 +12,7 @@ func TestBuildGotestsumRunArgs_Defaults(t *testing.T) {
 	mustContainArgPair(t, args, "--test.count", "1")
 	mustContainArgPair(t, args, "--test.timeout", "30m")
 	mustNotContainArg(t, args, "--rerun-fails")
+	mustNotContainArg(t, args, "--packages=./...")
 	mustNotContainArg(t, args, "-p")
 }
 
@@ -31,6 +32,7 @@ func TestBuildGotestsumRunArgs_ConfigOverrides(t *testing.T) {
 	})
 
 	mustContainArgPair(t, args, "--rerun-fails", "4")
+	mustContainArg(t, args, "--packages=./...")
 	mustContainArgPair(t, args, "-p", "8")
 	mustContainArgPair(t, args, "-parallel", "3")
 	mustNotContainArgPair(t, args, "-parallel", "1")
@@ -44,6 +46,16 @@ func mustContainArgPair(t *testing.T, args []string, key, value string) {
 		}
 	}
 	t.Fatalf("expected args to contain pair %q %q, got: %v", key, value, args)
+}
+
+func mustContainArg(t *testing.T, args []string, key string) {
+	t.Helper()
+	for _, arg := range args {
+		if arg == key {
+			return
+		}
+	}
+	t.Fatalf("expected args to contain %q, got: %v", key, args)
 }
 
 func mustNotContainArg(t *testing.T, args []string, key string) {
