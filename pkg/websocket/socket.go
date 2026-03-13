@@ -21,6 +21,7 @@ type socket struct {
 	clusterId  string
 	uri        *url.URL
 	client     *phx.Client
+	clientGen  uint64
 	publishers cmap.ConcurrentMap[string, Publisher]
 	channel    *phx.Channel
 	connected  bool
@@ -54,7 +55,7 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 		publishers: cmap.New[Publisher](),
 	}
 
-	s.client = phx.NewClient(s)
+	s.client = s.newClient()
 	if err := s.client.Connect(*uri, http.Header{}); err != nil {
 		s.closed = true // Mark the socket as closed so that a subsequent Join() call will enter the reconnect path
 		return s, fmt.Errorf("failed to connect to websocket: %w", err)
@@ -88,7 +89,7 @@ func (s *socket) Join() error {
 
 		s.closeClientAsync()
 
-		client := phx.NewClient(s)
+		client := s.newClient()
 		s.client = client
 		s.closed = false
 		s.connected = false
@@ -145,6 +146,13 @@ func (s *socket) Join() error {
 // getChannelTopic returns the Phoenix channel topic for this cluster.
 func (s *socket) getChannelTopic() string {
 	return fmt.Sprintf("cluster:%s", s.clusterId)
+}
+
+// newClient creates a new phx.Client whose ConnectionReceiver callbacks are
+// bound to the current generation. Must be called with lock held.
+func (s *socket) newClient() *phx.Client {
+	s.clientGen++
+	return phx.NewClient(&clientReceiver{s: s, gen: s.clientGen})
 }
 
 // closeClientAsync closes the current client asynchronously to avoid blocking.
@@ -295,4 +303,34 @@ func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
 	klog.V(log.LogLevelDefault).InfoS("got new update from websocket", "id", id, "event", event, "payload", payload)
 	kick, _ := parsed["kick"].(bool)
 	publisher.Publish(id, kick)
+}
+
+// clientReceiver is a thin wrapper that captures a generation counter so that
+// callbacks from a stale (old) client are silently ignored. gophoenix fires
+// NotifyDisconnect even on explicit Close(), which means the old client's
+// closing goroutine can race with the new client that has already been
+// installed on the same socket.
+type clientReceiver struct {
+	s   *socket
+	gen uint64
+}
+
+func (cr *clientReceiver) NotifyConnect() {
+	cr.s.mu.Lock()
+	if cr.gen != cr.s.clientGen {
+		cr.s.mu.Unlock()
+		return
+	}
+	cr.s.mu.Unlock()
+	cr.s.NotifyConnect()
+}
+
+func (cr *clientReceiver) NotifyDisconnect() {
+	cr.s.mu.Lock()
+	if cr.gen != cr.s.clientGen {
+		cr.s.mu.Unlock()
+		return
+	}
+	cr.s.mu.Unlock()
+	cr.s.NotifyDisconnect()
 }
