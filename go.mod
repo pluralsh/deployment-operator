@@ -3,26 +3,26 @@ module github.com/pluralsh/deployment-operator
 go 1.26.1
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2 v2.2.3
-	github.com/DataDog/dd-trace-go/v2 v2.5.0
+	github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2 v2.6.0
+	github.com/DataDog/dd-trace-go/v2 v2.6.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/Yamashou/gqlgenc v0.33.0
 	github.com/aquasecurity/trivy v0.66.0
 	github.com/aquasecurity/trivy-db v0.0.0-20250731052236-c7c831e2254d
 	github.com/aquasecurity/trivy-operator v0.28.0
 	github.com/argoproj/argo-rollouts v1.8.3
-	github.com/aws/aws-sdk-go-v2 v1.39.0
-	github.com/aws/aws-sdk-go-v2/config v1.31.7
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.11
+	github.com/aws/aws-sdk-go-v2 v1.39.2
+	github.com/aws/aws-sdk-go-v2/config v1.31.12
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.16
 	github.com/aws/aws-sdk-go-v2/service/eks v1.73.2
-	github.com/cert-manager/cert-manager v1.18.2
-	github.com/elastic/crd-ref-docs v0.1.0
+	github.com/cert-manager/cert-manager v1.19.3
+	github.com/elastic/crd-ref-docs v0.2.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fluxcd/flagger v1.41.0
 	github.com/fluxcd/helm-controller/api v1.4.3
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-logr/logr v1.4.3
-	github.com/go-openapi/jsonpointer v0.22.0
+	github.com/go-openapi/jsonpointer v0.22.1
 	github.com/gobuffalo/flect v1.0.3
 	github.com/golangci/golangci-lint/v2 v2.11.3
 	github.com/google/gnostic-models v0.7.0
@@ -68,7 +68,7 @@ require (
 	sigs.k8s.io/cluster-api v1.12.1
 	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20240903085516-38546806f2fa
-	sigs.k8s.io/controller-tools v0.17.3
+	sigs.k8s.io/controller-tools v0.19.0
 	sigs.k8s.io/kustomize/api v0.20.1
 	sigs.k8s.io/kustomize/kustomize/v5 v5.7.1
 	sigs.k8s.io/kustomize/kyaml v0.20.1
@@ -107,7 +107,7 @@ require (
 	github.com/DataDog/datadog-agent/pkg/util/scrubber v0.71.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/version v0.71.0 // indirect
 	github.com/DataDog/datadog-go/v5 v5.7.1 // indirect
-	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.2.3 // indirect
+	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.6.0 // indirect
 	github.com/DataDog/go-libddwaf/v4 v4.8.0 // indirect
 	github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20250721125240-fdf1ef85b633 // indirect
 	github.com/DataDog/go-sqllexer v0.1.8 // indirect
@@ -144,16 +144,16 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/ashanbrown/forbidigo/v2 v2.3.0 // indirect
 	github.com/ashanbrown/makezero/v2 v2.1.0 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.7 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.9 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.29.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.34.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.38.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.29.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.38.6 // indirect
 	github.com/aws/smithy-go v1.23.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
@@ -226,12 +226,12 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/go-openapi/jsonreference v0.21.1 // indirect
+	github.com/go-openapi/jsonreference v0.21.2 // indirect
 	github.com/go-openapi/swag v0.24.1 // indirect
 	github.com/go-openapi/swag/cmdutils v0.24.0 // indirect
 	github.com/go-openapi/swag/conv v0.24.0 // indirect
 	github.com/go-openapi/swag/fileutils v0.24.0 // indirect
-	github.com/go-openapi/swag/jsonname v0.24.0 // indirect
+	github.com/go-openapi/swag/jsonname v0.25.1 // indirect
 	github.com/go-openapi/swag/jsonutils v0.24.0 // indirect
 	github.com/go-openapi/swag/loading v0.24.0 // indirect
 	github.com/go-openapi/swag/mangling v0.24.0 // indirect
@@ -330,6 +330,7 @@ require (
 	github.com/leonklingele/grouper v1.1.2 // indirect
 	github.com/lib/pq v1.11.2 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
+	github.com/linkdata/deadlock v0.5.5 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20250827001030-24949be3fa54 // indirect
 	github.com/macabu/inamedparam v0.2.0 // indirect
@@ -373,6 +374,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
+	github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -424,7 +426,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/terraform-docs/terraform-config-inspect v0.0.0-20210728164355-9c1f178932fa // indirect
 	github.com/tetafro/godot v1.5.4 // indirect
-	github.com/theckman/httpforwarded v0.4.0 // indirect
 	github.com/timakin/bodyclose v0.0.0-20241222091800-1db5c5ca4d67 // indirect
 	github.com/timonwong/loggercheck v0.11.0 // indirect
 	github.com/tinylib/msgp v1.4.0 // indirect
@@ -432,6 +433,7 @@ require (
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/tomarrell/wrapcheck/v2 v2.12.0 // indirect
 	github.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect
+	github.com/trailofbits/go-mutexasserts v0.0.0-20250514102930-c1f3d2e37561 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/ultraware/funlen v0.2.0 // indirect
@@ -474,7 +476,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
@@ -493,7 +494,6 @@ require (
 	golang.org/x/tools v0.42.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
-	google.golang.org/api v0.249.0 // indirect
 	google.golang.org/genproto v0.0.0-20250908214217-97024824d090 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251029180050-ab9386a59fda // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260112192933-99fd39fd28a9 // indirect
@@ -506,7 +506,9 @@ require (
 	honnef.co/go/tools v0.7.0 // indirect
 	k8s.io/apiserver v0.34.2 // indirect
 	k8s.io/cluster-bootstrap v0.34.2 // indirect
+	k8s.io/code-generator v0.34.2 // indirect
 	k8s.io/component-base v0.34.2 // indirect
+	k8s.io/gengo/v2 v2.0.0-20250820003526-c297c0c1eb9d // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
 	modernc.org/libc v1.66.8 // indirect
@@ -517,16 +519,8 @@ require (
 	mvdan.cc/unparam v0.0.0-20251027182757-5beb8c8f8f15 // indirect
 	mvdan.cc/xurls/v2 v2.5.0 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
-	sigs.k8s.io/gateway-api v1.3.0 // indirect
+	sigs.k8s.io/gateway-api v1.4.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
-)
-
-replace (
-	github.com/containerd/containerd => github.com/containerd/containerd v1.7.27
-	github.com/olekukonko/tablewriter => github.com/olekukonko/tablewriter v0.0.5
-	github.com/open-policy-agent/opa => github.com/open-policy-agent/opa v1.4.0
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.31.1
-	k8s.io/kubelet => k8s.io/kubelet v0.31.1
 )
