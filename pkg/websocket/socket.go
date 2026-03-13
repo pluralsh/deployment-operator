@@ -222,11 +222,10 @@ func (s *socket) NotifyDisconnect() {
 		return
 	}
 
-	klog.V(log.LogLevelDefault).Info("websocket disconnected, will attempt to reconnect on next poll")
+	klog.V(log.LogLevelDefault).Info("websocket disconnected, waiting for internal gophoenix reconnect")
 	s.connected = false
 	s.joined = false
 	s.joining = false
-	s.closed = true // Mark as closed to trigger reconnection on next Join() call
 }
 
 // ChannelReceiver implementation.
