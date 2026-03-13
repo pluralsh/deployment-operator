@@ -242,8 +242,11 @@ func (s *socket) OnJoinError(payload interface{}) {
 		return
 	}
 
-	klog.V(log.LogLevelDefault).Info("failed to join channel")
+	klog.V(log.LogLevelDefault).Info("failed to join channel, will reconnect with a new client")
 	s.joined = false
+	s.connected = false
+	s.closed = true
+	s.closeClientAsync()
 }
 
 func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
@@ -254,8 +257,11 @@ func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
 		return
 	}
 
-	klog.V(log.LogLevelDefault).Info("left websocket channel")
+	klog.V(log.LogLevelDefault).Info("left websocket channel, will reconnect with a new client")
 	s.joined = false
+	s.connected = false
+	s.closed = true
+	s.closeClientAsync()
 }
 
 func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
