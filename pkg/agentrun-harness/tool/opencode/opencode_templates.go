@@ -30,7 +30,7 @@ type ConfigTemplateInput struct {
 	Endpoint string
 
 	// Model is the AI model to use.
-	Model Model
+	Model string
 
 	// Token is the API token for the AI provider.
 	Token string

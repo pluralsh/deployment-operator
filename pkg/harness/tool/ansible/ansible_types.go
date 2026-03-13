@@ -31,4 +31,8 @@ type Ansible struct {
 	SSHKeyFile *string
 
 	ConfigFile *string
+
+	consoleURL string
+
+	consoleToken string
 }

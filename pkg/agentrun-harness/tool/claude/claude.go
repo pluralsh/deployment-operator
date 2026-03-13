@@ -22,15 +22,9 @@ import (
 
 func New(config v1.Config) v1.Tool {
 	result := &Claude{
-		DefaultTool: v1.DefaultTool{Config: config},
-		//dir:           config.WorkDir,
-		//repositoryDir: config.RepositoryDir,
-		//run:           config.Run,
-		token: helpers.GetEnv(controller.EnvClaudeToken, ""),
-		model: DefaultModel(),
-		//finishedChan:  config.FinishedChan,
-		//errorChan:     config.ErrorChan,
-		//startedChan:   make(chan struct{}),
+		DefaultTool:  v1.DefaultTool{Config: config},
+		token:        helpers.GetEnv(controller.EnvClaudeToken, ""),
+		model:        DefaultModel(),
 		toolUseCache: make(map[string]ContentMsg),
 	}
 
@@ -53,13 +47,23 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 	}
 	args := []string{"--add-dir", in.Config.RepositoryDir, "--agents", agent, "--system-prompt-file", promptFile, "--model", string(DefaultModel()), "-p", in.Config.Run.Prompt, "--output-format", "stream-json", "--verbose"}
 
+	if in.Config.Run.IsProxyEnabled() {
+		options = append(options,
+			exec.WithEnv([]string{
+				fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
+				fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
+			}),
+		)
+	} else {
+		options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}))
+	}
+
 	in.executable = exec.NewExecutable(
 		"claude",
 		append(
 			options,
 			exec.WithArgs(args),
 			exec.WithDir(in.Config.WorkDir),
-			exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}),
 			exec.WithTimeout(15*time.Minute),
 		)...,
 	)
@@ -108,6 +112,11 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 		return err
 	}
 
+	if in.Config.Run.IsProxyEnabled() {
+		in.consoleToken = consoleToken
+		in.consoleURL = consoleURL
+	}
+
 	settings := NewSettingsBuilder()
 	if in.Config.Run.Mode == console.AgentRunModeAnalyze {
 		settings.AllowTools(
@@ -140,6 +149,12 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 			"mcp__plural__fetchAgentRunTodos",
 			"mcp__plural__updateAgentRunTodos")
 	}
+
+	defaultTimeout := "600000" // 10 minutes
+	maxTimeout := "1200000"    // 20 minutes
+	settings.WithEnv("BASH_DEFAULT_TIMEOUT_MS", defaultTimeout)
+	settings.WithEnv("BASH_MAX_TIMEOUT_MS", maxTimeout)
+
 	return settings.WriteToFile(filepath.Join(in.configPath(), "settings.local.json"))
 }
 
