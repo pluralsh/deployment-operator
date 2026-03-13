@@ -222,10 +222,12 @@ func (s *socket) NotifyDisconnect() {
 		return
 	}
 
-	klog.V(log.LogLevelDefault).Info("websocket disconnected, waiting for internal gophoenix reconnect")
+	klog.V(log.LogLevelDefault).Info("websocket disconnected, will reconnect with a new client")
 	s.connected = false
 	s.joined = false
 	s.joining = false
+	s.closed = true
+	s.closeClientAsync()
 }
 
 // ChannelReceiver implementation.
