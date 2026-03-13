@@ -1,15 +1,15 @@
 apiVersion: deployments.plural.sh/v1alpha1
 kind: AgentRuntime
 metadata:
-  name: test-claude
-  namespace: claude
+  name: test-codex
+  namespace: codex
 spec:
-  type: "CLAUDE"
-  targetNamespace: "claude"
+  type: "CODEX"
+  targetNamespace: "codex"
   config:
     claude:
       apiKeySecretRef:
-        name: claude-api-key
+        name: codex-api-key
         key: apiKey
   template:
     spec:
