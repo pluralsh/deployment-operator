@@ -12,7 +12,9 @@ type clientReceiver struct {
 
 func (cr *clientReceiver) NotifyConnect() {
 	cr.s.mu.Lock()
-	cr.s.notifyConnectLocked(cr.gen)
+	if cr.s.notifyConnectLocked(cr.gen) {
+		_ = cr.s.Join()
+	}
 }
 
 func (cr *clientReceiver) NotifyDisconnect() {
