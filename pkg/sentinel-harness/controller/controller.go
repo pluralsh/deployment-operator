@@ -14,7 +14,6 @@ import (
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"gotest.tools/gotestsum/cmd"
-	"k8s.io/klog"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
