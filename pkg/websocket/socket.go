@@ -265,7 +265,7 @@ func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
 
 	publisher, ok := s.publishers.Get(event)
 	if !ok {
-		klog.V(log.LogLevelDefault).InfoS("could not find publisher for event", "event", event)
+		klog.V(log.LogLevelDebug).InfoS("could not find publisher for event", "event", event)
 		return
 	}
 
@@ -281,7 +281,7 @@ func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
 		return
 	}
 
-	kick, _ := parsed["kick"].(bool)
 	klog.V(log.LogLevelDefault).InfoS("got new update from websocket", "id", id, "event", event, "payload", payload)
+	kick, _ := parsed["kick"].(bool)
 	publisher.Publish(id, kick)
 }
