@@ -31,7 +31,7 @@ func TestBuildGotestsumRunArgs_ConfigOverrides(t *testing.T) {
 		},
 	})
 
-	mustContainArgPair(t, args, "--rerun-fails", "4")
+	mustContainArg(t, args, "--rerun-fails=4")
 	mustContainArg(t, args, "--packages=./...")
 	mustContainArgPair(t, args, "-p", "8")
 	mustContainArgPair(t, args, "-parallel", "3")
