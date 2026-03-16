@@ -18,6 +18,8 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
+const consoleTokenEnv = "PLRL_CONSOLE_TOKEN"
+
 func New(config v1.Config) v1.Tool {
 	result := &Codex{
 		DefaultTool: v1.DefaultTool{Config: config},
@@ -87,7 +89,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		providers = []ModelProviderInput{{
 			Name:    "plural",
 			BaseURL: fmt.Sprintf("%s/ext/ai/v1", consoleURL),
-			EnvKey:  "PLRL_CONSOLE_TOKEN",
+			EnvKey:  consoleTokenEnv,
 		}}
 	}
 
@@ -108,9 +110,9 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Command:      "/usr/local/bin/mcpserver",
 			EnabledTools: []string{"updateAgentRunAnalysis"},
 			Env: map[string]string{
-				"PLRL_CONSOLE_TOKEN": consoleToken,
-				"PLRL_CONSOLE_URL":   consoleURL,
-				"PLRL_AGENT_RUN_ID":  in.Config.Run.ID,
+				consoleTokenEnv:     consoleToken,
+				"PLRL_CONSOLE_URL":  consoleURL,
+				"PLRL_AGENT_RUN_ID": in.Config.Run.ID,
 			},
 		}}
 	case console.AgentRunModeWrite:
@@ -129,9 +131,9 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Command:      "/usr/local/bin/mcpserver",
 			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos"},
 			Env: map[string]string{
-				"PLRL_CONSOLE_TOKEN": consoleToken,
-				"PLRL_CONSOLE_URL":   consoleURL,
-				"PLRL_AGENT_RUN_ID":  in.Config.Run.ID,
+				consoleTokenEnv:     consoleToken,
+				"PLRL_CONSOLE_URL":  consoleURL,
+				"PLRL_AGENT_RUN_ID": in.Config.Run.ID,
 			},
 		}}
 	default:
