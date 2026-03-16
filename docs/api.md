@@ -83,6 +83,7 @@ _Appears in:_
 | `maxConcurrentReconciles` _integer_ | MaxConcurrentReconciles controls the maximum number of concurrent reconcile loops.<br />Higher values can increase throughput at the cost of resource usage. |  |  |
 | `vulnerabilityReportUploadInterval` _string_ | VulnerabilityReportUploadInterval sets how often vulnerability reports are uploaded.<br />Set to "0s" to disable vulnerability report uploads. |  |  |
 | `baseRegistryURL` _string_ | BaseRegistryURL allows overriding the default base registry URL.<br />For stack run jobs, agent run pods, sentinel run jobs. |  |  |
+| `disableWebsocket` _boolean_ | DisableWebsocket disables the cluster websocket connection to the Console.<br />When enabled, the agent will rely exclusively on polling instead of receiving<br />push updates. This is useful in large-scale edge deployments where maintaining<br />persistent websocket connections has an infeasible network cost. |  |  |
 
 
 #### AgentHelmConfiguration
