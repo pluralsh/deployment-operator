@@ -24,6 +24,10 @@ type Codex struct {
 	// threadID is captured from the "thread.started" event and forwarded to the API
 	// as the session identifier (analogous to session_id in Claude).
 	threadID string
+
+	proxy bool
+
+	consoleToken string
 }
 
 // StreamEvent is the top-level envelope for every JSON line emitted by `codex exec --json`.
@@ -80,6 +84,7 @@ type TodoItem struct {
 type AgentInput struct {
 	Name                 string
 	Model                string
+	ModelProvider        string
 	SandboxMode          string
 	ApprovalPolicy       string
 	ModelReasoningEffort string
@@ -104,6 +109,23 @@ type MCPInput struct {
 	DisabledTools []string
 }
 
+// ModelProviderInput is the user-facing input for registering a custom model provider.
+type ModelProviderInput struct {
+	// Name is the key used to reference this provider from a Profile's ModelProvider field.
+	Name string
+	// BaseURL is the OpenAI-compatible API endpoint, e.g. "https://api.example.com/v1".
+	BaseURL string
+	// EnvKey is the name of the environment variable that holds the API key.
+	EnvKey string
+}
+
+// ModelProviderConfig is serialized into [model_providers.<key>] in config.toml.
+type ModelProviderConfig struct {
+	Name    string `toml:"name,omitempty"`
+	BaseURL string `toml:"base_url,omitempty"`
+	EnvKey  string `toml:"env_key,omitempty"`
+}
+
 type ShellEnvPolicy struct {
 	IncludeOnly []string `toml:"include_only,omitempty"`
 }
@@ -115,6 +137,7 @@ type Features struct {
 
 type Profile struct {
 	Model                  string          `toml:"model"`
+	ModelProvider          string          `toml:"model_provider,omitempty"`
 	SandboxMode            string          `toml:"sandbox_mode"`
 	ApprovalPolicy         string          `toml:"approval_policy"`
 	ModelReasoningEffort   string          `toml:"model_reasoning_effort"`
@@ -134,7 +157,8 @@ type MCPServer struct {
 }
 
 type CodexConfig struct {
-	Projects   map[string]*Project   `toml:"projects,omitempty"`
-	Profiles   map[string]*Profile   `toml:"profiles"`
-	MCPServers map[string]*MCPServer `toml:"mcp_servers"`
+	Projects       map[string]*Project             `toml:"projects,omitempty"`
+	ModelProviders map[string]*ModelProviderConfig `toml:"model_providers,omitempty"`
+	Profiles       map[string]*Profile             `toml:"profiles"`
+	MCPServers     map[string]*MCPServer           `toml:"mcp_servers"`
 }

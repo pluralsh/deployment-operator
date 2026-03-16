@@ -23,6 +23,11 @@ func New(config v1.Config) v1.Tool {
 		DefaultTool: v1.DefaultTool{Config: config},
 		apiKey:      helpers.GetEnv(controller.EnvCodexAPIKey, ""),
 		model:       DefaultModel(),
+		proxy:       config.Run.IsProxyEnabled(),
+	}
+
+	if config.Run.PluralCreds != nil {
+		result.consoleToken = lo.FromPtr(config.Run.PluralCreds.Token)
 	}
 
 	if err := result.ensure(); err != nil {
@@ -41,7 +46,7 @@ func (in *Codex) ensure() error {
 		return fmt.Errorf("repository directory is not set")
 	}
 
-	if len(in.apiKey) == 0 {
+	if !in.proxy && len(in.apiKey) == 0 {
 		return fmt.Errorf("codex API key is not set")
 	}
 	return nil
@@ -65,10 +70,26 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		EnableShellCache:     true,
 	}
 
+	// The plural proxy requires models in "provider/model" format.
+	if in.proxy {
+		baseAgent.Model = "openai/" + baseAgent.Model
+	}
+
 	var (
-		agents []AgentInput
-		mcps   []MCPInput
+		agents    []AgentInput
+		mcps      []MCPInput
+		providers []ModelProviderInput
 	)
+
+	modelProvider := ""
+	if in.proxy {
+		modelProvider = "plural"
+		providers = []ModelProviderInput{{
+			Name:    "plural",
+			BaseURL: fmt.Sprintf("%s/ext/ai/v1", consoleURL),
+			EnvKey:  "PLRL_CONSOLE_TOKEN",
+		}}
+	}
 
 	switch in.Config.Run.Mode {
 	case console.AgentRunModeAnalyze:
@@ -79,6 +100,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			ApprovalPolicy:       baseAgent.ApprovalPolicy,
 			ModelReasoningEffort: baseAgent.ModelReasoningEffort,
 			AllowedEnvVars:       baseAgent.AllowedEnvVars,
+			ModelProvider:        modelProvider,
 		}}
 		mcps = []MCPInput{{
 			Name:         "plural",
@@ -99,6 +121,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			ApprovalPolicy:       baseAgent.ApprovalPolicy,
 			ModelReasoningEffort: baseAgent.ModelReasoningEffort,
 			AllowedEnvVars:       baseAgent.AllowedEnvVars,
+			ModelProvider:        modelProvider,
 		}}
 		mcps = []MCPInput{{
 			Name:         "plural",
@@ -115,7 +138,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		return fmt.Errorf("unsupported agent run mode %q for codex", in.Config.Run.Mode)
 	}
 
-	cfg, err := BuildCodexConfig(in.Config.WorkDir, agents, mcps)
+	cfg, err := BuildCodexConfig(in.Config.WorkDir, agents, mcps, providers)
 	if err != nil {
 		return err
 	}
@@ -135,23 +158,25 @@ func (in *Codex) OnMessage(f func(message *console.AgentMessageAttributes)) {
 }
 
 func (in *Codex) start(ctx context.Context, options ...exec.Option) {
-	// CODEX_HOME must be set to the directory where the codex config is located for the agent CLI to pick it up during the run.
-	args := []string{"-c", "printenv OPENAI_API_KEY | codex login --with-api-key"}
-
-	in.executable = exec.NewExecutable(
-		"bash",
-		append(
-			options,
-			exec.WithArgs(args),
-			exec.WithDir(in.Config.WorkDir),
-			exec.WithEnv([]string{fmt.Sprintf("OPENAI_API_KEY=%s", in.apiKey), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
-			exec.WithTimeout(15*time.Minute),
-		)...,
-	)
-	if err := in.executable.Run(ctx); err != nil {
-		klog.ErrorS(err, "codex login failed")
-		in.Config.ErrorChan <- err
-		return
+	// In proxy mode the plural provider handles auth via PLRL_CONSOLE_TOKEN;
+	// codex login is only needed for direct OpenAI usage.
+	if !in.proxy {
+		loginArgs := []string{"-c", "printenv OPENAI_API_KEY | codex login --with-api-key"}
+		in.executable = exec.NewExecutable(
+			"bash",
+			append(
+				options,
+				exec.WithArgs(loginArgs),
+				exec.WithDir(in.Config.WorkDir),
+				exec.WithEnv([]string{fmt.Sprintf("OPENAI_API_KEY=%s", in.apiKey), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
+				exec.WithTimeout(15*time.Minute),
+			)...,
+		)
+		if err := in.executable.Run(ctx); err != nil {
+			klog.ErrorS(err, "codex login failed")
+			in.Config.ErrorChan <- err
+			return
+		}
 	}
 
 	agent := "analysis"
@@ -159,7 +184,7 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		agent = "autonomous"
 	}
 
-	args = []string{"exec", "--profile", agent, "--skip-git-repo-check", "--json", in.Config.Run.Prompt}
+	args := []string{"exec", "--profile", agent, "--skip-git-repo-check", "--json", in.Config.Run.Prompt}
 
 	in.executable = exec.NewExecutable(
 		"codex",
@@ -167,7 +192,7 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 			options,
 			exec.WithArgs(args),
 			exec.WithDir(in.Config.WorkDir),
-			exec.WithEnv([]string{fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
+			exec.WithEnv([]string{fmt.Sprintf("PLRL_CONSOLE_TOKEN=%s", in.consoleToken), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
 			exec.WithTimeout(15*time.Minute),
 		)...,
 	)

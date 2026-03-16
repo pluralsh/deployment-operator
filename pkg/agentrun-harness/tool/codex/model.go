@@ -8,6 +8,8 @@ import (
 type Model string
 
 const (
+	ModelGPT5 Model = "gpt-5"
+
 	// Primary Codex models
 	ModelGPT51Codex     Model = "gpt-5.1-codex"
 	ModelGPT51CodexMini Model = "gpt-5.1-codex-mini"
@@ -15,11 +17,13 @@ const (
 
 	// Optional powerful Codex options
 	ModelGPT52Codex Model = "gpt-5.2-codex"
+
+	defaultModel = ModelGPT5
 )
 
 // DefaultModel returns a sensible default
 func DefaultModel() Model {
-	switch helpers.GetEnv(controller.EnvCodexModel, string(ModelGPT51Codex)) {
+	switch helpers.GetEnv(controller.EnvCodexModel, string(defaultModel)) {
 	case string(ModelGPT51Codex):
 		return ModelGPT51Codex
 	case string(ModelGPT51CodexMini):
@@ -29,6 +33,6 @@ func DefaultModel() Model {
 	case string(ModelGPT52Codex):
 		return ModelGPT52Codex
 	default:
-		return ModelGPT51Codex
+		return defaultModel
 	}
 }

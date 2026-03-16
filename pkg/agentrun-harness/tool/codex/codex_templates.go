@@ -18,7 +18,7 @@ func loadPrompt(path string) (string, error) {
 	return string(data), nil
 }
 
-func BuildCodexConfig(dir string, agents []AgentInput, mcps []MCPInput) (*CodexConfig, error) {
+func BuildCodexConfig(dir string, agents []AgentInput, mcps []MCPInput, providers []ModelProviderInput) (*CodexConfig, error) {
 	cfg := &CodexConfig{
 		Profiles:   make(map[string]*Profile),
 		MCPServers: make(map[string]*MCPServer),
@@ -27,6 +27,18 @@ func BuildCodexConfig(dir string, agents []AgentInput, mcps []MCPInput) (*CodexC
 		dir: {
 			TrustLevel: "trusted",
 		},
+	}
+
+	// Add custom model providers
+	if len(providers) > 0 {
+		cfg.ModelProviders = make(map[string]*ModelProviderConfig, len(providers))
+		for _, p := range providers {
+			cfg.ModelProviders[p.Name] = &ModelProviderConfig{
+				Name:    p.Name,
+				BaseURL: p.BaseURL,
+				EnvKey:  p.EnvKey,
+			}
+		}
 	}
 
 	// Add profiles
@@ -38,6 +50,7 @@ func BuildCodexConfig(dir string, agents []AgentInput, mcps []MCPInput) (*CodexC
 
 		cfg.Profiles[a.Name] = &Profile{
 			Model:                a.Model,
+			ModelProvider:        a.ModelProvider,
 			SandboxMode:          a.SandboxMode,
 			ApprovalPolicy:       a.ApprovalPolicy,
 			ModelReasoningEffort: a.ModelReasoningEffort,
