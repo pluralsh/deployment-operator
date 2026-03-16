@@ -30,7 +30,10 @@ func TestSentinelIntegration(t *testing.T) {
 		testCase.Defaults = nil
 	}
 
-	for _, tc := range testCase.Configurations {
+	for i, tc := range testCase.Configurations {
+		require.NotEmpty(t, tc.Name, "test case configuration %d has no name", i)
+		require.NotEmpty(t, tc.Type, "test case configuration %q has no type", i)
+
 		t.Run(tc.Name+"-"+rand.String(5), func(t *testing.T) {
 			t.Parallel()
 
@@ -233,14 +236,4 @@ func loadIntegrationTestCases(t *testing.T) types.TestCase {
 	}
 
 	return testCase
-}
-
-func validateIntegrationTestCases(t *testing.T, testCase types.TestCase) {
-	t.Helper()
-
-	// Validate basic invariants early
-	for i, config := range testCase.Configurations {
-		require.NotEmpty(t, config.Name, "test case configuration %d has no name", i)
-		require.NotEmpty(t, config.Type, "test case configuration %q has no type", i)
-	}
 }

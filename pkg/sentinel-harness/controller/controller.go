@@ -110,7 +110,7 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 	klog.V(log.LogLevelDefault).InfoS("running gotestsum", "args", args)
 
 	passed := false
-	err = cmd.Run("", buildGotestsumRunArgs(in.outputDir, junitPath, in.timeoutDuration, integrationTestConfig))
+	err = cmd.Run("", args)
 	if err == nil {
 		passed = true
 	}
@@ -181,6 +181,10 @@ func buildGotestsumRunArgs(outputDir, junitPath, timeout string, integrationTest
 func (in *sentinelRunController) getIntegrationTestConfiguration(fragment *console.SentinelRunJobFragment) (*console.SentinelCheckIntegrationTestConfigurationFragment, error) {
 	if fragment.Check == nil {
 		return nil, fmt.Errorf("could not get integration test configuration: check name is nil")
+	}
+
+	if fragment.SentinelRun == nil {
+		return nil, fmt.Errorf("could not get integration test configuration: sentinel run is nil")
 	}
 
 	var result *console.SentinelCheckIntegrationTestConfigurationFragment
