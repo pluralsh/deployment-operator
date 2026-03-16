@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
@@ -143,9 +142,11 @@ func buildGotestsumRunArgs(outputDir, junitPath, timeout string, integrationTest
 	if shouldRerunFailures {
 		// gotestsum requires an explicit package list when rerun-fails is used with go test args.
 		args = append(args, "--packages=./...")
-		args = append(args, "--rerun-fails")
-		if integrationTestConfig.RerunFailuresCount != nil && *integrationTestConfig.RerunFailuresCount > 0 {
-			args = append(args, strconv.FormatInt(*integrationTestConfig.RerunFailuresCount, 10))
+
+		if rerunFailuresCount := lo.FromPtr(integrationTestConfig.RerunFailuresCount); rerunFailuresCount > 0 {
+			args = append(args, fmt.Sprintf("--rerun-fails=%d", rerunFailuresCount))
+		} else {
+			args = append(args, "--rerun-fails")
 		}
 	}
 
