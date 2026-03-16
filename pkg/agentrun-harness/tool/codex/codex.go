@@ -209,8 +209,6 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 			return
 		}
 
-		// Capture thread_id from the "thread.started" event so it can be
-		// forwarded to the API (analogous to session_id in Claude).
 		if event.Type == "thread.started" && event.ThreadID != "" {
 			in.threadID = event.ThreadID
 			klog.V(log.LogLevelDebug).InfoS("codex thread started", "thread_id", in.threadID)
