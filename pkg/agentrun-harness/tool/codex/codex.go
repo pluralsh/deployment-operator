@@ -150,7 +150,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		return err
 	}
 
-	klog.Info("Codex configured", "configPath", config)
+	klog.InfoS("Codex configured", "configPath", config)
 
 	return nil
 }
