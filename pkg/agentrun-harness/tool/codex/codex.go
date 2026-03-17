@@ -222,11 +222,11 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		}
 	})
 	if err != nil {
-		klog.ErrorS(err, "claude execution failed")
+		klog.ErrorS(err, "codex execution failed")
 		in.Config.ErrorChan <- err
 		return
 	}
-	klog.V(log.LogLevelExtended).InfoS("claude execution finished")
+	klog.V(log.LogLevelExtended).InfoS("codex execution finished")
 
 	close(in.Config.FinishedChan)
 }
