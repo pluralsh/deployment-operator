@@ -23,15 +23,16 @@ const (
 
 // DefaultModel returns a sensible default
 func DefaultModel() Model {
-	switch helpers.GetEnv(controller.EnvCodexModel, string(defaultModel)) {
-	case string(ModelGPT51Codex):
-		return ModelGPT51Codex
-	case string(ModelGPT51CodexMini):
-		return ModelGPT51CodexMini
-	case string(ModelCodexMini):
-		return ModelCodexMini
-	case string(ModelGPT52Codex):
-		return ModelGPT52Codex
+	envVal := helpers.GetEnv(controller.EnvCodexModel, string(defaultModel))
+	m := Model(envVal)
+
+	switch m {
+	case ModelGPT5,
+		ModelGPT51Codex,
+		ModelGPT51CodexMini,
+		ModelCodexMini,
+		ModelGPT52Codex:
+		return m
 	default:
 		return defaultModel
 	}
