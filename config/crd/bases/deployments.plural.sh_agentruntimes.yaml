@@ -10264,7 +10264,7 @@ spec:
               type:
                 description: |-
                   Type specifies the agent runtime to use for executing the stack.
-                  One of CLAUDE, OPENCODE, GEMINI, CUSTOM.
+                  One of CLAUDE, OPENCODE, GEMINI, CODEX, CUSTOM.
                 enum:
                 - CLAUDE
                 - OPENCODE
