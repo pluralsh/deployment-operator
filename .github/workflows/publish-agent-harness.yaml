@@ -28,17 +28,20 @@ jobs:
       CLAUDE_VERSION: 2.1.72
       GEMINI_VERSION: 0.6.1
       OPENCODE_VERSION: 1.2.24
+      CODEX_VERSION: 0.104.0
     outputs:
       node: ${{ env.NODE_VERSION }}
       claude: ${{ env.CLAUDE_VERSION }}
       gemini: ${{ env.GEMINI_VERSION }}
       opencode: ${{ env.OPENCODE_VERSION }}
+      codex: ${{ env.CODEX_VERSION }}
     steps:
       - run: |
           echo "NODE_VERSION=$NODE_VERSION"
           echo "CLAUDE_VERSION=$CLAUDE_VERSION"
           echo "GEMINI_VERSION=$GEMINI_VERSION"
           echo "OPENCODE_VERSION=$OPENCODE_VERSION"
+          echo "CODEX_VERSION=$CODEX_VERSION"
 
   build-base-image:
     name: Build base image
@@ -172,6 +175,8 @@ jobs:
             version: 0.6.1
           - name: opencode
             version: 1.2.24
+          - name: codex
+            version: 0.104.0
     permissions:
       contents: write
       discussions: write
@@ -240,6 +245,8 @@ jobs:
             version: ${{ needs.output-versions.outputs.gemini }}
           - name: opencode
             version: ${{ needs.output-versions.outputs.opencode }}
+          - name: codex
+            version: ${{ needs.output-versions.outputs.codex }}
         languages:
           - name: golang
             version: 1.24
@@ -270,6 +277,12 @@ jobs:
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            - languages:
+                name: golang
+                version: 1.23
+              agents:
+                name: codex
+                version: ${{ needs.output-versions.outputs.codex }}
             # Golang 1.22
             - languages:
                 name: golang
@@ -289,6 +302,12 @@ jobs:
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            - languages:
+                name: golang
+                version: 1.22
+              agents:
+                name: codex
+                version: ${{ needs.output-versions.outputs.codex }}
             # Java 24
             - languages:
                 name: java
@@ -308,6 +327,12 @@ jobs:
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            - languages:
+                name: java
+                version: 24
+              agents:
+                name: codex
+                version: ${{ needs.output-versions.outputs.codex }}
             # Java 23
             - languages:
                 name: java
@@ -327,6 +352,12 @@ jobs:
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            - languages:
+                name: java
+                version: 23
+              agents:
+                name: codex
+                version: ${{ needs.output-versions.outputs.codex }}
             # Node 23
             - languages:
                 name: node
@@ -346,6 +377,12 @@ jobs:
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            - languages:
+                name: node
+                version: 23
+              agents:
+                name: codex
+                version: ${{ needs.output-versions.outputs.codex }}
             # Node 22
             - languages:
                 name: node
@@ -365,6 +402,12 @@ jobs:
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            - languages:
+                name: node
+                version: 22
+              agents:
+                name: codex
+                version: ${{ needs.output-versions.outputs.codex }}
             # Python 3.13
             - languages:
                 name: python
@@ -384,6 +427,12 @@ jobs:
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            - languages:
+                name: python
+                version: 3.13
+              agents:
+                name: codex
+                version: ${{ needs.output-versions.outputs.codex }}
             # Python 3.12
             - languages:
                 name: python
@@ -403,6 +452,12 @@ jobs:
               agents:
                 name: opencode
                 version: ${{ needs.output-versions.outputs.opencode }}
+            - languages:
+                name: python
+                version: 3.12
+              agents:
+                name: codex
+                version: ${{ needs.output-versions.outputs.codex }}
     permissions:
       contents: write
       discussions: write
