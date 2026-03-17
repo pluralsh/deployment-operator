@@ -33,7 +33,7 @@ func New(config v1.Config) v1.Tool {
 	}
 
 	if err := result.ensure(); err != nil {
-		klog.Fatalf("failed to initialize claude tool: %v", err)
+		klog.Fatalf("failed to initialize codex tool: %v", err)
 	}
 
 	return result
