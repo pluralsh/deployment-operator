@@ -7,7 +7,7 @@ spec:
   type: "CODEX"
   targetNamespace: "codex"
   config:
-    claude:
+    codex:
       apiKeySecretRef:
         name: codex-api-key
         key: apiKey
