@@ -76,7 +76,8 @@ COPY dockerfiles/agent-harness/system /plural/system
 
 RUN mkdir -p /plural/.opencode && \
     mkdir -p /plural/.claude && \
-    mkdir -p /plural/.gemini
+    mkdir -p /plural/.gemini && \
+    mkdir -p /plural/.codex
 
 RUN printf "#!/bin/sh\necho \${GIT_ACCESS_TOKEN}" > /plural/.git-askpass && \
     chmod +x /plural/.git-askpass && \
