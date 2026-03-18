@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pluralsh/console/go/polly/cache"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
-	"github.com/pluralsh/polly/cache"
 	batchv1 "k8s.io/api/batch/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/algorithms"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"

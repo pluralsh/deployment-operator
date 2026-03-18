@@ -13,7 +13,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

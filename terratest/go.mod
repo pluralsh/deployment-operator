@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/gruntwork-io/terratest v0.51.0
 	github.com/pluralsh/console/go/client v1.67.0
-	github.com/pluralsh/polly v0.3.8
+	github.com/pluralsh/console/go/polly v0.3.8
 	github.com/samber/lo v1.50.0
 	github.com/stretchr/testify v1.11.1
 	k8s.io/api v0.35.0

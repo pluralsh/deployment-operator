@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pluralsh/polly/fs"
+	"github.com/pluralsh/console/go/polly/fs"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"

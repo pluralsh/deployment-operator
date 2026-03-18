@@ -8,7 +8,7 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/cache"
+	"github.com/pluralsh/console/go/polly/cache"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"

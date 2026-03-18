@@ -13,15 +13,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pluralsh/polly/luautils"
+	"github.com/pluralsh/console/go/polly/luautils"
 	lua "github.com/yuin/gopher-lua"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/pkg/errors"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
-	"github.com/pluralsh/polly/fs"
+	"github.com/pluralsh/console/go/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/fs"
 	"github.com/samber/lo"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"

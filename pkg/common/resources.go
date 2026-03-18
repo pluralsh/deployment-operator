@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
