@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/console/go/polly/algorithms"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/api"
-	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 
 	"github.com/stretchr/testify/assert"

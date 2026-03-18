@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 )
 
 type Prober interface {

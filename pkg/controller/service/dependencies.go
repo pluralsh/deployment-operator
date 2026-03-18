@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 )
 
 var (

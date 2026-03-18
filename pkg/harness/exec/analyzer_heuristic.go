@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"strings"
 
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/algorithms"
 )
 
 type keywordDetector struct {

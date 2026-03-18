@@ -7,7 +7,7 @@ import (
 
 	tfjson "github.com/hashicorp/terraform-json"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 

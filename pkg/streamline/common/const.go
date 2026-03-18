@@ -1,6 +1,6 @@
 package common
 
-import "github.com/pluralsh/polly/containers"
+import "github.com/pluralsh/console/go/polly/containers"
 
 const (
 	// LifecycleDeleteAnnotation is the lifecycle annotation key for a deletion operation.
