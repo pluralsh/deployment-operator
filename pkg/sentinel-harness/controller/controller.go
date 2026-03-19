@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -28,6 +29,8 @@ const (
 	sentinelTarballPath = "/ext/v1/git/sentinels/tarballs"
 
 	testCaseFilePathEnvVar = "TEST_CASES_FILE_PATH"
+
+	userTestDir = "user-tests"
 )
 
 func NewSentinelRunController(options ...Option) (Controller, error) {
@@ -71,13 +74,24 @@ func (in *sentinelRunController) Start(_ context.Context) error {
 }
 
 func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragment) (string, bool, error) {
+	userTests := false
+	modules := []string{filepath.Join(in.testDir, "terratest")}
 	if fragment.UsesGit != nil && *fragment.UsesGit {
 		klog.V(log.LogLevelDefault).InfoS("getting git repository")
-		testDir, err := in.fetch()
+		err := in.fetch()
 		if err != nil {
 			return "", false, err
 		}
-		in.testDir = testDir
+		modules = append(modules, filepath.Join(in.testDir, userTestDir))
+		userTests = true
+	}
+
+	args := []string{"work", "init"}
+	args = append(args, modules...)
+	goCmd := exec.Command("go", args...)
+	goCmd.Dir = in.testDir
+	if err := goCmd.Run(); err != nil {
+		return "", false, fmt.Errorf("error initializing go modules: %w", err)
 	}
 
 	integrationTestConfig, err := in.getIntegrationTestConfiguration(fragment)
@@ -106,7 +120,7 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 
 	junitPath := filepath.Join(in.outputDir, junitfile)
 
-	args := buildGotestsumRunArgs(in.outputDir, junitPath, in.timeoutDuration, integrationTestConfig)
+	args = buildGotestsumRunArgs(in.outputDir, junitPath, in.timeoutDuration, integrationTestConfig, userTests)
 	klog.V(log.LogLevelDefault).InfoS("running gotestsum", "args", args)
 
 	passed := false
@@ -131,7 +145,7 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 	return output, passed, nil
 }
 
-func buildGotestsumRunArgs(outputDir, junitPath, timeout string, integrationTestConfig *console.SentinelCheckIntegrationTestConfigurationFragment) []string {
+func buildGotestsumRunArgs(outputDir, junitPath, timeout string, integrationTestConfig *console.SentinelCheckIntegrationTestConfigurationFragment, useUserTests bool) []string {
 	args := []string{
 		"--format", "testname",
 		"--junitfile", junitPath,
@@ -173,6 +187,10 @@ func buildGotestsumRunArgs(outputDir, junitPath, timeout string, integrationTest
 
 	goTestArgs = append(goTestArgs, "--test.count", "1")
 	args = append(args, "--")
+	args = append(args, "./terratest/...")
+	if useUserTests {
+		args = append(args, "./user-tests/...")
+	}
 	args = append(args, goTestArgs...)
 
 	return args
@@ -220,28 +238,29 @@ func (in *sentinelRunController) init() (Controller, error) {
 	return in, nil
 }
 
-func (in *sentinelRunController) fetch() (string, error) {
-	dir, err := os.MkdirTemp("", "tests")
+func (in *sentinelRunController) fetch() error {
+	newDir := filepath.Join(in.testDir, userTestDir)
+	err := os.MkdirAll(newDir, 0755)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	tarballUrl, err := createTarballURL(in.consoleURL, in.sentinelRunID)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	resp, _, err := manifests.GetReader(tarballUrl, in.consoleToken)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer resp.Close()
 
-	if err := manifests.Untar(dir, resp); err != nil {
-		return "", err
+	if err := manifests.Untar(newDir, resp); err != nil {
+		return err
 	}
 
-	return dir, nil
+	return nil
 }
 
 func createTarballURL(consoleURL, runJobId string) (string, error) {

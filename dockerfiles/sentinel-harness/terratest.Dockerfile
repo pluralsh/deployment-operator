@@ -14,15 +14,15 @@ ENV CGO_ENABLED=0 \
     GOCACHE=/sentinel/.cache
 
 # Create directories and fix permissions
-RUN mkdir -p /sentinel/.cache && chown -R 65532:65532 /sentinel
+RUN mkdir -p /sentinel/.cache && chown -R 65532:65532 /sentinel && chown -R 65532:65532 /plural
 
 # Copy test files
-COPY terratest /sentinel
+COPY terratest /sentinel/terratest
 
 # Switch to the nonroot user
 USER 65532:65532
 
-WORKDIR /sentinel
+WORKDIR /sentinel/terratest
 
 RUN go mod download
 
