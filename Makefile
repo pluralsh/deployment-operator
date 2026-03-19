@@ -168,13 +168,21 @@ terraform-mcpserver-run: terraform-mcpserver ## run mcp server locally
 
 .PHONY: sentinel-run
 sentinel-run: docker-build-sentinel-harness
-	docker run --rm ghcr.io/pluralsh/sentinel-harness:local \
+	@KUBECONFIG_TMP=$$(mktemp) && \
+	cp ${HOME}/.kube/config $$KUBECONFIG_TMP && \
+	chmod 644 $$KUBECONFIG_TMP && \
+	docker run --rm \
+		--network=host \
+		-v $$KUBECONFIG_TMP:/home/nonroot/.kube/config \
+		-e KUBECONFIG=/home/nonroot/.kube/config \
+		ghcr.io/pluralsh/sentinel-harness:local \
 		--console-url=${PLRL_CONSOLE_URL}/ext/gql \
 		--console-token=${PLRL_DEPLOY_TOKEN} \
 		--sentinel-run-id=${SENTINEL_RUN_ID} \
 		--test-dir=/sentinel \
 		--output-dir=/plural \
-		--v=3
+		--v=3; \
+	rm -f $$KUBECONFIG_TMP
 
 ##@ Build
 

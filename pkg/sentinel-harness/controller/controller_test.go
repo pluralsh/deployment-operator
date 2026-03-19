@@ -7,7 +7,7 @@ import (
 )
 
 func TestBuildGotestsumRunArgs_Defaults(t *testing.T) {
-	args := buildGotestsumRunArgs("/tmp/out", "/tmp/out/unit-tests.xml", "30m", nil)
+	args := buildGotestsumRunArgs("/tmp/out", "/tmp/out/unit-tests.xml", "30m", nil, false)
 
 	mustContainArgPair(t, args, "--test.count", "1")
 	mustContainArgPair(t, args, "--test.timeout", "30m")
@@ -29,7 +29,7 @@ func TestBuildGotestsumRunArgs_ConfigOverrides(t *testing.T) {
 			P:        &p,
 			Parallel: &parallel,
 		},
-	})
+	}, false)
 
 	mustContainArg(t, args, "--rerun-fails=4")
 	mustContainArg(t, args, "--packages=./...")
