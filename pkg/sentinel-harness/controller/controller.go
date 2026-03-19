@@ -88,10 +88,9 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 
 	args := []string{"work", "init"}
 	args = append(args, modules...)
-	goCmd := exec.Command("go", args...)
-	goCmd.Dir = in.testDir
-	if err := goCmd.Run(); err != nil {
-		return "", false, fmt.Errorf("error initializing go modules: %w", err)
+	out, err := goCmd.CombinedOutput()
+	if err != nil {
+		return "", false, fmt.Errorf("error initializing go modules: %w\n%s", err, string(out))
 	}
 
 	integrationTestConfig, err := in.getIntegrationTestConfiguration(fragment)
