@@ -172,7 +172,6 @@ sentinel-run: docker-build-sentinel-harness
 	cp ${HOME}/.kube/config $$KUBECONFIG_TMP && \
 	chmod 644 $$KUBECONFIG_TMP && \
 	docker run --rm \
-		--privileged \
 		--network=host \
 		-v $$KUBECONFIG_TMP:/home/nonroot/.kube/config \
 		-e KUBECONFIG=/home/nonroot/.kube/config \
