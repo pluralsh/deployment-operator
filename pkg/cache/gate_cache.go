@@ -4,7 +4,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/cache"
+	"github.com/pluralsh/console/go/polly/cache"
 
 	"github.com/pluralsh/deployment-operator/pkg/client"
 )

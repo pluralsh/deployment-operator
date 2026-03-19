@@ -6,7 +6,7 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"

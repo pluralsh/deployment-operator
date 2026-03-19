@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/template"
+	"github.com/pluralsh/console/go/polly/template"
 )
 
 func buildBindings(cluster *console.SentinelRunJobFragment_Cluster) map[string]any {

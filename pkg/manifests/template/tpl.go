@@ -2,7 +2,7 @@ package template
 
 import (
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/template"
+	"github.com/pluralsh/console/go/polly/template"
 )
 
 func renderTpl(input []byte, svc *console.ServiceDeploymentForAgent) ([]byte, error) {

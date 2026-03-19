@@ -4,7 +4,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/algorithms"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 )

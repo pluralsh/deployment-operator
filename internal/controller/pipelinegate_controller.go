@@ -22,7 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/cache"
+	"github.com/pluralsh/console/go/polly/cache"
 
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"

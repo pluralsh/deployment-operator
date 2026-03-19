@@ -6,10 +6,10 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/console/go/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/cache"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
-	"github.com/pluralsh/polly/algorithms"
-	"github.com/pluralsh/polly/cache"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"

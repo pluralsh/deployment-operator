@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 	corev1 "k8s.io/api/core/v1"
 )
 

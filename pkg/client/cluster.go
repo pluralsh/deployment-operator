@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"

@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/console/go/polly/containers"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	smcommon "github.com/pluralsh/deployment-operator/pkg/streamline/common"
-	"github.com/pluralsh/polly/containers"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
