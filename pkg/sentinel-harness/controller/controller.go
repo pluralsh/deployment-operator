@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -79,16 +80,23 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 		in.testDir = testDir
 	}
 
-	path, err := createIntegrationTestCases(fragment)
+	integrationTestConfig, err := in.getIntegrationTestConfiguration(fragment)
 	if err != nil {
 		return "", false, err
 	}
-	if len(path) > 0 {
-		klog.V(log.LogLevelDefault).InfoS("setting test cases file path", "path", path)
-		if err := os.Setenv(testCaseFilePathEnvVar, path); err != nil {
-			return "", false, err
-		}
+
+	klog.V(log.LogLevelDefault).InfoS("found integration test configuration", "name", *fragment.Check)
+
+	path, err := createTestCasesFile(integrationTestConfig, fragment.Cluster)
+	if err != nil {
+		return "", false, err
 	}
+
+	klog.V(log.LogLevelDefault).InfoS("created test cases file", "path", path)
+	if err := os.Setenv(testCaseFilePathEnvVar, path); err != nil {
+		return "", false, err
+	}
+
 	err = os.Chdir(in.testDir)
 	if err != nil {
 		return "", false, err
@@ -98,17 +106,11 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 
 	junitPath := filepath.Join(in.outputDir, junitfile)
 
+	args := buildGotestsumRunArgs(in.outputDir, junitPath, in.timeoutDuration, integrationTestConfig)
+	klog.V(log.LogLevelDefault).InfoS("running gotestsum", "args", args)
+
 	passed := false
-	err = cmd.Run("", []string{
-		"--format", "testname",
-		"--junitfile", junitPath,
-		"--jsonfile", filepath.Join(in.outputDir, jsonFile),
-		"--",
-		"--test.v",
-		"--test.timeout", in.timeoutDuration,
-		"--test.parallel", "1",
-		"--test.count", "1",
-	})
+	err = cmd.Run("", args)
 	if err == nil {
 		passed = true
 	}
@@ -127,6 +129,83 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 	}
 
 	return output, passed, nil
+}
+
+func buildGotestsumRunArgs(outputDir, junitPath, timeout string, integrationTestConfig *console.SentinelCheckIntegrationTestConfigurationFragment) []string {
+	args := []string{
+		"--format", "testname",
+		"--junitfile", junitPath,
+		"--jsonfile", filepath.Join(outputDir, jsonFile),
+	}
+
+	shouldRerunFailures := integrationTestConfig != nil && integrationTestConfig.RerunFailures != nil && *integrationTestConfig.RerunFailures
+	if shouldRerunFailures {
+		// gotestsum requires an explicit package list when rerun-fails is used with go test args.
+		args = append(args, "--packages=./...")
+
+		if rerunFailuresCount := lo.FromPtr(integrationTestConfig.RerunFailuresCount); rerunFailuresCount > 0 {
+			args = append(args, fmt.Sprintf("--rerun-fails=%d", rerunFailuresCount))
+		} else {
+			args = append(args, "--rerun-fails")
+		}
+	}
+
+	goTestArgs := []string{
+		"--test.v",
+		"--test.timeout", timeout,
+	}
+
+	if integrationTestConfig != nil && integrationTestConfig.Gotestsum != nil {
+		if integrationTestConfig.Gotestsum.P != nil {
+			p := strings.TrimSpace(*integrationTestConfig.Gotestsum.P)
+			if p != "" {
+				goTestArgs = append(goTestArgs, "-p", p)
+			}
+		}
+
+		if integrationTestConfig.Gotestsum.Parallel != nil {
+			parallel := strings.TrimSpace(*integrationTestConfig.Gotestsum.Parallel)
+			if parallel != "" {
+				goTestArgs = append(goTestArgs, "-parallel", parallel)
+			}
+		}
+	}
+
+	goTestArgs = append(goTestArgs, "--test.count", "1")
+	args = append(args, "--")
+	args = append(args, goTestArgs...)
+
+	return args
+}
+
+func (in *sentinelRunController) getIntegrationTestConfiguration(fragment *console.SentinelRunJobFragment) (*console.SentinelCheckIntegrationTestConfigurationFragment, error) {
+	if fragment.Check == nil {
+		return nil, fmt.Errorf("could not get integration test configuration: check name is nil")
+	}
+
+	if fragment.SentinelRun == nil {
+		return nil, fmt.Errorf("could not get integration test configuration: sentinel run is nil")
+	}
+
+	var result *console.SentinelCheckIntegrationTestConfigurationFragment
+	for _, check := range fragment.SentinelRun.Checks {
+		if check.Type != console.SentinelCheckTypeIntegrationTest {
+			continue
+		}
+
+		if !strings.EqualFold(check.Name, *fragment.Check) {
+			continue
+		}
+
+		result = check.Configuration.IntegrationTest
+		break
+	}
+
+	if result == nil {
+		return nil, fmt.Errorf("could not find integration test configuration for %s", *fragment.Check)
+	}
+
+	return result, nil
 }
 
 func (in *sentinelRunController) init() (Controller, error) {
@@ -208,14 +287,14 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 
 		switch ev.Action {
 		case "run":
-			buf.WriteString(fmt.Sprintf("=== RUN   %s\n", ev.Test))
+			_, _ = fmt.Fprintf(&buf, "=== RUN   %s\n", ev.Test)
 		case "pass":
 			if ev.Test != "" {
-				buf.WriteString(fmt.Sprintf("--- PASS: %s (%.2fs)\n", ev.Test, ev.Elapsed))
+				_, _ = fmt.Fprintf(&buf, "--- PASS: %s (%.2fs)\n", ev.Test, ev.Elapsed)
 			}
 		case "fail":
 			if ev.Test != "" {
-				buf.WriteString(fmt.Sprintf("--- FAIL: %s (%.2fs)\n", ev.Test, ev.Elapsed))
+				_, _ = fmt.Fprintf(&buf, "--- FAIL: %s (%.2fs)\n", ev.Test, ev.Elapsed)
 			}
 		case "output":
 			buf.WriteString(ev.Output)
@@ -225,47 +304,23 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 	return buf.String(), nil
 }
 
-func createIntegrationTestCases(fragment *console.SentinelRunJobFragment) (string, error) {
-	if fragment.SentinelRun == nil {
-		return "", nil
-	}
-	if len(fragment.SentinelRun.Checks) == 0 {
-		return "", nil
+func createTestCasesFile(configuration *console.SentinelCheckIntegrationTestConfigurationFragment, cluster *console.SentinelRunJobFragment_Cluster) (string, error) {
+	if configuration == nil {
+		return "", fmt.Errorf("could not create test cases file: configuration is nil")
 	}
 
-	bindings, err := buildBindings(fragment)
+	bindings := buildBindings(cluster)
+	err := templateIntegrationTestConfig(configuration, bindings)
 	if err != nil {
 		return "", err
 	}
 
-	var testCases []TestCase
-	for _, check := range fragment.SentinelRun.Checks {
-		if check.Type == console.SentinelCheckTypeIntegrationTest {
-			testCase := TestCase{
-				Name: check.Name,
-			}
-
-			if err = templateIntegrationTestConfig(check.Configuration.IntegrationTest, bindings); err != nil {
-				return "", err
-			}
-
-			for _, tc := range check.Configuration.IntegrationTest.Cases {
-				testCase.Configurations = append(testCase.Configurations, *tc)
-			}
-
-			if check.Configuration.IntegrationTest.Default != nil {
-				testCase.Defaults = check.Configuration.IntegrationTest.Default
-			}
-
-			testCases = append(testCases, testCase)
-		}
+	testCase := TestCase{
+		Configurations: lo.FromSlicePtr(configuration.Cases),
+		Defaults:       configuration.Default,
 	}
 
-	if len(testCases) == 0 {
-		return "", nil
-	}
-
-	yamlBytes, err := yaml.Marshal(testCases)
+	yamlBytes, err := yaml.Marshal(testCase)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling test cases to YAML: %w", err)
 	}

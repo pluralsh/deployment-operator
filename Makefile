@@ -178,6 +178,9 @@ sentinel-run: docker-build-sentinel-harness
 
 ##@ Build
 
+.PHONY: build
+build: agent harness agent-harness sentinel-harness ## build all binaries
+
 .PHONY: agent
 agent: ## build agent
 	go build -o bin/deployment-agent cmd/agent/*.go

@@ -10,18 +10,17 @@ import (
 	"github.com/pluralsh/console/go/polly/template"
 )
 
-func buildBindings(fragment *console.SentinelRunJobFragment) (map[string]any, error) {
+func buildBindings(cluster *console.SentinelRunJobFragment_Cluster) map[string]any {
 	bindings := map[string]any{
 		"cluster": map[string]any{},
 	}
 
-	if fragment == nil || fragment.Cluster == nil {
-		return bindings, nil
+	if cluster == nil {
+		return bindings
 	}
 
-	bindings["cluster"] = buildClusterBindings(fragment.Cluster)
-
-	return bindings, nil
+	bindings["cluster"] = buildClusterBindings(cluster)
+	return bindings
 }
 
 func buildClusterBindings(cluster *console.SentinelRunJobFragment_Cluster) map[string]any {

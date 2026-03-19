@@ -35,7 +35,6 @@ type sentinelRunController struct {
 type Option func(*sentinelRunController)
 
 type TestCase struct {
-	Name           string                                                           `json:"name"`
 	Configurations []client.TestCaseConfigurationFragment                           `json:"configurations,omitempty"`
 	Defaults       *client.SentinelCheckIntegrationTestDefaultConfigurationFragment `json:"defaults,omitempty"`
 }
