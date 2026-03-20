@@ -84,12 +84,11 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           {{ if .Values.global.registry }}
-          image: {{ .Values.global.registry }}/kubernetes-agent:{{ .Values.agentk.image.tag }}
+          image: {{ .Values.global.registry }}/agentk:{{ .Values.agentk.image.tag | default .Chart.AppVersion }}
           {{ else }}
-          image: {{ .Values.agentk.image.repository }}:{{ .Values.agentk.image.tag }}
+          image: {{ .Values.agentk.image.repository }}:{{ .Values.agentk.image.tag | default .Chart.AppVersion }}
           {{ end }}
           imagePullPolicy: {{ .Values.agentk.image.pullPolicy }}
-          command: ["/agentk"]
           terminationMessagePolicy: {{ .Values.agentk.terminationMessagePolicy }}
           {{ $kasAddress := replace "gql" "kas" (default "" .Values.consoleUrl) | replace "https" "wss" }}
           args:
