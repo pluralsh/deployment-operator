@@ -134,9 +134,9 @@ global:
 
 agentk:
   image:
-    repository: ghcr.io/pluralsh/kubernetes-agent
+    repository: ghcr.io/pluralsh/agentk
     pullPolicy: IfNotPresent
-    tag: 0.12.6
+    tag: ~
   config:
     kasAddress: ""
     # kasHeaders:
