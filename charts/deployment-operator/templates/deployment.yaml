@@ -84,7 +84,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           {{ if .Values.global.registry }}
-          image: {{ .Values.global.registry }}/agentk:{{ .Values.agentk.image.tag }}
+          image: {{ .Values.global.registry }}/kubernetes-agent:{{ .Values.agentk.image.tag }}
           {{ else }}
           image: {{ .Values.agentk.image.repository }}:{{ .Values.agentk.image.tag }}
           {{ end }}

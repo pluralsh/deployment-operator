@@ -134,10 +134,9 @@ global:
 
 agentk:
   image:
-    repository: ghcr.io/pluralsh/agentk
+    repository: ghcr.io/pluralsh/kubernetes-agent
     pullPolicy: IfNotPresent
-    # Overrides the image tag whose default is the chart appVersion.
-    tag: 0.0.2
+    tag: 0.12.6
   config:
     kasAddress: ""
     # kasHeaders:
