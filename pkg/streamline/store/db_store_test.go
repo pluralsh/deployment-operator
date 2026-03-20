@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

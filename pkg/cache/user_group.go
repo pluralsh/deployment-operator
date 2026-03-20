@@ -3,7 +3,7 @@ package cache
 import (
 	"time"
 
-	pollycache "github.com/pluralsh/polly/cache"
+	pollycache "github.com/pluralsh/console/go/polly/cache"
 	"github.com/samber/lo"
 
 	console "github.com/pluralsh/deployment-operator/pkg/client"

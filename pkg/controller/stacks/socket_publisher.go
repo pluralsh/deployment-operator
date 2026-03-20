@@ -2,7 +2,7 @@ package stacks
 
 import (
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/cache"
+	"github.com/pluralsh/console/go/polly/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 

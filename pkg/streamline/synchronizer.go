@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pluralsh/console/go/polly/containers"
 	"github.com/pluralsh/deployment-operator/internal/utils"
-	"github.com/pluralsh/polly/containers"
 	"github.com/samber/lo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/workqueue"

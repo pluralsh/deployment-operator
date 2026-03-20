@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/console/go/polly/algorithms"
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/polly/algorithms"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"

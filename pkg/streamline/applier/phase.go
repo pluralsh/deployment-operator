@@ -3,7 +3,7 @@ package applier
 import (
 	"slices"
 
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 

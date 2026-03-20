@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pluralsh/polly/cache"
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/cache"
+	"github.com/pluralsh/console/go/polly/containers"
 	"golang.org/x/time/rate"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/algorithms"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

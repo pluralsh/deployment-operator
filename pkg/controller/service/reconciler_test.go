@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"time"
 
+	pollycache "github.com/pluralsh/console/go/polly/cache"
 	"github.com/pluralsh/deployment-operator/cmd/agent/args"
 	"github.com/pluralsh/deployment-operator/pkg/cache"
 	discoverycache "github.com/pluralsh/deployment-operator/pkg/cache/discovery"
 	"github.com/pluralsh/deployment-operator/pkg/manifests/template"
 	"github.com/pluralsh/deployment-operator/pkg/streamline"
 	"github.com/pluralsh/deployment-operator/pkg/streamline/store"
-	pollycache "github.com/pluralsh/polly/cache"
 
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"

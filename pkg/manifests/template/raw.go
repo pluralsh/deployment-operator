@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/template"
+	"github.com/pluralsh/console/go/polly/template"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

@@ -4,7 +4,7 @@ import (
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/types"
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/algorithms"
+	"github.com/pluralsh/console/go/polly/algorithms"
 	"github.com/samber/lo"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"

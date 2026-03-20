@@ -2,7 +2,7 @@ package service
 
 import (
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/polly/cache"
+	"github.com/pluralsh/console/go/polly/cache"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/manifests"

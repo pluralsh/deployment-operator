@@ -3,7 +3,7 @@ package common
 import (
 	"strings"
 
-	"github.com/pluralsh/polly/containers"
+	"github.com/pluralsh/console/go/polly/containers"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
