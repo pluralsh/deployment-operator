@@ -89,6 +89,7 @@ spec:
           image: {{ .Values.agentk.image.repository }}:{{ .Values.agentk.image.tag }}
           {{ end }}
           imagePullPolicy: {{ .Values.agentk.image.pullPolicy }}
+          command: ["/agentk"]
           terminationMessagePolicy: {{ .Values.agentk.terminationMessagePolicy }}
           {{ $kasAddress := replace "gql" "kas" (default "" .Values.consoleUrl) | replace "https" "wss" }}
           args:
