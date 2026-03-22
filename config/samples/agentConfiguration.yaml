@@ -11,5 +11,4 @@ spec:
   pipelineGateInterval: "0s"
   vulnerabilityReportUploadInterval: "10m"
   maxConcurrentReconciles: 5
-  disableWebsocket: false
 

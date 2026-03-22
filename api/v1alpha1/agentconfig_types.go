@@ -39,12 +39,6 @@ type AgentConfigurationSpec struct {
 	// BaseRegistryURL allows overriding the default base registry URL.
 	// For stack run jobs, agent run pods, sentinel run jobs.
 	BaseRegistryURL *string `json:"baseRegistryURL,omitempty"`
-
-	// DisableWebsocket disables the cluster websocket connection to the Console.
-	// When enabled, the agent will rely exclusively on polling instead of receiving
-	// push updates. This is useful in large-scale edge deployments where maintaining
-	// persistent websocket connections has an infeasible network cost.
-	DisableWebsocket *bool `json:"disableWebsocket,omitempty"`
 }
 
 //+kubebuilder:object:root=true
