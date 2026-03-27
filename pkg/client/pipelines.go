@@ -117,6 +117,12 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 				},
 			},
 		}
+		if len(jsFragment.NodeSelector) > 0 {
+			jobSpec.Template.Spec.NodeSelector = StringMapFromInterfaceMap(jsFragment.NodeSelector)
+		}
+		if len(jsFragment.Tolerations) > 0 {
+			jobSpec.Template.Spec.Tolerations = TolerationsFromJobSpecFragments(jsFragment.Tolerations)
+		}
 		// Add the gatename annotation
 		if jobSpec.Template.Annotations == nil {
 			jobSpec.Template.Annotations = make(map[string]string)
@@ -136,9 +142,15 @@ func ContainersFromContainerSpecFragments(gateName string, containerSpecFragment
 			continue
 		}
 
+		var name string
+		if csFragment.Name != nil {
+			name = *csFragment.Name
+		} else {
+			name = fmt.Sprintf("%s-%d", utils.AsName(gateName), i)
+		}
+
 		container := corev1.Container{
-			// todo: maybe add a name to the graphql api too? for now let's use the gate name plus the container fragment index
-			Name:  fmt.Sprintf("%s-%d", utils.AsName(gateName), i),
+			Name:  name,
 			Image: csFragment.Image,
 			Args:  make([]string, 0),
 		}
@@ -208,6 +220,36 @@ func ContainersFromContainerSpecFragments(gateName string, containerSpecFragment
 	}
 
 	return containers
+}
+
+// TolerationsFromJobSpecFragments maps GraphQL job spec tolerations to core tolerations.
+func TolerationsFromJobSpecFragments(fragments []*console.JobSpecFragment_Tolerations) []corev1.Toleration {
+	if len(fragments) == 0 {
+		return nil
+	}
+	out := make([]corev1.Toleration, 0, len(fragments))
+	for _, f := range fragments {
+		if f == nil {
+			continue
+		}
+		t := corev1.Toleration{}
+		if f.Key != nil {
+			t.Key = *f.Key
+		}
+		if f.Operator != nil && *f.Operator != "" {
+			t.Operator = corev1.TolerationOperator(*f.Operator)
+		} else {
+			t.Operator = corev1.TolerationOpEqual
+		}
+		if f.Value != nil {
+			t.Value = *f.Value
+		}
+		if f.Effect != nil && *f.Effect != "" {
+			t.Effect = corev1.TaintEffect(*f.Effect)
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 func StringMapFromInterfaceMap(labels map[string]interface{}) map[string]string {
