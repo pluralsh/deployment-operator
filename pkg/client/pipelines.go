@@ -117,6 +117,12 @@ func JobSpecFromJobSpecFragment(gateName string, jsFragment *console.JobSpecFrag
 				},
 			},
 		}
+		if len(jsFragment.NodeSelector) > 0 {
+			jobSpec.Template.Spec.NodeSelector = StringMapFromInterfaceMap(jsFragment.NodeSelector)
+		}
+		if len(jsFragment.Tolerations) > 0 {
+			jobSpec.Template.Spec.Tolerations = TolerationsFromJobSpecFragments(jsFragment.Tolerations)
+		}
 		// Add the gatename annotation
 		if jobSpec.Template.Annotations == nil {
 			jobSpec.Template.Annotations = make(map[string]string)
@@ -136,9 +142,15 @@ func ContainersFromContainerSpecFragments(gateName string, containerSpecFragment
 			continue
 		}
 
+		var name string
+		if csFragment.Name != nil {
+			name = *csFragment.Name
+		} else {
+			name = fmt.Sprintf("%s-%d", utils.AsName(gateName), i)
+		}
+
 		container := corev1.Container{
-			// todo: maybe add a name to the graphql api too? for now let's use the gate name plus the container fragment index
-			Name:  fmt.Sprintf("%s-%d", utils.AsName(gateName), i),
+			Name:  name,
 			Image: csFragment.Image,
 			Args:  make([]string, 0),
 		}
@@ -156,51 +168,36 @@ func ContainersFromContainerSpecFragments(gateName string, containerSpecFragment
 
 		// translate the EnvFrom structs from the fragment into the according corev1.EnvFromSource of the k8s pod api
 		for _, envFrom := range csFragment.EnvFrom {
-			container.EnvFrom = append(container.EnvFrom, corev1.EnvFromSource{
-				ConfigMapRef: &corev1.ConfigMapEnvSource{
+			if envFrom.Secret == "" && envFrom.ConfigMap == "" {
+				continue
+			}
+			envFromSource := corev1.EnvFromSource{}
+			if envFrom.ConfigMap != "" {
+				envFromSource.ConfigMapRef = &corev1.ConfigMapEnvSource{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: envFrom.ConfigMap,
 					},
-				},
-				SecretRef: &corev1.SecretEnvSource{
+				}
+			}
+
+			if envFrom.Secret != "" {
+				envFromSource.SecretRef = &corev1.SecretEnvSource{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: envFrom.Secret,
 					},
-				},
-			})
+				}
+			}
+
+			container.EnvFrom = append(container.EnvFrom, envFromSource)
 		}
 
 		if resources != nil {
 			container.Resources = corev1.ResourceRequirements{}
 			if resources.Requests != nil {
-				container.Resources.Requests = corev1.ResourceList{}
-				if resources.Requests.CPU != nil {
-					cpu, err := resource.ParseQuantity(*resources.Requests.CPU)
-					if err == nil {
-						container.Resources.Requests[corev1.ResourceCPU] = cpu
-					}
-				}
-				if resources.Requests.Memory != nil {
-					memory, err := resource.ParseQuantity(*resources.Requests.Memory)
-					if err == nil {
-						container.Resources.Requests[corev1.ResourceMemory] = memory
-					}
-				}
+				container.Resources.Requests = ToResourceList(resources.Requests)
 			}
 			if resources.Limits != nil {
-				container.Resources.Limits = corev1.ResourceList{}
-				if resources.Limits.CPU != nil {
-					cpu, err := resource.ParseQuantity(*resources.Limits.CPU)
-					if err == nil {
-						container.Resources.Limits[corev1.ResourceCPU] = cpu
-					}
-				}
-				if resources.Limits.Memory != nil {
-					memory, err := resource.ParseQuantity(*resources.Limits.Memory)
-					if err == nil {
-						container.Resources.Limits[corev1.ResourceMemory] = memory
-					}
-				}
+				container.Resources.Limits = ToResourceList(resources.Limits)
 			}
 		}
 
@@ -208,6 +205,51 @@ func ContainersFromContainerSpecFragments(gateName string, containerSpecFragment
 	}
 
 	return containers
+}
+
+func ToResourceList(resources *console.ResourceRequestFragment) corev1.ResourceList {
+	resourceList := corev1.ResourceList{}
+	if resources.CPU != nil {
+		if cpu, err := resource.ParseQuantity(*resources.CPU); err == nil {
+			resourceList[corev1.ResourceCPU] = cpu
+		}
+	}
+	if resources.Memory != nil {
+		if memory, err := resource.ParseQuantity(*resources.Memory); err == nil {
+			resourceList[corev1.ResourceMemory] = memory
+		}
+	}
+	return resourceList
+}
+
+// TolerationsFromJobSpecFragments maps GraphQL job spec tolerations to core tolerations.
+func TolerationsFromJobSpecFragments(fragments []*console.JobSpecFragment_Tolerations) []corev1.Toleration {
+	if len(fragments) == 0 {
+		return nil
+	}
+	out := make([]corev1.Toleration, 0, len(fragments))
+	for _, f := range fragments {
+		if f == nil {
+			continue
+		}
+		t := corev1.Toleration{}
+		if f.Key != nil {
+			t.Key = *f.Key
+		}
+		if f.Operator != nil && *f.Operator != "" {
+			t.Operator = corev1.TolerationOperator(*f.Operator)
+		} else {
+			t.Operator = corev1.TolerationOpEqual
+		}
+		if f.Value != nil {
+			t.Value = *f.Value
+		}
+		if f.Effect != nil && *f.Effect != "" {
+			t.Effect = corev1.TaintEffect(*f.Effect)
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 func StringMapFromInterfaceMap(labels map[string]interface{}) map[string]string {

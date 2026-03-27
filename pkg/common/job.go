@@ -37,6 +37,12 @@ func GetRunJobSpec(name string, jobSpecFragment *console.JobSpecFragment) *batch
 		if jobSpecFragment.ServiceAccount != nil {
 			jobSpec.Template.Spec.ServiceAccountName = *jobSpecFragment.ServiceAccount
 		}
+		if len(jobSpecFragment.NodeSelector) > 0 {
+			jobSpec.Template.Spec.NodeSelector = consoleclient.StringMapFromInterfaceMap(jobSpecFragment.NodeSelector)
+		}
+		if len(jobSpecFragment.Tolerations) > 0 {
+			jobSpec.Template.Spec.Tolerations = consoleclient.TolerationsFromJobSpecFragments(jobSpecFragment.Tolerations)
+		}
 	}
 
 	return jobSpec
