@@ -37,7 +37,7 @@ USER 65532:65532
 # - copy the harness binary
 # - copy the trivy binary
 COPY --from=builder /plural/harness /harness
-COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
+COPY --from=aquasec/trivy:0.69.3 /usr/local/bin/trivy /usr/local/bin/trivy
 
 WORKDIR /plural
 
