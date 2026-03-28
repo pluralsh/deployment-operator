@@ -168,58 +168,63 @@ func ContainersFromContainerSpecFragments(gateName string, containerSpecFragment
 
 		// translate the EnvFrom structs from the fragment into the according corev1.EnvFromSource of the k8s pod api
 		for _, envFrom := range csFragment.EnvFrom {
-			container.EnvFrom = append(container.EnvFrom, corev1.EnvFromSource{
-				ConfigMapRef: &corev1.ConfigMapEnvSource{
+			if envFrom.Secret == "" && envFrom.ConfigMap == "" {
+				continue
+			}
+			envFromSource := corev1.EnvFromSource{}
+			if envFrom.ConfigMap != "" {
+				envFromSource.ConfigMapRef = &corev1.ConfigMapEnvSource{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: envFrom.ConfigMap,
 					},
-				},
-				SecretRef: &corev1.SecretEnvSource{
+				}
+			}
+
+			if envFrom.Secret != "" {
+				envFromSource.SecretRef = &corev1.SecretEnvSource{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: envFrom.Secret,
 					},
-				},
-			})
-		}
-
-		if resources != nil {
-			container.Resources = corev1.ResourceRequirements{}
-			if resources.Requests != nil {
-				container.Resources.Requests = corev1.ResourceList{}
-				if resources.Requests.CPU != nil {
-					cpu, err := resource.ParseQuantity(*resources.Requests.CPU)
-					if err == nil {
-						container.Resources.Requests[corev1.ResourceCPU] = cpu
-					}
-				}
-				if resources.Requests.Memory != nil {
-					memory, err := resource.ParseQuantity(*resources.Requests.Memory)
-					if err == nil {
-						container.Resources.Requests[corev1.ResourceMemory] = memory
-					}
 				}
 			}
-			if resources.Limits != nil {
-				container.Resources.Limits = corev1.ResourceList{}
-				if resources.Limits.CPU != nil {
-					cpu, err := resource.ParseQuantity(*resources.Limits.CPU)
-					if err == nil {
-						container.Resources.Limits[corev1.ResourceCPU] = cpu
-					}
-				}
-				if resources.Limits.Memory != nil {
-					memory, err := resource.ParseQuantity(*resources.Limits.Memory)
-					if err == nil {
-						container.Resources.Limits[corev1.ResourceMemory] = memory
-					}
-				}
-			}
-		}
 
+			container.EnvFrom = append(container.EnvFrom, envFromSource)
+		}
+		container.Resources = ToResourceRequirements(resources)
 		containers = append(containers, container)
 	}
 
 	return containers
+}
+
+func ToResourceRequirements(resources *console.ContainerResourcesFragment) corev1.ResourceRequirements {
+	if resources == nil {
+		return corev1.ResourceRequirements{}
+	}
+
+	return corev1.ResourceRequirements{
+		Requests: ToResourceList(resources.Requests),
+		Limits:   ToResourceList(resources.Limits),
+	}
+}
+
+func ToResourceList(resources *console.ResourceRequestFragment) corev1.ResourceList {
+	resourceList := corev1.ResourceList{}
+	if resources == nil {
+		return resourceList
+	}
+
+	if resources.CPU != nil {
+		if cpu, err := resource.ParseQuantity(*resources.CPU); err == nil {
+			resourceList[corev1.ResourceCPU] = cpu
+		}
+	}
+	if resources.Memory != nil {
+		if memory, err := resource.ParseQuantity(*resources.Memory); err == nil {
+			resourceList[corev1.ResourceMemory] = memory
+		}
+	}
+	return resourceList
 }
 
 // TolerationsFromJobSpecFragments maps GraphQL job spec tolerations to core tolerations.
@@ -233,20 +238,10 @@ func TolerationsFromJobSpecFragments(fragments []*console.JobSpecFragment_Tolera
 			continue
 		}
 		t := corev1.Toleration{}
-		if f.Key != nil {
-			t.Key = *f.Key
-		}
-		if f.Operator != nil && *f.Operator != "" {
-			t.Operator = corev1.TolerationOperator(*f.Operator)
-		} else {
-			t.Operator = corev1.TolerationOpEqual
-		}
-		if f.Value != nil {
-			t.Value = *f.Value
-		}
-		if f.Effect != nil && *f.Effect != "" {
-			t.Effect = corev1.TaintEffect(*f.Effect)
-		}
+		t.Key = lo.FromPtr(f.Key)
+		t.Operator = corev1.TolerationOperator(lo.FromPtrOr(f.Operator, string(corev1.TolerationOpEqual)))
+		t.Value = lo.FromPtr(f.Value)
+		t.Effect = corev1.TaintEffect(lo.FromPtrOr(f.Effect, string(corev1.TaintEffectNoSchedule)))
 		out = append(out, t)
 	}
 	return out
