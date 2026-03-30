@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awscredentials "github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	console "github.com/pluralsh/console/go/client"
@@ -100,7 +101,7 @@ func (in *EKSCloudProvider) listAddons(ctx context.Context, client *eks.Client) 
 	var result []string
 
 	out, err := client.ListAddons(ctx, &eks.ListAddonsInput{
-		ClusterName: lo.ToPtr(in.clusterName),
+		ClusterName: new(in.clusterName),
 	})
 	if err != nil {
 		return nil, err
@@ -110,7 +111,7 @@ func (in *EKSCloudProvider) listAddons(ctx context.Context, client *eks.Client) 
 	nextToken := out.NextToken
 	for out.NextToken != nil {
 		out, err = client.ListAddons(ctx, &eks.ListAddonsInput{
-			ClusterName: lo.ToPtr(in.clusterName),
+			ClusterName: new(in.clusterName),
 			NextToken:   nextToken,
 		})
 		if err != nil {
@@ -124,8 +125,8 @@ func (in *EKSCloudProvider) listAddons(ctx context.Context, client *eks.Client) 
 	return algorithms.Filter(
 		algorithms.Map(result, func(addon string) *types.Addon {
 			output, err := client.DescribeAddon(ctx, &eks.DescribeAddonInput{
-				AddonName:   lo.ToPtr(addon),
-				ClusterName: lo.ToPtr(in.clusterName),
+				AddonName:   new(addon),
+				ClusterName: new(in.clusterName),
 			})
 			// If there is an error getting the details of an addon just ignore.
 			// It will be picked up during the next reconcile.
@@ -144,7 +145,7 @@ func (in *EKSCloudProvider) listAddons(ctx context.Context, client *eks.Client) 
 func (in *EKSCloudProvider) toClusterAddonsAttributes(addons []*types.Addon) []console.CloudAddonAttributes {
 	return algorithms.Map(addons, func(addon *types.Addon) console.CloudAddonAttributes {
 		return console.CloudAddonAttributes{
-			Distro:  lo.ToPtr(console.ClusterDistroEks),
+			Distro:  new(console.ClusterDistroEks),
 			Name:    addon.AddonName,
 			Version: addon.AddonVersion,
 		}
@@ -155,12 +156,12 @@ func (in *EKSCloudProvider) toUpgradeInsightAttributes(insights []*types.Insight
 	return algorithms.Map(insights, func(insight *types.Insight) console.UpgradeInsightAttributes {
 		var refreshedAt *string
 		if insight.LastRefreshTime != nil {
-			refreshedAt = lo.ToPtr(insight.LastRefreshTime.Format(time.RFC3339))
+			refreshedAt = new(insight.LastRefreshTime.Format(time.RFC3339))
 		}
 
 		var transitionedAt *string
 		if insight.LastTransitionTime != nil {
-			transitionedAt = lo.ToPtr(insight.LastTransitionTime.Format(time.RFC3339))
+			transitionedAt = new(insight.LastTransitionTime.Format(time.RFC3339))
 		}
 
 		return console.UpgradeInsightAttributes{
@@ -182,13 +183,13 @@ func (in *EKSCloudProvider) fromInsightStatus(status *types.InsightStatus) *cons
 
 	switch status.Status {
 	case types.InsightStatusValuePassing:
-		return lo.ToPtr(console.UpgradeInsightStatusPassing)
+		return new(console.UpgradeInsightStatusPassing)
 	case types.InsightStatusValueError:
-		return lo.ToPtr(console.UpgradeInsightStatusFailed)
+		return new(console.UpgradeInsightStatusFailed)
 	case types.InsightStatusValueWarning:
-		return lo.ToPtr(console.UpgradeInsightStatusWarning)
+		return new(console.UpgradeInsightStatusWarning)
 	case types.InsightStatusValueUnknown:
-		return lo.ToPtr(console.UpgradeInsightStatusUnknown)
+		return new(console.UpgradeInsightStatusUnknown)
 	}
 
 	return nil
@@ -200,15 +201,15 @@ func (in *EKSCloudProvider) fromClientStats(stats []types.ClientStat) *console.U
 
 	for _, stat := range stats {
 		if stat.LastRequestTime != nil && time.Since(*stat.LastRequestTime).Hours() < failedBeforeDuration {
-			return lo.ToPtr(console.UpgradeInsightStatusFailed)
+			return new(console.UpgradeInsightStatusFailed)
 		}
 
 		if stat.LastRequestTime != nil && time.Since(*stat.LastRequestTime).Hours() < warningBeforeDuration {
-			return lo.ToPtr(console.UpgradeInsightStatusWarning)
+			return new(console.UpgradeInsightStatusWarning)
 		}
 	}
 
-	return lo.ToPtr(console.UpgradeInsightStatusPassing)
+	return new(console.UpgradeInsightStatusPassing)
 }
 
 func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.UpgradeInsightDetailAttributes {
@@ -227,8 +228,8 @@ func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.
 			ClientInfo: algorithms.Map(r.ClientStats, func(cs types.ClientStat) *console.InsightClientInfoAttributes {
 				return &console.InsightClientInfoAttributes{
 					UserAgent:     cs.UserAgent,
-					Count:         lo.ToPtr(strconv.FormatInt(int64(cs.NumberOfRequestsLast30Days), 10)),
-					LastRequestAt: lo.ToPtr(cs.LastRequestTime.Format(time.RFC3339)),
+					Count:         new(strconv.FormatInt(int64(cs.NumberOfRequestsLast30Days), 10)),
+					LastRequestAt: new(cs.LastRequestTime.Format(time.RFC3339)),
 				}
 			}),
 		})
@@ -238,7 +239,13 @@ func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.
 }
 
 func (in *EKSCloudProvider) config(ctx context.Context, ui v1alpha1.UpgradeInsights) (aws.Config, error) {
-	options := []func(*awsconfig.LoadOptions) error{awsconfig.WithEC2IMDSRegion()}
+	options := []func(*awsconfig.LoadOptions) error{
+		awsconfig.WithEC2IMDSRegion(func(o *awsconfig.UseEC2IMDSRegion) {
+			o.Client = imds.New(imds.Options{
+				EnableFallback: aws.FalseTernary,
+			})
+		}),
+	}
 
 	if in.hasAccessKeys(ui) {
 		options = append(options, in.withCredentials(ctx, ui))
