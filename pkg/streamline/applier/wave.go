@@ -425,7 +425,36 @@ func (in *WaveProcessor) onApply(ctx context.Context, resource unstructured.Unst
 	in.componentChan <- lo.FromPtr(common.ToComponentAttributes(appliedResource))
 }
 
+// doReplace uses full PUT instead of SSA, creating the resource if it is missing.
+func (in *WaveProcessor) doReplace(ctx context.Context, c dynamic.ResourceInterface, u unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	dryRunOptions := lo.Ternary(in.dryRun, []string{metav1.DryRunAll}, []string{})
+
+	existing, err := c.Get(ctx, u.GetName(), metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return c.Create(ctx, &u, metav1.CreateOptions{DryRun: dryRunOptions})
+		}
+
+		return nil, err
+	}
+
+	u.SetResourceVersion(existing.GetResourceVersion()) // Keep the resource version so the API server accepts the PUT.
+	return c.Update(ctx, &u, metav1.UpdateOptions{DryRun: dryRunOptions})
+}
+
 func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterface, u unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	// Replace takes priority over apply; with the force flag set, failures escalate.
+	if smcommon.HasReplaceSyncOption(u) {
+		appliedResource, err := in.doReplace(ctx, c, u)
+		if err == nil || in.dryRun || !smcommon.HasForceSyncOption(u) {
+			return appliedResource, err
+		}
+
+		// Replace failed and the force flag is set, escalate to delete and recreate.
+		klog.V(log.LogLevelDebug).ErrorS(err, "replace failed, forcing recreate", "resource", u.GetName())
+		return in.forceRecreate(ctx, c, u)
+	}
+
 	appliedResource, err := c.Apply(ctx, u.GetName(), &u, metav1.ApplyOptions{
 		FieldManager: smcommon.ClientFieldManager,
 		Force:        true,
@@ -439,6 +468,11 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 		return appliedResource, err
 	}
 
+	klog.V(log.LogLevelDebug).ErrorS(err, "apply failed, forcing recreate", "resource", u.GetName())
+	return in.forceRecreate(ctx, c, u)
+}
+
+func (in *WaveProcessor) forceRecreate(ctx context.Context, c dynamic.ResourceInterface, u unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	// Mark the resource as with resync in progress to use custom logic in status synchronizer.
 	patch := unstructured.Unstructured{
 		Object: map[string]any{
@@ -454,8 +488,8 @@ func (in *WaveProcessor) doApply(ctx context.Context, c dynamic.ResourceInterfac
 		klog.V(log.LogLevelDebug).ErrorS(err, "failed to patch resource with resync annotation", "resource", u.GetName())
 	}
 
-	// Otherwise force sync by deleting the resource and letting it recreate in the next round.
-	if err = c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
+	// Force sync by deleting the resource and letting it recreate next.
+	if err := c.Delete(ctx, u.GetName(), metav1.DeleteOptions{
 		GracePeriodSeconds: lo.ToPtr(int64(0)),
 		PropagationPolicy:  lo.ToPtr(metav1.DeletePropagationForeground),
 	}); err != nil {

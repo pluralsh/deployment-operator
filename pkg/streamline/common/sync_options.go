@@ -14,9 +14,14 @@ const (
 	// ArgoSyncOptionsAnnotation specifies sync options for a given resource.
 	ArgoSyncOptionsAnnotation = "argocd.argoproj.io/sync-options"
 
-	// SyncOptionForce indicates if a resource should be forcefully applied during sync.
-	// If the initial applying fails, then the resource will be deleted and recreated forcefully.
+	// SyncOptionForce escalates a failed sync to delete and recreate.
+	// If replace=true is also set, escalation happens when replace fails.
 	SyncOptionForce = "force=true"
+
+	// SyncOptionReplace uses replace instead of apply.
+	// It removes fields missing from the desired state.
+	// With force=true, a failed replace escalates to delete and recreate.
+	SyncOptionReplace = "replace=true"
 
 	// ResyncInProgressAnnotation contains an annotation for a resource that was deleted forcefully
 	// and will be recreated in the next reconciling.
@@ -63,6 +68,10 @@ func HasSyncOption(u unstructured.Unstructured, option string) bool {
 
 func HasForceSyncOption(u unstructured.Unstructured) bool {
 	return HasSyncOption(u, SyncOptionForce)
+}
+
+func HasReplaceSyncOption(u unstructured.Unstructured) bool {
+	return HasSyncOption(u, SyncOptionReplace)
 }
 
 func HasResyncInProgressAnnotation(u *unstructured.Unstructured) bool {
