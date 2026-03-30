@@ -266,3 +266,57 @@ func TestDoApplyWithoutReplaceUsesSSAApply(t *testing.T) {
 	require.NotNil(t, result)
 	assert.Equal(t, []string{"apply"}, fake.calls)
 }
+
+func TestDoApplyWithoutReplaceAndWithoutForceReturnsApplyError(t *testing.T) {
+	ctx := context.Background()
+	wp := &WaveProcessor{}
+	resource := makeResource("")
+
+	applyErr := errors.New("apply failed")
+	fake := &fakeResourceInterface{
+		applyFn: func(context.Context, string, *unstructured.Unstructured, metav1.ApplyOptions, ...string) (*unstructured.Unstructured, error) {
+			return nil, applyErr
+		},
+	}
+
+	result, err := wp.doApply(ctx, fake, resource)
+	require.ErrorIs(t, err, applyErr)
+	assert.Nil(t, result)
+	assert.Equal(t, []string{"apply"}, fake.calls)
+}
+
+func TestDoApplyWithoutReplaceAndWithForceEscalatesToRecreate(t *testing.T) {
+	ctx := context.Background()
+	wp := &WaveProcessor{}
+	resource := makeResource("force=true")
+
+	applyErr := errors.New("apply failed")
+	fake := &fakeResourceInterface{
+		applyFn: func(context.Context, string, *unstructured.Unstructured, metav1.ApplyOptions, ...string) (*unstructured.Unstructured, error) {
+			return nil, applyErr
+		},
+	}
+
+	result, err := wp.doApply(ctx, fake, resource)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, []string{"apply", "patch", "delete", "create"}, fake.calls)
+}
+
+func TestDoApplyWithoutReplaceAndWithForceInDryRunDoesNotEscalate(t *testing.T) {
+	ctx := context.Background()
+	wp := &WaveProcessor{dryRun: true}
+	resource := makeResource("force=true")
+
+	applyErr := errors.New("apply failed")
+	fake := &fakeResourceInterface{
+		applyFn: func(context.Context, string, *unstructured.Unstructured, metav1.ApplyOptions, ...string) (*unstructured.Unstructured, error) {
+			return nil, applyErr
+		},
+	}
+
+	result, err := wp.doApply(ctx, fake, resource)
+	require.ErrorIs(t, err, applyErr)
+	assert.Nil(t, result)
+	assert.Equal(t, []string{"apply"}, fake.calls)
+}
