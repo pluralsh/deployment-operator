@@ -234,6 +234,10 @@ func isAgentRunPodTimedOut(pod *corev1.Pod) bool {
 	if pod == nil {
 		return false
 	}
+	// Don't time out pods that have already reached a terminal phase.
+	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		return false
+	}
 	if !pod.Status.StartTime.IsZero() {
 		return time.Now().After(pod.Status.StartTime.Add(agentRunMaxLifetime))
 	}
