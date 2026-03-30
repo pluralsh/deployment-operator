@@ -2,6 +2,8 @@ package errors
 
 import (
 	"errors"
+	"net/http"
+	"strings"
 
 	client "github.com/Yamashou/gqlgenc/clientv2"
 )
@@ -18,6 +20,7 @@ func (k KnownError) Error() string {
 
 const (
 	ErrNotFound         KnownError = "could not find resource"
+	ErrUnauthenticated  KnownError = "unauthenticated"
 	ErrExpected         KnownError = "this is a transient, expected error"
 	ErrRetriable        KnownError = "Still waiting on read/write bindings, requeueing until they're available"
 	ErrDeleteRepository            = "could not delete repository"
@@ -104,3 +107,33 @@ func IsNetworkError(err error, code int) bool {
 
 	return newAPIError(errorResponse).HasNetworkError(code)
 }
+
+func IsUnauthenticated(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errorResponse := new(client.ErrorResponse)
+	ok := errors.As(err, &errorResponse)
+	if !ok {
+		return false
+	}
+
+	wrapped := newAPIError(errorResponse)
+	if wrapped.HasNetworkError(http.StatusUnauthorized) || wrapped.HasNetworkError(http.StatusForbidden) {
+		return true
+	}
+
+	if errorResponse.GqlErrors == nil {
+		return false
+	}
+
+	for _, gqlErr := range *errorResponse.GqlErrors {
+		if gqlErr != nil && strings.EqualFold(strings.TrimSpace(gqlErr.Message), string(ErrUnauthenticated)) {
+			return true
+		}
+	}
+
+	return false
+}
+

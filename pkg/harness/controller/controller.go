@@ -49,7 +49,9 @@ func (in *stackRunController) Start(ctx context.Context) (retErr error) {
 		return retErr
 	}
 
-	in.preStart()
+	if retErr = in.preStart(); retErr != nil {
+		return retErr
+	}
 
 	// Add executables to executor
 	for _, e := range in.executables(ctx) {
@@ -138,7 +140,7 @@ func (in *stackRunController) toExecutable(ctx context.Context, step *gqlclient.
 		exec.WithArgs(args),
 		exec.WithID(step.ID),
 		exec.WithOutputSinks(append(toolWriters, consoleWriter)...),
-		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(step)),
+		exec.WithHook(v1.LifecyclePreStart, in.preExecHook(ctx, step)),
 		exec.WithHook(v1.LifecyclePostStart, in.postExecHook(step)),
 		exec.WithOutputAnalyzer([]exec.OutputAnalyzerHeuristic{exec.NewKeywordDetector()}, exec.StderrCheckForProvider(in.stackRun.Type)),
 	)
@@ -236,6 +238,7 @@ func (in *stackRunController) init() (Controller, error) {
 	}
 
 	if stackRun, err := in.consoleClient.GetStackRunBase(in.stackRunID); err != nil {
+		klog.Errorf("could not get stack run with id %s: %v", in.stackRunID, err)
 		return nil, err
 	} else {
 		klog.V(log.LogLevelInfo).InfoS("found stack run", "id", stackRun.ID, "status", stackRun.Status, "type", stackRun.Type)
