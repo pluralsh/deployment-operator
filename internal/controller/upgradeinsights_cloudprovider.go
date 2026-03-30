@@ -240,9 +240,9 @@ func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.
 func (in *EKSCloudProvider) config(ctx context.Context, ui v1alpha1.UpgradeInsights) (aws.Config, error) {
 	options := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithEC2IMDSRegion(func(o *awsconfig.UseEC2IMDSRegion) {
-			//o.Client = imds.New(imds.Options{
+			// o.Client = imds.New(imds.Options{
 			//	EnableFallback: aws.FalseTernary,
-			//})
+			// })
 		}),
 	}
 
