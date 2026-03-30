@@ -11,6 +11,8 @@ import (
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/console/go/polly/algorithms"
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
+	harnesserrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
@@ -239,6 +241,9 @@ func (in *stackRunController) init() (Controller, error) {
 
 	if stackRun, err := in.consoleClient.GetStackRunBase(in.stackRunID); err != nil {
 		klog.Errorf("could not get stack run with id %s: %v", in.stackRunID, err)
+		if clienterrors.IsUnauthenticated(err) {
+			return nil, harnesserrors.WrapUnauthenticated("could not get stack run", err)
+		}
 		return nil, err
 	} else {
 		klog.V(log.LogLevelInfo).InfoS("found stack run", "id", stackRun.ID, "status", stackRun.Status, "type", stackRun.Type)
