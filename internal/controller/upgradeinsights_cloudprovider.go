@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awscredentials "github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	console "github.com/pluralsh/console/go/client"
@@ -240,9 +241,9 @@ func (in *EKSCloudProvider) toInsightDetails(insight *types.Insight) []*console.
 func (in *EKSCloudProvider) config(ctx context.Context, ui v1alpha1.UpgradeInsights) (aws.Config, error) {
 	options := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithEC2IMDSRegion(func(o *awsconfig.UseEC2IMDSRegion) {
-			// o.Client = imds.New(imds.Options{
-			//	EnableFallback: aws.FalseTernary,
-			// })
+			o.Client = imds.New(imds.Options{
+				EnableFallback: aws.FalseTernary,
+			})
 		}),
 	}
 
