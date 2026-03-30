@@ -48,6 +48,7 @@ const StackRunJobFinalizer = "deployments.plural.sh/stack-run-job-protection"
 
 const jobTimeout = time.Minute * 40
 const podTimeout = time.Minute * 2
+const controlledJobMaxLifetime = time.Hour * 12
 
 // StackRunJobReconciler reconciles a Job resource.
 type StackRunJobReconciler struct {
@@ -129,6 +130,13 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	status := stackRun.Status
 	switch {
+	case isControlledJobTimedOut(job):
+		if err := r.killJob(ctx, job); err != nil {
+			return ctrl.Result{}, err
+		}
+		run.Status.JobStatus = string(console.StackStatusCancelled)
+		logger.V(2).Info("stack run job exceeded max lifetime, cancelling", "name", job.Name, "namespace", job.Namespace)
+		status = console.StackStatusCancelled
 	// Exit if stack run is not in running state (run status already updated),
 	// or if the job is still running (harness controls run status).
 	case stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero():
@@ -266,6 +274,22 @@ func stackIsTimedOut(stackRun *v1alpha1.StackRunJob) bool {
 func isActiveJobTimout(stackStatus console.StackStatus, job *batchv1.Job) bool {
 	if isActiveJob(stackStatus, job) {
 		return time.Now().After(job.Status.StartTime.Add(jobTimeout))
+	}
+	return false
+}
+
+func isControlledJobTimedOut(job *batchv1.Job) bool {
+	if job == nil || !job.Status.CompletionTime.IsZero() {
+		return false
+	}
+
+	// Prefer start time when available (represents actual execution lifetime),
+	// then fall back to object creation time.
+	if !job.Status.StartTime.IsZero() {
+		return time.Now().After(job.Status.StartTime.Add(controlledJobMaxLifetime))
+	}
+	if !job.CreationTimestamp.IsZero() {
+		return time.Now().After(job.CreationTimestamp.Add(controlledJobMaxLifetime))
 	}
 	return false
 }
