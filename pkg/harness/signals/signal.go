@@ -32,11 +32,22 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 
 	go func() {
 		interval := baseInterval
+		timer := time.NewTimer(interval)
+		defer func() {
+			// Stop the timer and drain its channel to avoid goroutine/memory leaks.
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+		}()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(interval):
+			case <-timer.C:
 			}
 
 			stackRun, err := in.client.GetStackRunBase(in.id)
@@ -53,6 +64,8 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 				}
 
 				klog.ErrorS(err, "could not resync stack run", "id", in.id)
+				// Timer already fired (drained via case <-timer.C above); safe to Reset.
+				timer.Reset(interval)
 				continue
 			}
 
@@ -65,6 +78,9 @@ func (in *consoleSignal) Listen(cancelFunc context.CancelCauseFunc) {
 				cancel()
 				return
 			}
+
+			// Timer already fired (drained via case <-timer.C above); safe to Reset.
+			timer.Reset(interval)
 		}
 	}()
 }
@@ -86,7 +102,6 @@ func (in *timeoutSignal) Listen(cancelFunc context.CancelCauseFunc) {
 
 	go func() {
 		<-timer.C
-		timer.Stop()
 		cancelFunc(errors.ErrTimeout)
 	}()
 }

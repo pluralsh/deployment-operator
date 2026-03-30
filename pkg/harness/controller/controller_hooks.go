@@ -54,6 +54,11 @@ func (in *stackRunController) postStart(err error) {
 	switch {
 	case err == nil:
 		status = gqlclient.StackStatusSuccessful
+	case errors.Is(err, harnesserrors.ErrUnauthenticated):
+		// Console token is expired or invalid; any further API call will also
+		// fail with 401/403, so skip console updates and exit cleanly.
+		klog.ErrorS(err, "unauthenticated – skipping console status update")
+		return
 	case errors.Is(err, harnesserrors.ErrRemoteCancel):
 		status = gqlclient.StackStatusCancelled
 		// Do not send an error if stack run was canceled
@@ -157,6 +162,17 @@ func (in *stackRunController) waitForApproval(ctx context.Context) error {
 	)
 
 	interval := baseInterval
+	timer := time.NewTimer(interval)
+	defer func() {
+		// Stop the timer and drain its channel to avoid goroutine/memory leaks.
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -164,7 +180,7 @@ func (in *stackRunController) waitForApproval(ctx context.Context) error {
 				return cause
 			}
 			return ctx.Err()
-		case <-time.After(interval):
+		case <-timer.C:
 		}
 
 		if runApproved {
@@ -181,6 +197,8 @@ func (in *stackRunController) waitForApproval(ctx context.Context) error {
 			}
 
 			klog.ErrorS(err, "could not check stack run approval")
+			// Timer already fired (drained via case <-timer.C above); safe to Reset.
+			timer.Reset(interval)
 			continue
 		}
 
@@ -191,6 +209,9 @@ func (in *stackRunController) waitForApproval(ctx context.Context) error {
 		if runApproved {
 			break
 		}
+
+		// Timer already fired (drained via case <-timer.C above); safe to Reset.
+		timer.Reset(interval)
 	}
 
 	// Retry here to make sure that we resume the stack run status to running after it has been approved.
