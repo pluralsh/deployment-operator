@@ -54,7 +54,7 @@ func getArgoSyncOptions(annotations map[string]string) containers.Set[string] {
 
 func parseSyncOptions(annotation string) containers.Set[string] {
 	options := strings.ToLower(strings.ReplaceAll(annotation, " ", ""))
-	return containers.ToSet[string](strings.Split(options, ","))
+	return containers.ToSet(strings.Split(options, ","))
 }
 
 func HasSyncOption(u unstructured.Unstructured, option string) bool {
