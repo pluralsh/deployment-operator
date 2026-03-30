@@ -136,4 +136,3 @@ func IsUnauthenticated(err error) bool {
 
 	return false
 }
-
