@@ -31,6 +31,7 @@ import (
 const (
 	AgentRunFinalizer    = "deployments.plural.sh/agentrun-protection"
 	requeueAfterAgentRun = 2 * time.Minute
+	agentRunMaxLifetime  = 12 * time.Hour
 	EnvConsoleURL        = "PLRL_CONSOLE_URL"
 	EnvDeployToken       = "PLRL_DEPLOY_TOKEN"
 	EnvAgentRunID        = "PLRL_AGENT_RUN_ID"
@@ -166,6 +167,22 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
+	pod := &corev1.Pod{}
+	if err := r.Get(ctx, types.NamespacedName{Name: run.Name, Namespace: run.Namespace}, pod); err != nil {
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+	} else if isAgentRunPodTimedOut(pod) {
+		if err := r.Delete(ctx, pod); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+		run.Status.Phase = v1alpha1.AgentRunPhaseCancelled
+		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes(console.AgentRunStatusCancelled)); err != nil {
+			return ctrl.Result{}, err
+		}
+		return jitterRequeue(requeueAfterAgentRun, jitter), nil
+	}
+
 	changed, sha, err := run.StatusDiff(utils.HashObject)
 	if err != nil {
 		logger.Error(err, "unable to calculate agent run SHA")
@@ -211,6 +228,19 @@ func getAgentRunPhase(status console.AgentRunStatus) v1alpha1.AgentRunPhase {
 	default:
 		return v1alpha1.AgentRunPhasePending
 	}
+}
+
+func isAgentRunPodTimedOut(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
+	if !pod.Status.StartTime.IsZero() {
+		return time.Now().After(pod.Status.StartTime.Add(agentRunMaxLifetime))
+	}
+	if !pod.CreationTimestamp.IsZero() {
+		return time.Now().After(pod.CreationTimestamp.Add(agentRunMaxLifetime))
+	}
+	return false
 }
 
 // reconcilePod ensures the pod for the agent run exists and is in the desired state.

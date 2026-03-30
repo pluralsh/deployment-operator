@@ -26,6 +26,7 @@ import (
 )
 
 const SentinelRunJobFinalizer = "deployments.plural.sh/sentinel-run-job-protection"
+const sentinelControlledJobMaxLifetime = 12 * time.Hour
 
 type SentinelRunJobReconciler struct {
 	client.Client
@@ -109,7 +110,14 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	status := run.Status
-	if health != nil {
+	if isSentinelControlledJobTimedOut(job) {
+		if err := r.killRunJob(ctx, job); err != nil {
+			return ctrl.Result{}, err
+		}
+		srj.Status.JobStatus = string(common.HealthStatusDegraded)
+		status = console.SentinelRunJobStatusFailed
+		fromContext.V(2).Info("sentinel run job exceeded max lifetime, failing", "name", job.Name, "namespace", job.Namespace)
+	} else if health != nil {
 		srj.Status.JobStatus = string(health.Status)
 		if health.Status == common.HealthStatusDegraded {
 			status = console.SentinelRunJobStatusFailed
@@ -139,6 +147,29 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 func sentinelIsTimedOut(srj *v1alpha1.SentinelRunJob) bool {
 	return time.Now().After(srj.CreationTimestamp.Add(jobTimeout))
+}
+
+func isSentinelControlledJobTimedOut(job *batchv1.Job) bool {
+	if job == nil || !job.Status.CompletionTime.IsZero() {
+		return false
+	}
+	if !job.Status.StartTime.IsZero() {
+		return time.Now().After(job.Status.StartTime.Add(sentinelControlledJobMaxLifetime))
+	}
+	if !job.CreationTimestamp.IsZero() {
+		return time.Now().After(job.CreationTimestamp.Add(sentinelControlledJobMaxLifetime))
+	}
+	return false
+}
+
+func (r *SentinelRunJobReconciler) killRunJob(ctx context.Context, job *batchv1.Job) error {
+	deletePolicy := metav1.DeletePropagationBackground
+	if err := r.Delete(ctx, job, &client.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	}); err != nil && !apierrs.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 // isTerminalSentinelRunStatus returns true when the given SentinelRunJobStatus is in a terminal state, meaning the job has completed and will not transition to any other state.
