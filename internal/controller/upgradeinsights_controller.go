@@ -11,6 +11,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	k8sClient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -88,6 +89,8 @@ func (in *UpgradeInsightsController) handleDelete(ui *v1alpha1.UpgradeInsights) 
 }
 
 func (in *UpgradeInsightsController) sync(ctx context.Context, ui *v1alpha1.UpgradeInsights) error {
+	logger := log.FromContext(ctx)
+
 	cloudProvider, err := NewCloudProvider(
 		ui.Spec.GetDistro(in.myCluster.GetDistro()),
 		in.Client,
@@ -99,9 +102,11 @@ func (in *UpgradeInsightsController) sync(ctx context.Context, ui *v1alpha1.Upgr
 
 	attributes, addons, err := cloudProvider.UpgradeInsights(ctx, *ui)
 	if err != nil {
+		logger.Error(err, "failed to sync upgrade insights")
 		return err
 	}
 
+	logger.Info("successfully synced upgrade insights", "attributes", attributes, "addons", addons)
 	_, err = in.ConsoleClient.SaveUpgradeInsights(lo.ToSlicePtr(attributes), lo.ToSlicePtr(addons))
 	return err
 }

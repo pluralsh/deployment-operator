@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/common"
@@ -275,7 +276,29 @@ func genDefaultSentinelJobSpec(namespace, name, runID string) batchv1.JobSpec {
 				SecurityContext: r.ensureDefaultPodSecurityContext(nil),
 			},
 		},
-		TTLSecondsAfterFinished: lo.ToPtr(int32(60 * 60)),
+		TTLSecondsAfterFinished: lo.ToPtr(int32(5 * 60)),
 		BackoffLimit:            lo.ToPtr(int32(0)),
 	}
+}
+
+func TestSentinelControlledJobTimedOut(t *testing.T) {
+	oldJob := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			CreationTimestamp: metav1.Time{Time: time.Now().Add(-13 * time.Hour)},
+		},
+		Status: batchv1.JobStatus{
+			StartTime: &metav1.Time{Time: time.Now().Add(-13 * time.Hour)},
+		},
+	}
+	assert.True(t, isSentinelControlledJobTimedOut(oldJob))
+
+	recentJob := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			CreationTimestamp: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+		},
+		Status: batchv1.JobStatus{
+			StartTime: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+		},
+	}
+	assert.False(t, isSentinelControlledJobTimedOut(recentJob))
 }

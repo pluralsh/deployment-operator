@@ -8,11 +8,11 @@ import (
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/pkg/harness/environment"
-	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
+	harnesserrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
 	securityv1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/stackrun"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
@@ -24,21 +24,27 @@ var (
 )
 
 // preStart function is executed before stack run steps.
-func (in *stackRunController) preStart() {
+func (in *stackRunController) preStart() error {
 	if in.stackRun.Status != gqlclient.StackStatusPending && !environment.IsDev() {
 		klog.Fatalf("could not start stack run: invalid status: %s", in.stackRun.Status)
 	}
 
 	if err := stackrun.StartStackRun(in.consoleClient, in.stackRunID); err != nil {
+		if clienterrors.IsUnauthenticated(err) {
+			return harnesserrors.WrapUnauthenticated("could not update stack run status", err)
+		}
+
 		klog.ErrorS(err, "could not update stack run status")
 	}
 
 	if in.stackRun.ManageState {
 		err := in.tool.ConfigureStateBackend("harness", in.consoleToken, in.stackRun.StateUrls)
 		if err != nil {
-			klog.Fatalf("could not configure state backend: %v", err)
+			return fmt.Errorf("could not configure state backend: %w", err)
 		}
 	}
+
+	return nil
 }
 
 // postStart function is executed after all stack run steps.
@@ -48,11 +54,16 @@ func (in *stackRunController) postStart(err error) {
 	switch {
 	case err == nil:
 		status = gqlclient.StackStatusSuccessful
-	case errors.Is(err, internalerrors.ErrRemoteCancel):
+	case errors.Is(err, harnesserrors.ErrUnauthenticated):
+		// Console token is expired or invalid; any further API call will also
+		// fail with 401/403, so skip console updates and exit cleanly.
+		klog.ErrorS(err, "unauthenticated – skipping console status update")
+		return
+	case errors.Is(err, harnesserrors.ErrRemoteCancel):
 		status = gqlclient.StackStatusCancelled
 		// Do not send an error if stack run was canceled
 		err = nil
-	case errors.Is(err, internalerrors.ErrNoChanges):
+	case errors.Is(err, harnesserrors.ErrNoChanges):
 		status = gqlclient.StackStatusSuccessful
 		// Do not send an error if stack run was canceled due to no changes
 		// This allows other queued runs to proceed
@@ -76,7 +87,7 @@ func (in *stackRunController) postStepRun(id string, err error) {
 	var status gqlclient.StepStatus
 
 	switch {
-	case errors.Is(err, internalerrors.ErrNoChanges):
+	case errors.Is(err, harnesserrors.ErrNoChanges):
 		fallthrough
 	case err == nil:
 		status = gqlclient.StepStatusSuccessful
@@ -85,6 +96,18 @@ func (in *stackRunController) postStepRun(id string, err error) {
 	}
 
 	if err := stackrun.MarkStackRunStep(in.consoleClient, id, status); err != nil {
+		if clienterrors.IsUnauthenticated(err) {
+			wrapped := harnesserrors.WrapUnauthenticated("could not update stack run step status", err)
+			klog.ErrorS(wrapped, "console authentication failed", "step_id", id)
+			if in.errChan != nil {
+				select {
+				case in.errChan <- wrapped:
+				default:
+				}
+			}
+			return
+		}
+
 		klog.ErrorS(err, "could not update stack run step status")
 	}
 }
@@ -102,13 +125,19 @@ func (in *stackRunController) postExecHook(step *gqlclient.RunStepFragment) v1.H
 }
 
 // postExecHook is a callback function started by the exec.Executable before it runs the executable.
-func (in *stackRunController) preExecHook(step *gqlclient.RunStepFragment) v1.HookFunction {
+func (in *stackRunController) preExecHook(ctx context.Context, step *gqlclient.RunStepFragment) v1.HookFunction {
 	return func() error {
 		if (step.Stage == gqlclient.StepStageApply || step.Stage == gqlclient.StepStageDestroy) && in.requiresApproval() {
-			in.waitForApproval()
+			if err := in.waitForApproval(ctx); err != nil {
+				return err
+			}
 		}
 
 		if err := stackrun.StartStackRunStep(in.consoleClient, step.ID); err != nil {
+			if clienterrors.IsUnauthenticated(err) {
+				return harnesserrors.WrapUnauthenticated("could not update stack run step status", err)
+			}
+
 			klog.ErrorS(err, "could not update stack run status")
 		}
 
@@ -120,29 +149,74 @@ func (in *stackRunController) requiresApproval() bool {
 	return in.stackRun.Approval && !runApproved && in.stackRun.ApprovedAt == nil
 }
 
-func (in *stackRunController) waitForApproval() {
+func (in *stackRunController) waitForApproval(ctx context.Context) error {
 	// Retry here to make sure that the pending approval status will be set before we start waiting.
 	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusPendingApproval, 5*time.Second)
 
 	klog.V(log.LogLevelInfo).InfoS("waiting for approval to proceed")
-	// Condition function never returns error. We can ignore it.
-	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, true, func(_ context.Context) (done bool, err error) {
+
+	const (
+		baseInterval = 5 * time.Second
+		maxInterval  = 2 * time.Minute
+		factor       = 2.0
+	)
+
+	interval := baseInterval
+	timer := time.NewTimer(interval)
+	defer func() {
+		// Stop the timer and drain its channel to avoid goroutine/memory leaks.
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			if cause := context.Cause(ctx); cause != nil {
+				return cause
+			}
+			return ctx.Err()
+		case <-timer.C:
+		}
+
 		if runApproved {
-			return true, nil
+			break
 		}
 
-		stack, err := in.consoleClient.GetStackRun(in.stackRunID)
+		stack, err := in.consoleClient.GetStackRunApprovedAt(in.stackRunID)
 		if err != nil {
+			// Back off on error, reset to base on next success.
+			interval = min(time.Duration(float64(interval)*factor), maxInterval)
+
+			if clienterrors.IsUnauthenticated(err) {
+				return harnesserrors.WrapUnauthenticated("could not check stack run approval", err)
+			}
+
 			klog.ErrorS(err, "could not check stack run approval")
-			return false, nil
+			// Timer already fired (drained via case <-timer.C above); safe to Reset.
+			timer.Reset(interval)
+			continue
 		}
 
-		runApproved = stack.ApprovedAt != nil
-		return runApproved, nil
-	})
+		// Successful API call, reset the interval.
+		interval = baseInterval
+
+		runApproved = stack != nil && stack.ApprovedAt != nil
+		if runApproved {
+			break
+		}
+
+		// Timer already fired (drained via case <-timer.C above); safe to Reset.
+		timer.Reset(interval)
+	}
 
 	// Retry here to make sure that we resume the stack run status to running after it has been approved.
 	stackrun.MarkStackRunWithRetry(in.consoleClient, in.stackRunID, gqlclient.StackStatusRunning, 5*time.Second)
+	return nil
 }
 
 func (in *stackRunController) afterPlan() error {
@@ -163,6 +237,10 @@ func (in *stackRunController) afterPlan() error {
 		Violations: violations,
 		Status:     gqlclient.StackStatusRunning,
 	}); err != nil {
+		if clienterrors.IsUnauthenticated(err) {
+			return harnesserrors.WrapUnauthenticated("could not update stack run after plan", err)
+		}
+
 		return err
 	}
 
@@ -182,7 +260,7 @@ func (in *stackRunController) afterPlan() error {
 		// Continue on error - we don't want to fail the run if change detection fails
 	} else if !hasChanges {
 		// Return special error to signal no changes
-		return internalerrors.ErrNoChanges
+		return harnesserrors.ErrNoChanges
 	}
 
 	return nil

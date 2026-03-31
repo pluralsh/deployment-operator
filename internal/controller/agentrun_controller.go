@@ -31,6 +31,7 @@ import (
 const (
 	AgentRunFinalizer    = "deployments.plural.sh/agentrun-protection"
 	requeueAfterAgentRun = 2 * time.Minute
+	agentRunMaxLifetime  = 12 * time.Hour
 	EnvConsoleURL        = "PLRL_CONSOLE_URL"
 	EnvDeployToken       = "PLRL_DEPLOY_TOKEN"
 	EnvAgentRunID        = "PLRL_AGENT_RUN_ID"
@@ -161,9 +162,22 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return jitterRequeue(requeueWaitForResources, jitter), nil
 	}
 
-	if err = r.reconcilePod(ctx, run, agentRuntime); err != nil {
+	pod, err := r.reconcilePod(ctx, run, agentRuntime)
+	if err != nil {
 		utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReasonError, err.Error())
 		return ctrl.Result{}, err
+	}
+
+	if isAgentRunPodTimedOut(pod) {
+		if err := r.Delete(ctx, pod); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+		run.Status.Phase = v1alpha1.AgentRunPhaseCancelled
+		if _, err := r.ConsoleClient.UpdateAgentRun(ctx, run.GetAgentRunID(), run.StatusAttributes(console.AgentRunStatusCancelled)); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return jitterRequeue(requeueAfterAgentRun, jitter), nil
 	}
 
 	changed, sha, err := run.StatusDiff(utils.HashObject)
@@ -213,27 +227,44 @@ func getAgentRunPhase(status console.AgentRunStatus) v1alpha1.AgentRunPhase {
 	}
 }
 
+func isAgentRunPodTimedOut(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
+	// Don't time out pods that have already reached a terminal phase.
+	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		return false
+	}
+	if !pod.Status.StartTime.IsZero() {
+		return time.Now().After(pod.Status.StartTime.Add(agentRunMaxLifetime))
+	}
+	if !pod.CreationTimestamp.IsZero() {
+		return time.Now().After(pod.CreationTimestamp.Add(agentRunMaxLifetime))
+	}
+	return false
+}
+
 // reconcilePod ensures the pod for the agent run exists and is in the desired state.
-func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) error {
+func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) (*corev1.Pod, error) {
 	secret, err := r.reconcilePodSecret(ctx, run, runtime)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile run secret: %w", err)
+		return nil, fmt.Errorf("failed to reconcile run secret: %w", err)
 	}
 
 	pod := &corev1.Pod{}
 	if err := r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod); err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("failed to get pod: %w", err)
+			return nil, fmt.Errorf("failed to get pod: %w", err)
 		}
 		pod = buildAgentRunPod(run, runtime)
 
 		// Set the controller reference on the pod so that it can be garbage collected when the agent run is deleted.
 		// Set before creating the pod so that the pod can be owned by the agent run.
 		if err := controllerutil.SetControllerReference(run, pod, r.Scheme); err != nil {
-			return err
+			return nil, err
 		}
 		if err = r.Create(ctx, pod); err != nil {
-			return fmt.Errorf("failed to create pod: %w", err)
+			return nil, fmt.Errorf("failed to create pod: %w", err)
 		}
 	}
 
@@ -241,10 +272,10 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 
 	// add owner ref to pod secret if it doesn't exist
 	if err := utils.TryAddOwnerRef(ctx, r.Client, pod, secret, r.Scheme); err != nil {
-		return fmt.Errorf("failed to add owner ref: %w", err)
+		return pod, fmt.Errorf("failed to add owner ref: %w", err)
 	}
 
-	return nil
+	return pod, nil
 }
 
 func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) (*corev1.Secret, error) {

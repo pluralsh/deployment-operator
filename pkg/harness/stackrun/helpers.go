@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/internal/errors"
+	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
 )
 
@@ -25,6 +25,11 @@ func MarkStackRunWithRetry(client console.Client, id string, status gqlclient.St
 	_ = wait.PollUntilContextCancel(context.Background(), interval, true, func(ctx context.Context) (done bool, err error) {
 		err = MarkStackRun(client, id, status)
 		if err != nil {
+			if clienterrors.IsUnauthenticated(err) {
+				klog.Errorf("stack run update stopped due to console authentication failure: %v", err)
+				return true, nil
+			}
+
 			klog.Errorf("stack run update failed: %v", err)
 			return false, nil
 		}
@@ -78,7 +83,7 @@ func CompleteStackRun(client console.Client, id string, attributes *gqlclient.St
 
 	next := createModifierIter()
 	for {
-		if err = client.CompleteStackRun(id, *attributes); !errors.IsNetworkError(err, http.StatusRequestEntityTooLarge) {
+		if err = client.CompleteStackRun(id, *attributes); !clienterrors.IsNetworkError(err, http.StatusRequestEntityTooLarge) {
 			return err
 		}
 
