@@ -440,10 +440,9 @@ type GeminiConfig struct {
 	APIKeySecretRef corev1.SecretKeySelector `json:"apiKeySecretRef,omitempty"`
 
 	// Model is the name of the model to use.
-	// gemini-2.5-flash-lite and gemini-2.0-flash-lite are the smallest models and are not fit for write (agent) mode.
-	// They should only be used for analysis.
+	// NOTE: gemini flash lite models and are not fit for the write (agent) mode, and
+	// should only be used for analysis.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=gemini-3-pro-preview;gemini-2.5-pro;gemini-2.5-flash;gemini-2.5-flash-lite;gemini-2.0-flash;gemini-2.0-flash-lite
 	Model *string `json:"model,omitempty"`
 
 	// Timeout bounds a single gemini run invocation.
