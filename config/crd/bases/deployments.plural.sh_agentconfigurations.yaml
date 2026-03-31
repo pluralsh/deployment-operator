@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: agentconfigurations.deployments.plural.sh
 spec:
   group: deployments.plural.sh
@@ -58,6 +58,10 @@ spec:
                 description: |-
                   MaxConcurrentReconciles controls the maximum number of concurrent reconcile loops.
                   Higher values can increase throughput at the cost of resource usage.
+                type: integer
+              maxSentinelRunJobs:
+                description: MaxSentinelRunJobs limits the number of concurrent SentinelRunJobs
+                  that can be active at any given time.
                 type: integer
               pipelineGateInterval:
                 description: |-

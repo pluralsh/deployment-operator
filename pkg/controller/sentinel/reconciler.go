@@ -123,19 +123,47 @@ func (r *SentinelReconciler) ListSentinelRunJobs(ctx context.Context) *algorithm
 
 func (r *SentinelReconciler) Poll(ctx context.Context) error {
 	logger := log.FromContext(ctx)
+
+	maxSentinelRun := pkgcommon.GetConfigurationManager().GetMaxSentinelRunJobs()
+
+	// availableSlots < 0 means unlimited.
+	availableSlots := -1
+	if maxSentinelRun != nil {
+		metaList := &metav1.PartialObjectMetadataList{}
+		metaList.SetGroupVersionKind(v1alpha1.GroupVersion.WithKind("SentinelRunJobList"))
+		// List only the metadata to reduce memory usage, since we only need to count the number of active SentinelRunJobs.
+		if err := r.k8sClient.List(ctx, metaList); err != nil {
+			return err
+		}
+		activeRuns := len(metaList.Items)
+		availableSlots = *maxSentinelRun - activeRuns
+		if availableSlots <= 0 {
+			logger.V(4).Info("max sentinel run jobs limit reached, skipping poll", "activeRuns", activeRuns, "maxSentinelRun", *maxSentinelRun)
+			return nil
+		}
+	}
+
 	logger.V(4).Info("fetching sentinel run jobs")
 	pager := r.ListSentinelRunJobs(ctx)
 
+	queued := 0
 	for pager.HasNext() {
+		if availableSlots >= 0 && queued >= availableSlots {
+			break
+		}
 		runs, err := pager.NextPage()
 		if err != nil {
 			logger.Error(err, "failed to fetch sentinel run list")
 			return err
 		}
 		for _, run := range runs {
+			if availableSlots >= 0 && queued >= availableSlots {
+				break
+			}
 			logger.V(1).Info("sending update for", "sentinel run job", run.Node.ID)
 			r.sentinelCache.Add(run.Node.ID, run.Node)
 			r.sentinelQueue.AddAfter(run.Node.ID, utils.Jitter(r.GetPollInterval()()))
+			queued++
 		}
 	}
 

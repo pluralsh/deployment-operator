@@ -25,6 +25,7 @@ type ConfigurationManager struct {
 	compatibilityUploadInterval *time.Duration
 	pipelineGateInterval        *time.Duration
 	maxConcurrentReconciles     *int
+	maxSentinelRunJobs          *int
 	baseRegistryURL             *string
 }
 
@@ -75,6 +76,7 @@ func (s *ConfigurationManager) SetValue(config v1alpha1.AgentConfigurationSpec) 
 
 	s.maxConcurrentReconciles = config.MaxConcurrentReconciles
 	s.baseRegistryURL = config.BaseRegistryURL
+	s.maxSentinelRunJobs = config.MaxSentinelRunJobs
 
 	return nil
 }
@@ -124,6 +126,12 @@ func (s *ConfigurationManager) GetMaxConcurrentReconciles() *int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.maxConcurrentReconciles
+}
+
+func (s *ConfigurationManager) GetMaxSentinelRunJobs() *int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.maxSentinelRunJobs
 }
 
 func (s *ConfigurationManager) GetServicePollInterval() *time.Duration {
