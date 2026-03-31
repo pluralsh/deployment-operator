@@ -98,14 +98,39 @@ agent-run: agent ## run agent
         --v=1 \
         --deploy-token=${PLURAL_DEPLOY_TOKEN}
 
-.PHONY: harness-run
-harness-run: docker-build-harness-terraform docker-build-harness-ansible ## run harness
-	docker run \
+.PHONY: harness-run-terraform
+harness-run-terraform: docker-build-harness-terraform ## run harness
+	@KUBECONFIG_TMP=$$(mktemp) && \
+	cp $${KUBECONFIG:-$${HOME}/.kube/config} $$KUBECONFIG_TMP && \
+	chmod 644 $$KUBECONFIG_TMP && \
+	docker run --rm \
+		--network=host \
+		-v $$KUBECONFIG_TMP:/home/nonroot/.kube/config \
+		-e KUBECONFIG=/home/nonroot/.kube/config \
+		-e HOME=/home/nonroot \
 		harness:latest \
 		--v=5 \
 		--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
 		--console-token=${PLURAL_DEPLOY_TOKEN} \
-		--stack-run-id=${PLURAL_STACK_RUN_ID}
+		--stack-run-id=${PLURAL_STACK_RUN_ID}; \
+	rm -f $$KUBECONFIG_TMP
+
+.PHONY: harness-run-ansible
+harness-run-ansible: docker-build-harness-ansible ## run harness
+	@KUBECONFIG_TMP=$$(mktemp) && \
+	cp $${KUBECONFIG:-$${HOME}/.kube/config} $$KUBECONFIG_TMP && \
+	chmod 644 $$KUBECONFIG_TMP && \
+	docker run --rm \
+		--network=host \
+		-v $$KUBECONFIG_TMP:/home/nonroot/.kube/config \
+		-e KUBECONFIG=/home/nonroot/.kube/config \
+		-e HOME=/home/nonroot \
+		harness:latest \
+		--v=5 \
+		--console-url=${PLURAL_CONSOLE_URL}/ext/gql \
+		--console-token=${PLURAL_DEPLOY_TOKEN} \
+		--stack-run-id=${PLURAL_STACK_RUN_ID}; \
+	rm -f $$KUBECONFIG_TMP
 
 .PHONY: agent-harness-opencode-run
 agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent harness w/ opencode

@@ -68,6 +68,9 @@ func handleFatalError(err error) {
 	case errors.Is(err, internalerrors.ErrTerminated):
 		klog.ErrorS(err, "stack run has been terminated")
 		os.Exit(signals.ExitCodeTerminated.Int())
+	case errors.Is(err, internalerrors.ErrUnauthenticated):
+		klog.ErrorS(err, "console authentication failed, rotate or replace the console token and restart the harness job")
+		os.Exit(signals.ExitCodeOther.Int())
 	}
 
 	klog.ErrorS(err, "stack run failed")
