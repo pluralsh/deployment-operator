@@ -155,7 +155,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 			"mcp__plural__updateAgentRunTodos")
 	}
 
-	defaultTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.Timeout.Milliseconds())
+	defaultTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashTimeout.Milliseconds())
 	maxTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashMaxTimeout.Milliseconds())
 	settings.WithEnv("BASH_DEFAULT_TIMEOUT_MS", defaultTimeout)
 	settings.WithEnv("BASH_MAX_TIMEOUT_MS", maxTimeout)
