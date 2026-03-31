@@ -41,7 +41,6 @@ type AgentConfigurationSpec struct {
 	BaseRegistryURL *string `json:"baseRegistryURL,omitempty"`
 
 	// MaxSentinelRunJobs limits the number of concurrent SentinelRunJobs that can be active at any given time.
-	// MaxSentinelRunJobs limits the number of concurrent SentinelRunJobs that can be active at any given time.
 	// Must be greater than 0. Set this field to nil (omit) to disable the limit.
 	// +kubebuilder:validation:Minimum=1
 	MaxSentinelRunJobs *int `json:"maxSentinelRunJobs,omitempty"`
