@@ -104,7 +104,7 @@ func (r *StackRunJobReconciler) GenerateRunJob(run *console.StackRunMinimalFragm
 	jobSpec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
 
 	jobSpec.BackoffLimit = lo.ToPtr(int32(0))
-	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(int32(60 * 60))
+	jobSpec.TTLSecondsAfterFinished = lo.ToPtr(int32(5 * 60)) // 5 minutes after completion (success or failure) the job will be automatically cleaned up by Kubernetes
 
 	jobSpec.Template.Spec.Containers = r.ensureDefaultContainer(jobSpec.Template.Spec.Containers, run)
 
