@@ -272,7 +272,7 @@ func genDefaultJobSpec(namespace, name, runID string) batchv1.JobSpec {
 				SecurityContext: r.ensureDefaultPodSecurityContext(nil),
 			},
 		},
-		TTLSecondsAfterFinished: lo.ToPtr(int32(60 * 60)),
+		TTLSecondsAfterFinished: lo.ToPtr(int32(5 * 60)),
 		BackoffLimit:            lo.ToPtr(int32(0)),
 	}
 }
