@@ -2,6 +2,19 @@ apiVersion: v1
 entries:
   deployment-operator:
   - apiVersion: v2
+    appVersion: 0.6.31
+    created: "2026-03-31T15:23:30.559343701Z"
+    description: creates a new instance of the plural deployment operator
+    digest: e5f2b2fe294fed491f0656b2c58e5d095107b8ea36d592d54995be0337ec1041
+    maintainers:
+    - name: Plural
+      url: https://www.plural.sh
+    name: deployment-operator
+    type: application
+    urls:
+    - https://github.com/pluralsh/deployment-operator/releases/download/agent-v0.6.31/deployment-operator-0.6.31.tgz
+    version: 0.6.31
+  - apiVersion: v2
     appVersion: 0.6.30
     created: "2026-03-22T21:40:32.832224634Z"
     description: creates a new instance of the plural deployment operator
@@ -2445,4 +2458,4 @@ entries:
     urls:
     - https://github.com/pluralsh/deployment-operator/releases/download/deployment-operator-0.1.0/deployment-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-22T21:40:32.832703713Z"
+generated: "2026-03-31T15:23:30.559781295Z"
