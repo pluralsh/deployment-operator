@@ -42,14 +42,25 @@ func GetPluralEnvBool(key string, fallback bool) bool {
 		return fallback
 	}
 
-	return env == "true"
+	return strings.ToLower(env) == "true"
 }
 
 // GetPluralEnvSlice - Lookup the plural environment variable. It has to be prefixed with EnvPrefix. If variable
 // with the provided key is not found, fallback will be used.
 func GetPluralEnvSlice(key string, fallback []string) []string {
 	if v := GetPluralEnv(key, ""); len(v) > 0 {
-		return strings.Split(v, ",")
+		parts := strings.Split(v, ",")
+		var result []string
+
+		for _, part := range parts {
+			if trimmed := strings.TrimSpace(part); len(trimmed) > 0 {
+				result = append(result, trimmed)
+			}
+		}
+
+		if len(result) > 0 {
+			return result
+		}
 	}
 
 	return fallback
