@@ -2,7 +2,6 @@ package opencode
 
 import (
 	"encoding/json"
-	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
@@ -76,9 +75,6 @@ type Opencode struct {
 
 	// executable is the opencode executable used to call CLI.
 	executable exec.Executable
-
-	// timeout bounds a single opencode run invocation.
-	timeout time.Duration
 
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
