@@ -403,6 +403,7 @@ func (in *OpenCodeConfig) ToOpenCodeConfigRaw(secretGetter func(corev1.SecretKey
 	}
 
 	return &OpenCodeConfigRaw{
+		Provider: in.Provider,
 		Endpoint: in.Endpoint,
 		Model:    in.Model,
 		Token:    string(token),
