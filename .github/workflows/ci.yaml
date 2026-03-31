@@ -57,7 +57,7 @@ jobs:
     - name: Verify CRD docs
       run: |
         git diff --exit-code -- docs/api.md || {
-          echo "::error docs were not generated. Please run 'make crd-docs' and commit the changes."
+          echo "::error::docs were not generated. Please run 'make crd-docs' and commit the changes."
           exit 1
         }
   build-image:
