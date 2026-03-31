@@ -325,6 +325,28 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 			Expect(isActiveJobTimout(console.StackStatusPending, recentJob)).Should(BeFalse())
 		})
 
+		It("should correctly identify controlled job max lifetime timeout", func() {
+			oldJob := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: metav1.Time{Time: time.Now().Add(-13 * time.Hour)},
+				},
+				Status: batchv1.JobStatus{
+					StartTime: &metav1.Time{Time: time.Now().Add(-13 * time.Hour)},
+				},
+			}
+			Expect(isControlledJobTimedOut(oldJob)).Should(BeTrue())
+
+			recentJob := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+				},
+				Status: batchv1.JobStatus{
+					StartTime: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+				},
+			}
+			Expect(isControlledJobTimedOut(recentJob)).Should(BeFalse())
+		})
+
 		It("should generate correct resource name", func() {
 			reconciler := &StackRunJobReconciler{}
 			run := &console.StackRunMinimalFragment{
@@ -532,6 +554,90 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 			Expect(kClient.Delete(ctx, stackRunJob)).To(Succeed())
 			secret := &corev1.Secret{}
 			err = kClient.Get(ctx, timeoutNamespacedName, secret)
+			if err == nil {
+				Expect(kClient.Delete(ctx, secret)).To(Succeed())
+			}
+		})
+
+		It("should cancel and kill controlled job after max lifetime", func() {
+			By("Creating StackRunJob for max lifetime timeout test")
+			maxLifetimeRunName := "stack-test-max-lifetime"
+			maxLifetimeRunID := "test-max-lifetime-321"
+			maxLifetimeNamespacedName := types.NamespacedName{Name: maxLifetimeRunName, Namespace: namespace}
+
+			resource := &v1alpha1.StackRunJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      maxLifetimeRunName,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1.StackRunJobSpec{
+					RunID: maxLifetimeRunID,
+				},
+			}
+			Expect(kClient.Create(ctx, resource)).To(Succeed())
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetStackRun", maxLifetimeRunID).Return(&console.StackRunMinimalFragment{
+				ID:     "stack-max-lifetime-123",
+				Type:   console.StackTypeTerraform,
+				Status: console.StackStatusPending,
+				Configuration: console.StackConfigurationFragment{
+					Version: lo.ToPtr("1.8.2"),
+				},
+			}, nil)
+			fakeConsoleClient.On("UpdateStackRun", "stack-max-lifetime-123", console.StackRunAttributes{
+				Status: console.StackStatusPending,
+				JobRef: &console.NamespacedName{
+					Name:      maxLifetimeRunName,
+					Namespace: namespace,
+				},
+			}).Return(nil).Once()
+			fakeConsoleClient.On("UpdateStackRun", "stack-max-lifetime-123", console.StackRunAttributes{
+				Status: console.StackStatusCancelled,
+				JobRef: &console.NamespacedName{
+					Name:      maxLifetimeRunName,
+					Namespace: namespace,
+				},
+			}).Return(nil).Once()
+
+			reconciler := &StackRunJobReconciler{
+				Client:        kClient,
+				ConsoleClient: fakeConsoleClient,
+				Scheme:        kClient.Scheme(),
+				ConsoleURL:    "https://console.test.com",
+				DeployToken:   "test-token",
+			}
+
+			// First reconcile to create resources
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: maxLifetimeNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Update job to be older than 12h based on start time
+			job := &batchv1.Job{}
+			Expect(kClient.Get(ctx, maxLifetimeNamespacedName, job)).NotTo(HaveOccurred())
+			Expect(common.MaybePatch(kClient, job,
+				func(p *batchv1.Job) {
+					oldTime := metav1.Time{Time: time.Now().Add(-13 * time.Hour)}
+					p.Status.StartTime = &oldTime
+				})).To(Succeed())
+
+			// Reconcile again to trigger max lifetime cancellation
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: maxLifetimeNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify status was updated to cancelled
+			stackRunJob := &v1alpha1.StackRunJob{}
+			Expect(kClient.Get(ctx, maxLifetimeNamespacedName, stackRunJob)).NotTo(HaveOccurred())
+			Expect(stackRunJob.Status.JobStatus).Should(Equal(string(console.StackStatusCancelled)))
+
+			// Verify controlled Job was removed
+			err = kClient.Get(ctx, maxLifetimeNamespacedName, &batchv1.Job{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			// Cleanup
+			Expect(kClient.Delete(ctx, stackRunJob)).To(Succeed())
+			secret := &corev1.Secret{}
+			err = kClient.Get(ctx, maxLifetimeNamespacedName, secret)
 			if err == nil {
 				Expect(kClient.Delete(ctx, secret)).To(Succeed())
 			}

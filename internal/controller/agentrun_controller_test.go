@@ -515,6 +515,86 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			}
 		})
 
+		It("should cancel and kill pod after max lifetime", func() {
+			By("Creating a new AgentRun for max lifetime timeout test")
+			timeoutRunName := "agent-test-run-timeout"
+			timeoutRunID := "test-run-timeout-987"
+			timeoutNamespacedName := types.NamespacedName{Name: timeoutRunName, Namespace: namespace}
+
+			resource := &v1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       timeoutRunName,
+					Namespace:  namespace,
+					Finalizers: []string{AgentRunFinalizer},
+				},
+				Spec: v1alpha1.AgentRunSpec{
+					RuntimeRef: v1alpha1.AgentRuntimeReference{
+						Name: runtimeName,
+					},
+					Prompt:     agentRunPrompt,
+					Repository: repository,
+					Mode:       console.AgentRunModeAnalyze,
+				},
+			}
+			Expect(kClient.Create(ctx, resource)).To(Succeed())
+
+			resource.Status.ID = lo.ToPtr(timeoutRunID)
+			Expect(kClient.Status().Update(ctx, resource)).To(Succeed())
+
+			fakeConsoleClient := mocks.NewClientMock(mocks.TestingT)
+			fakeConsoleClient.On("GetAgentRun", mock.Anything, timeoutRunID).Return(&console.AgentRunFragment{
+				ID:     timeoutRunID,
+				Status: console.AgentRunStatusPending,
+			}, nil).Twice()
+			fakeConsoleClient.On("UpdateAgentRun", mock.Anything, timeoutRunID, mock.MatchedBy(func(attrs console.AgentRunStatusAttributes) bool {
+				return attrs.Status == console.AgentRunStatusPending
+			})).Return(&console.AgentRunFragment{
+				ID:     timeoutRunID,
+				Status: console.AgentRunStatusPending,
+			}, nil).Once()
+			fakeConsoleClient.On("UpdateAgentRun", mock.Anything, timeoutRunID, mock.MatchedBy(func(attrs console.AgentRunStatusAttributes) bool {
+				return attrs.Status == console.AgentRunStatusCancelled
+			})).Return(&console.AgentRunFragment{
+				ID:     timeoutRunID,
+				Status: console.AgentRunStatusCancelled,
+			}, nil).Once()
+
+			reconciler := &AgentRunReconciler{
+				Client:        kClient,
+				ConsoleClient: fakeConsoleClient,
+				Scheme:        kClient.Scheme(),
+				ConsoleURL:    consoleURL,
+				DeployToken:   deployToken,
+			}
+
+			// First reconcile creates pod and secret.
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: timeoutNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			pod := &corev1.Pod{}
+			Expect(kClient.Get(ctx, timeoutNamespacedName, pod)).NotTo(HaveOccurred())
+			oldTime := metav1.Time{Time: time.Now().Add(-13 * time.Hour)}
+			pod.Status.StartTime = &oldTime
+			Expect(kClient.Status().Update(ctx, pod)).To(Succeed())
+
+			// Second reconcile should cancel and delete the pod.
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: timeoutNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			err = kClient.Get(ctx, timeoutNamespacedName, &corev1.Pod{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			// Cleanup.
+			agentRun := &v1alpha1.AgentRun{}
+			if err := kClient.Get(ctx, timeoutNamespacedName, agentRun); err == nil {
+				_ = kClient.Delete(ctx, agentRun)
+			}
+			secret := &corev1.Secret{}
+			if err := kClient.Get(ctx, timeoutNamespacedName, secret); err == nil {
+				_ = kClient.Delete(ctx, secret)
+			}
+		})
+
 	})
 
 	Context("Secret reconciliation", func() {
@@ -631,6 +711,30 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			data := reconciler.getSecretData(run, config, console.AgentRuntimeTypeGemini)
 			Expect(data[EnvGeminiModel]).Should(Equal("gemini-pro"))
 			Expect(data[EnvGeminiAPIKey]).Should(Equal("gemini-api-key"))
+		})
+	})
+
+	Context("Timeout helpers", func() {
+		It("should detect timed out agent run pod", func() {
+			oldPod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: metav1.Time{Time: time.Now().Add(-13 * time.Hour)},
+				},
+				Status: corev1.PodStatus{
+					StartTime: &metav1.Time{Time: time.Now().Add(-13 * time.Hour)},
+				},
+			}
+			Expect(isAgentRunPodTimedOut(oldPod)).To(BeTrue())
+
+			recentPod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+				},
+				Status: corev1.PodStatus{
+					StartTime: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+				},
+			}
+			Expect(isAgentRunPodTimedOut(recentPod)).To(BeFalse())
 		})
 	})
 })
