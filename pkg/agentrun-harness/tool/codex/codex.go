@@ -196,6 +196,8 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		)...,
 	)
 
+	klog.V(log.LogLevelInfo).InfoS("codex executable configured", "timeout", in.Config.Run.Runtime.Config.Codex.Timeout)
+
 	// Send the initial prompt as a message too
 	if in.onMessage != nil {
 		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})

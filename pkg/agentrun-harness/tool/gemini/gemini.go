@@ -50,6 +50,8 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 		)...,
 	)
 
+	klog.V(log.LogLevelInfo).InfoS("Gemini executable configured", "timeout", in.Config.Run.Runtime.Config.Gemini.Timeout)
+
 	// Send the initial prompt as a message too
 	if in.onMessage != nil {
 		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
@@ -127,7 +129,7 @@ func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error 
 		return fmt.Errorf("failed configuring Gemini settings file %q: %w", SettingsFileName, err)
 	}
 
-	klog.V(log.LogLevelExtended).InfoS("Gemini configured", "settings", in.settingsPath())
+	klog.V(log.LogLevelExtended).InfoS("Gemini configured", "settings", in.settingsPath(), "inactivityTimeout", in.Config.Run.Runtime.Config.Gemini.InactivityTimeout)
 	return nil
 }
 

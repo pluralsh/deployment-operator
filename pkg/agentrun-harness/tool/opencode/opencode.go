@@ -82,6 +82,8 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 		)...,
 	)
 
+	klog.V(log.LogLevelInfo).InfoS("opencode executable configured", "timeout", in.Config.Run.Runtime.Config.OpenCode.Timeout)
+
 	// Send the initial prompt as a message too
 	if in.onMessage != nil {
 		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
