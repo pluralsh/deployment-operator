@@ -191,6 +191,7 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 			options,
 			exec.WithArgs(args),
 			exec.WithDir(in.Config.WorkDir),
+			exec.WithEnv([]string{fmt.Sprintf("PLRL_CONSOLE_TOKEN=%s", in.consoleToken), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
 			exec.WithTimeout(in.Config.Run.Runtime.Config.Codex.Timeout),
 		)...,
 	)
