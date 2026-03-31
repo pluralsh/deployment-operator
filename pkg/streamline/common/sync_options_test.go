@@ -247,3 +247,88 @@ func TestHasResyncInProgressAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func TestHasReplaceSyncOption(t *testing.T) {
+	tests := []struct {
+		name string
+		obj  unstructured.Unstructured
+		want bool
+	}{
+		{
+			name: "no annotations",
+			obj:  unstructured.Unstructured{},
+			want: false,
+		},
+		{
+			name: "plural annotation replace enabled",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							SyncOptionsAnnotation: "Replace=True",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "plural annotation replace disabled",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							SyncOptionsAnnotation: "Replace=False",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "argo annotation replace enabled",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							ArgoSyncOptionsAnnotation: "Replace=True",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "argo annotation replace disabled",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							ArgoSyncOptionsAnnotation: "Replace=False",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "multiple options with replace",
+			obj: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							SyncOptionsAnnotation: "Validate=False,Replace=True",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, HasReplaceSyncOption(tt.obj))
+		})
+	}
+}
