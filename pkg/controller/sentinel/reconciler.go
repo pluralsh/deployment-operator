@@ -135,7 +135,12 @@ func (r *SentinelReconciler) Poll(ctx context.Context) error {
 		if err := r.k8sClient.List(ctx, metaList); err != nil {
 			return err
 		}
-		activeRuns := len(metaList.Items)
+		activeRuns := 0
+		for _, item := range metaList.Items {
+			if item.DeletionTimestamp == nil {
+				activeRuns++
+			}
+		}
 		availableSlots = *maxSentinelRun - activeRuns
 		if availableSlots <= 0 {
 			logger.V(4).Info("max sentinel run jobs limit reached, skipping poll", "activeRuns", activeRuns, "maxSentinelRun", *maxSentinelRun)

@@ -60,8 +60,11 @@ spec:
                   Higher values can increase throughput at the cost of resource usage.
                 type: integer
               maxSentinelRunJobs:
-                description: MaxSentinelRunJobs limits the number of concurrent SentinelRunJobs
-                  that can be active at any given time.
+                description: |-
+                  MaxSentinelRunJobs limits the number of concurrent SentinelRunJobs that can be active at any given time.
+                  MaxSentinelRunJobs limits the number of concurrent SentinelRunJobs that can be active at any given time.
+                  Must be greater than 0. Set this field to nil (omit) to disable the limit.
+                minimum: 1
                 type: integer
               pipelineGateInterval:
                 description: |-
