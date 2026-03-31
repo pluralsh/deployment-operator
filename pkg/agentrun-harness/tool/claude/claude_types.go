@@ -3,8 +3,6 @@ package claude
 import (
 	console "github.com/pluralsh/console/go/client"
 
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	toolv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
@@ -12,28 +10,19 @@ import (
 type Model string
 
 const (
-	ClaudeSonnet45 Model = "claude-sonnet-4-5-20250929"
-	ClaudeSonnet4  Model = "claude-sonnet-4-20250514"
-	ClaudeOpus45   Model = "claude-opus-4-5-20251101"
-	ClaudeOpus4    Model = "claude-opus-4-20250514"
-	ClaudeOpus41   Model = "claude-opus-4-1-20250805"
+	Sonnet45 Model = "claude-sonnet-4-5-20250929"
+	Sonnet4  Model = "claude-sonnet-4-20250514"
+	Opus45   Model = "claude-opus-4-5-20251101"
+	Opus4    Model = "claude-opus-4-20250514"
+	Opus41   Model = "claude-opus-4-1-20250805"
 )
 
-func DefaultModel() Model {
-	switch helpers.GetEnv(controller.EnvClaudeModel, string(ClaudeOpus45)) {
-	case string(ClaudeOpus45):
-		return ClaudeOpus45
-	case string(ClaudeOpus4):
-		return ClaudeOpus4
-	case string(ClaudeOpus41):
-		return ClaudeOpus41
-	case string(ClaudeSonnet4):
-		return ClaudeSonnet4
-	case string(ClaudeSonnet45):
-		return ClaudeSonnet45
-	default:
-		return ClaudeOpus45
+func EnsureModel(model string) Model {
+	if len(model) == 0 {
+		return Opus45
 	}
+
+	return Model(model)
 }
 
 type Claude struct {

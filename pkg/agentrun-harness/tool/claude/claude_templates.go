@@ -25,10 +25,10 @@ type Permissions struct {
 	Deny  []string `json:"deny"`
 }
 
-func NewSettingsBuilder() *SettingsBuilder {
+func NewSettingsBuilder(model Model) *SettingsBuilder {
 	return &SettingsBuilder{
 		settings: Settings{
-			Model:                      string(DefaultModel()),
+			Model:                      string(model),
 			Temperature:                0.1,
 			EnableAllProjectMcpServers: true,
 			Permissions: Permissions{

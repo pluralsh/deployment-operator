@@ -14,13 +14,14 @@ var settingsTemplate string
 const SettingsFileName = "settings.json"
 
 type ConfigTemplateInput struct {
-	Model         Model
-	RepositoryDir string
-	ConsoleURL    string
-	ConsoleToken  string
-	DeployToken   string
-	AgentRunID    string
-	AgentRunMode  console.AgentRunMode
+	Model             Model
+	RepositoryDir     string
+	ConsoleURL        string
+	ConsoleToken      string
+	DeployToken       string
+	AgentRunID        string
+	AgentRunMode      console.AgentRunMode
+	InactivityTimeout int64
 }
 
 func settings(input *ConfigTemplateInput) (fileName, content string, err error) {

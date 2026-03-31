@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -49,6 +50,20 @@ func GetPluralEnvBool(key string, fallback bool) bool {
 func GetPluralEnvSlice(key string, fallback []string) []string {
 	if v := GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), ""); len(v) > 0 {
 		return strings.Split(v, ",")
+	}
+
+	return fallback
+}
+
+func GetPluralEnvDuration(key string, fallback time.Duration) time.Duration {
+	if v := GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), ""); len(v) > 0 {
+		result, err := time.ParseDuration(v)
+		if err != nil {
+			klog.Errorf("failed to parse %s as duration: %s", v, err)
+			return fallback
+		}
+
+		return result
 	}
 
 	return fallback

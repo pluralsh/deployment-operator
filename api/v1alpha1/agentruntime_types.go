@@ -231,6 +231,10 @@ type CodexConfigRaw struct {
 
 	// Model to use.
 	Model *string `json:"model,omitempty"`
+
+	// Timeout bounds a single codex run invocation.
+	// +kubebuilder:validation:Optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
 }
 
 type CodexConfig struct {
@@ -239,6 +243,10 @@ type CodexConfig struct {
 
 	// Model to use.
 	Model *string `json:"model,omitempty"`
+
+	// Timeout bounds a single codex run invocation.
+	// +kubebuilder:validation:Optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
 }
 
 func (in *CodexConfig) ToCodexConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*CodexConfigRaw, error) {
@@ -261,8 +269,9 @@ func (in *CodexConfig) ToCodexConfigRaw(secretGetter func(corev1.SecretKeySelect
 	}
 
 	return &CodexConfigRaw{
-		ApiKey: string(token),
-		Model:  in.Model,
+		ApiKey:  string(token),
+		Model:   in.Model,
+		Timeout: in.Timeout,
 	}, nil
 }
 
@@ -276,6 +285,19 @@ type ClaudeConfig struct {
 
 	// ExtraArgs CLI args for advanced flags not modeled here
 	ExtraArgs []string `json:"extraArgs,omitempty"`
+
+	// Timeout bounds a single claude CLI run invocation.
+	// +kubebuilder:validation:Optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// BashTimeout is the default timeout for any bash command Claude execute.
+	// +kubebuilder:validation:Optional
+	BashTimeout *metav1.Duration `json:"bashTimeout,omitempty"`
+
+	// BashMaxTimeout is the maximum time Claude is permitted to wait
+	// for a command before it is terminated.
+	// +kubebuilder:validation:Optional
+	BashMaxTimeout *metav1.Duration `json:"bashMaxTimeout,omitempty"`
 }
 
 // ClaudeConfigRaw contains configuration for the Claude CLI runtime.
@@ -292,6 +314,19 @@ type ClaudeConfigRaw struct {
 
 	// ExtraArgs CLI args for advanced flags not modeled here
 	ExtraArgs []string `json:"extraArgs,omitempty"`
+
+	// Timeout bounds a single claude CLI run invocation.
+	// +kubebuilder:validation:Optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// BashTimeout is the default timeout for any bash command Claude executes.
+	// +kubebuilder:validation:Optional
+	BashTimeout *metav1.Duration `json:"bashTimeout,omitempty"`
+
+	// BashMaxTimeout is the maximum time Claude is permitted to wait
+	// for a command before it is terminated.
+	// +kubebuilder:validation:Optional
+	BashMaxTimeout *metav1.Duration `json:"bashMaxTimeout,omitempty"`
 }
 
 func (in *ClaudeConfig) ToClaudeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*ClaudeConfigRaw, error) {
@@ -314,9 +349,12 @@ func (in *ClaudeConfig) ToClaudeConfigRaw(secretGetter func(corev1.SecretKeySele
 	}
 
 	return &ClaudeConfigRaw{
-		ApiKey:    string(token),
-		Model:     in.Model,
-		ExtraArgs: in.ExtraArgs,
+		ApiKey:         string(token),
+		Model:          in.Model,
+		ExtraArgs:      in.ExtraArgs,
+		Timeout:        in.Timeout,
+		BashTimeout:    in.BashTimeout,
+		BashMaxTimeout: in.BashMaxTimeout,
 	}, nil
 }
 
@@ -343,6 +381,10 @@ type OpenCodeConfig struct {
 	//
 	// Deprecated: It is being ignored by the agent harness.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
+
+	// Timeout bounds a single opencode run invocation.
+	// +kubebuilder:validation:Optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
 }
 
 func (in *OpenCodeConfig) ToOpenCodeConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*OpenCodeConfigRaw, error) {
@@ -361,10 +403,10 @@ func (in *OpenCodeConfig) ToOpenCodeConfigRaw(secretGetter func(corev1.SecretKey
 	}
 
 	return &OpenCodeConfigRaw{
-		Provider: in.Provider,
 		Endpoint: in.Endpoint,
 		Model:    in.Model,
 		Token:    string(token),
+		Timeout:  in.Timeout,
 	}, nil
 }
 
@@ -385,6 +427,10 @@ type OpenCodeConfigRaw struct {
 
 	// Token is the raw API token for OpenCode.
 	Token string `json:"tokenSecretRef"`
+
+	// Timeout bounds a single opencode run invocation.
+	// +kubebuilder:validation:Optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
 }
 
 // GeminiConfig contains configuration for the Gemini CLI runtime.
@@ -398,6 +444,14 @@ type GeminiConfig struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=gemini-3-pro-preview;gemini-2.5-pro;gemini-2.5-flash;gemini-2.5-flash-lite;gemini-2.0-flash;gemini-2.0-flash-lite
 	Model *string `json:"model,omitempty"`
+
+	// Timeout bounds a single gemini run invocation.
+	// +kubebuilder:validation:Optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// InactivityTimeout is the timeout for inactivity during a gemini run.
+	// +kubebuilder:validation:Optional
+	InactivityTimeout *metav1.Duration `json:"inactivityTimeout,omitempty"`
 }
 
 func (in *GeminiConfig) Raw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*GeminiConfigRaw, error) {
@@ -416,8 +470,10 @@ func (in *GeminiConfig) Raw(secretGetter func(corev1.SecretKeySelector) (*corev1
 	}
 
 	return &GeminiConfigRaw{
-		Model:  in.Model,
-		APIKey: string(apiKey),
+		Model:             in.Model,
+		APIKey:            string(apiKey),
+		Timeout:           in.Timeout,
+		InactivityTimeout: in.InactivityTimeout,
 	}, nil
 }
 
@@ -432,6 +488,14 @@ type GeminiConfigRaw struct {
 
 	// Model is the name of the model to use.
 	Model *string `json:"model,omitempty"`
+
+	// Timeout bounds a single gemini run invocation.
+	// +kubebuilder:validation:Optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// InactivityTimeout is the timeout for inactivity during gemini run.
+	// +kubebuilder:validation:Optional
+	InactivityTimeout *metav1.Duration `json:"inactivityTimeout,omitempty"`
 }
 
 type AgentRuntimeBindings struct {

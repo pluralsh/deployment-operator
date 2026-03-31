@@ -252,10 +252,32 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 }
 
 func getDefaultEnvVars(_ *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
-	return []corev1.EnvVar{
+	envs := []corev1.EnvVar{
 		{Name: EnvDindEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Dind != nil && *runtime.Spec.Dind)},
 		{Name: EnvBrowserEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Browser.IsEnabled())},
 	}
+
+	if runtime.Spec.Config != nil {
+		if runtime.Spec.Config.Claude != nil && runtime.Spec.Config.Claude.Timeout != nil {
+			envs = append(envs, corev1.EnvVar{Name: EnvClaudeTimeout, Value: runtime.Spec.Config.Claude.Timeout.Duration.String()})
+		}
+		if runtime.Spec.Config.OpenCode != nil {
+			if runtime.Spec.Config.OpenCode.Timeout != nil {
+				envs = append(envs, corev1.EnvVar{Name: EnvOpenCodeTimeout, Value: runtime.Spec.Config.OpenCode.Timeout.Duration.String()})
+			}
+			if runtime.Spec.Config.OpenCode.InactivityTimeout != nil {
+				envs = append(envs, corev1.EnvVar{Name: EnvOpenCodeInactivityTimeout, Value: runtime.Spec.Config.OpenCode.InactivityTimeout.Duration.String()})
+			}
+		}
+		if runtime.Spec.Config.Gemini != nil && runtime.Spec.Config.Gemini.Timeout != nil {
+			envs = append(envs, corev1.EnvVar{Name: EnvGeminiTimeout, Value: runtime.Spec.Config.Gemini.Timeout.Duration.String()})
+		}
+		if runtime.Spec.Config.Codex != nil && runtime.Spec.Config.Codex.Timeout != nil {
+			envs = append(envs, corev1.EnvVar{Name: EnvCodexTimeout, Value: runtime.Spec.Config.Codex.Timeout.Duration.String()})
+		}
+	}
+
+	return envs
 }
 
 func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {

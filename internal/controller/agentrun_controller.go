@@ -41,18 +41,22 @@ const (
 	EnvOpenCodeModel    = "PLRL_OPENCODE_MODEL"
 	EnvOpenCodeToken    = "PLRL_OPENCODE_TOKEN"
 
-	EnvClaudeModel = "PLRL_CLAUDE_MODEL"
-	EnvClaudeToken = "PLRL_CLAUDE_TOKEN"
-	EnvClaudeArgs  = "PLRL_CLAUDE_ARGS"
+	EnvClaudeModel              = "PLRL_CLAUDE_MODEL"
+	EnvClaudeToken              = "PLRL_CLAUDE_TOKEN"
+	EnvClaudeArgs               = "PLRL_CLAUDE_ARGS"
+	EnvClaudeBashDefaultTimeout = "PLRL_CLAUDE_BASH_DEFAULT_TIMEOUT"
+	EnvClaudeBashMaxTimeout     = "PLRL_CLAUDE_BASH_MAX_TIMEOUT"
 
-	EnvGeminiModel  = "PLRL_GEMINI_MODEL"
-	EnvGeminiAPIKey = "PLRL_GEMINI_API_KEY"
+	EnvGeminiModel             = "PLRL_GEMINI_MODEL"
+	EnvGeminiAPIKey            = "PLRL_GEMINI_API_KEY"
+	EnvGeminiInactivityTimeout = "PLRL_GEMINI_INACTIVITY_TIMEOUT"
 
 	EnvCodexModel  = "PLRL_CODEX_MODEL"
 	EnvCodexAPIKey = "PLRL_CODEX_API_KEY"
 
 	EnvDindEnabled    = "PLRL_DIND_ENABLED"
 	EnvBrowserEnabled = "PLRL_BROWSER_ENABLED"
+	EnvExecTimeout    = "PLRL_EXEC_TIMEOUT"
 )
 
 var (
@@ -349,6 +353,9 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 		result[EnvOpenCodeEndpoint] = config.OpenCode.Endpoint
 		result[EnvOpenCodeModel] = lo.FromPtr(config.OpenCode.Model)
 		result[EnvOpenCodeToken] = config.OpenCode.Token
+		if config.OpenCode.Timeout != nil {
+			result[EnvExecTimeout] = config.OpenCode.Timeout.Duration.String()
+		}
 	}
 	if runtimeType == console.AgentRuntimeTypeClaude {
 		if config.Claude == nil {
@@ -359,11 +366,22 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 			for _, a := range config.Claude.ExtraArgs {
 				quoted = append(quoted, strconv.Quote(a))
 			}
-			result[EnvClaudeArgs] = strings.Join(quoted, " ")
+			result[EnvClaudeArgs] = strings.Join(quoted, ",")
 		}
 
 		result[EnvClaudeModel] = lo.FromPtr(config.Claude.Model)
 		result[EnvClaudeToken] = config.Claude.ApiKey
+		if config.Claude.Timeout != nil {
+			result[EnvExecTimeout] = config.Claude.Timeout.Duration.String()
+		}
+
+		if config.Claude.BashTimeout != nil {
+			result[EnvClaudeBashDefaultTimeout] = config.Claude.BashTimeout.Duration.String()
+		}
+
+		if config.Claude.BashMaxTimeout != nil {
+			result[EnvClaudeBashMaxTimeout] = config.Claude.BashMaxTimeout.Duration.String()
+		}
 	}
 
 	if runtimeType == console.AgentRuntimeTypeGemini {
@@ -373,6 +391,13 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 
 		result[EnvGeminiModel] = lo.FromPtr(config.Gemini.Model)
 		result[EnvGeminiAPIKey] = config.Gemini.APIKey
+		if config.Gemini.Timeout != nil {
+			result[EnvExecTimeout] = config.Gemini.Timeout.Duration.String()
+		}
+
+		if config.Gemini.InactivityTimeout != nil {
+			result[EnvGeminiInactivityTimeout] = config.Gemini.InactivityTimeout.Duration.String()
+		}
 	}
 	if runtimeType == console.AgentRuntimeTypeCodex {
 		if config.Codex == nil {
@@ -380,6 +405,9 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 		}
 		result[EnvCodexModel] = lo.FromPtr(config.Codex.Model)
 		result[EnvCodexAPIKey] = config.Codex.ApiKey
+		if config.Codex.Timeout != nil {
+			result[EnvExecTimeout] = config.Codex.Timeout.Duration.String()
+		}
 	}
 
 	return result

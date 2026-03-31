@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"path"
 	"strings"
-	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/gemini/events"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
@@ -48,7 +46,7 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 			exec.WithArgs(in.args()),
 			exec.WithDir(in.Config.WorkDir),
 			exec.WithEnv([]string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}),
-			exec.WithTimeout(15*time.Minute),
+			exec.WithTimeout(in.Config.Run.Runtime.Config.Gemini.Timeout),
 		)...,
 	)
 
@@ -110,16 +108,14 @@ func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error 
 	}
 
 	input := &ConfigTemplateInput{
-		ConsoleURL:    consoleURL,
-		ConsoleToken:  consoleToken,
-		DeployToken:   deployToken,
-		RepositoryDir: in.Config.RepositoryDir,
-		AgentRunID:    in.Config.Run.ID,
-		AgentRunMode:  in.Config.Run.Mode,
-	}
-
-	if in.Config.Run.Runtime.Type == console.AgentRuntimeTypeGemini {
-		input.Model = DefaultModel()
+		ConsoleURL:        consoleURL,
+		ConsoleToken:      consoleToken,
+		DeployToken:       deployToken,
+		RepositoryDir:     in.Config.RepositoryDir,
+		AgentRunID:        in.Config.Run.ID,
+		AgentRunMode:      in.Config.Run.Mode,
+		InactivityTimeout: int64(in.Config.Run.Runtime.Config.Gemini.InactivityTimeout.Seconds()),
+		Model:             in.model,
 	}
 
 	_, content, err := settings(input)
@@ -158,7 +154,7 @@ func New(config v1.Config) v1.Tool {
 
 	return &Gemini{
 		DefaultTool: v1.DefaultTool{Config: config},
-		apiKey:      helpers.GetEnv(controller.EnvGeminiAPIKey, ""),
-		model:       DefaultModel(),
+		apiKey:      config.Run.Runtime.Config.Gemini.APIKey,
+		model:       EnsureModel(config.Run.Runtime.Config.Gemini.Model),
 	}
 }

@@ -7,13 +7,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/internal/controller"
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
@@ -29,15 +27,20 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 		return err
 	}
 
+	endpoint := in.provider.Endpoint()
+	if in.Config.Run.Runtime.Config.OpenCode.Endpoint != "" {
+		endpoint = in.Config.Run.Runtime.Config.OpenCode.Endpoint
+	}
+
 	input := &ConfigTemplateInput{
 		ConsoleURL:   consoleURL,
 		ConsoleToken: consoleToken,
 		DeployToken:  deployToken,
 		AgentRunID:   in.Config.Run.ID,
 		Provider:     in.provider,
-		Endpoint:     helpers.GetEnv(controller.EnvOpenCodeEndpoint, in.provider.Endpoint()),
+		Endpoint:     endpoint,
 		Model:        in.model,
-		Token:        helpers.GetEnv(controller.EnvOpenCodeToken, ""),
+		Token:        in.Config.Run.Runtime.Config.OpenCode.Token,
 		Mode:         in.Config.Run.Mode,
 	}
 
@@ -75,7 +78,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 			exec.WithEnv([]string{fmt.Sprintf("OPENCODE_CONFIG=%s", configFilePath)}),
 			exec.WithArgs(in.args()),
 			exec.WithDir(in.Config.RepositoryDir),
-			exec.WithTimeout(in.timeout),
+			exec.WithTimeout(in.Config.Run.Runtime.Config.OpenCode.Timeout),
 		)...,
 	)
 
@@ -268,8 +271,8 @@ func (in *Opencode) ensure() error {
 }
 
 func New(config v1.Config) v1.Tool {
-	provider := DefaultProvider(config.Run.IsProxyEnabled())
-	model := string(DefaultModel())
+	provider := EnsureProvider(config.Run.Runtime.Config.OpenCode.Provider, config.Run.IsProxyEnabled())
+	model := string(EnsureModel(config.Run.Runtime.Config.OpenCode.Model))
 
 	if provider == ProviderPlural {
 		// AI Proxy requires the model in the request to be in format <provider/model>
@@ -282,7 +285,6 @@ func New(config v1.Config) v1.Tool {
 		DefaultTool: v1.DefaultTool{Config: config},
 		model:       model,
 		provider:    provider,
-		timeout:     30 * time.Minute,
 	}
 
 	if err := result.ensure(); err != nil {

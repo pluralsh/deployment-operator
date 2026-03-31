@@ -1,10 +1,5 @@
 package codex
 
-import (
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
-)
-
 type Model string
 
 const (
@@ -21,19 +16,11 @@ const (
 	defaultModel = ModelGPT5
 )
 
-// DefaultModel returns a sensible default
-func DefaultModel() Model {
-	envVal := helpers.GetEnv(controller.EnvCodexModel, string(defaultModel))
-	m := Model(envVal)
-
-	switch m {
-	case ModelGPT5,
-		ModelGPT51Codex,
-		ModelGPT51CodexMini,
-		ModelCodexMini,
-		ModelGPT52Codex:
-		return m
-	default:
+// EnsureModel returns a sensible default
+func EnsureModel(model string) Model {
+	if len(model) == 0 {
 		return defaultModel
 	}
+
+	return Model(model)
 }
