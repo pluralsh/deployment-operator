@@ -1696,6 +1696,15 @@ spec:
                         - key
                         type: object
                         x-kubernetes-map-type: atomic
+                      bashMaxTimeout:
+                        description: |-
+                          BashMaxTimeout is the maximum time Claude is permitted to wait
+                          for a command before it is terminated.
+                        type: string
+                      bashTimeout:
+                        description: BashTimeout is the default timeout for any bash
+                          command Claude execute.
+                        type: string
                       extraArgs:
                         description: ExtraArgs CLI args for advanced flags not modeled
                           here
@@ -1704,6 +1713,9 @@ spec:
                         type: array
                       model:
                         description: Model Name of the model to use.
+                        type: string
+                      timeout:
+                        description: Timeout bounds a single claude CLI run invocation.
                         type: string
                     type: object
                   codex:
@@ -1737,6 +1749,9 @@ spec:
                       model:
                         description: Model to use.
                         type: string
+                      timeout:
+                        description: Timeout bounds a single codex run invocation.
+                        type: string
                     type: object
                   gemini:
                     description: Config for Gemini CLI runtime.
@@ -1766,18 +1781,18 @@ spec:
                         - key
                         type: object
                         x-kubernetes-map-type: atomic
+                      inactivityTimeout:
+                        description: InactivityTimeout is the timeout for inactivity
+                          during a gemini run.
+                        type: string
                       model:
                         description: |-
                           Model is the name of the model to use.
-                          gemini-2.5-flash-lite and gemini-2.0-flash-lite are the smallest models and are not fit for write (agent) mode.
-                          They should only be used for analysis.
-                        enum:
-                        - gemini-3-pro-preview
-                        - gemini-2.5-pro
-                        - gemini-2.5-flash
-                        - gemini-2.5-flash-lite
-                        - gemini-2.0-flash
-                        - gemini-2.0-flash-lite
+                          NOTE: gemini flash lite models and are not fit for the write (agent) mode, and
+                          should only be used for analysis.
+                        type: string
+                      timeout:
+                        description: Timeout bounds a single gemini run invocation.
                         type: string
                     type: object
                   opencode:
@@ -1802,6 +1817,9 @@ spec:
                         enum:
                         - plural
                         - openai
+                        type: string
+                      timeout:
+                        description: Timeout bounds a single opencode run invocation.
                         type: string
                       tokenSecretRef:
                         description: TokenSecretRef is a reference to a Kubernetes
