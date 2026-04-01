@@ -252,10 +252,12 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 }
 
 func getDefaultEnvVars(_ *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
-	return []corev1.EnvVar{
+	envs := []corev1.EnvVar{
 		{Name: EnvDindEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Dind != nil && *runtime.Spec.Dind)},
 		{Name: EnvBrowserEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Browser.IsEnabled())},
 	}
+
+	return envs
 }
 
 func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {

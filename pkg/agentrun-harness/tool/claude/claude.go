@@ -7,14 +7,11 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -23,8 +20,8 @@ import (
 func New(config v1.Config) v1.Tool {
 	result := &Claude{
 		DefaultTool:  v1.DefaultTool{Config: config},
-		token:        helpers.GetEnv(controller.EnvClaudeToken, ""),
-		model:        DefaultModel(),
+		token:        config.Run.Runtime.Config.Claude.ApiKey,
+		model:        EnsureModel(config.Run.Runtime.Config.Claude.Model),
 		toolUseCache: make(map[string]ContentMsg),
 	}
 
@@ -45,7 +42,14 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 	if in.Config.Run.Mode == console.AgentRunModeWrite {
 		agent = autonomousAgent
 	}
-	args := []string{"--add-dir", in.Config.RepositoryDir, "--agents", agent, "--system-prompt-file", promptFile, "--model", string(DefaultModel()), "-p", in.Config.Run.Prompt, "--output-format", "stream-json", "--verbose"}
+	args := []string{
+		"--add-dir", in.Config.RepositoryDir,
+		"--agents", agent,
+		"--system-prompt-file", promptFile,
+		"--model", string(in.model),
+		"-p", in.Config.Run.Prompt,
+		"--output-format", "stream-json",
+		"--verbose"}
 
 	if in.Config.Run.IsProxyEnabled() {
 		options = append(options,
@@ -64,9 +68,10 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 			options,
 			exec.WithArgs(args),
 			exec.WithDir(in.Config.WorkDir),
-			exec.WithTimeout(15*time.Minute),
+			exec.WithTimeout(in.Config.Run.Runtime.Config.Claude.Timeout),
 		)...,
 	)
+	klog.V(log.LogLevelInfo).InfoS("claude executable configured", "timeout", in.Config.Run.Runtime.Config.Claude.Timeout)
 
 	// Send the initial prompt as a message too
 	if in.onMessage != nil {
@@ -117,7 +122,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 		in.consoleURL = consoleURL
 	}
 
-	settings := NewSettingsBuilder()
+	settings := NewSettingsBuilder(in.model)
 	if in.Config.Run.Mode == console.AgentRunModeAnalyze {
 		settings.AllowTools(
 			"Read",
@@ -150,10 +155,11 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 			"mcp__plural__updateAgentRunTodos")
 	}
 
-	defaultTimeout := "600000" // 10 minutes
-	maxTimeout := "1200000"    // 20 minutes
+	defaultTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashTimeout.Milliseconds())
+	maxTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashMaxTimeout.Milliseconds())
 	settings.WithEnv("BASH_DEFAULT_TIMEOUT_MS", defaultTimeout)
 	settings.WithEnv("BASH_MAX_TIMEOUT_MS", maxTimeout)
+	klog.V(log.LogLevelInfo).InfoS("claude timeouts configured", "default_timeout", defaultTimeout, "max_timeout", maxTimeout)
 
 	return settings.WriteToFile(filepath.Join(in.configPath(), "settings.local.json"))
 }

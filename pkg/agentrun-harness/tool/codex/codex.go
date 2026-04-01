@@ -5,11 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
-	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
@@ -23,8 +20,8 @@ const consoleTokenEnv = "PLRL_CONSOLE_TOKEN"
 func New(config v1.Config) v1.Tool {
 	result := &Codex{
 		DefaultTool: v1.DefaultTool{Config: config},
-		apiKey:      helpers.GetEnv(controller.EnvCodexAPIKey, ""),
-		model:       DefaultModel(),
+		apiKey:      config.Run.Runtime.Config.Codex.ApiKey,
+		model:       EnsureModel(config.Run.Runtime.Config.Codex.Model),
 		proxy:       config.Run.IsProxyEnabled(),
 	}
 
@@ -171,7 +168,7 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 				exec.WithArgs(loginArgs),
 				exec.WithDir(in.Config.WorkDir),
 				exec.WithEnv([]string{fmt.Sprintf("OPENAI_API_KEY=%s", in.apiKey), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
-				exec.WithTimeout(15*time.Minute),
+				exec.WithTimeout(in.Config.Run.Runtime.Config.Codex.Timeout),
 			)...,
 		)
 		if err := in.executable.Run(ctx); err != nil {
@@ -195,9 +192,11 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 			exec.WithArgs(args),
 			exec.WithDir(in.Config.WorkDir),
 			exec.WithEnv([]string{fmt.Sprintf("PLRL_CONSOLE_TOKEN=%s", in.consoleToken), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
-			exec.WithTimeout(15*time.Minute),
+			exec.WithTimeout(in.Config.Run.Runtime.Config.Codex.Timeout),
 		)...,
 	)
+
+	klog.V(log.LogLevelInfo).InfoS("codex executable configured", "timeout", in.Config.Run.Runtime.Config.Codex.Timeout)
 
 	// Send the initial prompt as a message too
 	if in.onMessage != nil {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -28,27 +29,54 @@ func GetEnv(key, fallback string) string {
 // GetPluralEnv - Lookup the plural environment variable. It has to be prefixed with EnvPrefix. If variable
 // with the provided key is not found, fallback will be used.
 func GetPluralEnv(key, fallback string) string {
+	// strip EnvPrefix from the key in case it's already there
+	key = strings.TrimPrefix(key, fmt.Sprintf("%s_", EnvPrefix))
 	return GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), fallback)
 }
 
 // GetPluralEnvBool - Lookup the plural environment variable. It has to be prefixed with EnvPrefix. If variable
 // with the provided key is not found, fallback will be used.
 func GetPluralEnvBool(key string, fallback bool) bool {
-	// strip EnvPrefix from the key in case it's already there
-	key = strings.TrimPrefix(key, fmt.Sprintf("%s_", EnvPrefix))
 	env := GetPluralEnv(key, "")
 	if len(env) == 0 {
 		return fallback
 	}
 
-	return env == "true"
+	return strings.ToLower(env) == "true"
 }
 
 // GetPluralEnvSlice - Lookup the plural environment variable. It has to be prefixed with EnvPrefix. If variable
 // with the provided key is not found, fallback will be used.
 func GetPluralEnvSlice(key string, fallback []string) []string {
-	if v := GetEnv(fmt.Sprintf("%s_%s", EnvPrefix, key), ""); len(v) > 0 {
-		return strings.Split(v, ",")
+	if v := GetPluralEnv(key, ""); len(v) > 0 {
+		parts := strings.Split(v, ",")
+		var result []string
+
+		for _, part := range parts {
+			if trimmed := strings.TrimSpace(part); len(trimmed) > 0 {
+				result = append(result, trimmed)
+			}
+		}
+
+		if len(result) > 0 {
+			return result
+		}
+	}
+
+	return fallback
+}
+
+// GetPluralEnvDuration retrieves a duration from an environment variable prefixed with EnvPrefix.
+// Returns the parsed duration or a fallback if parsing fails or the environment variable is not set.
+func GetPluralEnvDuration(key string, fallback time.Duration) time.Duration {
+	if v := GetPluralEnv(key, ""); len(v) > 0 {
+		result, err := time.ParseDuration(v)
+		if err != nil {
+			klog.Errorf("failed to parse %s as duration: %s", v, err)
+			return fallback
+		}
+
+		return result
 	}
 
 	return fallback

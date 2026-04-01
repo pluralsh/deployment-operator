@@ -2,13 +2,10 @@ package opencode
 
 import (
 	"encoding/json"
-	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/samber/lo"
 
-	"github.com/pluralsh/deployment-operator/internal/controller"
-	"github.com/pluralsh/deployment-operator/internal/helpers"
 	toolv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
@@ -29,17 +26,16 @@ func (in Provider) Endpoint() string {
 }
 
 const (
-	ProviderPlural  Provider = "plural"
-	ProviderOpenAI  Provider = "openai"
-	defaultProvider          = ProviderPlural
+	ProviderPlural Provider = "plural"
+	ProviderOpenAI Provider = "openai"
 )
 
-func DefaultProvider(proxyEnabled bool) Provider {
+func EnsureProvider(defaultProvider string, proxyEnabled bool) Provider {
 	if proxyEnabled {
 		return ProviderPlural
 	}
 
-	switch helpers.GetEnv(controller.EnvOpenCodeProvider, string(defaultProvider)) {
+	switch defaultProvider {
 	case string(ProviderPlural):
 		return ProviderPlural
 	case string(ProviderOpenAI):
@@ -52,26 +48,19 @@ func DefaultProvider(proxyEnabled bool) Provider {
 type Model string
 
 const (
-	ModelGPT41   Model = "gpt-4.1"
-	ModelGPT5    Model = "gpt-5"
-	ModelGPT51   Model = "gpt-5.1"
-	ModelGPT52   Model = "gpt-5.2"
-	defaultModel       = ModelGPT5
+	ModelGPT5  Model = "gpt-5"
+	ModelGPT51 Model = "gpt-5.1"
+	ModelGPT52 Model = "gpt-5.2"
+	ModelGPT53 Model = "gpt-5.3"
+	ModelGPT54 Model = "gpt-5.4"
 )
 
-func DefaultModel() Model {
-	switch helpers.GetEnv(controller.EnvOpenCodeModel, string(defaultModel)) {
-	case string(ModelGPT41):
-		return ModelGPT41
-	case string(ModelGPT5):
-		return ModelGPT5
-	case string(ModelGPT51):
-		return ModelGPT51
-	case string(ModelGPT52):
+func EnsureModel(model string) Model {
+	if len(model) == 0 {
 		return ModelGPT52
-	default:
-		return defaultModel
 	}
+
+	return Model(model)
 }
 
 // Opencode implements toolv1.Tool interface.
@@ -87,22 +76,9 @@ type Opencode struct {
 	// executable is the opencode executable used to call CLI.
 	executable exec.Executable
 
-	// timeout bounds a single opencode run invocation.
-	timeout time.Duration
-
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
 }
-
-type StreamEventType string
-
-const (
-	StreamEventTypeStepStart  StreamEventType = "step_start"
-	StreamEventTypeToolUse    StreamEventType = "tool_use"
-	StreamEventTypeStepFinish StreamEventType = "step_finish"
-	StreamEventTypeText       StreamEventType = "text"
-	StreamEventTypeError      StreamEventType = "error"
-)
 
 type StreamPartType string
 
@@ -123,11 +99,10 @@ const (
 )
 
 type EventListResponse struct {
-	Type      StreamEventType `json:"type"`
-	Timestamp int64           `json:"timestamp"`
-	SessionID string          `json:"sessionID"`
-	Part      *StreamPart     `json:"part,omitempty"`
-	Error     *StreamError    `json:"error,omitempty"`
+	Timestamp int64        `json:"timestamp"`
+	SessionID string       `json:"sessionID"`
+	Part      *StreamPart  `json:"part,omitempty"`
+	Error     *StreamError `json:"error,omitempty"`
 }
 
 type StreamPart struct {
