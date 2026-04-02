@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	maxSentinelRunJobsDefaultValue = 1
-	maxStackRunJobsDefaultValue    = 1
-	maxAgentRunPodsDefaultValue    = 1
+	maxSentinelRunJobsDefaultValue = 5
+	maxStackRunJobsDefaultValue    = 10
+	maxAgentRunPodsDefaultValue    = 10
 )
 
 func init() {

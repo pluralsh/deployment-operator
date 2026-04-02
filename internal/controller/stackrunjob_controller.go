@@ -175,6 +175,7 @@ func (r *StackRunJobReconciler) reconcileJobStatus(ctx context.Context, run *v1a
 	logger := log.FromContext(ctx)
 	status := stackRunStatus
 	run.Status.JobStatus = defaultJobStatus
+	run.Status.JobRef = &corev1.LocalObjectReference{Name: job.Name}
 
 	switch {
 	case isControlledJobTimedOut(job):

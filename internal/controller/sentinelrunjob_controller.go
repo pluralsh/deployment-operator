@@ -12,6 +12,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -117,11 +118,12 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	health, err := common.GetResourceHealth(unstructuredJob)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
+	srj.Status.JobRef = &corev1.LocalObjectReference{Name: job.Name}
 	status := run.Status
 	if isSentinelControlledJobTimedOut(job) {
 		if err := r.killRunJob(ctx, job); err != nil {
