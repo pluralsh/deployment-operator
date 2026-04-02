@@ -139,6 +139,13 @@ func (r *SentinelRunJobReconciler) ensureDefaultContainer(
 	// Normalize user containers (image, mounts, env). A container named "default" in the spec is the
 	// harness override (nothing appended). Otherwise append the standard default harness container.
 	defaultContainer := r.getDefaultContainer(run)
+	var byName map[string]*console.ContainerSpecFragment
+	if run.JobSpec != nil {
+		byName = lo.KeyBy(run.JobSpec.Containers, func(c *console.ContainerSpecFragment) string {
+			return lo.FromPtr(c.Name)
+		})
+	}
+
 	if len(containers) > 0 {
 		// optionally normalize the default container (if they used the default name)
 		index := algorithms.Index(containers, func(c corev1.Container) bool {
@@ -146,9 +153,14 @@ func (r *SentinelRunJobReconciler) ensureDefaultContainer(
 		})
 
 		for i := range containers {
+			if ct, ok := byName[containers[i].Name]; ok && ct.Image != "" {
+				containers[i].Image = ct.Image
+			}
+
 			if containers[i].Image == "" {
 				containers[i].Image = r.getDefaultContainerImage()
 			}
+
 			containers[i].VolumeMounts = r.ensureDefaultVolumeMounts(containers[i].VolumeMounts)
 			containers[i].EnvFrom = append(containers[i].EnvFrom, r.getDefaultContainerEnvFrom(run)...)
 		}
