@@ -12,7 +12,7 @@ import (
 
 const (
 	maxSentinelRunJobsDefaultValue = 5
-	maxStackRunJobsDefaultValue    = 10
+	maxStackRunJobsDefaultValue    = 20
 	maxAgentRunPodsDefaultValue    = 10
 )
 
