@@ -27,6 +27,7 @@ import (
 	clienterrors "github.com/pluralsh/deployment-operator/internal/errors"
 	"github.com/pluralsh/deployment-operator/internal/utils"
 	"github.com/pluralsh/deployment-operator/pkg/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,6 +50,7 @@ const StackRunJobFinalizer = "deployments.plural.sh/stack-run-job-protection"
 const jobTimeout = time.Minute * 40
 const podTimeout = time.Minute * 2
 const controlledJobMaxLifetime = time.Hour * 12
+const defaultJobStatus = "Progressing"
 
 // StackRunJobReconciler reconciles a Job resource.
 type StackRunJobReconciler struct {
@@ -95,6 +97,12 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
+	maxStackRuns := common.GetConfigurationManager().GetMaxStackRunJobs()
+	activeJobs, err := r.getNumberOfActiveJobs(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	stackRun, err := r.ConsoleClient.GetStackRun(run.Spec.RunID)
 	if err != nil {
 		if clienterrors.IsNotFound(err) {
@@ -107,6 +115,12 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		return ctrl.Result{}, err
 	}
+
+	if activeJobs >= maxStackRuns && stackRun.Status == console.StackStatusPending {
+		logger.V(2).Info("maximum number of jobs reached", "activeJobs", activeJobs, "maxStackRuns", maxStackRuns)
+		return jitterRequeue(requeueAfter, jitter), nil
+	}
+
 	run.Status.ID = lo.ToPtr(stackRun.ID)
 
 	secret, err := r.reconcileSecret(ctx, run)
@@ -129,6 +143,7 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	status := stackRun.Status
+	run.Status.JobStatus = defaultJobStatus
 	switch {
 	case isControlledJobTimedOut(job):
 		if err := r.killJob(ctx, job); err != nil {
@@ -192,6 +207,20 @@ func isTerminalStackRunStatus(status console.StackStatus) bool {
 		return true
 	}
 	return false
+}
+
+func (r *StackRunJobReconciler) getNumberOfActiveJobs(ctx context.Context) (int, error) {
+	metaList := &v1alpha1.StackRunJobList{}
+	if err := r.List(ctx, metaList); err != nil {
+		return 0, err
+	}
+	activeRuns := 0
+	for _, item := range metaList.Items {
+		if item.DeletionTimestamp == nil && item.Status.JobStatus == defaultJobStatus {
+			activeRuns++
+		}
+	}
+	return activeRuns, nil
 }
 
 // GetRunResourceName returns a resource name used for a job and a secret connected to a given run.

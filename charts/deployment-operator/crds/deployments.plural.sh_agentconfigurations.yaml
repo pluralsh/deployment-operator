@@ -54,6 +54,12 @@ spec:
                   CompatibilityUploadInterval determines how frequently the agent uploads compatibility data.
                   Set to "0s" to disable compatibility uploads.
                 type: string
+              maxAgentRunPods:
+                description: |-
+                  MaxAgentRunPods limits the number of concurrent agent run pods that can be active at any given time.
+                  Must be greater than 0. Set this field to nil (omit) to disable the limit.
+                minimum: 1
+                type: integer
               maxConcurrentReconciles:
                 description: |-
                   MaxConcurrentReconciles controls the maximum number of concurrent reconcile loops.
@@ -62,6 +68,12 @@ spec:
               maxSentinelRunJobs:
                 description: |-
                   MaxSentinelRunJobs limits the number of concurrent SentinelRunJobs that can be active at any given time.
+                  Must be greater than 0. Set this field to nil (omit) to disable the limit.
+                minimum: 1
+                type: integer
+              maxStackRunJobs:
+                description: |-
+                  MaxStackRunJobs limits the number of concurrent StackRunJobs that can be active at any given time.
                   Must be greater than 0. Set this field to nil (omit) to disable the limit.
                 minimum: 1
                 type: integer
