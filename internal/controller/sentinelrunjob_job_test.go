@@ -170,25 +170,6 @@ func TestSentinelGenerateRunJob(t *testing.T) {
 			},
 		},
 		{
-			name: "default_container_in_spec_overrides_image",
-			run: &console.SentinelRunJobFragment{
-				ID: runID,
-				JobSpec: &console.JobSpecFragment{
-					Namespace: namespace,
-					Containers: []*console.ContainerSpecFragment{
-						{Name: lo.ToPtr("default"), Image: "my.registry/override:v2"},
-					},
-				},
-			},
-			validate: func(t *testing.T, job *batchv1.Job) {
-				cs := job.Spec.Template.Spec.Containers
-				require.Len(t, cs, 1)
-				assert.Equal(t, defaultName, cs[0].Name)
-				assert.Equal(t, "my.registry/override:v2", cs[0].Image)
-				assertEnvFromContainsSecret(t, cs[0].EnvFrom, secretName)
-			},
-		},
-		{
 			name: "default_container_in_spec_empty_image_fills_harness",
 			run: &console.SentinelRunJobFragment{
 				ID: runID,
@@ -222,6 +203,36 @@ func TestSentinelGenerateRunJob(t *testing.T) {
 			assert.Equal(t, tc.wantSpec, job.Spec)
 		})
 	}
+}
+
+// TestGenerateRunJobPreservesExplicitDefaultContainerImage ensures the harness default container keeps
+// the image from the run job fragment when JobSpec.Containers names the default container and sets Image.
+func TestGenerateRunJobPreservesExplicitDefaultContainerImage(t *testing.T) {
+	namespace := defaultName
+	runID := "preserve-img-run"
+	secretName := fmt.Sprintf("sentinel-%s", runID)
+	explicitImage := "registry.example.com/sentinel-harness:production"
+	reconciler := SentinelRunJobReconciler{}
+	run := &console.SentinelRunJobFragment{
+		ID: runID,
+		JobSpec: &console.JobSpecFragment{
+			Namespace: namespace,
+			Containers: []*console.ContainerSpecFragment{
+				{Name: lo.ToPtr("default"), Image: explicitImage},
+			},
+		},
+	}
+	jobName := "preserve-explicit-default-image"
+	jobSpec := common.GetRunJobSpec(jobName, run.JobSpec)
+	job, err := reconciler.GenerateRunJob(run, jobSpec, jobName, namespace)
+	require.NoError(t, err)
+	require.NotNil(t, job)
+
+	cs := job.Spec.Template.Spec.Containers
+	require.Len(t, cs, 1)
+	assert.Equal(t, defaultName, cs[0].Name)
+	assert.Equal(t, explicitImage, cs[0].Image, "fragment image for default container must not be replaced by the harness default image")
+	assertEnvFromContainsSecret(t, cs[0].EnvFrom, secretName)
 }
 
 func assertEnvFromContainsSecret(t *testing.T, envFrom []corev1.EnvFromSource, secretName string) {
