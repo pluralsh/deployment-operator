@@ -142,39 +142,9 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	status := stackRun.Status
-	run.Status.JobStatus = defaultJobStatus
-	switch {
-	case isControlledJobTimedOut(job):
-		if err := r.killJob(ctx, job); err != nil {
-			return ctrl.Result{}, err
-		}
-		run.Status.JobStatus = string(console.StackStatusCancelled)
-		logger.V(2).Info("stack run job exceeded max lifetime, cancelling", "name", job.Name, "namespace", job.Namespace)
-		status = console.StackStatusCancelled
-	// Exit if stack run is not in running state (run status already updated),
-	// or if the job is still running (harness controls run status).
-	case stackRun.Status != console.StackStatusRunning || job.Status.CompletionTime.IsZero():
-		if isActiveJobTimout(stackRun.Status, job) || r.isActiveJobPodFailed(ctx, stackRun.Status, job) {
-			if err := r.killJob(ctx, job); err != nil {
-				return ctrl.Result{}, err
-			}
-			run.Status.JobStatus = string(console.StackStatusFailed)
-			logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
-			status = console.StackStatusFailed
-		}
-	case hasSucceeded(job):
-		logger.V(2).Info("stack run job succeeded", "name", job.Name, "namespace", job.Namespace)
-		run.Status.JobStatus = string(console.StackStatusSuccessful)
-		status = console.StackStatusSuccessful
-	case hasFailed(job):
-		logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
-		status, err = r.getJobPodStatus(ctx, job.Spec.Selector.MatchLabels)
-		if err != nil {
-			status = console.StackStatusFailed
-			logger.Error(err, "unable to get job pod status")
-		}
-		run.Status.JobStatus = string(status)
+	status, err := r.reconcileJobStatus(ctx, run, stackRun.Status, job)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if err := r.ConsoleClient.UpdateStackRun(stackRun.ID, console.StackRunAttributes{
@@ -197,6 +167,50 @@ func (r *StackRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionTrue, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 	return ctrl.Result{}, nil
+}
+
+// reconcileJobStatus evaluates the current job state and updates run.Status.JobStatus,
+// returning the derived console status to report upstream.
+func (r *StackRunJobReconciler) reconcileJobStatus(ctx context.Context, run *v1alpha1.StackRunJob, stackRunStatus console.StackStatus, job *batchv1.Job) (console.StackStatus, error) {
+	logger := log.FromContext(ctx)
+	status := stackRunStatus
+	run.Status.JobStatus = defaultJobStatus
+
+	switch {
+	case isControlledJobTimedOut(job):
+		if err := r.killJob(ctx, job); err != nil {
+			return status, err
+		}
+		run.Status.JobStatus = string(console.StackStatusCancelled)
+		logger.V(2).Info("stack run job exceeded max lifetime, cancelling", "name", job.Name, "namespace", job.Namespace)
+		status = console.StackStatusCancelled
+	// Exit if stack run is not in running state (run status already updated),
+	// or if the job is still running (harness controls run status).
+	case stackRunStatus != console.StackStatusRunning || job.Status.CompletionTime.IsZero():
+		if isActiveJobTimout(stackRunStatus, job) || r.isActiveJobPodFailed(ctx, stackRunStatus, job) {
+			if err := r.killJob(ctx, job); err != nil {
+				return status, err
+			}
+			run.Status.JobStatus = string(console.StackStatusFailed)
+			logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
+			status = console.StackStatusFailed
+		}
+	case hasSucceeded(job):
+		logger.V(2).Info("stack run job succeeded", "name", job.Name, "namespace", job.Namespace)
+		run.Status.JobStatus = string(console.StackStatusSuccessful)
+		status = console.StackStatusSuccessful
+	case hasFailed(job):
+		logger.V(2).Info("stack run job failed", "name", job.Name, "namespace", job.Namespace)
+		var err error
+		status, err = r.getJobPodStatus(ctx, job.Spec.Selector.MatchLabels)
+		if err != nil {
+			status = console.StackStatusFailed
+			logger.Error(err, "unable to get job pod status")
+		}
+		run.Status.JobStatus = string(status)
+	}
+
+	return status, nil
 }
 
 // isTerminalStackRunStatus returns true when the stack run has reached a final state
