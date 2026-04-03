@@ -8,6 +8,7 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -125,6 +126,12 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	utils.MarkCondition(run.SetCondition, v1alpha1.ReadyConditionType, metav1.ConditionFalse, v1alpha1.ReadyConditionReason, "")
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionFalse, v1alpha1.SynchronizedConditionReason, "")
 
+	maxAgentPods := common.GetConfigurationManager().GetMaxAgentRunPods()
+	activePods, err := r.getNumberOfActivePods(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	apiAgentRun, err := r.ConsoleClient.GetAgentRun(ctx, run.GetAgentRunID())
 	if err != nil {
 		// If the error is different from not found, return it.
@@ -138,6 +145,11 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		}
 
 		return ctrl.Result{RequeueAfter: requeueAfterAgentRun}, nil
+	}
+
+	if activePods >= maxAgentPods && apiAgentRun.Status == console.AgentRunStatusPending {
+		logger.V(2).Info("maximum number of active pods reached", "activePods", activePods, "maxAgentPods", maxAgentPods)
+		return jitterRequeue(requeueAfter, jitter), nil
 	}
 
 	run.Status.ID = &apiAgentRun.ID
@@ -204,6 +216,20 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	utils.MarkCondition(run.SetCondition, v1alpha1.SynchronizedConditionType, metav1.ConditionTrue, v1alpha1.SynchronizedConditionReason, "")
 
 	return jitterRequeue(requeueAfterAgentRun, jitter), nil
+}
+
+func (r *AgentRunReconciler) getNumberOfActivePods(ctx context.Context) (int, error) {
+	metaList := &v1alpha1.AgentRunList{}
+	if err := r.List(ctx, metaList); err != nil {
+		return 0, err
+	}
+	activeRuns := 0
+	for _, item := range metaList.Items {
+		if item.DeletionTimestamp == nil && item.Status.PodRef != nil {
+			activeRuns++
+		}
+	}
+	return activeRuns, nil
 }
 
 func (r *AgentRunReconciler) getRuntime(ctx context.Context, run *v1alpha1.AgentRun) (runtime *v1alpha1.AgentRuntime, err error) {

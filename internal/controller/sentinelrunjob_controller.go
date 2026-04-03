@@ -12,6 +12,7 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,8 +26,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const SentinelRunJobFinalizer = "deployments.plural.sh/sentinel-run-job-protection"
-const sentinelControlledJobMaxLifetime = 12 * time.Hour
+const (
+	SentinelRunJobFinalizer          = "deployments.plural.sh/sentinel-run-job-protection"
+	sentinelControlledJobMaxLifetime = 12 * time.Hour
+)
 
 type SentinelRunJobReconciler struct {
 	client.Client
@@ -69,6 +72,12 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
+	maxSentinelRuns := common.GetConfigurationManager().GetMaxSentinelRunJobs()
+	activeJobs, err := r.getNumberOfActiveJobs(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	run, err := r.ConsoleClient.GetSentinelRunJob(srj.Spec.RunID)
 	if err != nil {
 		if internalerror.IsNotFound(err) {
@@ -81,6 +90,11 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		return jitterRequeue(requeueAfter, jitter), nil
 	}
+	if activeJobs >= maxSentinelRuns && run.Status == console.SentinelRunJobStatusPending {
+		fromContext.V(2).Info("maximum number of active jobs reached", "activeJobs", activeJobs, "maxSentinelRun", maxSentinelRuns)
+		return jitterRequeue(requeueAfter, jitter), nil
+	}
+
 	srj.Status.ID = lo.ToPtr(run.ID)
 
 	secret, err := r.reconcileRunSecret(ctx, req.Name, req.Namespace, srj.Spec.RunID, string(run.Format))
@@ -104,11 +118,12 @@ func (r *SentinelRunJobReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	health, err := common.GetResourceHealth(unstructuredJob)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
+	srj.Status.JobRef = &corev1.LocalObjectReference{Name: job.Name}
 	status := run.Status
 	if isSentinelControlledJobTimedOut(job) {
 		if err := r.killRunJob(ctx, job); err != nil {
@@ -160,6 +175,20 @@ func isSentinelControlledJobTimedOut(job *batchv1.Job) bool {
 		return time.Now().After(job.CreationTimestamp.Add(sentinelControlledJobMaxLifetime))
 	}
 	return false
+}
+
+func (r *SentinelRunJobReconciler) getNumberOfActiveJobs(ctx context.Context) (int, error) {
+	metaList := &v1alpha1.SentinelRunJobList{}
+	if err := r.List(ctx, metaList); err != nil {
+		return 0, err
+	}
+	activeRuns := 0
+	for _, item := range metaList.Items {
+		if item.DeletionTimestamp == nil && item.Status.JobStatus == "Progressing" {
+			activeRuns++
+		}
+	}
+	return activeRuns, nil
 }
 
 func (r *SentinelRunJobReconciler) killRunJob(ctx context.Context, job *batchv1.Job) error {

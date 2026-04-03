@@ -39,6 +39,21 @@ type AgentConfigurationSpec struct {
 	// BaseRegistryURL allows overriding the default base registry URL.
 	// For stack run jobs, agent run pods, sentinel run jobs.
 	BaseRegistryURL *string `json:"baseRegistryURL,omitempty"`
+
+	// MaxSentinelRunJobs limits the number of concurrent SentinelRunJobs that can be active at any given time.
+	// Must be greater than 0. Set this field to nil (omit) to disable the limit.
+	// +kubebuilder:validation:Minimum=1
+	MaxSentinelRunJobs *int `json:"maxSentinelRunJobs,omitempty"`
+
+	// MaxStackRunJobs limits the number of concurrent StackRunJobs that can be active at any given time.
+	// Must be greater than 0. Set this field to nil (omit) to disable the limit.
+	// +kubebuilder:validation:Minimum=1
+	MaxStackRunJobs *int `json:"maxStackRunJobs,omitempty"`
+
+	// MaxAgentRunPods limits the number of concurrent agent run pods that can be active at any given time.
+	// Must be greater than 0. Set this field to nil (omit) to disable the limit.
+	// +kubebuilder:validation:Minimum=1
+	MaxAgentRunPods *int `json:"maxAgentRunPods,omitempty"`
 }
 
 //+kubebuilder:object:root=true

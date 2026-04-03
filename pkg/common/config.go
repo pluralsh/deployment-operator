@@ -7,6 +7,13 @@ import (
 	"time"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
+	"github.com/samber/lo"
+)
+
+const (
+	maxSentinelRunJobsDefaultValue = 5
+	maxStackRunJobsDefaultValue    = 20
+	maxAgentRunPodsDefaultValue    = 10
 )
 
 func init() {
@@ -25,6 +32,9 @@ type ConfigurationManager struct {
 	compatibilityUploadInterval *time.Duration
 	pipelineGateInterval        *time.Duration
 	maxConcurrentReconciles     *int
+	maxSentinelRunJobs          *int
+	maxStackRunJobs             *int
+	maxAgentRunPods             *int
 	baseRegistryURL             *string
 }
 
@@ -75,6 +85,7 @@ func (s *ConfigurationManager) SetValue(config v1alpha1.AgentConfigurationSpec) 
 
 	s.maxConcurrentReconciles = config.MaxConcurrentReconciles
 	s.baseRegistryURL = config.BaseRegistryURL
+	s.maxSentinelRunJobs = config.MaxSentinelRunJobs
 
 	return nil
 }
@@ -124,6 +135,33 @@ func (s *ConfigurationManager) GetMaxConcurrentReconciles() *int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.maxConcurrentReconciles
+}
+
+func (s *ConfigurationManager) GetMaxSentinelRunJobs() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.maxSentinelRunJobs == nil {
+		return maxSentinelRunJobsDefaultValue
+	}
+	return lo.FromPtr(s.maxSentinelRunJobs)
+}
+
+func (s *ConfigurationManager) GetMaxStackRunJobs() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.maxStackRunJobs == nil {
+		return maxStackRunJobsDefaultValue
+	}
+	return lo.FromPtr(s.maxStackRunJobs)
+}
+
+func (s *ConfigurationManager) GetMaxAgentRunPods() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.maxAgentRunPods == nil {
+		return maxAgentRunPodsDefaultValue
+	}
+	return lo.FromPtr(s.maxAgentRunPods)
 }
 
 func (s *ConfigurationManager) GetServicePollInterval() *time.Duration {

@@ -747,7 +747,7 @@ var _ = Describe("StackRunJob Controller", Ordered, func() {
 			stackRunJob := &v1alpha1.StackRunJob{}
 			Expect(kClient.Get(ctx, runningNamespacedName, stackRunJob)).NotTo(HaveOccurred())
 			Expect(stackRunJob.Status.JobRef).ShouldNot(BeNil())
-			Expect(stackRunJob.Status.JobStatus).Should(BeEmpty())
+			Expect(stackRunJob.Status.JobStatus).Should(Equal("Progressing"))
 
 			// Cleanup
 			job := &batchv1.Job{}
