@@ -1,6 +1,6 @@
 FROM golang:1.26.1-alpine3.22 AS builder
 
-ARG HELM_VERSION=v3.17.3
+ARG HELM_VERSION=v3.20.1
 ARG TARGETARCH
 
 # Install curl
