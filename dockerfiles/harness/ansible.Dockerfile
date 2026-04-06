@@ -56,7 +56,7 @@ RUN apk add --no-cache \
 # install plural cli
 ARG TARGETARCH
 RUN VERSION=$(curl -sL https://api.github.com/repos/pluralsh/plural-cli/releases/latest | jq -r '.tag_name' | tr -d v) && \
-    curl -L https://github.com/pluralsh/plural-cli/releases/latest/download/plural-cli_${VERSION}_Linux_${TARGETARCH}.tar.gz \
+    curl -L https://github.com/pluralsh/plural-cli/releases/download/v${VERSION}/plural-cli_${VERSION}_Linux_${TARGETARCH}.tar.gz \
     | tar zx && \
     mv plural /usr/local/bin/plural && \
     chmod +x /usr/local/bin/plural
