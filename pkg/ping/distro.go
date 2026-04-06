@@ -6,14 +6,29 @@ import (
 	console "github.com/pluralsh/console/go/client"
 )
 
+var (
+	distroPriorities = map[console.ClusterDistro]int{
+		console.ClusterDistroEks:       1,
+		console.ClusterDistroAks:       2,
+		console.ClusterDistroGke:       3,
+		console.ClusterDistroRke:       4,
+		console.ClusterDistroK3s:       5,
+		console.ClusterDistroOpenshift: 6,
+		console.ClusterDistroGeneric:   7,
+	}
+)
+
 func findDistro(vals []string) console.ClusterDistro {
+	currentDistro := console.ClusterDistroGeneric
 	for _, v := range vals {
 		if dist, ok := distro(v); ok {
-			return dist
+			if distroPriorities[dist] <= distroPriorities[currentDistro] {
+				currentDistro = dist
+			}
 		}
 	}
 
-	return console.ClusterDistroGeneric
+	return currentDistro
 }
 
 func distro(val string) (console.ClusterDistro, bool) {
