@@ -20,24 +20,7 @@ metadata:
   labels:
 {{ include "deployment-operator.labels" . | indent 4 }}
 rules:
-- apiGroups: ["apps"]
-  resources: ["deployments", "daemonsets", "statefulsets"]
-  verbs: ["get", "list", "watch", "update", "patch"]
-- apiGroups: ["", "*"]
-  resources: ["*"]
-  verbs: ["get", "list"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["delete"]
-- apiGroups: ["deployments.plural.sh"]
-  resources: ["customhealths", "kubecostextractors", "agentruntimes", "agentruns"]
-  verbs: ["create","delete","get", "list", "patch", "update", "watch"]
-- apiGroups: ["deployments.plural.sh"]
-  resources: ["customhealths/finalizers", "kubecostextractors/finalizers", "agentruntimes/finalizers", "agentruns/finalizers"]
-  verbs: ["update"]
-- apiGroups: ["deployments.plural.sh"]
-  resources: ["customhealths/status", "kubecostextractors/status", "agentruntimes/status", "agentruns/status"]
-  verbs: ["get", "patch", "update", "watch"]
+{{ toYaml .Values.consoleReaderPolicy }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
