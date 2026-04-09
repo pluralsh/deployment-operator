@@ -310,6 +310,7 @@ func (in *Supervisor) startSynchronizer(ctx context.Context, gvr schema.GroupVer
 
 	eventSubscribers, _ := in.eventSubscribers.Get(gvr)
 	in.synchronizers.Set(gvr, NewSynchronizer(in.client, gvr, gvk, in.store, in.synchronizerResyncInterval, in.componentQueue, eventSubscribers))
+	time.Sleep(in.restartDelay)
 	in.registerQueue.AddRateLimited(gvr)
 }
 

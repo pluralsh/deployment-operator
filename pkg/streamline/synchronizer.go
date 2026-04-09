@@ -78,7 +78,8 @@ func (in *synchronizer) Start(ctx context.Context) error {
 
 	resourceVersion := list.GetResourceVersion()
 	watchCh, err := in.client.Resource(in.gvr).Namespace(metav1.NamespaceAll).Watch(internalCtx, metav1.ListOptions{
-		ResourceVersion: resourceVersion,
+		ResourceVersion:     resourceVersion,
+		TimeoutSeconds:      lo.ToPtr(int64(600)),
 	})
 	if err != nil {
 		in.mu.Unlock()
@@ -102,7 +103,8 @@ func (in *synchronizer) Start(ctx context.Context) error {
 			return nil
 		case event, ok := <-watchCh.ResultChan():
 			if !ok {
-				return fmt.Errorf("watch channel closed")
+				klog.V(log.LogLevelVerbose).InfoS("watch channel closed, will restart", "gvr", in.gvr, "resourceVersion", resourceVersion)
+				return nil
 			}
 
 			metrics.Record().SynchronizationEvent(event)
@@ -127,7 +129,8 @@ func (in *synchronizer) Start(ctx context.Context) error {
 			interval = common.WithJitter(in.resyncInterval)
 			resyncAfter = time.After(interval)
 			watchCh, err = in.client.Resource(in.gvr).Namespace(metav1.NamespaceAll).Watch(internalCtx, metav1.ListOptions{
-				ResourceVersion: resourceVersion,
+				ResourceVersion:     resourceVersion,
+				TimeoutSeconds:      lo.ToPtr(int64(600)),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to restart watch: %w", err)
