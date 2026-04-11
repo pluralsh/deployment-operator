@@ -1,6 +1,6 @@
 module github.com/pluralsh/deployment-operator
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2 v2.6.0
