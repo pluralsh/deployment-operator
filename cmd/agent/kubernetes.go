@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	trivy "github.com/aquasecurity/trivy-operator/pkg/apis/aquasecurity/v1alpha1"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts"
@@ -67,6 +68,9 @@ func initKubeManagerOrDie(config *rest.Config) manager.Manager {
 		LeaderElection:         args.EnableLeaderElection(),
 		Cache:                  crcache.Options{DefaultWatchErrorHandler: watchErrHandler},
 		LeaderElectionID:       "dep12loy45.plural.sh",
+		LeaseDuration:          &[]time.Duration{30 * time.Second}[0],
+		RenewDeadline:          &[]time.Duration{20 * time.Second}[0],
+		RetryPeriod:            &[]time.Duration{5 * time.Second}[0],
 		HealthProbeBindAddress: args.ProbeAddr(),
 		Metrics: server.Options{
 			BindAddress: args.MetricsAddr(),
