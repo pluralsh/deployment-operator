@@ -28,11 +28,11 @@ RUN curl -L https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz 
     mv linux-${TARGETARCH}/helm /usr/local/bin/helm && \
     chmod +x /usr/local/bin/helm
 
-FROM alpine:3.21
+FROM alpine:3.22
 WORKDIR /workspace
 
 # Upgrade all packages to get the latest security fixes
-# This addresses CVE for OpenSSL PKCS#12 type confusion vulnerability (libssl3 >= 3.3.6-r0)
+# This addresses CVE for OpenSSL NULL pointer dereference in CMS EnvelopedData processing (libssl3 >= 3.3.7-r0)
 RUN apk upgrade --no-cache && \
     mkdir /.kube && \
     chown 65532:65532 /.kube && \
