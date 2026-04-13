@@ -79,8 +79,11 @@ func (in *agentRunController) preExecHook() v1.HookFunction {
 // runBootstrapScript executes the bootstrap script mounted at bootstrapScriptPath
 // inside the cloned repository directory, before the coding agent is invoked.
 func (in *agentRunController) runBootstrapScript() error {
-	if _, err := os.Stat(bootstrapScriptPath); os.IsNotExist(err) {
-		return nil
+	if _, err := os.Stat(bootstrapScriptPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to stat bootstrap script: %w", err)
 	}
 
 	klog.V(log.LogLevelInfo).InfoS("running bootstrap script", "path", bootstrapScriptPath, "dir", in.dir)
