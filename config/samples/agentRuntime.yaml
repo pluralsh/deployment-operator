@@ -15,32 +15,13 @@ spec:
     spec:
       containers:
         - name: default
-          image: ghcr.io/pluralsh/agent-harness:0.6.17-claude-2.1.72
+          image: ghcr.io/pluralsh/agent-harness:0.6.33-codex-0.104.0
           args:
             - --v=3
-  dind: true
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: gemini
----
-apiVersion: deployments.plural.sh/v1alpha1
-kind: AgentRuntime
-metadata:
-  name: gemini
-spec:
-  type: "GEMINI"
-  targetNamespace: "gemini"
-  config:
-    gemini:
-      apiKeySecretRef:
-        name: gemini
-        key: apiKey
-  template:
-    spec:
-      containers:
-        - name: default
-          args:
-            - --v=3
-  dind: true
+  dind: false
+  bootstrapScript: |
+    #!/bin/bash
+    set -e
+    echo "Bootstrapping the agent runtime environment..."
+    sleep 5  # Simulate some setup time
+    echo "Bootstrap complete."

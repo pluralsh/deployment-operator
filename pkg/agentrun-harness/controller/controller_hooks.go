@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	internalerrors "github.com/pluralsh/deployment-operator/pkg/harness/errors"
@@ -10,9 +12,12 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun"
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
+	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/stackrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
+
+const bootstrapScriptPath = "/bootstrap/bootstrap.sh"
 
 // preStart function is executed before agent run steps
 func (in *agentRunController) preStart() {
@@ -67,8 +72,23 @@ func (in *agentRunController) preExecHook() v1.HookFunction {
 			return err
 		}
 
+		return in.runBootstrapScript()
+	}
+}
+
+// runBootstrapScript executes the bootstrap script mounted at bootstrapScriptPath
+// inside the cloned repository directory, before the coding agent is invoked.
+func (in *agentRunController) runBootstrapScript() error {
+	if _, err := os.Stat(bootstrapScriptPath); os.IsNotExist(err) {
 		return nil
 	}
+
+	klog.V(log.LogLevelInfo).InfoS("running bootstrap script", "path", bootstrapScriptPath, "dir", in.dir)
+
+	return exec.NewExecutable("bash",
+		exec.WithArgs([]string{bootstrapScriptPath}),
+		exec.WithDir(in.dir),
+	).Run(context.Background())
 }
 
 // validateAgentRunStatus checks if agent run can be started
