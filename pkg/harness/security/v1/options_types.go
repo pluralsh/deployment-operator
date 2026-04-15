@@ -2,6 +2,10 @@ package v1
 
 // TerraformScanOptions defines options for terraform scan.
 type TerraformScanOptions struct {
+	// WorkDir is the root directory where the stack tarball was extracted.
+	// It is used to resolve paths relative to the tarball root, e.g. custom policy dirs.
+	WorkDir string
+
 	// Dir is a directory containing files that should be scanned.
 	Dir string
 

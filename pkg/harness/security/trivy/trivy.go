@@ -3,14 +3,22 @@ package trivy
 import (
 	"context"
 	"encoding/json"
+	"path"
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	v1 "github.com/pluralsh/deployment-operator/pkg/harness/security/v1"
 	loglevel "github.com/pluralsh/deployment-operator/pkg/log"
+)
+
+const (
+	// customPoliciesDir is the subdirectory within the stack tarball root
+	// that contains custom Rego/OPA policy checks.
+	customPoliciesDir = ".plural/policies"
 )
 
 // Scan implements [v1.Scanner.Scan] interface.
@@ -40,11 +48,25 @@ func (in *Scanner) scanTerraform(options *v1.ScanOptions) ([]*console.StackPolic
 		"config",
 	}
 
+	var configChecks []string
+	var checkNamespaces []string
+
+	if in.CustomPolicies {
+		configChecks = append(configChecks, path.Join(options.Terraform.WorkDir, customPoliciesDir))
+		checkNamespaces = append(checkNamespaces, "user")
+	}
+
 	if len(in.PolicyPaths) > 0 {
-		args = append(args, []string{
-			"--config-check", strings.Join(in.PolicyPaths, ","),
-			"--check-namespaces", strings.Join(in.PolicyNamespaces, ","),
-		}...)
+		configChecks = append(configChecks, in.PolicyPaths...)
+		checkNamespaces = append(checkNamespaces, in.PolicyNamespaces...)
+	}
+
+	if len(configChecks) > 0 {
+		args = append(args, "--config-check", strings.Join(configChecks, ","))
+	}
+
+	if len(checkNamespaces) > 0 {
+		args = append(args, "--check-namespaces", strings.Join(checkNamespaces, ","))
 	}
 
 	args = append(args, []string{
@@ -78,6 +100,9 @@ func (in *Scanner) toAttributes(data []byte) ([]*console.StackPolicyViolationAtt
 }
 
 // New creates a new Trivy scanner.
-func New(_ *console.PolicyEngineFragment) v1.Scanner {
-	return &Scanner{DefaultScanner: v1.DefaultScanner{}}
+func New(config *console.PolicyEngineFragment) v1.Scanner {
+	return &Scanner{
+		DefaultScanner: v1.DefaultScanner{},
+		CustomPolicies: lo.FromPtr(config.GetCustomPolicies()),
+	}
 }
