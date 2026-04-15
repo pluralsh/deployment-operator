@@ -53,6 +53,10 @@ func (in *Scanner) scanTerraform(options *v1.ScanOptions) ([]*console.StackPolic
 
 	if in.CustomPolicies {
 		configChecks = append(configChecks, path.Join(options.Terraform.WorkDir, customPoliciesDir))
+		// "user" namespace must be explicitly registered so Trivy evaluates
+		// custom Rego policies loaded from customPoliciesDir. Without it,
+		// Trivy silently ignores any policy whose package name starts with
+		// "user." (e.g. data.user.terraform.custom.*).
 		checkNamespaces = append(checkNamespaces, "user")
 	}
 
