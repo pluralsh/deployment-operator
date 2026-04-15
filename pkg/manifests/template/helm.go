@@ -236,7 +236,7 @@ func (h *helm) luaValues(svc *console.ServiceDeploymentForAgent) (map[string]int
 		if err != nil {
 			return nil, valuesFiles, err
 		}
-		luaString = luaFolder + luaString
+		luaString = luaFolder + "\n\n" + luaString
 	}
 
 	if luaString == "" {

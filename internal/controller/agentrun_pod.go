@@ -123,6 +123,11 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
 	pod.Spec.Volumes = ensureDefaultVolumes(pod.Spec.Volumes)
 
+	// Ensure automountServiceAccountToken is disabled by default for security
+	if pod.Spec.AutomountServiceAccountToken == nil {
+		pod.Spec.AutomountServiceAccountToken = lo.ToPtr(false)
+	}
+
 	if runtime.Spec.Dind != nil && *runtime.Spec.Dind {
 		pod.Spec.SecurityContext = ensureDefaultPodSecurityContextWithDind(pod.Spec.SecurityContext)
 		enableDind(pod)
