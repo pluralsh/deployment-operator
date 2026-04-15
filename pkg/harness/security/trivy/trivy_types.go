@@ -70,8 +70,8 @@ func (in *Report) Attributes() []*console.StackPolicyViolationAttributes {
 
 func (in *Report) fromDetectedMisconfiguration(target string, misconfig types.DetectedMisconfiguration) console.StackPolicyViolationAttributes {
 	desc := coalesce(misconfig.Description, misconfig.Message, misconfig.Title)
-	if len(desc) > maxDescriptionLen {
-		desc = desc[:maxDescriptionLen]
+	if len([]rune(desc)) > maxDescriptionLen {
+		desc = string([]rune(desc)[:maxDescriptionLen])
 	}
 
 	policyURL := coalesce(append([]string{misconfig.PrimaryURL}, misconfig.References...)...)
