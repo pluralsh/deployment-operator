@@ -37,6 +37,10 @@ const (
 	browserContainerName              = "browser"
 	defaultContainerBrowser           = v1alpha1.BrowserChrome
 	defaultContainerBrowserServerPort = 3000
+
+	bootstrapScriptVolumeName   = "bootstrap-script"
+	bootstrapScriptMountPath    = "/bootstrap/bootstrap.sh"
+	bootstrapScriptConfigMapKey = "bootstrap.sh"
 )
 
 var dindClientEnvs = []corev1.EnvVar{
@@ -133,6 +137,10 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 
 	if runtime.Spec.Browser.IsEnabled() {
 		enableBrowser(runtime.Spec.Browser, pod)
+	}
+
+	if runtime.Spec.BootstrapScript != nil && len(*runtime.Spec.BootstrapScript) > 0 {
+		enableBootstrapScript(run.Name+"-bootstrap", pod)
 	}
 
 	return pod
@@ -257,12 +265,10 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 }
 
 func getDefaultEnvVars(_ *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
-	envs := []corev1.EnvVar{
+	return []corev1.EnvVar{
 		{Name: EnvDindEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Dind != nil && *runtime.Spec.Dind)},
 		{Name: EnvBrowserEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Browser.IsEnabled())},
 	}
-
-	return envs
 }
 
 func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
@@ -441,4 +447,32 @@ func enableBrowser(browserConfig *v1alpha1.BrowserConfig, pod *corev1.Pod) {
 	}
 
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, container)
+}
+
+// enableBootstrapScript mounts a ConfigMap containing the bootstrap script as an
+// executable file at bootstrapScriptMountPath inside the default container.
+func enableBootstrapScript(configMapName string, pod *corev1.Pod) {
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: bootstrapScriptVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+				DefaultMode:          lo.ToPtr(int32(0755)),
+			},
+		},
+	})
+
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == defaultContainer {
+			pod.Spec.Containers[i].VolumeMounts = append(
+				pod.Spec.Containers[i].VolumeMounts,
+				corev1.VolumeMount{
+					Name:      bootstrapScriptVolumeName,
+					MountPath: bootstrapScriptMountPath,
+					SubPath:   bootstrapScriptConfigMapKey,
+				},
+			)
+			break
+		}
+	}
 }

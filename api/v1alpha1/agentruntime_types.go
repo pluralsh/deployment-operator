@@ -61,6 +61,12 @@ type AgentRuntimeSpec struct {
 	// for the agent to use.
 	// +kubebuilder:validation:Optional
 	Browser *BrowserConfig `json:"browser,omitempty"`
+
+	// BootstrapScript is a bash script that will be executed inside the cloned repository
+	// directory before the coding agent starts. It can be used to install dependencies,
+	// configure tooling, or perform any other setup required by the agent.
+	// +kubebuilder:validation:Optional
+	BootstrapScript *string `json:"bootstrapScript,omitempty"`
 }
 
 // Browser defines the browser to use for the agent runtime.

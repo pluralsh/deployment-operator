@@ -77,6 +77,12 @@ spec:
                       type: object
                     type: array
                 type: object
+              bootstrapScript:
+                description: |-
+                  BootstrapScript is a bash script that will be executed inside the cloned repository
+                  directory before the coding agent starts. It can be used to install dependencies,
+                  configure tooling, or perform any other setup required by the agent.
+                type: string
               browser:
                 description: |-
                   Browser configuration augments agent runtime with a headless browser.

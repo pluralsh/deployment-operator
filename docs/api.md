@@ -267,6 +267,7 @@ _Appears in:_
 | `dind` _boolean_ | Dind enables Docker-in-Docker for this agent runtime.<br />When true, the runtime will be configured to run with DinD support. |  | Optional: \{\} <br /> |
 | `allowedRepositories` _string array_ | AllowedRepositories the git repositories allowed to be used with this runtime. |  | Optional: \{\} <br /> |
 | `browser` _[BrowserConfig](#browserconfig)_ | Browser configuration augments agent runtime with a headless browser.<br />When provided, the runtime will be configured to run with a headless browser available<br />for the agent to use. |  | Optional: \{\} <br /> |
+| `bootstrapScript` _string_ | BootstrapScript is a bash script that will be executed inside the cloned repository<br />directory before the coding agent starts. It can be used to install dependencies,<br />configure tooling, or perform any other setup required by the agent. |  | Optional: \{\} <br /> |
 
 
 #### Binding

@@ -281,6 +281,11 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		return nil, fmt.Errorf("failed to reconcile run secret: %w", err)
 	}
 
+	bootstrapCM, err := r.reconcileBootstrapConfigMap(ctx, run, runtime)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reconcile bootstrap config map: %w", err)
+	}
+
 	pod := &corev1.Pod{}
 	if err := r.Get(ctx, client.ObjectKey{Name: run.Name, Namespace: run.Namespace}, pod); err != nil {
 		if !errors.IsNotFound(err) {
@@ -305,7 +310,44 @@ func (r *AgentRunReconciler) reconcilePod(ctx context.Context, run *v1alpha1.Age
 		return pod, fmt.Errorf("failed to add owner ref: %w", err)
 	}
 
+	if bootstrapCM != nil {
+		if err := utils.TryAddOwnerRef(ctx, r.Client, pod, bootstrapCM, r.Scheme); err != nil {
+			return pod, fmt.Errorf("failed to add owner ref to bootstrap config map: %w", err)
+		}
+	}
+
 	return pod, nil
+}
+
+// reconcileBootstrapConfigMap creates a ConfigMap holding the bootstrap script.
+func (r *AgentRunReconciler) reconcileBootstrapConfigMap(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) (*corev1.ConfigMap, error) {
+	if runtime.Spec.BootstrapScript == nil || len(*runtime.Spec.BootstrapScript) == 0 {
+		return nil, nil
+	}
+
+	logger := log.FromContext(ctx)
+	name := run.Name + "-bootstrap"
+
+	cm := &corev1.ConfigMap{}
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: run.Namespace}, cm); err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get bootstrap config map: %w", err)
+		}
+
+		cm = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: run.Namespace},
+			Data: map[string]string{
+				bootstrapScriptConfigMapKey: *runtime.Spec.BootstrapScript,
+			},
+		}
+
+		logger.V(2).Info("creating bootstrap config map", "namespace", cm.Namespace, "name", cm.Name)
+		if err = r.Create(ctx, cm); err != nil {
+			return nil, fmt.Errorf("failed to create bootstrap config map: %w", err)
+		}
+	}
+
+	return cm, nil
 }
 
 func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) (*corev1.Secret, error) {
