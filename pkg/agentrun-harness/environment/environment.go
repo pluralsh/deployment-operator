@@ -16,6 +16,9 @@ import (
 	types "github.com/pluralsh/deployment-operator/pkg/harness/environment"
 )
 
+// gitSigningKeyPath is the path where the signing key is mounted inside the container.
+const gitSigningKeyPath = "/plural/git/signing.key"
+
 // Setup implements Environment interface.
 func (in *environment) Setup() error {
 	if err := in.prepareWorkingDir(); err != nil {
@@ -93,6 +96,14 @@ func (in *environment) cloneRepository() error {
 		return err
 	}
 
+	if err := in.configureGitSigning(repoDirPath); err != nil {
+		return fmt.Errorf("failed to configure git signing: %w", err)
+	}
+
+	if err := in.configureGitProxy(repoDirPath); err != nil {
+		return fmt.Errorf("failed to configure git proxy: %w", err)
+	}
+
 	cmd := exec.NewExecutable("git", exec.WithArgs([]string{"branch", "--show-current"}), exec.WithDir(repoDirPath))
 	output, err := cmd.RunWithOutput(context.Background())
 	if err != nil {
@@ -106,6 +117,77 @@ func (in *environment) cloneRepository() error {
 
 	klog.V(log.LogLevelInfo).InfoS("repository cloned", "url", in.agentRun.Repository, "dir", repoDir)
 	return config.Save()
+}
+
+// configureGitSigning imports the GPG signing key.
+func (in *environment) configureGitSigning(repoDirPath string) error {
+	if _, err := os.Stat(gitSigningKeyPath); os.IsNotExist(err) {
+		return nil // no signing key mounted, skip
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("importing git signing key", "path", gitSigningKeyPath)
+
+	if out, err := exec.NewExecutable("gpg",
+		exec.WithArgs([]string{"--batch", "--import", gitSigningKeyPath}),
+	).RunWithOutput(context.Background()); err != nil {
+		return fmt.Errorf("gpg --import failed: %w: %s", err, out)
+	}
+
+	// Retrieve the fingerprint of the just-imported key.
+	out, err := exec.NewExecutable("gpg",
+		exec.WithArgs([]string{"--list-secret-keys", "--with-colons"}),
+	).RunWithOutput(context.Background())
+	if err != nil {
+		return fmt.Errorf("gpg --list-secret-keys failed: %w", err)
+	}
+
+	fingerprint := parseGPGFingerprint(string(out))
+	if fingerprint == "" {
+		return fmt.Errorf("could not determine GPG key fingerprint after import")
+	}
+
+	for _, args := range [][]string{
+		{"config", "user.signingKey", fingerprint},
+		{"config", "commit.gpgSign", "true"},
+	} {
+		if err := exec.NewExecutable("git",
+			exec.WithArgs(args),
+			exec.WithDir(repoDirPath),
+		).Run(context.Background()); err != nil {
+			return fmt.Errorf("git %v failed: %w", args, err)
+		}
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("git commit signing configured", "fingerprint", fingerprint)
+	return nil
+}
+
+// configureGitProxy sets the http.proxy git config when PLRL_GIT_PROXY is present.
+func (in *environment) configureGitProxy(repoDirPath string) error {
+	proxy := os.Getenv("PLRL_GIT_PROXY")
+	if proxy == "" {
+		return nil
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("configuring git proxy", "proxy", proxy)
+	return exec.NewExecutable("git",
+		exec.WithArgs([]string{"config", "http.proxy", proxy}),
+		exec.WithDir(repoDirPath),
+	).Run(context.Background())
+}
+
+// parseGPGFingerprint extracts the first secret key fingerprint from
+// the colon-delimited output of `gpg --list-secret-keys --with-colons`.
+func parseGPGFingerprint(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		if strings.HasPrefix(line, "fpr:") {
+			parts := strings.Split(line, ":")
+			if len(parts) >= 10 && parts[9] != "" {
+				return parts[9]
+			}
+		}
+	}
+	return ""
 }
 
 // init ensures that all required values are initialized

@@ -41,6 +41,10 @@ const (
 	bootstrapScriptVolumeName   = "bootstrap-script"
 	bootstrapScriptMountPath    = "/bootstrap/bootstrap.sh"
 	bootstrapScriptConfigMapKey = "bootstrap.sh"
+
+	gitSigningKeyVolumeName = "git-signing-key"
+	gitSigningKeyMountPath  = "/plural/git/signing.key"
+	gitSigningKeySecretKey  = "git-signing.key"
 )
 
 var dindClientEnvs = []corev1.EnvVar{
@@ -141,6 +145,10 @@ func buildAgentRunPod(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) *c
 
 	if runtime.Spec.BootstrapScript != nil && len(*runtime.Spec.BootstrapScript) > 0 {
 		enableBootstrapScript(run.Name+"-bootstrap", pod)
+	}
+
+	if runtime.Spec.Git != nil && runtime.Spec.Git.SigningKeyRef != nil {
+		enableGitSigningKey(run.Name, pod)
 	}
 
 	return pod
@@ -265,10 +273,16 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 }
 
 func getDefaultEnvVars(_ *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
-	return []corev1.EnvVar{
+	envVars := []corev1.EnvVar{
 		{Name: EnvDindEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Dind != nil && *runtime.Spec.Dind)},
 		{Name: EnvBrowserEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Browser.IsEnabled())},
 	}
+
+	if runtime.Spec.Git != nil && runtime.Spec.Git.Proxy != nil {
+		envVars = append(envVars, corev1.EnvVar{Name: EnvGitProxy, Value: *runtime.Spec.Git.Proxy})
+	}
+
+	return envVars
 }
 
 func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
@@ -470,6 +484,37 @@ func enableBootstrapScript(configMapName string, pod *corev1.Pod) {
 					Name:      bootstrapScriptVolumeName,
 					MountPath: bootstrapScriptMountPath,
 					SubPath:   bootstrapScriptConfigMapKey,
+				},
+			)
+			break
+		}
+	}
+}
+
+// enableGitSigningKey mounts the signing key secret as a file inside the default container and sets appropriate permissions.
+func enableGitSigningKey(podSecretName string, pod *corev1.Pod) {
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: gitSigningKeyVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  podSecretName,
+				DefaultMode: lo.ToPtr(int32(0400)),
+				Items: []corev1.KeyToPath{
+					{Key: gitSigningKeySecretKey, Path: gitSigningKeySecretKey},
+				},
+			},
+		},
+	})
+
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == defaultContainer {
+			pod.Spec.Containers[i].VolumeMounts = append(
+				pod.Spec.Containers[i].VolumeMounts,
+				corev1.VolumeMount{
+					Name:      gitSigningKeyVolumeName,
+					MountPath: gitSigningKeyMountPath,
+					SubPath:   gitSigningKeySecretKey,
+					ReadOnly:  true,
 				},
 			)
 			break
