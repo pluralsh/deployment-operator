@@ -41,12 +41,12 @@ func TestNewClosedRejectsInvalidURL(t *testing.T) {
 
 func TestNotifyDisconnectLockedKeepsSocketOpen(t *testing.T) {
 	s := &socket{
-		clientGen:  3,
-		connected:  true,
-		joined:     true,
-		joining:    true,
-		closed:     false,
-		channel:    &phx.Channel{},
+		clientGen: 3,
+		connected: true,
+		joined:    true,
+		joining:   true,
+		closed:    false,
+		channel:   &phx.Channel{},
 	}
 
 	s.notifyDisconnectLocked(3)
@@ -136,11 +136,11 @@ func TestOnChannelCloseDoesNotForceReconnectPath(t *testing.T) {
 
 func TestClosePreventsCallbackReopen(t *testing.T) {
 	s := &socket{
-		clientGen:  4,
-		connected:  true,
-		joined:     true,
-		closed:     false,
-		channel:    &phx.Channel{},
+		clientGen: 4,
+		connected: true,
+		joined:    true,
+		closed:    false,
+		channel:   &phx.Channel{},
 	}
 
 	if err := s.Close(); err != nil {
@@ -164,11 +164,11 @@ func TestClosePreventsCallbackReopen(t *testing.T) {
 
 func TestStaleClientReceiverCallbacksIgnoredAfterGenerationBump(t *testing.T) {
 	s := &socket{
-		clientGen:  1,
-		connected:  true,
-		joined:     true,
-		closed:     false,
-		channel:    &phx.Channel{},
+		clientGen: 1,
+		connected: true,
+		joined:    true,
+		closed:    false,
+		channel:   &phx.Channel{},
 	}
 
 	stale := &clientReceiver{s: s, gen: 1}
@@ -196,11 +196,11 @@ func TestStaleClientReceiverCallbacksIgnoredAfterGenerationBump(t *testing.T) {
 
 func TestReconnectCallbackStormKeepsSocketOpen(t *testing.T) {
 	s := &socket{
-		clientGen:  7,
-		connected:  true,
-		joined:     true,
-		closed:     false,
-		channel:    &phx.Channel{},
+		clientGen: 7,
+		connected: true,
+		joined:    true,
+		closed:    false,
+		channel:   &phx.Channel{},
 	}
 
 	current := &clientReceiver{s: s, gen: 7}
