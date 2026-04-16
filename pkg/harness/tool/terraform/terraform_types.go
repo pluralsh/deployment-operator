@@ -8,6 +8,9 @@ import (
 type Terraform struct {
 	toolv1.DefaultTool
 
+	// workDir is the root directory where the stack tarball was extracted.
+	workDir string
+
 	// dir is a working directory used by harness.
 	dir string
 

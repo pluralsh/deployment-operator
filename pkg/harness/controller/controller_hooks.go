@@ -240,7 +240,7 @@ func (in *stackRunController) afterPlan() error {
 		if clienterrors.IsUnauthenticated(err) {
 			return harnesserrors.WrapUnauthenticated("could not update stack run after plan", err)
 		}
-
+		klog.Errorf("could not update stack run after plan: %v", err)
 		return err
 	}
 

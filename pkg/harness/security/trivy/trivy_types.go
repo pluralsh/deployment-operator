@@ -13,6 +13,10 @@ import (
 // Scanner is a scanner implementation for trivy.
 type Scanner struct {
 	v1.DefaultScanner `json:",inline"`
+
+	// CustomPolicies enables loading custom policies from the .plural/policies
+	// subdirectory of the stack tarball.
+	CustomPolicies bool
 }
 
 // Report is an inline wrapper around original trivy report to
@@ -21,30 +25,67 @@ type Report struct {
 	types.Report `json:",inline"`
 }
 
+// maxDescriptionLen is the maximum allowed length for a policy violation description,
+// matching the server-side DB column constraint.
+const maxDescriptionLen = 255
+
+// coalesce returns the first non-empty string from the provided candidates.
+func coalesce(candidates ...string) string {
+	for _, s := range candidates {
+		if len(s) > 0 {
+			return s
+		}
+	}
+	return "N/A"
+}
+
 // Attributes transforms a trivy [types.Report] into the format acceptable by the Console API.
+// Violations are grouped by policyId (the server enforces uniqueness per stack run);
+// multiple affected resources for the same policy are merged as separate causes.
 func (in *Report) Attributes() []*console.StackPolicyViolationAttributes {
-	return lo.ToSlicePtr(
-		lo.Flatten(
-			algorithms.Map(in.Results, func(result types.Result) []console.StackPolicyViolationAttributes {
-				// Initially we only care about misconfigurations
-				// TODO: Extend to other checks
-				return algorithms.Map(result.Misconfigurations, func(misconfig types.DetectedMisconfiguration) console.StackPolicyViolationAttributes {
-					return in.fromDetectedMisconfiguration(result.Target, misconfig)
-				})
-			}),
-		),
-	)
+	// grouped preserves insertion order while deduplicating by policyId.
+	grouped := make(map[string]*console.StackPolicyViolationAttributes)
+	order := make([]string, 0)
+
+	for _, result := range in.Results {
+		// Initially we only care about misconfigurations
+		// TODO: Extend to other checks
+		for _, misconfig := range result.Misconfigurations {
+			attr := in.fromDetectedMisconfiguration(result.Target, misconfig)
+			if existing, ok := grouped[misconfig.ID]; ok {
+				existing.Causes = append(existing.Causes, attr.Causes...)
+			} else {
+				grouped[misconfig.ID] = &attr
+				order = append(order, misconfig.ID)
+			}
+		}
+	}
+
+	out := make([]*console.StackPolicyViolationAttributes, 0, len(grouped))
+	for _, id := range order {
+		out = append(out, grouped[id])
+	}
+	return out
 }
 
 func (in *Report) fromDetectedMisconfiguration(target string, misconfig types.DetectedMisconfiguration) console.StackPolicyViolationAttributes {
+	desc := coalesce(misconfig.Description, misconfig.Message, misconfig.Title)
+	if len([]rune(desc)) > maxDescriptionLen {
+		desc = string([]rune(desc)[:maxDescriptionLen])
+	}
+
+	policyURL := coalesce(append([]string{misconfig.PrimaryURL}, misconfig.References...)...)
+	policyModule := coalesce(misconfig.Query, misconfig.Namespace)
+	resolution := coalesce(misconfig.Resolution)
+
 	return console.StackPolicyViolationAttributes{
 		Severity:     in.toSeverity(misconfig.Severity),
 		PolicyID:     misconfig.ID,
-		PolicyURL:    lo.Ternary(len(misconfig.PrimaryURL) == 0, nil, lo.ToPtr(misconfig.PrimaryURL)),
-		PolicyModule: lo.ToPtr(misconfig.Query),
+		PolicyURL:    lo.ToPtr(policyURL),
+		PolicyModule: lo.ToPtr(policyModule),
 		Title:        misconfig.Title,
-		Description:  lo.ToPtr(misconfig.Description),
-		Resolution:   lo.Ternary(len(misconfig.Resolution) == 0, nil, lo.ToPtr(misconfig.Resolution)),
+		Description:  lo.ToPtr(desc),
+		Resolution:   lo.ToPtr(resolution),
 		Causes:       lo.Ternary(len(misconfig.CauseMetadata.Code.Lines) == 0, nil, in.toStackViolationCauseAttributes(target, misconfig.CauseMetadata)),
 	}
 }

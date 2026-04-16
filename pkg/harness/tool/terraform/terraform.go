@@ -137,6 +137,7 @@ func (in *Terraform) Scan() ([]*console.StackPolicyViolationAttributes, error) {
 	}
 
 	result, err := in.Scanner.Scan(console.StackTypeTerraform, securityv1.WithTerraform(securityv1.TerraformScanOptions{
+		WorkDir:           in.workDir,
 		Dir:               in.dir,
 		PlanFileName:      in.planFileName,
 		VariablesFileName: in.variablesFileName,
@@ -268,6 +269,7 @@ func (in *Terraform) init() v1.Tool {
 func New(config v1.Config) v1.Tool {
 	return (&Terraform{
 		DefaultTool: v1.DefaultTool{Scanner: config.Scanner},
+		workDir:     config.WorkDir,
 		dir:         config.ExecDir,
 		variables:   config.Variables,
 		parallelism: config.Run.Parallelism,
