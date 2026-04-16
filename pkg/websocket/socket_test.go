@@ -160,6 +160,9 @@ func TestClosePreventsCallbackReopen(t *testing.T) {
 	if s.joined {
 		t.Fatalf("expected joined=false after close")
 	}
+	if s.channel != nil {
+		t.Fatalf("expected channel to be cleared after close")
+	}
 }
 
 func TestStaleClientReceiverCallbacksIgnoredAfterGenerationBump(t *testing.T) {

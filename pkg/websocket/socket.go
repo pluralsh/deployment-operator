@@ -50,7 +50,9 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 	}
 
 	s := newSocket(clusterId, uri, false)
+	s.mu.Lock()
 	s.client = s.newClient()
+	s.mu.Unlock()
 	if err := s.client.Connect(*uri, http.Header{}); err != nil {
 		s.closed = true // Mark the socket as closed so that a subsequent Join() call will enter the reconnect path
 		return s, fmt.Errorf("failed to connect to websocket: %w", err)
@@ -111,6 +113,7 @@ func (s *socket) Join() error {
 		s.connected = false
 		s.joined = false
 		s.joining = false
+		s.channel = nil
 
 		s.mu.Unlock()
 		if err := client.Connect(*s.uri, http.Header{}); err != nil {
@@ -200,6 +203,7 @@ func (s *socket) Close() error {
 	s.joined = false
 	s.joining = false
 	s.closed = true
+	s.channel = nil
 	s.closeClientAsync()
 
 	return nil
