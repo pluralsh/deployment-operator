@@ -211,7 +211,9 @@ func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
 
 func (s *socket) NotifyConnect() {
 	s.mu.Lock()
-	if s.notifyConnectLocked(s.clientGen) {
+	shouldJoin := s.notifyConnectLocked(s.clientGen)
+	s.mu.Unlock()
+	if shouldJoin {
 		_ = s.Join()
 	}
 }
@@ -223,9 +225,8 @@ func (s *socket) NotifyDisconnect() {
 }
 
 // notifyConnectLocked sets state and returns true if Join() should be called.
-// Caller must hold s.mu; returns with s.mu released.
+// Caller must hold s.mu and remains responsible for unlocking.
 func (s *socket) notifyConnectLocked(gen uint64) bool {
-	defer s.mu.Unlock()
 	if gen != s.clientGen || s.closed {
 		return false
 	}
