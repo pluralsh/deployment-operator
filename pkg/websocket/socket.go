@@ -239,12 +239,11 @@ func (s *socket) notifyDisconnectLocked(gen uint64) {
 		return
 	}
 
-	klog.V(log.LogLevelDefault).Info("websocket disconnected, will reconnect with a new client")
+	klog.V(log.LogLevelDefault).Info("websocket disconnected, waiting for reconnect")
 	s.connected = false
 	s.joined = false
 	s.joining = false
-	s.closed = true
-	s.closeClientAsync()
+	s.channel = nil
 }
 
 // ChannelReceiver implementation.
@@ -261,11 +260,10 @@ func (s *socket) OnJoinError(payload interface{}) {
 		return
 	}
 
-	klog.V(log.LogLevelDefault).Info("failed to join channel, will reconnect with a new client")
+	klog.V(log.LogLevelDefault).Info("failed to join channel, waiting for next join attempt")
 	s.joined = false
-	s.connected = false
-	s.closed = true
-	s.closeClientAsync()
+	s.joining = false
+	s.channel = nil
 }
 
 func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
@@ -276,11 +274,10 @@ func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
 		return
 	}
 
-	klog.V(log.LogLevelDefault).Info("left websocket channel, will reconnect with a new client")
+	klog.V(log.LogLevelDefault).Info("left websocket channel, waiting for next join attempt")
 	s.joined = false
-	s.connected = false
-	s.closed = true
-	s.closeClientAsync()
+	s.joining = false
+	s.channel = nil
 }
 
 func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
