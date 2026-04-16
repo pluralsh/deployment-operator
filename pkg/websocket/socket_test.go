@@ -7,6 +7,38 @@ import (
 	phx "github.com/pluralsh/gophoenix"
 )
 
+func TestNewClosedStartsWithoutClientConnection(t *testing.T) {
+	ws, err := NewClosed("cluster-id", "https://console.example.com", "token")
+	if err != nil {
+		t.Fatalf("expected NewClosed to succeed, got error: %v", err)
+	}
+
+	s, ok := ws.(*socket)
+	if !ok {
+		t.Fatalf("expected concrete socket type")
+	}
+
+	if !s.closed {
+		t.Fatalf("expected socket to start closed")
+	}
+	if s.client != nil {
+		t.Fatalf("expected socket to start without an active client")
+	}
+	if s.uri == nil {
+		t.Fatalf("expected websocket URI to be initialized")
+	}
+	if s.uri.Scheme != "wss" {
+		t.Fatalf("expected wss URI, got %q", s.uri.Scheme)
+	}
+}
+
+func TestNewClosedRejectsInvalidURL(t *testing.T) {
+	_, err := NewClosed("cluster-id", "://invalid-url", "token")
+	if err == nil {
+		t.Fatalf("expected invalid URL error")
+	}
+}
+
 func TestNotifyDisconnectLockedKeepsSocketOpen(t *testing.T) {
 	s := &socket{
 		clientGen:  3,

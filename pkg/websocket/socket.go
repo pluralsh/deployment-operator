@@ -49,12 +49,7 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 		return nil, fmt.Errorf("failed to build websocket URI: %w", err)
 	}
 
-	s := &socket{
-		clusterId:  clusterId,
-		uri:        uri,
-		publishers: cmap.New[Publisher](),
-	}
-
+	s := newSocket(clusterId, uri, false)
 	s.client = s.newClient()
 	if err := s.client.Connect(*uri, http.Header{}); err != nil {
 		s.closed = true // Mark the socket as closed so that a subsequent Join() call will enter the reconnect path
@@ -62,6 +57,27 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 	}
 
 	return s, nil
+}
+
+// NewClosed creates a socket that starts in closed state and does not open
+// a websocket connection until Join() is called.
+func NewClosed(clusterId, consoleUrl, deployToken string) (Socket, error) {
+	uri, err := wssUri(consoleUrl, deployToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build websocket URI: %w", err)
+	}
+
+	return newSocket(clusterId, uri, true), nil
+}
+
+func newSocket(clusterID string, uri *url.URL, closed bool) *socket {
+	s := &socket{
+		clusterId:  clusterID,
+		uri:        uri,
+		publishers: cmap.New[Publisher](),
+		closed:     closed,
+	}
+	return s
 }
 
 func (s *socket) AddPublisher(event string, publisher Publisher) {
