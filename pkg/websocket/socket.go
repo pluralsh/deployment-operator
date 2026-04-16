@@ -54,7 +54,9 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 	s.client = s.newClient()
 	s.mu.Unlock()
 	if err := s.client.Connect(*uri, http.Header{}); err != nil {
+		s.mu.Lock()
 		s.closed = true // Mark the socket as closed so that a subsequent Join() call will enter the reconnect path
+		s.mu.Unlock()
 		return s, fmt.Errorf("failed to connect to websocket: %w", err)
 	}
 
