@@ -70,7 +70,7 @@ var (
 		console.AgentRuntimeTypeClaude:   "%s-claude-2.1.72",
 		console.AgentRuntimeTypeGemini:   "%s-gemini-0.6.1",
 		console.AgentRuntimeTypeOpencode: "%s-opencode-1.2.24",
-		console.AgentRuntimeTypeCodex:    "%s-codex-0.104.0",
+		console.AgentRuntimeTypeCodex:    "%s-codex-0.116.0",
 	}
 
 	languages = map[console.AgentRunLanguage]string{
