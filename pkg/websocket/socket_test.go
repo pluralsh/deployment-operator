@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"sync"
 	"testing"
 
 	phx "github.com/pluralsh/gophoenix"
@@ -98,5 +99,107 @@ func TestOnChannelCloseDoesNotForceReconnectPath(t *testing.T) {
 	}
 	if s.channel != nil {
 		t.Fatalf("expected channel to be cleared")
+	}
+}
+
+func TestClosePreventsCallbackReopen(t *testing.T) {
+	s := &socket{
+		clientGen:  4,
+		connected:  true,
+		joined:     true,
+		closed:     false,
+		channel:    &phx.Channel{},
+	}
+
+	if err := s.Close(); err != nil {
+		t.Fatalf("expected close to succeed, got error: %v", err)
+	}
+
+	cr := &clientReceiver{s: s, gen: 4}
+	cr.NotifyConnect()
+	cr.NotifyDisconnect()
+
+	if !s.closed {
+		t.Fatalf("expected socket to stay closed")
+	}
+	if s.connected {
+		t.Fatalf("expected connected=false after close")
+	}
+	if s.joined {
+		t.Fatalf("expected joined=false after close")
+	}
+}
+
+func TestStaleClientReceiverCallbacksIgnoredAfterGenerationBump(t *testing.T) {
+	s := &socket{
+		clientGen:  1,
+		connected:  true,
+		joined:     true,
+		closed:     false,
+		channel:    &phx.Channel{},
+	}
+
+	stale := &clientReceiver{s: s, gen: 1}
+
+	s.mu.Lock()
+	s.clientGen = 2
+	s.connected = false
+	s.joined = false
+	s.channel = nil
+	s.mu.Unlock()
+
+	stale.NotifyConnect()
+	stale.NotifyDisconnect()
+
+	if s.connected {
+		t.Fatalf("expected stale callbacks to keep connected=false")
+	}
+	if s.joined {
+		t.Fatalf("expected stale callbacks to keep joined=false")
+	}
+	if s.closed {
+		t.Fatalf("expected stale callbacks not to close socket")
+	}
+}
+
+func TestReconnectCallbackStormKeepsSocketOpen(t *testing.T) {
+	s := &socket{
+		clientGen:  7,
+		connected:  true,
+		joined:     true,
+		closed:     false,
+		channel:    &phx.Channel{},
+	}
+
+	current := &clientReceiver{s: s, gen: 7}
+	stale := &clientReceiver{s: s, gen: 6}
+
+	const workers = 8
+	const loopsPerWorker = 250
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < loopsPerWorker; j++ {
+				current.NotifyDisconnect()
+				stale.NotifyDisconnect()
+				s.OnJoinError(nil)
+				s.OnChannelClose(nil, int64(j))
+				current.NotifyConnect()
+				stale.NotifyConnect()
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	if s.closed {
+		t.Fatalf("expected callback storm not to force closed state")
+	}
+	if s.channel != nil {
+		t.Fatalf("expected channel to be cleared after failures")
 	}
 }
