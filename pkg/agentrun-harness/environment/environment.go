@@ -136,7 +136,7 @@ func (in *environment) cloneRepository() error {
 // configureGitSigning configures SSH commit signing using the mounted private key.
 func (in *environment) configureGitSigning(repoDirPath string) error {
 	if _, err := os.Stat(gitSigningKeyPath); os.IsNotExist(err) {
-		return nil // no signing key mounted, skip
+		return nil
 	}
 
 	klog.V(log.LogLevelInfo).InfoS("configuring SSH git commit signing", "path", gitSigningKeyPath)
