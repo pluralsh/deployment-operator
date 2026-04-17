@@ -10,14 +10,16 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 
 	types "github.com/pluralsh/deployment-operator/pkg/harness/environment"
 )
 
-// gitSigningKeyPath is the path where the signing key is mounted inside the container.
-const gitSigningKeyPath = "/plural/git/signing.key"
+// gitSigningKeyPath is the mount path for the SSH signing key inside the container.
+// Defined in pkg/common to stay in sync with the controller's agentrun_pod.go.
+const gitSigningKeyPath = common.GitSigningKeyMountPath
 
 // Setup implements Environment interface.
 func (in *environment) Setup() error {

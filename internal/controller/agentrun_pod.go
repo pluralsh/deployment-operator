@@ -43,7 +43,7 @@ const (
 	bootstrapScriptConfigMapKey = "bootstrap.sh"
 
 	gitSigningKeyVolumeName = "git-signing-key"
-	gitSigningKeyMountPath  = "/plural/git/signing.key"
+	gitSigningKeyMountPath  = common.GitSigningKeyMountPath
 	gitSigningKeySecretKey  = "git-signing.key"
 )
 
