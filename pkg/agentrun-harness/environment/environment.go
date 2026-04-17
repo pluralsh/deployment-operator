@@ -175,7 +175,6 @@ func (in *environment) configureGitProxy(repoDirPath string) error {
 	).Run(context.Background())
 }
 
-
 // init ensures that all required values are initialized
 func (in *environment) init() types.Environment {
 	if in.agentRun == nil {
