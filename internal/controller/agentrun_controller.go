@@ -417,7 +417,7 @@ func (r *AgentRunReconciler) resolveSigningKey(ctx context.Context, runtime *v1a
 
 	ref := runtime.Spec.Git.SigningKeyRef
 	s := &corev1.Secret{}
-	if err := r.Get(ctx, client.ObjectKey{Namespace: runtime.Namespace, Name: ref.Name}, s); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Namespace: runtime.Spec.TargetNamespace, Name: ref.Name}, s); err != nil {
 		return nil, fmt.Errorf("failed to get git signing key secret %q: %w", ref.Name, err)
 	}
 
