@@ -119,35 +119,17 @@ func (in *environment) cloneRepository() error {
 	return config.Save()
 }
 
-// configureGitSigning imports the GPG signing key.
+// configureGitSigning configures SSH commit signing using the mounted private key.
 func (in *environment) configureGitSigning(repoDirPath string) error {
 	if _, err := os.Stat(gitSigningKeyPath); os.IsNotExist(err) {
 		return nil // no signing key mounted, skip
 	}
 
-	klog.V(log.LogLevelInfo).InfoS("importing git signing key", "path", gitSigningKeyPath)
-
-	if out, err := exec.NewExecutable("gpg",
-		exec.WithArgs([]string{"--batch", "--import", gitSigningKeyPath}),
-	).RunWithOutput(context.Background()); err != nil {
-		return fmt.Errorf("gpg --import failed: %w: %s", err, out)
-	}
-
-	// Retrieve the fingerprint of the just-imported key.
-	out, err := exec.NewExecutable("gpg",
-		exec.WithArgs([]string{"--list-secret-keys", "--with-colons"}),
-	).RunWithOutput(context.Background())
-	if err != nil {
-		return fmt.Errorf("gpg --list-secret-keys failed: %w", err)
-	}
-
-	fingerprint := parseGPGFingerprint(string(out))
-	if fingerprint == "" {
-		return fmt.Errorf("could not determine GPG key fingerprint after import")
-	}
+	klog.V(log.LogLevelInfo).InfoS("configuring SSH git commit signing", "path", gitSigningKeyPath)
 
 	for _, args := range [][]string{
-		{"config", "user.signingKey", fingerprint},
+		{"config", "gpg.format", "ssh"},
+		{"config", "user.signingKey", gitSigningKeyPath},
 		{"config", "commit.gpgSign", "true"},
 	} {
 		if err := exec.NewExecutable("git",
@@ -158,7 +140,7 @@ func (in *environment) configureGitSigning(repoDirPath string) error {
 		}
 	}
 
-	klog.V(log.LogLevelInfo).InfoS("git commit signing configured", "fingerprint", fingerprint)
+	klog.V(log.LogLevelInfo).InfoS("git SSH commit signing configured", "key", gitSigningKeyPath)
 	return nil
 }
 
@@ -176,19 +158,6 @@ func (in *environment) configureGitProxy(repoDirPath string) error {
 	).Run(context.Background())
 }
 
-// parseGPGFingerprint extracts the first secret key fingerprint from
-// the colon-delimited output of `gpg --list-secret-keys --with-colons`.
-func parseGPGFingerprint(output string) string {
-	for _, line := range strings.Split(output, "\n") {
-		if strings.HasPrefix(line, "fpr:") {
-			parts := strings.Split(line, ":")
-			if len(parts) >= 10 && parts[9] != "" {
-				return parts[9]
-			}
-		}
-	}
-	return ""
-}
 
 // init ensures that all required values are initialized
 func (in *environment) init() types.Environment {
