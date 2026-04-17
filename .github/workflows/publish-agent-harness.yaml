@@ -176,7 +176,7 @@ jobs:
           - name: opencode
             version: 1.2.24
           - name: codex
-            version: ${{ env.CODEX_VERSION }}
+            version: 0.116.0
     permissions:
       contents: write
       discussions: write
