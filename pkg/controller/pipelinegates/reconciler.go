@@ -163,7 +163,7 @@ func (s *GateReconciler) Reconcile(ctx context.Context, id string) (reconcile.Re
 }
 
 func (s *GateReconciler) GetPublisher() (string, websocket.Publisher) {
-	return "gate.event", &socketPublisher{
+	return "gate", &socketPublisher{
 		gateQueue: s.gateQueue,
 	}
 }

@@ -1,10 +1,11 @@
 package websocket
 
 import (
+	"net/url"
 	"sync"
 	"testing"
 
-	phx "github.com/pluralsh/gophoenix"
+	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
 func TestNewClosedStartsWithoutClientConnection(t *testing.T) {
@@ -18,17 +19,20 @@ func TestNewClosedStartsWithoutClientConnection(t *testing.T) {
 		t.Fatalf("expected concrete socket type")
 	}
 
-	if !s.closed {
+	if !s.closed.Load() {
 		t.Fatalf("expected socket to start closed")
 	}
-	if s.client != nil {
+	if s.clientHandle.Load() != nil {
 		t.Fatalf("expected socket to start without an active client")
 	}
-	if s.uri == nil {
-		t.Fatalf("expected websocket URI to be initialized")
+	if s.endpoint == nil {
+		t.Fatalf("expected websocket endpoint to be initialized")
 	}
-	if s.uri.Scheme != "wss" {
-		t.Fatalf("expected wss URI, got %q", s.uri.Scheme)
+	if s.endpoint.Scheme != "wss" {
+		t.Fatalf("expected wss URI, got %q", s.endpoint.Scheme)
+	}
+	if s.endpoint.Path != graphqlWebsocketPath {
+		t.Fatalf("expected graphql websocket path, got %q", s.endpoint.Path)
 	}
 }
 
@@ -39,202 +43,151 @@ func TestNewClosedRejectsInvalidURL(t *testing.T) {
 	}
 }
 
-func TestNotifyDisconnectLockedKeepsSocketOpen(t *testing.T) {
-	s := &socket{
-		clientGen: 3,
-		connected: true,
-		joined:    true,
-		joining:   true,
-		closed:    false,
-		channel:   &phx.Channel{},
-	}
-
-	s.notifyDisconnectLocked(3)
-
-	if s.closed {
-		t.Fatalf("expected socket to remain open")
-	}
-	if s.connected {
-		t.Fatalf("expected connected=false")
-	}
-	if s.joined {
-		t.Fatalf("expected joined=false")
-	}
-	if s.joining {
-		t.Fatalf("expected joining=false")
-	}
-	if s.channel != nil {
-		t.Fatalf("expected channel to be cleared")
-	}
-}
-
-func TestNotifyDisconnectLockedIgnoresStaleGeneration(t *testing.T) {
-	s := &socket{
-		clientGen: 2,
-		connected: true,
-		joined:    true,
-		closed:    false,
-	}
-
-	s.notifyDisconnectLocked(1)
-
-	if !s.connected {
-		t.Fatalf("expected connected state to remain unchanged")
-	}
-	if !s.joined {
-		t.Fatalf("expected joined state to remain unchanged")
-	}
-}
-
-func TestOnJoinErrorDoesNotForceReconnectPath(t *testing.T) {
-	s := &socket{
-		connected: true,
-		joined:    true,
-		closed:    false,
-		channel:   &phx.Channel{},
-	}
-
-	s.OnJoinError(nil)
-
-	if s.closed {
-		t.Fatalf("expected socket to stay open after join error")
-	}
-	if !s.connected {
-		t.Fatalf("expected connection state to remain true")
-	}
-	if s.joined {
-		t.Fatalf("expected joined=false after join error")
-	}
-	if s.channel != nil {
-		t.Fatalf("expected channel to be cleared")
-	}
-}
-
-func TestOnChannelCloseDoesNotForceReconnectPath(t *testing.T) {
-	s := &socket{
-		connected: true,
-		joined:    true,
-		closed:    false,
-		channel:   &phx.Channel{},
-	}
-
-	s.OnChannelClose(nil, 0)
-
-	if s.closed {
-		t.Fatalf("expected socket to stay open after channel close")
-	}
-	if !s.connected {
-		t.Fatalf("expected connection state to remain true")
-	}
-	if s.joined {
-		t.Fatalf("expected joined=false after channel close")
-	}
-	if s.channel != nil {
-		t.Fatalf("expected channel to be cleared")
-	}
-}
-
 func TestClosePreventsCallbackReopen(t *testing.T) {
-	s := &socket{
-		clientGen: 4,
-		connected: true,
-		joined:    true,
-		closed:    false,
-		channel:   &phx.Channel{},
-	}
+	s := &socket{}
+	s.clientGen.Store(1)
+	s.joining.Store(true)
+	s.closed.Store(false)
 
 	if err := s.Close(); err != nil {
 		t.Fatalf("expected close to succeed, got error: %v", err)
 	}
 
-	cr := &clientReceiver{s: s, gen: 4}
-	cr.NotifyConnect()
-	cr.NotifyDisconnect()
-
-	if !s.closed {
+	if !s.closed.Load() {
 		t.Fatalf("expected socket to stay closed")
 	}
-	if s.connected {
-		t.Fatalf("expected connected=false after close")
-	}
-	if s.joined {
-		t.Fatalf("expected joined=false after close")
-	}
-	if s.channel != nil {
-		t.Fatalf("expected channel to be cleared after close")
+	if s.joining.Load() {
+		t.Fatalf("expected joining=false after close")
 	}
 }
 
-func TestStaleClientReceiverCallbacksIgnoredAfterGenerationBump(t *testing.T) {
-	s := &socket{
-		clientGen: 1,
-		connected: true,
-		joined:    true,
-		closed:    false,
-		channel:   &phx.Channel{},
+func TestHandleNotificationDispatchesToPublisher(t *testing.T) {
+	pub := &recordingPublisher{}
+	s := &socket{publishers: newPublisherMapWith("service", pub)}
+	s.clientGen.Store(2)
+	s.closed.Store(false)
+
+	s.handleNotification(2, notification{
+		Resource:   "service",
+		ResourceID: "svc-123",
+		Kick:       boolPtr(true),
+	})
+
+	if pub.id != "svc-123" {
+		t.Fatalf("expected id svc-123, got %q", pub.id)
 	}
-
-	stale := &clientReceiver{s: s, gen: 1}
-
-	s.mu.Lock()
-	s.clientGen = 2
-	s.connected = false
-	s.joined = false
-	s.channel = nil
-	s.mu.Unlock()
-
-	stale.NotifyConnect()
-	stale.NotifyDisconnect()
-
-	if s.connected {
-		t.Fatalf("expected stale callbacks to keep connected=false")
-	}
-	if s.joined {
-		t.Fatalf("expected stale callbacks to keep joined=false")
-	}
-	if s.closed {
-		t.Fatalf("expected stale callbacks not to close socket")
+	if !pub.kick {
+		t.Fatalf("expected kick=true")
 	}
 }
 
-func TestReconnectCallbackStormKeepsSocketOpen(t *testing.T) {
-	s := &socket{
-		clientGen: 7,
-		connected: true,
-		joined:    true,
-		closed:    false,
-		channel:   &phx.Channel{},
+func TestHandleNotificationIgnoresStaleGeneration(t *testing.T) {
+	pub := &recordingPublisher{}
+	s := &socket{publishers: newPublisherMapWith("service", pub)}
+	s.clientGen.Store(3)
+	s.closed.Store(false)
+
+	s.handleNotification(2, notification{
+		Resource:   "service",
+		ResourceID: "svc-123",
+	})
+
+	if pub.calls != 0 {
+		t.Fatalf("expected stale generation to be ignored")
 	}
+}
 
-	current := &clientReceiver{s: s, gen: 7}
-	stale := &clientReceiver{s: s, gen: 6}
+func TestHandleNotificationIgnoresUnsupportedResource(t *testing.T) {
+	pub := &recordingPublisher{}
+	s := &socket{publishers: newPublisherMapWith("service", pub)}
+	s.clientGen.Store(1)
+	s.closed.Store(false)
 
-	const workers = 8
-	const loopsPerWorker = 250
+	s.handleNotification(1, notification{
+		Resource:   "unknown",
+		ResourceID: "id-1",
+	})
 
+	if pub.calls != 0 {
+		t.Fatalf("expected unsupported resource to be ignored")
+	}
+}
+
+func TestAddPublisherRejectsNilPublisher(t *testing.T) {
+	s := newSocket("cluster-id", mustWebsocketURL(t), "token", true)
+
+	s.AddPublisher("service", nil)
+
+	if s.publishers.Has("service") {
+		t.Fatalf("expected nil publisher to be ignored")
+	}
+}
+
+func TestConcurrentJoinCloseLeavesNoClientWhenClosed(t *testing.T) {
+	s := newSocket("cluster-id", mustWebsocketURL(t), "token", false)
+
+	const iterations = 40
 	var wg sync.WaitGroup
-	wg.Add(workers)
+	wg.Add(iterations * 2)
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < iterations; i++ {
 		go func() {
 			defer wg.Done()
-			for j := 0; j < loopsPerWorker; j++ {
-				current.NotifyDisconnect()
-				stale.NotifyDisconnect()
-				s.OnJoinError(nil)
-				s.OnChannelClose(nil, int64(j))
-				current.NotifyConnect()
-				stale.NotifyConnect()
-			}
+			_ = s.Join()
+		}()
+
+		go func() {
+			defer wg.Done()
+			_ = s.Close()
 		}()
 	}
 
 	wg.Wait()
 
-	if s.closed {
-		t.Fatalf("expected callback storm not to force closed state")
+	if err := s.Close(); err != nil {
+		t.Fatalf("expected final close to succeed, got error: %v", err)
 	}
-	if s.channel != nil {
-		t.Fatalf("expected channel to be cleared after failures")
+
+	if !s.closed.Load() {
+		t.Fatalf("expected socket to remain closed")
 	}
+	if s.joining.Load() {
+		t.Fatalf("expected joining=false after close")
+	}
+	if s.clientHandle.Load() != nil {
+		t.Fatalf("expected no active client after close")
+	}
+}
+
+type recordingPublisher struct {
+	id    string
+	kick  bool
+	calls int
+}
+
+func (r *recordingPublisher) Publish(id string, kick bool) {
+	r.id = id
+	r.kick = kick
+	r.calls++
+}
+
+func newPublisherMapWith(event string, publisher Publisher) cmap.ConcurrentMap[string, Publisher] {
+	m := cmap.New[Publisher]()
+	m.Set(event, publisher)
+	return m
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+
+func mustWebsocketURL(t *testing.T) *url.URL {
+	t.Helper()
+
+	endpoint, err := gqlWSUri("https://console.example.com")
+	if err != nil {
+		t.Fatalf("expected websocket URL, got error: %v", err)
+	}
+
+	return endpoint
 }

@@ -1,63 +1,56 @@
 package websocket
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"net/url"
-	"sync"
+	"sync/atomic"
 
+	graphql "github.com/hasura/go-graphql-client"
+	"github.com/hasura/go-graphql-client/pkg/jsonutil"
 	cmap "github.com/orcaman/concurrent-map/v2"
-	phx "github.com/pluralsh/gophoenix"
+	"github.com/samber/lo"
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
+
+const graphqlWebsocketPath = "/ext/socket/gql-ws"
 
 type Publisher interface {
 	Publish(id string, kick bool)
 }
 
 type socket struct {
-	clusterId  string
-	uri        *url.URL
-	client     *phx.Client
-	clientGen  uint64
-	publishers cmap.ConcurrentMap[string, Publisher]
-	channel    *phx.Channel
-	connected  bool
-	joined     bool
-	joining    bool
-	closed     bool
-	mu         sync.RWMutex
+	clusterID    string
+	endpoint     *url.URL
+	deployToken  string
+	publishers   cmap.ConcurrentMap[string, Publisher]
+	clientHandle atomic.Pointer[subscriptionHandle]
+	clientGen    atomic.Uint64
+	joining      atomic.Bool
+	closed       atomic.Bool
+}
+
+type subscriptionHandle struct {
+	client *graphql.SubscriptionClient
+	cancel context.CancelFunc
 }
 
 type Socket interface {
 	AddPublisher(event string, publisher Publisher)
 	Join() error
 	Close() error
-	NotifyConnect()
-	NotifyDisconnect()
-	OnJoin(payload interface{})
-	OnJoinError(payload interface{})
-	OnChannelClose(payload interface{}, joinRef int64)
-	OnMessage(ref int64, event string, payload interface{})
 }
 
-func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
-	uri, err := wssUri(consoleUrl, deployToken)
+func New(clusterID, consoleURL, deployToken string) (Socket, error) {
+	s, err := newSocketFromConsoleURL(clusterID, consoleURL, deployToken, false)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build websocket URI: %w", err)
+		return nil, err
 	}
 
-	s := newSocket(clusterId, uri, false)
-	s.mu.Lock()
-	s.client = s.newClient()
-	s.mu.Unlock()
-	if err := s.client.Connect(*uri, http.Header{}); err != nil {
-		s.mu.Lock()
-		s.closed = true // Mark the socket as closed so that a subsequent Join() call will enter the reconnect path
-		s.mu.Unlock()
-		return s, fmt.Errorf("failed to connect to websocket: %w", err)
+	if err := s.Join(); err != nil {
+		return s, fmt.Errorf("failed to start graphql websocket subscription: %w", err)
 	}
 
 	return s, nil
@@ -65,22 +58,32 @@ func New(clusterId, consoleUrl, deployToken string) (Socket, error) {
 
 // NewClosed creates a socket that starts in closed state and does not open
 // a websocket connection until Join() is called.
-func NewClosed(clusterId, consoleUrl, deployToken string) (Socket, error) {
-	uri, err := wssUri(consoleUrl, deployToken)
+func NewClosed(clusterID, consoleURL, deployToken string) (Socket, error) {
+	s, err := newSocketFromConsoleURL(clusterID, consoleURL, deployToken, true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build websocket URI: %w", err)
+		return nil, err
 	}
 
-	return newSocket(clusterId, uri, true), nil
+	return s, nil
 }
 
-func newSocket(clusterID string, uri *url.URL, closed bool) *socket {
-	s := &socket{
-		clusterId:  clusterID,
-		uri:        uri,
-		publishers: cmap.New[Publisher](),
-		closed:     closed,
+func newSocketFromConsoleURL(clusterID, consoleURL, deployToken string, closed bool) (*socket, error) {
+	endpoint, err := gqlWSUri(consoleURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build graphql websocket URI: %w", err)
 	}
+
+	return newSocket(clusterID, endpoint, deployToken, closed), nil
+}
+
+func newSocket(clusterID string, endpoint *url.URL, deployToken string, closed bool) *socket {
+	s := &socket{
+		clusterID:   clusterID,
+		endpoint:    endpoint,
+		deployToken: deployToken,
+		publishers:  cmap.New[Publisher](),
+	}
+	s.closed.Store(closed)
 	return s
 }
 
@@ -89,247 +92,210 @@ func (s *socket) AddPublisher(event string, publisher Publisher) {
 		klog.V(log.LogLevelDefault).Info("cannot register publisher without event type")
 		return
 	}
+	if publisher == nil {
+		klog.V(log.LogLevelDefault).InfoS("cannot register nil publisher", "event", event)
+		return
+	}
 
-	if s.publishers.Has(event) {
+	if !s.publishers.SetIfAbsent(event, publisher) {
 		klog.V(log.LogLevelDefault).InfoS("publisher for this event type is already registered", "event", event)
 		return
 	}
-
-	s.publishers.Set(event, publisher)
 }
 
 func (s *socket) Join() error {
-	s.mu.Lock()
+	if !s.joining.CompareAndSwap(false, true) {
+		return nil
+	}
 
-	// If the socket was closed, reconnect.
-	// Prepare a new client under the lock, but call Connect() after releasing it
-	// because gophoenix spawns goroutines that call back into NotifyConnect/NotifyDisconnect (which acquire s.mu).
-	if s.closed {
-		klog.V(log.LogLevelDefault).Info("reconnecting websocket")
-
-		s.closeClientAsync()
-
-		client := s.newClient()
-		s.client = client
-		s.closed = false
-		s.connected = false
-		s.joined = false
-		s.joining = false
-		s.channel = nil
-
-		s.mu.Unlock()
-		if err := client.Connect(*s.uri, http.Header{}); err != nil {
-			s.mu.Lock()
-			s.closed = true // Allow the next poll to retry the full reconnect cycle
-			s.mu.Unlock()
-			klog.V(log.LogLevelDefault).InfoS("failed to connect socket, will retry", "error", err)
-			return fmt.Errorf("failed to reconnect to websocket: %w", err)
+	defer func() {
+		if s.closed.Load() {
+			s.joining.Store(false)
 		}
+	}()
+
+	// If a client is already active, rely on the subscription client reconnect loop.
+	if !s.closed.Load() && s.clientHandle.Load() != nil {
+		s.joining.Store(false)
 		return nil
 	}
 
-	if s.client == nil {
-		s.mu.Unlock()
-		klog.V(log.LogLevelDefault).Info("socket client is nil, waiting...")
+	gen := s.clientGen.Add(1)
+	s.closed.Store(false)
+
+	client := s.newSubscriptionClient(gen)
+
+	subscription := &notificationSubscription{}
+	_, err := client.Subscribe(subscription, nil, s.subscriptionHandler(gen))
+	if err != nil {
+		s.joining.Store(false)
+		s.closed.Store(true)
+		return fmt.Errorf("failed to subscribe to deploy agent notifications: %w", err)
+	}
+
+	runCtx, cancel := context.WithCancel(context.Background())
+	handle := &subscriptionHandle{
+		client: client,
+		cancel: cancel,
+	}
+
+	if !s.publishClient(handle) {
+		cancel()
+		_ = client.Close()
 		return nil
 	}
 
-	if s.connected && !s.joined && !s.joining {
-		topic := s.getChannelTopic()
-		client := s.client
-		s.joining = true
-		s.mu.Unlock()
-
-		// Release lock before calling client.Join: the gophoenix library's listen()
-		// goroutine calls back into OnJoin/OnJoinError (which acquire s.mu) upon
-		// receiving the server ack, so holding the lock here would deadlock.
-		channel, err := client.Join(s, topic, map[string]string{})
-
-		s.mu.Lock()
-		s.joining = false
-		if err == nil {
-			klog.V(log.LogLevelDefault).InfoS("connecting to channel", "topic", topic)
-			s.channel = channel
-			s.joined = true
-		}
-		s.mu.Unlock()
-		return err
-	} else if s.joined || s.joining {
-		s.mu.Unlock()
-		return nil
-	}
-
-	s.mu.Unlock()
-	klog.V(log.LogLevelDefault).Info("socket not yet connected, waiting...")
+	go s.runSubscriptionClient(runCtx, gen, handle)
 	return nil
 }
 
-// getChannelTopic returns the Phoenix channel topic for this cluster.
-func (s *socket) getChannelTopic() string {
-	return fmt.Sprintf("cluster:%s", s.clusterId)
+func (s *socket) publishClient(handle *subscriptionHandle) bool {
+	// If the socket was closed while Join() was preparing the client, do not publish this client.
+	if s.closed.Load() {
+		s.joining.Store(false)
+		return false
+	}
+
+	s.clientHandle.Store(handle)
+
+	// Close can race after the closed check and before the store above.
+	// Roll back publication if closed was set in that window.
+	if s.closed.Load() && s.clientHandle.CompareAndSwap(handle, nil) {
+		s.joining.Store(false)
+		return false
+	}
+
+	return true
 }
 
-// newClient creates a new phx.Client whose ConnectionReceiver callbacks are
-// bound to the current generation. Must be called with lock held.
-func (s *socket) newClient() *phx.Client {
-	s.clientGen++
-	return phx.NewClient(&clientReceiver{s: s, gen: s.clientGen})
-}
+func (s *socket) runSubscriptionClient(ctx context.Context, gen uint64, handle *subscriptionHandle) {
+	if err := handle.client.RunWithContext(ctx); err != nil {
+		klog.V(log.LogLevelDefault).InfoS("graphql websocket subscription client exited with error", "error", err)
+	}
 
-// closeClientAsync closes the current client asynchronously to avoid blocking.
-// Must be called with lock held.
-func (s *socket) closeClientAsync() {
-	if s.client == nil {
+	if gen != s.clientGen.Load() {
 		return
 	}
 
-	oldClient := s.client
-	s.client = nil
+	s.joining.Store(false)
+	s.clientHandle.CompareAndSwap(handle, nil)
 
-	go func() {
-		_ = oldClient.Close()
-	}()
+	if !s.closed.Load() {
+		// Mark as closed so manager poll can trigger a clean recreate.
+		s.closed.Store(true)
+	}
+}
+
+func (s *socket) newSubscriptionClient(gen uint64) *graphql.SubscriptionClient {
+	return graphql.NewSubscriptionClient(s.endpoint.String()).
+		WithProtocol(graphql.GraphQLWS).
+		WithConnectionParams(map[string]any{"token": s.deployToken}).
+		WithRetryTimeout(0).
+		WithExitWhenNoSubscription(false).
+		WithSyncMode(true).
+		OnConnected(func() {
+			if s.isStaleOrClosed(gen) {
+				return
+			}
+			s.joining.Store(false)
+		}).
+		OnError(func(_ *graphql.SubscriptionClient, err error) error {
+			if err == nil {
+				return nil
+			}
+			if s.closed.Load() {
+				// Intentional close should terminate run loop.
+				return err
+			}
+			klog.V(log.LogLevelDefault).InfoS("graphql websocket client error", "error", err)
+			return nil
+		})
+}
+
+func (s *socket) subscriptionHandler(gen uint64) func([]byte, error) error {
+	return func(message []byte, subscribeErr error) error {
+		if subscribeErr != nil {
+			klog.V(log.LogLevelDefault).InfoS("graphql subscription callback error", "error", subscribeErr)
+			return nil
+		}
+
+		if len(message) == 0 {
+			return nil
+		}
+
+		payload, ok := parseNotificationPayload(message)
+		if !ok {
+			return nil
+		}
+
+		s.handleNotification(gen, payload.Notification)
+		return nil
+	}
+}
+
+func (s *socket) handleNotification(gen uint64, payload notification) {
+	if s.isStaleOrClosed(gen) {
+		return
+	}
+
+	publisher, ok := s.publishers.Get(payload.Resource)
+	if !ok {
+		klog.V(log.LogLevelDebug).InfoS("could not find publisher for resource", "resource", payload.Resource)
+		return
+	}
+
+	publisher.Publish(payload.ResourceID, lo.FromPtr(payload.Kick))
+}
+
+func (s *socket) isStaleOrClosed(gen uint64) bool {
+	return gen != s.clientGen.Load() || s.closed.Load()
 }
 
 func (s *socket) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.closed {
+	if !s.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 
-	klog.V(log.LogLevelDefault).Info("closing websocket connection")
+	s.joining.Store(false)
+	handle := s.clientHandle.Swap(nil)
 
-	s.connected = false
-	s.joined = false
-	s.joining = false
-	s.closed = true
-	s.channel = nil
-	s.closeClientAsync()
+	klog.V(log.LogLevelDefault).Info("closing graphql websocket subscription client")
+	if handle != nil && handle.cancel != nil {
+		handle.cancel()
+	}
 
 	return nil
 }
 
-func wssUri(consoleUrl, deployToken string) (*url.URL, error) {
+func gqlWSUri(consoleUrl string) (*url.URL, error) {
 	baseURL, err := url.Parse(consoleUrl)
 	if err != nil {
 		return nil, err
 	}
 
-	wsURL := &url.URL{
+	return &url.URL{
 		Scheme: "wss",
 		Host:   baseURL.Host,
-		Path:   "/ext/socket/websocket",
-	}
-
-	query := url.Values{}
-	query.Set("vsn", "2.0.0")
-	query.Set("token", deployToken)
-	wsURL.RawQuery = query.Encode()
-
-	return wsURL, nil
+		Path:   graphqlWebsocketPath,
+	}, nil
 }
 
-func (s *socket) NotifyConnect() {
-	s.mu.Lock()
-	shouldJoin := s.notifyConnectLocked(s.clientGen)
-	s.mu.Unlock()
-	if shouldJoin {
-		_ = s.Join()
+func parseNotificationPayload(message []byte) (*notificationSubscription, bool) {
+	var payload notificationSubscription
+	if err := jsonutil.UnmarshalGraphQL(message, &payload); err != nil {
+		klog.V(log.LogLevelDefault).InfoS("failed to parse graphql subscription payload", "error", err)
+		return nil, false
 	}
+
+	return &payload, true
 }
 
-func (s *socket) NotifyDisconnect() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.notifyDisconnectLocked(s.clientGen)
+type notificationSubscription struct {
+	Notification notification `graphql:"deployAgentNotification"`
 }
 
-// notifyConnectLocked sets state and returns true if Join() should be called.
-// Caller must hold s.mu and remains responsible for unlocking.
-func (s *socket) notifyConnectLocked(gen uint64) bool {
-	if gen != s.clientGen || s.closed {
-		return false
-	}
-	s.connected = true
-	return true
-}
-
-// notifyDisconnectLocked handles a disconnect callback. Must be called with s.mu held.
-func (s *socket) notifyDisconnectLocked(gen uint64) {
-	if gen != s.clientGen || s.closed {
-		return
-	}
-
-	klog.V(log.LogLevelDefault).Info("websocket disconnected, waiting for reconnect")
-	s.connected = false
-	s.joined = false
-	s.joining = false
-	s.channel = nil
-}
-
-// ChannelReceiver implementation.
-
-func (s *socket) OnJoin(payload interface{}) {
-	klog.V(log.LogLevelDefault).Info("Joined websocket channel, listening for service updates")
-}
-
-func (s *socket) OnJoinError(payload interface{}) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.closed {
-		return
-	}
-
-	klog.V(log.LogLevelDefault).Info("failed to join channel, waiting for next join attempt")
-	s.joined = false
-	s.joining = false
-	s.channel = nil
-}
-
-func (s *socket) OnChannelClose(payload interface{}, joinRef int64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.closed {
-		return
-	}
-
-	klog.V(log.LogLevelDefault).Info("left websocket channel, waiting for next join attempt")
-	s.joined = false
-	s.joining = false
-	s.channel = nil
-}
-
-func (s *socket) OnMessage(ref int64, event string, payload interface{}) {
-	s.mu.RLock()
-	if s.closed {
-		s.mu.RUnlock()
-		return
-	}
-	s.mu.RUnlock()
-
-	publisher, ok := s.publishers.Get(event)
-	if !ok {
-		klog.V(log.LogLevelDebug).InfoS("could not find publisher for event", "event", event)
-		return
-	}
-
-	parsed, ok := payload.(map[string]interface{})
-	if !ok {
-		klog.V(log.LogLevelDefault).InfoS("invalid payload format", "event", event)
-		return
-	}
-
-	id, ok := parsed["id"].(string)
-	if !ok {
-		klog.V(log.LogLevelDefault).InfoS("payload missing id field", "event", event)
-		return
-	}
-
-	klog.V(log.LogLevelDefault).InfoS("got new update from websocket", "id", id, "event", event, "payload", payload)
-	kick, _ := parsed["kick"].(bool)
-	publisher.Publish(id, kick)
+type notification struct {
+	Resource   string `json:"resource"`
+	ResourceID string `json:"resourceId"`
+	Kick       *bool  `json:"kick"`
 }
