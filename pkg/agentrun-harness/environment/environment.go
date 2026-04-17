@@ -57,6 +57,18 @@ func (in *environment) cloneRepository() error {
 		}
 	}
 
+	// Set proxy for clone via environment variable so it takes effect immediately.
+	// The same proxy is later written into the repo-local git config so that
+	// subsequent push/fetch operations inside the cloned repo also use it.
+	if proxy := os.Getenv("PLRL_GIT_PROXY"); proxy != "" {
+		if err := os.Setenv("https_proxy", proxy); err != nil {
+			return err
+		}
+		if err := os.Setenv("http_proxy", proxy); err != nil {
+			return err
+		}
+	}
+
 	if err := exec.NewExecutable(
 		"git",
 		exec.WithArgs([]string{"clone", in.agentRun.Repository, repoDir}),
@@ -144,7 +156,10 @@ func (in *environment) configureGitSigning(repoDirPath string) error {
 	return nil
 }
 
-// configureGitProxy sets the http.proxy git config when PLRL_GIT_PROXY is present.
+// configureGitProxy writes http.proxy into the repo-local git config so that
+// push/fetch operations inside the already-cloned repository use the proxy.
+// The proxy is also applied to the git clone itself via https_proxy/http_proxy
+// environment variables set earlier in cloneRepository.
 func (in *environment) configureGitProxy(repoDirPath string) error {
 	proxy := os.Getenv("PLRL_GIT_PROXY")
 	if proxy == "" {
