@@ -58,6 +58,8 @@ const (
 	EnvDindEnabled    = "PLRL_DIND_ENABLED"
 	EnvBrowserEnabled = "PLRL_BROWSER_ENABLED"
 	EnvExecTimeout    = "PLRL_EXEC_TIMEOUT"
+
+	EnvGitProxy = "PLRL_GIT_PROXY"
 )
 
 var (
@@ -358,6 +360,11 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 		return nil, fmt.Errorf("failed to get agent runtime config: %w", err)
 	}
 
+	signingKey, err := r.resolveSigningKey(ctx, runtime)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve git signing key: %w", err)
+	}
+
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: run.Name, Namespace: run.Namespace}, secret); err != nil {
 		if !errors.IsNotFound(err) {
@@ -366,7 +373,7 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: run.Name, Namespace: run.Namespace},
-			StringData: r.getSecretData(run, config, runtime.Spec.Type),
+			StringData: r.getSecretData(run, config, runtime.Spec.Type, signingKey),
 		}
 
 		logger.V(2).Info("creating secret", "namespace", secret.Namespace, "name", secret.Name)
@@ -379,7 +386,7 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 
 	if !r.hasSecretData(secret.Data, run) {
 		logger.V(2).Info("updating secret", "namespace", secret.Namespace, "name", secret.Name)
-		secret.StringData = r.getSecretData(run, config, runtime.Spec.Type)
+		secret.StringData = r.getSecretData(run, config, runtime.Spec.Type, signingKey)
 		if err := r.Update(ctx, secret); err != nil {
 			logger.Error(err, "unable to update secret")
 			return nil, err
@@ -388,7 +395,6 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 
 	return secret, nil
 }
-
 func (r *AgentRunReconciler) getAgentRuntimeConfig(ctx context.Context, namespace string, config *v1alpha1.AgentRuntimeConfig) (*v1alpha1.AgentRuntimeConfigRaw, error) {
 	if config == nil {
 		return nil, nil
@@ -401,11 +407,37 @@ func (r *AgentRunReconciler) getAgentRuntimeConfig(ctx context.Context, namespac
 	})
 }
 
-func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alpha1.AgentRuntimeConfigRaw, runtimeType console.AgentRuntimeType) map[string]string {
+// resolveSigningKey fetches the signing key value from the secret referenced in runtime.Spec.Git.SigningKeyRef.
+// It looks up the secret in the AgentRuntime's own namespace so that the source secret does not need
+// to exist in the pod's TargetNamespace. The returned bytes are later copied into the pod secret.
+func (r *AgentRunReconciler) resolveSigningKey(ctx context.Context, runtime *v1alpha1.AgentRuntime) ([]byte, error) {
+	if runtime.Spec.Git == nil || runtime.Spec.Git.SigningKeyRef == nil {
+		return nil, nil
+	}
+
+	ref := runtime.Spec.Git.SigningKeyRef
+	s := &corev1.Secret{}
+	if err := r.Get(ctx, client.ObjectKey{Namespace: runtime.Spec.TargetNamespace, Name: ref.Name}, s); err != nil {
+		return nil, fmt.Errorf("failed to get git signing key secret %q: %w", ref.Name, err)
+	}
+
+	value, ok := s.Data[ref.Key]
+	if !ok {
+		return nil, fmt.Errorf("key %q not found in secret %q", ref.Key, ref.Name)
+	}
+
+	return value, nil
+}
+
+func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alpha1.AgentRuntimeConfigRaw, runtimeType console.AgentRuntimeType, signingKey []byte) map[string]string {
 	result := map[string]string{
 		EnvConsoleURL:  r.ConsoleURL,
 		EnvDeployToken: r.DeployToken,
 		EnvAgentRunID:  run.Status.GetID(),
+	}
+
+	if len(signingKey) > 0 {
+		result[gitSigningKeySecretKey] = string(signingKey)
 	}
 
 	if config == nil {

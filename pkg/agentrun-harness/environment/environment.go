@@ -10,11 +10,16 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 
 	types "github.com/pluralsh/deployment-operator/pkg/harness/environment"
 )
+
+// gitSigningKeyPath is the mount path for the SSH signing key inside the container.
+// Defined in pkg/common to stay in sync with the controller's agentrun_pod.go.
+const gitSigningKeyPath = common.GitSigningKeyMountPath
 
 // Setup implements Environment interface.
 func (in *environment) Setup() error {
@@ -50,6 +55,18 @@ func (in *environment) cloneRepository() error {
 	if in.agentRun.ScmCreds != nil {
 		klog.V(log.LogLevelDefault).InfoS("configuring git credentials", "username", in.agentRun.ScmCreds.Username)
 		if err := os.Setenv("GIT_ACCESS_TOKEN", in.agentRun.ScmCreds.Token); err != nil {
+			return err
+		}
+	}
+
+	// Set proxy for clone via environment variable so it takes effect immediately.
+	// The same proxy is later written into the repo-local git config so that
+	// subsequent push/fetch operations inside the cloned repo also use it.
+	if proxy := os.Getenv("PLRL_GIT_PROXY"); proxy != "" {
+		if err := os.Setenv("https_proxy", proxy); err != nil {
+			return err
+		}
+		if err := os.Setenv("http_proxy", proxy); err != nil {
 			return err
 		}
 	}
@@ -93,6 +110,14 @@ func (in *environment) cloneRepository() error {
 		return err
 	}
 
+	if err := in.configureGitSigning(repoDirPath); err != nil {
+		return fmt.Errorf("failed to configure git signing: %w", err)
+	}
+
+	if err := in.configureGitProxy(repoDirPath); err != nil {
+		return fmt.Errorf("failed to configure git proxy: %w", err)
+	}
+
 	cmd := exec.NewExecutable("git", exec.WithArgs([]string{"branch", "--show-current"}), exec.WithDir(repoDirPath))
 	output, err := cmd.RunWithOutput(context.Background())
 	if err != nil {
@@ -106,6 +131,48 @@ func (in *environment) cloneRepository() error {
 
 	klog.V(log.LogLevelInfo).InfoS("repository cloned", "url", in.agentRun.Repository, "dir", repoDir)
 	return config.Save()
+}
+
+// configureGitSigning configures SSH commit signing using the mounted private key.
+func (in *environment) configureGitSigning(repoDirPath string) error {
+	if _, err := os.Stat(gitSigningKeyPath); os.IsNotExist(err) {
+		return nil
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("configuring SSH git commit signing", "path", gitSigningKeyPath)
+
+	for _, args := range [][]string{
+		{"config", "gpg.format", "ssh"},
+		{"config", "user.signingKey", gitSigningKeyPath},
+		{"config", "commit.gpgSign", "true"},
+	} {
+		if err := exec.NewExecutable("git",
+			exec.WithArgs(args),
+			exec.WithDir(repoDirPath),
+		).Run(context.Background()); err != nil {
+			return fmt.Errorf("git %v failed: %w", args, err)
+		}
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("git SSH commit signing configured", "key", gitSigningKeyPath)
+	return nil
+}
+
+// configureGitProxy writes http.proxy into the repo-local git config so that
+// push/fetch operations inside the already-cloned repository use the proxy.
+// The proxy is also applied to the git clone itself via https_proxy/http_proxy
+// environment variables set earlier in cloneRepository.
+func (in *environment) configureGitProxy(repoDirPath string) error {
+	proxy := os.Getenv("PLRL_GIT_PROXY")
+	if proxy == "" {
+		return nil
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("configuring git proxy", "proxy", proxy)
+	return exec.NewExecutable("git",
+		exec.WithArgs([]string{"config", "http.proxy", proxy}),
+		exec.WithDir(repoDirPath),
+	).Run(context.Background())
 }
 
 // init ensures that all required values are initialized

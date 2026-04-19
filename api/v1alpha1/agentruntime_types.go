@@ -67,6 +67,14 @@ type AgentRuntimeSpec struct {
 	// configure tooling, or perform any other setup required by the agent.
 	// +kubebuilder:validation:Optional
 	BootstrapScript *string `json:"bootstrapScript,omitempty"`
+
+	// Git configure commit signing on agent run. When provided, the runtime will be configured to sign git commits using the provided key reference.
+	Git *GitSpec `json:"git,omitempty"`
+}
+
+type GitSpec struct {
+	Proxy         *string                   `json:"proxy,omitempty"`
+	SigningKeyRef *corev1.SecretKeySelector `json:"signingKeyRef,omitempty"`
 }
 
 // Browser defines the browser to use for the agent runtime.
