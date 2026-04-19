@@ -171,7 +171,7 @@ func (s *ServiceReconciler) GetPollInterval() func() time.Duration {
 }
 
 func (s *ServiceReconciler) GetPublisher() (string, websocket.Publisher) {
-	return "service.event", &socketPublisher{
+	return "service", &socketPublisher{
 		svcQueueGetter: func() workqueue.TypedRateLimitingInterface[string] { return s.svcQueue },
 		svcCache:       s.svcCache,
 		manCache:       s.manifestCache,
