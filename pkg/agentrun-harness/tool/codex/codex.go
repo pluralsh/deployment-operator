@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
+	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
@@ -15,7 +18,11 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
-const consoleTokenEnv = "PLRL_CONSOLE_TOKEN"
+const (
+	consoleTokenEnv   = "PLRL_CONSOLE_TOKEN"
+	gitAccessTokenEnv = "GIT_ACCESS_TOKEN"
+	gitSigningKeyPath = common.GitSigningKeyMountPath
+)
 
 func New(config v1.Config) v1.Tool {
 	result := &Codex{
@@ -60,11 +67,16 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		return err
 	}
 
+	allowedEnvVars := []string{"PATH", "HOME", gitAccessTokenEnv}
+	if _, err := os.Stat(gitSigningKeyPath); err == nil {
+		allowedEnvVars = append(allowedEnvVars, "GIT_SIGNING_KEY_PATH")
+	}
+
 	baseAgent := AgentInput{
 		Model:                string(in.model),
 		ApprovalPolicy:       "never",
 		ModelReasoningEffort: "medium",
-		AllowedEnvVars:       []string{"PATH", "HOME"},
+		AllowedEnvVars:       allowedEnvVars,
 		EnableWebSearch:      true,
 		EnableShellCache:     true,
 	}
@@ -105,6 +117,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Name:         "plural",
 			Type:         "stdio",
 			Command:      "/usr/local/bin/mcpserver",
+			TrustPolicy:  "always",
 			EnabledTools: []string{"updateAgentRunAnalysis"},
 			Env: map[string]string{
 				consoleTokenEnv:     consoleToken,
@@ -126,6 +139,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Name:         "plural",
 			Type:         "stdio",
 			Command:      "/usr/local/bin/mcpserver",
+			TrustPolicy:  "always",
 			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos"},
 			Env: map[string]string{
 				consoleTokenEnv:     consoleToken,
@@ -140,6 +154,15 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 	cfg, err := BuildCodexConfig(in.Config.WorkDir, agents, mcps, providers)
 	if err != nil {
 		return err
+	}
+
+	// Trust the git signing key directory so codex can read the mounted key.
+	if _, err := os.Stat(gitSigningKeyPath); err == nil {
+		gitDir := path.Dir(gitSigningKeyPath)
+		if cfg.Projects == nil {
+			cfg.Projects = make(map[string]*Project)
+		}
+		cfg.Projects[gitDir] = &Project{TrustLevel: "trusted"}
 	}
 
 	config, err := WriteCodexConfig(path.Join(in.Config.WorkDir, ".codex"), cfg)
@@ -272,8 +295,18 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 			Message: item.Text,
 		}
 
+	case "agent_message":
+		if item.Text == "" {
+			return nil
+		}
+		klog.V(log.LogLevelDebug).InfoS("codex agent message", "text", item.Text, "thread_id", threadID)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: item.Text,
+		}
+
 	case "command_execution":
-		if item.Status != "completed" && item.Status != "failed" {
+		if item.Status != statusCompleted && item.Status != statusFailed {
 			return nil
 		}
 		exitCode := 0
@@ -281,7 +314,7 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 			exitCode = *item.ExitCode
 		}
 		state := console.AgentMessageToolStateCompleted
-		if item.Status == "failed" || exitCode != 0 {
+		if item.Status == statusFailed || exitCode != 0 {
 			state = console.AgentMessageToolStateError
 		}
 		klog.V(log.LogLevelDebug).InfoS("codex command execution", "command", item.Command, "exit_code", exitCode, "thread_id", threadID)
@@ -293,6 +326,62 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 					Name:   lo.ToPtr(item.Command),
 					State:  lo.ToPtr(state),
 					Output: lo.ToPtr(item.AggregatedOutput),
+				},
+			},
+		}
+
+	case "mcp_tool_call":
+		if item.Status != statusCompleted && item.Status != statusFailed {
+			return nil
+		}
+		state := console.AgentMessageToolStateCompleted
+		errMsg := ""
+		if item.Status == statusFailed {
+			state = console.AgentMessageToolStateError
+			if item.Error != nil {
+				errMsg = item.Error.Message
+			}
+		}
+		toolName := fmt.Sprintf("%s/%s", item.Server, item.Tool)
+		output := errMsg
+		if output == "" && item.Result != nil {
+			output = string(item.Result)
+		}
+		klog.V(log.LogLevelDebug).InfoS("codex mcp tool call", "server", item.Server, "tool", item.Tool, "status", item.Status, "thread_id", threadID)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: "Called tool",
+			Metadata: &console.AgentMessageMetadataAttributes{
+				Tool: &console.AgentMessageToolAttributes{
+					Name:   lo.ToPtr(toolName),
+					State:  lo.ToPtr(state),
+					Output: lo.ToPtr(output),
+				},
+			},
+		}
+
+	case "file_change":
+		if item.Status != statusCompleted && item.Status != statusFailed {
+			return nil
+		}
+		state := console.AgentMessageToolStateCompleted
+		if item.Status == statusFailed {
+			state = console.AgentMessageToolStateError
+		}
+		paths := make([]string, 0, len(item.Changes))
+		for _, c := range item.Changes {
+			paths = append(paths, fmt.Sprintf("%s:%s", c.Kind, c.Path))
+		}
+		output := strings.Join(paths, ", ")
+		klog.V(log.LogLevelDebug).InfoS("codex file change", "changes", output, "thread_id", threadID)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: "File changes applied",
+			Metadata: &console.AgentMessageMetadataAttributes{
+				Tool: &console.AgentMessageToolAttributes{
+					Name:   lo.ToPtr("file_change"),
+					State:  lo.ToPtr(state),
+					Output: lo.ToPtr(output),
 				},
 			},
 		}
