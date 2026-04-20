@@ -229,6 +229,9 @@ func ensureDefaultVolumes(volumes []corev1.Volume) []corev1.Volume {
 
 func ensureDefaultPodSecurityContext(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
 	if psc != nil {
+		if psc.FSGroup == nil {
+			psc.FSGroup = lo.ToPtr(nonRootGID)
+		}
 		return psc
 	}
 
@@ -236,6 +239,7 @@ func ensureDefaultPodSecurityContext(psc *corev1.PodSecurityContext) *corev1.Pod
 		RunAsNonRoot: lo.ToPtr(true),
 		RunAsUser:    lo.ToPtr(nonRootUID),
 		RunAsGroup:   lo.ToPtr(nonRootGID),
+		FSGroup:      lo.ToPtr(nonRootGID),
 	}
 }
 

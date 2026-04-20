@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	GitSigningKeyMountPath = "/git/signing.key"
+	GitSigningKeyMountPath = "/plural/git/signing.key"
 
 	ManagedByLabel  = "plural.sh/managed-by"
 	AgentLabelValue = "agent"
