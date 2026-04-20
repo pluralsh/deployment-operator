@@ -504,7 +504,7 @@ func enableGitSigningKey(podSecretName string, pod *corev1.Pod) {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName:  podSecretName,
-				DefaultMode: lo.ToPtr(int32(0400)),
+				DefaultMode: lo.ToPtr(int32(0440)),
 				Items: []corev1.KeyToPath{
 					{Key: gitSigningKeySecretKey, Path: gitSigningKeySecretKey},
 				},

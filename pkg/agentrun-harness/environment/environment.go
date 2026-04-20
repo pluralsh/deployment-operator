@@ -141,6 +141,13 @@ func (in *environment) configureGitSigning(repoDirPath string) error {
 
 	klog.V(log.LogLevelInfo).InfoS("configuring SSH git commit signing", "path", gitSigningKeyPath)
 
+	// Ensure the key is readable by the current (non-root) process.
+	// The volume is mounted with mode 0440 but the symlink resolution can
+	// leave the file unreadable; chmod ensures the permission is correct.
+	if err := os.Chmod(gitSigningKeyPath, 0440); err != nil {
+		klog.V(log.LogLevelInfo).InfoS("could not chmod git signing key (may be read-only fs), continuing", "err", err)
+	}
+
 	for _, args := range [][]string{
 		{"config", "gpg.format", "ssh"},
 		{"config", "user.signingKey", gitSigningKeyPath},
