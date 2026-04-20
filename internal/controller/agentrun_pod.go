@@ -495,7 +495,9 @@ func enableBootstrapScript(configMapName string, pod *corev1.Pod) {
 	}
 }
 
-// enableGitSigningKey mounts the signing key secret as a file inside the default container and sets appropriate permissions.
+// enableGitSigningKey mounts the signing key secret as a directory inside the default container.
+// The volume is mounted without SubPath so that fsGroup ownership applies correctly,
+// making the key readable by the non-root container process.
 func enableGitSigningKey(podSecretName string, pod *corev1.Pod) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 		Name: gitSigningKeyVolumeName,
@@ -516,8 +518,7 @@ func enableGitSigningKey(podSecretName string, pod *corev1.Pod) {
 				pod.Spec.Containers[i].VolumeMounts,
 				corev1.VolumeMount{
 					Name:      gitSigningKeyVolumeName,
-					MountPath: gitSigningKeyMountPath,
-					SubPath:   gitSigningKeySecretKey,
+					MountPath: "/plural/git", // mount as directory; fsGroup chown applies to the whole dir
 					ReadOnly:  true,
 				},
 			)
