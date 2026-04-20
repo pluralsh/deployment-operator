@@ -1,6 +1,8 @@
 package codex
 
 import (
+	"encoding/json"
+
 	console "github.com/pluralsh/console/go/client"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
@@ -59,10 +61,11 @@ type StreamItem struct {
 	// ID is the stable identifier for this item across started/completed pairs.
 	ID string `json:"id"`
 
-	// Type describes what kind of item this is: "reasoning", "todo_list", "command_execution", etc.
+	// Type describes what kind of item this is: "reasoning", "agent_message", "todo_list",
+	// "command_execution", "mcp_tool_call", "file_change", etc.
 	Type string `json:"type"`
 
-	// Text is populated for "reasoning" items.
+	// Text is populated for "reasoning" and "agent_message" items.
 	Text string `json:"text,omitempty"`
 
 	// Command and output fields are populated for "command_execution" items.
@@ -73,6 +76,27 @@ type StreamItem struct {
 
 	// Items is populated for "todo_list" items.
 	Items []TodoItem `json:"items,omitempty"`
+
+	// MCP tool call fields are populated for "mcp_tool_call" items.
+	Server    string          `json:"server,omitempty"`
+	Tool      string          `json:"tool,omitempty"`
+	Arguments json.RawMessage `json:"arguments,omitempty"`
+	Result    json.RawMessage `json:"result,omitempty"`
+	Error     *MCPToolError   `json:"error,omitempty"`
+
+	// Changes is populated for "file_change" items.
+	Changes []FileChange `json:"changes,omitempty"`
+}
+
+// MCPToolError holds the error payload for a failed "mcp_tool_call" item.
+type MCPToolError struct {
+	Message string `json:"message,omitempty"`
+}
+
+// FileChange describes a single file modification inside a "file_change" item.
+type FileChange struct {
+	Path string `json:"path,omitempty"`
+	Kind string `json:"kind,omitempty"` // e.g. "add", "modify", "delete"
 }
 
 // TodoItem is a single entry inside a "todo_list" StreamItem.

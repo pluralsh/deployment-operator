@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 
 	console "github.com/pluralsh/console/go/client"
 	"github.com/pluralsh/deployment-operator/pkg/log"
@@ -272,6 +273,16 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 			Message: item.Text,
 		}
 
+	case "agent_message":
+		if item.Text == "" {
+			return nil
+		}
+		klog.V(log.LogLevelDebug).InfoS("codex agent message", "text", item.Text, "thread_id", threadID)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: item.Text,
+		}
+
 	case "command_execution":
 		if item.Status != "completed" && item.Status != "failed" {
 			return nil
@@ -293,6 +304,62 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 					Name:   lo.ToPtr(item.Command),
 					State:  lo.ToPtr(state),
 					Output: lo.ToPtr(item.AggregatedOutput),
+				},
+			},
+		}
+
+	case "mcp_tool_call":
+		if item.Status != "completed" && item.Status != "failed" {
+			return nil
+		}
+		state := console.AgentMessageToolStateCompleted
+		errMsg := ""
+		if item.Status == "failed" {
+			state = console.AgentMessageToolStateError
+			if item.Error != nil {
+				errMsg = item.Error.Message
+			}
+		}
+		toolName := fmt.Sprintf("%s/%s", item.Server, item.Tool)
+		output := errMsg
+		if output == "" && item.Result != nil {
+			output = string(item.Result)
+		}
+		klog.V(log.LogLevelDebug).InfoS("codex mcp tool call", "server", item.Server, "tool", item.Tool, "status", item.Status, "thread_id", threadID)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: "Called tool",
+			Metadata: &console.AgentMessageMetadataAttributes{
+				Tool: &console.AgentMessageToolAttributes{
+					Name:   lo.ToPtr(toolName),
+					State:  lo.ToPtr(state),
+					Output: lo.ToPtr(output),
+				},
+			},
+		}
+
+	case "file_change":
+		if item.Status != "completed" && item.Status != "failed" {
+			return nil
+		}
+		state := console.AgentMessageToolStateCompleted
+		if item.Status == "failed" {
+			state = console.AgentMessageToolStateError
+		}
+		paths := make([]string, 0, len(item.Changes))
+		for _, c := range item.Changes {
+			paths = append(paths, fmt.Sprintf("%s:%s", c.Kind, c.Path))
+		}
+		output := strings.Join(paths, ", ")
+		klog.V(log.LogLevelDebug).InfoS("codex file change", "changes", output, "thread_id", threadID)
+		return &console.AgentMessageAttributes{
+			Role:    console.AiRoleAssistant,
+			Message: "File changes applied",
+			Metadata: &console.AgentMessageMetadataAttributes{
+				Tool: &console.AgentMessageToolAttributes{
+					Name:   lo.ToPtr("file_change"),
+					State:  lo.ToPtr(state),
+					Output: lo.ToPtr(output),
 				},
 			},
 		}
