@@ -106,6 +106,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Name:         "plural",
 			Type:         "stdio",
 			Command:      "/usr/local/bin/mcpserver",
+			TrustPolicy:  "always",
 			EnabledTools: []string{"updateAgentRunAnalysis"},
 			Env: map[string]string{
 				consoleTokenEnv:     consoleToken,
@@ -127,6 +128,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Name:         "plural",
 			Type:         "stdio",
 			Command:      "/usr/local/bin/mcpserver",
+			TrustPolicy:  "always",
 			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos"},
 			Env: map[string]string{
 				consoleTokenEnv:     consoleToken,

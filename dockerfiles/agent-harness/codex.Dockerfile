@@ -1,6 +1,6 @@
 ARG NODE_IMAGE_TAG=24
 ARG NODE_IMAGE=node:${NODE_IMAGE_TAG}-slim
-ARG AGENT_VERSION=0.116.0
+ARG AGENT_VERSION=0.104.0
 
 ARG AGENT_HARNESS_BASE_IMAGE_TAG=latest
 ARG AGENT_HARNESS_BASE_IMAGE_REPO=ghcr.io/pluralsh/agent-harness-base
@@ -12,7 +12,7 @@ FROM $NODE_IMAGE AS node
 USER root
 
 # Install codex CLI globally using npm
-RUN npm install -g @openai/codex@0.116.0
+RUN npm install -g @openai/codex@0.104.0
 
 # The codex script uses createRequire(import.meta.url) anchored at /usr/local/bin/codex.
 # Node's module resolution walks up from /usr/local/bin/ and won't find node_modules

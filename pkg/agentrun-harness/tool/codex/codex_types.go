@@ -136,6 +136,7 @@ type MCPInput struct {
 	Env           map[string]string
 	EnabledTools  []string
 	DisabledTools []string
+	TrustPolicy   string // e.g. "always" to auto-approve tool calls in exec mode
 }
 
 // ModelProviderInput is the user-facing input for registering a custom model provider.
@@ -176,13 +177,14 @@ type Profile struct {
 }
 
 type MCPServer struct {
-	Type          string            `toml:"type,omitempty"`    // Transport type: "stdio" or "sse"
-	URL           string            `toml:"url,omitempty"`     // For remote MCP (sse)
-	Command       string            `toml:"command,omitempty"` // For local MCP (stdio)
+	Type          string            `toml:"type,omitempty"`          // Transport type: "stdio" or "sse"
+	URL           string            `toml:"url,omitempty"`           // For remote MCP (sse)
+	Command       string            `toml:"command,omitempty"`       // For local MCP (stdio)
 	Args          []string          `toml:"args,omitempty"`
 	Env           map[string]string `toml:"env,omitempty"`
 	EnabledTools  []string          `toml:"enabled_tools,omitempty"`
 	DisabledTools []string          `toml:"disabled_tools,omitempty"`
+	TrustPolicy   string            `toml:"trust_policy,omitempty"` // e.g. "always" to auto-approve tool calls in exec mode
 }
 
 type CodexConfig struct {

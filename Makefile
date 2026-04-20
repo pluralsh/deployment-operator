@@ -333,7 +333,7 @@ docker-build-agent-harness-claude: docker-build-agent-harness-base ## build clau
 
 .PHONY: docker-build-agent-harness-codex
 docker-build-agent-harness-codex: docker-build-agent-harness-base ## build codex docker agent harness image
-	docker build \
+	docker build --no-cache \
 		--build-arg=AGENT_HARNESS_BASE_IMAGE_TAG="latest" \
 		-t ghcr.io/pluralsh/agent-harness-codex \
 		-f dockerfiles/agent-harness/codex.Dockerfile \
