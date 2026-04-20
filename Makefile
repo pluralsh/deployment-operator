@@ -24,6 +24,7 @@ PLRL_GEMINI_MODEL := $(if $(PLRL_GEMINI_MODEL),$(PLRL_GEMINI_MODEL),"")
 PLRL_GEMINI_API_KEY := $(if $(PLRL_GEMINI_API_KEY),$(PLRL_GEMINI_API_KEY),"")
 PLRL_CODEX_MODEL := $(if $(PLRL_CODEX_MODEL),$(PLRL_CODEX_MODEL),"")
 PLRL_CODEX_API_KEY := $(if $(PLRL_CODEX_API_KEY),$(PLRL_CODEX_API_KEY),"")
+GIT_ACCESS_TOKEN := $(if $(GIT_ACCESS_TOKEN),$(GIT_ACCESS_TOKEN),"")
 
 
 VELERO_CHART_VERSION := 5.2.2 # It should be kept in sync with Velero chart version from console/charts/velero
@@ -147,14 +148,20 @@ agent-harness-opencode-run: docker-build-agent-harness-opencode ## run agent har
 
 .PHONY: agent-harness-codex-run
 agent-harness-codex-run: docker-build-agent-harness-codex ## run agent harness w/ codex
+	@KEY_TMP=$$(mktemp) && \
+	cp $${HOME}/.ssh/id_rsa $$KEY_TMP && \
+	chmod 644 $$KEY_TMP && \
 	docker run \
+		-v $$KEY_TMP:/plural/git/git-signing.key:ro \
 		-e PLRL_AGENT_RUN_ID=$(PLRL_AGENT_RUN_ID) \
 		-e PLRL_DEPLOY_TOKEN=$(PLRL_DEPLOY_TOKEN) \
 		-e PLRL_CONSOLE_URL=$(PLRL_CONSOLE_URL) \
 		-e PLRL_CODEX_MODEL=$(PLRL_CODEX_MODEL) \
 		-e PLRL_CODEX_API_KEY=$(PLRL_CODEX_API_KEY) \
+		-e GIT_ACCESS_TOKEN=$(GIT_ACCESS_TOKEN) \
 		--rm -it \
-		ghcr.io/pluralsh/agent-harness-codex --v=3
+		ghcr.io/pluralsh/agent-harness-codex --v=3; \
+	rm -f $$KEY_TMP
 
 .PHONY: agent-harness-claude-run
 agent-harness-claude-run: docker-build-agent-harness-claude ## run agent harness w/ claude

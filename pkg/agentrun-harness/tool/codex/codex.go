@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
+	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
@@ -16,7 +18,11 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
-const consoleTokenEnv = "PLRL_CONSOLE_TOKEN"
+const (
+	consoleTokenEnv   = "PLRL_CONSOLE_TOKEN"
+	gitAccessTokenEnv = "GIT_ACCESS_TOKEN"
+	gitSigningKeyPath = common.GitSigningKeyMountPath
+)
 
 func New(config v1.Config) v1.Tool {
 	result := &Codex{
@@ -61,11 +67,16 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		return err
 	}
 
+	allowedEnvVars := []string{"PATH", "HOME", gitAccessTokenEnv}
+	if _, err := os.Stat(gitSigningKeyPath); err == nil {
+		allowedEnvVars = append(allowedEnvVars, "GIT_SIGNING_KEY_PATH")
+	}
+
 	baseAgent := AgentInput{
 		Model:                string(in.model),
 		ApprovalPolicy:       "never",
 		ModelReasoningEffort: "medium",
-		AllowedEnvVars:       []string{"PATH", "HOME"},
+		AllowedEnvVars:       allowedEnvVars,
 		EnableWebSearch:      true,
 		EnableShellCache:     true,
 	}
@@ -143,6 +154,15 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 	cfg, err := BuildCodexConfig(in.Config.WorkDir, agents, mcps, providers)
 	if err != nil {
 		return err
+	}
+
+	// Trust the git signing key directory so codex can read the mounted key.
+	if _, err := os.Stat(gitSigningKeyPath); err == nil {
+		gitDir := path.Dir(gitSigningKeyPath)
+		if cfg.Projects == nil {
+			cfg.Projects = make(map[string]*Project)
+		}
+		cfg.Projects[gitDir] = &Project{TrustLevel: "trusted"}
 	}
 
 	config, err := WriteCodexConfig(path.Join(in.Config.WorkDir, ".codex"), cfg)
