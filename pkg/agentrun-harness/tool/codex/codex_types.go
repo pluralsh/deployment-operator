@@ -8,6 +8,11 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 )
 
+const (
+	statusCompleted = "completed"
+	statusFailed    = "failed"
+)
+
 type Codex struct {
 	v1.DefaultTool
 

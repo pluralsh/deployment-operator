@@ -284,7 +284,7 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 		}
 
 	case "command_execution":
-		if item.Status != "completed" && item.Status != "failed" {
+		if item.Status != statusCompleted && item.Status != statusFailed {
 			return nil
 		}
 		exitCode := 0
@@ -292,7 +292,7 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 			exitCode = *item.ExitCode
 		}
 		state := console.AgentMessageToolStateCompleted
-		if item.Status == "failed" || exitCode != 0 {
+		if item.Status == statusFailed || exitCode != 0 {
 			state = console.AgentMessageToolStateError
 		}
 		klog.V(log.LogLevelDebug).InfoS("codex command execution", "command", item.Command, "exit_code", exitCode, "thread_id", threadID)
@@ -309,12 +309,12 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 		}
 
 	case "mcp_tool_call":
-		if item.Status != "completed" && item.Status != "failed" {
+		if item.Status != statusCompleted && item.Status != statusFailed {
 			return nil
 		}
 		state := console.AgentMessageToolStateCompleted
 		errMsg := ""
-		if item.Status == "failed" {
+		if item.Status == statusFailed {
 			state = console.AgentMessageToolStateError
 			if item.Error != nil {
 				errMsg = item.Error.Message
@@ -339,11 +339,11 @@ func mapStreamItem(item *StreamItem, threadID string) *console.AgentMessageAttri
 		}
 
 	case "file_change":
-		if item.Status != "completed" && item.Status != "failed" {
+		if item.Status != statusCompleted && item.Status != statusFailed {
 			return nil
 		}
 		state := console.AgentMessageToolStateCompleted
-		if item.Status == "failed" {
+		if item.Status == statusFailed {
 			state = console.AgentMessageToolStateError
 		}
 		paths := make([]string, 0, len(item.Changes))
