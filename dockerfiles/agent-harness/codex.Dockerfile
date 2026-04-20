@@ -12,7 +12,7 @@ FROM $NODE_IMAGE AS node
 USER root
 
 # Install codex CLI globally using npm
-RUN npm install -g @openai/codex@$AGENT_VERSION
+RUN npm install -g @openai/codex@0.116.0
 
 # The codex script uses createRequire(import.meta.url) anchored at /usr/local/bin/codex.
 # Node's module resolution walks up from /usr/local/bin/ and won't find node_modules
