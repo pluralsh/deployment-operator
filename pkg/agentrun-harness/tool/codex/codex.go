@@ -21,6 +21,7 @@ import (
 const (
 	consoleTokenEnv   = "PLRL_CONSOLE_TOKEN"
 	gitAccessTokenEnv = "GIT_ACCESS_TOKEN"
+	gitAskpassPath    = "/plural/.git-askpass"
 	gitSigningKeyPath = common.GitSigningKeyMountPath
 )
 
@@ -102,6 +103,15 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		}}
 	}
 
+	mcpBaseEnv := map[string]string{
+		consoleTokenEnv:       consoleToken,
+		"PLRL_CONSOLE_URL":    consoleURL,
+		"PLRL_AGENT_RUN_ID":   in.Config.Run.ID,
+		gitAccessTokenEnv:     os.Getenv(gitAccessTokenEnv),
+		"GIT_ASKPASS":         gitAskpassPath,
+		"GIT_TERMINAL_PROMPT": "0",
+	}
+
 	switch in.Config.Run.Mode {
 	case console.AgentRunModeAnalyze:
 		agents = []AgentInput{{
@@ -119,11 +129,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Command:      "/usr/local/bin/mcpserver",
 			TrustPolicy:  "always",
 			EnabledTools: []string{"updateAgentRunAnalysis"},
-			Env: map[string]string{
-				consoleTokenEnv:     consoleToken,
-				"PLRL_CONSOLE_URL":  consoleURL,
-				"PLRL_AGENT_RUN_ID": in.Config.Run.ID,
-			},
+			Env:          mcpBaseEnv,
 		}}
 	case console.AgentRunModeWrite:
 		agents = []AgentInput{{
@@ -141,11 +147,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Command:      "/usr/local/bin/mcpserver",
 			TrustPolicy:  "always",
 			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos"},
-			Env: map[string]string{
-				consoleTokenEnv:     consoleToken,
-				"PLRL_CONSOLE_URL":  consoleURL,
-				"PLRL_AGENT_RUN_ID": in.Config.Run.ID,
-			},
+			Env:          mcpBaseEnv,
 		}}
 	default:
 		return fmt.Errorf("unsupported agent run mode %q for codex", in.Config.Run.Mode)
