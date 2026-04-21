@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	consoleTokenEnv    = "PLRL_CONSOLE_TOKEN"
-	gitAccessTokenEnv  = "GIT_ACCESS_TOKEN"
-	gitAskpassPath     = "/plural/.git-askpass"
-	gitSigningKeyPath  = common.GitSigningKeyMountPath
+	consoleTokenEnv   = "PLRL_CONSOLE_TOKEN"
+	gitAccessTokenEnv = "GIT_ACCESS_TOKEN"
+	gitAskpassPath    = "/plural/.git-askpass"
+	gitSigningKeyPath = common.GitSigningKeyMountPath
 )
 
 func New(config v1.Config) v1.Tool {
@@ -104,12 +104,12 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 	}
 
 	mcpBaseEnv := map[string]string{
-		consoleTokenEnv:        consoleToken,
-		"PLRL_CONSOLE_URL":     consoleURL,
-		"PLRL_AGENT_RUN_ID":    in.Config.Run.ID,
-		gitAccessTokenEnv:      os.Getenv(gitAccessTokenEnv),
-		"GIT_ASKPASS":          gitAskpassPath,
-		"GIT_TERMINAL_PROMPT":  "0",
+		consoleTokenEnv:       consoleToken,
+		"PLRL_CONSOLE_URL":    consoleURL,
+		"PLRL_AGENT_RUN_ID":   in.Config.Run.ID,
+		gitAccessTokenEnv:     os.Getenv(gitAccessTokenEnv),
+		"GIT_ASKPASS":         gitAskpassPath,
+		"GIT_TERMINAL_PROMPT": "0",
 	}
 
 	switch in.Config.Run.Mode {
