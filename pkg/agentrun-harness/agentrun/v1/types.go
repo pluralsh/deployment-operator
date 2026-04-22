@@ -22,6 +22,8 @@ const (
 	// defaultInactivityTimeout is the default Gemini CLI timeout for the process,
 	// tool call, or session if there is no output or input detected.
 	defaultInactivityTimeout = defaultBashTimeout
+
+	defaultBabysitInterval = int64(60 * time.Second)
 )
 
 type AgentRun struct {
@@ -41,6 +43,9 @@ type AgentRun struct {
 
 	DindEnabled    bool
 	BrowserEnabled bool
+
+	Babysit         bool
+	BabysitInterval int64
 }
 
 type AgentRuntime struct {
@@ -113,6 +118,14 @@ func (ar *AgentRun) FromAgentRunFragment(fragment *console.AgentRunFragment) *Ag
 
 	if helpers.GetPluralEnvBool(controller.EnvBrowserEnabled, false) {
 		run.BrowserEnabled = true
+	}
+
+	if fragment.Babysit != nil {
+		run.Babysit = *fragment.Babysit
+	}
+	run.BabysitInterval = defaultBabysitInterval
+	if fragment.BabysitInterval != nil {
+		run.BabysitInterval = *fragment.BabysitInterval
 	}
 
 	return run

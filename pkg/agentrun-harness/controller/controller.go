@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"time"
 
 	gqlclient "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
@@ -63,6 +64,8 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 		exec.WithHook(v1.LifecyclePreStart, in.preExecHook()),
 		exec.WithHook(v1.LifecyclePostStart, in.postExecHook()),
 	)
+
+	go in.babysitLoop(ctx, in.tool.BabysitRun)
 
 	ready = true
 	in.Unlock()
@@ -153,6 +156,53 @@ func (in *agentRunController) init() (Controller, error) {
 		"repository", in.agentRun.Repository)
 
 	return in, nil
+}
+
+// babysitLoop runs the callback periodically while babysit is enabled.
+// It stops when ctx is done or the done channel is closed.
+func (in *agentRunController) babysitLoop(ctx context.Context, callback func(ctx context.Context) bool) {
+	if !in.agentRun.Babysit {
+		return
+	}
+
+	interval := in.agentRun.BabysitInterval
+	if interval <= 0 {
+		interval = 60
+	}
+
+	d := time.Duration(interval) * time.Second
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-in.done:
+			return
+		case <-time.After(d):
+			agentRun, err := in.consoleClient.UpdateAgentRun(context.Background(), in.agentRunID, gqlclient.AgentRunStatusAttributes{
+				Status: gqlclient.AgentRunStatusBabysitting,
+			})
+			if err != nil {
+				klog.ErrorS(err, "failed to fetch agent run during babysit")
+				continue
+			}
+
+			allDone := len(agentRun.PullRequests) > 0
+			for _, pr := range agentRun.PullRequests {
+				if pr.Status == nil || (*pr.Status != gqlclient.PrStatusMerged && *pr.Status != gqlclient.PrStatusClosed) {
+					allDone = false
+					break
+				}
+			}
+			if allDone {
+				klog.V(log.LogLevelInfo).InfoS("all pull requests are merged or closed, stopping babysit loop")
+				return
+			}
+
+			if callback(ctx) {
+				return
+			}
+		}
+	}
 }
 
 // NewAgentRunController creates a new agent run controller

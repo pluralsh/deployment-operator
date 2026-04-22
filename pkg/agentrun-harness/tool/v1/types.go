@@ -20,6 +20,10 @@ type Tool interface {
 	// and signal when the tool is finished or failed.
 	Run(ctx context.Context, options ...exec.Option)
 
+	// BabysitRun is called periodically by the babysit loop.
+	// Returning true exits the loop.
+	BabysitRun(ctx context.Context) bool
+
 	// Configure configures the provider CLI.
 	Configure(consoleURL, consoleToken, deployToken string) error
 
