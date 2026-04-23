@@ -172,27 +172,15 @@ func (in *agentRunController) init() (Controller, error) {
 
 // babysitLoop runs the callback periodically while babysit is enabled.
 // It stops when ctx is done, the done channel is closed, or all PRs are terminal.
-//
-// On each tick it:
-//  1. Updates the run status to BABYSITTING and retrieves current PRs from Console.
-//  2. Exits if all PRs are merged or closed.
-//  3. Fetches live PR state (comments + CI checks) directly from the SCM provider.
-//  4. Computes a dedup SHA — if unchanged since last check, calls callback with nil
-//     (no reprompt needed).
-//  5. If the SHA changed, builds a structured reprompt and calls callback with a
-//     populated BabysitContext so the tool can re-invoke the AI.
-func (in *agentRunController) babysitLoop(ctx context.Context, callback func(ctx context.Context, bCtx *toolv1.BabysitContext) bool) {
+func (in *agentRunController) babysitLoop(ctx context.Context, callback func(ctx context.Context, bCtx *toolv1.BabysitContext) bool,
+) {
 	if !in.agentRun.Babysit {
 		return
 	}
 
-	interval := in.agentRun.BabysitInterval
-	interval = 5 //TODO remove it
+	d := time.Duration(in.agentRun.BabysitInterval) * time.Second
 
-	d := time.Duration(interval) * time.Second
-
-	// Wait for the initial Run() to complete before starting the babysit ticks.
-	// This ensures BabysitRun is never called concurrently with the first AI invocation.
+	// Wait for initial Run() to complete.
 	select {
 	case <-ctx.Done():
 		return
@@ -202,42 +190,49 @@ func (in *agentRunController) babysitLoop(ctx context.Context, callback func(ctx
 		klog.Info("initial agent run completed, starting babysit loop")
 	}
 
+	// Run immediately, then wait d after each call completes before running again.
 	for {
+		if in.runBabysit(ctx, callback) {
+			return
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-in.done:
 			return
 		case <-time.After(d):
-			agentRun, err := in.consoleClient.UpdateAgentRun(context.Background(), in.agentRunID, gqlclient.AgentRunStatusAttributes{
-				Status: gqlclient.AgentRunStatusBabysitting,
-			})
-			if err != nil {
-				klog.ErrorS(err, "failed to update agent run status during babysit")
-				continue
-			}
-
-			// exit if all PRs are terminal (merged / closed).
-			allDone := len(agentRun.PullRequests) > 0
-			for _, pr := range agentRun.PullRequests {
-				if pr.Status == nil || (*pr.Status != gqlclient.PrStatusMerged && *pr.Status != gqlclient.PrStatusClosed) {
-					allDone = false
-					break
-				}
-			}
-			if allDone {
-				klog.V(log.LogLevelInfo).InfoS("all pull requests are merged or closed, stopping babysit loop")
-				return
-			}
-
-			// fetch live PR state from SCM and compute dedup SHA.
-			bCtx := in.buildBabysitContext(ctx, agentRun)
-
-			if callback(ctx, bCtx) {
-				return
-			}
 		}
 	}
+}
+
+func (in *agentRunController) runBabysit(ctx context.Context, callback func(ctx context.Context, bCtx *toolv1.BabysitContext) bool) bool {
+	agentRun, err := in.consoleClient.UpdateAgentRun(ctx, in.agentRunID, gqlclient.AgentRunStatusAttributes{Status: gqlclient.AgentRunStatusBabysitting})
+	if err != nil {
+		klog.ErrorS(err, "failed to update agent run status during babysit")
+		return false
+	}
+
+	// Exit if all PRs are terminal.
+	allDone := len(agentRun.PullRequests) > 0
+	for _, pr := range agentRun.PullRequests {
+		if pr.Status == nil ||
+			(*pr.Status != gqlclient.PrStatusMerged &&
+				*pr.Status != gqlclient.PrStatusClosed) {
+			allDone = false
+			break
+		}
+	}
+
+	if allDone {
+		klog.V(log.LogLevelInfo).InfoS(
+			"all pull requests are merged or closed, stopping babysit loop",
+		)
+		return true
+	}
+
+	bCtx := in.buildBabysitContext(ctx, agentRun)
+	return callback(ctx, bCtx)
 }
 
 // buildBabysitContext fetches live PR data from the SCM provider, computes a
@@ -254,7 +249,7 @@ func (in *agentRunController) buildBabysitContext(ctx context.Context, agentRun 
 	var enriched []toolv1.EnrichedPR
 	var details []*scm.PRDetails
 	for _, pr := range agentRun.PullRequests {
-		// Skip terminal PRs — they won't have actionable new activity.
+		// Skip terminal PRs
 		if pr.Status != nil && (*pr.Status == gqlclient.PrStatusMerged || *pr.Status == gqlclient.PrStatusClosed) {
 			continue
 		}
@@ -287,8 +282,10 @@ func (in *agentRunController) buildBabysitContext(ctx context.Context, agentRun 
 		return nil
 	}
 
-	// SHA unchanged — nothing new for the agent to act on.
-	if sha == in.lastPRSHA {
+	// SHA unchanged or empty
+	if sha == in.lastPRSHA || in.lastPRSHA == "" {
+		in.lastPRSHA = sha
+		in.lastPRCheckAt = time.Now()
 		klog.V(log.LogLevelExtended).InfoS("PR state unchanged, skipping reprompt")
 		return nil
 	}

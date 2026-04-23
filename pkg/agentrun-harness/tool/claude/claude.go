@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -72,16 +73,18 @@ func (in *Claude) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool 
 	}
 
 	var envOpt exec.Option
-	if in.Config.Run.IsProxyEnabled() {
-		envOpt = exec.WithEnv([]string{
-			fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
-			fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
-		})
-	} else {
-		envOpt = exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)})
-	}
+	//if in.Config.Run.IsProxyEnabled() {
+	//	envOpt = exec.WithEnv([]string{
+	//		fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
+	//		fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
+	//	})
+	//} else {
+	//	envOpt = exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)})
+	//}
 
-	babysitExec := exec.NewExecutable(
+	envOpt = exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", os.Getenv("ANTHROPIC_API_KEY"))})
+
+	in.executable = exec.NewExecutable(
 		"claude",
 		envOpt,
 		exec.WithArgs(args),
@@ -89,7 +92,7 @@ func (in *Claude) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool 
 		exec.WithTimeout(in.Config.Run.Runtime.Config.Claude.Timeout),
 	)
 
-	err := babysitExec.RunStream(ctx, func(line []byte) {
+	err := in.executable.RunStream(ctx, func(line []byte) {
 		event := &StreamEvent{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.ErrorS(err, "failed to unmarshal claude babysit stream event", "line", string(line))
@@ -103,8 +106,8 @@ func (in *Claude) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool 
 		}
 	})
 	if err != nil {
-		klog.ErrorS(err, "claude babysit execution failed")
-		// Non-fatal — return false so the loop continues and retries next tick.
+		klog.ErrorS(err, "claude execution failed")
+		in.Config.ErrorChan <- err
 		return false
 	}
 
