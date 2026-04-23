@@ -2,16 +2,39 @@ package v1
 
 import (
 	"context"
+	"time"
 
 	console "github.com/pluralsh/console/go/client"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
+	"github.com/pluralsh/deployment-operator/pkg/scm"
 )
 
 const (
 	SystemPromptFile = "AGENTS.md"
 )
+
+// EnrichedPR pairs the Console PR fragment with its live SCM state.
+type EnrichedPR struct {
+	URL     string
+	Title   string
+	Details *scm.PRDetails
+}
+
+// BabysitContext is passed to BabysitRun when PR state has changed since the last check.
+// A nil BabysitContext means nothing has changed and the tool should skip reprompting.
+type BabysitContext struct {
+	// PRs is the list of open PRs with live SCM state.
+	PRs []EnrichedPR
+	// Prompt is the pre-built reprompt message for the AI.
+	Prompt string
+	// LastCheckedAt records the time of the previous check, so the AI can
+	// filter comments it has already addressed.
+	LastCheckedAt time.Time
+	// Branch is the working branch the agent must commit to.
+	Branch string
+}
 
 // Tool handles one of the supported AI agents CLI tools.
 // The list of supported tools is based on the console.AgentRuntimeType.
@@ -21,8 +44,9 @@ type Tool interface {
 	Run(ctx context.Context, options ...exec.Option)
 
 	// BabysitRun is called periodically by the babysit loop.
+	// bCtx is non-nil only when PR state has changed and the agent needs reprompting.
 	// Returning true exits the loop.
-	BabysitRun(ctx context.Context) bool
+	BabysitRun(ctx context.Context, bCtx *BabysitContext) bool
 
 	// Configure configures the provider CLI.
 	Configure(consoleURL, consoleToken, deployToken string) error
@@ -53,4 +77,9 @@ type Config struct {
 
 	// Run is the agent run that is being processed.
 	Run *v1.AgentRun
+
+	// SkipInitialRun skips the actual AI CLI execution in Run() and signals
+	// completion immediately. Use this in tests to jump straight to babysitLoop
+	// without needing a real Claude/Gemini/Codex process.
+	SkipInitialRun bool
 }

@@ -27,8 +27,8 @@ const (
 )
 
 // BabysitRun is the default no-op implementation of the Tool.BabysitRun callback.
-// Individual tools can override this to perform periodic health checks or status updates.
-func (in DefaultTool) BabysitRun(_ context.Context) bool { return true }
+// Individual tools can override this to perform reprompting when PR state has changed.
+func (in DefaultTool) BabysitRun(_ context.Context, _ *BabysitContext) bool { return true }
 
 // ConfigureSystemPrompt prepares system prompt/context files for the provider and puts them in the required directory
 // for the agent CLI to read during the run.

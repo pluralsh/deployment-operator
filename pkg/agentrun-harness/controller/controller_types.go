@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"sync"
+	"time"
 
 	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
@@ -42,6 +43,23 @@ type agentRunController struct {
 
 	// done signals that all commands execution is finished
 	done chan struct{}
+
+	// runDone signals that the initial AI tool Run() has completed.
+	// The babysit loop waits on this before its first tick so that
+	// BabysitRun is never called concurrently with the initial Run.
+	runDone chan struct{}
+
+	// skipInitialRun is a test flag — when true, runDone is closed immediately
+	// after tool.Run() so the babysit loop starts without a real AI process.
+	skipInitialRun bool
+
+	// lastPRSHA is the dedup hash of the last-seen PR state (comments + CI checks).
+	// The babysit loop skips reprompting when this matches the current state.
+	lastPRSHA string
+
+	// lastPRCheckAt is the time the agent was last reprompted about PR status.
+	// Passed to the AI so it knows which comments are new since the last check.
+	lastPRCheckAt time.Time
 }
 
 type Option func(*agentRunController)

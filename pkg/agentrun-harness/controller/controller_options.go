@@ -33,3 +33,13 @@ func WithConsoleUrl(url string) Option {
 		s.consoleUrl = url
 	}
 }
+
+// WithSkipInitialRun is a test helper that skips the real AI CLI execution.
+// It closes runDone immediately after tool.Run() is called so the babysit
+// loop starts without waiting for a real process to finish.
+func WithSkipInitialRun() Option {
+	return func(s *agentRunController) {
+		s.skipInitialRun = true
+	}
+}
+
