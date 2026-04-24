@@ -34,6 +34,8 @@ type BabysitContext struct {
 	LastCheckedAt time.Time
 	// Branch is the working branch the agent must commit to.
 	Branch string
+	// RepositoryDir is the absolute path to the cloned repository on disk.
+	RepositoryDir string
 }
 
 // Tool handles one of the supported AI agents CLI tools.
@@ -47,6 +49,9 @@ type Tool interface {
 	// bCtx is non-nil only when PR state has changed and the agent needs reprompting.
 	// Returning true exits the loop.
 	BabysitRun(ctx context.Context, bCtx *BabysitContext) bool
+
+	// ConfigureBabysitRun ConfigureSystemPrompt prepares system prompt/context files for the provider and puts them in the required directory
+	ConfigureBabysitRun() error
 
 	// Configure configures the provider CLI.
 	Configure(consoleURL, consoleToken, deployToken string) error

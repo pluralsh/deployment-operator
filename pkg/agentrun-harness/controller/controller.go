@@ -188,6 +188,9 @@ func (in *agentRunController) babysitLoop(ctx context.Context, callback func(ctx
 		return
 	case <-in.runDone:
 		klog.Info("initial agent run completed, starting babysit loop")
+		if err := in.tool.ConfigureBabysitRun(); err != nil {
+			return
+		}
 	}
 
 	// Run immediately, then wait d after each call completes before running again.
@@ -290,13 +293,18 @@ func (in *agentRunController) buildBabysitContext(ctx context.Context, agentRun 
 		return nil
 	}
 
-	// Determine working branch from the run spec (populated from AgentRunFragment.branch).
+	// Determine working branch from the live PR head ref.
+	// Fall back to a generic placeholder if none of the PRs carry a head ref.
 	branch := "your working branch"
-	if in.agentRun.Branch != nil && *in.agentRun.Branch != "" {
-		branch = *in.agentRun.Branch
+	for _, e := range enriched {
+		if e.Details != nil && e.Details.HeadRef != "" {
+			branch = e.Details.HeadRef
+			break
+		}
 	}
 
-	prompt := buildBabysitPrompt(branch, enriched, in.lastPRCheckAt)
+	repositoryDir := filepath.Join(in.dir, "shared", "repository")
+	prompt := buildBabysitPrompt(branch, repositoryDir, enriched, in.lastPRCheckAt)
 
 	// Persist the new SHA and timestamp so the next tick can diff against it.
 	in.lastPRSHA = sha
@@ -307,12 +315,13 @@ func (in *agentRunController) buildBabysitContext(ctx context.Context, agentRun 
 		Prompt:        prompt,
 		LastCheckedAt: in.lastPRCheckAt,
 		Branch:        branch,
+		RepositoryDir: repositoryDir,
 	}
 }
 
 // buildBabysitPrompt constructs a structured reprompt message for the AI agent
 // describing new PR activity (comments + CI failures) since the last check.
-func buildBabysitPrompt(branch string, prs []toolv1.EnrichedPR, lastChecked time.Time) string {
+func buildBabysitPrompt(branch, repositoryDir string, prs []toolv1.EnrichedPR, lastChecked time.Time) string {
 	lastCheckedStr := "<beginning>"
 	if !lastChecked.IsZero() {
 		lastCheckedStr = lastChecked.UTC().Format(time.RFC3339)
@@ -323,10 +332,14 @@ func buildBabysitPrompt(branch string, prs []toolv1.EnrichedPR, lastChecked time
 		"Your pull requests have new activity since %s. Please take the following actions.\n\n",
 		lastCheckedStr,
 	))
+	sb.WriteString(fmt.Sprintf(
+		"The repository is cloned at **`%s`** — work only inside this directory.\n\n",
+		repositoryDir,
+	))
 
 	for _, e := range prs {
-		sb.WriteString(fmt.Sprintf("## PR: %s\nURL: %s\n\n", e.Title, e.URL))
-
+		sb.WriteString(fmt.Sprintf("## PR: %s\nURL: %s\n", e.Title, e.URL))
+		sb.WriteString(fmt.Sprintf("### Branch: %s\n", branch))
 		// New comments since last check.
 		var newComments []scm.PRComment
 		for _, c := range e.Details.Comments {
@@ -336,11 +349,6 @@ func buildBabysitPrompt(branch string, prs []toolv1.EnrichedPR, lastChecked time
 		}
 		if len(newComments) > 0 {
 			sb.WriteString("### New comments since last check\n\n")
-			sb.WriteString(
-				"**Note:** Any comment mentioning \"Plural\", \"@plural\", \"the agent\", or \"the bot\" " +
-					"is addressed directly to YOU — treat it as an explicit instruction. " +
-					"Ignore back-and-forth between human reviewers unless they explicitly ask the agent to act.\n\n",
-			)
 			for _, c := range newComments {
 				body := strings.ReplaceAll(c.Body, "\n", "\n  > ")
 				sb.WriteString(fmt.Sprintf("- **%s** at %s:\n  > %s\n\n",
@@ -380,13 +388,6 @@ func buildBabysitPrompt(branch string, prs []toolv1.EnrichedPR, lastChecked time
 			sb.WriteString("All CI checks passed.\n\n")
 		}
 	}
-
-	sb.WriteString(fmt.Sprintf(
-		"## Branch discipline\n\nAll commits MUST go to branch **\"%s\"**. "+
-			"Never commit directly to the base branch.\n",
-		branch,
-	))
-
 	return sb.String()
 }
 

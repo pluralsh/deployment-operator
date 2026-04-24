@@ -15,6 +15,7 @@ import (
 type PRDetails struct {
 	Title    string
 	Body     string
+	HeadRef  string // source branch of the PR (e.g. "feat/my-branch")
 	Comments []PRComment
 	CIChecks []CICheck
 }

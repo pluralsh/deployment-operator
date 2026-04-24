@@ -56,6 +56,7 @@ func (c *gitHubClient) GetPRDetails(ctx context.Context, prURL string) (*PRDetai
 	return &PRDetails{
 		Title:    pr.GetTitle(),
 		Body:     pr.GetBody(),
+		HeadRef:  pr.GetHead().GetRef(),
 		Comments: comments,
 		CIChecks: checks,
 	}, nil
