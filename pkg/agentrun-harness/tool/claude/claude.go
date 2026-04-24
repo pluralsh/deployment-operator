@@ -215,6 +215,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 		AddServer("plural", "mcpserver").
 		Env("PLRL_CONSOLE_TOKEN", consoleToken).
 		Env("PLRL_CONSOLE_URL", consoleURL).
+		Env("PLRL_AGENT_RUN_ID", in.Config.Run.ID).
 		Done()
 	if err := mcp.WriteToFile(filepath.Join(in.Config.WorkDir, ".mcp.json")); err != nil {
 		return err
