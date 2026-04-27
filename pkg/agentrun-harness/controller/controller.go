@@ -332,10 +332,10 @@ func buildBabysitPrompt(branch, repositoryDir string, prs []toolv1.EnrichedPR, l
 		"Your pull requests have new activity since %s. Please take the following actions.\n\n",
 		lastCheckedStr,
 	))
-	sb.WriteString(fmt.Sprintf(
-		"The repository is cloned at **`%s`** — work only inside this directory.\n\n",
-		repositoryDir,
-	))
+	//sb.WriteString(fmt.Sprintf(
+	//	"The repository is cloned at **`%s`** — work only inside this directory.\n\n",
+	//	repositoryDir,
+	//))
 
 	for _, e := range prs {
 		sb.WriteString(fmt.Sprintf("## PR: %s\nURL: %s\n", e.Title, e.URL))
@@ -351,8 +351,8 @@ func buildBabysitPrompt(branch, repositoryDir string, prs []toolv1.EnrichedPR, l
 			sb.WriteString("### New comments since last check\n\n")
 			for _, c := range newComments {
 				body := strings.ReplaceAll(c.Body, "\n", "\n  > ")
-				sb.WriteString(fmt.Sprintf("- **%s** at %s:\n  > %s\n\n",
-					c.Author, c.CreatedAt.UTC().Format(time.RFC3339), body))
+				sb.WriteString(fmt.Sprintf("- **%s** at %s (commentId: `%s`):\n  > %s\n\n",
+					c.Author, c.CreatedAt.UTC().Format(time.RFC3339), c.ReactableID(), body))
 			}
 		} else {
 			sb.WriteString("No new comments since last check.\n\n")

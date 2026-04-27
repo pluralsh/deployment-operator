@@ -192,10 +192,12 @@ func (in *Claude) ConfigureBabysitRun() error {
 		"MultiEdit",
 		"Bash",
 		"WebFetch",
-		"mcp__plural__agentPullRequest",
-		"mcp__plural__createBranch",
+		"mcp__plural__createCommit",
 		"mcp__plural__fetchAgentRunTodos",
-		"mcp__plural__updateAgentRunTodos")
+		"mcp__plural__updateAgentRunTodos",
+		"mcp__plural__getPRState",
+		"mcp__plural__getCILogs",
+		"mcp__plural__reactToComment")
 	defaultTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashTimeout.Milliseconds())
 	maxTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashMaxTimeout.Milliseconds())
 	settings.WithEnv("BASH_DEFAULT_TIMEOUT_MS", defaultTimeout)

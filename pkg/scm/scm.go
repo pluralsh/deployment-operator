@@ -20,12 +20,31 @@ type PRDetails struct {
 	CIChecks []CICheck
 }
 
+// PRCommentType distinguishes top-level issue comments from inline review comments.
+type PRCommentType string
+
+const (
+	PRCommentTypeIssue  PRCommentType = "issue"
+	PRCommentTypeReview PRCommentType = "review"
+)
+
 // PRComment is a single review or issue comment on the PR.
 type PRComment struct {
-	ID        string
+	// ID is the numeric provider comment ID
+	ID string
+	// Type distinguishes top level issue comments from inline review comments, which have separate reaction endpoints in GitHub's API.
+	// Used to route react API calls to the correct endpoint.
+	Type      PRCommentType
 	Author    string
 	Body      string
 	CreatedAt time.Time
+}
+
+// ReactableID returns a composite key that encodes both the comment type and
+// numeric ID e.g. "issue:123456" or "review:789012".
+// This is the value the agent should pass to the reactToComment MCP tool.
+func (c PRComment) ReactableID() string {
+	return string(c.Type) + ":" + c.ID
 }
 
 // CICheck is a single CI check run or commit status.
@@ -33,11 +52,29 @@ type CICheck struct {
 	Name       string
 	Status     string // "queued", "in_progress", "completed"
 	Conclusion string // "success", "failure", "neutral", "cancelled", "skipped", "timed_out", ""
+	// CheckRunID is the provider-specific ID used to fetch logs (GitHub check run ID).
+	CheckRunID int64
 }
+
+// CommentReactState is the agent's work state conveyed as a GitHub reaction.
+type CommentReactState string
+
+const (
+	// CommentReactStateWorking maps to (eyes) — agent is looking at it.
+	CommentReactStateWorking CommentReactState = "working"
+	// CommentReactStateComplete maps to (+1) — agent finished.
+	CommentReactStateComplete CommentReactState = "complete"
+)
 
 // Client fetches live PR state directly from the SCM provider.
 type Client interface {
 	GetPRDetails(ctx context.Context, prURL string) (*PRDetails, error)
+	// GetCILogs fetches the log output for a single failed check run.
+	// prURL is used to resolve owner/repo; checkRunID is from CICheck.CheckRunID.
+	GetCILogs(ctx context.Context, prURL string, checkRunID int64) (string, error)
+	// ReactToComment adds a reaction emoji to a PR comment.
+	// reactableID is in the format "<type>:<numericID>" (from PRComment.ReactableID()).
+	ReactToComment(ctx context.Context, prURL string, reactableID string, state CommentReactState) error
 }
 
 // NewClient returns a provider-dispatching SCM client using token auth.
@@ -51,17 +88,40 @@ type dispatchClient struct {
 }
 
 func (d *dispatchClient) GetPRDetails(ctx context.Context, prURL string) (*PRDetails, error) {
+	c, err := d.clientFor(prURL)
+	if err != nil {
+		return nil, err
+	}
+	return c.GetPRDetails(ctx, prURL)
+}
+
+func (d *dispatchClient) GetCILogs(ctx context.Context, prURL string, checkRunID int64) (string, error) {
+	c, err := d.clientFor(prURL)
+	if err != nil {
+		return "", err
+	}
+	return c.GetCILogs(ctx, prURL, checkRunID)
+}
+
+func (d *dispatchClient) ReactToComment(ctx context.Context, prURL string, reactableID string, state CommentReactState) error {
+	c, err := d.clientFor(prURL)
+	if err != nil {
+		return err
+	}
+	return c.ReactToComment(ctx, prURL, reactableID, state)
+}
+
+func (d *dispatchClient) clientFor(prURL string) (Client, error) {
 	u, err := url.Parse(prURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid PR URL %q: %w", prURL, err)
 	}
 	host := strings.ToLower(u.Host)
-
 	switch {
 	case strings.Contains(host, "github"):
-		return newGitHubClient(d.token, host).GetPRDetails(ctx, prURL)
+		return newGitHubClient(d.token, host), nil
 	case strings.Contains(host, "gitlab"):
-		return newGitLabClient(d.token, host).GetPRDetails(ctx, prURL)
+		return newGitLabClient(d.token, host), nil
 	default:
 		return nil, fmt.Errorf("unsupported SCM host %q: only GitHub and GitLab are supported", host)
 	}
@@ -95,4 +155,3 @@ func PRStateHash(details ...*PRDetails) (string, error) {
 	}
 	return utils.HashObject(all)
 }
-
