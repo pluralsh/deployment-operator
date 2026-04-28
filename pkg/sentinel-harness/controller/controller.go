@@ -182,10 +182,7 @@ func buildGotestsumRunArgs(outputDir, junitPath, timeout string, integrationTest
 			}
 		}
 	}
-	disablesDefaultIntegrationTestCases := false
-	if integrationTestConfig != nil && integrationTestConfig.Default != nil && integrationTestConfig.Default.Ignore != nil && lo.FromPtr(integrationTestConfig.Default.Ignore) {
-		disablesDefaultIntegrationTestCases = true
-	}
+	disablesDefaultIntegrationTestCases := integrationTestConfig != nil && integrationTestConfig.Default != nil && integrationTestConfig.Default.Ignore != nil && lo.FromPtr(integrationTestConfig.Default.Ignore)
 
 	goTestArgs = append(goTestArgs, "--test.count", "1")
 	args = append(args, "--")
