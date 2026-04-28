@@ -124,7 +124,7 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 	klog.V(log.LogLevelDefault).InfoS("running gotestsum", "args", args)
 
 	if err := cmd.Run("", args); err != nil {
-		klog.Warning("gotestsum returned an error", err)
+		klog.Warningf("gotestsum returned an error: %v", err)
 	}
 
 	output, passed, err := DecodeTestJSONFileToString(filepath.Join(in.outputDir, jsonFile))
