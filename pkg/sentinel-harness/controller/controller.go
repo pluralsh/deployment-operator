@@ -316,8 +316,8 @@ func DecodeTestJSONFileToString(fileName string) (string, bool, error) {
 		case "fail":
 			if ev.Test != "" {
 				_, _ = fmt.Fprintf(&buf, "--- FAIL: %s (%.2fs)\n", ev.Test, ev.Elapsed)
-				passed = false
 			}
+			passed = false
 		case "output":
 			buf.WriteString(ev.Output)
 		}
