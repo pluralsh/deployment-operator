@@ -123,21 +123,19 @@ func (in *sentinelRunController) runTests(fragment *console.SentinelRunJobFragme
 	args = buildGotestsumRunArgs(in.outputDir, junitPath, in.timeoutDuration, integrationTestConfig, userTests)
 	klog.V(log.LogLevelDefault).InfoS("running gotestsum", "args", args)
 
-	passed := false
-	err = cmd.Run("", args)
-	if err == nil {
-		passed = true
+	if err := cmd.Run("", args); err != nil {
+		klog.Warning("gotestsum returned an error", err)
 	}
 
-	output, err := DecodeTestJSONFileToString(filepath.Join(in.outputDir, jsonFile))
+	output, passed, err := DecodeTestJSONFileToString(filepath.Join(in.outputDir, jsonFile))
 	if err != nil {
-		return "", passed, err
+		return "", false, err
 	}
 
 	if in.outputFormat == junitFormat {
 		out, err := os.ReadFile(junitPath)
 		if err != nil {
-			return "", passed, err
+			return "", false, err
 		}
 		output = string(out)
 	}
@@ -283,10 +281,10 @@ type TestEvent struct {
 	Package string  `json:"Package,omitempty"`
 }
 
-func DecodeTestJSONFileToString(fileName string) (string, error) {
+func DecodeTestJSONFileToString(fileName string) (string, bool, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
-		return "", fmt.Errorf("error opening file: %w", err)
+		return "", false, fmt.Errorf("error opening file: %w", err)
 	}
 	defer func(f *os.File) {
 		err := f.Close()
@@ -297,11 +295,12 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 
 	var buf bytes.Buffer
 	dec := json.NewDecoder(f)
+	passed := true
 
 	for dec.More() {
 		var ev TestEvent
 		if err := dec.Decode(&ev); err != nil {
-			return "", fmt.Errorf("error decoding JSON: %w", err)
+			return "", false, fmt.Errorf("error decoding JSON: %w", err)
 		}
 
 		switch ev.Action {
@@ -314,13 +313,14 @@ func DecodeTestJSONFileToString(fileName string) (string, error) {
 		case "fail":
 			if ev.Test != "" {
 				_, _ = fmt.Fprintf(&buf, "--- FAIL: %s (%.2fs)\n", ev.Test, ev.Elapsed)
+				passed = false
 			}
 		case "output":
 			buf.WriteString(ev.Output)
 		}
 	}
 
-	return buf.String(), nil
+	return buf.String(), passed, nil
 }
 
 func createTestCasesFile(configuration *console.SentinelCheckIntegrationTestConfigurationFragment, cluster *console.SentinelRunJobFragment_Cluster) (string, error) {
