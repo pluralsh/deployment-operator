@@ -1,7 +1,9 @@
 package v1
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"path"
 
 	console "github.com/pluralsh/console/go/client"
@@ -23,7 +25,18 @@ const (
 	// systemPromptWriteTemplateFile represents the filename for the write
 	// markdown template located in the system directory.
 	systemPromptWriteTemplateFile = "write.md.tmpl"
+
+	systemPromptBabysitTemplateFile = "babysit.md.tmpl"
 )
+
+// BabysitRun is the default no-op implementation of the Tool.BabysitRun callback.
+// Individual tools can override this to perform reprompting when PR state has changed.
+func (in DefaultTool) BabysitRun(_ context.Context, _ *BabysitContext) bool { return true }
+
+// ConfigureBabysitRun is the default no-op implementation of the Tool.ConfigureBabysitRun callback.
+func (in DefaultTool) ConfigureBabysitRun() error {
+	return nil
+}
 
 // ConfigureSystemPrompt prepares system prompt/context files for the provider and puts them in the required directory
 // for the agent CLI to read during the run.
@@ -64,5 +77,33 @@ func (in DefaultTool) ConfigureSystemPrompt(runtime console.AgentRuntimeType) er
 	}
 
 	klog.V(log.LogLevelExtended).InfoS("system prompt/context file configured", "output", outputFile)
+	return nil
+}
+
+func (in DefaultTool) ConfigureSystemPromptForBabysitRun(runtime console.AgentRuntimeType) error {
+	providerDir := ""
+	switch runtime {
+	case console.AgentRuntimeTypeClaude:
+		providerDir = ".claude/prompts"
+	case console.AgentRuntimeTypeGemini:
+		providerDir = ".gemini/contexts"
+	case console.AgentRuntimeTypeOpencode:
+		providerDir = ".opencode/prompts"
+	case console.AgentRuntimeTypeCodex:
+		providerDir = ".codex"
+	}
+
+	outputFile := path.Join(in.Config.WorkDir, providerDir, SystemPromptFile)
+	inputFile := path.Join(systemPromptTemplateDir, systemPromptBabysitTemplateFile)
+
+	src, err := os.ReadFile(inputFile)
+	if err != nil {
+		return fmt.Errorf("failed to read babysit system prompt template %q: %w", inputFile, err)
+	}
+
+	if err = helpers.File().Create(outputFile, string(src), 0644); err != nil {
+		return fmt.Errorf("failed to write babysit system prompt %q: %w", outputFile, err)
+	}
+
 	return nil
 }

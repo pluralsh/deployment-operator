@@ -70,6 +70,8 @@ type AgentRuntimeSpec struct {
 
 	// Git configure commit signing on agent run. When provided, the runtime will be configured to sign git commits using the provided key reference.
 	Git *GitSpec `json:"git,omitempty"`
+
+	BabysitInterval *metav1.Duration `json:"babysitInterval,omitempty"`
 }
 
 type GitSpec struct {
@@ -562,6 +564,10 @@ func (in *AgentRuntime) Attributes() console.AgentRuntimeAttributes {
 	if len(in.Spec.AllowedRepositories) > 0 {
 		attrs.AllowedRepositories = lo.ToSlicePtr(in.Spec.AllowedRepositories)
 	}
+	if in.Spec.BabysitInterval != nil {
+		attrs.BabysitInterval = lo.ToPtr(int64(in.Spec.BabysitInterval.Seconds()))
+	}
+
 	return attrs
 }
 

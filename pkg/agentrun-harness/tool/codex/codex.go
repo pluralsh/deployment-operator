@@ -251,8 +251,7 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		return
 	}
 	klog.V(log.LogLevelExtended).InfoS("codex execution finished")
-
-	close(in.Config.FinishedChan)
+	// FinishedChan is closed by the controller after the babysit loop exits.
 }
 
 // mapCodexStreamEventToAgentMessage converts a single Codex CLI JSON stream event into an

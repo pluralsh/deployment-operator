@@ -27,6 +27,7 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/golangci/golangci-lint/v2 v2.11.3
 	github.com/google/gnostic-models v0.7.0
+	github.com/google/go-github/v68 v68.0.0
 	github.com/grafana/pyroscope-go v1.2.7
 	github.com/hashicorp/terraform-json v0.26.0
 	github.com/mark3labs/mcp-go v0.40.0
@@ -40,7 +41,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.70.4
+	github.com/pluralsh/console/go/client v1.74.1
 	github.com/pluralsh/console/go/polly v1.0.0
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
@@ -55,7 +56,8 @@ require (
 	github.com/vektra/mockery/v2 v2.45.1
 	github.com/vmware-tanzu/velero v1.16.2
 	github.com/yuin/gopher-lua v1.1.1
-	golang.org/x/time v0.13.0
+	golang.org/x/oauth2 v0.34.0
+	golang.org/x/time v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/gotestsum v1.13.0
 	helm.sh/helm/v3 v3.20.2
@@ -272,9 +274,10 @@ require (
 	github.com/golangci/swaggoswag v0.0.0-20250504205917-77f2aca3143e // indirect
 	github.com/golangci/unconvert v0.0.0-20250410112200-a129a6e6413e // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/cel-go v0.26.1 // indirect
+	github.com/google/cel-go v0.27.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.20.6 // indirect
+	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -420,7 +423,6 @@ require (
 	github.com/spf13/viper v1.21.0 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.3.1 // indirect
-	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/terraform-docs/terraform-config-inspect v0.0.0-20210728164355-9c1f178932fa // indirect
@@ -485,7 +487,6 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20260209203927-2842357ff358 // indirect
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
-	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/term v0.40.0 // indirect

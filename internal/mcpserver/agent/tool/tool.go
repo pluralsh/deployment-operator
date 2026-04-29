@@ -27,6 +27,14 @@ func ToID(id string) (ID, error) {
 		return UpdateAnalysisTool, nil
 	case string(UpdateTodosTool):
 		return UpdateTodosTool, nil
+	case string(GetPRStateTool):
+		return GetPRStateTool, nil
+	case string(GetCILogsTool):
+		return GetCILogsTool, nil
+	case string(CreateCommitTool):
+		return CreateCommitTool, nil
+	case string(ReactToCommentTool):
+		return ReactToCommentTool, nil
 	}
 
 	return "", fmt.Errorf("invalid tool ID: %s", id)
@@ -34,10 +42,14 @@ func ToID(id string) (ID, error) {
 
 const (
 	CreateBranchTool      ID = "createBranch"
+	CreateCommitTool      ID = "createCommit"
 	CreatePullRequestTool ID = "agentPullRequest"
 	FetchTodosTool        ID = "fetchAgentRunTodos"
 	UpdateAnalysisTool    ID = "updateAgentRunAnalysis"
 	UpdateTodosTool       ID = "updateAgentRunTodos"
+	GetPRStateTool        ID = "getPRState"
+	GetCILogsTool         ID = "getCILogs"
+	ReactToCommentTool    ID = "reactToComment"
 )
 
 // Tool is an MCP tool that can be installed on the MCP server
