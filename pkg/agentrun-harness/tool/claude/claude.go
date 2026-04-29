@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -71,16 +70,14 @@ func (in *Claude) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool 
 	}
 
 	var envOpt exec.Option
-	//if in.Config.Run.IsProxyEnabled() {
-	//	envOpt = exec.WithEnv([]string{
-	//		fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
-	//		fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
-	//	})
-	//} else {
-	//	envOpt = exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)})
-	//}
-
-	envOpt = exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", os.Getenv("ANTHROPIC_API_KEY"))})
+	if in.Config.Run.IsProxyEnabled() {
+		envOpt = exec.WithEnv([]string{
+			fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
+			fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
+		})
+	} else {
+		envOpt = exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)})
+	}
 
 	in.executable = exec.NewExecutable(
 		"claude",
@@ -114,67 +111,67 @@ func (in *Claude) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool 
 }
 
 func (in *Claude) start(ctx context.Context, options ...exec.Option) {
-	//promptFile := path.Join(in.Config.WorkDir, ".claude", "prompts", v1.SystemPromptFile)
-	//agent := analysisAgent
-	//if in.Config.Run.Mode == console.AgentRunModeWrite {
-	//	agent = autonomousAgent
-	//}
-	//args := []string{
-	//	"--add-dir", in.Config.RepositoryDir,
-	//	"--agents", agent,
-	//	"--system-prompt-file", promptFile,
-	//	"--model", string(in.model),
-	//	"-p", in.Config.Run.Prompt,
-	//	"--output-format", "stream-json",
-	//	"--verbose"}
-	//
-	//if in.Config.Run.IsProxyEnabled() {
-	//	options = append(options,
-	//		exec.WithEnv([]string{
-	//			fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
-	//			fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
-	//		}),
-	//	)
-	//} else {
-	//	options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}))
-	//}
-	//
-	//in.executable = exec.NewExecutable(
-	//	"claude",
-	//	append(
-	//		options,
-	//		exec.WithArgs(args),
-	//		exec.WithDir(in.Config.WorkDir),
-	//		exec.WithTimeout(in.Config.Run.Runtime.Config.Claude.Timeout),
-	//	)...,
-	//)
-	//klog.V(log.LogLevelInfo).InfoS("claude executable configured", "timeout", in.Config.Run.Runtime.Config.Claude.Timeout)
-	//
-	//// Send the initial prompt as a message too
-	//if in.onMessage != nil {
-	//	in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
-	//}
-	//
-	//err := in.executable.RunStream(ctx, func(line []byte) {
-	//	event := &StreamEvent{}
-	//	if err := json.Unmarshal(line, event); err != nil {
-	//		klog.ErrorS(err, "failed to unmarshal claude stream event", "line", string(line))
-	//		in.Config.ErrorChan <- err
-	//		return
-	//	}
-	//
-	//	if event.Message != nil {
-	//		msg := mapClaudeContentToAgentMessage(event, in.toolUseCache)
-	//		if in.onMessage != nil && msg != nil {
-	//			in.onMessage(msg)
-	//		}
-	//	}
-	//})
-	//if err != nil {
-	//	klog.ErrorS(err, "claude execution failed")
-	//	in.Config.ErrorChan <- err
-	//	return
-	//}
+	promptFile := path.Join(in.Config.WorkDir, ".claude", "prompts", v1.SystemPromptFile)
+	agent := analysisAgent
+	if in.Config.Run.Mode == console.AgentRunModeWrite {
+		agent = autonomousAgent
+	}
+	args := []string{
+		"--add-dir", in.Config.RepositoryDir,
+		"--agents", agent,
+		"--system-prompt-file", promptFile,
+		"--model", string(in.model),
+		"-p", in.Config.Run.Prompt,
+		"--output-format", "stream-json",
+		"--verbose"}
+
+	if in.Config.Run.IsProxyEnabled() {
+		options = append(options,
+			exec.WithEnv([]string{
+				fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
+				fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
+			}),
+		)
+	} else {
+		options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}))
+	}
+
+	in.executable = exec.NewExecutable(
+		"claude",
+		append(
+			options,
+			exec.WithArgs(args),
+			exec.WithDir(in.Config.WorkDir),
+			exec.WithTimeout(in.Config.Run.Runtime.Config.Claude.Timeout),
+		)...,
+	)
+	klog.V(log.LogLevelInfo).InfoS("claude executable configured", "timeout", in.Config.Run.Runtime.Config.Claude.Timeout)
+
+	// Send the initial prompt as a message too
+	if in.onMessage != nil {
+		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
+	}
+
+	err := in.executable.RunStream(ctx, func(line []byte) {
+		event := &StreamEvent{}
+		if err := json.Unmarshal(line, event); err != nil {
+			klog.ErrorS(err, "failed to unmarshal claude stream event", "line", string(line))
+			in.Config.ErrorChan <- err
+			return
+		}
+
+		if event.Message != nil {
+			msg := mapClaudeContentToAgentMessage(event, in.toolUseCache)
+			if in.onMessage != nil && msg != nil {
+				in.onMessage(msg)
+			}
+		}
+	})
+	if err != nil {
+		klog.ErrorS(err, "claude execution failed")
+		in.Config.ErrorChan <- err
+		return
+	}
 	klog.V(log.LogLevelExtended).InfoS("claude execution finished")
 	// FinishedChan is closed by the controller after the babysit loop exits.
 }
