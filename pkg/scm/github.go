@@ -55,11 +55,11 @@ func (c *gitHubClient) GetPRDetails(ctx context.Context, prURL string) (*PRDetai
 		return nil, err
 	}
 
-	state := "open"
+	state := PRStateOpen
 	if !pr.GetMergedAt().IsZero() {
-		state = "merged"
+		state = PRStateMerged
 	} else if pr.GetState() == "closed" {
-		state = "closed"
+		state = PRStateClosed
 	}
 	return &PRDetails{
 		Title:    pr.GetTitle(),

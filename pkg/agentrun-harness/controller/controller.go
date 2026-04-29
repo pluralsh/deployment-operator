@@ -233,7 +233,7 @@ func (in *agentRunController) runBabysit(ctx context.Context, callback func(ctx 
 				allDone = false // If we can't check, don't exit babysit
 				break
 			}
-			if details.State == "open" {
+			if details.State == scm.PRStateOpen {
 				allDone = false
 				break
 			}

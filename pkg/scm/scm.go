@@ -11,14 +11,23 @@ import (
 	"github.com/pluralsh/deployment-operator/internal/utils"
 )
 
+// PRState is the state of a pull request.
+type PRState string
+
+const (
+	PRStateOpen   PRState = "open"
+	PRStateClosed PRState = "closed"
+	PRStateMerged PRState = "merged"
+)
+
 // PRDetails is the live state of a pull request fetched directly from the SCM provider.
 type PRDetails struct {
-   Title    string
-   Body     string
-   HeadRef  string // source branch of the PR (e.g. "feat/my-branch")
-   State    string // "open", "closed", "merged"
-   Comments []PRComment
-   CIChecks []CICheck
+	Title    string
+	Body     string
+	HeadRef  string  // source branch of the PR (e.g. "feat/my-branch")
+	State    PRState // PRStateOpen, PRStateClosed, PRStateMerged
+	Comments []PRComment
+	CIChecks []CICheck
 }
 
 // PRCommentType distinguishes top-level issue comments from inline review comments.
