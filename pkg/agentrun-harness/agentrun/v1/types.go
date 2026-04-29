@@ -23,7 +23,7 @@ const (
 	// tool call, or session if there is no output or input detected.
 	defaultInactivityTimeout = defaultBashTimeout
 
-	defaultBabysitInterval = int64(60 * time.Second)
+	defaultBabysitInterval = int64(60)
 )
 
 type AgentRun struct {

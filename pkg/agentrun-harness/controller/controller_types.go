@@ -49,10 +49,6 @@ type agentRunController struct {
 	// BabysitRun is never called concurrently with the initial Run.
 	runDone chan struct{}
 
-	// skipInitialRun is a test flag — when true, runDone is closed immediately
-	// after tool.Run() so the babysit loop starts without a real AI process.
-	skipInitialRun bool
-
 	// lastPRSHA is the dedup hash of the last-seen PR state (comments + CI checks).
 	// The babysit loop skips reprompting when this matches the current state.
 	lastPRSHA string

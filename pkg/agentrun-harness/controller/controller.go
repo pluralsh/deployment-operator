@@ -67,11 +67,6 @@ func (in *agentRunController) Start(ctx context.Context) (retErr error) {
 		exec.WithHook(v1.LifecyclePostStart, in.postExecHook()),
 	)
 
-	// Test hook: skip waiting for the real AI process and unblock babysitLoop immediately.
-	if in.skipInitialRun {
-		close(in.runDone)
-	}
-
 	go func() {
 		in.babysitLoop(ctx, in.tool.BabysitRun)
 		// Close done after the babysit loop exits so the controller's select

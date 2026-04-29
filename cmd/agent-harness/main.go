@@ -31,7 +31,6 @@ func main() {
 		controller.WithConsoleUrl(args.ConsoleUrl()),
 		controller.WithDeployToken(args.DeployToken()),
 		controller.WithWorkingDir(args.WorkingDir()),
-		controller.WithSkipInitialRun(),
 	}
 
 	ctrl, err := controller.NewAgentRunController(opts...)
