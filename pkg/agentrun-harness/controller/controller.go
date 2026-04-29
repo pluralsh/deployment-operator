@@ -210,26 +210,38 @@ func (in *agentRunController) runBabysit(ctx context.Context, callback func(ctx 
 		return false
 	}
 
-	// Exit if all PRs are terminal or if there are no PRs to babysit. This prevents unnecessary cycles when there's no actionable PR state.
+	// Exit if all PRs are terminal or if there are no PRs to babysit, using live SCM data.
 	if len(agentRun.PullRequests) == 0 {
 		klog.V(log.LogLevelInfo).InfoS("no pull requests to babysit, stopping babysit loop")
 		return true
 	}
-	allDone := true
-	for _, pr := range agentRun.PullRequests {
-		if pr.Status == nil ||
-			(*pr.Status != gqlclient.PrStatusMerged &&
-				*pr.Status != gqlclient.PrStatusClosed) {
-			allDone = false
-			break
-		}
-	}
 
-	if allDone {
-		klog.V(log.LogLevelInfo).InfoS(
-			"all pull requests are merged or closed, stopping babysit loop",
-		)
-		return true
+	// Check live PR status from SCM
+	if in.agentRun.ScmCreds == nil || in.agentRun.ScmCreds.Token == "" {
+		klog.V(log.LogLevelInfo).InfoS("no SCM credentials available, cannot check live PR status, continuing babysit loop")
+	} else {
+		scmClient := scm.NewClient(in.agentRun.ScmCreds.Token)
+		allDone := true
+		for _, pr := range agentRun.PullRequests {
+			// Skip if PR URL is empty
+			if pr.URL == "" {
+				continue
+			}
+			details, err := scmClient.GetPRDetails(ctx, pr.URL)
+			if err != nil {
+				klog.ErrorS(err, "failed to fetch PR details from SCM", "url", pr.URL)
+				allDone = false // If we can't check, don't exit babysit
+				break
+			}
+			if details.State == "open" {
+				allDone = false
+				break
+			}
+		}
+		if allDone {
+			klog.V(log.LogLevelInfo).InfoS("all pull requests are merged or closed in SCM, stopping babysit loop")
+			return true
+		}
 	}
 
 	bCtx := in.buildBabysitContext(ctx, agentRun)
