@@ -55,15 +55,15 @@ func (in *GetPRState) handler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("# PR: %s\nURL: %s\nBranch: %s\n\n", details.Title, prURL, details.HeadRef))
+	_, _ = fmt.Fprintf(&sb, "# PR: %s\nURL: %s\nBranch: %s\n\n", details.Title, prURL, details.HeadRef)
 
-	sb.WriteString(fmt.Sprintf("## Comments (%d)\n\n", len(details.Comments)))
+	_, _ = fmt.Fprintf(&sb, "## Comments (%d)\n\n", len(details.Comments))
 	for _, c := range details.Comments {
 		body := strings.ReplaceAll(c.Body, "\n", "\n  > ")
-		sb.WriteString(fmt.Sprintf("- **%s** at %s:\n  > %s\n\n", c.Author, c.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"), body))
+		_, _ = fmt.Fprintf(&sb, "- **%s** at %s:\n  > %s\n\n", c.Author, c.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"), body)
 	}
 
-	sb.WriteString(fmt.Sprintf("## CI Checks (%d)\n\n", len(details.CIChecks)))
+	_, _ = fmt.Fprintf(&sb, "## CI Checks (%d)\n\n", len(details.CIChecks))
 	for _, ci := range details.CIChecks {
 		icon := "✅"
 		switch ci.Conclusion {
@@ -74,8 +74,8 @@ func (in *GetPRState) handler(ctx context.Context, request mcp.CallToolRequest) 
 				icon = "⏳"
 			}
 		}
-		sb.WriteString(fmt.Sprintf("- %s **%s** — status: `%s`, conclusion: `%s`, id: `%d`\n",
-			icon, ci.Name, ci.Status, ci.Conclusion, ci.CheckRunID))
+		_, _ = fmt.Fprintf(&sb, "- %s **%s** — status: `%s`, conclusion: `%s`, id: `%d`\n",
+			icon, ci.Name, ci.Status, ci.Conclusion, ci.CheckRunID)
 	}
 
 	return mcp.NewToolResultText(sb.String()), nil
