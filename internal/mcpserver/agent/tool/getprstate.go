@@ -87,4 +87,3 @@ func NewGetPRState() Tool {
 		description: "Fetches live pull request state from the SCM provider (GitHub). Returns all comments and CI check statuses. Use this to understand what reviewers have said and which CI checks are failing.",
 	}
 }
-

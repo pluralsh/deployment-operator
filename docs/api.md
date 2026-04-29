@@ -269,6 +269,7 @@ _Appears in:_
 | `browser` _[BrowserConfig](#browserconfig)_ | Browser configuration augments agent runtime with a headless browser.<br />When provided, the runtime will be configured to run with a headless browser available<br />for the agent to use. |  | Optional: \{\} <br /> |
 | `bootstrapScript` _string_ | BootstrapScript is a bash script that will be executed inside the cloned repository<br />directory before the coding agent starts. It can be used to install dependencies,<br />configure tooling, or perform any other setup required by the agent. |  | Optional: \{\} <br /> |
 | `git` _[GitSpec](#gitspec)_ | Git configure commit signing on agent run. When provided, the runtime will be configured to sign git commits using the provided key reference. |  |  |
+| `babysitInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#duration-v1-meta)_ |  |  |  |
 
 
 #### Binding

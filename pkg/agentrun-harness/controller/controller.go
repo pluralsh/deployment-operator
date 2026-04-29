@@ -316,25 +316,21 @@ func (in *agentRunController) buildBabysitContext(ctx context.Context, agentRun 
 
 // buildBabysitPrompt constructs a structured reprompt message for the AI agent
 // describing new PR activity (comments + CI failures) since the last check.
-func buildBabysitPrompt(branch, repositoryDir string, prs []toolv1.EnrichedPR, lastChecked time.Time) string {
+func buildBabysitPrompt(branch, _ string, prs []toolv1.EnrichedPR, lastChecked time.Time) string {
 	lastCheckedStr := "<beginning>"
 	if !lastChecked.IsZero() {
 		lastCheckedStr = lastChecked.UTC().Format(time.RFC3339)
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf(
+	_, _ = fmt.Fprintf(&sb,
 		"Your pull requests have new activity since %s. Please take the following actions.\n\n",
 		lastCheckedStr,
-	))
-	//sb.WriteString(fmt.Sprintf(
-	//	"The repository is cloned at **`%s`** — work only inside this directory.\n\n",
-	//	repositoryDir,
-	//))
+	)
 
 	for _, e := range prs {
-		sb.WriteString(fmt.Sprintf("## PR: %s\nURL: %s\n", e.Title, e.URL))
-		sb.WriteString(fmt.Sprintf("### Branch: %s\n", branch))
+		_, _ = fmt.Fprintf(&sb, "## PR: %s\nURL: %s\n", e.Title, e.URL)
+		_, _ = fmt.Fprintf(&sb, "### Branch: %s\n", branch)
 		// New comments since last check.
 		var newComments []scm.PRComment
 		for _, c := range e.Details.Comments {
@@ -346,8 +342,8 @@ func buildBabysitPrompt(branch, repositoryDir string, prs []toolv1.EnrichedPR, l
 			sb.WriteString("### New comments since last check\n\n")
 			for _, c := range newComments {
 				body := strings.ReplaceAll(c.Body, "\n", "\n  > ")
-				sb.WriteString(fmt.Sprintf("- **%s** at %s (commentId: `%s`):\n  > %s\n\n",
-					c.Author, c.CreatedAt.UTC().Format(time.RFC3339), c.ReactableID(), body))
+				_, _ = fmt.Fprintf(&sb, "- **%s** at %s (commentId: `%s`):\n  > %s\n\n",
+					c.Author, c.CreatedAt.UTC().Format(time.RFC3339), c.ReactableID(), body)
 			}
 		} else {
 			sb.WriteString("No new comments since last check.\n\n")
@@ -368,14 +364,14 @@ func buildBabysitPrompt(branch, repositoryDir string, prs []toolv1.EnrichedPR, l
 		if len(failing) > 0 {
 			sb.WriteString("### Failing CI checks — you MUST fix these\n\n")
 			for _, ci := range failing {
-				sb.WriteString(fmt.Sprintf("- **%s**: %s (%s)\n", ci.Name, ci.Status, ci.Conclusion))
+				_, _ = fmt.Fprintf(&sb, "- **%s**: %s (%s)\n", ci.Name, ci.Status, ci.Conclusion)
 			}
 			sb.WriteString("\n")
 		}
 		if len(pending) > 0 {
 			sb.WriteString("### CI checks still running\n\n")
 			for _, ci := range pending {
-				sb.WriteString(fmt.Sprintf("- **%s**: %s\n", ci.Name, ci.Status))
+				_, _ = fmt.Fprintf(&sb, "- **%s**: %s\n", ci.Name, ci.Status)
 			}
 			sb.WriteString("\n")
 		}

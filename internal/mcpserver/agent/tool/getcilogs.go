@@ -75,4 +75,3 @@ func NewGetCILogs() Tool {
 		description: "Fetches the raw log output for a failing GitHub Actions job. Use the checkRunId from the getPRState tool. Logs are capped at 512 KB.",
 	}
 }
-

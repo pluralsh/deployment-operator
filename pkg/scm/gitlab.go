@@ -29,4 +29,3 @@ func (c *gitLabClient) GetCILogs(_ context.Context, prURL string, _ int64) (stri
 func (c *gitLabClient) ReactToComment(_ context.Context, prURL string, _ string, _ CommentReactState) error {
 	return fmt.Errorf("GitLab SCM support not yet implemented (PR URL: %s)", prURL)
 }
-

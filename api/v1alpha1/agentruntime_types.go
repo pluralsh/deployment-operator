@@ -565,7 +565,7 @@ func (in *AgentRuntime) Attributes() console.AgentRuntimeAttributes {
 		attrs.AllowedRepositories = lo.ToSlicePtr(in.Spec.AllowedRepositories)
 	}
 	if in.Spec.BabysitInterval != nil {
-		attrs.BabysitInterval = lo.ToPtr(int64(in.Spec.BabysitInterval.Duration.Seconds()))
+		attrs.BabysitInterval = lo.ToPtr(int64(in.Spec.BabysitInterval.Seconds()))
 	}
 
 	return attrs
