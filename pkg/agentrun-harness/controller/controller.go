@@ -169,10 +169,6 @@ func (in *agentRunController) init() (Controller, error) {
 // It stops when ctx is done, the done channel is closed, or all PRs are terminal.
 func (in *agentRunController) babysitLoop(ctx context.Context, callback func(ctx context.Context, bCtx *toolv1.BabysitContext) bool,
 ) {
-	if !in.agentRun.Babysit {
-		return
-	}
-
 	d := time.Duration(in.agentRun.BabysitInterval) * time.Second
 
 	// Wait for initial Run() to complete.
@@ -183,6 +179,9 @@ func (in *agentRunController) babysitLoop(ctx context.Context, callback func(ctx
 		return
 	case <-in.runDone:
 		klog.Info("initial agent run completed, starting babysit loop")
+		if !in.agentRun.Babysit {
+			return
+		}
 		if err := in.tool.ConfigureBabysitRun(); err != nil {
 			return
 		}
