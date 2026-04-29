@@ -210,8 +210,12 @@ func (in *agentRunController) runBabysit(ctx context.Context, callback func(ctx 
 		return false
 	}
 
-	// Exit if all PRs are terminal.
-	allDone := len(agentRun.PullRequests) > 0
+	// Exit if all PRs are terminal or if there are no PRs to babysit. This prevents unnecessary cycles when there's no actionable PR state.
+	if len(agentRun.PullRequests) == 0 {
+		klog.V(log.LogLevelInfo).InfoS("no pull requests to babysit, stopping babysit loop")
+		return true
+	}
+	allDone := true
 	for _, pr := range agentRun.PullRequests {
 		if pr.Status == nil ||
 			(*pr.Status != gqlclient.PrStatusMerged &&
