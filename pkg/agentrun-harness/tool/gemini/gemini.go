@@ -39,13 +39,18 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
+	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}
+	if in.Config.Run.Runtime.Config.Gemini.Endpoint != nil {
+		env = append(env, fmt.Sprintf("GEMINI_API_BASE_URL=%s", *in.Config.Run.Runtime.Config.Gemini.Endpoint))
+	}
+
 	in.executable = exec.NewExecutable(
 		"gemini",
 		append(
 			options,
 			exec.WithArgs(in.args()),
 			exec.WithDir(in.Config.WorkDir),
-			exec.WithEnv([]string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}),
+			exec.WithEnv(env),
 			exec.WithTimeout(in.Config.Run.Runtime.Config.Gemini.Timeout),
 		)...,
 	)
@@ -118,6 +123,7 @@ func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error 
 		AgentRunMode:      in.Config.Run.Mode,
 		InactivityTimeout: int64(in.Config.Run.Runtime.Config.Gemini.InactivityTimeout.Seconds()),
 		Model:             in.model,
+		ExaMcpConfigs:     in.Config.Run.Runtime.ExaMcpConfigs,
 	}
 
 	_, content, err := settings(input)

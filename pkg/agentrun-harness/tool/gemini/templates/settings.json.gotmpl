@@ -61,7 +61,14 @@
 {{ else }},
       "includeTools": ["updateAgentRunAnalysis"]
 {{ end }}
-    }
+    }{{ range .ExaMcpConfigs }},
+    "{{ .Name }}": {
+      "url": "{{ .Url }}"{{ if .ApiKey }},
+      "headers": {
+        "x-api-key": "{{ .ApiKey }}"
+      }{{ end }},
+      "trust": true
+    }{{ end }}
   },
   "privacy": {
     "usageStatisticsEnabled": false
