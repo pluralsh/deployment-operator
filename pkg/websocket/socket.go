@@ -172,6 +172,11 @@ func (s *socket) runSubscriptionClient(ctx context.Context, gen uint64, handle *
 	if err := handle.client.RunWithContext(ctx); err != nil {
 		klog.V(log.LogLevelDefault).InfoS("graphql websocket subscription client exited with error", "error", err)
 	}
+	klog.V(log.LogLevelDefault).InfoS(
+		"graphql websocket connection closed",
+		"clusterID", s.clusterID,
+		"generation", gen,
+	)
 
 	if gen != s.clientGen.Load() {
 		return
