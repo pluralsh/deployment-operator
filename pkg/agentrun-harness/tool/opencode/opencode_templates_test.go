@@ -240,4 +240,3 @@ func TestConfigTemplate_AgentTools(t *testing.T) {
 		}
 	})
 }
-
