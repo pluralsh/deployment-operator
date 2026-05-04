@@ -197,6 +197,11 @@ func (s *socket) newSubscriptionClient(gen uint64) *graphql.SubscriptionClient {
 			if s.isStaleOrClosed(gen) {
 				return
 			}
+			klog.V(log.LogLevelDefault).InfoS(
+				"graphql websocket connection established",
+				"clusterID", s.clusterID,
+				"endpoint", s.endpoint.String(),
+			)
 			s.joining.Store(false)
 		}).
 		OnError(func(_ *graphql.SubscriptionClient, err error) error {
@@ -237,6 +242,13 @@ func (s *socket) handleNotification(gen uint64, payload notification) {
 	if s.isStaleOrClosed(gen) {
 		return
 	}
+
+	klog.V(log.LogLevelDefault).InfoS(
+		"received graphql websocket notification",
+		"resource", payload.Resource,
+		"resourceID", payload.ResourceID,
+		"kick", lo.FromPtr(payload.Kick),
+	)
 
 	publisher, ok := s.publishers.Get(payload.Resource)
 	if !ok {
