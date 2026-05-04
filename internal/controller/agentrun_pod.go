@@ -385,6 +385,9 @@ func enableDind(pod *corev1.Pod) {
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeUnconfined,
 			},
+			AppArmorProfile: &corev1.AppArmorProfile{
+				Type: corev1.AppArmorProfileTypeUnconfined,
+			},
 		},
 		Env: []corev1.EnvVar{
 			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
