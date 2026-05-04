@@ -59,10 +59,14 @@ func createServerTools(client console.Client) []agent.Option {
 
 	toolMap := map[tool.ID]tool.Tool{
 		tool.CreateBranchTool:      tool.NewCreateBranch(client, args.AgentRunID()),
+		tool.CreateCommitTool:      tool.NewCreateCommit(client, args.AgentRunID()),
 		tool.CreatePullRequestTool: tool.NewCreatePullRequest(client, args.AgentRunID()),
 		tool.FetchTodosTool:        tool.NewFetchTodos(client, args.AgentRunID()),
 		tool.UpdateAnalysisTool:    tool.NewUpdateAnalysis(client, args.AgentRunID()),
 		tool.UpdateTodosTool:       tool.NewUpdateTodos(client, args.AgentRunID()),
+		tool.GetPRStateTool:        tool.NewGetPRState(),
+		tool.GetCILogsTool:         tool.NewGetCILogs(),
+		tool.ReactToCommentTool:    tool.NewReactToComment(),
 	}
 
 	for _, excluded := range excludedTools {

@@ -107,7 +107,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 	}
 
 	klog.V(log.LogLevelExtended).InfoS("opencode execution finished")
-	close(in.Config.FinishedChan)
+	// FinishedChan is closed by the controller after the babysit loop exits.
 }
 
 func (in *Opencode) streamLineHandler(state *streamState, cancel context.CancelCauseFunc) func([]byte) {

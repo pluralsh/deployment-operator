@@ -606,7 +606,7 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 			run := &v1alpha1.AgentRun{}
 			run.Status.ID = lo.ToPtr("run-456")
 
-			data := reconciler.getSecretData(run, nil, console.AgentRuntimeTypeClaude)
+			data := reconciler.getSecretData(run, nil, console.AgentRuntimeTypeClaude, nil)
 			Expect(data).Should(HaveLen(3))
 			Expect(data[EnvConsoleURL]).Should(Equal("https://console.test.com"))
 			Expect(data[EnvDeployToken]).Should(Equal("test-token-123"))
@@ -662,7 +662,7 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 				},
 			}
 
-			data := reconciler.getSecretData(run, config, console.AgentRuntimeTypeClaude)
+			data := reconciler.getSecretData(run, config, console.AgentRuntimeTypeClaude, nil)
 			Expect(data[EnvClaudeModel]).Should(Equal("claude-3-opus"))
 			Expect(data[EnvClaudeToken]).Should(Equal("claude-api-key"))
 			Expect(data[EnvClaudeArgs]).Should(ContainSubstring("--verbose"))
@@ -686,7 +686,7 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 				},
 			}
 
-			data := reconciler.getSecretData(run, config, console.AgentRuntimeTypeOpencode)
+			data := reconciler.getSecretData(run, config, console.AgentRuntimeTypeOpencode, nil)
 			Expect(data[EnvOpenCodeProvider]).Should(Equal("openai"))
 			Expect(data[EnvOpenCodeEndpoint]).Should(Equal("https://api.openai.com"))
 			Expect(data[EnvOpenCodeModel]).Should(Equal("gpt-4"))
@@ -708,7 +708,7 @@ var _ = Describe("AgentRun Controller", Ordered, func() {
 				},
 			}
 
-			data := reconciler.getSecretData(run, config, console.AgentRuntimeTypeGemini)
+			data := reconciler.getSecretData(run, config, console.AgentRuntimeTypeGemini, nil)
 			Expect(data[EnvGeminiModel]).Should(Equal("gemini-pro"))
 			Expect(data[EnvGeminiAPIKey]).Should(Equal("gemini-api-key"))
 		})

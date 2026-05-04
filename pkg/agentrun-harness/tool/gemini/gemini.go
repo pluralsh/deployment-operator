@@ -86,7 +86,7 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 		return
 	}
 	klog.V(log.LogLevelExtended).InfoS("Gemini execution finished")
-	close(in.Config.FinishedChan)
+	// FinishedChan is closed by the controller after the babysit loop exits.
 }
 
 func (in *Gemini) args() []string {

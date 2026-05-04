@@ -75,6 +75,7 @@ func BuildCodexConfig(dir string, agents []AgentInput, mcps []MCPInput, provider
 			Env:           m.Env,
 			EnabledTools:  m.EnabledTools,
 			DisabledTools: m.DisabledTools,
+			TrustPolicy:   m.TrustPolicy,
 		}
 	}
 

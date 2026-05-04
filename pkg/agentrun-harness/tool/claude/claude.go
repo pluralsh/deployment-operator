@@ -36,6 +36,80 @@ func (in *Claude) Run(ctx context.Context, options ...exec.Option) {
 	go in.start(ctx, options...)
 }
 
+// BabysitRun re-invokes the Claude CLI with the reprompt from bCtx.
+// If bCtx is nil (PR state unchanged) it returns false to keep the babysit loop running.
+// Returns true only on a fatal error that should stop the loop.
+func (in *Claude) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
+	if bCtx == nil {
+		return false
+	}
+
+	klog.V(log.LogLevelInfo).InfoS("babysit: PR state changed, reprompting claude", "prompt_len", len(bCtx.Prompt))
+
+	// Emit the reprompt as a user message so it appears in the Console conversation log.
+	if in.onMessage != nil {
+		in.onMessage(&console.AgentMessageAttributes{
+			Message: bCtx.Prompt,
+			Role:    console.AiRoleUser,
+		})
+	}
+
+	// Re-run the Claude CLI synchronously with the reprompt.
+	// We reuse the same configuration but swap the -p argument.
+	promptFile := path.Join(in.Config.WorkDir, ".claude", "prompts", v1.SystemPromptFile)
+	agent := babysitAgent
+
+	args := []string{
+		"--add-dir", in.Config.RepositoryDir,
+		"--agents", agent,
+		"--system-prompt-file", promptFile,
+		"--model", string(in.model),
+		"-p", bCtx.Prompt,
+		"--output-format", "stream-json",
+		"--verbose",
+	}
+
+	var envOpt exec.Option
+	if in.Config.Run.IsProxyEnabled() {
+		envOpt = exec.WithEnv([]string{
+			fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", in.consoleToken),
+			fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
+		})
+	} else {
+		envOpt = exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)})
+	}
+
+	in.executable = exec.NewExecutable(
+		"claude",
+		envOpt,
+		exec.WithArgs(args),
+		exec.WithDir(in.Config.WorkDir),
+		exec.WithTimeout(in.Config.Run.Runtime.Config.Claude.Timeout),
+	)
+
+	err := in.executable.RunStream(ctx, func(line []byte) {
+		event := &StreamEvent{}
+		if err := json.Unmarshal(line, event); err != nil {
+			klog.ErrorS(err, "failed to unmarshal claude babysit stream event", "line", string(line))
+			return
+		}
+		if event.Message != nil {
+			msg := mapClaudeContentToAgentMessage(event, in.toolUseCache)
+			if in.onMessage != nil && msg != nil {
+				in.onMessage(msg)
+			}
+		}
+	})
+	if err != nil {
+		klog.ErrorS(err, "claude execution failed")
+		in.Config.ErrorChan <- err
+		return false
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("claude babysit execution finished")
+	return false
+}
+
 func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 	promptFile := path.Join(in.Config.WorkDir, ".claude", "prompts", v1.SystemPromptFile)
 	agent := analysisAgent
@@ -99,7 +173,35 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 		return
 	}
 	klog.V(log.LogLevelExtended).InfoS("claude execution finished")
-	close(in.Config.FinishedChan)
+	// FinishedChan is closed by the controller after the babysit loop exits.
+}
+
+func (in *Claude) ConfigureBabysitRun() error {
+	if err := in.ConfigureSystemPromptForBabysitRun(console.AgentRuntimeTypeClaude); err != nil {
+		return err
+	}
+
+	settings := NewSettingsBuilder(in.model)
+	settings.AllowTools(
+		"Read",
+		"Write",
+		"Edit",
+		"MultiEdit",
+		"Bash",
+		"WebFetch",
+		"mcp__plural__createCommit",
+		"mcp__plural__fetchAgentRunTodos",
+		"mcp__plural__updateAgentRunTodos",
+		"mcp__plural__getPRState",
+		"mcp__plural__getCILogs",
+		"mcp__plural__reactToComment")
+	defaultTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashTimeout.Milliseconds())
+	maxTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashMaxTimeout.Milliseconds())
+	settings.WithEnv("BASH_DEFAULT_TIMEOUT_MS", defaultTimeout)
+	settings.WithEnv("BASH_MAX_TIMEOUT_MS", maxTimeout)
+	klog.V(log.LogLevelInfo).InfoS("claude timeouts configured", "default_timeout", defaultTimeout, "max_timeout", maxTimeout)
+
+	return settings.WriteToFile(filepath.Join(in.configPath(), "settings.local.json"))
 }
 
 func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
@@ -112,6 +214,7 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 		AddServer("plural", "mcpserver").
 		Env("PLRL_CONSOLE_TOKEN", consoleToken).
 		Env("PLRL_CONSOLE_URL", consoleURL).
+		Env("PLRL_AGENT_RUN_ID", in.Config.Run.ID).
 		Done()
 	if err := mcp.WriteToFile(filepath.Join(in.Config.WorkDir, ".mcp.json")); err != nil {
 		return err
