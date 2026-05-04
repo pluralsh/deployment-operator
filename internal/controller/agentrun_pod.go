@@ -369,6 +369,9 @@ func enableDind(pod *corev1.Pod) {
 		},
 		Env: []corev1.EnvVar{
 			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
+			// Use the pod's network namespace directly; tap/tun devices are not
+			// available in Kubernetes pods so rootlesskit's default tap mode fails.
+			{Name: "DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS", Value: "--net=host"},
 		},
 		Ports: []corev1.ContainerPort{
 			{
