@@ -27,7 +27,7 @@ const (
 
 	dindContainerName            = "dind"
 	defaultContainerDinDImage    = "docker"
-	defaultContainerDinDImageTag = "27-dind"
+	defaultContainerDinDImageTag = "29.4.1-dind-rootless"
 	dockerCertsVolumeName        = "docker-certs"
 	dockerGraphVolumeName        = "docker-graph"
 	dockerCertsPath              = "/certs"
