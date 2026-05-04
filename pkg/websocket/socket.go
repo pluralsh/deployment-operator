@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync/atomic"
 
 	graphql "github.com/hasura/go-graphql-client"
@@ -248,16 +249,17 @@ func (s *socket) handleNotification(gen uint64, payload notification) {
 		return
 	}
 
+	resource := normalizeResource(payload.Resource)
 	klog.V(log.LogLevelDefault).InfoS(
 		"received graphql websocket notification",
-		"resource", payload.Resource,
+		"resource", resource,
 		"resourceID", payload.ResourceID,
 		"kick", lo.FromPtr(payload.Kick),
 	)
 
-	publisher, ok := s.publishers.Get(payload.Resource)
+	publisher, ok := s.publishers.Get(resource)
 	if !ok {
-		klog.V(log.LogLevelDebug).InfoS("could not find publisher for resource", "resource", payload.Resource)
+		klog.V(log.LogLevelDebug).InfoS("could not find publisher for resource", "resource", resource)
 		return
 	}
 
@@ -305,6 +307,10 @@ func parseNotificationPayload(message []byte) (*notificationSubscription, bool) 
 	}
 
 	return &payload, true
+}
+
+func normalizeResource(resource string) string {
+	return strings.ToLower(strings.TrimSpace(resource))
 }
 
 type notificationSubscription struct {

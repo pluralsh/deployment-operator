@@ -81,6 +81,26 @@ func TestHandleNotificationDispatchesToPublisher(t *testing.T) {
 	}
 }
 
+func TestHandleNotificationDispatchesUppercaseResourceToPublisher(t *testing.T) {
+	pub := &recordingPublisher{}
+	s := &socket{publishers: newPublisherMapWith("service", pub)}
+	s.clientGen.Store(2)
+	s.closed.Store(false)
+
+	s.handleNotification(2, notification{
+		Resource:   "SERVICE",
+		ResourceID: "svc-456",
+		Kick:       boolPtr(false),
+	})
+
+	if pub.id != "svc-456" {
+		t.Fatalf("expected id svc-456, got %q", pub.id)
+	}
+	if pub.kick {
+		t.Fatalf("expected kick=false")
+	}
+}
+
 func TestHandleNotificationIgnoresStaleGeneration(t *testing.T) {
 	pub := &recordingPublisher{}
 	s := &socket{publishers: newPublisherMapWith("service", pub)}
