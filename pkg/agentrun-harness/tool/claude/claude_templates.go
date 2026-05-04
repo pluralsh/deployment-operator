@@ -95,9 +95,12 @@ type MCPConfig struct {
 }
 
 type MCPServer struct {
-	Command string            `json:"command"`
+	Type    string            `json:"type,omitempty"`
+	Command string            `json:"command,omitempty"`
 	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 type MCPConfigBuilder struct {
@@ -117,6 +120,14 @@ func (b *MCPConfigBuilder) AddServer(name, command string) *MCPServerBuilder {
 		parent: b,
 		name:   name,
 		server: MCPServer{Command: command, Env: map[string]string{}},
+	}
+}
+
+func (b *MCPConfigBuilder) AddURLServer(name, url string) *MCPServerBuilder {
+	return &MCPServerBuilder{
+		parent: b,
+		name:   name,
+		server: MCPServer{Type: "http", URL: url, Headers: map[string]string{}},
 	}
 }
 
@@ -162,6 +173,11 @@ func (sb *MCPServerBuilder) Args(args ...string) *MCPServerBuilder {
 
 func (sb *MCPServerBuilder) Env(key, value string) *MCPServerBuilder {
 	sb.server.Env[key] = value
+	return sb
+}
+
+func (sb *MCPServerBuilder) Header(key, value string) *MCPServerBuilder {
+	sb.server.Headers[key] = value
 	return sb
 }
 

@@ -101,6 +101,13 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			BaseURL: fmt.Sprintf("%s/ext/ai/v1", consoleURL),
 			EnvKey:  consoleTokenEnv,
 		}}
+	} else if in.Config.Run.Runtime.Config.Codex.Endpoint != nil {
+		modelProvider = "custom"
+		providers = []ModelProviderInput{{
+			Name:    "custom",
+			BaseURL: *in.Config.Run.Runtime.Config.Codex.Endpoint,
+			EnvKey:  "OPENAI_API_KEY",
+		}}
 	}
 
 	mcpBaseEnv := map[string]string{
@@ -153,6 +160,19 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		return fmt.Errorf("unsupported agent run mode %q for codex", in.Config.Run.Mode)
 	}
 
+	for _, cfg := range in.Config.Run.Runtime.ExaMcpConfigs {
+		mcp := MCPInput{
+			Name:        cfg.Name,
+			Type:        "http",
+			URL:         cfg.Url,
+			TrustPolicy: "always",
+		}
+		if cfg.ApiKey != nil {
+			mcp.Headers = map[string]string{"x-api-key": *cfg.ApiKey}
+		}
+		mcps = append(mcps, mcp)
+	}
+
 	cfg, err := BuildCodexConfig(in.Config.WorkDir, agents, mcps, providers)
 	if err != nil {
 		return err
@@ -184,17 +204,14 @@ func (in *Codex) OnMessage(f func(message *console.AgentMessageAttributes)) {
 func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 	// In proxy mode the plural provider handles auth via PLRL_CONSOLE_TOKEN;
 	// codex login is only needed for direct OpenAI usage.
-	if !in.proxy {
+	if !in.proxy && in.Config.Run.Runtime.Config.Codex.Endpoint == nil {
 		loginArgs := []string{"-c", "printenv OPENAI_API_KEY | codex login --with-api-key"}
 		in.executable = exec.NewExecutable(
 			"bash",
-			append(
-				options,
-				exec.WithArgs(loginArgs),
-				exec.WithDir(in.Config.WorkDir),
-				exec.WithEnv([]string{fmt.Sprintf("OPENAI_API_KEY=%s", in.apiKey), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
-				exec.WithTimeout(in.Config.Run.Runtime.Config.Codex.Timeout),
-			)...,
+			exec.WithArgs(loginArgs),
+			exec.WithDir(in.Config.WorkDir),
+			exec.WithEnv([]string{fmt.Sprintf("OPENAI_API_KEY=%s", in.apiKey), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
+			exec.WithTimeout(in.Config.Run.Runtime.Config.Codex.Timeout),
 		)
 		if err := in.executable.Run(ctx); err != nil {
 			klog.ErrorS(err, "codex login failed")
