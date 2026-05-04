@@ -71,7 +71,17 @@ type AgentRuntimeSpec struct {
 	// Git configure commit signing on agent run. When provided, the runtime will be configured to sign git commits using the provided key reference.
 	Git *GitSpec `json:"git,omitempty"`
 
+	// BabysitInterval configures the interval for the operator to check on the health of the agent runtime and perform necessary babysitting actions (e.g. restarting unhealthy runtimes). When not provided, a default interval of 1 minute will be used.
 	BabysitInterval *metav1.Duration `json:"babysitInterval,omitempty"`
+
+	// ExaMcpServers defines external MCP servers that the agent runtime should connect to. When provided, the runtime will be configured to connect to these external MCP servers for tool and action execution.
+	ExaMcpServers []ExaMcpServerConfig `json:"exaMcpServers,omitempty"`
+}
+
+type ExaMcpServerConfig struct {
+	Name   string                    `json:"name"`
+	Url    string                    `json:"url"`
+	ApiKey *corev1.SecretKeySelector `json:"apiKey,omitempty"`
 }
 
 type GitSpec struct {
@@ -241,12 +251,50 @@ type AgentRuntimeConfigRaw struct {
 	Codex *CodexConfigRaw `json:"codex,omitempty"`
 }
 
+func (in *ExaMcpServerConfig) ToExaMcpServerConfigRaw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*ExaMcpServerConfigRaw, error) {
+	if in == nil {
+		return nil, nil
+	}
+
+	exaMcpServerConfig := &ExaMcpServerConfigRaw{
+		Name: in.Name,
+		Url:  in.Url,
+	}
+	if in.ApiKey != nil {
+		apiKeySecret, err := secretGetter(*in.ApiKey)
+		if err != nil {
+			return nil, err
+		}
+
+		apiKey, exists := apiKeySecret.Data[in.ApiKey.Key]
+		if !exists {
+			return nil, fmt.Errorf("API key secret does not contain key %s", in.ApiKey.Key)
+		}
+		exaMcpServerConfig.ApiKey = lo.ToPtr(string(apiKey))
+	}
+
+	return exaMcpServerConfig, nil
+}
+
+type ExaMcpServerConfigRaw struct {
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	// ApiKey is the raw API key to use for the external MCP server.
+	ApiKey *string `json:"apiKey,omitempty"`
+}
+
 type CodexConfigRaw struct {
 	// ApiKey is the raw API key to use.
 	ApiKey string `json:"apiKey"`
 
 	// Model to use.
 	Model *string `json:"model,omitempty"`
+
+	// Endpoint is the base URL for the Codex API (supports OpenAI/Azure-compatible endpoints).
+	// +kubebuilder:validation:Optional
+	Endpoint *string `json:"endpoint,omitempty"`
 
 	// Timeout bounds a single codex run invocation.
 	// +kubebuilder:validation:Optional
@@ -259,6 +307,10 @@ type CodexConfig struct {
 
 	// Model to use.
 	Model *string `json:"model,omitempty"`
+
+	// Endpoint is the base URL for the Codex API (supports OpenAI/Azure-compatible endpoints).
+	// +kubebuilder:validation:Optional
+	Endpoint *string `json:"endpoint,omitempty"`
 
 	// Timeout bounds a single codex run invocation.
 	// +kubebuilder:validation:Optional
@@ -285,9 +337,10 @@ func (in *CodexConfig) ToCodexConfigRaw(secretGetter func(corev1.SecretKeySelect
 	}
 
 	return &CodexConfigRaw{
-		ApiKey:  string(token),
-		Model:   in.Model,
-		Timeout: in.Timeout,
+		ApiKey:   string(token),
+		Model:    in.Model,
+		Endpoint: in.Endpoint,
+		Timeout:  in.Timeout,
 	}, nil
 }
 
@@ -298,6 +351,10 @@ type ClaudeConfig struct {
 
 	// Model Name of the model to use.
 	Model *string `json:"model,omitempty"`
+
+	// Endpoint is the base URL for the Claude API (supports Bedrock/Anthropic-compatible endpoints).
+	// +kubebuilder:validation:Optional
+	Endpoint *string `json:"endpoint,omitempty"`
 
 	// ExtraArgs CLI args for advanced flags not modeled here
 	ExtraArgs []string `json:"extraArgs,omitempty"`
@@ -327,6 +384,10 @@ type ClaudeConfigRaw struct {
 
 	// Model Name of the model to use.
 	Model *string `json:"model,omitempty"`
+
+	// Endpoint is the base URL for the Claude API (supports Bedrock/Anthropic-compatible endpoints).
+	// +kubebuilder:validation:Optional
+	Endpoint *string `json:"endpoint,omitempty"`
 
 	// ExtraArgs CLI args for advanced flags not modeled here
 	ExtraArgs []string `json:"extraArgs,omitempty"`
@@ -367,6 +428,7 @@ func (in *ClaudeConfig) ToClaudeConfigRaw(secretGetter func(corev1.SecretKeySele
 	return &ClaudeConfigRaw{
 		ApiKey:         string(token),
 		Model:          in.Model,
+		Endpoint:       in.Endpoint,
 		ExtraArgs:      in.ExtraArgs,
 		Timeout:        in.Timeout,
 		BashTimeout:    in.BashTimeout,
@@ -383,6 +445,7 @@ type OpenCodeConfig struct {
 
 	// Endpoint API endpoint for the OpenCode service.
 	// +kubebuilder:validation:Required
+	// Endpoint for the OpenCode service (can be any OpenAI-compatible API endpoint).
 	Endpoint string `json:"endpoint"`
 
 	// Model is the LLM model to use.
@@ -468,6 +531,9 @@ type GeminiConfig struct {
 	// InactivityTimeout is the timeout for inactivity during a gemini run.
 	// +kubebuilder:validation:Optional
 	InactivityTimeout *metav1.Duration `json:"inactivityTimeout,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Endpoint *string `json:"endpoint,omitempty"`
 }
 
 func (in *GeminiConfig) Raw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*GeminiConfigRaw, error) {
@@ -490,6 +556,7 @@ func (in *GeminiConfig) Raw(secretGetter func(corev1.SecretKeySelector) (*corev1
 		APIKey:            string(apiKey),
 		Timeout:           in.Timeout,
 		InactivityTimeout: in.InactivityTimeout,
+		Endpoint:          in.Endpoint,
 	}, nil
 }
 
@@ -512,6 +579,9 @@ type GeminiConfigRaw struct {
 	// InactivityTimeout is the timeout for inactivity during gemini run.
 	// +kubebuilder:validation:Optional
 	InactivityTimeout *metav1.Duration `json:"inactivityTimeout,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Endpoint *string `json:"endpoint,omitempty"`
 }
 
 type AgentRuntimeBindings struct {

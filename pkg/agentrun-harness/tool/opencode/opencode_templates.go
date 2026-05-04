@@ -6,6 +6,7 @@ import (
 	"text/template"
 
 	console "github.com/pluralsh/console/go/client"
+	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 )
 
 //go:embed templates/opencode.json.gotmpl
@@ -37,6 +38,9 @@ type ConfigTemplateInput struct {
 
 	// Mode is the agent run mode.
 	Mode console.AgentRunMode
+
+	// ExaMcpConfigs holds additional external MCP server configurations.
+	ExaMcpConfigs []agentrunv1.ExaMcpServerConfig
 }
 
 func configTemplate(input *ConfigTemplateInput) (fileName, content string, err error) {
