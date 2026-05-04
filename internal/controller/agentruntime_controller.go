@@ -212,14 +212,18 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 	return nil
 }
 
-func (r *AgentRuntimeReconciler) Publish(runID string, _ bool) {
+func (r *AgentRuntimeReconciler) Publish(runID string, kick bool) {
+	logger := log.FromContext(r.Ctx)
+	logger.Info("received websocket agent run event", "id", runID, "kick", kick)
+
 	err := r.createRunFromID(runID)
 	if err != nil {
-		log.FromContext(r.Ctx).Error(err, "failed to create agent run", "id", runID)
+		logger.Error(err, "failed to process websocket agent run event", "id", runID, "kick", kick)
 	}
 }
 
 func (r *AgentRuntimeReconciler) createRunFromID(runID string) error {
+	logger := log.FromContext(r.Ctx)
 	run, err := r.ConsoleClient.GetAgentRun(r.Ctx, runID)
 	if err != nil {
 		return fmt.Errorf("failed to get agent run: %w", err)
@@ -230,6 +234,9 @@ func (r *AgentRuntimeReconciler) createRunFromID(runID string) error {
 
 	agentRuntime := &v1alpha1.AgentRuntime{}
 	if err := r.Get(r.Ctx, types.NamespacedName{Name: run.Runtime.Name, Namespace: ""}, agentRuntime); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("agent runtime for websocket agent run event not found", "id", runID, "runtime", run.Runtime.Name)
+		}
 		return client.IgnoreNotFound(err)
 	}
 
