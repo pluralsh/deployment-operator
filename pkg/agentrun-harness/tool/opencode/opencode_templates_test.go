@@ -9,16 +9,25 @@ import (
 	"github.com/samber/lo"
 )
 
+const (
+	testConsoleURL   = "https://console.test"
+	testConsoleToken = "console-token"
+	testDeployToken  = "deploy-token"
+	testAgentRunID   = "run-123"
+	testEndpoint     = "https://api.openai.com/v1"
+	testToken        = "openai-token"
+)
+
 func baseInput(mode console.AgentRunMode) *ConfigTemplateInput {
 	return &ConfigTemplateInput{
-		ConsoleURL:   "https://console.test",
-		ConsoleToken: "console-token",
-		DeployToken:  "deploy-token",
-		AgentRunID:   "run-123",
+		ConsoleURL:   testConsoleURL,
+		ConsoleToken: testConsoleToken,
+		DeployToken:  testDeployToken,
+		AgentRunID:   testAgentRunID,
 		Provider:     ProviderOpenAI,
-		Endpoint:     "https://api.openai.com/v1",
+		Endpoint:     testEndpoint,
 		Model:        string(ModelGPT52),
-		Token:        "openai-token",
+		Token:        testToken,
 		Mode:         mode,
 	}
 }
@@ -74,8 +83,6 @@ func TestConfigTemplate_Provider(t *testing.T) {
 	t.Run("plural provider uses consoleURL and consoleToken", func(t *testing.T) {
 		input := baseInput(console.AgentRunModeWrite)
 		input.Provider = ProviderPlural
-		input.ConsoleURL = "https://console.test"
-		input.ConsoleToken = "console-token"
 
 		out := renderJSON(t, input)
 
@@ -83,19 +90,17 @@ func TestConfigTemplate_Provider(t *testing.T) {
 		plural := providers["plural"].(map[string]any)
 		options := plural["options"].(map[string]any)
 
-		if options["baseURL"] != "https://console.test/ext/ai/v1" {
-			t.Errorf("expected baseURL=https://console.test/ext/ai/v1, got %v", options["baseURL"])
+		if options["baseURL"] != testConsoleURL+"/ext/ai/v1" {
+			t.Errorf("expected baseURL=%s/ext/ai/v1, got %v", testConsoleURL, options["baseURL"])
 		}
-		if options["apiKey"] != "console-token" {
-			t.Errorf("expected apiKey=console-token, got %v", options["apiKey"])
+		if options["apiKey"] != testConsoleToken {
+			t.Errorf("expected apiKey=%s, got %v", testConsoleToken, options["apiKey"])
 		}
 	})
 
 	t.Run("openai provider uses custom endpoint and token", func(t *testing.T) {
 		input := baseInput(console.AgentRunModeWrite)
 		input.Provider = ProviderOpenAI
-		input.Endpoint = "https://api.openai.com/v1"
-		input.Token = "my-openai-key"
 
 		out := renderJSON(t, input)
 
@@ -103,11 +108,11 @@ func TestConfigTemplate_Provider(t *testing.T) {
 		openai := providers["openai"].(map[string]any)
 		options := openai["options"].(map[string]any)
 
-		if options["baseURL"] != "https://api.openai.com/v1" {
-			t.Errorf("expected baseURL=https://api.openai.com/v1, got %v", options["baseURL"])
+		if options["baseURL"] != testEndpoint {
+			t.Errorf("expected baseURL=%s, got %v", testEndpoint, options["baseURL"])
 		}
-		if options["apiKey"] != "my-openai-key" {
-			t.Errorf("expected apiKey=my-openai-key, got %v", options["apiKey"])
+		if options["apiKey"] != testToken {
+			t.Errorf("expected apiKey=%s, got %v", testToken, options["apiKey"])
 		}
 	})
 }

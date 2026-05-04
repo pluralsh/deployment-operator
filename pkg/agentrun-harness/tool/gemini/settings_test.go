@@ -164,13 +164,13 @@ func TestSettingsTemplate_GenerateAndVerifyContents(t *testing.T) {
 
 func TestSettingsTemplate_ExaMcpServers(t *testing.T) {
 	baseInput := &ConfigTemplateInput{
-		Model:        ModelGemini25Pro,
+		Model:         ModelGemini25Pro,
 		RepositoryDir: "/repo",
-		ConsoleURL:   "https://console.test",
-		ConsoleToken: "token",
-		DeployToken:  "deploy-token",
-		AgentRunID:   "run-123",
-		AgentRunMode: console.AgentRunModeWrite,
+		ConsoleURL:    "https://console.test",
+		ConsoleToken:  "token",
+		DeployToken:   "deploy-token",
+		AgentRunID:    "run-123",
+		AgentRunMode:  console.AgentRunModeWrite,
 	}
 
 	t.Run("no ExaMcpConfigs renders only plural server", func(t *testing.T) {
