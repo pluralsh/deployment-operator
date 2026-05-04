@@ -168,7 +168,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			TrustPolicy: "always",
 		}
 		if cfg.ApiKey != nil {
-			mcp.Env = map[string]string{"x-api-key": *cfg.ApiKey}
+			mcp.Headers = map[string]string{"x-api-key": *cfg.ApiKey}
 		}
 		mcps = append(mcps, mcp)
 	}
@@ -208,13 +208,10 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		loginArgs := []string{"-c", "printenv OPENAI_API_KEY | codex login --with-api-key"}
 		in.executable = exec.NewExecutable(
 			"bash",
-			append(
-				options,
-				exec.WithArgs(loginArgs),
-				exec.WithDir(in.Config.WorkDir),
-				exec.WithEnv([]string{fmt.Sprintf("OPENAI_API_KEY=%s", in.apiKey), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
-				exec.WithTimeout(in.Config.Run.Runtime.Config.Codex.Timeout),
-			)...,
+			exec.WithArgs(loginArgs),
+			exec.WithDir(in.Config.WorkDir),
+			exec.WithEnv([]string{fmt.Sprintf("OPENAI_API_KEY=%s", in.apiKey), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
+			exec.WithTimeout(in.Config.Run.Runtime.Config.Codex.Timeout),
 		)
 		if err := in.executable.Run(ctx); err != nil {
 			klog.ErrorS(err, "codex login failed")

@@ -137,10 +137,11 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 			}),
 		)
 	} else {
-		options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}))
+		env := []string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}
 		if in.Config.Run.Runtime.Config.Claude.Endpoint != nil {
-			options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_BASE_URL=%s", *in.Config.Run.Runtime.Config.Claude.Endpoint)}))
+			env = append(env, fmt.Sprintf("ANTHROPIC_BASE_URL=%s", *in.Config.Run.Runtime.Config.Claude.Endpoint))
 		}
+		options = append(options, exec.WithEnv(env))
 	}
 
 	in.executable = exec.NewExecutable(
