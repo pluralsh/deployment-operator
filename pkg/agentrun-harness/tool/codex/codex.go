@@ -101,6 +101,13 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			BaseURL: fmt.Sprintf("%s/ext/ai/v1", consoleURL),
 			EnvKey:  consoleTokenEnv,
 		}}
+	} else if in.Config.Run.Runtime.Config.Codex.Endpoint != nil {
+		modelProvider = "custom"
+		providers = []ModelProviderInput{{
+			Name:    "custom",
+			BaseURL: *in.Config.Run.Runtime.Config.Codex.Endpoint,
+			EnvKey:  "OPENAI_API_KEY",
+		}}
 	}
 
 	mcpBaseEnv := map[string]string{
@@ -151,6 +158,19 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 		}}
 	default:
 		return fmt.Errorf("unsupported agent run mode %q for codex", in.Config.Run.Mode)
+	}
+
+	for _, cfg := range in.Config.Run.Runtime.ExaMcpConfigs {
+		mcp := MCPInput{
+			Name:        cfg.Name,
+			Type:        "http",
+			URL:         cfg.Url,
+			TrustPolicy: "always",
+		}
+		if cfg.ApiKey != nil {
+			mcp.Env = map[string]string{"x-api-key": *cfg.ApiKey}
+		}
+		mcps = append(mcps, mcp)
 	}
 
 	cfg, err := BuildCodexConfig(in.Config.WorkDir, agents, mcps, providers)

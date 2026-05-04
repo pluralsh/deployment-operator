@@ -76,7 +76,11 @@ func (in *Claude) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool 
 			fmt.Sprintf("ANTHROPIC_BASE_URL=%s", fmt.Sprintf("%s/ext/ai/anthropic", in.consoleURL)),
 		})
 	} else {
-		envOpt = exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)})
+		env := []string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}
+		if in.Config.Run.Runtime.Config.Claude.Endpoint != nil {
+			env = append(env, fmt.Sprintf("ANTHROPIC_BASE_URL=%s", *in.Config.Run.Runtime.Config.Claude.Endpoint))
+		}
+		envOpt = exec.WithEnv(env)
 	}
 
 	in.executable = exec.NewExecutable(
@@ -134,6 +138,9 @@ func (in *Claude) start(ctx context.Context, options ...exec.Option) {
 		)
 	} else {
 		options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_API_KEY=%s", in.token)}))
+		if in.Config.Run.Runtime.Config.Claude.Endpoint != nil {
+			options = append(options, exec.WithEnv([]string{fmt.Sprintf("ANTHROPIC_BASE_URL=%s", *in.Config.Run.Runtime.Config.Claude.Endpoint)}))
+		}
 	}
 
 	in.executable = exec.NewExecutable(
@@ -195,6 +202,10 @@ func (in *Claude) ConfigureBabysitRun() error {
 		"mcp__plural__getPRState",
 		"mcp__plural__getCILogs",
 		"mcp__plural__reactToComment")
+
+	for _, cfg := range in.Config.Run.Runtime.ExaMcpConfigs {
+		settings.AllowTools(fmt.Sprintf("mcp__%s__*", cfg.Name))
+	}
 	defaultTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashTimeout.Milliseconds())
 	maxTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashMaxTimeout.Milliseconds())
 	settings.WithEnv("BASH_DEFAULT_TIMEOUT_MS", defaultTimeout)
@@ -216,6 +227,17 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 		Env("PLRL_CONSOLE_URL", consoleURL).
 		Env("PLRL_AGENT_RUN_ID", in.Config.Run.ID).
 		Done()
+
+	if len(in.Config.Run.Runtime.ExaMcpConfigs) > 0 {
+		for _, cfg := range in.Config.Run.Runtime.ExaMcpConfigs {
+			sb := mcp.AddURLServer(cfg.Name, cfg.Url)
+			if cfg.ApiKey != nil {
+				sb.Header("x-api-key", *cfg.ApiKey)
+			}
+			sb.Done()
+		}
+	}
+
 	if err := mcp.WriteToFile(filepath.Join(in.Config.WorkDir, ".mcp.json")); err != nil {
 		return err
 	}
@@ -256,6 +278,10 @@ func (in *Claude) Configure(consoleURL, consoleToken, _ string) error {
 			"mcp__plural__createBranch",
 			"mcp__plural__fetchAgentRunTodos",
 			"mcp__plural__updateAgentRunTodos")
+	}
+
+	for _, cfg := range in.Config.Run.Runtime.ExaMcpConfigs {
+		settings.AllowTools(fmt.Sprintf("mcp__%s__*", cfg.Name))
 	}
 
 	defaultTimeout := fmt.Sprintf("%d", in.Config.Run.Runtime.Config.Claude.BashTimeout.Milliseconds())

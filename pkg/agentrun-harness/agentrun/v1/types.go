@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
@@ -50,11 +51,21 @@ type AgentRun struct {
 }
 
 type AgentRuntime struct {
-	ID      string                   `json:"id"`
-	Name    string                   `json:"name"`
-	Type    console.AgentRuntimeType `json:"type"`
-	AiProxy bool                     `json:"aiProxy"`
-	Config  *AgentRuntimeConfig      `json:"config,omitempty"`
+	ID            string                   `json:"id"`
+	Name          string                   `json:"name"`
+	Type          console.AgentRuntimeType `json:"type"`
+	AiProxy       bool                     `json:"aiProxy"`
+	Config        *AgentRuntimeConfig      `json:"config,omitempty"`
+	ExaMcpConfigs []ExaMcpServerConfig     `json:"exaMcpConfigs,omitempty"`
+}
+
+type ExaMcpServerConfig struct {
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	// ApiKey is the raw API key to use for the external MCP server.
+	ApiKey *string `json:"apiKey,omitempty"`
 }
 
 type AgentRuntimeConfig struct {
@@ -79,6 +90,7 @@ type ClaudeConfig struct {
 	Timeout        time.Duration `json:"timeout"`
 	BashTimeout    time.Duration `json:"bashTimeout"`
 	BashMaxTimeout time.Duration `json:"bashMaxTimeout"`
+	Endpoint       *string       `json:"endpoint,omitempty"`
 }
 
 type GeminiConfig struct {
@@ -89,9 +101,10 @@ type GeminiConfig struct {
 }
 
 type CodexConfig struct {
-	ApiKey  string        `json:"apiKey"`
-	Model   string        `json:"model,omitempty"`
-	Timeout time.Duration `json:"timeout"`
+	ApiKey   string        `json:"apiKey"`
+	Model    string        `json:"model,omitempty"`
+	Timeout  time.Duration `json:"timeout"`
+	Endpoint *string       `json:"endpoint,omitempty"`
 }
 
 // FromAgentRunFragment converts Console API fragment to harness type
@@ -145,6 +158,11 @@ func (ar *AgentRun) fromEnv(runtime *console.AgentRuntimeFragment) *AgentRuntime
 	result.Type = runtime.Type
 	result.AiProxy = runtime.AiProxy != nil && *runtime.AiProxy
 
+	if exaMcpServers := helpers.GetPluralEnv(controller.EnvExaMcpServers, ""); exaMcpServers != "" {
+		result.ExaMcpConfigs = []ExaMcpServerConfig{}
+		_ = json.Unmarshal([]byte(exaMcpServers), &result.ExaMcpConfigs)
+	}
+
 	config := &AgentRuntimeConfig{}
 	switch runtime.Type {
 	case console.AgentRuntimeTypeClaude:
@@ -155,6 +173,9 @@ func (ar *AgentRun) fromEnv(runtime *console.AgentRuntimeFragment) *AgentRuntime
 			Timeout:        helpers.GetPluralEnvDuration(controller.EnvExecTimeout, defaultTimeout),
 			BashTimeout:    helpers.GetPluralEnvDuration(controller.EnvClaudeBashDefaultTimeout, defaultBashTimeout),
 			BashMaxTimeout: helpers.GetPluralEnvDuration(controller.EnvClaudeBashMaxTimeout, defaultBashMaxTimeout),
+		}
+		if endpoint := helpers.GetPluralEnv(controller.EnvClaudeEndpoint, ""); endpoint != "" {
+			config.Claude.Endpoint = &endpoint
 		}
 	case console.AgentRuntimeTypeOpencode:
 		config.OpenCode = &OpencodeConfig{
@@ -176,6 +197,9 @@ func (ar *AgentRun) fromEnv(runtime *console.AgentRuntimeFragment) *AgentRuntime
 			ApiKey:  helpers.GetPluralEnv(controller.EnvCodexAPIKey, ""),
 			Model:   helpers.GetPluralEnv(controller.EnvCodexModel, ""),
 			Timeout: helpers.GetPluralEnvDuration(controller.EnvExecTimeout, defaultTimeout),
+		}
+		if endpoint := helpers.GetPluralEnv(controller.EnvCodexEndpoint, ""); endpoint != "" {
+			config.Codex.Endpoint = &endpoint
 		}
 	}
 
