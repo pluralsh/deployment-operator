@@ -32,7 +32,7 @@ const (
 	dockerGraphVolumeName        = "docker-graph"
 	dockerCertsPath              = "/certs"
 	dockerDaemonPort             = 2376
-	dockerSocketGID              = int64(2375)
+	dindRootlessUID              = int64(1000)
 
 	browserContainerName              = "browser"
 	defaultContainerBrowser           = v1alpha1.BrowserChrome
@@ -325,31 +325,16 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 
 func ensureDefaultPodSecurityContextWithDind(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
 	if psc != nil {
-		// Add supplemental group if not already present
-		if psc.SupplementalGroups == nil {
-			psc.SupplementalGroups = []int64{}
+		if psc.FSGroup == nil {
+			psc.FSGroup = lo.ToPtr(dindRootlessUID)
 		}
-
-		// Check if docker group already exists
-		hasDockerGroup := false
-		for _, gid := range psc.SupplementalGroups {
-			if gid == dockerSocketGID {
-				hasDockerGroup = true
-				break
-			}
-		}
-
-		if !hasDockerGroup {
-			psc.SupplementalGroups = append(psc.SupplementalGroups, dockerSocketGID)
-		}
-
 		return psc
 	}
 
-	// When DinD is enabled, don't set runAsNonRoot at pod level
-	// because the DinD container needs to run as root
+	// Rootless dind runs as uid 1000; FSGroup ensures EmptyDir volumes (certs, graph)
+	// are group-writable by that user for TLS cert generation.
 	return &corev1.PodSecurityContext{
-		SupplementalGroups: []int64{dockerSocketGID},
+		FSGroup: lo.ToPtr(dindRootlessUID),
 	}
 }
 
@@ -363,13 +348,6 @@ func enableDind(pod *corev1.Pod) {
 		},
 		corev1.Volume{
 			Name: dockerGraphVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		// Add volume for Docker socket
-		corev1.Volume{
-			Name: "docker-socket",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -401,8 +379,6 @@ func enableDind(pod *corev1.Pod) {
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: dockerCertsVolumeName, MountPath: dockerCertsPath},
 			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
-			// Mount the socket directory
-			{Name: "docker-socket", MountPath: "/var/run"},
 			// Share /tmp with the default container so bind mounts work
 			{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
 			{Name: sharedContextVolumeName, MountPath: sharedContextVolumePath},
@@ -422,12 +398,6 @@ func enableDind(pod *corev1.Pod) {
 					Name:      dockerCertsVolumeName,
 					MountPath: dockerCertsPath,
 					ReadOnly:  true,
-				},
-				// Mount the socket directory in the default container too
-				corev1.VolumeMount{
-					Name:      "docker-socket",
-					MountPath: "/var/run",
-					ReadOnly:  false,
 				},
 			)
 		}
