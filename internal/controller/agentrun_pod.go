@@ -381,7 +381,7 @@ func enableDind(pod *corev1.Pod) {
 		Name:  dindContainerName,
 		Image: fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerDinDImage), defaultContainerDinDImageTag),
 		SecurityContext: &corev1.SecurityContext{
-			Privileged: lo.ToPtr(true),
+			Privileged: lo.ToPtr(false),
 		},
 		Env: []corev1.EnvVar{
 			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
