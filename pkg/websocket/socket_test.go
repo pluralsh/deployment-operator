@@ -2,9 +2,11 @@ package websocket
 
 import (
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 
+	graphql "github.com/hasura/go-graphql-client"
 	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
@@ -140,6 +142,21 @@ func TestAddPublisherRejectsNilPublisher(t *testing.T) {
 
 	if s.publishers.Has("service") {
 		t.Fatalf("expected nil publisher to be ignored")
+	}
+}
+
+func TestNotificationSubscriptionUsesResourceIdFieldName(t *testing.T) {
+	subscription := &notificationSubscription{}
+	query, _, err := graphql.ConstructSubscription(subscription, nil)
+	if err != nil {
+		t.Fatalf("expected subscription query to build, got error: %v", err)
+	}
+
+	if !strings.Contains(query, "resourceId") {
+		t.Fatalf("expected subscription query to contain resourceId field, got query: %s", query)
+	}
+	if strings.Contains(query, "resourceID") {
+		t.Fatalf("expected subscription query not to contain resourceID field, got query: %s", query)
 	}
 }
 

@@ -318,7 +318,7 @@ type notificationSubscription struct {
 }
 
 type notification struct {
-	Resource   string `json:"resource"`
-	ResourceID string `json:"resourceId"`
-	Kick       *bool  `json:"kick"`
+	Resource   string `graphql:"resource" json:"resource"`
+	ResourceID string `graphql:"resourceId" json:"resourceId"`
+	Kick       *bool  `graphql:"kick" json:"kick"`
 }
