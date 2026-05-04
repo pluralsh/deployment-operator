@@ -98,6 +98,7 @@ type GeminiConfig struct {
 	Model             string        `json:"model,omitempty"`
 	Timeout           time.Duration `json:"timeout"`
 	InactivityTimeout time.Duration `json:"inactivityTimeout"`
+	Endpoint          *string       `json:"endpoint,omitempty"`
 }
 
 type CodexConfig struct {
@@ -191,6 +192,9 @@ func (ar *AgentRun) fromEnv(runtime *console.AgentRuntimeFragment) *AgentRuntime
 			Model:             helpers.GetPluralEnv(controller.EnvGeminiModel, ""),
 			Timeout:           helpers.GetPluralEnvDuration(controller.EnvExecTimeout, defaultTimeout),
 			InactivityTimeout: helpers.GetPluralEnvDuration(controller.EnvGeminiInactivityTimeout, defaultInactivityTimeout),
+		}
+		if endpoint := helpers.GetPluralEnv(controller.EnvGeminiEndpoint, ""); endpoint != "" {
+			config.Gemini.Endpoint = &endpoint
 		}
 	case console.AgentRuntimeTypeCodex:
 		config.Codex = &CodexConfig{

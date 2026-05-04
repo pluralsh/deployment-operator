@@ -204,7 +204,7 @@ func (in *Codex) OnMessage(f func(message *console.AgentMessageAttributes)) {
 func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 	// In proxy mode the plural provider handles auth via PLRL_CONSOLE_TOKEN;
 	// codex login is only needed for direct OpenAI usage.
-	if !in.proxy {
+	if !in.proxy && in.Config.Run.Runtime.Config.Codex.Endpoint == nil {
 		loginArgs := []string{"-c", "printenv OPENAI_API_KEY | codex login --with-api-key"}
 		in.executable = exec.NewExecutable(
 			"bash",

@@ -6,6 +6,7 @@ import (
 	"text/template"
 
 	console "github.com/pluralsh/console/go/client"
+	agentrunv1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/agentrun/v1"
 )
 
 //go:embed templates/settings.json.gotmpl
@@ -22,6 +23,7 @@ type ConfigTemplateInput struct {
 	AgentRunID        string
 	AgentRunMode      console.AgentRunMode
 	InactivityTimeout int64
+	ExaMcpConfigs     []agentrunv1.ExaMcpServerConfig
 }
 
 func settings(input *ConfigTemplateInput) (fileName, content string, err error) {

@@ -1801,6 +1801,8 @@ spec:
                         - key
                         type: object
                         x-kubernetes-map-type: atomic
+                      endpoint:
+                        type: string
                       inactivityTimeout:
                         description: InactivityTimeout is the timeout for inactivity
                           during a gemini run.

@@ -53,6 +53,7 @@ const (
 	EnvGeminiModel             = "PLRL_GEMINI_MODEL"
 	EnvGeminiAPIKey            = "PLRL_GEMINI_API_KEY"
 	EnvGeminiInactivityTimeout = "PLRL_GEMINI_INACTIVITY_TIMEOUT"
+	EnvGeminiEndpoint          = "PLRL_GEMINI_ENDPOINT"
 
 	EnvCodexModel    = "PLRL_CODEX_MODEL"
 	EnvCodexAPIKey   = "PLRL_CODEX_API_KEY"
@@ -533,6 +534,9 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 
 		if config.Gemini.InactivityTimeout != nil {
 			result[EnvGeminiInactivityTimeout] = config.Gemini.InactivityTimeout.Duration.String()
+		}
+		if config.Gemini.Endpoint != nil {
+			result[EnvGeminiEndpoint] = lo.FromPtr(config.Gemini.Endpoint)
 		}
 	}
 	if runtimeType == console.AgentRuntimeTypeCodex {

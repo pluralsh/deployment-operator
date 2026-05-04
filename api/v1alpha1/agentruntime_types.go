@@ -531,6 +531,9 @@ type GeminiConfig struct {
 	// InactivityTimeout is the timeout for inactivity during a gemini run.
 	// +kubebuilder:validation:Optional
 	InactivityTimeout *metav1.Duration `json:"inactivityTimeout,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Endpoint *string `json:"endpoint,omitempty"`
 }
 
 func (in *GeminiConfig) Raw(secretGetter func(corev1.SecretKeySelector) (*corev1.Secret, error)) (*GeminiConfigRaw, error) {
@@ -553,6 +556,7 @@ func (in *GeminiConfig) Raw(secretGetter func(corev1.SecretKeySelector) (*corev1
 		APIKey:            string(apiKey),
 		Timeout:           in.Timeout,
 		InactivityTimeout: in.InactivityTimeout,
+		Endpoint:          in.Endpoint,
 	}, nil
 }
 
@@ -575,6 +579,9 @@ type GeminiConfigRaw struct {
 	// InactivityTimeout is the timeout for inactivity during gemini run.
 	// +kubebuilder:validation:Optional
 	InactivityTimeout *metav1.Duration `json:"inactivityTimeout,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Endpoint *string `json:"endpoint,omitempty"`
 }
 
 type AgentRuntimeBindings struct {

@@ -33,15 +33,16 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 	}
 
 	input := &ConfigTemplateInput{
-		ConsoleURL:   consoleURL,
-		ConsoleToken: consoleToken,
-		DeployToken:  deployToken,
-		AgentRunID:   in.Config.Run.ID,
-		Provider:     in.provider,
-		Endpoint:     endpoint,
-		Model:        in.model,
-		Token:        in.Config.Run.Runtime.Config.OpenCode.Token,
-		Mode:         in.Config.Run.Mode,
+		ConsoleURL:    consoleURL,
+		ConsoleToken:  consoleToken,
+		DeployToken:   deployToken,
+		AgentRunID:    in.Config.Run.ID,
+		Provider:      in.provider,
+		Endpoint:      endpoint,
+		Model:         in.model,
+		Token:         in.Config.Run.Runtime.Config.OpenCode.Token,
+		Mode:          in.Config.Run.Mode,
+		ExaMcpConfigs: in.Config.Run.Runtime.ExaMcpConfigs,
 	}
 
 	_, content, err := configTemplate(input)
