@@ -64,10 +64,7 @@ func (in *Codex) Run(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Codex) ConfigureBabysitRun() error {
-	if err := in.ConfigureSystemPromptForBabysitRun(console.AgentRuntimeTypeCodex); err != nil {
-		return err
-	}
-	return nil
+	return in.ConfigureSystemPromptForBabysitRun(console.AgentRuntimeTypeCodex)
 }
 
 func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
