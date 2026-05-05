@@ -28,10 +28,8 @@ const (
 	dindContainerName            = "dind"
 	defaultContainerDinDImage    = "docker"
 	defaultContainerDinDImageTag = "29.4.1-dind-rootless"
-	dockerCertsVolumeName        = "docker-certs"
 	dockerGraphVolumeName        = "docker-graph"
-	dockerCertsPath              = "/certs"
-	dockerDaemonPort             = 2376
+	dockerDaemonPort             = 2375
 	dindRootlessUID              = int64(1000)
 
 	browserContainerName              = "browser"
@@ -48,9 +46,7 @@ const (
 )
 
 var dindClientEnvs = []corev1.EnvVar{
-	{Name: "DOCKER_HOST", Value: "tcp://localhost:2376"},
-	{Name: "DOCKER_TLS_VERIFY", Value: "1"},
-	{Name: "DOCKER_CERT_PATH", Value: dockerCertsPath + "/client"},
+	{Name: "DOCKER_HOST", Value: fmt.Sprintf("tcp://localhost:%d", dockerDaemonPort)},
 }
 
 var (
@@ -341,12 +337,6 @@ func ensureDefaultPodSecurityContextWithDind(psc *corev1.PodSecurityContext) *co
 func enableDind(pod *corev1.Pod) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes,
 		corev1.Volume{
-			Name: dockerCertsVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		corev1.Volume{
 			Name: dockerGraphVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
@@ -367,12 +357,16 @@ func enableDind(pod *corev1.Pod) {
 				Type: corev1.AppArmorProfileTypeUnconfined,
 			},
 		},
+		// DOCKER_TLS_CERTDIR is intentionally left unset: TLS is unnecessary for same-pod
+		// localhost traffic, and setting it causes the entrypoint to append a -p port-forward
+		// flag that is incompatible with --net=host.
 		Env: []corev1.EnvVar{
-			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
 			// Use the pod's network namespace directly; tap/tun devices are not
 			// available in Kubernetes pods so rootlesskit's default tap mode fails.
-			{Name: "DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS", Value: "--net=host --port-driver=none"},
+			{Name: "DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS", Value: "--net=host"},
 		},
+		// Pass --host explicitly since the entrypoint only configures TCP when DOCKER_TLS_CERTDIR is set.
+		Args: []string{fmt.Sprintf("--host=tcp://0.0.0.0:%d", dockerDaemonPort)},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "docker",
@@ -380,7 +374,6 @@ func enableDind(pod *corev1.Pod) {
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: dockerCertsVolumeName, MountPath: dockerCertsPath},
 			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
 			// Share /tmp with the default container so bind mounts work
 			{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
@@ -392,17 +385,7 @@ func enableDind(pod *corev1.Pod) {
 	// Wire agent container
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == defaultContainer {
-			c := &pod.Spec.Containers[i]
-
-			c.Env = append(c.Env, dindClientEnvs...)
-
-			c.VolumeMounts = append(c.VolumeMounts,
-				corev1.VolumeMount{
-					Name:      dockerCertsVolumeName,
-					MountPath: dockerCertsPath,
-					ReadOnly:  true,
-				},
-			)
+			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, dindClientEnvs...)
 		}
 	}
 }
