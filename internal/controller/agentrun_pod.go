@@ -28,10 +28,12 @@ const (
 	dindContainerName            = "dind"
 	defaultContainerDinDImage    = "docker"
 	defaultContainerDinDImageTag = "29.4.1-dind-rootless"
+	dockerCertsVolumeName        = "docker-certs"
 	dockerGraphVolumeName        = "docker-graph"
 	tunDeviceVolumeName          = "tun-device"
 	tunDevicePath                = "/dev/net/tun"
-	dockerDaemonPort             = 2375
+	dockerCertsPath              = "/certs"
+	dockerDaemonPort             = 2376 // TLS port used by the entrypoint when DOCKER_TLS_CERTDIR is set
 	dindRootlessUID              = int64(1000)
 
 	browserContainerName              = "browser"
@@ -49,6 +51,8 @@ const (
 
 var dindClientEnvs = []corev1.EnvVar{
 	{Name: "DOCKER_HOST", Value: fmt.Sprintf("tcp://localhost:%d", dockerDaemonPort)},
+	{Name: "DOCKER_TLS_VERIFY", Value: "1"},
+	{Name: "DOCKER_CERT_PATH", Value: dockerCertsPath + "/client"},
 }
 
 var (
@@ -353,6 +357,12 @@ func enableDind(pod *corev1.Pod) {
 				},
 			},
 		},
+		corev1.Volume{
+			Name: dockerCertsVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
 	)
 
 	// Add as an init container with restart policy set to always to keep the container running until all regular containers finish
@@ -361,6 +371,11 @@ func enableDind(pod *corev1.Pod) {
 		Image: fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerDinDImage), defaultContainerDinDImageTag),
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: lo.ToPtr(false),
+			Capabilities: &corev1.Capabilities{
+				// SYS_ADMIN is required for rootless dind: runc inside rootlesskit's user
+				// namespace must mount proc/sysfs when setting up build container rootfs.
+				Add: []corev1.Capability{"SYS_ADMIN"},
+			},
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeUnconfined,
 			},
@@ -369,15 +384,14 @@ func enableDind(pod *corev1.Pod) {
 			},
 		},
 		Env: []corev1.EnvVar{
-			// slirp4netns provides user-space networking without tap/tun devices.
-			// /dev/net/tun is mounted from the host to make tap device creation possible.
-			{Name: "DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS", Value: "--net=slirp4netns"},
-			// Disable TLS: same-pod localhost traffic only, and DOCKER_TLS_CERTDIR being
-			// set causes the entrypoint to add a -p port-forward flag to rootlesskit.
-			{Name: "DOCKER_TLS_CERTDIR", Value: ""},
+			// Use slirp4netns for user-space networking; /dev/net/tun must be mounted
+			// from the host so rootlesskit can create the tap interface.
+			{Name: "DOCKERD_ROOTLESS_ROOTLESSKIT_NET", Value: "slirp4netns"},
+			// Entrypoint generates TLS certs in DOCKER_TLS_CERTDIR and automatically
+			// adds --host=tcp://0.0.0.0:2376 --tlsverify plus the rootlesskit port-forward rule.
+			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
 		},
 		Args: []string{
-			fmt.Sprintf("--host=tcp://0.0.0.0:%d", dockerDaemonPort),
 			// Disable ip6tables: rootless dind cannot configure IPv6 on container
 			// interfaces from within a nested user namespace.
 			"--ip6tables=false",
@@ -391,6 +405,7 @@ func enableDind(pod *corev1.Pod) {
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
 			{Name: tunDeviceVolumeName, MountPath: tunDevicePath},
+			{Name: dockerCertsVolumeName, MountPath: dockerCertsPath},
 			// Share /tmp with the default container so bind mounts work
 			{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
 			{Name: sharedContextVolumeName, MountPath: sharedContextVolumePath},
@@ -398,10 +413,15 @@ func enableDind(pod *corev1.Pod) {
 		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
 	})
 
-	// Wire agent container
+	// Wire agent container with dind client env vars and the read-only certs mount
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == defaultContainer {
 			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, dindClientEnvs...)
+			pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts, corev1.VolumeMount{
+				Name:      dockerCertsVolumeName,
+				MountPath: dockerCertsPath,
+				ReadOnly:  true,
+			})
 		}
 	}
 }
