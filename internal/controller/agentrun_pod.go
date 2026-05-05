@@ -29,6 +29,8 @@ const (
 	defaultContainerDinDImage    = "docker"
 	defaultContainerDinDImageTag = "29.4.1-dind-rootless"
 	dockerGraphVolumeName        = "docker-graph"
+	tunDeviceVolumeName          = "tun-device"
+	tunDevicePath                = "/dev/net/tun"
 	dockerDaemonPort             = 2375
 	dindRootlessUID              = int64(1000)
 
@@ -342,6 +344,15 @@ func enableDind(pod *corev1.Pod) {
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
+		corev1.Volume{
+			Name: tunDeviceVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: tunDevicePath,
+					Type: lo.ToPtr(corev1.HostPathCharDev),
+				},
+			},
+		},
 	)
 
 	// Add as an init container with restart policy set to always to keep the container running until all regular containers finish
@@ -357,16 +368,20 @@ func enableDind(pod *corev1.Pod) {
 				Type: corev1.AppArmorProfileTypeUnconfined,
 			},
 		},
-		// DOCKER_TLS_CERTDIR is intentionally left unset: TLS is unnecessary for same-pod
-		// localhost traffic, and setting it causes the entrypoint to append a -p port-forward
-		// flag that is incompatible with --net=host.
 		Env: []corev1.EnvVar{
-			// Use the pod's network namespace directly; tap/tun devices are not
-			// available in Kubernetes pods so rootlesskit's default tap mode fails.
-			{Name: "DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS", Value: "--net=host"},
+			// slirp4netns provides user-space networking without tap/tun devices.
+			// /dev/net/tun is mounted from the host to make tap device creation possible.
+			{Name: "DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS", Value: "--net=slirp4netns"},
+			// Disable TLS: same-pod localhost traffic only, and DOCKER_TLS_CERTDIR being
+			// set causes the entrypoint to add a -p port-forward flag to rootlesskit.
+			{Name: "DOCKER_TLS_CERTDIR", Value: ""},
 		},
-		// Pass --host explicitly since the entrypoint only configures TCP when DOCKER_TLS_CERTDIR is set.
-		Args: []string{fmt.Sprintf("--host=tcp://0.0.0.0:%d", dockerDaemonPort)},
+		Args: []string{
+			fmt.Sprintf("--host=tcp://0.0.0.0:%d", dockerDaemonPort),
+			// Disable ip6tables: rootless dind cannot configure IPv6 on container
+			// interfaces from within a nested user namespace.
+			"--ip6tables=false",
+		},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "docker",
@@ -375,6 +390,7 @@ func enableDind(pod *corev1.Pod) {
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
+			{Name: tunDeviceVolumeName, MountPath: tunDevicePath},
 			// Share /tmp with the default container so bind mounts work
 			{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
 			{Name: sharedContextVolumeName, MountPath: sharedContextVolumePath},
