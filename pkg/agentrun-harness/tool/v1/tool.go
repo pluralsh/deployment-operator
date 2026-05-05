@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path"
@@ -28,15 +27,6 @@ const (
 
 	systemPromptBabysitTemplateFile = "babysit.md.tmpl"
 )
-
-// BabysitRun is the default no-op implementation of the Tool.BabysitRun callback.
-// Individual tools can override this to perform reprompting when PR state has changed.
-func (in DefaultTool) BabysitRun(_ context.Context, _ *BabysitContext) bool { return true }
-
-// ConfigureBabysitRun is the default no-op implementation of the Tool.ConfigureBabysitRun callback.
-func (in DefaultTool) ConfigureBabysitRun() error {
-	return nil
-}
 
 // ConfigureSystemPrompt prepares system prompt/context files for the provider and puts them in the required directory
 // for the agent CLI to read during the run.

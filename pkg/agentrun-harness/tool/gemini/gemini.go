@@ -34,6 +34,14 @@ type Gemini struct {
 	model Model
 }
 
+func (in *Gemini) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
+	return true
+}
+
+func (in *Gemini) ConfigureBabysitRun() error {
+	return nil
+}
+
 func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	go in.start(ctx, options...)
 }

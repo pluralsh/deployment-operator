@@ -64,6 +64,7 @@ func (in *Codex) Run(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Codex) ConfigureBabysitRun() error {
+	klog.Info("configuring codex babysit run")
 	return in.ConfigureSystemPromptForBabysitRun(console.AgentRuntimeTypeCodex)
 }
 
@@ -206,9 +207,9 @@ func (in *Codex) OnMessage(f func(message *console.AgentMessageAttributes)) {
 }
 
 func (in *Codex) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
+	klog.V(log.LogLevelInfo).InfoS("starting codex babysit run", "agent_run_id", in.Config.Run.ID)
 	if bCtx == nil {
-		klog.ErrorS(fmt.Errorf("babysit context is nil"), "invalid babysit context")
-		return true
+		return false
 	}
 
 	agent := "autonomous"
