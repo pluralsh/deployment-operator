@@ -35,11 +35,64 @@ type Gemini struct {
 }
 
 func (in *Gemini) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
-	return true
+	if bCtx == nil {
+		return false
+	}
+
+	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}
+	if in.Config.Run.Runtime.Config.Gemini.Endpoint != nil {
+		env = append(env, fmt.Sprintf("GEMINI_API_BASE_URL=%s", *in.Config.Run.Runtime.Config.Gemini.Endpoint))
+	}
+
+	in.executable = exec.NewExecutable(
+		"gemini",
+		exec.WithArgs(in.args(bCtx.Prompt)),
+		exec.WithDir(in.Config.WorkDir),
+		exec.WithEnv(env),
+		exec.WithTimeout(in.Config.Run.Runtime.Config.Gemini.Timeout),
+	)
+
+	klog.V(log.LogLevelInfo).InfoS("Gemini executable configured", "timeout", in.Config.Run.Runtime.Config.Gemini.Timeout)
+
+	// Send the initial prompt as a message too
+	if in.onMessage != nil {
+		in.onMessage(&console.AgentMessageAttributes{Message: bCtx.Prompt, Role: console.AiRoleUser})
+	}
+
+	err := in.executable.RunStream(ctx, func(line []byte) {
+		klog.V(log.LogLevelTrace).InfoS("Gemini stream event", "line", string(line))
+
+		// This is here to prevent unavoidable log lines being reported as errors.
+		// TODO: Remove once https://github.com/google-gemini/gemini-cli/issues/15053 is fixed.
+		trimmed := strings.TrimSpace(string(line))
+		if !strings.HasPrefix(trimmed, "{") {
+			klog.V(log.LogLevelDebug).InfoS("ignoring non-json Gemini stream line", "trimmed", trimmed)
+			return
+		}
+
+		event := &events.EventBase{}
+		if err := json.Unmarshal(line, event); err != nil {
+			klog.ErrorS(err, "failed to unmarshal Gemini stream event", "line", line)
+			in.Config.ErrorChan <- err
+			return
+		}
+
+		if err := event.OnMessage(line, in.onMessage); err != nil {
+			klog.ErrorS(err, "failed to process Gemini stream event", "line", string(line))
+			in.Config.ErrorChan <- err
+		}
+	})
+	if err != nil {
+		klog.ErrorS(err, "Gemini execution failed")
+		in.Config.ErrorChan <- err
+		return false
+	}
+
+	return false
 }
 
 func (in *Gemini) ConfigureBabysitRun() error {
-	return nil
+	return in.ConfigureSystemPromptForBabysitRun(console.AgentRuntimeTypeGemini)
 }
 
 func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
@@ -56,7 +109,7 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 		"gemini",
 		append(
 			options,
-			exec.WithArgs(in.args()),
+			exec.WithArgs(in.args("")),
 			exec.WithDir(in.Config.WorkDir),
 			exec.WithEnv(env),
 			exec.WithTimeout(in.Config.Run.Runtime.Config.Gemini.Timeout),
@@ -102,7 +155,10 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 	// FinishedChan is closed by the controller after the babysit loop exits.
 }
 
-func (in *Gemini) args() []string {
+func (in *Gemini) args(prompt string) []string {
+	if len(prompt) > 0 {
+		in.Config.Run.Prompt = prompt
+	}
 	if in.Config.Run.Mode == console.AgentRunModeWrite {
 		return []string{
 			"--approval-mode", "yolo",
