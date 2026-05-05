@@ -206,6 +206,11 @@ func (in *Codex) OnMessage(f func(message *console.AgentMessageAttributes)) {
 }
 
 func (in *Codex) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
+	if bCtx == nil {
+		klog.ErrorS(fmt.Errorf("babysit context is nil"), "invalid babysit context")
+		return true
+	}
+
 	agent := "autonomous"
 	args := []string{"exec", "--profile", agent, "--skip-git-repo-check", "--json", bCtx.Prompt}
 
