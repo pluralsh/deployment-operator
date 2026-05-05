@@ -63,6 +63,13 @@ func (in *Codex) Run(ctx context.Context, options ...exec.Option) {
 	go in.start(ctx, options...)
 }
 
+func (in *Codex) ConfigureBabysitRun() error {
+	if err := in.ConfigureSystemPromptForBabysitRun(console.AgentRuntimeTypeCodex); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 	if err := in.ConfigureSystemPrompt(console.AgentRuntimeTypeCodex); err != nil {
 		return err
@@ -153,7 +160,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Type:         "stdio",
 			Command:      "/usr/local/bin/mcpserver",
 			TrustPolicy:  "always",
-			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos"},
+			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos", "getPRState", "getCILogs", "reactToComment", "createCommit"},
 			Env:          mcpBaseEnv,
 		}}
 	default:
@@ -199,6 +206,52 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 
 func (in *Codex) OnMessage(f func(message *console.AgentMessageAttributes)) {
 	in.onMessage = f
+}
+
+func (in *Codex) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
+	agent := "autonomous"
+	args := []string{"exec", "--profile", agent, "--skip-git-repo-check", "--json", bCtx.Prompt}
+
+	in.executable = exec.NewExecutable(
+		"codex",
+		exec.WithArgs(args),
+		exec.WithDir(in.Config.WorkDir),
+		exec.WithEnv([]string{fmt.Sprintf("PLRL_CONSOLE_TOKEN=%s", in.consoleToken), fmt.Sprintf("CODEX_HOME=%s", path.Join(in.Config.WorkDir, ".codex"))}),
+		exec.WithTimeout(in.Config.Run.Runtime.Config.Codex.Timeout),
+	)
+
+	klog.V(log.LogLevelInfo).InfoS("codex executable configured", "timeout", in.Config.Run.Runtime.Config.Codex.Timeout)
+
+	// Send the initial prompt as a message too
+	if in.onMessage != nil {
+		in.onMessage(&console.AgentMessageAttributes{Message: bCtx.Prompt, Role: console.AiRoleUser})
+	}
+
+	err := in.executable.RunStream(ctx, func(line []byte) {
+		event := &StreamEvent{}
+		if err := json.Unmarshal(line, event); err != nil {
+			klog.V(log.LogLevelExtended).InfoS("failed to unmarshal codex stream event", "line", string(line))
+			return
+		}
+
+		if event.Type == "thread.started" && event.ThreadID != "" {
+			in.threadID = event.ThreadID
+			klog.V(log.LogLevelDebug).InfoS("codex thread started", "thread_id", in.threadID)
+		}
+
+		msg := mapCodexStreamEventToAgentMessage(event, in.threadID)
+		if in.onMessage != nil && msg != nil {
+			in.onMessage(msg)
+		}
+	})
+	if err != nil {
+		klog.ErrorS(err, "codex execution failed")
+		in.Config.ErrorChan <- err
+		return false
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("codex babysit run finished")
+	return false
 }
 
 func (in *Codex) start(ctx context.Context, options ...exec.Option) {
