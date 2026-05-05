@@ -374,17 +374,6 @@ func enableDind(pod *corev1.Pod) {
 		Image: fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerDinDImage), defaultContainerDinDImageTag),
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: new(true),
-			Capabilities: &corev1.Capabilities{
-				// SYS_ADMIN is required for rootless dind: runc inside rootlesskit's user
-				// namespace must mount proc/sysfs when setting up build container rootfs.
-				Add: []corev1.Capability{"SYS_ADMIN"},
-			},
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeUnconfined,
-			},
-			AppArmorProfile: &corev1.AppArmorProfile{
-				Type: corev1.AppArmorProfileTypeUnconfined,
-			},
 		},
 		Env: []corev1.EnvVar{
 			// Use slirp4netns for user-space networking; /dev/net/tun must be mounted
