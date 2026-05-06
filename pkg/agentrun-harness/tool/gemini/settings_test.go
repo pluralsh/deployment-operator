@@ -162,6 +162,61 @@ func TestSettingsTemplate_GenerateAndVerifyContents(t *testing.T) {
 	})
 }
 
+func TestSettingsTemplate_GitAccessToken(t *testing.T) {
+	baseInput := &ConfigTemplateInput{
+		Model:         ModelGemini25Pro,
+		RepositoryDir: "/repo",
+		ConsoleURL:    "https://console.test",
+		ConsoleToken:  "token",
+		DeployToken:   "deploy-token",
+		AgentRunID:    "run-123",
+		AgentRunMode:  console.AgentRunModeWrite,
+	}
+
+	getGitAccessToken := func(t *testing.T, content string) string {
+		t.Helper()
+		var out map[string]any
+		if err := json.Unmarshal([]byte(content), &out); err != nil {
+			t.Fatalf("generated content is not valid JSON: %v\n%s", err, content)
+		}
+		mcpServers := out["mcpServers"].(map[string]any)
+		plural := mcpServers["plural"].(map[string]any)
+		env := plural["env"].(map[string]any)
+		token, _ := env["GIT_ACCESS_TOKEN"].(string)
+		return token
+	}
+
+	t.Run("empty GitAccessToken renders empty string in env", func(t *testing.T) {
+		input := *baseInput
+		input.GitAccessToken = ""
+
+		_, content, err := settings(&input)
+		if err != nil {
+			t.Fatalf("settings() failed: %v", err)
+		}
+
+		token := getGitAccessToken(t, content)
+		if token != "" {
+			t.Errorf("expected empty GIT_ACCESS_TOKEN, got %q", token)
+		}
+	})
+
+	t.Run("non-empty GitAccessToken is rendered in env", func(t *testing.T) {
+		input := *baseInput
+		input.GitAccessToken = "ghp_mytoken123"
+
+		_, content, err := settings(&input)
+		if err != nil {
+			t.Fatalf("settings() failed: %v", err)
+		}
+
+		token := getGitAccessToken(t, content)
+		if token != "ghp_mytoken123" {
+			t.Errorf("expected GIT_ACCESS_TOKEN=ghp_mytoken123, got %q", token)
+		}
+	})
+}
+
 func TestSettingsTemplate_ExaMcpServers(t *testing.T) {
 	baseInput := &ConfigTemplateInput{
 		Model:         ModelGemini25Pro,
