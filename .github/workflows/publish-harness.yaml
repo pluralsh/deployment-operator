@@ -133,12 +133,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ publish-base-image ]
     env:
-      TERRAFORM_VERSION: 1.11.4
+      TERRAFORM_VERSION: 1.14.9
     strategy:
       matrix:
         versions:
-        - full: 1.11.4
-          tag: 1.11.4
+        - full: 1.14.9
+          tag: 1.14.9
+        - full: 1.14.9
+          tag: "1.14"
+        - full: 1.13.5
+          tag: '1.13'
+        - full: 1.12.2
+          tag: '1.12'
         - full: 1.11.4
           tag: "1.11"
         - full: 1.10.5
