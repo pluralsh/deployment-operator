@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
 )
+
+const gitAccessTokenEnv = "GIT_ACCESS_TOKEN"
 
 // Gemini implements v1.Tool interface.
 type Gemini struct {
@@ -39,7 +42,7 @@ func (in *Gemini) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool 
 		return false
 	}
 
-	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey), fmt.Sprintf("GEMINI_CLI_TRUST_WORKSPACE=%s", "true")}
+	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey), fmt.Sprintf("GEMINI_CLI_TRUST_WORKSPACE=%s", "true"), fmt.Sprintf("GIT_ACCESS_TOKEN=%s", os.Getenv(gitAccessTokenEnv))}
 	if in.Config.Run.Runtime.Config.Gemini.Endpoint != nil {
 		env = append(env, fmt.Sprintf("GEMINI_API_BASE_URL=%s", *in.Config.Run.Runtime.Config.Gemini.Endpoint))
 	}
