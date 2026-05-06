@@ -1,7 +1,6 @@
 package opencode
 
 import (
-	"context"
 	"encoding/json"
 
 	console "github.com/pluralsh/console/go/client"
@@ -79,14 +78,6 @@ type Opencode struct {
 
 	// onMessage is a callback called when a new message is received.
 	onMessage func(message *console.AgentMessageAttributes)
-}
-
-func (in *Opencode) BabysitRun(ctx context.Context, bCtx *toolv1.BabysitContext) bool {
-	return true
-}
-
-func (in *Opencode) ConfigureBabysitRun() error {
-	return nil
 }
 
 type StreamPartType string
