@@ -24,6 +24,7 @@ type ConfigTemplateInput struct {
 	AgentRunMode      console.AgentRunMode
 	InactivityTimeout int64
 	ExaMcpConfigs     []agentrunv1.ExaMcpServerConfig
+	GitAccessToken    string
 }
 
 func settings(input *ConfigTemplateInput) (fileName, content string, err error) {
