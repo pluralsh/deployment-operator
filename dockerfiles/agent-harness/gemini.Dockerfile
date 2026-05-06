@@ -9,6 +9,9 @@ ARG AGENT_HARNESS_BASE_IMAGE=$AGENT_HARNESS_BASE_IMAGE_REPO:$AGENT_HARNESS_BASE_
 # Stage 1: Install Gemini CLI from npm in Node image
 FROM $NODE_IMAGE AS node
 
+# Re-declare ARGs after FROM so they are available in this stage
+ARG AGENT_VERSION
+
 USER root
 
 # Install Gemini CLI globally using npm
