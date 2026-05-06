@@ -164,13 +164,13 @@ func TestSettingsTemplate_GenerateAndVerifyContents(t *testing.T) {
 
 func TestSettingsTemplate_GitAccessToken(t *testing.T) {
 	baseInput := &ConfigTemplateInput{
-		Model:        ModelGemini25Pro,
+		Model:         ModelGemini25Pro,
 		RepositoryDir: "/repo",
-		ConsoleURL:   "https://console.test",
-		ConsoleToken: "token",
-		DeployToken:  "deploy-token",
-		AgentRunID:   "run-123",
-		AgentRunMode: console.AgentRunModeWrite,
+		ConsoleURL:    "https://console.test",
+		ConsoleToken:  "token",
+		DeployToken:   "deploy-token",
+		AgentRunID:    "run-123",
+		AgentRunMode:  console.AgentRunModeWrite,
 	}
 
 	getGitAccessToken := func(t *testing.T, content string) string {
