@@ -162,13 +162,13 @@ func (in *Gemini) args(prompt string) []string {
 	if in.Config.Run.Mode == console.AgentRunModeWrite {
 		return []string{
 			"--approval-mode", "yolo",
-			"--output-format", "stream-json",
+			"--output-format", "stream-json", "--prompt",
 			in.Config.Run.Prompt,
 		}
 	}
 
 	return []string{
-		"--output-format", "stream-json",
+		"--output-format", "stream-json", "--prompt",
 		in.Config.Run.Prompt,
 	}
 }
