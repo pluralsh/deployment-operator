@@ -135,7 +135,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Type:         "stdio",
 			Command:      "/usr/local/bin/mcpserver",
 			TrustPolicy:  "always",
-			EnabledTools: []string{"updateAgentRunAnalysis"},
+			EnabledTools: []string{"updateAgentRunAnalysis", "downloadServiceManifests"},
 			Env:          mcpBaseEnv,
 		}}
 	case console.AgentRunModeWrite:
@@ -153,7 +153,7 @@ func (in *Codex) Configure(consoleURL, consoleToken, deployToken string) error {
 			Type:         "stdio",
 			Command:      "/usr/local/bin/mcpserver",
 			TrustPolicy:  "always",
-			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos"},
+			EnabledTools: []string{"agentPullRequest", "createBranch", "fetchAgentRunTodos", "updateAgentRunTodos", "downloadServiceManifests"},
 			Env:          mcpBaseEnv,
 		}}
 	default:

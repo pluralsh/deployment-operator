@@ -26,6 +26,19 @@ func (c *client) GetService(id string) (*console.ServiceDeploymentForAgent, erro
 	return resp.ServiceDeployment, nil
 }
 
+func (c *client) GetServiceDeploymentByHandle(cluster, name string) (*console.ServiceDeploymentExtended, error) {
+	resp, err := c.consoleClient.GetServiceDeploymentByHandle(c.ctx, cluster, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp == nil || resp.ServiceDeployment == nil {
+		return nil, errors.New("service deployment not found")
+	}
+
+	return resp.ServiceDeployment, nil
+}
+
 func (c *client) GetServiceDeploymentComponents(id string) (*console.GetServiceDeploymentComponents_ServiceDeployment, error) {
 	resp, err := c.consoleClient.GetServiceDeploymentComponents(c.ctx, id)
 	if err != nil {
