@@ -39,7 +39,7 @@ func (in *Gemini) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool 
 		return false
 	}
 
-	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}
+	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey), fmt.Sprintf("GEMINI_CLI_TRUST_WORKSPACE=%s", "true")}
 	if in.Config.Run.Runtime.Config.Gemini.Endpoint != nil {
 		env = append(env, fmt.Sprintf("GEMINI_API_BASE_URL=%s", *in.Config.Run.Runtime.Config.Gemini.Endpoint))
 	}
@@ -100,7 +100,7 @@ func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 }
 
 func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
-	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}
+	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey), fmt.Sprintf("GEMINI_CLI_TRUST_WORKSPACE=%s", "true")}
 	if in.Config.Run.Runtime.Config.Gemini.Endpoint != nil {
 		env = append(env, fmt.Sprintf("GEMINI_API_BASE_URL=%s", *in.Config.Run.Runtime.Config.Gemini.Endpoint))
 	}
