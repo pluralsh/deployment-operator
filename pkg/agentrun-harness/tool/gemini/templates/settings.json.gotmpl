@@ -50,6 +50,7 @@
         "PLRL_CONSOLE_TOKEN": "{{ .ConsoleToken }}",
         "PLRL_CONSOLE_URL": "{{ .ConsoleURL }}",
         "PLRL_AGENT_RUN_ID": "{{ .AgentRunID }}",
+        "GIT_ACCESS_TOKEN": "{{ .GitAccessToken }}",
         {{ if eq .AgentRunMode "WRITE" }}
         "PLRL_EXCLUDE_TOOLS": "updateAgentRunAnalysis"
         {{ else }}
