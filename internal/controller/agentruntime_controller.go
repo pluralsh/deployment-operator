@@ -212,42 +212,46 @@ func (r *AgentRuntimeReconciler) addOrRemoveFinalizer(ctx context.Context, agent
 	return nil
 }
 
-func (r *AgentRuntimeReconciler) Publish(runId string, kick bool) {
-	err := r.createRunFromId(runId)
+func (r *AgentRuntimeReconciler) Publish(runID string, kick bool) {
+	logger := log.FromContext(r.Ctx)
+	logger.Info("received websocket agent run event", "id", runID, "kick", kick)
+
+	err := r.createRunFromID(runID)
 	if err != nil {
-		log := log.FromContext(r.Ctx)
-		log.Error(err, "failed to create agent run", "id", runId)
+		logger.Error(err, "failed to process websocket agent run event", "id", runID, "kick", kick)
 	}
 }
 
-func (r *AgentRuntimeReconciler) createRunFromId(runId string) error {
-	ctx := r.Ctx
-
-	run, err := r.ConsoleClient.GetAgentRun(ctx, runId)
+func (r *AgentRuntimeReconciler) createRunFromID(runID string) error {
+	logger := log.FromContext(r.Ctx)
+	run, err := r.ConsoleClient.GetAgentRun(r.Ctx, runID)
 	if err != nil {
 		return fmt.Errorf("failed to get agent run: %w", err)
 	}
-
-	runtimeName := run.Runtime.Name
+	if run.Runtime == nil || run.Runtime.Name == "" {
+		return fmt.Errorf("agent run %q runtime details are missing", runID)
+	}
 
 	agentRuntime := &v1alpha1.AgentRuntime{}
-	nsn := types.NamespacedName{
-		Name:      runtimeName,
-		Namespace: "",
-	}
-	if err := r.Get(ctx, nsn, agentRuntime); err != nil {
+	if err := r.Get(r.Ctx, types.NamespacedName{Name: run.Runtime.Name, Namespace: ""}, agentRuntime); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("agent runtime for websocket agent run event not found", "id", runID, "runtime", run.Runtime.Name)
+		}
 		return client.IgnoreNotFound(err)
 	}
 
-	return r.createAgentRun(ctx, agentRuntime, run)
+	return r.createAgentRun(r.Ctx, agentRuntime, run)
 }
 
 func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntime *v1alpha1.AgentRuntime, run *console.AgentRunFragment) error {
 	logger := log.FromContext(ctx)
+	key := client.ObjectKey{Name: run.ID, Namespace: agentRuntime.Spec.TargetNamespace}
 
-	if r.Get(ctx, client.ObjectKey{Name: run.ID, Namespace: agentRuntime.Spec.TargetNamespace}, &v1alpha1.AgentRun{}) == nil {
+	if err := r.Get(ctx, key, &v1alpha1.AgentRun{}); err == nil {
 		logger.Info("agent run already exists", "id", run.ID)
 		return nil
+	} else if !errors.IsNotFound(err) {
+		return fmt.Errorf("failed to lookup agent run: %w", err)
 	}
 
 	agentRun := &v1alpha1.AgentRun{
@@ -277,6 +281,9 @@ func (r *AgentRuntimeReconciler) createAgentRun(ctx context.Context, agentRuntim
 	}
 
 	if err := r.Create(ctx, agentRun); err != nil {
+		if errors.IsAlreadyExists(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to create agent run: %w", err)
 	}
 

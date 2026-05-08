@@ -88,7 +88,7 @@ func (r *SentinelReconciler) GetPollInterval() func() time.Duration {
 }
 
 func (r *SentinelReconciler) GetPublisher() (string, websocket.Publisher) {
-	return "sentinel.run.event", &socketPublisher{
+	return "sentinel_run", &socketPublisher{
 		sentinelRunQueue: r.sentinelQueue,
 		sentinelRunCache: r.sentinelCache,
 	}

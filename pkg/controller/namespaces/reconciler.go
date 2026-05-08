@@ -72,7 +72,7 @@ func (n *NamespaceReconciler) GetPollInterval() func() time.Duration {
 }
 
 func (n *NamespaceReconciler) GetPublisher() (string, websocket.Publisher) {
-	return "namespace.event", &socketPublisher{
+	return "namespace", &socketPublisher{
 		restoreQueue: n.namespaceQueue,
 		restoreCache: n.namespaceCache,
 	}
