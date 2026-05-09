@@ -27,7 +27,7 @@ const (
 
 var (
 	stackRunDefaultContainerVersions = map[console.StackType]string{
-		console.StackTypeTerraform: "1.8.2",
+		console.StackTypeTerraform: "1.8",
 		console.StackTypeAnsible:   "latest",
 	}
 
@@ -288,32 +288,21 @@ func (r *StackRunJobReconciler) ensureDefaultContainerSecurityContext(sc *corev1
 }
 
 func (r *StackRunJobReconciler) getDefaultContainerImage(run *console.StackRunMinimalFragment) string {
-	// In case image is not provided, it will use our default image.
-	// Image name format: <defaultImage>:<tag>
-	// Note: User has to make sure that the tag is correct and matches our naming scheme.
-	//
-	// In case image is provided, it will replace both image and tag with provided values.
-	// Image name format: <image>:<tag>
+	// Explicit docker tag (overrides the composite tag suffix below).
+	// Format: <imageOrDefault>:<tag>
 	if r.hasCustomTag(run) {
 		return fmt.Sprintf("%s:%s", r.getImage(run), *run.Configuration.Tag)
 	}
 
-	// In case there is a custom version and a custom image provided, it will replace both image and version
-	// with provided values.
-	// Image name format: <image>:<version>
+	// Pin tool semver as the full docker tag (optional escape hatch when both are set).
+	// Format: <image>:<version>
 	if r.hasCustomImage(run) && r.hasCustomVersion(run) {
 		return fmt.Sprintf("%s:%s", *run.Configuration.Image, *run.Configuration.Version)
 	}
 
-	// In case only image is provided, do not follow our default naming scheme.
-	// Image name format: <image>:<defaultTag>
-	// Note: User has to make sure that the image contains the tag matching our defaults.
-	if r.hasCustomImage(run) {
-		return fmt.Sprintf("%s:%s", *run.Configuration.Image, r.getTag(run))
-	}
-
-	// In any other case return image in the default format: <defaultImage>:<defaultTag>-<stackType>-<defaultVersionOrVersion>.
-	// In this case only a custom tool version is ever provided to override our defaults.
+	// Default tag shape: <patchTag>-<stackType>-<toolVersion>
+	// Applies to the stock image, a custom `image` (repository override only), custom `version`, or any mix that
+	// did not match the branches above.
 	return fmt.Sprintf("%s:%s-%s-%s", r.getImage(run), r.getTag(run), strings.ToLower(string(run.Type)), r.getVersion(run))
 }
 
