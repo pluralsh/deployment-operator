@@ -115,6 +115,4 @@ type FetchTodos struct {
 // writes them to a local subdirectory so the agent can inspect them.
 type DownloadManifests struct {
 	ConsoleTool
-	ClusterHandle string
-	ServiceName   string
 }

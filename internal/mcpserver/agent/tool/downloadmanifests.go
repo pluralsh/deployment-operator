@@ -45,16 +45,17 @@ func (in *DownloadManifests) Install(s *server.MCPServer) {
 }
 
 func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := in.fromRequest(request); err != nil {
+	clusterHandle, serviceName, err := parseDownloadManifestsRequest(request)
+	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("could not handle download manifests request: %v", err)), nil
 	}
 
-	svc, err := in.client.GetServiceDeploymentByHandle(in.ClusterHandle, in.ServiceName)
+	svc, err := in.client.GetServiceDeploymentByHandle(clusterHandle, serviceName)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to look up service %q on cluster %q: %v", in.ServiceName, in.ClusterHandle, err)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("failed to look up service %q on cluster %q: %v", serviceName, clusterHandle, err)), nil
 	}
 	if svc.Tarball == nil || *svc.Tarball == "" {
-		return mcp.NewToolResultError(fmt.Sprintf("service %q on cluster %q does not yet have a rendered tarball available", in.ServiceName, in.ClusterHandle)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("service %q on cluster %q does not yet have a rendered tarball available", serviceName, clusterHandle)), nil
 	}
 
 	_, token := in.client.GetCredentials()
@@ -67,7 +68,7 @@ func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequ
 		return mcp.NewToolResultError(fmt.Sprintf("failed to resolve manifests base directory: %v", err)), nil
 	}
 
-	targetDir := filepath.Join(baseDir, manifestsSubdir, sanitizeSegment(in.ClusterHandle)+"-"+sanitizeSegment(in.ServiceName))
+	targetDir := filepath.Join(baseDir, manifestsSubdir, sanitizeSegment(clusterHandle)+"-"+sanitizeSegment(serviceName))
 
 	if err := os.RemoveAll(targetDir); err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to clear target directory %q: %v", targetDir, err)), nil
@@ -96,9 +97,9 @@ func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequ
 		Instructions string `json:"instructions"`
 	}{
 		Success:   true,
-		Message:   fmt.Sprintf("downloaded manifests for service %q on cluster %q", in.ServiceName, in.ClusterHandle),
-		Cluster:   in.ClusterHandle,
-		Service:   in.ServiceName,
+		Message:   fmt.Sprintf("downloaded manifests for service %q on cluster %q", serviceName, clusterHandle),
+		Cluster:   clusterHandle,
+		Service:   serviceName,
 		ServiceID: svc.ID,
 		Directory: targetDir,
 		Instructions: fmt.Sprintf(
@@ -110,26 +111,29 @@ func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequ
 	})
 }
 
-func (in *DownloadManifests) fromRequest(request mcp.CallToolRequest) (err error) {
-	if in.ClusterHandle, err = request.RequireString("cluster"); err != nil {
-		return
+// parseDownloadManifestsRequest extracts and validates the request arguments
+// into local values. Keeping them local (rather than on the *DownloadManifests
+// receiver) avoids cross-talk between concurrent MCP tool invocations, which
+// all share a single tool instance.
+func parseDownloadManifestsRequest(request mcp.CallToolRequest) (cluster, service string, err error) {
+	if cluster, err = request.RequireString("cluster"); err != nil {
+		return "", "", err
+	}
+	if service, err = request.RequireString("service"); err != nil {
+		return "", "", err
 	}
 
-	if in.ServiceName, err = request.RequireString("service"); err != nil {
-		return
+	cluster = strings.TrimSpace(cluster)
+	service = strings.TrimSpace(service)
+
+	if cluster == "" {
+		return "", "", fmt.Errorf("cluster handle must not be empty")
+	}
+	if service == "" {
+		return "", "", fmt.Errorf("service name must not be empty")
 	}
 
-	in.ClusterHandle = strings.TrimSpace(in.ClusterHandle)
-	in.ServiceName = strings.TrimSpace(in.ServiceName)
-
-	if in.ClusterHandle == "" {
-		return fmt.Errorf("cluster handle must not be empty")
-	}
-	if in.ServiceName == "" {
-		return fmt.Errorf("service name must not be empty")
-	}
-
-	return nil
+	return cluster, service, nil
 }
 
 // resolveManifestsBaseDir picks the directory under which the
