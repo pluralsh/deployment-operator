@@ -1652,6 +1652,64 @@ func (_c *ClientMock_GetServiceDeploymentComponents_Call) RunAndReturn(run func(
 	return _c
 }
 
+// GetServiceTarball provides a mock function with given fields: id
+func (_m *ClientMock) GetServiceTarball(id string) ([]*goclient.GetServiceTarball_ServiceTarball, error) {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetServiceTarball")
+	}
+
+	var r0 []*goclient.GetServiceTarball_ServiceTarball
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) ([]*goclient.GetServiceTarball_ServiceTarball, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) []*goclient.GetServiceTarball_ServiceTarball); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*goclient.GetServiceTarball_ServiceTarball)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ClientMock_GetServiceTarball_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetServiceTarball'
+type ClientMock_GetServiceTarball_Call struct {
+	*mock.Call
+}
+
+// GetServiceTarball is a helper method to define mock.On call
+//   - id string
+func (_e *ClientMock_Expecter) GetServiceTarball(id interface{}) *ClientMock_GetServiceTarball_Call {
+	return &ClientMock_GetServiceTarball_Call{Call: _e.mock.On("GetServiceTarball", id)}
+}
+
+func (_c *ClientMock_GetServiceTarball_Call) Run(run func(id string)) *ClientMock_GetServiceTarball_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *ClientMock_GetServiceTarball_Call) Return(_a0 []*goclient.GetServiceTarball_ServiceTarball, _a1 error) *ClientMock_GetServiceTarball_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ClientMock_GetServiceTarball_Call) RunAndReturn(run func(string) ([]*goclient.GetServiceTarball_ServiceTarball, error)) *ClientMock_GetServiceTarball_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetServices provides a mock function with given fields: after, first
 func (_m *ClientMock) GetServices(after *string, first *int64) (*goclient.PagedClusterServicesForAgent, error) {
 	ret := _m.Called(after, first)

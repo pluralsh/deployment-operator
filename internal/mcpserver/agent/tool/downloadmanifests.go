@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,17 +14,16 @@ import (
 
 	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	console "github.com/pluralsh/deployment-operator/pkg/client"
-	"github.com/pluralsh/deployment-operator/pkg/manifests"
 )
 
-// manifestsSubdir is the top-level directory (relative to the agent harness
-// working directory) under which manifests for individual services are
-// extracted. The actual files live in
-// "<workingDir>/<manifestsSubdir>/<handle>-<service>/".
+// Per-service trees land at "<base>/<manifestsSubdir>/<handle>-<service>/".
 const manifestsSubdir = "manifests"
 
-// safeNamePattern matches characters that are safe to use in a directory name
-// derived from a cluster handle / service name.
+// agentHarnessSharedDir is the writable emptyDir mount the operator
+// provisions on every agent-run pod's default container. Must stay in
+// sync with `sharedContextVolumePath` in internal/controller/agentrun_pod.go.
+const agentHarnessSharedDir = "/plural/shared"
+
 var safeNamePattern = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 func (in *DownloadManifests) Install(s *server.MCPServer) {
@@ -54,20 +54,16 @@ func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequ
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to look up service %q on cluster %q: %v", serviceName, clusterHandle, err)), nil
 	}
-	if svc.Tarball == nil || *svc.Tarball == "" {
+
+	files, err := in.client.GetServiceTarball(svc.ID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to fetch service tarball for %q on cluster %q: %v", serviceName, clusterHandle, err)), nil
+	}
+	if len(files) == 0 {
 		return mcp.NewToolResultError(fmt.Sprintf("service %q on cluster %q does not yet have a rendered tarball available", serviceName, clusterHandle)), nil
 	}
 
-	_, token := in.client.GetCredentials()
-	if token == "" {
-		return mcp.NewToolResultError("Plural Console credentials are not configured for the MCP server"), nil
-	}
-
-	baseDir, err := resolveManifestsBaseDir()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to resolve manifests base directory: %v", err)), nil
-	}
-
+	baseDir := resolveManifestsBaseDir()
 	targetDir := filepath.Join(baseDir, manifestsSubdir, sanitizeSegment(clusterHandle)+"-"+sanitizeSegment(serviceName))
 
 	if err := os.RemoveAll(targetDir); err != nil {
@@ -77,14 +73,29 @@ func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequ
 		return mcp.NewToolResultError(fmt.Sprintf("failed to create target directory %q: %v", targetDir, err)), nil
 	}
 
-	reader, _, err := manifests.GetReader(*svc.Tarball, token)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to download service tarball: %v", err)), nil
-	}
-	defer reader.Close()
+	written := 0
+	for _, file := range files {
+		if file == nil {
+			continue
+		}
 
-	if err := manifests.Untar(targetDir, reader); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to extract service tarball into %q: %v", targetDir, err)), nil
+		path, err := safeJoin(targetDir, file.Path)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("refusing to write %q from service %q: %v", file.Path, serviceName, err)), nil
+		}
+
+		content, err := base64.StdEncoding.DecodeString(file.Content)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to decode content for %q: %v", file.Path, err)), nil
+		}
+
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to create parent directory for %q: %v", path, err)), nil
+		}
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to write %q: %v", path, err)), nil
+		}
+		written++
 	}
 
 	return mcp.NewToolResultJSON(struct {
@@ -94,6 +105,7 @@ func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequ
 		Service      string `json:"service"`
 		ServiceID    string `json:"serviceId"`
 		Directory    string `json:"directory"`
+		FileCount    int    `json:"fileCount"`
 		Instructions string `json:"instructions"`
 	}{
 		Success:   true,
@@ -102,6 +114,7 @@ func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequ
 		Service:   serviceName,
 		ServiceID: svc.ID,
 		Directory: targetDir,
+		FileCount: written,
 		Instructions: fmt.Sprintf(
 			"The rendered Kubernetes manifests for the service have been written to %q. "+
 				"Use Read/Glob/Grep against this directory to inspect the actual resources Plural is applying "+
@@ -111,10 +124,9 @@ func (in *DownloadManifests) handler(_ context.Context, request mcp.CallToolRequ
 	})
 }
 
-// parseDownloadManifestsRequest extracts and validates the request arguments
-// into local values. Keeping them local (rather than on the *DownloadManifests
-// receiver) avoids cross-talk between concurrent MCP tool invocations, which
-// all share a single tool instance.
+// parseDownloadManifestsRequest returns the request args as locals so
+// concurrent MCP invocations can't clobber shared state on the *DownloadManifests
+// receiver.
 func parseDownloadManifestsRequest(request mcp.CallToolRequest) (cluster, service string, err error) {
 	if cluster, err = request.RequireString("cluster"); err != nil {
 		return "", "", err
@@ -136,21 +148,38 @@ func parseDownloadManifestsRequest(request mcp.CallToolRequest) (cluster, servic
 	return cluster, service, nil
 }
 
-// resolveManifestsBaseDir picks the directory under which the
-// "manifests/<handle>-<service>" tree should live. We prefer the parent of
-// the cloned repository (the agent harness working directory) so that
-// downloaded manifests are kept side-by-side with the repo without polluting
-// the git working tree.
-func resolveManifestsBaseDir() (string, error) {
+// resolveManifestsBaseDir returns the parent of the cloned repo when the
+// harness has written its env config, otherwise the shared emptyDir mount.
+// Either way the result is on the writable shared-context volume.
+func resolveManifestsBaseDir() string {
 	if cfg, err := environment.Load(); err == nil && cfg != nil && cfg.Dir != "" {
-		return filepath.Dir(cfg.Dir), nil
+		return filepath.Dir(cfg.Dir)
 	}
-
-	return os.Getwd()
+	return agentHarnessSharedDir
 }
 
-// sanitizeSegment normalises a value coming from outside the harness into
-// something safe to use as a directory name segment.
+// safeJoin joins name onto base, rejecting absolute paths and any `..`
+// traversal that would escape base.
+func safeJoin(base, name string) (string, error) {
+	if name == "" {
+		return "", fmt.Errorf("empty file path")
+	}
+	if filepath.IsAbs(name) {
+		return "", fmt.Errorf("absolute file path is not allowed")
+	}
+
+	joined := filepath.Join(base, name)
+	rel, err := filepath.Rel(base, joined)
+	if err != nil {
+		return "", fmt.Errorf("invalid file path %q: %w", name, err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("file path %q escapes target directory", name)
+	}
+	return joined, nil
+}
+
+// sanitizeSegment normalises an untrusted value into a safe directory segment.
 func sanitizeSegment(s string) string {
 	s = strings.TrimSpace(s)
 	s = safeNamePattern.ReplaceAllString(s, "-")
