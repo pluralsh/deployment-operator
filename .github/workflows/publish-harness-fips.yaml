@@ -140,19 +140,19 @@ jobs:
         versions:
         - ansible: '7.7.0'
           python: '3.11'
-          tag: '7.7'
+          minor: '7.7'
         - ansible: '8.7.0'
           python: '3.11'
-          tag: '8.7'
+          minor: '8.7'
         - ansible: '9.0.1'
           python: '3.12'
-          tag: '9.0'
+          minor: '9.0'
         - ansible: '10.0.1'
           python: '3.12'
-          tag: '10.0'
+          minor: '10.0'
         - ansible: '11.0.0'
           python: '3.12'
-          tag: '11.0'
+          minor: '11.0'
     permissions:
       contents: write
       discussions: write
@@ -171,9 +171,12 @@ jobs:
           ghcr.io/pluralsh/harness
           docker.io/pluralsh/harness
         tags: |
-          type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.tag }}-fips,priority=1000
-          type=sha,suffix=-ansible-${{ matrix.versions.tag }}-fips,priority=800
-          type=ref,event=pr,suffix=-ansible-${{ matrix.versions.tag }}-fips,priority=600
+          type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.ansible }}-fips,priority=1000
+          type=semver,pattern={{version}},suffix=-ansible-${{ matrix.versions.minor }}-fips,priority=1000
+          type=sha,suffix=-ansible-${{ matrix.versions.ansible }}-fips,priority=800
+          type=sha,suffix=-ansible-${{ matrix.versions.minor }}-fips,priority=800
+          type=ref,event=pr,suffix=-ansible-${{ matrix.versions.ansible }}-fips,priority=600
+          type=ref,event=pr,suffix=-ansible-${{ matrix.versions.minor }}-fips,priority=600
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
