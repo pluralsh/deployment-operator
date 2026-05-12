@@ -108,7 +108,7 @@ func TestSettingsTemplate_GenerateAndVerifyContents(t *testing.T) {
 			}
 		}
 		want := map[string]struct{}{
-			"updateAgentRunAnalysis": {},
+			"updateAgentRunAnalysis":   {},
 			"downloadServiceManifests": {},
 		}
 		for _, name := range tools {
