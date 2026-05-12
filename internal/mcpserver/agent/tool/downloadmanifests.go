@@ -194,12 +194,13 @@ func NewDownloadManifests(client console.Client, agentRunID string) Tool {
 	return &DownloadManifests{
 		ConsoleTool: ConsoleTool{
 			id: DownloadManifestsTool,
-			description: "Downloads the fully rendered Kubernetes manifests for a Plural service " +
-				"and writes them to a dedicated '<handle>-<name>' subdirectory under '" + manifestsSubdir + "/' " +
-				"next to the cloned repository. Use this whenever you need to understand what Plural " +
-				"is actually applying for a service - including resources rendered from external Helm " +
-				"charts or the Plural gitops layout - instead of guessing via web searches. After it " +
-				"returns, inspect the listed directory with Read/Glob/Grep.",
+			description: "Downloads a Plural service's gitops bundle - the exact set of files " +
+				"Plural ships to the cluster-side agent before apply (Helm chart sources, kustomize " +
+				"bases, raw YAML, or Plural liquid templates, depending on how the service is " +
+				"configured). Files are written to a dedicated '<handle>-<name>' subdirectory under " +
+				"'" + manifestsSubdir + "/' next to the cloned repository. Use this to inspect " +
+				"Plural's gitops layout - including external Helm charts - instead of guessing via " +
+				"web searches. After it returns, inspect the listed directory with Read/Glob/Grep.",
 			client:     client,
 			agentRunID: agentRunID,
 		},
