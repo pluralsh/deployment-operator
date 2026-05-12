@@ -27,12 +27,17 @@ const (
 
 	dindContainerName            = "dind"
 	defaultContainerDinDImage    = "docker"
-	defaultContainerDinDImageTag = "27-dind"
+	defaultContainerDinDImageTag = "29.4.1-dind-rootless"
 	dockerCertsVolumeName        = "docker-certs"
 	dockerGraphVolumeName        = "docker-graph"
+	tunDeviceVolumeName          = "tun-device"
+	tunDevicePath                = "/dev/net/tun"
 	dockerCertsPath              = "/certs"
-	dockerDaemonPort             = 2376
-	dockerSocketGID              = int64(2375)
+	dockerDaemonPort             = 2376 // TLS port used by the entrypoint when DOCKER_TLS_CERTDIR is set
+	dindRootlessUID              = int64(1000)
+	dindRootlesskitNetEnvName    = "DOCKERD_ROOTLESS_ROOTLESSKIT_NET"
+	dindRootlesskitNetValue      = "slirp4netns"
+	dindTLSCertDirEnvName        = "DOCKER_TLS_CERTDIR"
 
 	browserContainerName              = "browser"
 	defaultContainerBrowser           = v1alpha1.BrowserChrome
@@ -48,7 +53,7 @@ const (
 )
 
 var dindClientEnvs = []corev1.EnvVar{
-	{Name: "DOCKER_HOST", Value: "tcp://localhost:2376"},
+	{Name: "DOCKER_HOST", Value: fmt.Sprintf("tcp://localhost:%d", dockerDaemonPort)},
 	{Name: "DOCKER_TLS_VERIFY", Value: "1"},
 	{Name: "DOCKER_CERT_PATH", Value: dockerCertsPath + "/client"},
 }
@@ -190,7 +195,7 @@ func ensureDefaultContainer(containers []corev1.Container, run *v1alpha1.AgentRu
 		containers[index].SecurityContext = ensureDefaultContainerSecurityContext(containers[index].SecurityContext)
 		containers[index].EnvFrom = getDefaultContainerEnvFrom(run.Name)
 		containers[index].VolumeMounts = ensureDefaultVolumeMounts(containers[index].VolumeMounts)
-		containers[index].Env = ensureDefaultEnvVars(containers[index].Env, run, runtime)
+		containers[index].Env = ensureDefaultEnvVars(containers[index].Env, runtime)
 
 		// Do not allow command to be overridden. Only args can be overridden.
 		containers[index].Command = nil
@@ -250,7 +255,7 @@ func getDefaultContainer(run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime)
 		VolumeMounts:    []corev1.VolumeMount{defaultTmpContainerVolumeMount},
 		SecurityContext: ensureDefaultContainerSecurityContext(nil),
 		EnvFrom:         getDefaultContainerEnvFrom(run.Name),
-		Env:             getDefaultEnvVars(run, runtime),
+		Env:             getDefaultEnvVars(runtime),
 	}
 }
 
@@ -276,7 +281,7 @@ func getDefaultContainerEnvFrom(secretName string) []corev1.EnvFromSource {
 	}}
 }
 
-func getDefaultEnvVars(_ *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
+func getDefaultEnvVars(runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{Name: EnvDindEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Dind != nil && *runtime.Spec.Dind)},
 		{Name: EnvBrowserEnabled, Value: fmt.Sprintf("%t", runtime.Spec.Browser.IsEnabled())},
@@ -289,8 +294,8 @@ func getDefaultEnvVars(_ *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []c
 	return envVars
 }
 
-func ensureDefaultEnvVars(existing []corev1.EnvVar, run *v1alpha1.AgentRun, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
-	defaultEnvs := getDefaultEnvVars(run, runtime)
+func ensureDefaultEnvVars(existing []corev1.EnvVar, runtime *v1alpha1.AgentRuntime) []corev1.EnvVar {
+	defaultEnvs := getDefaultEnvVars(runtime)
 
 	// Add default env vars if they don't already exist
 	for _, defaultEnv := range defaultEnvs {
@@ -325,51 +330,38 @@ func ensureDefaultContainerSecurityContext(sc *corev1.SecurityContext) *corev1.S
 
 func ensureDefaultPodSecurityContextWithDind(psc *corev1.PodSecurityContext) *corev1.PodSecurityContext {
 	if psc != nil {
-		// Add supplemental group if not already present
-		if psc.SupplementalGroups == nil {
-			psc.SupplementalGroups = []int64{}
+		if psc.FSGroup == nil {
+			psc.FSGroup = lo.ToPtr(dindRootlessUID)
 		}
-
-		// Check if docker group already exists
-		hasDockerGroup := false
-		for _, gid := range psc.SupplementalGroups {
-			if gid == dockerSocketGID {
-				hasDockerGroup = true
-				break
-			}
-		}
-
-		if !hasDockerGroup {
-			psc.SupplementalGroups = append(psc.SupplementalGroups, dockerSocketGID)
-		}
-
 		return psc
 	}
 
-	// When DinD is enabled, don't set runAsNonRoot at pod level
-	// because the DinD container needs to run as root
+	// Rootless dind runs as uid 1000; FSGroup ensures EmptyDir volumes (certs, graph)
+	// are group-writable by that user for TLS cert generation.
 	return &corev1.PodSecurityContext{
-		SupplementalGroups: []int64{dockerSocketGID},
+		FSGroup: lo.ToPtr(dindRootlessUID),
 	}
 }
 
 func enableDind(pod *corev1.Pod) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes,
 		corev1.Volume{
-			Name: dockerCertsVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-		corev1.Volume{
 			Name: dockerGraphVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
-		// Add volume for Docker socket
 		corev1.Volume{
-			Name: "docker-socket",
+			Name: tunDeviceVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: tunDevicePath,
+					Type: lo.ToPtr(corev1.HostPathCharDev),
+				},
+			},
+		},
+		corev1.Volume{
+			Name: dockerCertsVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -381,10 +373,15 @@ func enableDind(pod *corev1.Pod) {
 		Name:  dindContainerName,
 		Image: fmt.Sprintf("%s:%s", common.GetConfigurationManager().SwapBaseRegistry(defaultContainerDinDImage), defaultContainerDinDImageTag),
 		SecurityContext: &corev1.SecurityContext{
-			Privileged: lo.ToPtr(true),
+			Privileged: new(true),
 		},
 		Env: []corev1.EnvVar{
-			{Name: "DOCKER_TLS_CERTDIR", Value: dockerCertsPath},
+			// Use slirp4netns for user-space networking; /dev/net/tun must be mounted
+			// from the host so rootlesskit can create the tap interface.
+			{Name: dindRootlesskitNetEnvName, Value: dindRootlesskitNetValue},
+			// Entrypoint generates TLS certs in DOCKER_TLS_CERTDIR and automatically
+			// adds --host=tcp://0.0.0.0:2376 --tlsverify plus the rootlesskit port-forward rule.
+			{Name: dindTLSCertDirEnvName, Value: dockerCertsPath},
 		},
 		Ports: []corev1.ContainerPort{
 			{
@@ -393,10 +390,9 @@ func enableDind(pod *corev1.Pod) {
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: dockerCertsVolumeName, MountPath: dockerCertsPath},
 			{Name: dockerGraphVolumeName, MountPath: "/var/lib/docker"},
-			// Mount the socket directory
-			{Name: "docker-socket", MountPath: "/var/run"},
+			{Name: tunDeviceVolumeName, MountPath: tunDevicePath},
+			{Name: dockerCertsVolumeName, MountPath: dockerCertsPath},
 			// Share /tmp with the default container so bind mounts work
 			{Name: defaultTmpVolumeName, MountPath: defaultTmpVolumePath},
 			{Name: sharedContextVolumeName, MountPath: sharedContextVolumePath},
@@ -404,26 +400,15 @@ func enableDind(pod *corev1.Pod) {
 		RestartPolicy: lo.ToPtr(corev1.ContainerRestartPolicyAlways),
 	})
 
-	// Wire agent container
+	// Wire agent container with dind client env vars and the read-only certs mount
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == defaultContainer {
-			c := &pod.Spec.Containers[i]
-
-			c.Env = append(c.Env, dindClientEnvs...)
-
-			c.VolumeMounts = append(c.VolumeMounts,
-				corev1.VolumeMount{
-					Name:      dockerCertsVolumeName,
-					MountPath: dockerCertsPath,
-					ReadOnly:  true,
-				},
-				// Mount the socket directory in the default container too
-				corev1.VolumeMount{
-					Name:      "docker-socket",
-					MountPath: "/var/run",
-					ReadOnly:  false,
-				},
-			)
+			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, dindClientEnvs...)
+			pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts, corev1.VolumeMount{
+				Name:      dockerCertsVolumeName,
+				MountPath: dockerCertsPath,
+				ReadOnly:  true,
+			})
 		}
 	}
 }

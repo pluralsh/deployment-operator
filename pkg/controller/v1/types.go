@@ -17,7 +17,7 @@ type Reconciler interface {
 	// Poll Console for any state changes and put them in the queue that will be consumed by Reconcile.
 	Poll(context.Context) error
 
-	// GetPublisher returns event name, i.e. "event.service", and Publisher that will be registered with this reconciler.
+	// GetPublisher returns websocket resource key, i.e. "service" or "stack_run", and Publisher that will be registered with this reconciler.
 	// TODO: Make it optional and/or accept multiple publishers.
 	GetPublisher() (string, websocket.Publisher)
 

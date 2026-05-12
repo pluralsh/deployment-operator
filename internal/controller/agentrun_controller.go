@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -47,19 +48,24 @@ const (
 	EnvClaudeArgs               = "PLRL_CLAUDE_ARGS"
 	EnvClaudeBashDefaultTimeout = "PLRL_CLAUDE_BASH_DEFAULT_TIMEOUT"
 	EnvClaudeBashMaxTimeout     = "PLRL_CLAUDE_BASH_MAX_TIMEOUT"
+	EnvClaudeEndpoint           = "PLRL_CLAUDE_ENDPOINT"
 
 	EnvGeminiModel             = "PLRL_GEMINI_MODEL"
 	EnvGeminiAPIKey            = "PLRL_GEMINI_API_KEY"
 	EnvGeminiInactivityTimeout = "PLRL_GEMINI_INACTIVITY_TIMEOUT"
+	EnvGeminiEndpoint          = "PLRL_GEMINI_ENDPOINT"
 
-	EnvCodexModel  = "PLRL_CODEX_MODEL"
-	EnvCodexAPIKey = "PLRL_CODEX_API_KEY"
+	EnvCodexModel    = "PLRL_CODEX_MODEL"
+	EnvCodexAPIKey   = "PLRL_CODEX_API_KEY"
+	EnvCodexEndpoint = "PLRL_CODEX_ENDPOINT"
 
 	EnvDindEnabled    = "PLRL_DIND_ENABLED"
 	EnvBrowserEnabled = "PLRL_BROWSER_ENABLED"
 	EnvExecTimeout    = "PLRL_EXEC_TIMEOUT"
 
 	EnvGitProxy = "PLRL_GIT_PROXY"
+
+	EnvExaMcpServers = "PLRL_EXA_MCP_SERVERS"
 )
 
 var (
@@ -365,6 +371,18 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 		return nil, fmt.Errorf("failed to resolve git signing key: %w", err)
 	}
 
+	var exaMcpConfigs []*v1alpha1.ExaMcpServerConfigRaw
+	if len(runtime.Spec.ExaMcpServers) > 0 {
+		exaMcpConfigs = make([]*v1alpha1.ExaMcpServerConfigRaw, 0, len(runtime.Spec.ExaMcpServers))
+		for _, exaMcpServer := range runtime.Spec.ExaMcpServers {
+			exaMcpConfig, err := r.getExaMcpConfig(ctx, run.Namespace, exaMcpServer)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get exaMcp config for server %q: %w", exaMcpServer.Name, err)
+			}
+			exaMcpConfigs = append(exaMcpConfigs, exaMcpConfig)
+		}
+	}
+
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Name: run.Name, Namespace: run.Namespace}, secret); err != nil {
 		if !errors.IsNotFound(err) {
@@ -373,7 +391,7 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: run.Name, Namespace: run.Namespace},
-			StringData: r.getSecretData(run, config, runtime.Spec.Type, signingKey),
+			StringData: r.getSecretData(run, config, runtime.Spec.Type, signingKey, exaMcpConfigs),
 		}
 
 		logger.V(2).Info("creating secret", "namespace", secret.Namespace, "name", secret.Name)
@@ -386,7 +404,7 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 
 	if !r.hasSecretData(secret.Data, run) {
 		logger.V(2).Info("updating secret", "namespace", secret.Namespace, "name", secret.Name)
-		secret.StringData = r.getSecretData(run, config, runtime.Spec.Type, signingKey)
+		secret.StringData = r.getSecretData(run, config, runtime.Spec.Type, signingKey, exaMcpConfigs)
 		if err := r.Update(ctx, secret); err != nil {
 			logger.Error(err, "unable to update secret")
 			return nil, err
@@ -395,6 +413,15 @@ func (r *AgentRunReconciler) reconcilePodSecret(ctx context.Context, run *v1alph
 
 	return secret, nil
 }
+
+func (r *AgentRunReconciler) getExaMcpConfig(ctx context.Context, namespace string, config v1alpha1.ExaMcpServerConfig) (*v1alpha1.ExaMcpServerConfigRaw, error) {
+	return config.ToExaMcpServerConfigRaw(func(selector corev1.SecretKeySelector) (*corev1.Secret, error) {
+		secret := &corev1.Secret{}
+		err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: selector.Name}, secret)
+		return secret, err
+	})
+}
+
 func (r *AgentRunReconciler) getAgentRuntimeConfig(ctx context.Context, namespace string, config *v1alpha1.AgentRuntimeConfig) (*v1alpha1.AgentRuntimeConfigRaw, error) {
 	if config == nil {
 		return nil, nil
@@ -429,7 +456,7 @@ func (r *AgentRunReconciler) resolveSigningKey(ctx context.Context, runtime *v1a
 	return value, nil
 }
 
-func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alpha1.AgentRuntimeConfigRaw, runtimeType console.AgentRuntimeType, signingKey []byte) map[string]string {
+func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alpha1.AgentRuntimeConfigRaw, runtimeType console.AgentRuntimeType, signingKey []byte, exaMcpConfigs []*v1alpha1.ExaMcpServerConfigRaw) map[string]string {
 	result := map[string]string{
 		EnvConsoleURL:  r.ConsoleURL,
 		EnvDeployToken: r.DeployToken,
@@ -438,6 +465,13 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 
 	if len(signingKey) > 0 {
 		result[gitSigningKeySecretKey] = string(signingKey)
+	}
+
+	if len(exaMcpConfigs) > 0 {
+		b, err := json.Marshal(exaMcpConfigs)
+		if err == nil {
+			result[EnvExaMcpServers] = string(b)
+		}
 	}
 
 	if config == nil {
@@ -482,6 +516,9 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 		if config.Claude.BashMaxTimeout != nil {
 			result[EnvClaudeBashMaxTimeout] = config.Claude.BashMaxTimeout.Duration.String()
 		}
+		if config.Claude.Endpoint != nil {
+			result[EnvClaudeEndpoint] = lo.FromPtr(config.Claude.Endpoint)
+		}
 	}
 
 	if runtimeType == console.AgentRuntimeTypeGemini {
@@ -498,6 +535,9 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 		if config.Gemini.InactivityTimeout != nil {
 			result[EnvGeminiInactivityTimeout] = config.Gemini.InactivityTimeout.Duration.String()
 		}
+		if config.Gemini.Endpoint != nil {
+			result[EnvGeminiEndpoint] = lo.FromPtr(config.Gemini.Endpoint)
+		}
 	}
 	if runtimeType == console.AgentRuntimeTypeCodex {
 		if config.Codex == nil {
@@ -507,6 +547,9 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 		result[EnvCodexAPIKey] = config.Codex.ApiKey
 		if config.Codex.Timeout != nil {
 			result[EnvExecTimeout] = config.Codex.Timeout.Duration.String()
+		}
+		if config.Codex.Endpoint != nil {
+			result[EnvCodexEndpoint] = lo.FromPtr(config.Codex.Endpoint)
 		}
 	}
 

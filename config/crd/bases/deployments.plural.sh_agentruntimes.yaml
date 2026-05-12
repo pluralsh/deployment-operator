@@ -54,6 +54,12 @@ spec:
                 items:
                   type: string
                 type: array
+              babysitInterval:
+                description: BabysitInterval configures the interval for the operator
+                  to check on the health of the agent runtime and perform necessary
+                  babysitting actions (e.g. restarting unhealthy runtimes). When not
+                  provided, a default interval of 1 minute will be used.
+                type: string
               bindings:
                 description: Bindings define the creation permissions for this agent
                   runtime.
@@ -1711,6 +1717,10 @@ spec:
                         description: BashTimeout is the default timeout for any bash
                           command Claude execute.
                         type: string
+                      endpoint:
+                        description: Endpoint is the base URL for the Claude API (supports
+                          Bedrock/Anthropic-compatible endpoints).
+                        type: string
                       extraArgs:
                         description: ExtraArgs CLI args for advanced flags not modeled
                           here
@@ -1752,6 +1762,10 @@ spec:
                         - key
                         type: object
                         x-kubernetes-map-type: atomic
+                      endpoint:
+                        description: Endpoint is the base URL for the Codex API (supports
+                          OpenAI/Azure-compatible endpoints).
+                        type: string
                       model:
                         description: Model to use.
                         type: string
@@ -1787,6 +1801,8 @@ spec:
                         - key
                         type: object
                         x-kubernetes-map-type: atomic
+                      endpoint:
+                        type: string
                       inactivityTimeout:
                         description: InactivityTimeout is the timeout for inactivity
                           during a gemini run.
@@ -1805,7 +1821,9 @@ spec:
                     description: Config for OpenCode CLI runtime.
                     properties:
                       endpoint:
-                        description: Endpoint API endpoint for the OpenCode service.
+                        description: |-
+                          Endpoint API endpoint for the OpenCode service.
+                          Endpoint for the OpenCode service (can be any OpenAI-compatible API endpoint).
                         type: string
                       extraArgs:
                         description: |-
@@ -1867,6 +1885,45 @@ spec:
                   Dind enables Docker-in-Docker for this agent runtime.
                   When true, the runtime will be configured to run with DinD support.
                 type: boolean
+              exaMcpServers:
+                description: ExaMcpServers defines external MCP servers that the agent
+                  runtime should connect to. When provided, the runtime will be configured
+                  to connect to these external MCP servers for tool and action execution.
+                items:
+                  properties:
+                    apiKey:
+                      description: SecretKeySelector selects a key of a Secret.
+                      properties:
+                        key:
+                          description: The key of the secret to select from.  Must
+                            be a valid secret key.
+                          type: string
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                        optional:
+                          description: Specify whether the Secret or its key must
+                            be defined
+                          type: boolean
+                      required:
+                      - key
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    name:
+                      type: string
+                    url:
+                      type: string
+                  required:
+                  - name
+                  - url
+                  type: object
+                type: array
               git:
                 description: Git configure commit signing on agent run. When provided,
                   the runtime will be configured to sign git commits using the provided

@@ -94,7 +94,7 @@ func (s *RestoreReconciler) GetPollInterval() func() time.Duration {
 }
 
 func (s *RestoreReconciler) GetPublisher() (string, websocket.Publisher) {
-	return "restore.event", &socketPublisher{
+	return "restore", &socketPublisher{
 		restoreQueue: s.restoreQueue,
 		restoreCache: s.restoreCache,
 	}

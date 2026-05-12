@@ -129,11 +129,12 @@ type Project struct {
 
 type MCPInput struct {
 	Name          string
-	Type          string // Transport type: "stdio" or "sse"
+	Type          string // Transport type: "stdio", "sse" or "http"
 	URL           string
 	Command       string
 	Args          []string
 	Env           map[string]string
+	Headers       map[string]string // HTTP request headers, used for "http" transport
 	EnabledTools  []string
 	DisabledTools []string
 	TrustPolicy   string // e.g. "always" to auto-approve tool calls in exec mode
@@ -177,11 +178,12 @@ type Profile struct {
 }
 
 type MCPServer struct {
-	Type          string            `toml:"type,omitempty"`    // Transport type: "stdio" or "sse"
-	URL           string            `toml:"url,omitempty"`     // For remote MCP (sse)
+	Type          string            `toml:"type,omitempty"`    // Transport type: "stdio", "sse" or "http"
+	URL           string            `toml:"url,omitempty"`     // For remote MCP (sse/http)
 	Command       string            `toml:"command,omitempty"` // For local MCP (stdio)
 	Args          []string          `toml:"args,omitempty"`
 	Env           map[string]string `toml:"env,omitempty"`
+	Headers       map[string]string `toml:"headers,omitempty"` // HTTP request headers for "http" transport
 	EnabledTools  []string          `toml:"enabled_tools,omitempty"`
 	DisabledTools []string          `toml:"disabled_tools,omitempty"`
 	TrustPolicy   string            `toml:"trust_policy,omitempty"` // e.g. "always" to auto-approve tool calls in exec mode

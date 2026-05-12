@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -34,18 +35,84 @@ type Gemini struct {
 	model Model
 }
 
+func (in *Gemini) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
+	if bCtx == nil {
+		return false
+	}
+
+	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey), fmt.Sprintf("GEMINI_CLI_TRUST_WORKSPACE=%s", "true")}
+	if in.Config.Run.Runtime.Config.Gemini.Endpoint != nil {
+		env = append(env, fmt.Sprintf("GEMINI_API_BASE_URL=%s", *in.Config.Run.Runtime.Config.Gemini.Endpoint))
+	}
+
+	in.executable = exec.NewExecutable(
+		"gemini",
+		exec.WithArgs(in.args(bCtx.Prompt)),
+		exec.WithDir(in.Config.WorkDir),
+		exec.WithEnv(env),
+		exec.WithTimeout(in.Config.Run.Runtime.Config.Gemini.Timeout),
+	)
+
+	klog.V(log.LogLevelInfo).InfoS("Gemini executable configured", "timeout", in.Config.Run.Runtime.Config.Gemini.Timeout)
+
+	// Send the initial prompt as a message too
+	if in.onMessage != nil {
+		in.onMessage(&console.AgentMessageAttributes{Message: bCtx.Prompt, Role: console.AiRoleUser})
+	}
+
+	err := in.executable.RunStream(ctx, func(line []byte) {
+		klog.V(log.LogLevelTrace).InfoS("Gemini stream event", "line", string(line))
+
+		// This is here to prevent unavoidable log lines being reported as errors.
+		// TODO: Remove once https://github.com/google-gemini/gemini-cli/issues/15053 is fixed.
+		trimmed := strings.TrimSpace(string(line))
+		if !strings.HasPrefix(trimmed, "{") {
+			klog.V(log.LogLevelDebug).InfoS("ignoring non-json Gemini stream line", "trimmed", trimmed)
+			return
+		}
+
+		event := &events.EventBase{}
+		if err := json.Unmarshal(line, event); err != nil {
+			klog.ErrorS(err, "failed to unmarshal Gemini stream event", "line", line)
+			in.Config.ErrorChan <- err
+			return
+		}
+
+		if err := event.OnMessage(line, in.onMessage); err != nil {
+			klog.ErrorS(err, "failed to process Gemini stream event", "line", string(line))
+			in.Config.ErrorChan <- err
+		}
+	})
+	if err != nil {
+		klog.ErrorS(err, "Gemini execution failed")
+		in.Config.ErrorChan <- err
+		return false
+	}
+
+	return false
+}
+
+func (in *Gemini) ConfigureBabysitRun() error {
+	return in.ConfigureSystemPromptForBabysitRun(console.AgentRuntimeTypeGemini)
+}
+
 func (in *Gemini) Run(ctx context.Context, options ...exec.Option) {
 	go in.start(ctx, options...)
 }
 
 func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
+	env := []string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey), fmt.Sprintf("GEMINI_CLI_TRUST_WORKSPACE=%s", "true")}
+	if in.Config.Run.Runtime.Config.Gemini.Endpoint != nil {
+		env = append(env, fmt.Sprintf("GEMINI_API_BASE_URL=%s", *in.Config.Run.Runtime.Config.Gemini.Endpoint))
+	}
+
 	in.executable = exec.NewExecutable(
 		"gemini",
 		append(
 			options,
-			exec.WithArgs(in.args()),
+			exec.WithArgs(in.args("")),
 			exec.WithDir(in.Config.WorkDir),
-			exec.WithEnv([]string{fmt.Sprintf("GEMINI_API_KEY=%s", in.apiKey)}),
+			exec.WithEnv(env),
 			exec.WithTimeout(in.Config.Run.Runtime.Config.Gemini.Timeout),
 		)...,
 	)
@@ -89,17 +156,20 @@ func (in *Gemini) start(ctx context.Context, options ...exec.Option) {
 	// FinishedChan is closed by the controller after the babysit loop exits.
 }
 
-func (in *Gemini) args() []string {
+func (in *Gemini) args(prompt string) []string {
+	if len(prompt) > 0 {
+		in.Config.Run.Prompt = prompt
+	}
 	if in.Config.Run.Mode == console.AgentRunModeWrite {
 		return []string{
 			"--approval-mode", "yolo",
-			"--output-format", "stream-json",
+			"--output-format", "stream-json", "--prompt",
 			in.Config.Run.Prompt,
 		}
 	}
 
 	return []string{
-		"--output-format", "stream-json",
+		"--output-format", "stream-json", "--prompt",
 		in.Config.Run.Prompt,
 	}
 }
@@ -118,6 +188,8 @@ func (in *Gemini) Configure(consoleURL, consoleToken, deployToken string) error 
 		AgentRunMode:      in.Config.Run.Mode,
 		InactivityTimeout: int64(in.Config.Run.Runtime.Config.Gemini.InactivityTimeout.Seconds()),
 		Model:             in.model,
+		ExaMcpConfigs:     in.Config.Run.Runtime.ExaMcpConfigs,
+		GitAccessToken:    os.Getenv("GIT_ACCESS_TOKEN"),
 	}
 
 	_, content, err := settings(input)

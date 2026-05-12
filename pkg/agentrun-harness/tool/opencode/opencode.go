@@ -33,15 +33,16 @@ func (in *Opencode) Configure(consoleURL, consoleToken, deployToken string) erro
 	}
 
 	input := &ConfigTemplateInput{
-		ConsoleURL:   consoleURL,
-		ConsoleToken: consoleToken,
-		DeployToken:  deployToken,
-		AgentRunID:   in.Config.Run.ID,
-		Provider:     in.provider,
-		Endpoint:     endpoint,
-		Model:        in.model,
-		Token:        in.Config.Run.Runtime.Config.OpenCode.Token,
-		Mode:         in.Config.Run.Mode,
+		ConsoleURL:    consoleURL,
+		ConsoleToken:  consoleToken,
+		DeployToken:   deployToken,
+		AgentRunID:    in.Config.Run.ID,
+		Provider:      in.provider,
+		Endpoint:      endpoint,
+		Model:         in.model,
+		Token:         in.Config.Run.Runtime.Config.OpenCode.Token,
+		Mode:          in.Config.Run.Mode,
+		ExaMcpConfigs: in.Config.Run.Runtime.ExaMcpConfigs,
 	}
 
 	_, content, err := configTemplate(input)
@@ -76,7 +77,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 		append(
 			options,
 			exec.WithEnv([]string{fmt.Sprintf("OPENCODE_CONFIG=%s", configFilePath)}),
-			exec.WithArgs(in.args()),
+			exec.WithArgs(in.args("")),
 			exec.WithDir(in.Config.RepositoryDir),
 			exec.WithTimeout(in.Config.Run.Runtime.Config.OpenCode.Timeout),
 		)...,
@@ -221,10 +222,12 @@ func (in *Opencode) getID(e EventListResponse) string {
 	return e.Part.MessageID
 }
 
-func (in *Opencode) args() []string {
-	prompt := in.Config.Run.Prompt
-	if overridePrompt := os.Getenv(environment.EnvOverrideSystemPrompt); len(overridePrompt) > 0 {
-		prompt = overridePrompt
+func (in *Opencode) args(prompt string) []string {
+	if len(prompt) == 0 {
+		prompt = in.Config.Run.Prompt
+		if overridePrompt := os.Getenv(environment.EnvOverrideSystemPrompt); len(overridePrompt) > 0 {
+			prompt = overridePrompt
+		}
 	}
 
 	return []string{
@@ -270,6 +273,59 @@ func (in *Opencode) ensure() error {
 	}
 
 	return nil
+}
+
+func (in *Opencode) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
+	if bCtx == nil {
+		return false
+	}
+	configFilePath, err := filepath.Abs(in.configFilePath())
+	if err != nil {
+		in.Config.ErrorChan <- err
+		return false
+	}
+
+	runCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	in.executable = exec.NewExecutable(
+		"opencode",
+		exec.WithEnv([]string{fmt.Sprintf("OPENCODE_CONFIG=%s", configFilePath)}),
+		exec.WithArgs(in.args(bCtx.Prompt)),
+		exec.WithDir(in.Config.RepositoryDir),
+		exec.WithTimeout(in.Config.Run.Runtime.Config.OpenCode.Timeout),
+	)
+
+	klog.V(log.LogLevelInfo).InfoS("opencode executable configured", "timeout", in.Config.Run.Runtime.Config.OpenCode.Timeout)
+
+	// Send the initial prompt as a message too
+	if in.onMessage != nil {
+		in.onMessage(&console.AgentMessageAttributes{Message: bCtx.Prompt, Role: console.AiRoleUser})
+	}
+
+	state := &streamState{
+		events: make(map[string]*Event),
+	}
+
+	err = in.executable.RunStream(runCtx, in.streamLineHandler(state, cancel))
+	if ctxErr := context.Cause(runCtx); ctxErr != nil {
+		klog.V(log.LogLevelDefault).ErrorS(ctxErr, "opencode execution failed")
+		in.Config.ErrorChan <- ctxErr
+		return false
+	}
+
+	if err != nil {
+		klog.V(log.LogLevelDefault).ErrorS(err, "opencode execution failed")
+		in.Config.ErrorChan <- err
+		return false
+	}
+
+	klog.V(log.LogLevelExtended).InfoS("opencode execution finished")
+	return false
+}
+
+func (in *Opencode) ConfigureBabysitRun() error {
+	return in.ConfigureSystemPromptForBabysitRun(console.AgentRuntimeTypeOpencode)
 }
 
 func New(config v1.Config) v1.Tool {

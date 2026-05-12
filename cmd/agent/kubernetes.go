@@ -317,7 +317,7 @@ func registerKubeReconcilersOrDie(
 	if err := agentRuntimeReconciler.SetupWithManager(manager); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AgentRuntime")
 	}
-	consoleManager.Socket.AddPublisher("agent.run.event", agentRuntimeReconciler)
+	consoleManager.Socket.AddPublisher("agent_run", agentRuntimeReconciler)
 
 	if err := (&controller.AgentRunReconciler{
 		Client:           manager.GetClient(),
