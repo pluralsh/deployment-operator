@@ -3,8 +3,6 @@ package controller
 import (
 	"time"
 
-	"k8s.io/klog/v2"
-
 	"github.com/pluralsh/deployment-operator/pkg/client"
 	"github.com/pluralsh/deployment-operator/pkg/websocket"
 )
@@ -34,14 +32,11 @@ func WithSocket(socket websocket.Socket) ControllerManagerOption {
 
 func WithSocketArgs(clusterID, url, deployToken string) ControllerManagerOption {
 	return func(o *Manager) (err error) {
-		socket, err := websocket.New(clusterID, url, deployToken)
+		// Start with a closed socket and let manager poll decide when to open it.
+		// This avoids establishing a websocket connection before runtime config
+		// (disableWebsocket) has been applied by AgentConfiguration reconciliation.
+		socket, err := websocket.NewClosed(clusterID, url, deployToken)
 		o.Socket = socket
-
-		if err != nil && socket != nil {
-			klog.Error(err, "could not initiate websocket connection, ignoring and falling back to polling")
-			return nil
-		}
-
 		return err
 	}
 }

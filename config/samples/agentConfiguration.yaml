@@ -12,4 +12,5 @@ spec:
   vulnerabilityReportUploadInterval: "10m"
   maxConcurrentReconciles: 5
   maxSentinelRunJobs: 2
+  disableWebsocket: false
 

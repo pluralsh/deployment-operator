@@ -88,7 +88,7 @@ func (r *StackReconciler) GetPollInterval() func() time.Duration {
 }
 
 func (r *StackReconciler) GetPublisher() (string, websocket.Publisher) {
-	return "stack.run.event", &socketPublisher{
+	return "stack_run", &socketPublisher{
 		stackRunQueue: r.stackQueue,
 		stackRunCache: r.stackCache,
 	}
