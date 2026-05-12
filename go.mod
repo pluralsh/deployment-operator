@@ -41,7 +41,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.74.1
+	github.com/pluralsh/console/go/client v1.76.1
 	github.com/pluralsh/console/go/polly v1.0.0
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/pluralsh/gophoenix v0.1.3-0.20231201014135-dff1b4309e34
@@ -529,7 +529,6 @@ replace (
 	github.com/containerd/containerd => github.com/containerd/containerd v1.7.29
 	github.com/olekukonko/tablewriter => github.com/olekukonko/tablewriter v0.0.5
 	github.com/open-policy-agent/opa => github.com/open-policy-agent/opa v1.4.0
-	github.com/pluralsh/console/go/client => ../console/go/client
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.31.1
 	k8s.io/kubelet => k8s.io/kubelet v0.31.1
 )
