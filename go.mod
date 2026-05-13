@@ -42,7 +42,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pkg/errors v0.9.1
-	github.com/pluralsh/console/go/client v1.74.1
+	github.com/pluralsh/console/go/client v1.76.1
 	github.com/pluralsh/console/go/polly v1.0.0
 	github.com/pluralsh/controller-reconcile-helper v0.1.0
 	github.com/prometheus/client_golang v1.23.2
