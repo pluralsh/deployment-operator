@@ -9,7 +9,6 @@ import (
 	"time"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/common"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -24,6 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
 
 	"github.com/pluralsh/deployment-operator/api/v1alpha1"
 	"github.com/pluralsh/deployment-operator/internal/utils"
@@ -483,8 +484,8 @@ func (r *AgentRunReconciler) getSecretData(run *v1alpha1.AgentRun, config *v1alp
 			return result
 		}
 
-		result[EnvOpenCodeProvider] = config.OpenCode.Provider
-		result[EnvOpenCodeEndpoint] = config.OpenCode.Endpoint
+		result[EnvOpenCodeProvider] = lo.FromPtr(config.OpenCode.Provider)
+		result[EnvOpenCodeEndpoint] = lo.FromPtr(config.OpenCode.Endpoint)
 		result[EnvOpenCodeModel] = lo.FromPtr(config.OpenCode.Model)
 		result[EnvOpenCodeToken] = config.OpenCode.Token
 		if config.OpenCode.Timeout != nil {
