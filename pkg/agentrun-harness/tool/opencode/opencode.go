@@ -7,8 +7,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sync/atomic"
-	"time"
 
 	console "github.com/pluralsh/console/go/client"
 	"k8s.io/klog/v2"
@@ -19,10 +17,6 @@ import (
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
 	"github.com/pluralsh/deployment-operator/pkg/log"
-)
-
-const (
-	opencodeNoOutputLogInterval = 30 * time.Second
 )
 
 func (in *Opencode) Run(ctx context.Context, options ...exec.Option) {
@@ -109,18 +103,7 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 		events: make(map[string]*Event),
 	}
 
-	lastOutputAt := &atomic.Int64{}
-	lastOutputAt.Store(time.Now().UnixNano())
-
-	streamDone := make(chan struct{})
-	go in.logNoOutputPeriods(runCtx, streamDone, lastOutputAt)
-
-	err = in.executable.RunStream(runCtx, func(line []byte) {
-		lastOutputAt.Store(time.Now().UnixNano())
-		in.streamLineHandler(state, cancel)(line)
-	})
-	close(streamDone)
-
+	err = in.executable.RunStream(runCtx, in.streamLineHandler(state, cancel))
 	if ctxErr := context.Cause(runCtx); ctxErr != nil {
 		klog.V(log.LogLevelDefault).ErrorS(ctxErr, "opencode execution failed")
 		in.Config.ErrorChan <- ctxErr
@@ -140,33 +123,6 @@ func (in *Opencode) start(ctx context.Context, options ...exec.Option) {
 func (in *Opencode) streamLineHandler(state *streamState, cancel context.CancelCauseFunc) func([]byte) {
 	return func(line []byte) {
 		in.handleStreamCallback(line, state, cancel)
-	}
-}
-
-func (in *Opencode) logNoOutputPeriods(ctx context.Context, done <-chan struct{}, lastOutputAt *atomic.Int64) {
-	ticker := time.NewTicker(opencodeNoOutputLogInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-done:
-			return
-		case <-ticker.C:
-			last := time.Unix(0, lastOutputAt.Load())
-			idleFor := time.Since(last)
-			if idleFor < opencodeNoOutputLogInterval {
-				continue
-			}
-
-			klog.V(log.LogLevelInfo).InfoS(
-				"opencode stream idle",
-				"idle_for", idleFor.String(),
-				"model", in.model,
-				"provider", in.provider,
-			)
-		}
 	}
 }
 
