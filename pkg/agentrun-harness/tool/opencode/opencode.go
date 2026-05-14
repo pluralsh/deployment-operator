@@ -9,8 +9,9 @@ import (
 	"path/filepath"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/agentrun-harness/environment"
 
 	"github.com/pluralsh/deployment-operator/internal/helpers"
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
@@ -201,6 +202,17 @@ func (in *Opencode) emitCompletedToolEvent(event EventListResponse) bool {
 
 	if event.Part.State == nil || (event.Part.State.Status != StreamToolStatusCompleted && event.Part.State.Status != StreamToolStatusError) {
 		return true
+	}
+
+	if event.Part.State.Status == StreamToolStatusError {
+		klog.ErrorS(
+			fmt.Errorf("opencode tool call failed"),
+			"opencode tool event returned error status",
+			"session_id", event.SessionID,
+			"tool", event.Part.Tool,
+			"call_id", event.Part.CallID,
+			"message_id", event.Part.MessageID,
+		)
 	}
 
 	toolEvent := &Event{}

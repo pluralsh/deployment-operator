@@ -440,21 +440,21 @@ func (in *ClaudeConfig) ToClaudeConfigRaw(secretGetter func(corev1.SecretKeySele
 type OpenCodeConfig struct {
 	// Provider is the OpenCode provider to use.
 	// +kubebuilder:validation:Enum=plural;openai
-	// +kubebuilder:validation:Required
-	Provider string `json:"provider"`
+	// +kubebuilder:validation:Optional
+	Provider string `json:"provider,omitempty"`
 
 	// Endpoint API endpoint for the OpenCode service.
-	// +kubebuilder:validation:Required
 	// Endpoint for the OpenCode service (can be any OpenAI-compatible API endpoint).
-	Endpoint string `json:"endpoint"`
+	// +kubebuilder:validation:Optional
+	Endpoint string `json:"endpoint,omitempty"`
 
 	// Model is the LLM model to use.
 	// +kubebuilder:validation:Optional
 	Model *string `json:"model,omitempty"`
 
 	// TokenSecretRef is a reference to a Kubernetes Secret containing the API token for OpenCode.
-	// +kubebuilder:validation:Required
-	TokenSecretRef corev1.SecretKeySelector `json:"tokenSecretRef"`
+	// +kubebuilder:validation:Optional
+	TokenSecretRef corev1.SecretKeySelector `json:"tokenSecretRef,omitempty"`
 
 	// ExtraArgs args for advanced or experimental CLI flags.
 	//
