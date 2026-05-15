@@ -2,6 +2,8 @@
 
 The Deployment Operator code was moved to the [Console repository](https://github.com/pluralsh/console/tree/master/go/deployment-operator). This repository contains only its Helm chart.
 
+Container images are built from the Console repository, and chart bump pull requests are opened against this repository from the Console CD workflow.
+
 ## Testing the Helm Chart
 
 To verify that the Helm chart installs successfully, run:
