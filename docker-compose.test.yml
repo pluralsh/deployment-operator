@@ -1,6 +1,0 @@
-services:
-  tests:
-    build:
-      context: .
-      dockerfile: dockerfiles/Dockerfile.tests
-    container_name: deployment-operator-tests

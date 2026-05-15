@@ -1,0 +1,46 @@
+name: Sync
+
+on:
+  schedule:
+    - cron: "0 0 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-crds:
+    name: Agent chart CRDs from Console
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync CRDs
+        run: make codegen-chart-crds
+
+      - name: Save date
+        id: date
+        run: echo "date=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        id: cpr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          title: "chore: sync deployment-operator CRDs"
+          body: Automated pull request to sync deployment-operator CRDs from console.
+          commit-message: "chore: sync deployment-operator CRDs"
+          branch: crd-sync-${{ steps.date.outputs.date }}
+          labels: documentation
+          base: main
+
+      - name: Enable pull request auto-merge
+        if: steps.cpr.outputs.pull-request-operation == 'created'
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: squash

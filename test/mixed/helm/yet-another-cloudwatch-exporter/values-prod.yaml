@@ -1,6 +1,0 @@
-serviceMonitor:
-  enabled: true
-  namespace: "prod-monitoring"
-  interval: "30s"
-  labels:
-    environment: "prod"
