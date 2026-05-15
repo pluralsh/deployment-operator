@@ -7,27 +7,27 @@ VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/downloa
 ##@ General
 
 .PHONY: help
-help: ## Display this help.
+help: ## display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make <target>\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  %-22s %s\n", $$1, $$2 } /^##@/ { printf "\n%s\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Helm Chart
 
 .PHONY: helm-lint
-helm-lint: ## Run helm lint for deployment-operator chart
+helm-lint: ## run helm lint for deployment-operator chart
 	helm lint $(CHART_PATH)
 
 .PHONY: helm-template
-helm-template: ## Render chart templates with required test values
+helm-template: ## render chart templates with required test values
 	helm template deployment-operator-test $(CHART_PATH) \
 		--set secrets.deployToken=test-token \
 		--set fullnameOverride=deployment-operator-test > /dev/null
 
 .PHONY: helm-test-install
-helm-test-install: ## Validate chart installation using Kind
+helm-test-install: ## validate chart installation using kind
 	./test/helm/test-chart-install.sh
 
 .PHONY: velero-crds
-velero-crds: ## Download Velero CRDs into chart CRD directory
+velero-crds: ## download Velero CRDs into chart CRD directory
 	@curl -L $(VELERO_CHART_URL) --output velero.tgz
 	@tar zxvf velero.tgz velero/crds
 	@mv velero/crds/* $(CHART_PATH)/crds
