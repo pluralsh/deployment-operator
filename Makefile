@@ -1,6 +1,8 @@
 SHELL := /bin/bash
 
 CHART_PATH := charts/deployment-operator
+CONSOLE_REPO_TARBALL_URL := https://codeload.github.com/pluralsh/console/tar.gz/refs/heads/master
+CONSOLE_CRD_ARCHIVE_PATH := console-master/go/deployment-operator/config/crd/bases
 VELERO_CHART_VERSION := 5.2.2
 VELERO_CHART_URL := https://github.com/vmware-tanzu/helm-charts/releases/download/velero-$(VELERO_CHART_VERSION)/velero-$(VELERO_CHART_VERSION).tgz
 
@@ -25,6 +27,15 @@ helm-template: ## render chart templates with required test values
 .PHONY: helm-test-install
 helm-test-install: ## validate chart installation using kind
 	./test/helm/test-chart-install.sh
+
+.PHONY: codegen-chart-crds
+codegen-chart-crds: ## sync deployment-operator CRDs from console repository
+	@tmp_dir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
+	curl -sSL "$(CONSOLE_REPO_TARBALL_URL)" --output "$$tmp_dir/console.tar.gz"; \
+	tar -xzf "$$tmp_dir/console.tar.gz" -C "$$tmp_dir" "$(CONSOLE_CRD_ARCHIVE_PATH)"; \
+	rm -f "$(CHART_PATH)"/crds/deployments.plural.sh_*.yaml; \
+	cp -a "$$tmp_dir/$(CONSOLE_CRD_ARCHIVE_PATH)"/. "$(CHART_PATH)/crds/"
 
 .PHONY: velero-crds
 velero-crds: ## download Velero CRDs into chart CRD directory
