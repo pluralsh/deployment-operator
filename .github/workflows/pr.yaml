@@ -1,4 +1,4 @@
-name: "PR"
+name: PR
 
 on:
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   size-label:
-    name: Size label
+    name: Size label assignment
     runs-on: ubuntu-latest
     steps:
       - name: size-label

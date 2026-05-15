@@ -1,4 +1,4 @@
-name: Helm Chart Install Test
+name: Test
 
 on:
   push:
@@ -13,6 +13,7 @@ on:
 
 jobs:
   helm-install-test:
+    name: Agent chart install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

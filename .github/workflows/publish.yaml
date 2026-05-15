@@ -1,4 +1,4 @@
-name: Publish Chart
+name: Publish
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     - main
 jobs:
   publish:
-    name: Publish helm chart
+    name: Agent chart
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
