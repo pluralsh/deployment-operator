@@ -9,10 +9,11 @@ import (
 	"strings"
 
 	console "github.com/pluralsh/console/go/client"
-	"github.com/pluralsh/deployment-operator/pkg/common"
-	"github.com/pluralsh/deployment-operator/pkg/log"
 	"github.com/samber/lo"
 	"k8s.io/klog/v2"
+
+	"github.com/pluralsh/deployment-operator/pkg/common"
+	"github.com/pluralsh/deployment-operator/pkg/log"
 
 	v1 "github.com/pluralsh/deployment-operator/pkg/agentrun-harness/tool/v1"
 	"github.com/pluralsh/deployment-operator/pkg/harness/exec"
@@ -230,7 +231,10 @@ func (in *Codex) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
 		in.onMessage(&console.AgentMessageAttributes{Message: bCtx.Prompt, Role: console.AiRoleUser})
 	}
 
+	var lastOutputLine string
 	err := in.executable.RunStream(ctx, func(line []byte) {
+		lineText := strings.TrimSpace(string(line))
+		lastOutputLine = lineText
 		event := &StreamEvent{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.V(log.LogLevelExtended).InfoS("failed to unmarshal codex stream event", "line", string(line))
@@ -248,8 +252,9 @@ func (in *Codex) BabysitRun(ctx context.Context, bCtx *v1.BabysitContext) bool {
 		}
 	})
 	if err != nil {
-		klog.ErrorS(err, "codex execution failed")
-		in.Config.ErrorChan <- err
+		errToReport := fmt.Errorf("codex execution failed: %w (last_output=%q)", err, lastOutputLine)
+		klog.ErrorS(errToReport, "codex execution failed")
+		in.Config.ErrorChan <- errToReport
 		return false
 	}
 
@@ -301,7 +306,10 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		in.onMessage(&console.AgentMessageAttributes{Message: in.Config.Run.Prompt, Role: console.AiRoleUser})
 	}
 
+	var lastOutputLine string
 	err := in.executable.RunStream(ctx, func(line []byte) {
+		lineText := strings.TrimSpace(string(line))
+		lastOutputLine = lineText
 		event := &StreamEvent{}
 		if err := json.Unmarshal(line, event); err != nil {
 			klog.V(log.LogLevelExtended).InfoS("failed to unmarshal codex stream event", "line", string(line))
@@ -319,8 +327,9 @@ func (in *Codex) start(ctx context.Context, options ...exec.Option) {
 		}
 	})
 	if err != nil {
-		klog.ErrorS(err, "codex execution failed")
-		in.Config.ErrorChan <- err
+		errToReport := fmt.Errorf("codex execution failed: %w (last_output=%q)", err, lastOutputLine)
+		klog.ErrorS(errToReport, "codex execution failed")
+		in.Config.ErrorChan <- errToReport
 		return
 	}
 	klog.V(log.LogLevelExtended).InfoS("codex execution finished")
