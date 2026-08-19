@@ -23,6 +23,22 @@ certs: []
 
 extraArgs: []
 
+# Durable operator caches. hostPath is node-local and does not pin the pod to a
+# node, so a Recreate rollout may still cold-start if the new pod lands elsewhere.
+# Enablement is for same-node restarts, crashes, and updates that stay on the node.
+# replicaCount must remain 1 when hostPath is enabled.
+#
+# kubelet creates DirectoryOrCreate as root:root 0755, and fsGroup does not apply
+# to hostPath. An init container running as root chmods the mount so the operator
+# (uid 65532) can write state.json.
+cache:
+  dir: /plural/cache
+  persistInterval: 10s
+  hostPath:
+    enabled: false
+    path: /var/lib/plural/deployment-operator
+    type: DirectoryOrCreate
+
 replicaCount: 1
 
 livenessProbe:

@@ -6,6 +6,13 @@ metadata:
     {{- include "deployment-operator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.cache.hostPath.enabled }}
+  {{- if gt (int .Values.replicaCount) 1 }}
+  {{- fail "cache.hostPath.enabled requires replicaCount to be 1 so two pods cannot share the hostPath cache" }}
+  {{- end }}
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "deployment-operator.selectorLabels" . | nindent 6 }}
@@ -29,6 +36,27 @@ spec:
       serviceAccountName: {{ include "deployment-operator.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.cache.hostPath.enabled }}
+      {{ $tag := .Values.image.tag | default .Chart.AppVersion }}
+      initContainers:
+        - name: cache-dir
+          {{ if .Values.global.registry }}
+          image: "{{ .Values.global.registry }}/deployment-operator:{{ $tag }}"
+          {{ else }}
+          image: "{{ .Values.image.repository }}:{{ $tag }}"
+          {{ end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - chmod
+            - "0777"
+            - {{ .Values.cache.dir }}
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+          volumeMounts:
+            - name: cache
+              mountPath: {{ .Values.cache.dir }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -50,6 +78,10 @@ spec:
           - -processing-timeout={{ .Values.args.processingTimeout }}
           - -enable-helm-dependency-update={{ .Values.args.enableHelmDependencyUpdate }}
           - -disable-helm-dry-run-server={{ .Values.args.disableHelmTemplateDryRunServer }}
+          {{- if .Values.cache.hostPath.enabled }}
+          - -cache-dir={{ .Values.cache.dir }}
+          - -cache-persist-interval={{ .Values.cache.persistInterval }}
+          {{- end }}
           {{ if .Values.extraArgs }}
           {{ toYaml .Values.extraArgs | nindent 10 }}
           {{ end }}
@@ -72,6 +104,10 @@ spec:
             - name: kube-dir
               mountPath: /.kube
               readOnly: false
+          {{- if .Values.cache.hostPath.enabled }}
+            - name: cache
+              mountPath: {{ .Values.cache.dir }}
+          {{- end }}
           {{- range $cert := .Values.certs }}
             - name: {{ $cert.name }}
               mountPath: "/etc/ssl/certs/{{ $cert.file }}"
@@ -161,6 +197,12 @@ spec:
           emptyDir: {}
         - name: kube-dir
           emptyDir: {}
+        {{- if .Values.cache.hostPath.enabled }}
+        - name: cache
+          hostPath:
+            path: {{ .Values.cache.hostPath.path }}
+            type: {{ .Values.cache.hostPath.type }}
+        {{- end }}
         - name: service-account-token-volume
           projected:
             defaultMode: 0444
