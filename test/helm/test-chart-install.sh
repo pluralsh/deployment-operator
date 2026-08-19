@@ -63,9 +63,61 @@ helm lint "$CHART_DIR"
 
 # Verify template rendering
 echo "Verifying template rendering..."
-helm template "$RELEASE_NAME" "$CHART_DIR" \
+DEFAULT_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
   --set secrets.deployToken=test-token \
-  --set fullnameOverride="$RELEASE_NAME" > /dev/null
+  --set fullnameOverride="$RELEASE_NAME")
+
+echo "$DEFAULT_RENDER" | grep -q "name: cache" && {
+  echo "Error: default template should not include cache volume"
+  exit 1
+}
+echo "$DEFAULT_RENDER" | grep -q "type: Recreate" && {
+  echo "Error: default template should not use Recreate strategy"
+  exit 1
+}
+echo "$DEFAULT_RENDER" | grep -q "cache-dir" && {
+  echo "Error: default template should not pass cache-dir"
+  exit 1
+}
+
+echo "Verifying hostPath cache template rendering..."
+CACHE_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
+  --set secrets.deployToken=test-token \
+  --set fullnameOverride="$RELEASE_NAME" \
+  --set cache.hostPath.enabled=true)
+
+echo "$CACHE_RENDER" | grep -q "type: Recreate" || {
+  echo "Error: hostPath cache should use Recreate strategy"
+  exit 1
+}
+echo "$CACHE_RENDER" | grep -q "path: /var/lib/plural/deployment-operator" || {
+  echo "Error: hostPath cache should mount the default host path"
+  exit 1
+}
+echo "$CACHE_RENDER" | grep -q -- "-cache-dir=/plural/cache" || {
+  echo "Error: hostPath cache should pass cache-dir"
+  exit 1
+}
+echo "$CACHE_RENDER" | grep -q -- "-cache-persist-interval=10s" || {
+  echo "Error: hostPath cache should pass cache-persist-interval"
+  exit 1
+}
+echo "$CACHE_RENDER" | grep -q "name: cache-dir" || {
+  echo "Error: hostPath cache should include a cache-dir init container"
+  exit 1
+}
+echo "$CACHE_RENDER" | grep -q 'chmod' || {
+  echo "Error: hostPath cache init container should chmod the mount"
+  exit 1
+}
+
+if helm template "$RELEASE_NAME" "$CHART_DIR" \
+  --set secrets.deployToken=test-token \
+  --set cache.hostPath.enabled=true \
+  --set replicaCount=2 >/dev/null 2>&1; then
+  echo "Error: hostPath cache should fail when replicaCount > 1"
+  exit 1
+fi
 
 # Install the chart with dry-run first
 echo "Performing dry-run installation..."
