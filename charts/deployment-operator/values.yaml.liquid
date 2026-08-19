@@ -54,3 +54,22 @@ resources:
     cpu: {{ configuration.cpu }}
     {% endif %}
 {% endif %}
+
+{% if configuration.cacheDir or configuration.cachePersistInterval or configuration.cacheHostPathEnabled or configuration.cacheHostPath %}
+cache:
+  {% if configuration.cacheDir %}
+  dir: {{ configuration.cacheDir }}
+  {% endif %}
+  {% if configuration.cachePersistInterval %}
+  persistInterval: {{ configuration.cachePersistInterval }}
+  {% endif %}
+  {% if configuration.cacheHostPathEnabled or configuration.cacheHostPath %}
+  hostPath:
+    {% if configuration.cacheHostPathEnabled %}
+    enabled: {{ configuration.cacheHostPathEnabled }}
+    {% endif %}
+    {% if configuration.cacheHostPath %}
+    path: {{ configuration.cacheHostPath }}
+    {% endif %}
+  {% endif %}
+{% endif %}
