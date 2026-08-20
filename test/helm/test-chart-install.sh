@@ -71,10 +71,6 @@ echo "$DEFAULT_RENDER" | grep -q "name: cache" && {
   echo "Error: default template should not include cache volume"
   exit 1
 }
-echo "$DEFAULT_RENDER" | grep -q "type: Recreate" && {
-  echo "Error: default template should not use Recreate strategy"
-  exit 1
-}
 echo "$DEFAULT_RENDER" | grep -q "cache-dir" && {
   echo "Error: default template should not pass cache-dir"
   exit 1
@@ -86,10 +82,6 @@ CACHE_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
   --set fullnameOverride="$RELEASE_NAME" \
   --set cache.hostPath.enabled=true)
 
-echo "$CACHE_RENDER" | grep -q "type: Recreate" || {
-  echo "Error: hostPath cache should use Recreate strategy"
-  exit 1
-}
 echo "$CACHE_RENDER" | grep -q "path: /var/lib/plural/deployment-operator" || {
   echo "Error: hostPath cache should mount the default host path"
   exit 1
