@@ -24,7 +24,7 @@ certs: []
 extraArgs: []
 
 # Durable operator caches. hostPath is node-local and does not pin the pod to a
-# node, so a Recreate rollout may still cold-start if the new pod lands elsewhere.
+# node, so a rollout that lands elsewhere still cold-starts.
 # Enablement is for same-node restarts, crashes, and updates that stay on the node.
 # replicaCount must remain 1 when hostPath is enabled.
 #

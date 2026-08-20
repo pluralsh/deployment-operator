@@ -10,8 +10,6 @@ spec:
   {{- if gt (int .Values.replicaCount) 1 }}
   {{- fail "cache.hostPath.enabled requires replicaCount to be 1 so two pods cannot share the hostPath cache" }}
   {{- end }}
-  strategy:
-    type: Recreate
   {{- end }}
   selector:
     matchLabels:
