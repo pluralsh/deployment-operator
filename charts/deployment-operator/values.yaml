@@ -93,6 +93,9 @@ serviceAccount:
 
 rbac:
   clusterRole: cluster-admin
+  consoleReader:
+    # Creates the console@plural.sh ClusterRoleBinding and its dedicated ClusterRole.
+    enabled: true
 
 podLabels: {}
 podAnnotations: {}
