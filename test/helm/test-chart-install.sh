@@ -75,6 +75,28 @@ echo "$DEFAULT_RENDER" | grep -q "cache-dir" && {
   echo "Error: default template should not pass cache-dir"
   exit 1
 }
+echo "$DEFAULT_RENDER" | grep -q "name: console-read-binding" || {
+  echo "Error: default template should include the console reader binding"
+  exit 1
+}
+echo "$DEFAULT_RENDER" | grep -q "name: plrl-console-reader" || {
+  echo "Error: default template should include the console reader role"
+  exit 1
+}
+
+echo "Verifying disabled console reader template rendering..."
+DISABLED_CONSOLE_READER_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
+  --set secrets.deployToken=test-token \
+  --set fullnameOverride="$RELEASE_NAME" \
+  --set rbac.consoleReader.enabled=false)
+echo "$DISABLED_CONSOLE_READER_RENDER" | grep -q "console-read-binding" && {
+  echo "Error: disabled console reader should not include the console reader binding"
+  exit 1
+}
+echo "$DISABLED_CONSOLE_READER_RENDER" | grep -q "plrl-console-reader" && {
+  echo "Error: disabled console reader should not include the console reader role"
+  exit 1
+}
 
 echo "Verifying hostPath cache template rendering..."
 CACHE_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
