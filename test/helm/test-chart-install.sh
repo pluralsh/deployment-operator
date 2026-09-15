@@ -62,6 +62,19 @@ echo "Validating Helm chart..."
 helm lint "$CHART_DIR"
 
 # Verify template rendering
+has_resource() {
+  local manifest="$1"
+  local resource_kind="$2"
+  local resource_name="$3"
+
+  echo "$manifest" | awk -v kind="$resource_kind" -v name="$resource_name" '
+    $1 == "kind:" { current_kind = $2; in_metadata = 0; next }
+    current_kind == kind && $1 == "metadata:" { in_metadata = 1; next }
+    in_metadata && $1 == "name:" && $2 == name { found = 1 }
+    END { exit !found }
+  '
+}
+
 echo "Verifying template rendering..."
 DEFAULT_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
   --set secrets.deployToken=test-token \
@@ -75,11 +88,11 @@ echo "$DEFAULT_RENDER" | grep -q "cache-dir" && {
   echo "Error: default template should not pass cache-dir"
   exit 1
 }
-echo "$DEFAULT_RENDER" | grep -q "name: console-read-binding" || {
+has_resource "$DEFAULT_RENDER" "ClusterRoleBinding" "console-read-binding" || {
   echo "Error: default template should include the console reader binding"
   exit 1
 }
-echo "$DEFAULT_RENDER" | grep -q "name: plrl-console-reader" || {
+has_resource "$DEFAULT_RENDER" "ClusterRole" "plrl-console-reader" || {
   echo "Error: default template should include the console reader role"
   exit 1
 }
@@ -89,15 +102,14 @@ DISABLED_CONSOLE_READER_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
   --set secrets.deployToken=test-token \
   --set fullnameOverride="$RELEASE_NAME" \
   --set rbac.consoleReader.enabled=false)
-echo "$DISABLED_CONSOLE_READER_RENDER" | grep -q "console-read-binding" && {
+if has_resource "$DISABLED_CONSOLE_READER_RENDER" "ClusterRoleBinding" "console-read-binding"; then
   echo "Error: disabled console reader should not include the console reader binding"
   exit 1
-}
-echo "$DISABLED_CONSOLE_READER_RENDER" | grep -q "plrl-console-reader" && {
+fi
+if has_resource "$DISABLED_CONSOLE_READER_RENDER" "ClusterRole" "plrl-console-reader"; then
   echo "Error: disabled console reader should not include the console reader role"
   exit 1
-}
-
+fi
 echo "Verifying hostPath cache template rendering..."
 CACHE_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
   --set secrets.deployToken=test-token \
