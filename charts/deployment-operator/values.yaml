@@ -215,9 +215,9 @@ agentk:
     enabled: false
 
 # Separate Deployment from the operator pod. One replica, because a second
-# replica would register the same tunnel ids twice. The Deployment is rendered
-# only once server is set; Console supplies that address with the token and
-# client certificate.
+# replica would register the same tunnel ids twice. The Deployment and Secret
+# are rendered together once server and token are set. Client certificate
+# values turn on the TLS mounts even when tlsSecret.name is empty.
 tunnelController:
   enabled: true
   image:

@@ -1,4 +1,9 @@
-{{- if and .Values.tunnelController.enabled .Values.tunnelController.server }}
+{{- if and .Values.tunnelController.enabled .Values.tunnelController.server .Values.tunnelController.token }}
+{{- $tag := .Values.tunnelController.image.tag | default .Chart.AppVersion }}
+{{- $tlsName := .Values.tunnelController.tlsSecret.name }}
+{{- if and (not $tlsName) .Values.tunnelController.ca .Values.tunnelController.cert .Values.tunnelController.key }}
+{{- $tlsName = .Values.tunnelController.tokenSecret.name }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -11,12 +16,12 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: tunnel-controller
-      {{- include "deployment-operator.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app.kubernetes.io/component: tunnel-controller
-        {{- include "deployment-operator.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -27,12 +32,16 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: tunnel-controller
-          image: {{ .Values.tunnelController.image.repository }}:{{ .Values.tunnelController.image.tag | default .Chart.AppVersion }}
+          {{- if .Values.global.registry }}
+          image: "{{ .Values.global.registry }}/ferrotunnel-client:{{ $tag }}"
+          {{- else }}
+          image: "{{ .Values.tunnelController.image.repository }}:{{ $tag }}"
+          {{- end }}
           imagePullPolicy: {{ .Values.tunnelController.image.pullPolicy }}
           args:
             - --server={{ .Values.tunnelController.server }}
             - --token-file=/var/run/ferrotunnel/token
-            {{- if .Values.tunnelController.tlsSecret.name }}
+            {{- if $tlsName }}
             - --tls-ca=/var/run/ferrotunnel/tls/ca.crt
             - --tls-cert=/var/run/ferrotunnel/tls/tls.crt
             - --tls-key=/var/run/ferrotunnel/tls/tls.key
@@ -41,7 +50,7 @@ spec:
             - name: token
               mountPath: /var/run/ferrotunnel
               readOnly: true
-            {{- if .Values.tunnelController.tlsSecret.name }}
+            {{- if $tlsName }}
             - name: tls
               mountPath: /var/run/ferrotunnel/tls
               readOnly: true
@@ -57,10 +66,10 @@ spec:
             items:
               - key: {{ .Values.tunnelController.tokenSecret.key }}
                 path: token
-        {{- if .Values.tunnelController.tlsSecret.name }}
+        {{- if $tlsName }}
         - name: tls
           secret:
-            secretName: {{ .Values.tunnelController.tlsSecret.name }}
+            secretName: {{ $tlsName }}
             items:
               - key: {{ .Values.tunnelController.tlsSecret.caKey }}
                 path: ca.crt
