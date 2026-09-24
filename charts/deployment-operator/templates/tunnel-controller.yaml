@@ -1,0 +1,84 @@
+{{- if and .Values.tunnelController.enabled .Values.tunnelController.server }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "deployment-operator.fullname" . }}-tunnel-controller
+  labels:
+    app.kubernetes.io/component: tunnel-controller
+    {{- include "deployment-operator.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: tunnel-controller
+      {{- include "deployment-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: tunnel-controller
+        {{- include "deployment-operator.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "deployment-operator.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: tunnel-controller
+          image: {{ .Values.tunnelController.image.repository }}:{{ .Values.tunnelController.image.tag | default .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.tunnelController.image.pullPolicy }}
+          args:
+            - --server={{ .Values.tunnelController.server }}
+            - --token-file=/var/run/ferrotunnel/token
+            {{- if .Values.tunnelController.tlsSecret.name }}
+            - --tls-ca=/var/run/ferrotunnel/tls/ca.crt
+            - --tls-cert=/var/run/ferrotunnel/tls/tls.crt
+            - --tls-key=/var/run/ferrotunnel/tls/tls.key
+            {{- end }}
+          volumeMounts:
+            - name: token
+              mountPath: /var/run/ferrotunnel
+              readOnly: true
+            {{- if .Values.tunnelController.tlsSecret.name }}
+            - name: tls
+              mountPath: /var/run/ferrotunnel/tls
+              readOnly: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.tunnelController.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      volumes:
+        - name: token
+          secret:
+            secretName: {{ required "tunnelController.tokenSecret.name is required when tunnelController.enabled is true" .Values.tunnelController.tokenSecret.name }}
+            items:
+              - key: {{ .Values.tunnelController.tokenSecret.key }}
+                path: token
+        {{- if .Values.tunnelController.tlsSecret.name }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.tunnelController.tlsSecret.name }}
+            items:
+              - key: {{ .Values.tunnelController.tlsSecret.caKey }}
+                path: ca.crt
+              - key: {{ .Values.tunnelController.tlsSecret.certKey }}
+                path: tls.crt
+              - key: {{ .Values.tunnelController.tlsSecret.keyKey }}
+                path: tls.key
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
