@@ -25,6 +25,24 @@ agentk:
     tag: {{ configuration.agentkTag }}
 {% endif %}
 
+{% if configuration.tunnelToken %}
+tunnelController:
+  enabled: true
+  server: "{{ configuration.tunnelServer }}"
+  token: "{{ configuration.tunnelToken }}"
+  ca: "{{ configuration.tunnelCa }}"
+  cert: "{{ configuration.tunnelCert }}"
+  key: "{{ configuration.tunnelKey }}"
+  tokenSecret:
+    name: ferrotunnel-client
+    key: token
+  tlsSecret:
+    name: ferrotunnel-client
+    caKey: ca.crt
+    certKey: tls.crt
+    keyKey: tls.key
+{% endif %}
+
 {% if configuration.replicas %}
 replicaCount: {{ configuration.replicas }}
 {% endif %}

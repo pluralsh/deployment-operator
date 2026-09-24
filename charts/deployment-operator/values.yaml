@@ -213,3 +213,30 @@ agentk:
   serviceMonitor:
     # Specifies whether to create a ServiceMonitor resource for collecting Prometheus metrics
     enabled: false
+
+# Separate Deployment from the operator pod. One replica, because a second
+# replica would register the same tunnel ids twice. The Deployment and Secret
+# are rendered together once server and token are set. Client certificate
+# values turn on the TLS mounts even when tlsSecret.name is empty.
+tunnelController:
+  enabled: true
+  image:
+    repository: ghcr.io/pluralsh/ferrotunnel-client
+    pullPolicy: IfNotPresent
+    tag: ""
+  server: ""
+  # Populated by values.yaml.liquid from deploy-operator service configuration.
+  # ca, cert, and key are already base64 so the liquid file stays one line.
+  token: ""
+  ca: ""
+  cert: ""
+  key: ""
+  tokenSecret:
+    name: ferrotunnel-token
+    key: token
+  tlsSecret:
+    name: ""
+    caKey: ca.crt
+    certKey: tls.crt
+    keyKey: tls.key
+  resources: {}
