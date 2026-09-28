@@ -1,0 +1,13 @@
+{{- $ferrotunnelTag := .Values.ferrotunnel.image.tag | default "master" }}
+apiVersion: deployments.plural.sh/v1alpha1
+kind: TunnelController
+metadata:
+  name: {{ include "deployment-operator.fullname" . }}-ferrotunnel
+  labels:
+    {{- include "deployment-operator.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.global.registry }}
+  image: {{ .Values.global.registry }}/ferrotunnel-client:{{ $ferrotunnelTag }}
+  {{- else }}
+  image: {{ .Values.ferrotunnel.image.repository }}:{{ $ferrotunnelTag }}
+  {{- end }}

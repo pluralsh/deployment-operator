@@ -20,27 +20,19 @@ global:
 agentk:
   config:
     kasAddress: {{ configuration.kasAddress }}
-{% if configuration.agentkTag %}
-  image:
-    tag: {{ configuration.agentkTag }}
-{% endif %}
 
-{% if configuration.tunnelToken %}
-tunnelController:
+{% if configuration.tunnelServer and configuration.tunnelToken and configuration.tunnelCa and configuration.tunnelCert and configuration.tunnelKey %}
+ferrotunnel:
   enabled: true
   server: "{{ configuration.tunnelServer }}"
   token: "{{ configuration.tunnelToken }}"
   ca: "{{ configuration.tunnelCa }}"
   cert: "{{ configuration.tunnelCert }}"
   key: "{{ configuration.tunnelKey }}"
-  tokenSecret:
-    name: ferrotunnel-client
-    key: token
-  tlsSecret:
-    name: ferrotunnel-client
-    caKey: ca.crt
-    certKey: tls.crt
-    keyKey: tls.key
+{% endif %}
+{% if configuration.agentkTag %}
+  image:
+    tag: {{ configuration.agentkTag }}
 {% endif %}
 
 {% if configuration.replicas %}

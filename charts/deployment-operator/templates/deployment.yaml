@@ -80,6 +80,10 @@ spec:
           - -cache-dir={{ .Values.cache.dir }}
           - -cache-persist-interval={{ .Values.cache.persistInterval }}
           {{- end }}
+          {{- if .Values.ferrotunnel.enabled }}
+          - -ferrotunnel-server={{ .Values.ferrotunnel.server }}
+          - -ferrotunnel-service-account={{ include "deployment-operator.serviceAccountName" . }}
+          {{- end }}
           {{ if .Values.extraArgs }}
           {{ toYaml .Values.extraArgs | nindent 10 }}
           {{ end }}
