@@ -1,4 +1,4 @@
-{{- $ferrotunnelTag := .Values.ferrotunnel.image.tag | default "latest" }}
+{{- $ferrotunnelTag := .Values.ferrotunnel.image.tag | default "master" }}
 apiVersion: deployments.plural.sh/v1alpha1
 kind: TunnelController
 metadata:

@@ -221,7 +221,7 @@ ferrotunnel:
   server: ""
   image:
     repository: ghcr.io/pluralsh/ferrotunnel-client
-    tag: latest
+    tag: master
   token: ""
   ca: ""
   cert: ""
