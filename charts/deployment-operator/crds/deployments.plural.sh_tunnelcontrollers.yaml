@@ -28,7 +28,7 @@ spec:
             description: Client image. The controller creates the Secret and Deployment.
             properties:
               image:
-                description: ferrotunnel-client image, including the tag. Empty defaults to ghcr.io/pluralsh/ferrotunnel-client:master.
+                description: ferrotunnel-client image, including the tag. Empty defaults to ghcr.io/pluralsh/ferrotunnel-client:latest.
                 type: string
             type: object
           status:
