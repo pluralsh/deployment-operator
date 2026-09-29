@@ -25,6 +25,24 @@ agentk:
     tag: {{ configuration.agentkTag }}
 {% endif %}
 
+{% if configuration.tunnelServer and configuration.tunnelToken and configuration.tunnelCa and configuration.tunnelCert and configuration.tunnelKey %}
+ferrotunnel:
+  enabled: true
+  server: "{{ configuration.tunnelServer }}"
+  token: "{{ configuration.tunnelToken }}"
+  ca: "{{ configuration.tunnelCa }}"
+  cert: "{{ configuration.tunnelCert }}"
+  key: "{{ configuration.tunnelKey }}"
+  {% if configuration.ferrotunnelTag %}
+  image:
+    tag: {{ configuration.ferrotunnelTag }}
+  {% endif %}
+{% elsif configuration.ferrotunnelTag %}
+ferrotunnel:
+  image:
+    tag: {{ configuration.ferrotunnelTag }}
+{% endif %}
+
 {% if configuration.replicas %}
 replicaCount: {{ configuration.replicas }}
 {% endif %}

@@ -213,3 +213,16 @@ agentk:
   serviceMonitor:
     # Specifies whether to create a ServiceMonitor resource for collecting Prometheus metrics
     enabled: false
+
+# The chart always creates a TunnelController. values.yaml.liquid fills the server, token,
+# and client certificate once Console supplies them, and the controller writes the Secret and Deployment.
+ferrotunnel:
+  enabled: false
+  server: ""
+  image:
+    repository: ghcr.io/pluralsh/ferrotunnel-client
+    tag: master
+  token: ""
+  ca: ""
+  cert: ""
+  key: ""
