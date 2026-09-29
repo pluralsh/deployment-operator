@@ -6,8 +6,12 @@ metadata:
   labels:
     {{- include "deployment-operator.labels" . | nindent 4 }}
 spec:
-  {{- if .Values.global.registry }}
-  image: {{ .Values.global.registry }}/ferrotunnel-client:{{ $ferrotunnelTag }}
-  {{- else }}
-  image: {{ .Values.ferrotunnel.image.repository }}:{{ $ferrotunnelTag }}
-  {{- end }}
+  template:
+    spec:
+      containers:
+      - name: tunnel-controller
+        {{- if .Values.global.registry }}
+        image: {{ .Values.global.registry }}/ferrotunnel-client:{{ $ferrotunnelTag }}
+        {{- else }}
+        image: {{ .Values.ferrotunnel.image.repository }}:{{ $ferrotunnelTag }}
+        {{- end }}
