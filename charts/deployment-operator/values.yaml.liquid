@@ -55,7 +55,7 @@ resources:
     {% endif %}
 {% endif %}
 
-{% if configuration.cacheDir or configuration.cachePersistInterval or configuration.cacheHostPathEnabled or configuration.cacheHostPath %}
+{% if configuration.cacheDir or configuration.cachePersistInterval or configuration.cacheHostPathEnabled or configuration.cacheHostPath or configuration.cacheHostPathChmod != nil %}
 cache:
   {% if configuration.cacheDir %}
   dir: {{ configuration.cacheDir }}
@@ -63,10 +63,13 @@ cache:
   {% if configuration.cachePersistInterval %}
   persistInterval: {{ configuration.cachePersistInterval }}
   {% endif %}
-  {% if configuration.cacheHostPathEnabled or configuration.cacheHostPath %}
+  {% if configuration.cacheHostPathEnabled or configuration.cacheHostPath or configuration.cacheHostPathChmod != nil %}
   hostPath:
     {% if configuration.cacheHostPathEnabled %}
     enabled: {{ configuration.cacheHostPathEnabled }}
+    {% endif %}
+    {% if configuration.cacheHostPathChmod != nil %}
+    chmod: {{ configuration.cacheHostPathChmod }}
     {% endif %}
     {% if configuration.cacheHostPath %}
     path: {{ configuration.cacheHostPath }}

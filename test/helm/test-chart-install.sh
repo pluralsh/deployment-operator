@@ -137,6 +137,34 @@ echo "$CACHE_RENDER" | grep -q 'chmod' || {
   exit 1
 }
 
+echo "Verifying OpenShift-compatible hostPath cache template rendering..."
+OPENSHIFT_CACHE_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
+  --set secrets.deployToken=test-token \
+  --set fullnameOverride="$RELEASE_NAME" \
+  --set cache.hostPath.enabled=true \
+  --set cache.hostPath.chmod=false)
+
+echo "$OPENSHIFT_CACHE_RENDER" | grep -q "path: /var/lib/plural/deployment-operator" || {
+  echo "Error: OpenShift-compatible hostPath cache should retain the host path"
+  exit 1
+}
+echo "$OPENSHIFT_CACHE_RENDER" | grep -q -- "-cache-dir=/plural/cache" || {
+  echo "Error: OpenShift-compatible hostPath cache should pass cache-dir"
+  exit 1
+}
+echo "$OPENSHIFT_CACHE_RENDER" | grep -q -- "-cache-persist-interval=10s" || {
+  echo "Error: OpenShift-compatible hostPath cache should pass cache-persist-interval"
+  exit 1
+}
+echo "$OPENSHIFT_CACHE_RENDER" | grep -q "name: cache-dir" && {
+  echo "Error: OpenShift-compatible hostPath cache should not include a cache-dir init container"
+  exit 1
+}
+echo "$OPENSHIFT_CACHE_RENDER" | grep -q 'chmod' && {
+  echo "Error: OpenShift-compatible hostPath cache should not chmod the mount"
+  exit 1
+}
+
 if helm template "$RELEASE_NAME" "$CHART_DIR" \
   --set secrets.deployToken=test-token \
   --set cache.hostPath.enabled=true \
@@ -155,4 +183,4 @@ helm install "$RELEASE_NAME" "$CHART_DIR" \
   --create-namespace
 
 echo "All tests passed! The deployment-operator Helm chart is installable."
-# Cleanup happens automatically via the trap 
+# Cleanup happens automatically via the trap

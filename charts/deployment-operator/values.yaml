@@ -29,13 +29,17 @@ extraArgs: []
 # replicaCount must remain 1 when hostPath is enabled.
 #
 # kubelet creates DirectoryOrCreate as root:root 0755, and fsGroup does not apply
-# to hostPath. An init container running as root chmods the mount so the operator
-# (uid 65532) can write state.json.
+# to hostPath. By default, an init container running as root chmods the mount so
+# the operator (uid 65532) can write state.json. Set hostPath.chmod to false on
+# OpenShift, where SCC/SELinux can prohibit chmod on hostPath; the cache remains
+# mounted and persistent, but its host directory must already be writable.
 cache:
   dir: /plural/cache
   persistInterval: 10s
   hostPath:
     enabled: false
+    # Set false on OpenShift to omit the root chmod init container.
+    chmod: true
     path: /var/lib/plural/deployment-operator
     type: DirectoryOrCreate
 

@@ -6,4 +6,4 @@ maintainers:
     url: https://www.plural.sh
 name: deployment-operator
 type: application
-version: 0.6.68
+version: 0.6.69
