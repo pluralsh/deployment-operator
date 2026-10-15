@@ -44,6 +44,17 @@ args:
   disableHelmTemplateDryRunServer: {{ configuration.disableHelmTemplateDryRunServer }}
 {% endif %}
 
+{% if configuration.extraArgs %}
+extraArgs:
+{% assign extraArgs = configuration.extraArgs | split: "," %}
+{% for arg in extraArgs %}
+{% assign trimmedArg = arg | strip %}
+{% if trimmedArg != "" %}
+  - '{{ trimmedArg | replace: "'", "''" }}'
+{% endif %}
+{% endfor %}
+{% endif %}
+
 {% if configuration.memory or configuration.cpu %}
 resources:
   requests:
