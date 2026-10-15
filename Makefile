@@ -24,6 +24,10 @@ helm-template: ## render chart templates with required test values
 		--set secrets.deployToken=test-token \
 		--set fullnameOverride=deployment-operator-test > /dev/null
 
+.PHONY: liquid-test
+liquid-test: ## render values.yaml.liquid and validate the resulting YAML
+	cd test/liquid && go test ./...
+
 .PHONY: helm-test-install
 helm-test-install: ## validate chart installation using kind
 	./test/helm/test-chart-install.sh

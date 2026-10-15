@@ -50,7 +50,7 @@ extraArgs:
 {% for arg in extraArgs %}
 {% assign trimmedArg = arg | strip %}
 {% if trimmedArg != "" %}
-  - "{{ trimmedArg }}"
+  - '{{ trimmedArg | replace: "'", "''" }}'
 {% endif %}
 {% endfor %}
 {% endif %}
