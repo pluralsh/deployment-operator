@@ -21,6 +21,17 @@ additionalVolumeMounts: ~
 #    file: my-cert.pem
 certs: []
 
+# When enabled, the operator replicates the CA bundle ConfigMap into namespaces
+# where it creates AgentRun / Stack / Sentinel pods and mounts it on those pods.
+# Source PEM is read from sourceFile inside the operator container (typically the
+# certs[] mount of ca-certificates.crt).
+spawnedWorkloads:
+  caBundle:
+    enabled: false
+    configMapName: plural-ca-bundle
+    sourceFile: /etc/ssl/certs/ca-certificates.crt
+    key: ca-certificates.crt
+
 extraArgs: []
 
 # Durable operator caches. hostPath is node-local and does not pin the pod to a
