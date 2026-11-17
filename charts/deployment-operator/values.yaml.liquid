@@ -66,6 +66,11 @@ resources:
     {% endif %}
 {% endif %}
 
+{% if configuration.devboxesEnabled %}
+devboxes:
+  enabled: {{ configuration.devboxesEnabled }}
+{% endif %}
+
 {% if configuration.cacheDir or configuration.cachePersistInterval or configuration.cacheHostPathEnabled or configuration.cacheHostPath %}
 cache:
   {% if configuration.cacheDir %}

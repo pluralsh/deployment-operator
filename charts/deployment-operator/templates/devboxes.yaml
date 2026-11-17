@@ -1,0 +1,153 @@
+{{- if .Values.devboxes.enabled }}
+# Permissions the DevboxRunner controller needs on top of rbac.clusterRole, so devboxes also work when the
+# operator is not bound to cluster-admin. The gateway objects themselves are created by the operator.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: plrl-devboxes-operator
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+rules:
+- apiGroups: ["deployments.plural.sh"]
+  resources: ["devboxrunners"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["deployments.plural.sh"]
+  resources: ["devboxrunners/finalizers"]
+  verbs: ["update"]
+- apiGroups: ["deployments.plural.sh"]
+  resources: ["devboxrunners/status"]
+  verbs: ["get", "patch", "update"]
+- apiGroups: ["ate.dev"]
+  resources: ["workerpools"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps", "secrets", "serviceaccounts", "services"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "patch", "watch"]
+# Worker pods are listed and given a pod-deletion-cost when the WorkerPool autoscaler removes drained workers.
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "patch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+# The CA bundle that verifies ate-api-server, read when a DevboxRunner is reconciled.
+- apiGroups: ["certificates.k8s.io"]
+  resources: ["clustertrustbundles"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: plrl-devboxes-operator-binding
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "deployment-operator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: plrl-devboxes-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+# The operator mints its Substrate API tokens (or those of a runner's spec.substrate.serviceAccountName) through
+# the TokenRequest API, only for ServiceAccounts in its own namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: plrl-devboxes-operator-tokens
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["serviceaccounts/token"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: plrl-devboxes-operator-tokens
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "deployment-operator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: plrl-devboxes-operator-tokens
+  apiGroup: rbac.authorization.k8s.io
+---
+# The devbox-gateway ServiceAccount, Deployment, Services and NetworkPolicy are reconciled by the operator
+# (one per cluster, while any DevboxRunner exists). Only its static RBAC lives in the chart.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: plrl-devbox-gateway
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+rules:
+- apiGroups: ["deployments.plural.sh"]
+  resources: ["devboxrunners"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: plrl-devbox-gateway-binding
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+subjects:
+- kind: ServiceAccount
+  name: devbox-gateway
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: plrl-devbox-gateway
+  apiGroup: rbac.authorization.k8s.io
+---
+# The gateway keeps one devbox-instance-* record ConfigMap per instance and deletes it once console has seen the
+# instance end. Agent probe handoff (pkg/devbox/probe): the operator writes devbox-probe-* request ConfigMaps and
+# their box-scoped AI proxy tokens in the devbox-probe-tokens Secret; the gateway claims a request, runs the probe
+# and writes the result back. Runner secret env vars reach the gateway through the devbox-runner-env Secret, which
+# the operator fills from the Secrets runners reference. The gateway may read those two Secrets only.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: plrl-devbox-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["devbox-probe-tokens", "devbox-runner-env"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: plrl-devbox-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "deployment-operator.labels" . | indent 4 }}
+subjects:
+- kind: ServiceAccount
+  name: devbox-gateway
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: plrl-devbox-gateway
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
