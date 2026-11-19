@@ -86,6 +86,16 @@ spec:
           env:
           - name: IMAGE_TAG
             value: {{ $tag | quote }}
+          {{- if .Values.spawnedWorkloads.caBundle.enabled }}
+          - name: PLURAL_SPAWNED_CA_ENABLED
+            value: "true"
+          - name: PLURAL_SPAWNED_CA_CONFIGMAP
+            value: {{ .Values.spawnedWorkloads.caBundle.configMapName | quote }}
+          - name: PLURAL_SPAWNED_CA_SOURCE_FILE
+            value: {{ .Values.spawnedWorkloads.caBundle.sourceFile | quote }}
+          - name: PLURAL_SPAWNED_CA_KEY
+            value: {{ .Values.spawnedWorkloads.caBundle.key | quote }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
@@ -186,6 +196,11 @@ spec:
             - name: config-volume
               mountPath: /etc/agentk/config
               readOnly: true
+            {{- end }}
+            {{- range $cert := .Values.certs }}
+            - name: {{ $cert.name }}
+              mountPath: "/etc/ssl/certs/{{ $cert.file }}"
+              subPath: "{{ $cert.file }}"
             {{- end }}
             {{ if .Values.additionalVolumeMounts }}
             {{ toYaml .Values.additionalVolumeMounts | nindent 12 }}

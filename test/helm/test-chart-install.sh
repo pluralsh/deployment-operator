@@ -145,6 +145,52 @@ if helm template "$RELEASE_NAME" "$CHART_DIR" \
   exit 1
 fi
 
+echo "Verifying certs and spawned CA bundle template rendering..."
+CA_RENDER=$(helm template "$RELEASE_NAME" "$CHART_DIR" \
+  --set secrets.deployToken=test-token \
+  --set fullnameOverride="$RELEASE_NAME" \
+  --set-json 'certs=[{"name":"ca-bundle","file":"ca-certificates.crt","data":"-----BEGIN CERTIFICATE-----\nTEST\n-----END CERTIFICATE-----\n"}]' \
+  --set spawnedWorkloads.caBundle.enabled=true \
+  --set spawnedWorkloads.caBundle.configMapName=plural-ca-bundle \
+  --set spawnedWorkloads.caBundle.sourceFile=/etc/ssl/certs/ca-certificates.crt \
+  --set spawnedWorkloads.caBundle.key=ca-certificates.crt)
+
+echo "$CA_RENDER" | grep -q 'PLURAL_SPAWNED_CA_ENABLED' || {
+  echo "Error: enabled spawned CA should set PLURAL_SPAWNED_CA_ENABLED"
+  exit 1
+}
+echo "$CA_RENDER" | grep -q 'PLURAL_SPAWNED_CA_CONFIGMAP' || {
+  echo "Error: enabled spawned CA should set PLURAL_SPAWNED_CA_CONFIGMAP"
+  exit 1
+}
+echo "$CA_RENDER" | grep -q 'PLURAL_SPAWNED_CA_SOURCE_FILE' || {
+  echo "Error: enabled spawned CA should set PLURAL_SPAWNED_CA_SOURCE_FILE"
+  exit 1
+}
+echo "$CA_RENDER" | grep -q 'PLURAL_SPAWNED_CA_KEY' || {
+  echo "Error: enabled spawned CA should set PLURAL_SPAWNED_CA_KEY"
+  exit 1
+}
+echo "$CA_RENDER" | grep -q 'mountPath: "/etc/ssl/certs/ca-certificates.crt"' || {
+  echo "Error: certs should mount ca-certificates.crt"
+  exit 1
+}
+# agentk and operator containers both mount certs — expect at least two mounts
+MOUNT_COUNT=$(echo "$CA_RENDER" | grep -c 'mountPath: "/etc/ssl/certs/ca-certificates.crt"' || true)
+if [ "$MOUNT_COUNT" -lt 2 ]; then
+  echo "Error: expected cert mounts on operator and agentk, found $MOUNT_COUNT"
+  exit 1
+fi
+has_resource "$CA_RENDER" "ConfigMap" "${RELEASE_NAME}-ca-bundle" || {
+  echo "Error: certs should render a ConfigMap"
+  exit 1
+}
+
+echo "$DEFAULT_RENDER" | grep -q 'PLURAL_SPAWNED_CA_ENABLED' && {
+  echo "Error: default template should not set spawned CA env"
+  exit 1
+}
+
 # Install the chart with dry-run first
 echo "Performing dry-run installation..."
 helm install "$RELEASE_NAME" "$CHART_DIR" \
