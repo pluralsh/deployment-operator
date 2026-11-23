@@ -71,6 +71,17 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 
 {{/*
+Render a map as k=v,k=v, sorted by key
+*/}}
+{{- define "deployment-operator.keyValues" -}}
+{{- $pairs := list }}
+{{- range $k, $v := . }}
+{{- $pairs = append $pairs (printf "%s=%s" $k $v) }}
+{{- end }}
+{{- join "," $pairs }}
+{{- end }}
+
+{{/*
 Observability TLS Secret Name
 */}}
 {{- define "agentk.observabilitySecretName" -}}

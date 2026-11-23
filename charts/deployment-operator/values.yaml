@@ -97,6 +97,37 @@ rbac:
     # Creates the console@plural.sh ClusterRoleBinding and its dedicated ClusterRole.
     enabled: true
 
+# DevBoxes: the DevboxRunner controller, and the per-cluster devbox-gateway it manages. Requires Agent
+# Substrate installed with --credential-provider-name=plural.sh, the devbox-egress-authz ext_proc and the
+# gateway's SPIFFE ID in the router's ingress allowlist.
+devboxes:
+  # Runs the DevboxRunner controller. It stays idle until a DevboxRunner exists, and runners report errors until
+  # Agent Substrate is installed.
+  enabled: true
+  # Image for DevboxRunners that set no spec.image. Defaults to ghcr.io/pluralsh/devbox-fat at the operator version.
+  defaultImage: ~
+  gateway:
+    # Defaults to ghcr.io/pluralsh/devbox-gateway at the operator version.
+    image: ~
+    replicas: 1
+    # Annotations for the devbox-gateway ServiceAccount, eg. eks.amazonaws.com/role-arn or
+    # iam.gke.io/gcp-service-account, for cloud identity federation.
+    serviceAccountAnnotations: {}
+  # Substrate worker images per sandbox class, used for the WorkerPool of each DevboxRunner.
+  workerImages:
+    gvisor: ~
+    microvm: ~
+  # Namespace for the WorkerPools. Defaults to the release namespace.
+  workerPoolNamespace: ~
+  # How long deleting a DevboxRunner waits for running instances to suspend.
+  drainTimeout: 30m
+  heartbeatInterval: 2m
+  substrate:
+    namespace: ate-system
+    # Default ate-api-server address. The operator mints its Substrate token and reads the CA from the cluster
+    # per DevboxRunner, so nothing is mounted; DevboxRunner spec.substrate overrides these per runner.
+    apiAddress: api.ate-system.svc:443
+
 podLabels: {}
 podAnnotations: {}
 #  prometheus.io/scrape: "true"
