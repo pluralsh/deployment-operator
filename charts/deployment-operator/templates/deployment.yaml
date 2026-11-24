@@ -96,6 +96,54 @@ spec:
           - name: PLURAL_SPAWNED_CA_KEY
             value: {{ .Values.spawnedWorkloads.caBundle.key | quote }}
           {{- end }}
+          {{- with .Values.devboxes }}
+          {{- if .enabled }}
+          - name: DEVBOXES_ENABLED
+            value: "true"
+          - name: DEVBOX_OPERATOR_SERVICE_ACCOUNT
+            value: {{ include "deployment-operator.serviceAccountName" $ | quote }}
+          {{- if .defaultImage }}
+          - name: DEVBOX_DEFAULT_IMAGE
+            value: {{ .defaultImage | quote }}
+          {{- else if $.Values.global.registry }}
+          - name: DEVBOX_DEFAULT_IMAGE
+            value: "{{ $.Values.global.registry }}/devbox-fat:{{ $tag }}"
+          {{- end }}
+          {{- if .gateway.image }}
+          - name: DEVBOX_GATEWAY_IMAGE
+            value: {{ .gateway.image | quote }}
+          {{- else if $.Values.global.registry }}
+          - name: DEVBOX_GATEWAY_IMAGE
+            value: "{{ $.Values.global.registry }}/devbox-gateway:{{ $tag }}"
+          {{- end }}
+          - name: DEVBOX_GATEWAY_REPLICAS
+            value: {{ .gateway.replicas | quote }}
+          {{- with .gateway.serviceAccountAnnotations }}
+          - name: DEVBOX_GATEWAY_SA_ANNOTATIONS
+            value: {{ include "deployment-operator.keyValues" . | quote }}
+          {{- end }}
+          {{- with .workerImages.gvisor }}
+          - name: DEVBOX_WORKER_IMAGE_GVISOR
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with .workerImages.microvm }}
+          - name: DEVBOX_WORKER_IMAGE_MICROVM
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with .workerPoolNamespace }}
+          - name: DEVBOX_WORKERPOOL_NAMESPACE
+            value: {{ . | quote }}
+          {{- end }}
+          - name: DEVBOX_DRAIN_TIMEOUT
+            value: {{ .drainTimeout | quote }}
+          - name: DEVBOX_HEARTBEAT_INTERVAL
+            value: {{ .heartbeatInterval | quote }}
+          - name: SUBSTRATE_NAMESPACE
+            value: {{ .substrate.namespace | quote }}
+          - name: ATE_API_ADDRESS
+            value: {{ .substrate.apiAddress | quote }}
+          {{- end }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
