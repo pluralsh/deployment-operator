@@ -30,9 +30,14 @@ rules:
   resources: ["namespaces"]
   verbs: ["get", "list", "patch", "watch"]
 # Worker pods are listed and given a pod-deletion-cost when the WorkerPool autoscaler removes drained workers.
+# The ZeroFS node rollout also deletes outdated node plugin pods and the worker pods it drained.
 - apiGroups: [""]
   resources: ["pods"]
-  verbs: ["get", "list", "patch"]
+  verbs: ["delete", "get", "list", "patch"]
+# The ZeroFS node rollout compares node plugin pods to the DaemonSet's latest revision.
+- apiGroups: ["apps"]
+  resources: ["daemonsets", "controllerrevisions"]
+  verbs: ["get", "list"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["networkpolicies"]
   verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
